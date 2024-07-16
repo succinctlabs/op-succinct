@@ -53,9 +53,11 @@ dependencies = [
 name = "aggregation-program"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "hex",
  "sha2",
  "sp1-zkvm",
+ "zkvm-common",
 ]
 
 [[package]]
