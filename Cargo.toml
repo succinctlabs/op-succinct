@@ -1,5 +1,5 @@
 [workspace]
-members = ["common", "native-host", "zkvm-client", "zkvm-host"]
+members = [ "aggregation","common", "native-host", "zkvm-client", "zkvm-host"]
 
 [workspace.package]
 license = "MIT"

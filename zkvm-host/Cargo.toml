@@ -22,4 +22,4 @@ sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git",  tag = "v1.0.5-test
 clap = "4.5.9"
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git",  tag = "v1.0.5-testnet" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git",  branch = "dev" }

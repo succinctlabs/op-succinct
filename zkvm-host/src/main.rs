@@ -50,9 +50,9 @@ fn main() {
     stdin.write_slice(&kv_store_bytes);
 
     // Mock proof for testing and cycle counts
-    // let client = ProverClient::mock();
-    // let (mut _public_values, report) = client.execute(ELF, stdin).unwrap();
-    // println!("Report: {}", report);
+    let client = ProverClient::mock();
+    let (mut _public_values, report) = client.execute(ELF, stdin).unwrap();
+    println!("Report: {}", report);
 
     // Real proof.
     // let client = ProverClient::new();
