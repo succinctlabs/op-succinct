@@ -19,7 +19,7 @@ use rkyv::{
 const CLIENT_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-client-elf");
 const AGG_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-aggregator-elf");
 
-// TODO: I think it's cleaner to move this into zkvm-common.
+// TODO: Can I just remove this?
 #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
 #[archive_attr(derive(Debug))]
 pub struct InMemoryOracle {
