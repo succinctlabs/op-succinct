@@ -6,14 +6,14 @@ use helpers::load_kv_store;
 use zkvm_common::{BootInfoWithoutRollupConfig, BytesHasherBuilder};
 
 use clap::Parser;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, thread, sync::Arc};
 
 use alloy_primitives::B256;
 use rkyv::{
     ser::{serializers::*, Serializer},
     AlignedVec, Archive, Deserialize, Serialize,
 };
-use sp1_sdk::{utils, ProverClient, SP1Stdin};
+use sp1_sdk::{utils, ProverClient, SP1Stdin, SP1Proof};
 
 const ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
@@ -88,8 +88,15 @@ fn main() {
     let client = ProverClient::new();
     let (pk, vk) = client.setup(ELF);
     let proof = client.prove(&pk, stdin).unwrap();
+
+    proof
+        .save(format!("proofs/{}.bin", boot_info.l2_claim_block))
+        .expect("saving proof failed");
+
+    let deserialized_proof = SP1Proof::load(format!("proofs/{}.bin", boot_info.l2_claim_block)).expect("loading proof failed");
+
     println!("generated zk proof");
-    client.verify(&proof, &vk).expect("verification failed");
+    client.verify(&deserialized_proof, &vk).expect("verification failed");
 
     println!("verified");
 }
