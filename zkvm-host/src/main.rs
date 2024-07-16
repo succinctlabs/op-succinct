@@ -79,16 +79,19 @@ fn main() {
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
 
-    // First instantiate a mock prover client to just execute the program and get the estimation of
-    // cycle count.
-    let client = ProverClient::mock();
-
-    let (mut _public_values, report) = client.execute(ELF, stdin).unwrap();
-    println!("Report: {}", report);
+    // Mock proof for testing and cycle counts
+    // let client = ProverClient::mock();
+    // let (mut _public_values, report) = client.execute(ELF, stdin).unwrap();
+    // println!("Report: {}", report);
 
     // Then generate the real proof.
-    // let (pk, vk) = client.setup(ELF);
-    // let mut proof = client.prove(&pk, stdin).unwrap();
+    let client = ProverClient::new();
+    let (pk, vk) = client.setup(ELF);
+    let proof = client.prove(&pk, stdin).unwrap();
 
-    println!("generated valid zk proof");
+    println!("generated zk proof");
+
+    client.verify(&proof, &vk).expect("verification failed");
+
+    println!("verified");
 }
