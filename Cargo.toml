@@ -1,5 +1,6 @@
 [workspace]
-members = [ "aggregation","common", "native-host", "zkvm-client", "zkvm-host"]
+members = ["aggregation", "common", "native-host", "zkvm-client", "zkvm-host"]
+resolver = "2"
 
 [workspace.package]
 license = "MIT"
@@ -56,4 +57,4 @@ lto = "fat"
 
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2", default-features = false, features = ["compress"] }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }

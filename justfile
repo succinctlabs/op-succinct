@@ -65,17 +65,22 @@ run-client-native l2_block_num l1_rpc='${CLABBY_RPC_L1}' l1_beacon_rpc='${ETH_BE
   echo "$L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
 
 run-zkvm-host-default:
-    @just run-zkvm-host "bb3c26e67fd8acb1a2baa15cd9affc57347f8549775657537d2f2ae359384ba4" "91c0ff7cdc5b59ff251b1c137b1f46c4c27e2b9f2ab17bb3b31c63d2f792a0a0" "bfbec731f443c09bbfdcef53358458644ac2cbe1c5f68e53ad38599a52d65b5b" "121866428" "10"
+    @just run-zkvm-host \
+        "bb3c26e67fd8acb1a2baa15cd9affc57347f8549775657537d2f2ae359384ba4" \
+        "91c0ff7cdc5b59ff251b1c137b1f46c4c27e2b9f2ab17bb3b31c63d2f792a0a0" \
+        "bfbec731f443c09bbfdcef53358458644ac2cbe1c5f68e53ad38599a52d65b5b" \
+        "121866428" "10" "local"
 
-run-zkvm-host l1_head l2_output_root l2_claim l2_claim_block chain_id:
-    echo "Building zkvm client program..."
-    cd zkvm-client && cargo prove build --ignore-rust-version
+run-zkvm-host l1_head l2_output_root l2_claim l2_claim_block chain_id prover:
+    # echo "Building zkvm client program..."
+    # cd zkvm-client && cargo prove build --ignore-rust-version
 
     echo "Proving zkvm program in SP1..."
 
-    cd zkvm-host && SP1_PROVER=network RUST_LOG=info cargo run --release -- \
+    cd zkvm-host && SP1_PROVER={{prover}} RUST_LOG=info cargo run --release -- \
       --l1-head {{l1_head}} \
       --l2-output-root {{l2_output_root}} \
       --l2-claim {{l2_claim}} \
       --l2-claim-block {{l2_claim_block}} \
-      --chain-id {{chain_id}}
+      --chain-id {{chain_id}} \
+      -vvvvv
