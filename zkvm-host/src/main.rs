@@ -84,13 +84,11 @@ fn main() {
     // let (mut _public_values, report) = client.execute(ELF, stdin).unwrap();
     // println!("Report: {}", report);
 
-    // Then generate the real proof.
+    // Real proof.
     let client = ProverClient::new();
     let (pk, vk) = client.setup(ELF);
     let proof = client.prove(&pk, stdin).unwrap();
-
     println!("generated zk proof");
-
     client.verify(&proof, &vk).expect("verification failed");
 
     println!("verified");
