@@ -21,12 +21,19 @@ fn main() {
     // TODO: Get starting block and ending block from the CLI.
     let start_block = 12345678;
     let end_block = 12345679;
+    let num_blocks = end_block - start_block + 1;
 
-    let mut proofs = Vec::with_capacity(end_block - start_block + 1);
-    let mut boot_infos: Vec<BootInfoWithoutRollupConfig> =
-        Vec::with_capacity(end_block - start_block + 1);
+    let mut proofs = Vec::with_capacity(num_blocks);
+    let mut boot_infos: Vec<BootInfoWithoutRollupConfig> = Vec::with_capacity(num_blocks);
 
-    // TODO: Parallelize.
+    // REPLACE BELOW WITH...
+    // pass l1_head, l2_claim, l2_claim_block, l2_output_root, L2_OUTPUT_ROOT_BLOCK, chain_id
+    // write new driver that takes in that data and providers
+    // it walks back from l1_head to beginning of derivation needed for this range
+    // driver.produce_disputed_payloads() walks forward and returns vec of L2AttributesWithParent for all blocks in range
+    // iterate over attributes: (1) execute blocks, (2) verify result equals next attributes.parent.blockhash
+    // do we need more verification about L1 blocks not being skipped? in sep program later or can we do it here?
+
     for block in start_block..end_block {
         let mut stdin = SP1Stdin::new();
 
