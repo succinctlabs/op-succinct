@@ -22,4 +22,5 @@ sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testn
 clap = "4.5.9"
 
 [build-dependencies]
+# TODO: Revert this back to dev once the fix is merged
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "ratan/fix-build-program-same-workspace" }
