@@ -18,8 +18,9 @@ alloy-primitives = { workspace = true, features = ["serde"] }
 zkvm-common = { path = "../common" }
 
 # sp1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git",  tag = "v1.0.5-testnet" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet" }
 clap = "4.5.9"
 
 [build-dependencies]
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git",  branch = "dev" }
+# TODO: Revert this back to dev once the fix is merged
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "ratan/fix-build-program-same-workspace" }

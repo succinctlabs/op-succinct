@@ -4,17 +4,15 @@ mod helpers;
 use helpers::load_kv_store;
 
 mod cli;
-use cli::SP1KonaCliArgs;
 
 use zkvm_common::{BootInfoWithoutRollupConfig, BytesHasherBuilder};
 
-use sp1_sdk::{utils, ProverClient, SP1Stdin, SP1Proof};
-use clap::Parser;
-use std::{collections::HashMap, thread, sync::Arc};
 use rkyv::{
     ser::{serializers::*, Serializer},
     AlignedVec, Archive, Deserialize, Serialize,
 };
+use sp1_sdk::{utils, ProverClient, SP1Proof, SP1Stdin};
+use std::collections::HashMap;
 
 const CLIENT_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-client-elf");
 const AGG_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-aggregator-elf");
@@ -39,7 +37,8 @@ fn main() {
     let end_block = 12345679;
 
     let mut proofs = Vec::with_capacity(end_block - start_block + 1);
-    let mut boot_infos: Vec<BootInfoWithoutRollupConfig> = Vec::with_capacity(end_block - start_block + 1);
+    let mut boot_infos: Vec<BootInfoWithoutRollupConfig> =
+        Vec::with_capacity(end_block - start_block + 1);
 
     // TODO: Parallelize.
     for block in start_block..end_block {
@@ -48,11 +47,11 @@ fn main() {
         // TODO: Generate BootInfoWithoutRollupConfig from block number (Ratan working on this).
         // l2_claim_block should equal block
         let boot_info = BootInfoWithoutRollupConfig {
-            l2_claim_block: block,
+            l2_claim_block: block as u64,
             chain_id: 10,
-            l2_claim: [0; 32],
-            l2_output_root: [0; 32],
-            l1_head: [0; 32],
+            l2_claim: [0; 32].into(),
+            l2_output_root: [0; 32].into(),
+            l1_head: [0; 32].into(),
         };
         stdin.write(&boot_info);
         boot_infos[block - start_block] = boot_info;
@@ -82,20 +81,21 @@ fn main() {
     stdin.write(&boot_infos);
 
     for proof in proofs {
-        stdin.write_proof(proof, client_vk);
+        stdin.write_proof(proof.proof, client_vk.vk.clone());
     }
 
     // Generate the plonk bn254 proof.
-    let agg_proof = client
-        .prove_plonk(&agg_pk, stdin)
-        .expect("proving failed");
+    let agg_proof = client.prove_plonk(&agg_pk, stdin).expect("proving failed");
     println!("aggregated proof generated");
 
     agg_proof
         .save("proofs/agg_proof.bin")
         .expect("saving proof failed");
 
-    let deserialized_proof = SP1Proof::load(format!("proofs/agg_proof.bin").expect("loading proof failed");
-    client.verify(&deserialized_proof, &agg_vk).expect("verification failed");
+    let deserialized_proof =
+        SP1Proof::load(format!("proofs/agg_proof.bin")).expect("loading proof failed");
+    client
+        .verify(&deserialized_proof, &agg_vk)
+        .expect("verification failed");
     println!("aggregated proof verified");
 }
