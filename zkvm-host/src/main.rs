@@ -3,26 +3,12 @@
 mod helpers;
 use helpers::load_kv_store;
 
-mod cli;
-
-use zkvm_common::{BootInfoWithoutRollupConfig, BytesHasherBuilder};
-
-use rkyv::{
-    ser::{serializers::*, Serializer},
-    AlignedVec, Archive, Deserialize, Serialize,
-};
+use zkvm_common::BootInfoWithoutRollupConfig;
+use rkyv::{AlignedVec, ser::{serializers::*, Serializer}};
 use sp1_sdk::{utils, ProverClient, SP1Proof, SP1Stdin};
-use std::collections::HashMap;
 
 const CLIENT_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-client-elf");
 const AGG_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-aggregator-elf");
-
-// TODO: Can I just remove this?
-// #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
-// #[archive_attr(derive(Debug))]
-// pub struct InMemoryOracle {
-//     cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
-// }
 
 fn main() {
     utils::setup_logger();
