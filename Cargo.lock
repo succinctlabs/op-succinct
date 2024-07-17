@@ -5239,7 +5239,7 @@ dependencies = [
 [[package]]
 name = "sp1-build"
 version = "0.0.2-test"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/fix-build-program-same-workspace#6fd08016ce395046be4ce18360a7fad1158efb87"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/fix-build-program-same-workspace#7ce065f4d63fa2a1c0849e132631a9b833380618"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -5317,7 +5317,7 @@ dependencies = [
 [[package]]
 name = "sp1-helper"
 version = "0.0.2-test"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/fix-build-program-same-workspace#6fd08016ce395046be4ce18360a7fad1158efb87"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/fix-build-program-same-workspace#7ce065f4d63fa2a1c0849e132631a9b833380618"
 dependencies = [
  "cargo_metadata",
  "chrono",

@@ -18,11 +18,11 @@ const CLIENT_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-clie
 const AGG_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-aggregator-elf");
 
 // TODO: Can I just remove this?
-#[derive(Debug, Clone, Archive, Serialize, Deserialize)]
-#[archive_attr(derive(Debug))]
-pub struct InMemoryOracle {
-    cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
-}
+// #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
+// #[archive_attr(derive(Debug))]
+// pub struct InMemoryOracle {
+//     cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
+// }
 
 fn main() {
     utils::setup_logger();
@@ -54,7 +54,7 @@ fn main() {
             l1_head: [0; 32].into(),
         };
         stdin.write(&boot_info);
-        boot_infos[block - start_block] = boot_info;
+        boot_infos.push(boot_info);
 
         // Read KV store into raw bytes and pass to stdin.
         let kv_store = load_kv_store(&format!("../data/{}", block));
@@ -94,6 +94,7 @@ fn main() {
 
     let deserialized_proof =
         SP1Proof::load(format!("proofs/agg_proof.bin")).expect("loading proof failed");
+
     client
         .verify(&deserialized_proof, &agg_vk)
         .expect("verification failed");
