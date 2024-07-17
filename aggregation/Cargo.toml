@@ -10,4 +10,6 @@ repository.workspace = true
 [dependencies]
 hex = "0.4.3"
 sha2 = "0.10.8"
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.5-testnet", features = ["verify"]  }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.8-testnet", features = [
+    "verify",
+] }

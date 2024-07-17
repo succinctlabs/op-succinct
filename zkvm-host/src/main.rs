@@ -8,13 +8,13 @@ use cli::SP1KonaCliArgs;
 
 use zkvm_common::{BootInfoWithoutRollupConfig, BytesHasherBuilder};
 
-use sp1_sdk::{utils, ProverClient, SP1Stdin, SP1Proof};
 use clap::Parser;
-use std::{collections::HashMap, thread, sync::Arc};
 use rkyv::{
     ser::{serializers::*, Serializer},
     AlignedVec, Archive, Deserialize, Serialize,
 };
+use sp1_sdk::{utils, ProverClient, SP1Proof, SP1Stdin};
+use std::{collections::HashMap, sync::Arc, thread};
 
 const ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
