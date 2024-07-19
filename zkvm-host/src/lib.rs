@@ -1,9 +1,10 @@
 pub mod helpers;
 
 use alloy_primitives::{keccak256, B256};
+use cargo_metadata::MetadataCommand;
 use ethers::{
     providers::{Http, Middleware, Provider},
-    types::{BlockNumber, H160, U256},
+    types::{BlockNumber, H160, H256, U256},
 };
 use kona_host::HostCli;
 use sp1_core::runtime::ExecutionReport;
@@ -11,7 +12,7 @@ use sp1_sdk::{ProverClient, SP1Stdin};
 use zkvm_common::{BootInfoWithoutRollupConfig, BytesHasherBuilder};
 
 use clap::Parser;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
@@ -89,7 +90,7 @@ pub fn execute_kona_program(boot_info: &BootInfoWithoutRollupConfig) -> Executio
     stdin.write(&boot_info);
 
     // Read KV store into raw bytes and pass to stdin.
-    let kv_store = load_kv_store(&format!("../data/{}", boot_info.l2_claim_block));
+    let kv_store = load_kv_store(&format!("../data/{}", boot_info.l2_claim_block).into());
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),
@@ -163,9 +164,10 @@ impl SP1KonaDataFetcher {
         Ok(block.hash.unwrap().0.into())
     }
 
-    /// Get the L2 output data for a given block number and save the boot info to a file in the data directory
-    /// with block_number. Return the arguments to be passed to the native host for datagen.
-    pub async fn get_native_execution_data(&self, l2_block_num: u64) -> Result<HostCli> {
+    pub async fn get_boot_info_without_rollup_config(
+        &self,
+        l2_block_num: u64,
+    ) -> Result<(BootInfoWithoutRollupConfig, H256)> {
         let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
 
         let l2_block_safe_head = l2_block_num - 1;
@@ -183,8 +185,9 @@ impl SP1KonaDataFetcher {
             .await?
             .storage_hash;
 
+        // TODO: It's a bit confusing why the number here is 0, but it matches the justfile.
         let l2_output_encoded = L2Output {
-            num: l2_block_num,
+            num: 0,
             l2_state_root: l2_output_state_root.0.into(),
             l2_storage_hash: l2_output_storage_hash.0.into(),
             l2_head: l2_head.0.into(),
@@ -204,8 +207,9 @@ impl SP1KonaDataFetcher {
             .await?
             .storage_hash;
 
+        // TODO: It's a bit confusing why the number here is 0, but it matches the justfile.
         let l2_claim_encoded = L2Claim {
-            num: l2_block_num,
+            num: 0,
             l2_state_root: l2_claim_state_root.0.into(),
             l2_storage_hash: l2_claim_storage_hash.0.into(),
             l2_claim_hash: l2_claim_hash.0.into(),
@@ -220,17 +224,41 @@ impl SP1KonaDataFetcher {
         let l1_head = self.find_block_by_timestamp(target_timestamp).await?;
 
         let l2_chain_id = l2_provider.get_chainid().await?;
-        let data_directory = format!("../../data/{}", l2_block_num);
 
-        // Create data directory. Note: Native execution will need to be run to save the merkle proofs.
-        fs::create_dir_all(&data_directory)?;
+        Ok((
+            BootInfoWithoutRollupConfig {
+                l1_head: l1_head.0.into(),
+                l2_output_root: l2_output_root.0.into(),
+                l2_claim: l2_claim.0.into(),
+                l2_claim_block: l2_block_num,
+                chain_id: l2_chain_id.as_u64(),
+            },
+            l2_head,
+        ))
+    }
+
+    /// Get the L2 output data for a given block number and save the boot info to a file in the data directory
+    /// with block_number. Return the arguments to be passed to the native host for datagen.
+    pub async fn get_native_execution_data(&self, l2_block_num: u64) -> Result<HostCli> {
+        let (boot_info, l2_head) = self
+            .get_boot_info_without_rollup_config(l2_block_num)
+            .await?;
+
+        // Get the workspace root, which is where the data directory is.
+        let metadata = MetadataCommand::new().exec().unwrap();
+        let workspace_root = metadata.workspace_root;
+        let data_directory = format!("{}/data/{}", workspace_root, l2_block_num);
+
+        if !Path::new(&data_directory).exists() {
+            fs::create_dir_all(&data_directory)?;
+        }
 
         Ok(HostCli {
-            l1_head: l1_head.0.into(),
-            l2_output_root: l2_output_root.0.into(),
-            l2_claim: l2_claim.0.into(),
+            l1_head: boot_info.l1_head,
+            l2_output_root: boot_info.l2_output_root,
+            l2_claim: boot_info.l2_claim,
             l2_block_number: l2_block_num,
-            l2_chain_id: l2_chain_id.as_u64(),
+            l2_chain_id: boot_info.chain_id,
             l2_head: l2_head.0.into(),
             l2_node_address: Some(self.l2_rpc.clone()),
             l1_node_address: Some(self.l1_rpc.clone()),
@@ -238,7 +266,8 @@ impl SP1KonaDataFetcher {
             data_dir: Some(data_directory.into()),
             // TODO: This is probably not correct, but it's a placeholder. How should we programmatically determine the
             // specified client program from here?
-            exec: Some("./target/release-client-lto/zkvm-client".to_string()),
+            exec: Some("../target/release-client-lto/zkvm-client".to_string()),
+            // exec: None,
             server: false,
             v: 0,
         })

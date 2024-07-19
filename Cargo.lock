@@ -7347,6 +7347,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
+ "cargo_metadata",
  "clap",
  "dotenv",
  "ethers",
