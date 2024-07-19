@@ -2,6 +2,7 @@ pub mod fetcher;
 pub mod helpers;
 
 use alloy_primitives::B256;
+use cargo_metadata::MetadataCommand;
 use fetcher::NativeExecutionBlockData;
 use sp1_core::runtime::ExecutionReport;
 use sp1_sdk::{PlonkBn254Proof, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
@@ -71,7 +72,11 @@ fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
     stdin.write(&boot_info);
 
     // Read KV store into raw bytes and pass to stdin.
-    let kv_store = load_kv_store(&format!("../data/{}", boot_info.l2_claim_block).into());
+    let metadata = MetadataCommand::new().exec().unwrap();
+    let workspace_root = metadata.workspace_root;
+    let data_directory = format!("{}/data/{}", workspace_root, boot_info.l2_claim_block);
+
+    let kv_store = load_kv_store(&data_directory.into());
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),

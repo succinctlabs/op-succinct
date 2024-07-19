@@ -35,7 +35,10 @@ pub fn load_kv_store(data_dir: &PathBuf) -> HashMap<[u8; 32], Vec<u8>, BytesHash
 
 fn get_file_count(data_dir: &PathBuf) -> usize {
     let mut file_count = 0;
-    for entry in fs::read_dir(data_dir).expect("failed to read data dir") {
+    for entry in fs::read_dir(data_dir).expect(&format!(
+        "failed to read data dir {}",
+        data_dir.to_str().unwrap()
+    )) {
         let entry = entry.unwrap();
         if entry.metadata().unwrap().is_file() {
             file_count += 1;

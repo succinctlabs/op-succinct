@@ -56,6 +56,8 @@ async fn main() -> Result<()> {
             run_native_host(&native_execution_data).await?;
         }
 
+        println!("Ran native host for block {}", block_num);
+
         // Execute the Kona program.
         let report = execute_kona_program(&block_data.into());
 
