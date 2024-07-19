@@ -1,8 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
+use kona_host::init_tracing_subscriber;
 use native_host::run_native_host;
 use num_format::{Locale, ToFormattedString};
-use zkvm_host::{execute_kona_program, SP1KonaDataFetcher};
+use zkvm_host::execute_kona_program;
+use zkvm_host::fetcher::SP1KonaDataFetcher;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -21,7 +23,6 @@ struct Args {
 
     /// Skip native data generation if data directory already exists.
     #[arg(
-        short,
         long,
         help = "Skip native data generation if the Merkle tree data is already stored in data."
     )]
@@ -31,6 +32,10 @@ struct Args {
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize tracing subscriber.
+    let verbosity_level = 1;
+    init_tracing_subscriber(verbosity_level).unwrap();
+
     dotenv::dotenv().ok();
     let args = Args::parse();
 
@@ -42,23 +47,21 @@ async fn main() -> Result<()> {
     };
 
     for block_num in args.start_block..=args.end_block {
+        // Get the relevant data for native and zkvm execution.
+        let block_data = data_fetcher.pull_block_data(block_num).await?;
+
         if !args.skip_datagen {
             // Get native execution data.
-            let native_execution_data = data_fetcher.get_native_execution_data(block_num).await?;
+            let native_execution_data = data_fetcher.get_native_execution_data(&block_data)?;
             run_native_host(&native_execution_data).await?;
         }
 
-        // Execute Kona program and collect execution reports.
-        let (boot_info, _) = data_fetcher
-            .get_boot_info_without_rollup_config(block_num)
-            .await?;
-
-        println!("Boot info: {:?}", boot_info);
-        let report = execute_kona_program(&boot_info);
-
-        println!("Block {}: {}", block_num, report);
+        // Execute the Kona program.
+        let report = execute_kona_program(&block_data.into());
 
         reports.push(report);
+
+        println!("Executed block {}", block_num);
     }
 
     // Nicely print out the total instruction count for each block.

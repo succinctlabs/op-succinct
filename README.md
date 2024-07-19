@@ -50,3 +50,20 @@ stderr: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a ver
 2024-07-18T17:54:03.165344Z  INFO execute: close time.busy=57.8s time.idle=2.33µ
 ```
 
+**Failing Blocks**: 122912529, 122864391
+
+Ex. Similar errors to this where the source slice and destination slice length don't match.
+
+```
+stderr: thread '<unnamed>' panicked at zkvm-client/src/oracle/mod.rs:109:34:
+stderr: source slice length (48) does not match destination slice length (32)
+stderr: stack backtrace:
+stderr: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+2024-07-19T22:38:50.173599Z  INFO execute: close time.busy=9.43s time.idle=1.67µs
+thread 'main' panicked at zkvm-host/src/lib.rs:99:72:
+called `Result::unwrap()` on an `Err` value: execution failed with exit code 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: Recipe `run-zkvm-host` failed on line 88 with exit code 101
+error: Recipe `run` failed on line 11 with exit code 101
+```
+
