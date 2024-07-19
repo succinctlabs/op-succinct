@@ -4,7 +4,7 @@ use ethers::{
     providers::{Http, Middleware, Provider},
     types::{BlockNumber, H160, U256},
 };
-use std::{env, str::FromStr};
+use std::{env, fs, str::FromStr};
 use anyhow::Result;
 use alloy_sol_types::{sol, SolValue};
 use super::BootInfoWithoutRollupConfig;
@@ -160,6 +160,7 @@ impl SP1KonaDataFetcher {
 
     pub fn get_host_cli(&self) -> HostCli {
         let data_directory = format!("../data/{}", self.l2_block_number.unwrap());
+        fs::create_dir_all(&data_directory).unwrap();
 
         HostCli {
             l1_head: self.l1_head.unwrap(),
@@ -172,7 +173,7 @@ impl SP1KonaDataFetcher {
             l1_node_address: Some(self.l1_node_address.clone()),
             l1_beacon_address: Some(self.l1_beacon_address.clone()),
             data_dir: Some(data_directory.into()),
-            exec: Some("../target/release-client-lto/zkvm-client".to_string()),
+            exec: Some("./target/release-client-lto/zkvm-client".to_string()),
             server: false,
             v: 4,
         }

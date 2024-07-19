@@ -5,10 +5,9 @@ use zkvm_host::ZkVmHostCliArgs;
 use native_host::run_native_host;
 use anyhow::Result;
 use sp1_sdk::utils;
-use kona_host::HostCli;
-use zkvm_common::{BootInfoWithoutRollupConfig, SP1KonaDataFetcher};
+use zkvm_common::SP1KonaDataFetcher;
 use zkvm_host::execute_kona_program;
-use std::fs;
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -20,7 +19,6 @@ async fn main() -> Result<()> {
         // Run the native host to generate the merkle proofs.
         // TODO: Why doesn't `into()` work here?
         let native_execution_data = data_fetcher.get_host_cli();
-        fs::create_dir_all(&native_execution_data.data_dir.clone().unwrap()).unwrap();
         run_native_host(&native_execution_data).await?;
     }
 
