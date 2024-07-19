@@ -1,7 +1,9 @@
 //! This module contains the prologue phase of the client program, pulling in the boot
 //! information, which is passed to the zkVM a public inputs to be verified on chain.
 
+#[cfg(feature = "io")]
 use crate::SP1KonaDataFetcher;
+
 use alloy_primitives::{B256, U256};
 use alloy_sol_types::{sol, SolValue};
 use kona_client::BootInfo;
@@ -36,6 +38,7 @@ impl Into<BootInfo> for BootInfoWithoutRollupConfig{
     }
 }
 
+#[cfg(feature = "io")]
 impl From<SP1KonaDataFetcher> for BootInfoWithoutRollupConfig {
     fn from(data_fetcher: SP1KonaDataFetcher) -> Self {
         BootInfoWithoutRollupConfig {
