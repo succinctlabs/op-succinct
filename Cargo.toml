@@ -68,4 +68,3 @@ lto = "fat"
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
-superchain-primitives = { git = "https://github.com/ethereum-optimism/", commit =   }
