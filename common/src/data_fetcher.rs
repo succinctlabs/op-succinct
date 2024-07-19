@@ -159,7 +159,7 @@ impl SP1KonaDataFetcher {
     }
 
     pub fn get_host_cli(&self) -> HostCli {
-        let data_directory = format!("../data/{}", self.l2_block_number.unwrap());
+        let data_directory = format!("./data/{}", self.l2_block_number.unwrap());
         fs::create_dir_all(&data_directory).unwrap();
 
         HostCli {
