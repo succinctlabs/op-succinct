@@ -11,15 +11,15 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
-kona-common-proc = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
-kona-preimage = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream", features = ["rkyv"]}
-kona-primitives = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
-kona-mpt = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
-kona-derive = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream", default-features = false }
-kona-executor = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
-kona-host = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
-kona-client = { git = "https://github.com/moongate-forks/kona/", branch = "kona-upstream" }
+kona-common = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-common-proc = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-preimage = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream", features = ["rkyv"]}
+kona-primitives = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-mpt = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-derive = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream", default-features = false }
+kona-executor = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-host = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-client = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
