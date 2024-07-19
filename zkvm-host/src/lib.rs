@@ -47,7 +47,7 @@ fn load_inputs(boot_info: &BootInfoWithoutRollupConfig, stdin: &mut SP1Stdin) {
     stdin.write(&boot_info);
 
     // Read KV store into raw bytes and pass to stdin.
-    let kv_store = load_kv_store(&format!("../data/{}", boot_info.l2_claim_block));
+    let kv_store = load_kv_store(&format!("./data/{}", boot_info.l2_claim_block));
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),

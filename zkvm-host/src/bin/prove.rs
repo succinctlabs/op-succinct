@@ -1,15 +1,13 @@
 // A host program to generate a proof of an Optimism L2 block STF in the zkVM.
 
 use clap::Parser;
-use zkvm_host::ZkVmHostCliArgs;
+use zkvm_host::{ZkVmHostCliArgs, execute_kona_program};
 use native_host::run_native_host;
 use anyhow::Result;
 use sp1_sdk::utils;
 use zkvm_common::SP1KonaDataFetcher;
-use zkvm_host::execute_kona_program;
 
-
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     let cli_args = ZkVmHostCliArgs::parse();
     let mut data_fetcher = SP1KonaDataFetcher::default();
@@ -20,9 +18,9 @@ async fn main() -> Result<()> {
         // TODO: build.rs builds for ZKVM, but in this case should we also build for native?
         let native_execution_data = data_fetcher.get_host_cli();
         run_native_host(&native_execution_data).await?;
+    } else {
+        utils::setup_logger();
     }
-
-    utils::setup_logger();
 
     let boot_info = data_fetcher.get_boot_info();
 
