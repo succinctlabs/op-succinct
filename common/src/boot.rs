@@ -1,6 +1,7 @@
 //! This module contains the prologue phase of the client program, pulling in the boot
 //! information, which is passed to the zkVM a public inputs to be verified on chain.
 
+use crate::SP1KonaDataFetcher;
 use alloy_primitives::{B256, U256};
 use alloy_sol_types::{sol, SolValue};
 use kona_client::BootInfo;
@@ -19,25 +20,30 @@ pub struct BootInfoWithoutRollupConfig {
     pub chain_id: u64,
 }
 
-impl From<BootInfoWithoutRollupConfig> for BootInfo {
+impl Into<BootInfo> for BootInfoWithoutRollupConfig{
     /// Convert the BootInfoWithoutRollupConfig into BootInfo by deriving the RollupConfig.
-    fn from(boot_info_without_rollup_config: BootInfoWithoutRollupConfig) -> Self {
-        let BootInfoWithoutRollupConfig {
-            l1_head,
-            l2_output_root,
-            l2_claim,
-            l2_claim_block,
-            chain_id,
-        } = boot_info_without_rollup_config;
-        let rollup_config = RollupConfig::from_l2_chain_id(chain_id).unwrap();
+    fn into(self) -> BootInfo {
+        let rollup_config = RollupConfig::from_l2_chain_id(self.chain_id).unwrap();
 
-        Self {
-            l1_head,
-            l2_output_root,
-            l2_claim,
-            l2_claim_block,
-            chain_id,
+        BootInfo {
+            l1_head: self.l1_head,
+            l2_output_root: self.l2_output_root,
+            l2_claim: self.l2_claim,
+            l2_claim_block: self.l2_claim_block,
+            chain_id: self.chain_id,
             rollup_config,
+        }
+    }
+}
+
+impl From<SP1KonaDataFetcher> for BootInfoWithoutRollupConfig {
+    fn from(data_fetcher: SP1KonaDataFetcher) -> Self {
+        BootInfoWithoutRollupConfig {
+            l1_head: data_fetcher.l1_head.unwrap(),
+            l2_output_root: data_fetcher.l2_output_root.unwrap(),
+            l2_claim: data_fetcher.l2_claim.unwrap(),
+            l2_claim_block: data_fetcher.l2_block_number.unwrap(),
+            chain_id: data_fetcher.l2_chain_id,
         }
     }
 }

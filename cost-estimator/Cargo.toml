@@ -1,0 +1,25 @@
+[package]
+name = "cost-estimator"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+# workspace
+tokio = { version = "1.37.0", features = ["full"] }
+clap.workspace = true
+anyhow.workspace = true
+num-format = "0.4.4"
+dotenv = "0.15.0"
+
+# kona
+kona-host.workspace = true
+
+# local
+zkvm-common.workspace = true
+zkvm-host.workspace = true
+native-host.workspace = true

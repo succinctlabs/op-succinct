@@ -7,6 +7,14 @@ edition.workspace = true
 [dependencies]
 kona-client.workspace = true
 kona-primitives.workspace = true
+kona-host.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
 serde.workspace = true
+# Note: Using ethers instead of alloy because kona-host depends on alloy-primitives, which causes
+# dependency conflicts when resolving alloy-primitives from alloy crate instead of standalone alloy-primitives.
+# Once kona-host moves to using the new alloy, we can use alloy instead of ethers.
+ethers = { version = "2.0" }
+num-format = "0.4.4"
+dotenv = "0.15.0"
+anyhow.workspace = true
