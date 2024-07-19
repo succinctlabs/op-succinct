@@ -20,13 +20,14 @@ clap.workspace = true
 kona-host.workspace = true
 
 # local
-zkvm-common.workspace = true
+zkvm-common = { workspace = true, features = ["io"] }
 native-host.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
 sp1-core.workspace = true
 anyhow.workspace = true
+tokio.workspace = true
 num-format = "0.4.4"
 dotenv = "0.15.0"
 

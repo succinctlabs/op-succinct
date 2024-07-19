@@ -1,9 +1,10 @@
-mod cli;
-use cli::CostEstimatorCliArgs;
-use kona_host::HostCli;
+use zkvm_host::{
+    execute_kona_program,
+    cli::CostEstimatorCliArgs
+};
 use zkvm_common::SP1KonaDataFetcher;
 use native_host::run_native_host;
-use zkvm_host::execute_kona_program;
+
 use clap::Parser;
 use anyhow::Result;
 use num_format::{Locale, ToFormattedString};

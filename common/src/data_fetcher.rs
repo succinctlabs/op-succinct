@@ -4,18 +4,12 @@ use ethers::{
     providers::{Http, Middleware, Provider},
     types::{BlockNumber, H160, U256},
 };
-use std::{env, fs, str::FromStr};
+use std::{env, str::FromStr};
 use anyhow::Result;
 use alloy_sol_types::{sol, SolValue};
+use super::BootInfoWithoutRollupConfig;
 
 sol! {
-    struct L2Claim {
-        uint64 num;
-        bytes32 l2_state_root;
-        bytes32 l2_storage_hash;
-        bytes32 l2_claim_hash;
-    }
-
     struct L2Output {
         uint64 num;
         bytes32 l2_state_root;
@@ -135,11 +129,11 @@ impl SP1KonaDataFetcher {
             .await?
             .storage_hash;
 
-        let l2_claim_encoded = L2Claim {
+        let l2_claim_encoded = L2Output {
             num: l2_block_num,
             l2_state_root: l2_claim_state_root.0.into(),
             l2_storage_hash: l2_claim_storage_hash.0.into(),
-            l2_claim_hash: l2_claim_hash.0.into(),
+            l2_head: l2_claim_hash.0.into(),
         };
         self.l2_claim = Some(keccak256(&l2_claim_encoded.abi_encode()));
 
@@ -154,12 +148,18 @@ impl SP1KonaDataFetcher {
 
     }
 
-}
+    pub fn get_boot_info(&self) -> BootInfoWithoutRollupConfig {
+        BootInfoWithoutRollupConfig {
+            l1_head: self.l1_head.unwrap(),
+            l2_output_root: self.l2_output_root.unwrap(),
+            l2_claim: self.l2_claim.unwrap(),
+            l2_claim_block: self.l2_block_number.unwrap(),
+            chain_id: self.l2_chain_id,
+        }
+    }
 
-impl Into<HostCli> for SP1KonaDataFetcher {
-    fn into(self) -> HostCli {
-        let data_directory = format!("../../data/{}", self.l2_block_number.unwrap());
-        fs::create_dir_all(&data_directory).unwrap();
+    pub fn get_host_cli(&self) -> HostCli {
+        let data_directory = format!("../data/{}", self.l2_block_number.unwrap());
 
         HostCli {
             l1_head: self.l1_head.unwrap(),
@@ -172,9 +172,9 @@ impl Into<HostCli> for SP1KonaDataFetcher {
             l1_node_address: Some(self.l1_node_address.clone()),
             l1_beacon_address: Some(self.l1_beacon_address.clone()),
             data_dir: Some(data_directory.into()),
-            exec: Some("./target/release-client-lto/zkvm-client".to_string()),
+            exec: Some("../target/release-client-lto/zkvm-client".to_string()),
             server: false,
-            v: 0,
+            v: 4,
         }
     }
 }

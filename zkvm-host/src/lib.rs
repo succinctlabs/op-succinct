@@ -2,20 +2,18 @@ mod file_helpers;
 use file_helpers::load_kv_store;
 
 mod cli;
-pub use cli::ZKVMHostCliArgs;
+pub use cli::{ZkVmHostCliArgs, CostEstimatorCliArgs};
 
 use sp1_core::runtime::ExecutionReport;
 use sp1_sdk::{ProverClient, SP1Stdin};
-use zkvm_common::{BootInfoWithoutRollupConfig, SP1KonaDataFetcher};
-
-use std::collections::HashMap;
+use zkvm_common::BootInfoWithoutRollupConfig;
 
 use rkyv::{
     ser::{
         serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
         Serializer,
     },
-    AlignedVec, Archive, Deserialize, Serialize,
+    AlignedVec
 };
 
 pub const CLIENT_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
@@ -39,8 +37,10 @@ pub fn prove_kona_program(boot_info: &BootInfoWithoutRollupConfig) {
     let client = ProverClient::new();
     let (pk, vk) = client.setup(CLIENT_ELF);
 
-    let mut proof = client.prove(&pk, &vk, stdin).unwrap();
+    let mut proof = client.prove(&pk, stdin).unwrap();
     println!("generated zk proof");
+
+    // save proof, verify, etc.
 }
 
 fn load_inputs(boot_info: &BootInfoWithoutRollupConfig, stdin: &mut SP1Stdin) {

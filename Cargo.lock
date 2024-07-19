@@ -7377,6 +7377,7 @@ dependencies = [
  "sp1-core",
  "sp1-helper",
  "sp1-sdk",
+ "tokio",
  "zkvm-common",
 ]
 

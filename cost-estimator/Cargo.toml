@@ -20,6 +20,6 @@ dotenv = "0.15.0"
 kona-host.workspace = true
 
 # local
-zkvm-common.workspace = true
+zkvm-common = { workspace = true, features = ["io"] }
 zkvm-host.workspace = true
 native-host.workspace = true

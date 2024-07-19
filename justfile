@@ -80,7 +80,7 @@ run-zkvm-host l1_head l2_output_root l2_claim l2_claim_block chain_id:
 
     echo "Proving zkvm program in SP1..."
     # Note: The program will automatically build with the build.rs
-    cd zkvm-host && RUST_LOG=info cargo run --bin script --release -- \
+    cd zkvm-host && RUST_LOG=info cargo run --release -- \
       --l1-head {{l1_head}} \
       --l2-output-root {{l2_output_root}} \
       --l2-claim {{l2_claim}} \
