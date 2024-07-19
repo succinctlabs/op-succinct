@@ -9,6 +9,6 @@ repository.workspace = true
 
 [dependencies]
 kona-host = { workspace = true }
-tokio = { version = "1.37.0", features = ["full"] }
+tokio.workspace = true
 clap = { workspace = true }
 anyhow = { workspace = true }
