@@ -11,7 +11,7 @@ use super::BootInfoWithoutRollupConfig;
 
 sol! {
     struct L2Output {
-        uint64 num;
+        uint64 version;
         bytes32 l2_state_root;
         bytes32 l2_storage_hash;
         bytes32 l2_head;
@@ -109,7 +109,7 @@ impl SP1KonaDataFetcher {
             .storage_hash;
 
         let l2_output_encoded = L2Output {
-            num: l2_block_num,
+            version: 0,
             l2_state_root: l2_output_state_root.0.into(),
             l2_storage_hash: l2_output_storage_hash.0.into(),
             l2_head: self.l2_head.unwrap(),
@@ -130,7 +130,7 @@ impl SP1KonaDataFetcher {
             .storage_hash;
 
         let l2_claim_encoded = L2Output {
-            num: l2_block_num,
+            version: 0,
             l2_state_root: l2_claim_state_root.0.into(),
             l2_storage_hash: l2_claim_storage_hash.0.into(),
             l2_head: l2_claim_hash.0.into(),

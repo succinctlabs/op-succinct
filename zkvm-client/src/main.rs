@@ -57,12 +57,19 @@ fn main() {
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
             }
         }
+        println!("make oracle");
 
         let precompile_overrides = NoPrecompileOverride;
 
+        println!("precompiles");
+
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
+        println!("l1 provider");
         let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        println!("l2 provider");
         let beacon = OracleBlobProvider::new(oracle.clone());
+
+        println!("providers are set up");
 
         ////////////////////////////////////////////////////////////////
         //                   DERIVATION & EXECUTION                   //
@@ -77,6 +84,7 @@ fn main() {
         )
         .await
         .unwrap();
+        println!("derive");
 
         let L2AttributesWithParent { attributes, .. } =
             driver.produce_disputed_payload().await.unwrap();
@@ -89,7 +97,9 @@ fn main() {
             .build()
             .unwrap();
 
+        println!("payload");
         let Header { number, .. } = *executor.execute_payload(attributes).unwrap();
+        println!("output root");
         let output_root = executor.compute_output_root().unwrap();
 
         // ////////////////////////////////////////////////////////////////

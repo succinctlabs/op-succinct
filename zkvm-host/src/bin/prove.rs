@@ -18,6 +18,7 @@ async fn main() -> Result<()> {
     if cli_args.run_native {
         // Run the native host to generate the merkle proofs.
         // TODO: Why doesn't `into()` work here?
+        // TODO: build.rs builds for ZKVM, but in this case should we also build for native?
         let native_execution_data = data_fetcher.get_host_cli();
         run_native_host(&native_execution_data).await?;
     }

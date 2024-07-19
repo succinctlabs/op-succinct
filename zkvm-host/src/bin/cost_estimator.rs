@@ -1,7 +1,4 @@
-use zkvm_host::{
-    execute_kona_program,
-    cli::CostEstimatorCliArgs
-};
+use zkvm_host::{execute_kona_program, CostEstimatorCliArgs};
 use zkvm_common::SP1KonaDataFetcher;
 use native_host::run_native_host;
 

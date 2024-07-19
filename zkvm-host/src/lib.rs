@@ -35,9 +35,9 @@ pub fn prove_kona_program(boot_info: &BootInfoWithoutRollupConfig) {
     load_inputs(boot_info, &mut stdin);
 
     let client = ProverClient::new();
-    let (pk, vk) = client.setup(CLIENT_ELF);
+    let (pk, _vk) = client.setup(CLIENT_ELF);
 
-    let mut proof = client.prove(&pk, stdin).unwrap();
+    let mut _proof = client.prove(&pk, stdin).unwrap();
     println!("generated zk proof");
 
     // save proof, verify, etc.
