@@ -1177,9 +1177,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "324c74f2155653c90b04f25b2a47a8a631360cb908f92a772695f430c7e31052"
+checksum = "2aba8f4e9906c7ce3c73463f62a7f0c65183ada1a2d47e397cc8810827f9694f"
 dependencies = [
  "jobserver",
  "libc",
@@ -3105,7 +3105,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloy-consensus 0.1.4",
  "alloy-eips 0.1.4",
@@ -3131,7 +3131,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3142,7 +3142,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3155,7 +3155,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus 0.1.4",
@@ -3190,7 +3190,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloy-consensus 0.1.4",
  "alloy-eips 0.1.4",
@@ -3207,7 +3207,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloy-consensus 0.1.4",
  "alloy-eips 0.1.4",
@@ -3239,7 +3239,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloy-consensus 0.1.4",
  "alloy-primitives",
@@ -3253,7 +3253,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3267,7 +3267,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona/?branch=kona-upstream#a46891b153cbdc7a2230f508eb4b897ef39dae97"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#2d00e9f721ec2fd80ca765fa31f581f3959e7b66"
 dependencies = [
  "alloy-consensus 0.1.4",
  "alloy-eips 0.1.4",
@@ -6552,7 +6552,7 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "winnow 0.6.13",
+ "winnow 0.6.14",
 ]
 
 [[package]]
@@ -7217,9 +7217,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.13"
+version = "0.6.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59b5e5f6c299a3c7890b876a2a587f3115162487e704907d9b6cd29473052ba1"
+checksum = "374ec40a2d767a3c1b4972d9475ecd557356637be906f2cb3f7fe17a6eb5e22f"
 dependencies = [
  "memchr",
 ]
