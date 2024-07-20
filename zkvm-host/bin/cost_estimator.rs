@@ -27,17 +27,20 @@ struct Args {
         help = "Skip native data generation if the Merkle tree data is already stored in data."
     )]
     skip_datagen: bool,
+
+    /// Verbosity level.
+    #[arg(short, long, default_value = "0")]
+    verbosity_level: u8,
 }
 
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing subscriber.
-    let verbosity_level = 3;
-    init_tracing_subscriber(verbosity_level).unwrap();
-
     dotenv::dotenv().ok();
     let args = Args::parse();
+
+    // Initialize tracing subscriber.
+    init_tracing_subscriber(args.verbosity_level).unwrap();
 
     let mut reports = Vec::new();
 
