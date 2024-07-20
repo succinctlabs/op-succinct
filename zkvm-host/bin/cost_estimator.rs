@@ -33,7 +33,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing subscriber.
-    let verbosity_level = 1;
+    let verbosity_level = 3;
     init_tracing_subscriber(verbosity_level).unwrap();
 
     dotenv::dotenv().ok();
@@ -50,9 +50,15 @@ async fn main() -> Result<()> {
         // Get the relevant data for native and zkvm execution.
         let block_data = data_fetcher.pull_block_data(block_num).await?;
 
+        println!("Pulled block data for block {}", block_num);
+
         if !args.skip_datagen {
             // Get native execution data.
             let native_execution_data = data_fetcher.get_native_execution_data(&block_data)?;
+            println!(
+                "Got native execution data for block {}. {:?}",
+                block_num, native_execution_data
+            );
             run_native_host(&native_execution_data).await?;
         }
 

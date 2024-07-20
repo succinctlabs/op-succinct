@@ -15,10 +15,6 @@ path = "bin/script.rs"
 name = "cost_estimator"
 path = "bin/cost_estimator.rs"
 
-[[bin]]
-name = "inputs"
-path = "bin/inputs.rs"
-
 [dependencies]
 
 # workspace

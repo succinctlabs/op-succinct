@@ -5,7 +5,7 @@ use alloy_primitives::B256;
 use cargo_metadata::MetadataCommand;
 use fetcher::NativeExecutionBlockData;
 use sp1_core::runtime::ExecutionReport;
-use sp1_sdk::{PlonkBn254Proof, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 use zkvm_common::BootInfoWithoutRollupConfig;
 
 use clap::Parser;
@@ -101,14 +101,12 @@ pub fn execute_kona_program(boot_info: &BootInfoWithoutRollupConfig) -> Executio
 
     let stdin = get_kona_program_input(boot_info);
 
-    let (mut _public_values, report) = client.execute(KONA_ELF, stdin).unwrap();
+    let (mut _public_values, report) = client.execute(KONA_ELF, stdin).run().unwrap();
     report
 }
 
 /// Execute the Kona program and return the execution report.
-pub fn prove_kona_program(
-    boot_info: &BootInfoWithoutRollupConfig,
-) -> SP1ProofWithPublicValues<PlonkBn254Proof> {
+pub fn prove_kona_program(boot_info: &BootInfoWithoutRollupConfig) -> SP1ProofWithPublicValues {
     // First instantiate a mock prover client to just execute the program and get the estimation of
     // cycle count.
     let client = ProverClient::new();
@@ -116,6 +114,6 @@ pub fn prove_kona_program(
 
     let stdin = get_kona_program_input(boot_info);
 
-    let proof = client.prove_plonk(&pk, stdin).unwrap();
+    let proof = client.prove(&pk, stdin).plonk().run().unwrap();
     proof
 }
