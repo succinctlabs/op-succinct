@@ -65,6 +65,8 @@ sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.8-test
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.8-testnet" }
 sp1-core = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.8-testnet" }
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = ["secp256k1"] }
+
 
 [profile.release-client-lto]
 inherits = "release"

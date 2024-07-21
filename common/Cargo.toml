@@ -10,3 +10,7 @@ kona-primitives.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
 serde.workspace = true
+kona-executor.workspace = true
+kona-mpt.workspace = true
+revm.workspace = true
+sp1-lib.workspace = true

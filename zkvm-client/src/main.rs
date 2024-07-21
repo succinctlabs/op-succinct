@@ -6,8 +6,9 @@ use kona_client::{
     l2::OracleL2ChainProvider,
     BootInfo,
 };
-use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
+use kona_executor::StatelessL2BlockExecutor;
 use kona_primitives::L2AttributesWithParent;
+use zkvm_common::precompiles::ZKVMPrecompileOverride;
 
 use alloc::sync::Arc;
 use alloy_consensus::Header;
@@ -58,7 +59,7 @@ fn main() {
             }
         }
 
-        let precompile_overrides = NoPrecompileOverride;
+        let precompile_overrides = ZKVMPrecompileOverride::default();
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());

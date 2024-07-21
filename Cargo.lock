@@ -3296,7 +3296,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e310b3a6b5907f99202fcdb4960ff45b93735d7c7d96b760fcff8db2dc0e103d"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -5643,8 +5643,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "0.0.2-test"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#6e92b1b1fb9a0969df1c50fcdea55ef408aa1315"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#46ce208f0f6a2d526a4c1eb4f35620d55d3f2259"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -5723,12 +5723,24 @@ dependencies = [
 
 [[package]]
 name = "sp1-helper"
-version = "0.0.2-test"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#6e92b1b1fb9a0969df1c50fcdea55ef408aa1315"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#46ce208f0f6a2d526a4c1eb4f35620d55d3f2259"
 dependencies = [
  "cargo_metadata",
  "chrono",
  "sp1-build",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#46ce208f0f6a2d526a4c1eb4f35620d55d3f2259"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "k256",
+ "serde",
 ]
 
 [[package]]
@@ -7336,8 +7348,12 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "kona-client",
+ "kona-executor",
+ "kona-mpt",
  "kona-primitives",
+ "revm",
  "serde",
+ "sp1-lib",
 ]
 
 [[package]]
