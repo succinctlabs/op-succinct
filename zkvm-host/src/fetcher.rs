@@ -83,6 +83,7 @@ impl SP1KonaDataFetcher {
 
     // Pull the relevant block data for the given block number for the Kona execution.
     pub async fn pull_block_data(&self, l2_block_num: u64) -> Result<NativeExecutionBlockData> {
+        // TODO(uma): should this be instantiated in "new" and stored within the DataFetcher?
         let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
 
         let l2_block_safe_head = l2_block_num - 1;
@@ -109,6 +110,7 @@ impl SP1KonaDataFetcher {
         let l2_output_root = keccak256(&l2_output_encoded.abi_encode());
 
         // Get L2 claim data.
+        // TODO(uma): this code is copy-pasted from above and it should be refactored into a function that takes in the l2_block_num
         let l2_claim_block = l2_provider.get_block(l2_block_num).await?.unwrap();
         let l2_claim_state_root = l2_claim_block.state_root;
         let l2_claim_hash = l2_claim_block.hash.expect("L2 claim hash is missing");
@@ -131,7 +133,7 @@ impl SP1KonaDataFetcher {
 
         // Get L1 head.
         let l2_block_timestamp = l2_claim_block.timestamp;
-        let target_timestamp = l2_block_timestamp + 300;
+        let target_timestamp = l2_block_timestamp + 300; // TODO(uma): Why is this +300?
 
         // TODO: Convert target_timestamp to a block number
         let l1_head = self.find_block_by_timestamp(target_timestamp).await?;

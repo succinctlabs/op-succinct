@@ -3,6 +3,9 @@ use clap::Parser;
 use kona_host::init_tracing_subscriber;
 use native_host::run_native_host;
 use num_format::{Locale, ToFormattedString};
+use sp1_sdk::ExecutionReport;
+use std::io;
+use std::io::{stderr, stdin, stdout, Read, Write};
 use zkvm_host::execute_kona_program;
 use zkvm_host::fetcher::SP1KonaDataFetcher;
 
@@ -33,6 +36,17 @@ struct Args {
     verbosity_level: u8,
 }
 
+fn clear_stdin() {
+    let stdin = stdin();
+    let mut stdin = stdin.lock();
+    let mut buffer = [0; 1];
+
+    while let Ok(n) = stdin.read(&mut buffer) {
+        if n == 0 || buffer[0] == b'\n' {
+            break;
+        }
+    }
+}
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,7 +56,7 @@ async fn main() -> Result<()> {
     // Initialize tracing subscriber.
     init_tracing_subscriber(args.verbosity_level).unwrap();
 
-    let mut reports = Vec::new();
+    let mut reports: Vec<ExecutionReport> = Vec::new();
 
     let data_fetcher = SP1KonaDataFetcher {
         l2_rpc: args.rpc_url,
@@ -67,12 +81,24 @@ async fn main() -> Result<()> {
 
         println!("Ran native host for block {}", block_num);
 
-        // Execute the Kona program.
-        let report = execute_kona_program(&block_data.into());
+        stdout().flush()?;
+        println!("Flushed stdout for block {}", block_num);
+        stderr().flush()?;
+        println!("Flushed stderr for block {}", block_num);
+        // let empty_stdin = io::empty();
+        // let old_stdin = io::set_stdin(empty_stdin);
+        // let result = f();
+        // io::set_stdin(old_stdin);
+        // clear_stdin();
 
-        reports.push(report);
+        // println!("Cleared stdin for block {}", block_num);
 
-        println!("Executed block {}", block_num);
+        // // Execute the Kona program.
+        // let report = execute_kona_program(&block_data.into());
+
+        // reports.push(report);
+
+        // println!("Executed block {}", block_num);
     }
 
     // Nicely print out the total instruction count for each block.

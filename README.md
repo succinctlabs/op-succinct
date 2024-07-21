@@ -34,6 +34,8 @@ Output:
 
 ```
 
+RUST_LOG=info cargo run --bin cost_estimator --release -- --start-block 122864387 --end-block 122864388 --rpc-url http://103.106.59.93:8547 --verbosity-level 2
+
 
 
 ## TODO
