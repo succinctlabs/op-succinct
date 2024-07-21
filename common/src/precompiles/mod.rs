@@ -6,8 +6,15 @@ use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::{
     handler::register::EvmHandler,
     precompile::{
-        bn128, hash, identity, kzg_point_evaluation, modexp, Precompile, PrecompileResult,
-        PrecompileSpecId, PrecompileWithAddress,
+        bn128,
+        hash,
+        identity,
+        modexp,
+        Precompile,
+        PrecompileResult,
+        PrecompileSpecId,
+        PrecompileWithAddress,
+        // kzg_point_evaluation
     },
     primitives::Bytes,
     ContextPrecompiles, State,
@@ -15,6 +22,7 @@ use revm::{
 
 mod ecrecover;
 
+/// Create an annotated precompile that tracks the cycle count.
 macro_rules! create_annotated_precompile {
     ($precompile:expr, $name:expr) => {
         PrecompileWithAddress(
@@ -49,10 +57,12 @@ pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
     create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
 pub(crate) const ANNOTATED_MODEXP: PrecompileWithAddress =
     create_annotated_precompile!(modexp::BERLIN, "modexp");
-pub(crate) const ANNOTATED_KZG_POINT_EVAL: PrecompileWithAddress = create_annotated_precompile!(
-    kzg_point_evaluation::POINT_EVALUATION,
-    "kzg-point-evaluation"
-);
+
+// TODO: When we upgrade to the latest version of revm that supports kzg-rs that compiles within SP1, we can uncomment this.
+// pub(crate) const ANNOTATED_KZG_POINT_EVAL: PrecompileWithAddress = create_annotated_precompile!(
+//     kzg_point_evaluation::POINT_EVALUATION,
+//     "kzg-point-evaluation"
+// );
 
 /// The [PrecompileOverride] implementation for the FPVM-accelerated precompiles.
 #[derive(Debug)]
@@ -99,7 +109,7 @@ where
                 ANNOTATED_BN_MUL,
                 ANNOTATED_BN_PAIR,
                 ANNOTATED_MODEXP,
-                ANNOTATED_KZG_POINT_EVAL,
+                // ANNOTATED_KZG_POINT_EVAL,
             ];
             ctx_precompiles.extend(override_precompiles);
 
