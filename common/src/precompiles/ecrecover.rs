@@ -16,6 +16,7 @@ pub(crate) const ZKVM_ECRECOVER: PrecompileWithAddress =
 /// Performs an ZKVM-accelerated `ecrecover` precompile call.
 /// This should match the functionality of [`revm::precompile::secp256k1::ec_recover_run`].
 fn zkvm_ecrecover(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+    println!("cycle-tracker-start: precompile-ecrecover");
     const ECRECOVER_BASE: u64 = 3_000;
 
     if ECRECOVER_BASE > gas_limit {
@@ -40,5 +41,6 @@ fn zkvm_ecrecover(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let out = ecrecover(&sig, &msg)
         .map(|o| o.to_vec().into())
         .unwrap_or_default();
+    println!("cycle-tracker-end: precompile-ecrecover");
     Ok(PrecompileOutput::new(ECRECOVER_BASE, out))
 }
