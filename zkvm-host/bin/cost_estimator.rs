@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
 
         if !args.skip_datagen {
             // Get native execution data.
-            let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data)?;
+            let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data, args.verbosity_level)?;
             println!(
                 "Got native execution data for block {}. {:?}",
                 block_num, native_execution_data

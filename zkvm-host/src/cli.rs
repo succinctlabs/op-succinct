@@ -1,7 +1,4 @@
 use clap::Parser;
-use zkvm_common::BootInfoWithoutRollupConfig;
-use alloy_primitives::B256;
-use std::str::FromStr;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -11,6 +8,9 @@ pub struct SP1KonaCliArgs {
 
     #[arg(long)]
     pub run_native: bool,
+
+    #[arg(short, long, default_value = "4")]
+    pub verbosity_level: u8,
 }
 
 #[derive(Parser, Debug)]

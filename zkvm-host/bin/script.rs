@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
     let block_data = data_fetcher.pull_block_data(args.l2_claim_block).await?;
 
     if args.run_native {
-        let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data)?;
+        let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data, args.verbosity_level)?;
         run_native_host(&native_execution_data).await?;
     }
 

@@ -153,6 +153,7 @@ impl SP1KonaDataFetcher {
     pub fn get_native_host_cli_args(
         &self,
         block_data: &NativeExecutionBlockData,
+        verbosity: u8,
     ) -> Result<HostCli> {
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
@@ -179,7 +180,7 @@ impl SP1KonaDataFetcher {
             exec: Some(exec_directory),
             // exec: None,
             server: false,
-            v: 0,
+            v: verbosity,
         })
     }
 }
