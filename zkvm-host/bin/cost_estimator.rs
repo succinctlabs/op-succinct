@@ -4,9 +4,7 @@ use kona_host::init_tracing_subscriber;
 use native_host::run_native_host;
 use num_format::{Locale, ToFormattedString};
 use zkvm_host::execute_kona_program;
-use zkvm_host::{CostEstimatorCliArgs, fetcher::SP1KonaDataFetcher};
-
-
+use zkvm_host::{fetcher::SP1KonaDataFetcher, CostEstimatorCliArgs};
 
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
 #[tokio::main]
@@ -32,12 +30,15 @@ async fn main() -> Result<()> {
 
         if !args.skip_datagen {
             // Get native execution data.
-            let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data, args.verbosity_level)?;
+            let native_execution_data =
+                data_fetcher.get_native_host_cli_args(&block_data, args.verbosity_level)?;
             println!(
                 "Got native execution data for block {}. {:?}",
                 block_num, native_execution_data
             );
-            run_native_host(&native_execution_data).await?;
+            run_native_host(&native_execution_data)
+                .await
+                .expect("Failed to run native host");
         }
 
         println!("Ran native host for block {}", block_num);

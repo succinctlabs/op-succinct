@@ -1,7 +1,7 @@
+mod cli;
 pub mod fetcher;
 pub mod helpers;
-pub mod cli;
-pub use cli::{SP1KonaCliArgs, CostEstimatorCliArgs};
+pub use cli::{CostEstimatorCliArgs, SP1KonaCliArgs};
 
 use cargo_metadata::MetadataCommand;
 use sp1_core::runtime::ExecutionReport;
@@ -19,8 +19,6 @@ use rkyv::{
 use crate::helpers::load_kv_store;
 
 pub const KONA_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
-
-
 
 fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
     let mut stdin = SP1Stdin::new();
