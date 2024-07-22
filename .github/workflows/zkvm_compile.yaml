@@ -17,5 +17,5 @@ jobs:
     - name: Install SP1
       run: /home/runner/.config/.sp1/bin/sp1up
     - name: Compile the client program
-      run: /home/runner/.config/.sp1/bin/cargo-prove prove build --ignore-rust-version
+      run: /home/runner/.sp1/bin/cargo-prove prove build --ignore-rust-version
       working-directory: zkvm-client
