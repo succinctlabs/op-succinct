@@ -7,10 +7,10 @@ use ethers::{
 };
 use kona_host::HostCli;
 
-use std::{path::Path, str::FromStr};
+use std::{env, fs, path::Path, str::FromStr};
 
 use anyhow::Result;
-use std::{env, fs};
+use zkvm_common::BootInfoWithoutRollupConfig;
 
 sol! {
     struct L2Output {
@@ -150,7 +150,7 @@ impl SP1KonaDataFetcher {
 
     /// Get the L2 output data for a given block number and save the boot info to a file in the data directory
     /// with block_number. Return the arguments to be passed to the native host for datagen.
-    pub fn get_native_execution_data(
+    pub fn get_native_host_cli_args(
         &self,
         block_data: &NativeExecutionBlockData,
     ) -> Result<HostCli> {
@@ -181,5 +181,17 @@ impl SP1KonaDataFetcher {
             server: false,
             v: 0,
         })
+    }
+}
+
+impl From<NativeExecutionBlockData> for BootInfoWithoutRollupConfig {
+    fn from(block_data: NativeExecutionBlockData) -> Self {
+        BootInfoWithoutRollupConfig {
+            l1_head: block_data.l1_head,
+            l2_output_root: block_data.l2_output_root,
+            l2_claim: block_data.l2_claim,
+            l2_claim_block: block_data.l2_block_number,
+            chain_id: block_data.l2_chain_id,
+        }
     }
 }

@@ -4,40 +4,15 @@ use kona_host::init_tracing_subscriber;
 use native_host::run_native_host;
 use num_format::{Locale, ToFormattedString};
 use zkvm_host::execute_kona_program;
-use zkvm_host::fetcher::SP1KonaDataFetcher;
+use zkvm_host::{CostEstimatorCliArgs, fetcher::SP1KonaDataFetcher};
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Start block number.
-    #[arg(short, long)]
-    start_block: u64,
 
-    /// End block number.
-    #[arg(short, long)]
-    end_block: u64,
-
-    /// RPC URL for the OP Stack Chain to do cost estimation for.
-    #[arg(short, long)]
-    rpc_url: String,
-
-    /// Skip native data generation if data directory already exists.
-    #[arg(
-        long,
-        help = "Skip native data generation if the Merkle tree data is already stored in data."
-    )]
-    skip_datagen: bool,
-
-    /// Verbosity level.
-    #[arg(short, long, default_value = "0")]
-    verbosity_level: u8,
-}
 
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    let args = Args::parse();
+    let args = CostEstimatorCliArgs::parse();
 
     // Initialize tracing subscriber.
     init_tracing_subscriber(args.verbosity_level).unwrap();
@@ -57,7 +32,7 @@ async fn main() -> Result<()> {
 
         if !args.skip_datagen {
             // Get native execution data.
-            let native_execution_data = data_fetcher.get_native_execution_data(&block_data)?;
+            let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data)?;
             println!(
                 "Got native execution data for block {}. {:?}",
                 block_num, native_execution_data

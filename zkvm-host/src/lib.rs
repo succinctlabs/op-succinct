@@ -1,15 +1,12 @@
 pub mod fetcher;
 pub mod helpers;
+pub mod cli;
+pub use cli::{SP1KonaCliArgs, CostEstimatorCliArgs};
 
-use alloy_primitives::B256;
 use cargo_metadata::MetadataCommand;
-use fetcher::NativeExecutionBlockData;
 use sp1_core::runtime::ExecutionReport;
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 use zkvm_common::BootInfoWithoutRollupConfig;
-
-use clap::Parser;
-use std::str::FromStr;
 
 use rkyv::{
     ser::{
@@ -23,48 +20,7 @@ use crate::helpers::load_kv_store;
 
 pub const KONA_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-pub struct SP1KonaCliArgs {
-    #[arg(long)]
-    l1_head: String,
 
-    #[arg(long)]
-    l2_output_root: String,
-
-    #[arg(long)]
-    l2_claim: String,
-
-    #[arg(long)]
-    l2_claim_block: u64,
-
-    #[arg(long)]
-    chain_id: u64,
-}
-
-impl From<NativeExecutionBlockData> for BootInfoWithoutRollupConfig {
-    fn from(block_data: NativeExecutionBlockData) -> Self {
-        BootInfoWithoutRollupConfig {
-            l1_head: block_data.l1_head,
-            l2_output_root: block_data.l2_output_root,
-            l2_claim: block_data.l2_claim,
-            l2_claim_block: block_data.l2_block_number,
-            chain_id: block_data.l2_chain_id,
-        }
-    }
-}
-
-impl From<SP1KonaCliArgs> for BootInfoWithoutRollupConfig {
-    fn from(args: SP1KonaCliArgs) -> Self {
-        BootInfoWithoutRollupConfig {
-            l1_head: B256::from_str(&args.l1_head).unwrap(),
-            l2_output_root: B256::from_str(&args.l2_output_root).unwrap(),
-            l2_claim: B256::from_str(&args.l2_claim).unwrap(),
-            l2_claim_block: args.l2_claim_block,
-            chain_id: args.chain_id,
-        }
-    }
-}
 
 fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
     let mut stdin = SP1Stdin::new();

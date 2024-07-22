@@ -7,29 +7,35 @@ use std::str::FromStr;
 #[command(author, version, about, long_about = None)]
 pub struct SP1KonaCliArgs {
     #[arg(long)]
-    l1_head: String,
+    pub l2_claim_block: u64,
 
     #[arg(long)]
-    l2_output_root: String,
-
-    #[arg(long)]
-    l2_claim: String,
-
-    #[arg(long)]
-    l2_claim_block: u64,
-
-    #[arg(long)]
-    chain_id: u64,
+    pub run_native: bool,
 }
 
-impl From<SP1KonaCliArgs> for BootInfoWithoutRollupConfig {
-    fn from(args: SP1KonaCliArgs) -> Self {
-        BootInfoWithoutRollupConfig {
-            l1_head: B256::from_str(&args.l1_head).unwrap(),
-            l2_output_root: B256::from_str(&args.l2_output_root).unwrap(),
-            l2_claim: B256::from_str(&args.l2_claim).unwrap(),
-            l2_claim_block: args.l2_claim_block,
-            chain_id: args.chain_id,
-        }
-    }
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+pub struct CostEstimatorCliArgs {
+    /// Start block number.
+    #[arg(short, long)]
+    pub start_block: u64,
+
+    /// End block number.
+    #[arg(short, long)]
+    pub end_block: u64,
+
+    /// RPC URL for the OP Stack Chain to do cost estimation for.
+    #[arg(short, long)]
+    pub rpc_url: String,
+
+    /// Skip native data generation if data directory already exists.
+    #[arg(
+        long,
+        help = "Skip native data generation if the Merkle tree data is already stored in data."
+    )]
+    pub skip_datagen: bool,
+
+    /// Verbosity level.
+    #[arg(short, long, default_value = "0")]
+    pub verbosity_level: u8,
 }
