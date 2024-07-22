@@ -33,21 +33,3 @@ Output:
 ```
 
 ```
-
-
-
-## TODO
-Some blocks fail due to an OOM in SP1. We should debug this and see if either 1) there is an infinite loop causing OOM, 2) we should modify the SP1 Kona program to use less memory or 3) we should increase the heap memory usage in SP1.
-
-**Failing Blocks**: 122858451
-
-Ex.
-```
-stderr: thread '<unnamed>' panicked at /Users/ratankaliani/.cargo/git/checkouts/sp1-20c98843a1ffc860/14eb569/zkvm/entrypoint/src/syscalls/memory.rs:46:9:
-stderr: explicit panic
-stderr: stack backtrace:
-stderr: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
-2024-07-18T17:54:03.165344Z  INFO execute: close time.busy=57.8s time.idle=2.33µ
-```
-
-
