@@ -33,6 +33,7 @@ cfg_if! {
 
 fn main() {
     zkvm_common::block_on(async move {
+        kona_common::io::print("hello program start\n");
         ////////////////////////////////////////////////////////////////
         //                          PROLOGUE                          //
         ////////////////////////////////////////////////////////////////
@@ -54,11 +55,19 @@ fn main() {
             // fetcher via hints, and gather boot info from this oracle.
             } else {
                 let oracle = Arc::new(CachingOracle::new(1024));
+                kona_common::io::print("line58\n");
+                kona_common::io::print("HI");
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
+                kona_common::io::print("line59\n");
+                kona_common::io::exit(0);
             }
         }
 
+        kona_common::io::print("HI");
+        kona_common::io::exit(0);
+
         let precompile_overrides = NoPrecompileOverride;
+        kona_common::io::print("line63\n");
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
@@ -67,6 +76,7 @@ fn main() {
         ////////////////////////////////////////////////////////////////
         //                   DERIVATION & EXECUTION                   //
         ////////////////////////////////////////////////////////////////
+        kona_common::io::print("driver\n");
 
         let mut driver = DerivationDriver::new(
             boot.as_ref(),
@@ -88,6 +98,7 @@ fn main() {
             .with_precompile_overrides(precompile_overrides)
             .build()
             .unwrap();
+        kona_common::io::print("executing payload\n");
 
         let Header { number, .. } = *executor.execute_payload(attributes).unwrap();
         let output_root = executor.compute_output_root().unwrap();
@@ -98,5 +109,18 @@ fn main() {
 
         assert_eq!(number, boot.l2_claim_block);
         assert_eq!(output_root, boot.l2_claim);
+
+        kona_common::io::print("HI");
+        kona_common::io::exit(0);
+
+        cfg_if! {
+            // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
+            // and in memory oracle.
+            if #[cfg(target_os = "zkvm")] {
+                // Do nothing
+            } else {
+                kona_common::io::exit(0);
+            }
+        }
     });
 }

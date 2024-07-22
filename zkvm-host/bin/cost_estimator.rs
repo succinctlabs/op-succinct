@@ -3,6 +3,7 @@ use clap::Parser;
 use kona_host::init_tracing_subscriber;
 use native_host::run_native_host;
 use num_format::{Locale, ToFormattedString};
+use sp1_sdk::ExecutionReport;
 use zkvm_host::execute_kona_program;
 use zkvm_host::fetcher::SP1KonaDataFetcher;
 
@@ -42,7 +43,7 @@ async fn main() -> Result<()> {
     // Initialize tracing subscriber.
     init_tracing_subscriber(args.verbosity_level).unwrap();
 
-    let mut reports = Vec::new();
+    let mut reports: Vec<ExecutionReport> = Vec::new();
 
     let data_fetcher = SP1KonaDataFetcher {
         l2_rpc: args.rpc_url,
@@ -50,6 +51,7 @@ async fn main() -> Result<()> {
     };
 
     for block_num in args.start_block..=args.end_block {
+        let block_num = args.start_block;
         // Get the relevant data for native and zkvm execution.
         let block_data = data_fetcher.pull_block_data(block_num).await?;
 
@@ -67,12 +69,12 @@ async fn main() -> Result<()> {
 
         println!("Ran native host for block {}", block_num);
 
-        // Execute the Kona program.
-        let report = execute_kona_program(&block_data.into());
+        // // Execute the Kona program.
+        // let report = execute_kona_program(&block_data.into());
 
-        reports.push(report);
+        // reports.push(report);
 
-        println!("Executed block {}", block_num);
+        // println!("Executed block {}", block_num);
     }
 
     // Nicely print out the total instruction count for each block.

@@ -25,6 +25,7 @@ kona-preimage.workspace = true
 kona-primitives.workspace = true
 kona-executor.workspace = true
 kona-client.workspace = true
+kona-common.workspace = true
 
 # workspace (local)
 zkvm-common.workspace = true
