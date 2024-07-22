@@ -49,11 +49,19 @@ impl SP1KonaDataFetcher {
         Ok(block.hash.unwrap().0.into())
     }
 
-    pub async fn 
+    pub async fn get_l2_safe_head_block(&self, l2_claim_block: u64) -> Result<u64> {
+        let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
+        let l2_block_safe_head = l2_claim_block - 1;
+        Ok(l2_block_safe_head)
+    }
 
     /// Get the L2 output data for a given block number and save the boot info to a file in the data directory
     /// with block_number. Return the arguments to be passed to the native host for datagen.
-    pub async fn get_native_execution_data(&self, l2_safe_head_block: u64, l2_claim_block: u64) -> Result<HostCli> {
+    pub async fn get_native_execution_data(
+        &self,
+        l2_safe_head_block: u64,
+        l2_claim_block: u64,
+    ) -> Result<HostCli> {
         let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
 
         let l2_block_safe_head = l2_block_num - 1;

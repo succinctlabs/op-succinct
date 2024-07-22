@@ -1241,9 +1241,14 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
+ "anyhow",
+ "async-trait",
  "kona-client",
+ "kona-preimage",
  "kona-primitives",
+ "rkyv",
  "serde",
+ "sha2",
 ]
 
 [[package]]
