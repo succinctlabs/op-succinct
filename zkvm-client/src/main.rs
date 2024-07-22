@@ -20,11 +20,7 @@ cfg_if! {
     // from SP1 and compile to a program that can be run in zkVM.
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
-
-        mod oracle;
-        use oracle::InMemoryOracle;
-
-        use zkvm_common::BootInfoWithoutRollupConfig;
+        use client_utils::{RawBootInfo, InMemoryOracle};
         use alloc::vec::Vec;
     } else {
         use kona_client::CachingOracle;
@@ -41,9 +37,9 @@ fn main() {
             // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
-                let boot = sp1_zkvm::io::read::<BootInfoWithoutRollupConfig>();
+                let raw_boot_info = sp1_zkvm::io::read::<RawBootInfo>();
+                let boot: Arc<BootInfo> = Arc::new(raw_boot_info.into());
                 sp1_zkvm::io::commit_slice(&boot.abi_encode());
-                let boot: Arc<BootInfo> = Arc::new(boot.into());
 
                 let kv_store_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
                 let oracle = Arc::new(InMemoryOracle::from_raw_bytes(kv_store_bytes));

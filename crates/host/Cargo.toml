@@ -1,0 +1,12 @@
+[package]
+name = "host-utils"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+kona-client.workspace = true
+kona-primitives.workspace = true
+alloy-primitives.workspace = true
+alloy-sol-types.workspace = true
+serde.workspace = true

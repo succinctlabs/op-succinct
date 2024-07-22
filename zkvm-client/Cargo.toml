@@ -27,7 +27,7 @@ kona-executor.workspace = true
 kona-client.workspace = true
 
 # workspace (local)
-zkvm-common.workspace = true
+client-utils.workspace = true
 
 # sp1
 sp1-zkvm = { workspace = true }

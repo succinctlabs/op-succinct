@@ -34,8 +34,7 @@ clap = { workspace = true }
 kona-host = { workspace = true }
 
 # local
-zkvm-common = { path = "../common" }
-native-host = { path = "../native-host" }
+client-utils.workspace = true
 
 # sp1
 sp1-sdk = { workspace = true }

@@ -7,7 +7,7 @@ use kona_preimage::{HintWriterClient, PreimageOracleClient, PreimageKey, Preimag
 use std::collections::HashMap;
 use sha2::{Digest, Sha256};
 use rkyv::{Archive, Serialize, Deserialize, Infallible};
-use zkvm_common::BytesHasherBuilder;
+use crate::BytesHasherBuilder;
 use alloy_primitives::{FixedBytes, keccak256};
 
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
