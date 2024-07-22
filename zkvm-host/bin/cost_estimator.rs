@@ -6,7 +6,7 @@ use num_format::{Locale, ToFormattedString};
 use zkvm_host::execute_kona_program;
 use zkvm_host::{CostEstimatorCliArgs, fetcher::SP1KonaDataFetcher};
 
-
+pub const ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
 #[tokio::main]
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 
     for block_num in args.start_block..=args.end_block {
         // Get the relevant data for native and zkvm execution.
-        let block_data = data_fetcher.pull_block_data(block_num).await?;
+        let block_data = data_fetcher.pull_block_data(None, block_num).await?;
 
         println!("Pulled block data for block {}", block_num);
 
@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
         println!("Ran native host for block {}", block_num);
 
         // Execute the Kona program.
-        let report = execute_kona_program(&block_data.into());
+        let report = execute_kona_program(&block_data.into(), ELF);
 
         reports.push(report);
 

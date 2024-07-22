@@ -1,14 +1,13 @@
 //! Contains the host <-> client communication utilities.
 
-use alloc::{boxed::Box, vec::Vec};
 use alloy_primitives::{keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
-use zkvm_common::BytesHasherBuilder;
+use std::{boxed::Box, vec::Vec, collections::HashMap};
+use crate::BytesHasherBuilder;
 
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
 /// Rather than relying on a trusted host for data, the data in this oracle
@@ -80,7 +79,7 @@ impl HintWriterClient for InMemoryOracle {
 #[derive(Default)]
 struct Blob {
     // TODO: Advantage / disadvantage of using FixedBytes?
-    commitment: FixedBytes<48>,
+    _commitment: FixedBytes<48>,
     data: FixedBytes<4096>,
     kzg_proof: FixedBytes<48>,
 }
@@ -154,7 +153,7 @@ impl InMemoryOracle {
         }
 
         // Verify reconstructed blobs.
-        for (commitment, blob) in blobs.iter() {
+        for (_commitment, _blob) in blobs.iter() {
             // kzg::verify_blob_kzg_proof(&blob.data, commitment, &blob.kzg_proof)
             // .map_err(|e| format!("blob verification failed for {:?}: {}", commitment, e))?;
 

@@ -21,8 +21,10 @@ sol! {
     }
 }
 
+// TODO: Rename now that it's not necessarily just one block.
 pub struct NativeExecutionBlockData {
     pub l1_head: B256,
+    pub l2_safe_head: u64,
     pub l2_output_root: B256,
     pub l2_claim: B256,
     pub l2_block_number: u64,
@@ -82,10 +84,10 @@ impl SP1KonaDataFetcher {
     }
 
     // Pull the relevant block data for the given block number for the Kona execution.
-    pub async fn pull_block_data(&self, l2_block_num: u64) -> Result<NativeExecutionBlockData> {
+    pub async fn pull_block_data(&self, start_block: Option<u64>, end_block: u64) -> Result<NativeExecutionBlockData> {
         let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
 
-        let l2_block_safe_head = l2_block_num - 1;
+        let l2_block_safe_head = start_block.unwrap_or(end_block - 1);
 
         // Get L2 output data.
         let l2_output_block = l2_provider.get_block(l2_block_safe_head).await?.unwrap();
@@ -109,14 +111,14 @@ impl SP1KonaDataFetcher {
         let l2_output_root = keccak256(&l2_output_encoded.abi_encode());
 
         // Get L2 claim data.
-        let l2_claim_block = l2_provider.get_block(l2_block_num).await?.unwrap();
+        let l2_claim_block = l2_provider.get_block(end_block).await?.unwrap();
         let l2_claim_state_root = l2_claim_block.state_root;
         let l2_claim_hash = l2_claim_block.hash.expect("L2 claim hash is missing");
         let l2_claim_storage_hash = l2_provider
             .get_proof(
                 H160::from_str("0x4200000000000000000000000000000000000016")?,
                 Vec::new(),
-                Some(l2_block_num.into()),
+                Some(end_block.into()),
             )
             .await?
             .storage_hash;
@@ -140,9 +142,10 @@ impl SP1KonaDataFetcher {
 
         Ok(NativeExecutionBlockData {
             l1_head: l1_head.0.into(),
+            l2_safe_head: l2_block_safe_head,
             l2_output_root: l2_output_root.0.into(),
             l2_claim: l2_claim.0.into(),
-            l2_block_number: l2_block_num,
+            l2_block_number: end_block,
             l2_chain_id: l2_chain_id.as_u64(),
             l2_head: l2_head.0.into(),
         })
@@ -158,8 +161,10 @@ impl SP1KonaDataFetcher {
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
-        let data_directory = format!("{}/data/{}", workspace_root, block_data.l2_block_number);
-        let exec_directory = format!("{}/target/release-client-lto/zkvm-client", workspace_root);
+        let data_directory = format!("{}/data/{}-{}", workspace_root, block_data.l2_safe_head, block_data.l2_block_number);
+
+        // TODO: How to generate this dynamically?
+        let exec_directory = format!("{}/target/release-client-lto/validity-client", workspace_root);
 
         if !Path::new(&data_directory).exists() {
             fs::create_dir_all(&data_directory)?;

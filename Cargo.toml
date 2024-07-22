@@ -1,5 +1,5 @@
 [workspace]
-members = ["common", "native-host", "zkvm-client", "zkvm-host"]
+members = ["common", "native-host", "validity-client", "zkvm-client", "zkvm-host"]
 resolver = "2"
 
 [workspace.package]

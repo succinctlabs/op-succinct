@@ -1709,6 +1709,7 @@ dependencies = [
  "rand_core",
  "sec1",
  "subtle",
+ "tap",
  "zeroize",
 ]
 
@@ -5816,6 +5817,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-precompiles"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=v1.0.8-testnet#14eb569d41d24721ffbd407d6060e202482d659c"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "getrandom",
+ "hex",
+ "k256",
+ "num",
+ "rand",
+ "serde",
+ "snowbridge-amcl",
+]
+
+[[package]]
 name = "sp1-primitives"
 version = "1.0.0-rc.1"
 source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.0-rc.1#6be0efa16f8cc56a9c7a286fef71d8f0b51f2c62"
@@ -6052,6 +6070,24 @@ dependencies = [
  "tracing",
  "twirp-rs",
  "vergen",
+]
+
+[[package]]
+name = "sp1-zkvm"
+version = "0.1.0"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=v1.0.8-testnet#14eb569d41d24721ffbd407d6060e202482d659c"
+dependencies = [
+ "bincode",
+ "cfg-if",
+ "getrandom",
+ "k256",
+ "lazy_static",
+ "libm",
+ "once_cell",
+ "rand",
+ "serde",
+ "sha2",
+ "sp1-precompiles",
 ]
 
 [[package]]
@@ -6877,6 +6913,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
 
 [[package]]
+name = "validity-client"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-rlp",
+ "anyhow",
+ "async-trait",
+ "cfg-if",
+ "kona-client",
+ "kona-derive",
+ "kona-executor",
+ "kona-mpt",
+ "kona-preimage",
+ "kona-primitives",
+ "op-alloy-consensus",
+ "rkyv",
+ "serde",
+ "sha2",
+ "sp1-zkvm 0.1.0",
+ "zkvm-common",
+]
+
+[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7430,7 +7491,7 @@ dependencies = [
  "kona-primitives",
  "rkyv",
  "sha2",
- "sp1-zkvm",
+ "sp1-zkvm 1.0.0-rc.1",
  "zkvm-common",
 ]
 
@@ -7440,9 +7501,14 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
+ "anyhow",
+ "async-trait",
  "kona-client",
+ "kona-preimage",
  "kona-primitives",
+ "rkyv",
  "serde",
+ "sha2",
 ]
 
 [[package]]

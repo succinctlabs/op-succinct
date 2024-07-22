@@ -8,8 +8,12 @@ repository.workspace = true
 homepage.workspace = true
 
 [[bin]]
-name = "script"
-path = "bin/script.rs"
+name = "single_block"
+path = "bin/single_block.rs"
+
+[[bin]]
+name = "multi_block"
+path = "bin/multi_block.rs"
 
 [[bin]]
 name = "cost_estimator"

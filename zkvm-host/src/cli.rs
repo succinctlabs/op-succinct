@@ -15,6 +15,22 @@ pub struct SP1KonaCliArgs {
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+pub struct MultiblockCliArgs {
+    #[arg(long)]
+    pub start_block: u64,
+
+    #[arg(long)]
+    pub end_block: u64,
+
+    #[arg(long)]
+    pub run_native: bool,
+
+    #[arg(short, long, default_value = "4")]
+    pub verbosity_level: u8,
+}
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
 pub struct CostEstimatorCliArgs {
     /// Start block number.
     #[arg(short, long)]

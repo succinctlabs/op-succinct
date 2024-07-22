@@ -5,8 +5,19 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-kona-client.workspace = true
-kona-primitives.workspace = true
+
+# workspace (general)
+anyhow.workspace = true
+async-trait.workspace = true
+rkyv.workspace = true
+sha2.workspace = true
+serde.workspace = true
+
+# workspace (ethereum)
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
-serde.workspace = true
+
+# workspace (kona)
+kona-client.workspace = true
+kona-primitives.workspace = true
+kona-preimage.workspace = true

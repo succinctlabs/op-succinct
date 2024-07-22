@@ -1,7 +1,7 @@
 pub mod fetcher;
 pub mod helpers;
 pub mod cli;
-pub use cli::{SP1KonaCliArgs, CostEstimatorCliArgs};
+pub use cli::{SP1KonaCliArgs, MultiblockCliArgs, CostEstimatorCliArgs};
 
 use cargo_metadata::MetadataCommand;
 use sp1_core::runtime::ExecutionReport;
@@ -17,10 +17,6 @@ use rkyv::{
 };
 
 use crate::helpers::load_kv_store;
-
-pub const KONA_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
-
-
 
 fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
     let mut stdin = SP1Stdin::new();
@@ -50,23 +46,23 @@ fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
 }
 
 /// Execute the Kona program and return the execution report.
-pub fn execute_kona_program(boot_info: &BootInfoWithoutRollupConfig) -> ExecutionReport {
+pub fn execute_kona_program(boot_info: &BootInfoWithoutRollupConfig, elf: &[u8]) -> ExecutionReport {
     // First instantiate a mock prover client to just execute the program and get the estimation of
     // cycle count.
     let client = ProverClient::mock();
 
     let stdin = get_kona_program_input(boot_info);
 
-    let (mut _public_values, report) = client.execute(KONA_ELF, stdin).run().unwrap();
+    let (mut _public_values, report) = client.execute(elf, stdin).run().unwrap();
     report
 }
 
 /// Execute the Kona program and return the execution report.
-pub fn prove_kona_program(boot_info: &BootInfoWithoutRollupConfig) -> SP1ProofWithPublicValues {
+pub fn prove_kona_program(boot_info: &BootInfoWithoutRollupConfig, elf: &[u8]) -> SP1ProofWithPublicValues {
     // First instantiate a mock prover client to just execute the program and get the estimation of
     // cycle count.
     let client = ProverClient::new();
-    let (pk, _) = client.setup(KONA_ELF);
+    let (pk, _) = client.setup(elf);
 
     let stdin = get_kona_program_input(boot_info);
 
