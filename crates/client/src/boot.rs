@@ -57,14 +57,13 @@ impl RawBootInfo {
     /// so that we can verify on chain that the correct values were used in
     /// the proof.
     pub fn abi_encode(&self) -> Vec<u8> {
-        let public_values = RawBootInfoStruct {
+        RawBootInfoStruct {
             l1Head: self.l1_head,
             l2PreRoot: self.l2_output_root,
             l2PostRoot: self.l2_claim,
             l2BlockNumber: U256::from(self.l2_claim_block),
             chainId: U256::from(self.chain_id),
-        };
-
-        public_values.abi_encode()
+        }
+        .abi_encode()
     }
 }
