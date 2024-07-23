@@ -110,16 +110,13 @@ impl InMemoryOracle {
                         let element: [u8; 8] = blob_data[72..].try_into().unwrap();
                         let element: u64 = u64::from_be_bytes(element);
 
-                        // TODO: This requires upstream kona changes to save these values in L1Blob hint.
+                        // Blob is stored as one 48 byte element.
                         if element == 4096 {
-                            // kzg_proof[0..32]
-                            blobs.entry(commitment).or_default().kzg_proof[..32]
+                            blobs
+                                .entry(commitment)
+                                .or_default()
+                                .kzg_proof
                                 .copy_from_slice(value);
-                            continue;
-                        } else if element == 4097 {
-                            // kzg_proof[32..48]
-                            blobs.entry(commitment).or_default().kzg_proof[32..]
-                                .copy_from_slice(&value[..16]);
                             continue;
                         }
 
