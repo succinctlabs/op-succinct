@@ -134,13 +134,13 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
         println!("Stepping on Pipeline for L2 Block: {}", self.l2_safe_head.block_info.number);
         match self.pipeline.step(self.l2_safe_head).await {
             StepResult::PreparedAttributes => {
+                println!("Found Attributes");
                 let mut payloads = Vec::new();
                 loop {
                     let attributes = self.pipeline.next();
                     match attributes {
                         Some(attr) => {
                             if attr.parent.block_info.number + 1 == self.l2_claim_block {
-                                println!("Derived up until L2 Claim Block: {}", attr.parent.block_info.number);
                                 payloads.push(attr);
                                 break;
                             } else {
@@ -155,17 +155,17 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                 return Ok(payloads);
             }
             StepResult::AdvancedOrigin => {
-                println!("advanced origin");
+                println!("Advanced Origin");
             }
             StepResult::OriginAdvanceErr(e) => {
-                println!("origin advance error: {:?}", e);
+                println!("Origin Advance Error: {:?}", e);
             }
             StepResult::StepFailed(e) => match e {
                 StageError::NotEnoughData => {
-                    println!("failed not enough data: {:?}", e);
+                    println!("Failed: Not Enough Data");
                 }
                 _ => {
-                    println!("failed: {:?}", e);
+                    println!("Failed: {:?}", e);
                 }
             },
         }

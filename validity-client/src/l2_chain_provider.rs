@@ -14,7 +14,7 @@ use kona_primitives::{
     L2BlockInfo, L2ExecutionPayloadEnvelope, OpBlock, RollupConfig, SystemConfig,
 };
 use kona_client::{BootInfo, HintType};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 use op_alloy_consensus::OpTxEnvelope;
 use zkvm_common;
 
@@ -26,13 +26,13 @@ pub struct MultiblockOracleL2ChainProvider<T: CommsClient> {
     /// The preimage oracle client.
     oracle: Arc<T>,
     /// Cached headers by block number.
-    header_by_number: HashMap<u64, Header>,
+    header_by_number: Arc<Mutex<HashMap<u64, Header>>>,
     /// Cached L2 block info by block number.
-    l2_block_info_by_number: HashMap<u64, L2BlockInfo>,
+    l2_block_info_by_number: Arc<Mutex<HashMap<u64, L2BlockInfo>>>,
     /// Cached payloads by block number.
-    payload_by_number: HashMap<u64, L2ExecutionPayloadEnvelope>,
+    payload_by_number: Arc<Mutex<HashMap<u64, L2ExecutionPayloadEnvelope>>>,
     /// Cached system configs by block number.
-    system_config_by_number: HashMap<u64, SystemConfig>,
+    system_config_by_number: Arc<Mutex<HashMap<u64, SystemConfig>>>,
 }
 
 impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
@@ -41,10 +41,10 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
         Self {
             boot_info,
             oracle,
-            header_by_number: HashMap::new(),
-            l2_block_info_by_number: HashMap::new(),
-            payload_by_number: HashMap::new(),
-            system_config_by_number: HashMap::new(),
+            header_by_number: Arc::new(Mutex::new(HashMap::new())),
+            l2_block_info_by_number: Arc::new(Mutex::new(HashMap::new())),
+            payload_by_number: Arc::new(Mutex::new(HashMap::new())),
+            system_config_by_number: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -52,12 +52,12 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
     // After each block, update the cache with the new, executed block's data, which is now trusted.
     pub fn update_cache(&mut self, header: &Header, payload: L2ExecutionPayloadEnvelope, config: &RollupConfig) -> Result<L2BlockInfo> {
-        self.header_by_number.insert(header.number, header.clone());
-        self.payload_by_number.insert(header.number, payload.clone());
-        self.system_config_by_number.insert(header.number, payload.to_system_config(&config).unwrap());
+        self.header_by_number.lock().unwrap().insert(header.number, header.clone());
+        self.payload_by_number.lock().unwrap().insert(header.number, payload.clone());
+        self.system_config_by_number.lock().unwrap().insert(header.number, payload.to_system_config(&config).unwrap());
 
         let l2_block_info = payload.to_l2_block_ref(&config)?;
-        self.l2_block_info_by_number.insert(header.number, l2_block_info);
+        self.l2_block_info_by_number.lock().unwrap().insert(header.number, l2_block_info);
         Ok(l2_block_info)
     }
 
@@ -65,7 +65,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
     /// L2 safe head.
     pub async fn header_by_number(&mut self, block_number: u64) -> Result<Header> {
         // First, check if it's already in the cache.
-        if let Some(header) = self.header_by_number.get(&block_number) {
+        if let Some(header) = self.header_by_number.lock().unwrap().get(&block_number) {
             return Ok(header.clone());
         }
 
@@ -104,7 +104,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainProvider<T> {
     async fn l2_block_info_by_number(&mut self, number: u64) -> Result<L2BlockInfo> {
         // First, check if it's already in the cache.
-        if let Some(l2_block_info) = self.l2_block_info_by_number.get(&number) {
+        if let Some(l2_block_info) = self.l2_block_info_by_number.lock().unwrap().get(&number) {
             return Ok(l2_block_info.clone());
         }
 
@@ -117,7 +117,7 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
 
     async fn payload_by_number(&mut self, number: u64) -> Result<L2ExecutionPayloadEnvelope> {
         // First, check if it's already in the cache.
-        if let Some(payload) = self.payload_by_number.get(&number) {
+        if let Some(payload) = self.payload_by_number.lock().unwrap().get(&number) {
             return Ok(payload.clone());
         }
 
@@ -154,7 +154,7 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
         rollup_config: Arc<RollupConfig>,
     ) -> Result<SystemConfig> {
         // First, check if it's already in the cache.
-        if let Some(system_config) = self.system_config_by_number.get(&number) {
+        if let Some(system_config) = self.system_config_by_number.lock().unwrap().get(&number) {
             return Ok(system_config.clone());
         }
 

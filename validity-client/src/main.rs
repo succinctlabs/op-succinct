@@ -65,10 +65,8 @@ fn main() {
             }
         }
 
-        let precompile_overrides = NoPrecompileOverride;
-
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
 
         ////////////////////////////////////////////////////////////////
@@ -91,8 +89,8 @@ fn main() {
         let mut executor = StatelessL2BlockExecutor::builder(&boot.rollup_config)
             .with_parent_header(driver.clone_l2_safe_head_header())
             .with_fetcher(l2_provider.clone())
-            .with_hinter(l2_provider)
-            .with_precompile_overrides(precompile_overrides)
+            .with_hinter(l2_provider.clone())
+            .with_precompile_overrides(NoPrecompileOverride)
             .build()
             .unwrap();
 
@@ -124,7 +122,7 @@ fn main() {
                 }.into();
 
                 // Add all data from this block's execution to the cache.
-                l2_block_info = driver.pipeline.l2_chain_provider.update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config).unwrap();
+                l2_block_info = l2_provider.update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config).unwrap();
 
                 // Increment last_block_num and check if we have reached the claim block.
                 if new_block_number == boot.l2_claim_block {
@@ -140,12 +138,13 @@ fn main() {
         }
 
         let output_root = executor.compute_output_root().unwrap();
+        println!("Completed Proof. Output Root: {}", output_root);
 
         ////////////////////////////////////////////////////////////////
         //                          EPILOGUE                          //
         ////////////////////////////////////////////////////////////////
 
-        // we don't need the last_block_num == claim_block check, because it's the only way to exit the above loop
+        // Note: We don't need the last_block_num == claim_block check, because it's the only way to exit the above loop
         assert_eq!(output_root, boot.l2_claim);
     });
 }
