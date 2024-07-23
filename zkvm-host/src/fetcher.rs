@@ -22,6 +22,7 @@ sol! {
 }
 
 // TODO: Rename now that it's not necessarily just one block.
+#[derive(Debug)]
 pub struct NativeExecutionBlockData {
     pub l1_head: B256,
     pub l2_safe_head: u64,
@@ -156,15 +157,22 @@ impl SP1KonaDataFetcher {
     pub fn get_native_host_cli_args(
         &self,
         block_data: &NativeExecutionBlockData,
+        multiblock: bool,
         verbosity: u8,
     ) -> Result<HostCli> {
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
-        let data_directory = format!("{}/data/{}-{}", workspace_root, block_data.l2_output_root, block_data.l2_block_number);
+        let folder = if multiblock {
+            format!("multi/{}", block_data.l2_block_number)
+        } else {
+            format!("single/{}", block_data.l2_block_number.to_string())
+        };
+        let data_directory = format!("{}/data/{}", workspace_root, folder);
 
-        // TODO: How to generate this dynamically?
-        let exec_directory = format!("{}/target/release-client-lto/validity-client", workspace_root);
+        // TODO: Better way to generate this dynamically?
+        let bin_name = if multiblock { "validity-client" } else { "zkvm-client" };
+        let exec_directory = format!("{}/target/release-client-lto/{}", workspace_root, bin_name);
 
         if !Path::new(&data_directory).exists() {
             fs::create_dir_all(&data_directory)?;

@@ -5,10 +5,10 @@ set dotenv-load
 default:
     @just --list
 
-run l2_block_num:
+run-single l2_block_num:
     RUST_LOG=info cargo run --bin single_block --release -- --l2-claim-block {{l2_block_num}} --run-native
 
-run-zkvm l2_block_num:
+run-zkvm-single l2_block_num:
     RUST_LOG=info cargo run --bin single_block --release -- --l2-claim-block {{l2_block_num}}
 
 run-multiblock start_block end_block:
