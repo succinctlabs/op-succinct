@@ -14,6 +14,9 @@ run-zkvm l2_block_num:
 run-multiblock start_block end_block:
     RUST_LOG=info cargo run --bin multi_block --release -- --start-block {{start_block}} --end-block {{end_block}} --run-native
 
+run-zkvm-multiblock start_block end_block:
+    RUST_LOG=info cargo run --bin multi_block --release -- --start-block {{start_block}} --end-block {{end_block}}
+
 estimate-cost start_block end_block l2_rpc skip_datagen verbosity:
     #!/usr/bin/env bash
     if [ -z "$(skip_datagen)" ]; then

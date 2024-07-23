@@ -161,7 +161,7 @@ impl SP1KonaDataFetcher {
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
-        let data_directory = format!("{}/data/{}-{}", workspace_root, block_data.l2_safe_head, block_data.l2_block_number);
+        let data_directory = format!("{}/data/{}-{}", workspace_root, block_data.l2_output_root, block_data.l2_block_number);
 
         // TODO: How to generate this dynamically?
         let exec_directory = format!("{}/target/release-client-lto/validity-client", workspace_root);

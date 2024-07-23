@@ -10,7 +10,7 @@ pub const ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    utils::setup_logger();
+    // utils::setup_logger();
     let args = SP1KonaCliArgs::parse();
 
     let data_fetcher = SP1KonaDataFetcher::default();

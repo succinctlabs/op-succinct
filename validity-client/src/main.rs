@@ -102,6 +102,7 @@ fn main() {
 
             for payload in l2_attrs_with_parents {
                 // Execute the payload to generate a new block header.
+                println!("Executing Payload for L2 Block: {}", payload.parent.block_info.number + 1);
                 new_block_header = executor.execute_payload(payload.attributes.clone()).unwrap();
                 let new_block_number = new_block_header.number;
                 assert_eq!(new_block_number, payload.parent.block_info.number + 1);

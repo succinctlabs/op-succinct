@@ -26,14 +26,13 @@ fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
     // Read KV store into raw bytes and pass to stdin.
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
-    let data_directory = format!("{}/data/{}", workspace_root, boot_info.l2_claim_block);
+    let data_directory = format!("{}/data/{}-{}", workspace_root, boot_info.l2_output_root, boot_info.l2_claim_block);
 
     let kv_store = load_kv_store(&data_directory.into());
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),
-        // TODO: This value is hardcoded to minimum for this block.
-        // Figure out how to compute it so it works on all blocks.
+        // TODO: Figure out how to compute this so it works on all block ranges.
         HeapScratch::<8388608>::new(),
         SharedSerializeMap::new(),
     );
