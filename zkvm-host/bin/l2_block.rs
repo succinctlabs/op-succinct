@@ -15,13 +15,13 @@ struct Args {
     #[arg(short, long)]
     l2_block_number: u64,
 
-    /// Whether or not to do the cost estimation.
-    #[arg(short, long)]
-    cost_estimation: bool,
-
     /// Generate the execution data.
     #[arg(short, long)]
     generate_execution_data: bool,
+
+    /// Verbosity level.
+    #[arg(short, long, default_value = "0")]
+    verbosity: u8,
 }
 
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     let l2_safe_head = args.l2_block_number - 1;
 
     let host_cli = data_fetcher
-        .get_host_cli_args(l2_safe_head, args.l2_block_number)
+        .get_host_cli_args(l2_safe_head, args.l2_block_number, args.verbosity)
         .await?;
 
     let data_dir = host_cli
@@ -55,28 +55,22 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         init_tracing_subscriber(host_cli.v).unwrap();
-        println!("Starting native server");
         start_server_and_native_client(host_cli.clone())
             .await
             .unwrap();
     }
 
-    println!("Ran native server");
-
     // Get the stdin for the block.
     let sp1_stdin = get_sp1_stdin(&host_cli)?;
 
     let prover = ProverClient::new();
-    if args.cost_estimation {
-        let (_, report) = prover.execute(KONA_ELF, sp1_stdin).run().unwrap();
+    let (_, report) = prover.execute(KONA_ELF, sp1_stdin).run().unwrap();
 
-        println!("Executed prover");
+    println!(
+        "Block {} cycle count: {}",
+        args.l2_block_number,
+        report.total_instruction_count()
+    );
 
-        println!(
-            "Block {} cycle count: {}",
-            args.l2_block_number,
-            report.total_instruction_count()
-        );
-    }
     Ok(())
 }
