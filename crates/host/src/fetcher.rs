@@ -62,6 +62,8 @@ impl SP1KonaDataFetcher {
         Ok(block.hash.unwrap().0.into())
     }
 
+    /// Get the L2 safe head block number using the claim block.
+    /// Example justfile: https://github.com/ethereum-optimism/kona/blob/d9dfff37e2c5aef473f84bf2f28277186040b79f/bin/client/justfile#L26-L32
     pub async fn get_l2_safe_head_block(&self, l2_claim_block: u64) -> Result<u64> {
         // TODO: computation from Kona to fetch this.
         Ok(l2_claim_block - 1)
@@ -69,7 +71,7 @@ impl SP1KonaDataFetcher {
 
     /// Get the L2 output data for a given block number and save the boot info to a file in the data directory
     /// with block_number. Return the arguments to be passed to the native host for datagen.
-    pub async fn get_native_execution_data(
+    pub async fn get_host_cli_args(
         &self,
         l2_block_safe_head: u64,
         l2_claim_block_nb: u64,

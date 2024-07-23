@@ -1,9 +1,12 @@
 pub mod fetcher;
 pub mod helpers;
 
+use cargo_metadata::MetadataCommand;
 use client_utils::RawBootInfo;
 use kona_host::HostCli;
 use sp1_sdk::SP1Stdin;
+
+use anyhow::Result;
 
 use alloy_sol_types::sol;
 
@@ -26,8 +29,8 @@ sol! {
     }
 }
 
-/// Execute the Kona program and return the execution report.
-pub fn get_sp1_stdin(host_cli: &HostCli) -> SP1Stdin {
+/// Get the stdin to generate a proof for the given L2 claim.
+pub fn get_sp1_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
 
     let boot_info = RawBootInfo {
@@ -39,8 +42,13 @@ pub fn get_sp1_stdin(host_cli: &HostCli) -> SP1Stdin {
     };
     stdin.write(&boot_info);
 
-    // Read KV store into raw bytes and pass to stdin.
-    let kv_store = load_kv_store(&format!("../data/{}", boot_info.l2_claim_block));
+    // Get the workspace root, which is where the data directory is.
+    let metadata = MetadataCommand::new().exec().unwrap();
+    let workspace_root = metadata.workspace_root;
+    let kv_store = load_kv_store(&format!(
+        "{}/data/{}",
+        workspace_root, boot_info.l2_claim_block
+    ));
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),
@@ -49,11 +57,11 @@ pub fn get_sp1_stdin(host_cli: &HostCli) -> SP1Stdin {
         HeapScratch::<8388608>::new(),
         SharedSerializeMap::new(),
     );
-    serializer.serialize_value(&kv_store).unwrap();
+    serializer.serialize_value(&kv_store)?;
 
     let buffer = serializer.into_serializer().into_inner();
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
 
-    stdin
+    Ok(stdin)
 }

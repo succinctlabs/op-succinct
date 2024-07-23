@@ -3,6 +3,7 @@ use std::env;
 use anyhow::Result;
 use clap::Parser;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin};
+use kona_host::{init_tracing_subscriber, start_server_and_native_client};
 use sp1_sdk::ProverClient;
 
 pub const KONA_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
@@ -17,6 +18,10 @@ struct Args {
     /// Whether or not to do the cost estimation.
     #[arg(short, long)]
     cost_estimation: bool,
+
+    /// Generate the execution data.
+    #[arg(short, long)]
+    generate_execution_data: bool,
 }
 
 /// Collect the execution reports across a number of blocks. Inclusive of start and end block.
@@ -34,18 +39,25 @@ async fn main() -> Result<()> {
         .get_l2_safe_head_block(args.l2_block_number)
         .await?;
     let host_cli = data_fetcher
-        .get_native_execution_data(l2_safe_head, args.l2_block_number)
+        .get_host_cli_args(l2_safe_head, args.l2_block_number)
         .await?;
 
-    // Always generate data using native-host
-    use kona_host::{init_tracing_subscriber, start_server_and_native_client};
-    init_tracing_subscriber(host_cli.v).unwrap();
-    start_server_and_native_client(host_cli.clone())
-        .await
-        .unwrap();
+    let data_dir = host_cli
+        .data_dir
+        .clone()
+        .expect("Data directory is not set.");
 
-    // Fetch stdin from the host cli
-    let sp1_stdin = get_sp1_stdin(&host_cli);
+    // If the user wants to generate the execution data, or the data directory doesn't exist,
+    // we need to start the server and generate the execution data for the block.
+    if args.generate_execution_data || !std::path::Path::new(&data_dir).exists() {
+        init_tracing_subscriber(host_cli.v).unwrap();
+        start_server_and_native_client(host_cli.clone())
+            .await
+            .unwrap();
+    }
+
+    // Get the stdin for the block.
+    let sp1_stdin = get_sp1_stdin(&host_cli)?;
 
     let prover = ProverClient::new();
     if args.cost_estimation {
