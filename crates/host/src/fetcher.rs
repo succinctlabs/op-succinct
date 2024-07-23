@@ -11,7 +11,7 @@ use ethers::{
     types::{BlockNumber, H160, U256},
 };
 
-use crate::L2Claim;
+use crate::L2Output;
 
 /// The SP1KonaDataFetcher struct is used to fetch the L2 output data and L2 claim data for a given block number.
 /// It is used to generate the boot info for the native host program.
@@ -84,7 +84,8 @@ impl SP1KonaDataFetcher {
             .await?
             .storage_hash;
 
-        let l2_output_encoded = L2Claim {
+        // Note: Ensure the L2Output has no number field.
+        let l2_output_encoded = L2Output {
             num: 0,
             l2_state_root: l2_output_state_root.0.into(),
             l2_storage_hash: l2_output_storage_hash.0.into(),
@@ -105,7 +106,8 @@ impl SP1KonaDataFetcher {
             .await?
             .storage_hash;
 
-        let l2_claim_encoded = L2Claim {
+        // Note: Ensure the L2Output has no number field.
+        let l2_claim_encoded = L2Output {
             num: 0,
             l2_state_root: l2_claim_state_root.0.into(),
             l2_storage_hash: l2_claim_storage_hash.0.into(),

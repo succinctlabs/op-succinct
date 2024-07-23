@@ -21,7 +21,7 @@ use rkyv::{
 use crate::helpers::load_kv_store;
 
 sol! {
-    struct L2Claim {
+    struct L2Output {
         uint64 num;
         bytes32 l2_state_root;
         bytes32 l2_storage_hash;
