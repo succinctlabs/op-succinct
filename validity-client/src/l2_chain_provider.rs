@@ -51,7 +51,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 
 impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
     // After each block, update the cache with the new, executed block's data, which is now trusted.
-    pub fn update_cache(&mut self, header: &Header, payload: L2ExecutionPayloadEnvelope, config: RollupConfig) -> Result<L2BlockInfo> {
+    pub fn update_cache(&mut self, header: &Header, payload: L2ExecutionPayloadEnvelope, config: &RollupConfig) -> Result<L2BlockInfo> {
         self.header_by_number.insert(header.number, header.clone());
         self.payload_by_number.insert(header.number, payload.clone());
         self.system_config_by_number.insert(header.number, payload.to_system_config(&config).unwrap());
@@ -63,7 +63,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 
     /// Returns a [Header] corresponding to the given L2 block number, by walking back from the
     /// L2 safe head.
-    async fn header_by_number(&mut self, block_number: u64) -> Result<Header> {
+    pub async fn header_by_number(&mut self, block_number: u64) -> Result<Header> {
         // First, check if it's already in the cache.
         if let Some(header) = self.header_by_number.get(&block_number) {
             return Ok(header.clone());
@@ -88,7 +88,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 
         // Check if the block number is in range. If not, we can fail early.
         if block_number > header.number {
-            anyhow::bail!("Block number past L1 head.");
+            anyhow::bail!("Block number past L2 head.");
         }
 
         // Walk back the block headers to the desired block number.

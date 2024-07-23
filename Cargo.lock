@@ -6929,11 +6929,13 @@ dependencies = [
  "kona-mpt",
  "kona-preimage",
  "kona-primitives",
+ "lru",
  "op-alloy-consensus",
  "rkyv",
  "serde",
  "sha2",
  "sp1-zkvm 0.1.0",
+ "spin 0.9.8",
  "zkvm-common",
 ]
 

@@ -16,6 +16,8 @@ async-trait.workspace = true
 serde = { workspace = true, features = ["derive"] }
 rkyv.workspace = true
 sha2.workspace = true
+spin = { version = "0.9.8", features = ["mutex"] }
+lru = "0.12.3"
 
 # workspace (ethereum)
 alloy-primitives.workspace = true

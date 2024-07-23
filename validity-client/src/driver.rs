@@ -19,6 +19,7 @@ use kona_derive::{
         L1Traversal, StatefulAttributesBuilder,
     },
     traits::{ChainProvider, L2ChainProvider},
+    types::StageError,
 };
 use kona_mpt::TrieDBFetcher;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
@@ -153,7 +154,20 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                 }
                 return Ok(payloads);
             }
-            _ => println!("No attributes."),
+            StepResult::AdvancedOrigin => {
+                println!("advanced origin");
+            }
+            StepResult::OriginAdvanceErr(e) => {
+                println!("origin advance error: {:?}", e);
+            }
+            StepResult::StepFailed(e) => match e {
+                StageError::NotEnoughData => {
+                    println!("failed not enough data: {:?}", e);
+                }
+                _ => {
+                    println!("failed: {:?}", e);
+                }
+            },
         }
 
         Ok(Vec::new())

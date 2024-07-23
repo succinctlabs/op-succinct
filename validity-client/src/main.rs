@@ -11,15 +11,14 @@ mod driver;
 pub use driver::MultiBlockDerivationDriver;
 
 mod l2_chain_provider;
-use kona_primitives::{L2BlockInfo, L2ExecutionPayloadEnvelope, OpBlock, SystemConfig};
+use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
 use l2_chain_provider::MultiblockOracleL2ChainProvider;
-use op_alloy_consensus::{OpReceiptEnvelope, OpTxEnvelope};
+use op_alloy_consensus::OpTxEnvelope;
 use alloy_eips::eip2718::Decodable2718;
 
 use alloc::sync::Arc;
 use alloy_consensus::{Sealed, Sealable};
 use cfg_if::cfg_if;
-use anyhow::{Result, anyhow};
 
 extern crate alloc;
 
@@ -69,7 +68,7 @@ fn main() {
         let precompile_overrides = NoPrecompileOverride;
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        let l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
 
         ////////////////////////////////////////////////////////////////
@@ -86,24 +85,22 @@ fn main() {
         .await
         .unwrap();
 
+        let mut l2_block_info = driver.l2_safe_head.clone();
+        let mut new_block_header = &driver.l2_safe_head_header.inner().clone();
+
         let mut executor = StatelessL2BlockExecutor::builder(&boot.rollup_config)
             .with_parent_header(driver.clone_l2_safe_head_header())
             .with_fetcher(l2_provider.clone())
-            .with_hinter(l2_provider.clone())
+            .with_hinter(l2_provider)
             .with_precompile_overrides(precompile_overrides)
             .build()
             .unwrap();
-
-        let mut last_block_num = driver.l2_safe_head.block_info.number;
 
         'step: loop {
             let l2_attrs_with_parents = driver.produce_payloads().await.unwrap();
             if l2_attrs_with_parents.is_empty() {
                 continue;
             }
-
-            let mut l2_block_info = driver.l2_safe_head.clone();
-            let mut new_block_header = &driver.l2_safe_head_header.inner().clone();
 
             for payload in l2_attrs_with_parents {
                 // Execute the payload to generate a new block header.
@@ -121,17 +118,16 @@ fn main() {
                         .map(|raw_tx| {
                             OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap()
                         })
-                        .collect::<Vec<OpTxEnvelope>>();
+                        .collect::<Vec<OpTxEnvelope>>(),
                     withdrawals: boot.rollup_config.is_canyon_active(new_block_header.timestamp).then(Vec::new),
                     ..Default::default()
                 }.into();
 
                 // Add all data from this block's execution to the cache.
-                l2_block_info = l2_provider.update_cache(new_block_header, l2_payload_envelope, boot.rollup_config).unwrap();
+                l2_block_info = driver.pipeline.l2_chain_provider.update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config).unwrap();
 
                 // Increment last_block_num and check if we have reached the claim block.
-                last_block_num = new_block_number;
-                if last_block_num == boot.l2_claim_block {
+                if new_block_number == boot.l2_claim_block {
                     break 'step;
                 }
             }
@@ -139,7 +135,7 @@ fn main() {
             // Update data for the next iteration.
             driver.update_safe_head(
                 l2_block_info,
-                Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash())
+                Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash_slow())
             );
         }
 
@@ -149,7 +145,7 @@ fn main() {
         //                          EPILOGUE                          //
         ////////////////////////////////////////////////////////////////
 
-        assert_eq!(last_block_num, boot.l2_claim_block);
+        // we don't need the last_block_num == claim_block check, because it's the only way to exit the above loop
         assert_eq!(output_root, boot.l2_claim);
     });
 }
