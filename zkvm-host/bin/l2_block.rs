@@ -2,8 +2,8 @@ use std::env;
 
 use anyhow::Result;
 use clap::Parser;
-use host_utils::SP1KonaDataFetcher;
-use kona_host::HostCli;
+use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin};
+use sp1_sdk::ProverClient;
 
 pub const KONA_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
@@ -15,7 +15,6 @@ struct Args {
     l2_block_number: u64,
 
     /// Whether or not to do the cost estimation.
-    /// TODO: default to false
     #[arg(short, long)]
     cost_estimation: bool,
 }
@@ -31,36 +30,33 @@ async fn main() -> Result<()> {
         ..Default::default()
     };
 
+    let l2_safe_head = data_fetcher
+        .get_l2_safe_head_block(args.l2_block_number)
+        .await?;
     let host_cli = data_fetcher
-        .get_native_execution_data(args.l2_block_number)
+        .get_native_execution_data(l2_safe_head, args.l2_block_number)
         .await?;
 
-    // TODO: check that the data exists. If it does not, then generate it using native-host
-    if !args.skip_datagen {
-        use kona_host::{init_tracing_subscriber, start_server_and_native_client, HostCli};
-        init_tracing_subscriber(cfg.v).unwrap();
-        start_server_and_native_client(cfg.clone()).await.unwrap();
-    }
+    // Always generate data using native-host
+    use kona_host::{init_tracing_subscriber, start_server_and_native_client};
+    init_tracing_subscriber(host_cli.v).unwrap();
+    start_server_and_native_client(host_cli.clone())
+        .await
+        .unwrap();
 
-    // This will panic if the data directory does not exist.
-    let sp1_stdin = stdin_from_host_cli(&host_cli)?;
+    // Fetch stdin from the host cli
+    let sp1_stdin = get_sp1_stdin(&host_cli);
 
+    let prover = ProverClient::new();
     if args.cost_estimation {
-        // Instantiate mock prover withstdin & run it
-        // Just get the execution report
-        // Nicely print out the total instruction count for each block.
-        for (i, report) in reports.iter().enumerate() {
-            println!(
-                "Block {} cycle count: {}",
-                i,
-                report
-                    .total_instruction_count()
-                    .to_formatted_string(&Locale::en)
-            );
-        }
-    } else {
-        // Actually generate the proof
-    }
+        env::set_var("SP1_PROVER", "mock");
+        let (_, report) = prover.execute(KONA_ELF, sp1_stdin).run().unwrap();
 
+        println!(
+            "Block {} cycle count: {}",
+            args.l2_block_number,
+            report.total_instruction_count()
+        );
+    }
     Ok(())
 }

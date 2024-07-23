@@ -15,4 +15,3 @@ anyhow.workspace = true
 async-trait.workspace = true
 kona-preimage.workspace = true
 sha2.workspace = true
-alloc.workspace = true

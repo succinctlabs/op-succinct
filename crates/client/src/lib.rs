@@ -8,4 +8,4 @@ mod executor;
 pub use executor::block_on;
 
 mod oracle;
-use oracle::InMemoryOracle;
+pub use oracle::InMemoryOracle;

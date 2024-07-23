@@ -1,28 +1,18 @@
+pub mod fetcher;
 pub mod helpers;
 
-use alloy_primitives::{keccak256, B256};
-use client_utils::{BytesHasherBuilder, RawBootInfo};
-use ethers::{
-    providers::{Http, Middleware, Provider},
-    types::{BlockNumber, H160, U256},
-};
+use client_utils::RawBootInfo;
 use kona_host::HostCli;
-use sp1_core::runtime::ExecutionReport;
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_sdk::SP1Stdin;
 
-use clap::Parser;
-use std::{collections::HashMap, str::FromStr};
-
-use alloy_sol_types::{sol, SolValue};
-use anyhow::Result;
-use std::{env, fs};
+use alloy_sol_types::sol;
 
 use rkyv::{
     ser::{
         serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
         Serializer,
     },
-    AlignedVec, Archive, Deserialize, Serialize,
+    AlignedVec,
 };
 
 use crate::helpers::load_kv_store;
@@ -34,19 +24,19 @@ sol! {
         bytes32 l2_storage_hash;
         bytes32 l2_claim_hash;
     }
-
-    struct L2Output {
-        uint64 num;
-        bytes32 l2_state_root;
-        bytes32 l2_storage_hash;
-        bytes32 l2_head;
-    }
 }
 
 /// Execute the Kona program and return the execution report.
-pub fn get_sp1_std(host_cli: &HostCli) -> SP1Stdin {
+pub fn get_sp1_stdin(host_cli: &HostCli) -> SP1Stdin {
     let mut stdin = SP1Stdin::new();
 
+    let boot_info = RawBootInfo {
+        l1_head: host_cli.l1_head,
+        l2_output_root: host_cli.l2_output_root,
+        l2_claim: host_cli.l2_claim,
+        l2_claim_block: host_cli.l2_block_number,
+        chain_id: host_cli.l2_chain_id,
+    };
     stdin.write(&boot_info);
 
     // Read KV store into raw bytes and pass to stdin.
@@ -65,10 +55,5 @@ pub fn get_sp1_std(host_cli: &HostCli) -> SP1Stdin {
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
 
-    // First instantiate a mock prover client to just execute the program and get the estimation of
-    // cycle count.
-    let client = ProverClient::mock();
-
-    let (mut _public_values, report) = client.execute(KONA_ELF, stdin).unwrap();
-    report
+    stdin
 }
