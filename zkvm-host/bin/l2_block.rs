@@ -31,13 +31,14 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
-        l2_rpc: env::var("CLABBY_RPC_L2").unwrap(),
+        l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
         ..Default::default()
     };
 
-    let l2_safe_head = data_fetcher
-        .get_l2_safe_head_block(args.l2_block_number)
-        .await?;
+    // TODO: Use `optimism_outputAtBlock`
+    // https://github.com/ethereum-optimism/kona/blob/d9dfff37e2c5aef473f84bf2f28277186040b79f/bin/client/justfile#L26-L32
+    let l2_safe_head = args.l2_block_number - 1;
+
     let host_cli = data_fetcher
         .get_host_cli_args(l2_safe_head, args.l2_block_number)
         .await?;
@@ -61,7 +62,6 @@ async fn main() -> Result<()> {
 
     let prover = ProverClient::new();
     if args.cost_estimation {
-        env::set_var("SP1_PROVER", "mock");
         let (_, report) = prover.execute(KONA_ELF, sp1_stdin).run().unwrap();
 
         println!(
