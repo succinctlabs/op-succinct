@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
         ..Default::default()
     };
 
-    // TODO: Use `optimism_outputAtBlock`
+    // TODO: Use `optimism_outputAtBlock` to fetch the L2 block at head
     // https://github.com/ethereum-optimism/kona/blob/d9dfff37e2c5aef473f84bf2f28277186040b79f/bin/client/justfile#L26-L32
     let l2_safe_head = args.l2_block_number - 1;
 
@@ -52,10 +52,13 @@ async fn main() -> Result<()> {
     // we need to start the server and generate the execution data for the block.
     if args.generate_execution_data || !std::path::Path::new(&data_dir).exists() {
         init_tracing_subscriber(host_cli.v).unwrap();
+        println!("Starting native server");
         start_server_and_native_client(host_cli.clone())
             .await
             .unwrap();
     }
+
+    println!("Ran native server");
 
     // Get the stdin for the block.
     let sp1_stdin = get_sp1_stdin(&host_cli)?;
@@ -63,6 +66,8 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
     if args.cost_estimation {
         let (_, report) = prover.execute(KONA_ELF, sp1_stdin).run().unwrap();
+
+        println!("Executed prover");
 
         println!(
             "Block {} cycle count: {}",

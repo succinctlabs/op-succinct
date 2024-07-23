@@ -860,7 +860,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "log",
@@ -3097,7 +3097,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3123,7 +3123,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3134,7 +3134,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3147,7 +3147,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3182,7 +3182,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3199,7 +3199,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3231,7 +3231,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3245,7 +3245,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3259,7 +3259,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#de6c9f4123897768718234cf1650803726d61611"
+source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3762,9 +3762,9 @@ checksum = "e296cf87e61c9cfc1a61c3c63a0f7f286ed4554e0e22be84e8a38e1d264a2a29"
 
 [[package]]
 name = "op-alloy-consensus"
-version = "0.1.1"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "767fd3026c514f4d2ebdb4ebda5ed8857660dd1ef5bfed2aaa2ae8e42019630e"
+checksum = "b48c0a77ef55d1a1bd1742777fba58a3ddd4b25bf49e275b667a522f8583f5b9"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4573,7 +4573,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81bddcdb20abf9501610992b6759a4c888aef7d1a7247ef75e2404275ac24af1"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.71",
@@ -5750,8 +5750,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "0.0.2-test"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#6e92b1b1fb9a0969df1c50fcdea55ef408aa1315"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.0-rc.1#6be0efa16f8cc56a9c7a286fef71d8f0b51f2c62"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -5831,8 +5831,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-helper"
-version = "0.0.2-test"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#6e92b1b1fb9a0969df1c50fcdea55ef408aa1315"
+version = "1.0.0-rc.1"
+source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.0-rc.1#6be0efa16f8cc56a9c7a286fef71d8f0b51f2c62"
 dependencies = [
  "cargo_metadata",
  "chrono",
