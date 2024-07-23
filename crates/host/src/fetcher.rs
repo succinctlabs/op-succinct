@@ -85,7 +85,7 @@ impl SP1KonaDataFetcher {
             .storage_hash;
 
         let l2_output_encoded = L2Claim {
-            num: l2_claim_block_nb,
+            num: 0,
             l2_state_root: l2_output_state_root.0.into(),
             l2_storage_hash: l2_output_storage_hash.0.into(),
             l2_claim_hash: l2_head.0.into(),
@@ -106,7 +106,7 @@ impl SP1KonaDataFetcher {
             .storage_hash;
 
         let l2_claim_encoded = L2Claim {
-            num: l2_claim_block.number.unwrap().as_u64(),
+            num: 0,
             l2_state_root: l2_claim_state_root.0.into(),
             l2_storage_hash: l2_claim_storage_hash.0.into(),
             l2_claim_hash: l2_claim_hash.0.into(),

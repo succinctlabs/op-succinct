@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
@@ -51,6 +51,9 @@ async fn main() -> Result<()> {
     // If the user wants to generate the execution data, or the data directory doesn't exist,
     // we need to start the server and generate the execution data for the block.
     if args.generate_execution_data || !std::path::Path::new(&data_dir).exists() {
+        // Overwrite existing data directory.
+        fs::create_dir_all(&data_dir).unwrap();
+
         init_tracing_subscriber(host_cli.v).unwrap();
         println!("Starting native server");
         start_server_and_native_client(host_cli.clone())
