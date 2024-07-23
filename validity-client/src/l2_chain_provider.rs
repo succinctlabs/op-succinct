@@ -50,21 +50,15 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 }
 
 impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
-    // TODO: Can merge these into one `update_cache()` function because it's always updated all together.
-    pub fn add_header_to_cache(&mut self, header: Header) {
-        self.header_by_number.insert(header.number, header);
-    }
+    // After each block, update the cache with the new, executed block's data, which is now trusted.
+    pub fn update_cache(&mut self, header: &Header, payload: L2ExecutionPayloadEnvelope, config: RollupConfig) -> Result<L2BlockInfo> {
+        self.header_by_number.insert(header.number, header.clone());
+        self.payload_by_number.insert(header.number, payload.clone());
+        self.system_config_by_number.insert(header.number, payload.to_system_config(&config).unwrap());
 
-    pub fn add_l2_block_info_to_cache(&mut self, number: u64, l2_block_info: L2BlockInfo) {
-        self.l2_block_info_by_number.insert(number, l2_block_info);
-    }
-
-    pub fn add_payload_to_cache(&mut self, number: u64, payload: L2ExecutionPayloadEnvelope) {
-        self.payload_by_number.insert(number, payload);
-    }
-
-    pub fn add_system_config_to_cache(&mut self, number: u64, system_config: SystemConfig) {
-        self.system_config_by_number.insert(number, system_config);
+        let l2_block_info = payload.to_l2_block_ref(&config)?;
+        self.l2_block_info_by_number.insert(header.number, l2_block_info);
+        Ok(l2_block_info)
     }
 
     /// Returns a [Header] corresponding to the given L2 block number, by walking back from the

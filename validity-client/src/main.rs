@@ -11,12 +11,15 @@ mod driver;
 pub use driver::MultiBlockDerivationDriver;
 
 mod l2_chain_provider;
-use kona_primitives::{OpBlock, L2BlockInfo, SystemConfig};
+use kona_primitives::{L2BlockInfo, L2ExecutionPayloadEnvelope, OpBlock, SystemConfig};
 use l2_chain_provider::MultiblockOracleL2ChainProvider;
+use op_alloy_consensus::{OpReceiptEnvelope, OpTxEnvelope};
+use alloy_eips::eip2718::Decodable2718;
 
 use alloc::sync::Arc;
-use alloy_consensus::Sealable;
+use alloy_consensus::{Sealed, Sealable};
 use cfg_if::cfg_if;
+use anyhow::{Result, anyhow};
 
 extern crate alloc;
 
@@ -93,42 +96,51 @@ fn main() {
 
         let mut last_block_num = driver.l2_safe_head.block_info.number;
 
-        loop {
+        'step: loop {
             let l2_attrs_with_parents = driver.produce_payloads().await.unwrap();
             if l2_attrs_with_parents.is_empty() {
                 continue;
             }
 
-            for payload in l2_attrs_with_parents {
-                let parent_block_number = payload.parent.block_info.number;
+            let mut l2_block_info = driver.l2_safe_head.clone();
+            let mut new_block_header = &driver.l2_safe_head_header.inner().clone();
 
-                let header = executor.execute_payload(payload.attributes).unwrap();
-                let new_block_number = header.number;
-                assert_eq!(new_block_number, parent_block_number + 1);
+            for payload in l2_attrs_with_parents {
+                // Execute the payload to generate a new block header.
+                new_block_header = executor.execute_payload(payload.attributes.clone()).unwrap();
+                let new_block_number = new_block_header.number;
+                assert_eq!(new_block_number, payload.parent.block_info.number + 1);
+
+                // Generate the Payload Envelope, which can be used to derive cached data.
+                let l2_payload_envelope: L2ExecutionPayloadEnvelope = OpBlock {
+                    header: new_block_header.clone(),
+                    body: payload
+                        .attributes
+                        .transactions
+                        .iter()
+                        .map(|raw_tx| {
+                            OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap()
+                        })
+                        .collect::<Vec<OpTxEnvelope>>();
+                    withdrawals: boot.rollup_config.is_canyon_active(new_block_header.timestamp).then(Vec::new),
+                    ..Default::default()
+                }.into();
 
                 // Add all data from this block's execution to the cache.
-                l2_provider.add_header_to_cache(header.clone());
+                l2_block_info = l2_provider.update_cache(new_block_header, l2_payload_envelope, boot.rollup_config).unwrap();
 
-                // TODO: Reconstruct this, needs txs which may need to be surfaces from executor.
-                let op_block = OpBlock::default();
-                l2_provider.add_payload_to_cache(parent_block_number, op_block.into());
-
-                // TODO: Create this out of Header info (also needs L1 origin info, need to find it).
-                let l2_block_info = L2BlockInfo::default();
-                l2_provider.add_l2_block_info_to_cache(new_block_number, l2_block_info);
-
-                // TODO: Figure out how to derive this.
-                let system_config = SystemConfig::default();
-                l2_provider.add_system_config_to_cache(new_block_number, system_config);
-
-                // Update data for the next iteration.
-                driver.update_safe_head(l2_block_info, header.clone().seal_slow());
+                // Increment last_block_num and check if we have reached the claim block.
                 last_block_num = new_block_number;
+                if last_block_num == boot.l2_claim_block {
+                    break 'step;
+                }
             }
 
-            if last_block_num == boot.l2_claim_block {
-                break;
-            }
+            // Update data for the next iteration.
+            driver.update_safe_head(
+                l2_block_info,
+                Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash())
+            );
         }
 
         let output_root = executor.compute_output_root().unwrap();
