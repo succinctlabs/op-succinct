@@ -54,7 +54,9 @@ async fn main() -> Result<()> {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
+        // Initialize the tracer.
         init_tracing_subscriber(host_cli.v).unwrap();
+        // Start the server and native client.
         start_server_and_native_client(host_cli.clone())
             .await
             .unwrap();
