@@ -126,6 +126,7 @@ impl SP1KonaDataFetcher {
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
         let data_directory = format!("{}/data/{}", workspace_root, l2_claim_block_nb);
+        // In build.rs we compile with release-client-lto, so we need to use that.
         let exec_directory = format!("{}/target/release-client-lto/zkvm-client", workspace_root);
 
         // Create data directory. Note: Native execution will need to be run to save the merkle proofs.
@@ -144,9 +145,7 @@ impl SP1KonaDataFetcher {
             l1_node_address: Some(self.l1_rpc.clone()),
             l1_beacon_address: Some(self.l1_beacon_rpc.clone()),
             data_dir: Some(data_directory.into()),
-            // TODO: This is probably not correct, but it's a placeholder. How should we programmatically determine the
-            // specified client program from here?
-            exec: Some(exec_directory.into()),
+            exec: Some(exec_directory),
             server: false,
             v: 4,
         })
