@@ -3361,6 +3361,7 @@ dependencies = [
  "async-trait",
  "cfg-if",
  "kona-common 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
+ "rkyv",
  "tracing",
 ]
 
@@ -7567,11 +7568,17 @@ name = "zkvm-client"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
  "cfg-if",
  "client-utils",
  "kona-client 0.1.0 (git+https://github.com/ethereum-optimism/kona)",
  "kona-executor 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-preimage 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
  "kona-primitives 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
+ "rkyv",
+ "sha2",
  "sp1-zkvm",
 ]
 
