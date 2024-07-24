@@ -24,7 +24,7 @@ struct Args {
     verbosity: u8,
 }
 
-/// Collect the execution reports across a number of blocks. Inclusive of start and end block.
+/// Execute the Kona program for a single block.
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();

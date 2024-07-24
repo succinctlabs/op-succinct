@@ -21,13 +21,15 @@ bfbec731f443c09bbfdcef53358458644ac2cbe1c5f68e53ad38599a52d65b5b \
 10
 ```
 
-## Run the Cost Estimator
+## Single Block Executor
 
-The cost estimator currently prints out the cycle counts for each block in a range. TODO: Add cost estimation once this is exposed in the SDK.
+Execute a single block program.
 
 ```bash
-cargo run --bin l2_block -- --start-block <START_BLOCK> --end-block <END_BLOCK> --rpc-url <L2_OP_GETH_ARCHIVE_NODE>
+cargo run --bin single_block -- --l2-block-number <L2_BLOCK_NUMBER>
 ```
+
+- Optional: `--native-execution` to re-run native execution. `--verbosity` <LEVEL> to set verbosity level.
 
 Output:
 ```

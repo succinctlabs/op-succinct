@@ -8,8 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 
 [[bin]]
-name = "l2_block"
-path = "bin/l2_block.rs"
+name = "single_block"
+path = "bin/single_block.rs"
 
 [dependencies]
 
