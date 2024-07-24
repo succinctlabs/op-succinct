@@ -1239,16 +1239,10 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 name = "client-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives",
  "alloy-sol-types",
- "anyhow",
- "async-trait",
  "kona-client 0.1.0 (git+https://github.com/ethereum-optimism/kona)",
- "kona-preimage 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
  "kona-primitives 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
- "rkyv",
  "serde",
- "sha2",
 ]
 
 [[package]]
@@ -3367,7 +3361,6 @@ dependencies = [
  "async-trait",
  "cfg-if",
  "kona-common 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "rkyv",
  "tracing",
 ]
 
