@@ -2633,14 +2633,10 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "cargo_metadata",
- "clap",
  "client-utils",
  "ethers",
- "kona-client",
  "kona-host",
- "kona-primitives",
  "rkyv",
- "serde",
  "sp1-sdk",
 ]
 
@@ -3486,7 +3482,6 @@ dependencies = [
 name = "native-host"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "kona-host",
  "tokio",
@@ -3610,16 +3605,6 @@ name = "num-conv"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51d515d32fb182ee37cda2ccdcb92950d6a3c2893aa280e540671c2cd0f3b1d9"
-
-[[package]]
-name = "num-format"
-version = "0.4.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a652d9771a63711fd3c3deb670acfbe5c30a4072e664d7a3bf5a9e1056ac72c3"
-dependencies = [
- "arrayvec",
- "itoa",
-]
 
 [[package]]
 name = "num-integer"
@@ -7455,17 +7440,11 @@ name = "zkvm-client"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
- "alloy-primitives",
- "anyhow",
- "async-trait",
  "cfg-if",
  "client-utils",
  "kona-client",
  "kona-executor",
- "kona-preimage",
  "kona-primitives",
- "rkyv",
- "sha2",
  "sp1-zkvm",
 ]
 
@@ -7473,18 +7452,11 @@ dependencies = [
 name = "zkvm-host"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives",
- "alloy-sol-types",
  "anyhow",
  "clap",
- "client-utils",
  "dotenv",
- "ethers",
- "hex",
  "host-utils",
  "kona-host",
- "num-format",
- "rkyv",
  "sp1-helper",
  "sp1-sdk",
  "tokio",

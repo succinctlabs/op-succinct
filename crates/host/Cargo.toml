@@ -5,16 +5,12 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-kona-client.workspace = true
-kona-primitives.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
-serde.workspace = true
 client-utils.workspace = true
 rkyv.workspace = true
 ethers.workspace = true
 kona-host.workspace = true
 sp1-sdk.workspace = true
-clap.workspace = true
 anyhow.workspace = true
 cargo_metadata.workspace = true

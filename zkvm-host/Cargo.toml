@@ -14,11 +14,6 @@ path = "bin/l2_block.rs"
 [dependencies]
 
 # workspace
-hex.workspace = true
-rkyv.workspace = true
-alloy-primitives = { workspace = true, features = ["serde"] }
-alloy-sol-types = { workspace = true }
-ethers = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }
 
@@ -26,13 +21,11 @@ clap = { workspace = true }
 kona-host = { workspace = true }
 
 # local
-client-utils.workspace = true
 host-utils.workspace = true
 
 # sp1
 sp1-sdk = { workspace = true }
 anyhow.workspace = true
-num-format = "0.4.4"
 dotenv = "0.15.0"
 
 [build-dependencies]
