@@ -18,17 +18,17 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop", features = [
+kona-common = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-common-proc = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-preimage = { git = "https://github.com/ethereum-optimism/kona/", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona/", branch = "cl/intermediate-cache-drop" }
+kona-primitives = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-mpt = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-derive = { git = "https://github.com/ethereum-optimism/kona/", default-features = false }
+kona-executor = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-client = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-host = { git = "https://github.com/ethereum-optimism/kona/" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
