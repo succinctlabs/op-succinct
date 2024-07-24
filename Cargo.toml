@@ -22,6 +22,7 @@ kona-mpt = { git = "https://github.com/ethereum-optimism/kona" }
 kona-derive = { git = "https://github.com/ethereum-optimism/kona", default-features = false }
 kona-executor = { git = "https://github.com/ethereum-optimism/kona" }
 kona-client = { git = "https://github.com/ethereum-optimism/kona" }
+kona-host = { git = "https://github.com/ethereum-optimism/kona" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
@@ -35,6 +36,7 @@ sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "pat
 tokio = { version = "1.37.0", features = ["full"] }
 clap = "4.5.9"
 cargo_metadata = "0.18.1"
+dotenv = "0.15.0"
 
 # serialization
 serde = { version = "1.0.198", features = ["derive"] }
@@ -58,15 +60,14 @@ alloy-primitives = { version = "0.7.6", default-features = false }
 alloy-rlp = { version = "0.3.5", default-features = false }
 alloy-consensus = { version = "0.1", default-features = false }
 alloy-sol-types = { version = "0.7.6" }
-kona-host = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
 alloy-eips = { version = "0.1", default-features = false }
 revm = { git = "https://github.com/bluealloy/revm", tag = "v37", version = "10.0.0", default-features = false }
 
-# sp1
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.1" }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.1" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", tag = "v1.0.1" }
+sp1-zkvm = "1.0.1"
+sp1-sdk = "1.0.1"
+sp1-helper = "1.0.1"
 
+# sp1
 [profile.release-client-lto]
 inherits = "release"
 panic = "abort"

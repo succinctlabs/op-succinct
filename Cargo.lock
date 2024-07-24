@@ -1243,9 +1243,9 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
- "kona-client 0.1.0 (git+https://github.com/ethereum-optimism/kona)",
- "kona-preimage 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-primitives 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-client",
+ "kona-preimage",
+ "kona-primitives",
  "rkyv",
  "serde",
  "sha2",
@@ -3093,32 +3093,6 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "anyhow",
- "async-trait",
- "cfg-if",
- "kona-common 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-common-proc 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-derive 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-executor 0.0.1 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-mpt 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-preimage 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-primitives 0.0.1 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "lru",
- "op-alloy-consensus",
- "revm",
- "spin 0.9.8",
- "tracing",
-]
-
-[[package]]
-name = "kona-client"
-version = "0.1.0"
 source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
 dependencies = [
  "alloy-consensus",
@@ -3128,29 +3102,18 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cfg-if",
- "kona-common 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-common-proc 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-derive 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-executor 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
- "kona-mpt 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-preimage 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-primitives 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-common",
+ "kona-common-proc",
+ "kona-derive",
+ "kona-executor",
+ "kona-mpt",
+ "kona-preimage",
+ "kona-primitives",
  "lru",
  "op-alloy-consensus",
  "revm",
  "spin 0.9.8",
  "tracing",
-]
-
-[[package]]
-name = "kona-common"
-version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "anyhow",
- "cfg-if",
- "linked_list_allocator",
- "spin 0.9.8",
 ]
 
 [[package]]
@@ -3167,24 +3130,11 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "anyhow",
- "cfg-if",
- "kona-common 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "proc-macro2",
- "quote",
- "syn 2.0.72",
-]
-
-[[package]]
-name = "kona-common-proc"
-version = "0.0.2"
 source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
 dependencies = [
  "anyhow",
  "cfg-if",
- "kona-common 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-common",
  "proc-macro2",
  "quote",
  "syn 2.0.72",
@@ -3193,7 +3143,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
+source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3211,7 +3161,7 @@ dependencies = [
  "brotli",
  "c-kzg",
  "hashbrown 0.14.5",
- "kona-primitives 0.0.1 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
+ "kona-primitives",
  "lru",
  "miniz_oxide",
  "op-alloy-consensus",
@@ -3226,48 +3176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kona-derive"
-version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
-dependencies = [
- "alloc-no-stdlib",
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-sol-types",
- "anyhow",
- "async-trait",
- "brotli",
- "hashbrown 0.14.5",
- "kona-primitives 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
- "lru",
- "miniz_oxide",
- "op-alloy-consensus",
- "serde",
- "spin 0.9.8",
- "tracing",
- "unsigned-varint",
-]
-
-[[package]]
-name = "kona-executor"
-version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "anyhow",
- "kona-derive 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-mpt 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "op-alloy-consensus",
- "revm",
- "tracing",
-]
-
-[[package]]
 name = "kona-executor"
 version = "0.0.1"
 source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
@@ -3277,8 +3185,8 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "anyhow",
- "kona-derive 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-mpt 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-derive",
+ "kona-mpt",
  "op-alloy-consensus",
  "revm",
  "tracing",
@@ -3287,7 +3195,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
+source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3302,11 +3210,11 @@ dependencies = [
  "clap",
  "command-fds",
  "futures",
- "kona-client 0.1.0 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-common 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-derive 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-mpt 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "kona-preimage 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
+ "kona-client",
+ "kona-common",
+ "kona-derive",
+ "kona-mpt",
+ "kona-preimage",
  "reqwest 0.12.5",
  "revm",
  "serde",
@@ -3319,20 +3227,6 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "alloy-consensus",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-trie",
- "anyhow",
- "revm",
- "tracing",
-]
-
-[[package]]
-name = "kona-mpt"
-version = "0.0.2"
 source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
 dependencies = [
  "alloy-consensus",
@@ -3347,44 +3241,15 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "alloy-primitives",
- "anyhow",
- "async-trait",
- "cfg-if",
- "kona-common 0.0.2 (git+https://github.com/moongate-forks/kona/?branch=new-upstream)",
- "tracing",
-]
-
-[[package]]
-name = "kona-preimage"
-version = "0.0.2"
 source = "git+https://github.com/ethereum-optimism/kona#ae71b9df103c941c06b0dc5400223c4f13fe5717"
 dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
  "cfg-if",
- "kona-common 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-common",
  "rkyv",
  "tracing",
-]
-
-[[package]]
-name = "kona-primitives"
-version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona/?branch=new-upstream#127d9f7cda8ba7c1f01ecf0837f0edbbfd775ba7"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-sol-types",
- "anyhow",
- "op-alloy-consensus",
- "serde",
- "superchain-primitives",
 ]
 
 [[package]]
@@ -5871,7 +5736,8 @@ dependencies = [
 [[package]]
 name = "sp1-build"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63f0edef8848ee5e5e4f2b5891ddd93e644fed394b64d2de3c97deedfb178d8f"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -5881,7 +5747,8 @@ dependencies = [
 [[package]]
 name = "sp1-core"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d0fb585eb8a6d9fbec006278e4ba8aa1af9dbae655944a8635eaee0424cafd2"
 dependencies = [
  "anyhow",
  "arrayref",
@@ -5942,7 +5809,8 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e0ac64c524b9f79073622218698103585a46209d343ef1cba6f8dac73e35bb8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5952,7 +5820,8 @@ dependencies = [
 [[package]]
 name = "sp1-helper"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "721a60f0ebfac764fd68edfcb3cbe44d4c2fad71a110701306428968a3596cd2"
 dependencies = [
  "cargo_metadata",
  "chrono",
@@ -5962,7 +5831,8 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01c4a9c8d029e57349b2b124595b2dc7a70d3dd8431d0e63348a2a271a894b8e"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5973,7 +5843,8 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bb8d5ca92c185781e3b91d333217f1204a8ab0e9e8327641245c5fb685b168a"
 dependencies = [
  "itertools 0.13.0",
  "lazy_static",
@@ -5986,7 +5857,8 @@ dependencies = [
 [[package]]
 name = "sp1-prover"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eaf125b5df27e81706b79de5a4ee3ef587a4a504ab799a1b1b774b537d1a1820"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6022,7 +5894,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53af2e0dc0c9455896db5c014266391b515fe17f33141acb1ba194585bae4973"
 dependencies = [
  "bincode",
  "itertools 0.13.0",
@@ -6045,7 +5918,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a85ad294534013954b975e0516eedd13722406291ddaaa064feee48441920251"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6070,7 +5944,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ead6647708c6d931b0069b3823f36e57232dc627dddc21c82775e3e78cdd395"
 dependencies = [
  "arrayref",
  "backtrace",
@@ -6105,7 +5980,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42289ce113de57cb1f2b163688021ce7bdbe2c6cdbc96d5e2b1c85b1108c4199"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6115,7 +5991,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76b9c84925c075eac095deac8f2ab48258be35a662339e386d76ac5b21c60bdc"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6140,7 +6017,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-program"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d460db3d03dd185e4d338c4c6d1b3fd174063f561219f98abc26532eecdc6ad2"
 dependencies = [
  "itertools 0.13.0",
  "p3-air",
@@ -6169,7 +6047,8 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d491b27caebd3f331dcb3ce1186bb37970a1e78440ecd34fd3ab74b108af23a"
 dependencies = [
  "alloy-sol-types",
  "anyhow",
@@ -6212,7 +6091,8 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "1.0.1"
-source = "git+https://github.com/succinctlabs/sp1.git?tag=v1.0.1#dd032eb23949828d244d1ad1f1569aa78155837c"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0708c2369deb682e57bfe33bb5a405188d825511b31e22af5722e1ace79c1840"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -7579,10 +7459,10 @@ dependencies = [
  "async-trait",
  "cfg-if",
  "client-utils",
- "kona-client 0.1.0 (git+https://github.com/ethereum-optimism/kona)",
- "kona-executor 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
- "kona-preimage 0.0.2 (git+https://github.com/ethereum-optimism/kona)",
- "kona-primitives 0.0.1 (git+https://github.com/ethereum-optimism/kona)",
+ "kona-client",
+ "kona-executor",
+ "kona-preimage",
+ "kona-primitives",
  "rkyv",
  "sha2",
  "sp1-zkvm",

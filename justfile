@@ -6,4 +6,4 @@ default:
   @just --list
 
 run l2_block_num verbosity="0":
-  cargo run --bin single_block --release -- --l2-block-number {{l2_block_num}} --verbosity {{verbosity}}
+  cargo run --bin single --release -- --l2-block {{l2_block_num}} --verbosity {{verbosity}}

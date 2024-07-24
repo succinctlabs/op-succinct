@@ -22,7 +22,7 @@ use crate::helpers::load_kv_store;
 
 sol! {
     struct L2Output {
-        uint64 num;
+        uint64 zero;
         bytes32 l2_state_root;
         bytes32 l2_storage_hash;
         bytes32 l2_claim_hash;

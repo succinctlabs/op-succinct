@@ -8,8 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 
 [[bin]]
-name = "single_block"
-path = "bin/single_block.rs"
+name = "single"
+path = "bin/single.rs"
 
 [dependencies]
 
@@ -26,7 +26,7 @@ host-utils.workspace = true
 # sp1
 sp1-sdk = { workspace = true }
 anyhow.workspace = true
-dotenv = "0.15.0"
+dotenv.workspace = true
 
 [build-dependencies]
 sp1-helper = { workspace = true }

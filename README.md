@@ -26,10 +26,10 @@ bfbec731f443c09bbfdcef53358458644ac2cbe1c5f68e53ad38599a52d65b5b \
 Execute a single block program.
 
 ```bash
-cargo run --bin single_block -- --l2-block-number <L2_BLOCK_NUMBER>
+cargo run --bin single -- --l2-block <L2_BLOCK_NUMBER>
 ```
 
-- Optional: `--native-execution` to re-run native execution. `--verbosity` <LEVEL> to set verbosity level.
+- Optional: `--use-cache` to re-use the cache. `--verbosity` <LEVEL> to set verbosity level.
 
 Output:
 ```

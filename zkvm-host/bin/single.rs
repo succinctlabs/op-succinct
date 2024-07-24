@@ -13,7 +13,7 @@ pub const KONA_ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-el
 struct Args {
     /// Start block number.
     #[arg(short, long)]
-    l2_block_number: u64,
+    l2_block: u64,
 
     /// Verbosity level.
     #[arg(short, long, default_value = "0")]
@@ -37,10 +37,10 @@ async fn main() -> Result<()> {
 
     // TODO: Use `optimism_outputAtBlock` to fetch the L2 block at head
     // https://github.com/ethereum-optimism/kona/blob/d9dfff37e2c5aef473f84bf2f28277186040b79f/bin/client/justfile#L26-L32
-    let l2_safe_head = args.l2_block_number - 1;
+    let l2_safe_head = args.l2_block - 1;
 
     let host_cli = data_fetcher
-        .get_host_cli_args(l2_safe_head, args.l2_block_number, args.verbosity)
+        .get_host_cli_args(l2_safe_head, args.l2_block, args.verbosity)
         .await?;
 
     let data_dir = host_cli
@@ -69,7 +69,7 @@ async fn main() -> Result<()> {
 
     println!(
         "Block {} cycle count: {}",
-        args.l2_block_number,
+        args.l2_block,
         report.total_instruction_count()
     );
 
