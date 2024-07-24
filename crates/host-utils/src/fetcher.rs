@@ -69,6 +69,7 @@ impl SP1KonaDataFetcher {
         l2_block_safe_head: u64,
         l2_claim_block_nb: u64,
         verbosity: u8,
+        multi_block: bool,
     ) -> Result<HostCli> {
         let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
 
@@ -125,9 +126,24 @@ impl SP1KonaDataFetcher {
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
-        let data_directory = format!("{}/data/{}", workspace_root, l2_claim_block_nb);
-        // In build.rs we compile with release-client-lto, so we need to use that.
-        let exec_directory = format!("{}/target/release-client-lto/zkvm-client", workspace_root);
+        let data_directory = if multi_block {
+            format!(
+                "{}/data/multi/{}-{}",
+                workspace_root, l2_block_safe_head, l2_claim_block_nb
+            )
+        } else {
+            format!("{}/data/single/{}", workspace_root, l2_claim_block_nb)
+        };
+
+        // The native programs are built with profile release-client-lto in build.rs
+        let exec_directory = if multi_block {
+            format!(
+                "{}/target/release-client-lto/validity-client",
+                workspace_root
+            )
+        } else {
+            format!("{}/target/release-client-lto/zkvm-client", workspace_root)
+        };
 
         // Create data directory. This will be used by the host program running in native execution
         // mode to save all preimages.
