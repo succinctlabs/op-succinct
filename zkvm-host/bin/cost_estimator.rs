@@ -4,7 +4,7 @@ use kona_host::init_tracing_subscriber;
 use native_host::run_native_host;
 use num_format::{Locale, ToFormattedString};
 use zkvm_host::execute_kona_program;
-use zkvm_host::{CostEstimatorCliArgs, fetcher::SP1KonaDataFetcher};
+use zkvm_host::{fetcher::SP1KonaDataFetcher, CostEstimatorCliArgs};
 
 pub const ELF: &[u8] = include_bytes!("../../elf/riscv32im-succinct-zkvm-elf");
 
@@ -32,7 +32,8 @@ async fn main() -> Result<()> {
 
         if !args.skip_datagen {
             // Get native execution data.
-            let native_execution_data = data_fetcher.get_native_host_cli_args(&block_data, args.verbosity_level)?;
+            let native_execution_data =
+                data_fetcher.get_native_host_cli_args(&block_data, false, args.verbosity_level)?;
             println!(
                 "Got native execution data for block {}. {:?}",
                 block_num, native_execution_data
@@ -43,7 +44,7 @@ async fn main() -> Result<()> {
         println!("Ran native host for block {}", block_num);
 
         // Execute the Kona program.
-        let report = execute_kona_program(&block_data.into(), ELF);
+        let report = execute_kona_program(&block_data.into(), ELF, false);
 
         reports.push(report);
 

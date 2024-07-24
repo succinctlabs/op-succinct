@@ -164,6 +164,7 @@ impl SP1KonaDataFetcher {
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
         let folder = if multiblock {
+            // TODO: Should have some way to differentiate based on starting block, but that's not in the block data.
             format!("multi/{}", block_data.l2_block_number)
         } else {
             format!("single/{}", block_data.l2_block_number.to_string())

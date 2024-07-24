@@ -1,5 +1,11 @@
 [workspace]
-members = ["common", "native-host", "validity-client", "zkvm-client", "zkvm-host"]
+members = [
+    "common",
+    "native-host",
+    "validity-client",
+    "zkvm-client",
+    "zkvm-host",
+]
 resolver = "2"
 
 [workspace.package]
@@ -12,17 +18,15 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
-kona-common-proc = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
-kona-preimage = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream", features = [
-    "rkyv",
-] }
-kona-primitives = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
-kona-mpt = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
-kona-derive = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream", default-features = false }
-kona-executor = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
-kona-client = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
-kona-host = { git = "https://github.com/moongate-forks/kona/", branch = "new-upstream" }
+kona-common = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-common-proc = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-preimage = { git = "https://github.com/ethereum-optimism/kona/", features = [ "rkyv"] }
+kona-primitives = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-mpt = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-derive = { git = "https://github.com/ethereum-optimism/kona/", default-features = false }
+kona-executor = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-client = { git = "https://github.com/ethereum-optimism/kona/" }
+kona-host = { git = "https://github.com/ethereum-optimism/kona/" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
