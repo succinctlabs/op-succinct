@@ -15,9 +15,9 @@ struct Args {
     #[arg(short, long)]
     l2_block_number: u64,
 
-    /// Generate the execution data.
+    /// Run native execution.
     #[arg(short, long)]
-    generate_execution_data: bool,
+    native_execution: bool,
 
     /// Verbosity level.
     #[arg(short, long, default_value = "0")]
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
 
     // If the user wants to generate the execution data, or the data directory doesn't exist,
     // we need to start the server and generate the execution data for the block.
-    if args.generate_execution_data || !std::path::Path::new(&data_dir).exists() {
+    if args.native_execution || !std::path::Path::new(&data_dir).exists() {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
