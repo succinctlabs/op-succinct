@@ -45,8 +45,8 @@ rkyv = "0.7.44"
 hex = "0.4.3"
 
 # local
-client-utils = { path = "crates/client" }
-host-utils = { path = "crates/host" }
+client-utils = { path = "crates/client-utils" }
+host-utils = { path = "crates/host-utils" }
 zkvm-client = { path = "zkvm-client" }
 zkvm-host = { path = "zkvm-host" }
 

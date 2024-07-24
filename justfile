@@ -5,8 +5,13 @@ default:
   @just --list
 
 # Runs the kona-host program for a single block.
-run-single l2_block_num verbosity="0":
-  cargo run --bin single --release -- --l2-block {{l2_block_num}} --verbosity {{verbosity}}
+run-single l2_block_num verbosity="0" use-cache="false":
+  #!/usr/bin/env bash
+  CACHE_FLAG=""
+  if [ "{{use-cache}}" = "true" ]; then
+    CACHE_FLAG="--use-cache"
+  fi
+  cargo run --bin single --release -- --l2-block {{l2_block_num}} --verbosity {{verbosity}} $CACHE_FLAG
 
 # Runs the client program in native execution mode. Modified version of Kona Native Client execution:
 # https://github.com/ethereum-optimism/kona/blob/ae71b9df103c941c06b0dc5400223c4f13fe5717/bin/client/justfile#L65-L108
