@@ -20,7 +20,9 @@ repository = ""
 # kona
 kona-common = { git = "https://github.com/ethereum-optimism/kona/" }
 kona-common-proc = { git = "https://github.com/ethereum-optimism/kona/" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona/", features = [ "rkyv"] }
+kona-preimage = { git = "https://github.com/ethereum-optimism/kona/", features = [
+    "rkyv",
+] }
 kona-primitives = { git = "https://github.com/ethereum-optimism/kona/" }
 kona-mpt = { git = "https://github.com/ethereum-optimism/kona/" }
 kona-derive = { git = "https://github.com/ethereum-optimism/kona/", default-features = false }
