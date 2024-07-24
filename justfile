@@ -58,5 +58,6 @@ run-client-native l2_block_num l1_rpc='${CLABBY_RPC_L1}' l1_beacon_rpc='${ETH_BE
     --exec $CLIENT_BIN_PATH \
     --data-dir $DATA_DIRECTORY \
     {{verbosity}}
-  # Return the required values
+  
+  # Output the data required for the ZKVM execution.
   echo "$L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
