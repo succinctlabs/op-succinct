@@ -119,10 +119,9 @@ impl SP1KonaDataFetcher {
         // Get L1 head.
         let l2_block_timestamp = l2_claim_block.timestamp;
         let target_timestamp = l2_block_timestamp + 300;
-
-        // TODO: Convert target_timestamp to a block number
         let l1_head = self.find_block_by_timestamp(target_timestamp).await?;
 
+        // Get the chain id.
         let l2_chain_id = l2_provider.get_chainid().await?;
 
         // Get the workspace root, which is where the data directory is.
