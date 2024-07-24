@@ -23,17 +23,3 @@ just run-single <l2_block_num> [verbosity] [use-cache]
 
 - [verbosity]: Optional verbosity level (default: 0).
 - [use-cache]: Optional flag to re-use the native execution cache (default: false).
-
-
-## Single Block Executor
-
-
-```bash
-cargo run --bin single -- --l2-block <L2_BLOCK_NUMBER>
-```
-
-
-Output:
-```
-
-```
