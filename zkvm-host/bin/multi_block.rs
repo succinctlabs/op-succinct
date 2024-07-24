@@ -3,6 +3,7 @@
 use anyhow::Result;
 use clap::Parser;
 use native_host::run_native_host;
+use num_format::{Locale, ToFormattedString};
 use sp1_sdk::utils;
 use zkvm_host::{execute_kona_program, fetcher::SP1KonaDataFetcher, MultiblockCliArgs};
 
@@ -26,7 +27,12 @@ async fn main() -> Result<()> {
     }
 
     let report = execute_kona_program(&block_data.into(), ELF, true);
-    println!("Report: {}", report);
+    println!(
+        "Total cycles for execution: {}",
+        report
+            .total_instruction_count()
+            .to_formatted_string(&Locale::en)
+    );
 
     // let (pk, vk) = client.setup(ELF);
     // let mut proof = client.prove(&pk, stdin).unwrap();
