@@ -15,7 +15,7 @@ Standalone repo to use Kona & SP1 to verify Optimism blocks.
 
 ## Usage
 
-Execute the SP1 Kona program for a single block
+Execute the SP1 Kona program for a single block.
 
 ```bash
 just run-single <l2_block_num> [verbosity] [use-cache]
