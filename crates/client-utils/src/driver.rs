@@ -151,19 +151,11 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
             StepResult::PreparedAttributes => {
                 println!("Found Attributes");
                 let mut payloads = Vec::new();
-                loop {
-                    let attributes = self.pipeline.next();
-                    match attributes {
-                        Some(attr) => {
-                            let parent_block_nb = attr.parent.block_info.number;
-                            payloads.push(attr);
-                            if parent_block_nb + 1 == self.l2_claim_block {
-                                break;
-                            }
-                        }
-                        None => {
-                            break;
-                        }
+                for attr in self.pipeline.by_ref() {
+                    let parent_block_nb = attr.parent.block_info.number;
+                    payloads.push(attr);
+                    if parent_block_nb + 1 == self.l2_claim_block {
+                        break;
                     }
                 }
                 return Ok(payloads);
