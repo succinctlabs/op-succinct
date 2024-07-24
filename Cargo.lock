@@ -1239,13 +1239,21 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 name = "client-utils"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
  "alloy-primitives",
+ "alloy-rlp",
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "cfg-if",
  "kona-client",
+ "kona-derive",
+ "kona-executor",
+ "kona-mpt",
  "kona-preimage",
  "kona-primitives",
+ "op-alloy-consensus",
  "rkyv",
  "serde",
  "sha2",

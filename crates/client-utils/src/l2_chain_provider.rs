@@ -17,6 +17,8 @@ use kona_primitives::{
 use op_alloy_consensus::OpTxEnvelope;
 use std::{collections::HashMap, sync::Mutex};
 
+use crate::block_on;
+
 /// The oracle-backed L2 chain provider for the client program.
 #[derive(Debug, Clone)]
 pub struct MultiblockOracleL2ChainProvider<T: CommsClient> {
@@ -198,7 +200,7 @@ impl<T: CommsClient> TrieDBFetcher for MultiblockOracleL2ChainProvider<T> {
     fn trie_node_preimage(&self, key: B256) -> Result<Bytes> {
         // On L2, trie node preimages are stored as keccak preimage types in the oracle. We assume
         // that a hint for these preimages has already been sent, prior to this call.
-        client_utils::block_on(async move {
+        block_on(async move {
             self.oracle
                 .get(PreimageKey::new(*key, PreimageKeyType::Keccak256))
                 .await
@@ -208,7 +210,7 @@ impl<T: CommsClient> TrieDBFetcher for MultiblockOracleL2ChainProvider<T> {
 
     fn bytecode_by_hash(&self, hash: B256) -> Result<Bytes> {
         // Fetch the bytecode preimage from the caching oracle.
-        client_utils::block_on(async move {
+        block_on(async move {
             self.oracle
                 .write(&HintType::L2Code.encode_with(&[hash.as_ref()]))
                 .await?;
@@ -222,7 +224,7 @@ impl<T: CommsClient> TrieDBFetcher for MultiblockOracleL2ChainProvider<T> {
 
     fn header_by_hash(&self, hash: B256) -> Result<Header> {
         // Fetch the header from the caching oracle.
-        client_utils::block_on(async move {
+        block_on(async move {
             self.oracle
                 .write(&HintType::L2BlockHeader.encode_with(&[hash.as_ref()]))
                 .await?;
@@ -239,7 +241,7 @@ impl<T: CommsClient> TrieDBFetcher for MultiblockOracleL2ChainProvider<T> {
 
 impl<T: CommsClient> TrieDBHinter for MultiblockOracleL2ChainProvider<T> {
     fn hint_trie_node(&self, hash: B256) -> Result<()> {
-        client_utils::block_on(async move {
+        block_on(async move {
             self.oracle
                 .write(&HintType::L2StateNode.encode_with(&[hash.as_slice()]))
                 .await
@@ -247,7 +249,7 @@ impl<T: CommsClient> TrieDBHinter for MultiblockOracleL2ChainProvider<T> {
     }
 
     fn hint_account_proof(&self, address: Address, block_number: u64) -> Result<()> {
-        client_utils::block_on(async move {
+        block_on(async move {
             self.oracle
                 .write(
                     &HintType::L2AccountProof
@@ -263,7 +265,7 @@ impl<T: CommsClient> TrieDBHinter for MultiblockOracleL2ChainProvider<T> {
         slot: alloy_primitives::U256,
         block_number: u64,
     ) -> Result<()> {
-        client_utils::block_on(async move {
+        block_on(async move {
             self.oracle
                 .write(&HintType::L2AccountStorageProof.encode_with(&[
                     block_number.to_be_bytes().as_ref(),

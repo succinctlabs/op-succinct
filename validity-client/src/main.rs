@@ -1,19 +1,15 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
+use client_utils::{MultiBlockDerivationDriver, MultiblockOracleL2ChainProvider};
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
 use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
 
-mod driver;
-pub use driver::MultiBlockDerivationDriver;
-
-mod l2_chain_provider;
 use alloy_eips::eip2718::Decodable2718;
 use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
-use l2_chain_provider::MultiblockOracleL2ChainProvider;
 use op_alloy_consensus::OpTxEnvelope;
 
 use alloc::sync::Arc;
