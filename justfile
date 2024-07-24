@@ -12,7 +12,7 @@ run-zkvm-single l2_block_num:
     RUST_LOG=info cargo run --bin single_block --release -- --l2-claim-block {{l2_block_num}}
 
 run-multiblock start_block end_block:
-    RUST_LOG=info cargo run --bin multi_block --release -- --start-block {{start_block}} --end-block {{end_block}} --run-native
+    RUST_LOG=info cargo run --bin multi_block --release -- --start-block {{start_block}} --end-block {{end_block}} --run-native --verbosity-level 4
 
 run-zkvm-multiblock start_block end_block:
     RUST_LOG=info cargo run --bin multi_block --release -- --start-block {{start_block}} --end-block {{end_block}}

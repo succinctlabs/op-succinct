@@ -26,7 +26,7 @@ fn get_kona_program_input(boot_info: &BootInfoWithoutRollupConfig) -> SP1Stdin {
     // Read KV store into raw bytes and pass to stdin.
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
-    let data_directory = format!("{}/data/single/123075190", workspace_root);
+    let data_directory = format!("{}/data/multi/test", workspace_root);
 
     let kv_store = load_kv_store(&data_directory.into());
 
