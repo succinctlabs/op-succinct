@@ -15,13 +15,13 @@ struct Args {
     #[arg(short, long)]
     l2_block_number: u64,
 
-    /// Run native execution.
-    #[arg(short, long)]
-    native_execution: bool,
-
     /// Verbosity level.
     #[arg(short, long, default_value = "0")]
     verbosity: u8,
+
+    /// Skip running native execution.
+    #[arg(short, long)]
+    use_cache: bool,
 }
 
 /// Execute the Kona program for a single block.
@@ -48,9 +48,8 @@ async fn main() -> Result<()> {
         .clone()
         .expect("Data directory is not set.");
 
-    // If the user wants to generate the execution data, or the data directory doesn't exist,
-    // we need to start the server and generate the execution data for the block.
-    if args.native_execution || !std::path::Path::new(&data_dir).exists() {
+    // By default, re-run the native execution unless the user passes `--use-cache`.
+    if !args.use_cache {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
