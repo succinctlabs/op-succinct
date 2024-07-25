@@ -2,7 +2,7 @@ use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
-use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin};
+use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::{init_tracing_subscriber, start_server_and_native_client};
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::ProverClient;
@@ -41,7 +41,7 @@ async fn main() -> Result<()> {
     };
 
     let host_cli = data_fetcher
-        .get_host_cli_args(args.start, args.end, args.verbosity, true)
+        .get_host_cli_args(args.start, args.end, args.verbosity, ProgramType::Multi)
         .await?;
 
     let data_dir = host_cli

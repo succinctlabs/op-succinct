@@ -19,6 +19,11 @@ use rkyv::{
 
 use crate::helpers::load_kv_store;
 
+pub enum ProgramType {
+    Single,
+    Multi,
+}
+
 sol! {
     struct L2Output {
         uint64 zero;

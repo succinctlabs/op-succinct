@@ -11,7 +11,7 @@ use ethers::{
     types::{BlockNumber, H160, U256},
 };
 
-use crate::L2Output;
+use crate::{L2Output, ProgramType};
 
 /// The SP1KonaDataFetcher struct is used to fetch the L2 output data and L2 claim data for a given block number.
 /// It is used to generate the boot info for the native host program.
@@ -69,7 +69,7 @@ impl SP1KonaDataFetcher {
         l2_block_safe_head: u64,
         l2_claim_block_nb: u64,
         verbosity: u8,
-        multi_block: bool,
+        multi_block: ProgramType,
     ) -> Result<HostCli> {
         let l2_provider = Provider::<Http>::try_from(&self.l2_rpc)?;
 
@@ -126,23 +126,25 @@ impl SP1KonaDataFetcher {
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
-        let data_directory = if multi_block {
-            format!(
+        let data_directory = match multi_block {
+            ProgramType::Single => {
+                format!("{}/data/single/{}", workspace_root, l2_claim_block_nb)
+            }
+            ProgramType::Multi => format!(
                 "{}/data/multi/{}-{}",
                 workspace_root, l2_block_safe_head, l2_claim_block_nb
-            )
-        } else {
-            format!("{}/data/single/{}", workspace_root, l2_claim_block_nb)
+            ),
         };
 
         // The native programs are built with profile release-client-lto in build.rs
-        let exec_directory = if multi_block {
-            format!(
+        let exec_directory = match multi_block {
+            ProgramType::Single => {
+                format!("{}/target/release-client-lto/zkvm-client", workspace_root)
+            }
+            ProgramType::Multi => format!(
                 "{}/target/release-client-lto/validity-client",
                 workspace_root
-            )
-        } else {
-            format!("{}/target/release-client-lto/zkvm-client", workspace_root)
+            ),
         };
 
         // Create data directory. This will be used by the host program running in native execution

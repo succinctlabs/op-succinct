@@ -13,7 +13,7 @@ run-single l2_block_num verbosity="0" use-cache="false":
   fi
   cargo run --bin single --release -- --l2-block {{l2_block_num}} --verbosity {{verbosity}} $CACHE_FLAG
 
-# Runs the kona-host program for a single block.
+# Runs the kona-host program for multiple blocks.
 run-multi start end verbosity="0" use-cache="false":
   #!/usr/bin/env bash
   CACHE_FLAG=""
