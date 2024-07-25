@@ -22,8 +22,6 @@ use crate::{
     driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
 };
 
-use client_utils::precompiles::ZKVMPrecompileOverride;
-
 extern crate alloc;
 
 cfg_if! {
@@ -52,6 +50,8 @@ fn main() {
             // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
+                use client_utils::precompiles::ZKVMPrecompileOverride;
+
                 let boot = sp1_zkvm::io::read::<RawBootInfo>();
                 sp1_zkvm::io::commit_slice(&boot.abi_encode());
                 let boot: Arc<BootInfo> = Arc::new(boot.into());

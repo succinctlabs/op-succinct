@@ -3,9 +3,9 @@ use std::{env, fs};
 use anyhow::Result;
 use clap::Parser;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
-use kona_host::{init_tracing_subscriber, start_server_and_native_client};
+use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
-use sp1_sdk::ProverClient;
+use sp1_sdk::{utils, ProverClient};
 
 pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../elf/zkvm-client-elf");
 
@@ -30,6 +30,7 @@ struct Args {
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     let args = Args::parse();
+    utils::setup_logger();
 
     let data_fetcher = SP1KonaDataFetcher {
         l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
@@ -59,8 +60,6 @@ async fn main() -> Result<()> {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
-        // Initialize the tracer.
-        init_tracing_subscriber(host_cli.v).unwrap();
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone())
             .await

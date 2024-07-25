@@ -1,7 +1,6 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
-use client_utils::precompiles::ZKVMPrecompileOverride;
 use kona_client::{
     l1::{DerivationDriver, OracleBlobProvider, OracleL1ChainProvider},
     l2::OracleL2ChainProvider,
@@ -39,6 +38,8 @@ fn main() {
             // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
+                use client_utils::precompiles::ZKVMPrecompileOverride;
+
                 let raw_boot_info = sp1_zkvm::io::read::<RawBootInfo>();
                 sp1_zkvm::io::commit_slice(&raw_boot_info.abi_encode());
                 let boot: Arc<BootInfo> = Arc::new(raw_boot_info.into());
