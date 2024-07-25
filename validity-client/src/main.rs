@@ -1,7 +1,9 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
-use client_utils::{MultiBlockDerivationDriver, MultiblockOracleL2ChainProvider};
+mod driver;
+mod l2_chain_provider;
+
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
@@ -15,6 +17,12 @@ use op_alloy_consensus::OpTxEnvelope;
 use alloc::sync::Arc;
 use alloy_consensus::Sealed;
 use cfg_if::cfg_if;
+
+use crate::{
+    driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
+};
+
+use client_utils::precompiles::ZKVMPrecompileOverride;
 
 extern crate alloc;
 
@@ -53,11 +61,15 @@ fn main() {
 
                 oracle.verify().expect("key value verification failed");
 
+                let precompile_overrides = ZKVMPrecompileOverride::default();
+
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
             } else {
                 let oracle = Arc::new(CachingOracle::new(1024));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
+
+                let precompile_overrides = NoPrecompileOverride;
             }
         }
 
@@ -86,7 +98,7 @@ fn main() {
             .with_parent_header(driver.clone_l2_safe_head_header())
             .with_fetcher(l2_provider.clone())
             .with_hinter(l2_provider.clone())
-            .with_precompile_overrides(NoPrecompileOverride)
+            .with_precompile_overrides(precompile_overrides)
             .build()
             .unwrap();
 

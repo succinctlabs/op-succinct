@@ -1254,9 +1254,11 @@ dependencies = [
  "kona-preimage",
  "kona-primitives",
  "op-alloy-consensus",
+ "revm",
  "rkyv",
  "serde",
  "sha2",
+ "sp1-lib",
 ]
 
 [[package]]
@@ -1733,6 +1735,7 @@ dependencies = [
  "rand_core",
  "sec1",
  "subtle",
+ "tap",
  "zeroize",
 ]
 
@@ -5855,6 +5858,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if",
+ "k256",
  "serde",
 ]
 

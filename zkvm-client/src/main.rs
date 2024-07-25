@@ -1,11 +1,13 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
+use client_utils::precompiles::ZKVMPrecompileOverride;
 use kona_client::{
     l1::{DerivationDriver, OracleBlobProvider, OracleL1ChainProvider},
     l2::OracleL2ChainProvider,
     BootInfo,
 };
+
 use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
 use kona_primitives::L2AttributesWithParent;
 
@@ -46,15 +48,16 @@ fn main() {
 
                 oracle.verify().expect("key value verification failed");
 
+                let precompile_overrides = ZKVMPrecompileOverride::default();
+
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
             } else {
                 let oracle = Arc::new(CachingOracle::new(1024));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
+                let precompile_overrides = NoPrecompileOverride;
             }
         }
-
-        let precompile_overrides = NoPrecompileOverride;
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
