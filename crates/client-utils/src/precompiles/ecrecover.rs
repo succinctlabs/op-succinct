@@ -1,6 +1,6 @@
 //! Contains the accelerated version of the `ecrecover` precompile.
 
-use alloy_primitives::{Address, Bytes};
+use alloy_primitives::{keccak256, Address, Bytes};
 use revm::{
     precompile::utilities::right_pad,
     precompile::{u64_to_address, Error as PrecompileError, PrecompileWithAddress},
@@ -30,17 +30,17 @@ fn zkvm_ecrecover(input: &Bytes, gas_limit: u64) -> PrecompileResult {
         return Ok(PrecompileOutput::new(ECRECOVER_BASE, Bytes::new()));
     }
 
-    // TODO: figure out whether the sp1-lib signature for `ecrecover` should match this logic more closely.
-    // let msg = <&B256>::try_from(&input[0..32]).unwrap();
-    // let recid = input[63] - 27;
-    // let sig = <&B512>::try_from(&input[64..128]).unwrap();
-
     let msg: [u8; 32] = input[0..32].try_into().unwrap();
-    let sig: [u8; 65] = input[63..128].try_into().unwrap();
 
-    let out = ecrecover(&sig, &msg)
-        .map(|o| o.to_vec().into())
-        .unwrap_or_default();
+    // SP1's ecrecover expects the sig: [u8; 65] = [/* 64 bytes of signature */, /* 1 byte recovery ID */].
+    // After SP1's ecrecover, convert the recovered public key to an address.
+    let mut sig: [u8; 65] = [0; 65];
+    sig[..64].copy_from_slice(&input[64..128]);
+    sig[64] = input[63] - 27;
+    let out = ecrecover(&sig, &msg).expect("ecrecover failed");
+    let mut hash = keccak256(&out[1..]);
+    hash[..12].fill(0);
+
     println!("cycle-tracker-end: precompile-ecrecover");
-    Ok(PrecompileOutput::new(ECRECOVER_BASE, out))
+    Ok(PrecompileOutput::new(ECRECOVER_BASE, hash.into()))
 }
