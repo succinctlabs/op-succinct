@@ -1259,6 +1259,7 @@ dependencies = [
  "serde",
  "sha2",
  "sp1-lib",
+ "sp1-zkvm",
 ]
 
 [[package]]
@@ -7513,10 +7514,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "client-utils",
  "dotenv",
  "host-utils",
  "kona-host",
  "num-format",
+ "revm",
  "sp1-helper",
  "sp1-sdk",
  "tokio",

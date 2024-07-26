@@ -29,3 +29,9 @@ just run-multi <start> <end> [verbosity] [use-cache]
 
 - [verbosity]: Optional verbosity level (default: 0).
 - [use-cache]: Optional flag to re-use the native execution cache (default: false).
+
+Observations: 
+* For most blocks, the cycle count per transaction is around 15M cycles per transaction.
+
+For this block, the cycle count blows up.
+* RUST_LOG=debug just run-single 122912537 

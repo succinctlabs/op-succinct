@@ -70,6 +70,7 @@ alloy-eips = { version = "0.1", default-features = false }
 revm = { git = "https://github.com/bluealloy/revm", tag = "v37", version = "10.0.0", default-features = false }
 op-alloy-consensus = { version = "0.1", default-features = false }
 num-format = "0.4.4"
+bincode = "1.3.3"
 
 sp1-lib = { version = "1.0.1", features = ["secp256k1"] }
 sp1-zkvm = "1.0.1"
