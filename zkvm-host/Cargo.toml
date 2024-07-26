@@ -15,6 +15,10 @@ path = "bin/single.rs"
 name = "multi"
 path = "bin/multi.rs"
 
+[[bin]]
+name = "span_batches"
+path = "bin/span_batches.rs"
+
 [dependencies]
 
 # workspace

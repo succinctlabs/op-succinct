@@ -151,9 +151,15 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
             StepResult::PreparedAttributes => {
                 println!("Found Attributes");
                 let mut payloads = Vec::new();
-                for attr in self.pipeline.by_ref() {
+                // Iterate on the pipeline until the attributes are None or the l2 claim block is reached.
+                while let Some(attr) = self.pipeline.peek() {
+                    println!(
+                        "Pushing attribute for L2 Block: {}. The L2 claim block is: {}",
+                        attr.parent.block_info.number + 1,
+                        self.l2_claim_block
+                    );
                     let parent_block_nb = attr.parent.block_info.number;
-                    payloads.push(attr);
+                    payloads.push(self.pipeline.next().unwrap());
                     if parent_block_nb + 1 == self.l2_claim_block {
                         break;
                     }
