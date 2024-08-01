@@ -30,6 +30,8 @@ struct Args {
 /// Execute the Kona program for a single block.
 #[tokio::main]
 async fn main() -> Result<()> {
+    utils::setup_logger();
+
     let args = Args::parse();
     let prover = ProverClient::new();
 
