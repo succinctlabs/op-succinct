@@ -27,6 +27,10 @@ struct Args {
     /// Skip running native execution.
     #[arg(short, long)]
     use_cache: bool,
+
+    /// Skip generating proof and simply execute.
+    #[arg(short, long)]
+    prove: bool,
 }
 
 /// Execute the Kona program for a single block.
@@ -66,14 +70,24 @@ async fn main() -> Result<()> {
     let sp1_stdin = get_sp1_stdin(&host_cli)?;
 
     let prover = ProverClient::new();
-    let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
 
-    println!(
-        "Cycle count: {}",
-        report
-            .total_instruction_count()
-            .to_formatted_string(&Locale::en)
-    );
+    if args.prove {
+        let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
+        let proof = prover.prove(&pk, sp1_stdin).run().unwrap();
+
+        proof
+            .save(format!("data/proofs/{}-{}.bin", args.start, args.end))
+            .expect("saving proof failed");
+    } else {
+        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+
+        println!(
+            "Cycle count: {}",
+            report
+                .total_instruction_count()
+                .to_formatted_string(&Locale::en)
+        );
+    }
 
     Ok(())
 }
