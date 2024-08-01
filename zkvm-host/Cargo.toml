@@ -15,6 +15,10 @@ path = "bin/single.rs"
 name = "multi"
 path = "bin/multi.rs"
 
+[[bin]]
+name = "agg"
+path = "bin/agg.rs"
+
 [dependencies]
 
 # workspace

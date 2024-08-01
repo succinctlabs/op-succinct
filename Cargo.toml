@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = [ "aggregation-client",
     "crates/*",
     "native-host",
     "validity-client",

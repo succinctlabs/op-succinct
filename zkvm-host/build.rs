@@ -43,4 +43,6 @@ fn main() {
         build_native_program(program);
         build_zkvm_program(program);
     }
+
+    build_zkvm_program("aggregation-client");
 }
