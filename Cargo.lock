@@ -2428,6 +2428,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "get-vk"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "sp1-sdk",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/*",
+    "crates/*", "get-vk",
     "native-host",
     "validity-client",
     "zkvm-client",
