@@ -5,7 +5,7 @@ use clap::Parser;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::{init_tracing_subscriber, start_server_and_native_client};
 use num_format::{Locale, ToFormattedString};
-use sp1_sdk::ProverClient;
+use sp1_sdk::{utils, ProverClient};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -28,7 +28,7 @@ struct Args {
     #[arg(short, long)]
     use_cache: bool,
 
-    /// Skip generating proof and simply execute.
+    /// Generate proof.
     #[arg(short, long)]
     prove: bool,
 }
@@ -64,6 +64,8 @@ async fn main() -> Result<()> {
         start_server_and_native_client(host_cli.clone())
             .await
             .unwrap();
+    } else {
+        utils::setup_logger();
     }
 
     // Get the stdin for the block.
