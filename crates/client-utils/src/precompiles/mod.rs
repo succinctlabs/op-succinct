@@ -1,20 +1,17 @@
 //! Contains the [PrecompileOverride] trait implementation for the FPVM-accelerated precompiles.
 
-use alloc::sync::Arc;
 use alloy_primitives::Address;
+use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::{
     handler::register::EvmHandler,
     precompile::{
-        bn128, hash, identity, modexp, u64_to_address, Precompile, PrecompileOutput,
-        PrecompileResult, PrecompileSpecId, PrecompileWithAddress,
+        bn128, hash, identity, modexp, secp256k1, Precompile, PrecompileOutput, PrecompileResult, PrecompileSpecId, PrecompileWithAddress
     },
     primitives::Bytes,
     ContextPrecompiles, State,
 };
-
-mod ecrecover;
 
 pub const PRECOMPILE_HOOK_FD: u32 = 115;
 
@@ -103,6 +100,8 @@ pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
     create_hook_precompile!(bn128::pair::ISTANBUL, "bn-pair");
 pub(crate) const ANNOTATED_MODEXP: PrecompileWithAddress =
     create_annotated_precompile!(modexp::BERLIN, "modexp");
+pub(crate) const ANNOTATED_ECDSA_RECOVER: PrecompileWithAddress =
+    create_annotated_precompile!(secp256k1::ECRECOVER, "ecrecover");
 
 // TODO: When we upgrade to the latest version of revm that supports kzg-rs that compiles within SP1, we can uncomment this.
 // pub(crate) const ANNOTATED_KZG_POINT_EVAL: PrecompileWithAddress = create_annotated_precompile!(
@@ -146,7 +145,7 @@ where
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [
-                ecrecover::ZKVM_ECRECOVER,
+                ANNOTATED_ECDSA_RECOVER,
                 ANNOTATED_SHA256,
                 ANNOTATED_RIPEMD160,
                 ANNOTATED_IDENTITY,
