@@ -1,13 +1,13 @@
 //! Contains the [PrecompileOverride] trait implementation for the FPVM-accelerated precompiles.
 
-use alloy_primitives::Address;
 use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::{
     handler::register::EvmHandler,
     precompile::{
-        bn128, hash, identity, modexp, secp256k1, Precompile, PrecompileOutput, PrecompileResult, PrecompileSpecId, PrecompileWithAddress
+        bn128, hash, identity, modexp, secp256k1, Precompile, PrecompileOutput, PrecompileResult,
+        PrecompileSpecId, PrecompileWithAddress,
     },
     primitives::Bytes,
     ContextPrecompiles, State,

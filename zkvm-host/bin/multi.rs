@@ -6,8 +6,8 @@ use client_utils::precompiles::PRECOMPILE_HOOK_FD;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
-use revm::{precompile::Precompiles, primitives::{Address, Bytes, Precompile}};
 use sp1_sdk::{utils, ProverClient};
+use zkvm_host::precompile_hook;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -69,40 +69,7 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
     let (_, report) = prover
         .execute(MULTI_BLOCK_ELF, sp1_stdin)
-        .with_hook(PRECOMPILE_HOOK_FD, |env, buf| {
-            let addr: Address = buf[0..20].try_into().unwrap();
-            let gas_limit = u64::from_le_bytes(buf[20..28].try_into().unwrap());
-            let input: Bytes = buf[28..].to_vec().into();
-            println!("[HOOK] Precompile addr {} called.", addr);
-
-            let precompiles = Precompiles::byzantium();
-            let precompile = precompiles.inner().get(&addr).unwrap();
-            let result = match precompile {
-                Precompile::Standard(precompile) => precompile(&input, gas_limit),
-                _ => panic!("Annotated precompile must be a standard precompile."),
-            };
-
-            let mut serialized_vec = vec![];
-            match result {
-                Ok(result) => {
-                    serialized_vec.push(0);
-                    serialized_vec.extend_from_slice(&result.gas_used.to_le_bytes());
-                    serialized_vec.extend_from_slice(&result.bytes.to_vec());
-                }
-                Err(err) => {
-                    serialized_vec.push(1);
-                    match err {
-                        revm::precompile::PrecompileErrors::Error(err) => {
-                            serialized_vec.push(0);
-                        }
-                        revm::precompile::PrecompileErrors::Fatal { msg } => {
-                            serialized_vec.push(1);
-                        }
-                    }
-                }
-            }
-            vec![serialized_vec]
-        })
+        .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
         .run()
         .unwrap();
 
