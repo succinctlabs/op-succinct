@@ -33,3 +33,4 @@ sha2.workspace = true
 
 # sp1
 sp1-lib.workspace = true
+sp1-zkvm.workspace = true

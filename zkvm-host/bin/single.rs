@@ -7,6 +7,9 @@ use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
 
+use client_utils::precompiles::PRECOMPILE_HOOK_FD;
+use zkvm_host::precompile_hook;
+
 pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../elf/zkvm-client-elf");
 
 #[derive(Parser, Debug)]
@@ -70,7 +73,11 @@ async fn main() -> Result<()> {
     let sp1_stdin = get_sp1_stdin(&host_cli)?;
 
     let prover = ProverClient::new();
-    let (_, report) = prover.execute(SINGLE_BLOCK_ELF, sp1_stdin).run().unwrap();
+    let (_, report) = prover
+        .execute(SINGLE_BLOCK_ELF, sp1_stdin)
+        .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
+        .run()
+        .unwrap();
 
     println!(
         "Block {} cycle count: {}",

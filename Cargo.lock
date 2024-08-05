@@ -1258,7 +1258,8 @@ dependencies = [
  "rkyv",
  "serde",
  "sha2",
- "sp1-lib",
+ "sp1-lib 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-zkvm",
 ]
 
 [[package]]
@@ -1696,14 +1697,17 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 [[package]]
 name = "ecdsa"
 version = "0.16.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee27f32b5c5292967d2d4a9d7f1e0b0aed2c15daded5a60300e4abb9d8020bca"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#5d48cf0a71337464eccaa7423fbd28221b760a4f"
 dependencies = [
+ "anyhow",
+ "cfg-if",
  "der",
  "digest 0.10.7",
  "elliptic-curve",
+ "hex-literal",
  "rfc6979",
  "signature",
+ "sp1-lib 1.0.1 (git+https://github.com/succinctlabs/sp1.git?branch=john/lib-refactor)",
  "spki",
 ]
 
@@ -4993,8 +4997,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#5d48cf0a71337464eccaa7423fbd28221b760a4f"
 dependencies = [
  "hmac",
  "subtle",
@@ -5863,6 +5866,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-lib"
+version = "1.0.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=john/lib-refactor#8f7b81634a315def4ee14933ab96743c39985d73"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "serde",
+]
+
+[[package]]
 name = "sp1-primitives"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6125,7 +6139,7 @@ dependencies = [
  "rand",
  "serde",
  "sha2",
- "sp1-lib",
+ "sp1-lib 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -7513,10 +7527,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "client-utils",
  "dotenv",
  "host-utils",
  "kona-host",
  "num-format",
+ "revm",
  "sp1-helper",
  "sp1-sdk",
  "tokio",

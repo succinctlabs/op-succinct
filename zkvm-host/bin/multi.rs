@@ -2,10 +2,12 @@ use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
+use client_utils::precompiles::PRECOMPILE_HOOK_FD;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
+use zkvm_host::precompile_hook;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -65,7 +67,11 @@ async fn main() -> Result<()> {
     let sp1_stdin = get_sp1_stdin(&host_cli)?;
 
     let prover = ProverClient::new();
-    let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+    let (_, report) = prover
+        .execute(MULTI_BLOCK_ELF, sp1_stdin)
+        .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
+        .run()
+        .unwrap();
 
     println!(
         "Cycle count: {}",
