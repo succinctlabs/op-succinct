@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
-        l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
+        l2_rpc: env::var("L2_RPC").expect("L2_RPC is not set."),
         ..Default::default()
     };
 

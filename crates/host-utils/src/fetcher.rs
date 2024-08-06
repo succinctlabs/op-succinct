@@ -30,12 +30,10 @@ impl Default for SP1KonaDataFetcher {
 impl SP1KonaDataFetcher {
     pub fn new() -> Self {
         SP1KonaDataFetcher {
-            l1_rpc: env::var("CLABBY_RPC_L1")
-                .unwrap_or_else(|_| "http://localhost:8545".to_string()),
-            l1_beacon_rpc: env::var("ETH_BEACON_URL")
+            l1_rpc: env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string()),
+            l1_beacon_rpc: env::var("L1_BEACON_RPC")
                 .unwrap_or_else(|_| "http://localhost:5052".to_string()),
-            l2_rpc: env::var("CLABBY_RPC_L2")
-                .unwrap_or_else(|_| "http://localhost:9545".to_string()),
+            l2_rpc: env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string()),
         }
     }
 
