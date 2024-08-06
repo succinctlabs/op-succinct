@@ -55,8 +55,8 @@ macro_rules! create_hook_precompile {
                 sp1_zkvm::io::write(PRECOMPILE_HOOK_FD, &input_vec);
 
                 // Read the result from the hook.
-                // TODO: There might be some wacky stuff going on here because we're manually
-                // deserializing the PrecompileResult type as it does not have `serde` support.
+                // Note: We're manually deserializing the PrecompileResult type as it does not have
+                // `serde` support.
                 let result_vec = sp1_zkvm::io::read_vec();
                 let result = match result_vec[0] {
                     0 => {

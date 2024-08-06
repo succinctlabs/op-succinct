@@ -1,9 +1,6 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
-mod driver;
-mod l2_chain_provider;
-
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
@@ -18,7 +15,7 @@ use alloc::sync::Arc;
 use alloy_consensus::Sealed;
 use cfg_if::cfg_if;
 
-use crate::{
+use client_utils::{
     driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
 };
 

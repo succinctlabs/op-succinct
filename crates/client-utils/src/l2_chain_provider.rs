@@ -7,7 +7,6 @@ use alloy_primitives::{Address, Bytes, B256};
 use alloy_rlp::Decodable;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use client_utils::block_on;
 use kona_client::{BootInfo, HintType};
 use kona_derive::traits::L2ChainProvider;
 use kona_mpt::{OrderedListWalker, TrieDBFetcher, TrieDBHinter};
@@ -17,6 +16,8 @@ use kona_primitives::{
 };
 use op_alloy_consensus::OpTxEnvelope;
 use std::{collections::HashMap, sync::Mutex};
+
+use crate::block_on;
 
 /// The oracle-backed L2 chain provider for the client program.
 #[derive(Debug, Clone)]
