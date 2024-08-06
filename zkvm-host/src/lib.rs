@@ -3,6 +3,8 @@ use revm::{
     primitives::{Address, Bytes, Precompile},
 };
 
+/// This precompile hook substitutes the precompile with a custom one that can stub out the logic
+/// for specific operations that we don't have precompiles for. Used in `create_hook_precompile`.
 pub fn precompile_hook(_env: sp1_sdk::HookEnv, buf: &[u8]) -> Vec<Vec<u8>> {
     let addr: Address = buf[0..20].try_into().unwrap();
     let gas_limit = u64::from_le_bytes(buf[20..28].try_into().unwrap());
