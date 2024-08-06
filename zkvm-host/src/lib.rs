@@ -9,7 +9,10 @@ pub fn precompile_hook(_env: sp1_sdk::HookEnv, buf: &[u8]) -> Vec<Vec<u8>> {
     let input: Bytes = buf[28..].to_vec().into();
     println!("[HOOK] Precompile addr {} called.", addr);
 
-    let precompiles = Precompiles::byzantium();
+    // Note: Fetch the latest precompiles because the gas costs are different from older versions.
+    // Otherwise, the hooked precompiles will fail.
+    let precompiles = Precompiles::latest();
+
     let precompile = precompiles.inner().get(&addr).unwrap();
     let result = match precompile {
         Precompile::Standard(precompile) => precompile(&input, gas_limit),
