@@ -6,16 +6,11 @@ edition.workspace = true
 
 [dependencies]
 # workspace (general)
-cfg-if.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 
 # workspace (ethereum)
-op-alloy-consensus.workspace = true
-alloy-consensus.workspace = true
 alloy-primitives.workspace = true
-alloy-eips.workspace = true
-alloy-rlp.workspace = true
 revm.workspace = true
 
 # workspace (kona)
@@ -23,7 +18,6 @@ kona-primitives.workspace = true
 kona-executor.workspace = true
 kona-client.workspace = true
 kona-preimage.workspace = true
-kona-derive.workspace = true
 kona-mpt.workspace = true
 
 alloy-sol-types.workspace = true
@@ -32,5 +26,4 @@ rkyv.workspace = true
 sha2.workspace = true
 
 # sp1
-sp1-lib.workspace = true
 sp1-zkvm.workspace = true

@@ -31,16 +31,5 @@ just run-multi <start> <end> [verbosity] [use-cache]
 - [use-cache]: Optional flag to re-use the native execution cache (default: false).
 
 Observations: 
-* For most blocks, the cycle count per transaction is around 15M cycles per transaction.
-
-For this block, the cycle count blows up.
-* RUST_LOG=debug just run-single 122912537, 122912538
-- This block fails on some cache data error.
-```bash
-    stderr: called `Result::unwrap()` on an `Err` value: Failed to execute pre block call: database error: Key not found in cache: 02231c1d1c3676ed8934457f53aaad3689206f5bd5cc006768e8611cb9099c6f
-    stderr: stack backtrace:
-    stderr: note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
-    2024-08-03T00:42:55.991621Z  INFO execute: close time.busy=480s time.idle=2.12µs
-    thread 'main' panicked at zkvm-host/bin/multi.rs:74:10:
-    called `Result::unwrap()` on an `Err` value: execution failed with exit code 1
-```
+* For most blocks, the cycle count per transaction is around 4M cycles per transaction.
+* TODO: Do further analysis on the cycle count.
