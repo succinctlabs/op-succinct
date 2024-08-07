@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
             "{}",
             ExecutionStats {
                 total_instruction_count,
-                block_execution_instruction_count,
+                block_execution_instruction_count: *block_execution_instruction_count,
                 nb_blocks,
                 nb_transactions,
                 total_gas_used,
