@@ -50,12 +50,6 @@ impl fmt::Display for ExecutionStats {
         writeln!(
             f,
             "| {:<30} | {:>25} |",
-            "Total Gas Used",
-            self.total_gas_used.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
             "Cycles per Block",
             cycles_per_block.to_formatted_string(&Locale::en)
         )?;
@@ -70,6 +64,12 @@ impl fmt::Display for ExecutionStats {
             "| {:<30} | {:>25} |",
             "Transactions per Block",
             transactions_per_block.to_formatted_string(&Locale::en)
+        )?;
+        writeln!(
+            f,
+            "| {:<30} | {:>25} |",
+            "Total Gas Used",
+            self.total_gas_used.to_formatted_string(&Locale::en)
         )?;
         writeln!(
             f,
