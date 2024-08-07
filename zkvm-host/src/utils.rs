@@ -12,6 +12,16 @@ pub struct ExecutionStats {
     pub total_gas_used: u64,
 }
 
+/// Write a statistic to the formatter.
+fn write_stat(f: &mut fmt::Formatter<'_>, label: &str, value: u64) -> fmt::Result {
+    writeln!(
+        f,
+        "| {:<30} | {:>25} |",
+        label,
+        value.to_formatted_string(&Locale::en)
+    )
+}
+
 impl fmt::Display for ExecutionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let cycles_per_block = self.block_execution_instruction_count / self.nb_blocks;
@@ -29,68 +39,20 @@ impl fmt::Display for ExecutionStats {
             f,
             "+--------------------------------+---------------------------+"
         )?;
-        writeln!(
+        write_stat(f, "Total Cycles", self.total_instruction_count)?;
+        write_stat(
             f,
-            "| {:<30} | {:>25} |",
-            "Total Instruction Count",
-            self.total_instruction_count
-                .to_formatted_string(&Locale::en)
+            "Block Execution Cycles",
+            self.block_execution_instruction_count,
         )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Block Execution Instruction Count",
-            self.block_execution_instruction_count
-                .to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Total Blocks",
-            self.nb_blocks.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Total Transactions",
-            self.nb_transactions.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Cycles per Block",
-            cycles_per_block.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Cycles per Transaction",
-            cycles_per_transaction.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Transactions per Block",
-            transactions_per_block.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Total Gas Used",
-            self.total_gas_used.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Gas Used per Block",
-            gas_used_per_block.to_formatted_string(&Locale::en)
-        )?;
-        writeln!(
-            f,
-            "| {:<30} | {:>25} |",
-            "Gas Used per Transaction",
-            gas_used_per_transaction.to_formatted_string(&Locale::en)
-        )?;
+        write_stat(f, "Total Blocks", self.nb_blocks)?;
+        write_stat(f, "Total Transactions", self.nb_transactions)?;
+        write_stat(f, "Cycles per Block", cycles_per_block)?;
+        write_stat(f, "Cycles per Transaction", cycles_per_transaction)?;
+        write_stat(f, "Transactions per Block", transactions_per_block)?;
+        write_stat(f, "Total Gas Used", self.total_gas_used)?;
+        write_stat(f, "Gas Used per Block", gas_used_per_block)?;
+        write_stat(f, "Gas Used per Transaction", gas_used_per_transaction)?;
         writeln!(
             f,
             "+--------------------------------+---------------------------+"
