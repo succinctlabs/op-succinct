@@ -6,6 +6,7 @@ use num_format::{Locale, ToFormattedString};
 #[derive(Debug)]
 pub struct ExecutionStats {
     pub total_instruction_count: u64,
+    pub block_execution_instruction_count: u64,
     pub nb_blocks: u64,
     pub nb_transactions: u64,
     pub total_gas_used: u64,
@@ -13,8 +14,8 @@ pub struct ExecutionStats {
 
 impl fmt::Display for ExecutionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let cycles_per_block = self.total_instruction_count / self.nb_blocks;
-        let cycles_per_transaction = self.total_instruction_count / self.nb_transactions;
+        let cycles_per_block = self.block_execution_instruction_count / self.nb_blocks;
+        let cycles_per_transaction = self.block_execution_instruction_count / self.nb_transactions;
         let transactions_per_block = self.nb_transactions / self.nb_blocks;
         let gas_used_per_block = self.total_gas_used / self.nb_blocks;
         let gas_used_per_transaction = self.total_gas_used / self.nb_transactions;
@@ -33,6 +34,13 @@ impl fmt::Display for ExecutionStats {
             "| {:<30} | {:>25} |",
             "Total Instruction Count",
             self.total_instruction_count
+                .to_formatted_string(&Locale::en)
+        )?;
+        writeln!(
+            f,
+            "| {:<30} | {:>25} |",
+            "Block Execution Instruction Count",
+            self.block_execution_instruction_count
                 .to_formatted_string(&Locale::en)
         )?;
         writeln!(

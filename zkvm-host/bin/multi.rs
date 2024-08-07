@@ -82,6 +82,10 @@ async fn main() -> Result<()> {
     let total_instruction_count = report.total_instruction_count();
 
     if args.stats {
+        // Get the total instruction count for execution across all blocks.
+        let block_execution_instruction_count =
+            report.cycle_tracker.get("block-execution").unwrap();
+
         let nb_blocks = args.end - args.start + 1;
 
         // Fetch the number of transactions in the blocks from the L2 RPC.
@@ -96,6 +100,7 @@ async fn main() -> Result<()> {
             "{}",
             ExecutionStats {
                 total_instruction_count,
+                block_execution_instruction_count,
                 nb_blocks,
                 nb_transactions,
                 total_gas_used,
