@@ -3,7 +3,10 @@ use std::fs;
 use anyhow::Result;
 use clap::Parser;
 use client_utils::precompiles::PRECOMPILE_HOOK_FD;
-use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
+use host_utils::{
+    fetcher::{ChainMode, SP1KonaDataFetcher},
+    get_sp1_stdin, ProgramType,
+};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
@@ -82,12 +85,12 @@ async fn main() -> Result<()> {
         let nb_blocks = args.end - args.start + 1;
 
         // Fetch the number of transactions in the blocks from the L2 RPC.
-        let nb_transactions = SP1KonaDataFetcher::get_block_transaction_count_range(
-            &data_fetcher.l2_rpc,
-            args.start,
-            args.end,
-        )
-        .await?;
+        let block_data_range = data_fetcher
+            .get_block_data_range(ChainMode::L2, args.start, args.end)
+            .await?;
+
+        let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
+        let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
 
         println!(
             "{}",
@@ -95,6 +98,7 @@ async fn main() -> Result<()> {
                 total_instruction_count,
                 nb_blocks,
                 nb_transactions,
+                total_gas_used,
             }
         );
     } else {

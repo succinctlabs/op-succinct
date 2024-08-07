@@ -17,8 +17,10 @@ use crate::{L2Output, ProgramType};
 /// It is used to generate the boot info for the native host program.
 pub struct SP1KonaDataFetcher {
     pub l1_rpc: String,
+    pub l1_provider: Provider<Http>,
     pub l1_beacon_rpc: String,
     pub l2_rpc: String,
+    pub l2_provider: Provider<Http>,
 }
 
 impl Default for SP1KonaDataFetcher {
@@ -27,30 +29,56 @@ impl Default for SP1KonaDataFetcher {
     }
 }
 
+pub enum ChainMode {
+    L1,
+    L2,
+}
+
+pub struct BlockInfo {
+    pub block_number: u64,
+    pub transaction_count: u64,
+    pub gas_used: u64,
+}
+
 impl SP1KonaDataFetcher {
     pub fn new() -> Self {
+        let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
+        let l1_provider =
+            Provider::<Http>::try_from(&l1_rpc).expect("Failed to create L1 provider");
+        let l1_beacon_rpc =
+            env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
+        let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
+        let l2_provider =
+            Provider::<Http>::try_from(&l2_rpc).expect("Failed to create L2 provider");
         SP1KonaDataFetcher {
-            l1_rpc: env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string()),
-            l1_beacon_rpc: env::var("L1_BEACON_RPC")
-                .unwrap_or_else(|_| "http://localhost:5052".to_string()),
-            l2_rpc: env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string()),
+            l1_rpc,
+            l1_provider,
+            l1_beacon_rpc,
+            l2_rpc,
+            l2_provider,
         }
     }
 
-    // Get the number of transactions in a single block.
-    pub async fn get_block_transaction_count(rpc: &str, block_number: u64) -> Result<u64> {
-        let l2_provider = Provider::<Http>::try_from(rpc)?;
-        let block = l2_provider.get_block(block_number).await?.unwrap();
-        Ok(block.transactions.len() as u64)
-    }
-
-    // Get the number of transactions in a range of blocks inclusive.
-    pub async fn get_block_transaction_count_range(rpc: &str, start: u64, end: u64) -> Result<u64> {
-        let mut count = 0;
+    /// Get the block data for a range of blocks inclusive.
+    pub async fn get_block_data_range(
+        &self,
+        chain_mode: ChainMode,
+        start: u64,
+        end: u64,
+    ) -> Result<Vec<BlockInfo>> {
+        let mut block_data = Vec::new();
         for block_number in start..=end {
-            count += Self::get_block_transaction_count(rpc, block_number).await?;
+            let block = match chain_mode {
+                ChainMode::L1 => self.l1_provider.get_block(block_number).await?.unwrap(),
+                ChainMode::L2 => self.l2_provider.get_block(block_number).await?.unwrap(),
+            };
+            block_data.push(BlockInfo {
+                block_number,
+                transaction_count: block.transactions.len() as u64,
+                gas_used: block.gas_used.as_u64(),
+            });
         }
-        Ok(count)
+        Ok(block_data)
     }
 
     async fn find_block_by_timestamp(&self, target_timestamp: U256) -> Result<B256> {
