@@ -3,7 +3,7 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
-use std::{cmp::Ordering, env, fs, path::Path, str::FromStr};
+use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc};
 
 use alloy_primitives::keccak256;
 use ethers::{
@@ -17,10 +17,10 @@ use crate::{L2Output, ProgramType};
 /// It is used to generate the boot info for the native host program.
 pub struct SP1KonaDataFetcher {
     pub l1_rpc: String,
-    pub l1_provider: Provider<Http>,
+    pub l1_provider: Arc<Provider<Http>>,
     pub l1_beacon_rpc: String,
     pub l2_rpc: String,
-    pub l2_provider: Provider<Http>,
+    pub l2_provider: Arc<Provider<Http>>,
 }
 
 impl Default for SP1KonaDataFetcher {
@@ -29,11 +29,14 @@ impl Default for SP1KonaDataFetcher {
     }
 }
 
+/// The mode corresponding to the chain we are fetching data for.
+#[derive(Clone, Copy)]
 pub enum ChainMode {
     L1,
     L2,
 }
 
+/// The info to fetch for a block.
 pub struct BlockInfo {
     pub block_number: u64,
     pub transaction_count: u64,
@@ -44,18 +47,25 @@ impl SP1KonaDataFetcher {
     pub fn new() -> Self {
         let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
         let l1_provider =
-            Provider::<Http>::try_from(&l1_rpc).expect("Failed to create L1 provider");
+            Arc::new(Provider::<Http>::try_from(&l1_rpc).expect("Failed to create L1 provider"));
         let l1_beacon_rpc =
             env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
         let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
         let l2_provider =
-            Provider::<Http>::try_from(&l2_rpc).expect("Failed to create L2 provider");
+            Arc::new(Provider::<Http>::try_from(&l2_rpc).expect("Failed to create L2 provider"));
         SP1KonaDataFetcher {
             l1_rpc,
             l1_provider,
             l1_beacon_rpc,
             l2_rpc,
             l2_provider,
+        }
+    }
+
+    pub fn get_provider(&self, chain_mode: ChainMode) -> Arc<Provider<Http>> {
+        match chain_mode {
+            ChainMode::L1 => self.l1_provider.clone(),
+            ChainMode::L2 => self.l2_provider.clone(),
         }
     }
 
@@ -68,10 +78,8 @@ impl SP1KonaDataFetcher {
     ) -> Result<Vec<BlockInfo>> {
         let mut block_data = Vec::new();
         for block_number in start..=end {
-            let block = match chain_mode {
-                ChainMode::L1 => self.l1_provider.get_block(block_number).await?.unwrap(),
-                ChainMode::L2 => self.l2_provider.get_block(block_number).await?.unwrap(),
-            };
+            let provider = self.get_provider(chain_mode);
+            let block = provider.get_block(block_number).await?.unwrap();
             block_data.push(BlockInfo {
                 block_number,
                 transaction_count: block.transactions.len() as u64,
@@ -81,15 +89,20 @@ impl SP1KonaDataFetcher {
         Ok(block_data)
     }
 
-    async fn find_block_by_timestamp(&self, target_timestamp: U256) -> Result<B256> {
-        let l1_provider = Provider::<Http>::try_from(&self.l1_rpc)?;
-        let latest_block = l1_provider.get_block(BlockNumber::Latest).await?.unwrap();
+    /// Find the block with the closest timestamp to the target timestamp.
+    async fn find_block_by_timestamp(
+        &self,
+        chain_mode: ChainMode,
+        target_timestamp: U256,
+    ) -> Result<B256> {
+        let provider = self.get_provider(chain_mode);
+        let latest_block = provider.get_block(BlockNumber::Latest).await?.unwrap();
         let mut low = 0;
         let mut high = latest_block.number.unwrap().as_u64();
 
         while low <= high {
             let mid = (low + high) / 2;
-            let block = l1_provider.get_block(mid).await?.unwrap();
+            let block = provider.get_block(mid).await?.unwrap();
             let block_timestamp = block.timestamp;
 
             match block_timestamp.cmp(&target_timestamp) {
@@ -100,7 +113,7 @@ impl SP1KonaDataFetcher {
         }
 
         // Return the block hash of the closest block after the target timestamp
-        let block = l1_provider.get_block(low).await?.unwrap();
+        let block = provider.get_block(low).await?.unwrap();
         Ok(block.hash.unwrap().0.into())
     }
 
@@ -160,7 +173,9 @@ impl SP1KonaDataFetcher {
         // Get L1 head.
         let l2_block_timestamp = l2_claim_block.timestamp;
         let target_timestamp = l2_block_timestamp + 300;
-        let l1_head = self.find_block_by_timestamp(target_timestamp).await?;
+        let l1_head = self
+            .find_block_by_timestamp(ChainMode::L1, target_timestamp)
+            .await?;
 
         // Get the chain id.
         let l2_chain_id = l2_provider.get_chainid().await?;
