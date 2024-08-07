@@ -54,7 +54,7 @@ pub fn get_sp1_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         AlignedSerializer::new(AlignedVec::new()),
         // TODO: This value is hardcoded to minimum for this block.
         // Figure out how to compute it so it works on all blocks.
-        HeapScratch::<8388608>::new(),
+        HeapScratch::<33554432>::new(),
         SharedSerializeMap::new(),
     );
     serializer.serialize_value(&kv_store)?;
