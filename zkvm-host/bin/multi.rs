@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
@@ -7,7 +7,7 @@ use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
-use zkvm_host::precompile_hook;
+use zkvm_host::{precompile_hook, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -29,6 +29,10 @@ struct Args {
     /// Skip running native execution.
     #[arg(short, long)]
     use_cache: bool,
+
+    /// Whether to print out the statistics.
+    #[arg(short, long, default_value = "true")]
+    stats: bool,
 }
 
 /// Execute the Kona program for a single block.
@@ -39,7 +43,6 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
-        l2_rpc: env::var("L2_RPC").expect("L2_RPC is not set."),
         ..Default::default()
     };
 
@@ -73,12 +76,33 @@ async fn main() -> Result<()> {
         .run()
         .unwrap();
 
-    println!(
-        "Cycle count: {}",
-        report
-            .total_instruction_count()
-            .to_formatted_string(&Locale::en)
-    );
+    let total_instruction_count = report.total_instruction_count();
+
+    if args.stats {
+        let nb_blocks = args.end - args.start + 1;
+
+        // Fetch the number of transactions in the blocks from the L2 RPC.
+        let nb_transactions = SP1KonaDataFetcher::get_block_transaction_count_range(
+            &data_fetcher.l2_rpc,
+            args.start,
+            args.end,
+        )
+        .await?;
+
+        println!(
+            "{}",
+            ExecutionStats {
+                total_instruction_count,
+                nb_blocks,
+                nb_transactions,
+            }
+        );
+    } else {
+        println!(
+            "Total cycle count: {}",
+            total_instruction_count.to_formatted_string(&Locale::en)
+        );
+    }
 
     Ok(())
 }

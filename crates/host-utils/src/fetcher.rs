@@ -37,6 +37,22 @@ impl SP1KonaDataFetcher {
         }
     }
 
+    // Get the number of transactions in a single block.
+    pub async fn get_block_transaction_count(rpc: &str, block_number: u64) -> Result<u64> {
+        let l2_provider = Provider::<Http>::try_from(rpc)?;
+        let block = l2_provider.get_block(block_number).await?.unwrap();
+        Ok(block.transactions.len() as u64)
+    }
+
+    // Get the number of transactions in a range of blocks inclusive.
+    pub async fn get_block_transaction_count_range(rpc: &str, start: u64, end: u64) -> Result<u64> {
+        let mut count = 0;
+        for block_number in start..=end {
+            count += Self::get_block_transaction_count(rpc, block_number).await?;
+        }
+        Ok(count)
+    }
+
     async fn find_block_by_timestamp(&self, target_timestamp: U256) -> Result<B256> {
         let l1_provider = Provider::<Http>::try_from(&self.l1_rpc)?;
         let latest_block = l1_provider.get_block(BlockNumber::Latest).await?.unwrap();
