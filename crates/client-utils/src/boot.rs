@@ -7,7 +7,7 @@ use kona_client::BootInfo;
 use kona_primitives::RollupConfig;
 use serde::{Deserialize, Serialize};
 
-/// Boot information that is passed to the zkVM as public inputs.
+/// Boot information that is committed to the zkVM as public inputs.
 /// This struct contains all information needed to generate BootInfo,
 /// as the RollupConfig can be derived from the `chain_id`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
