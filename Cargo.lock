@@ -2653,6 +2653,7 @@ dependencies = [
 name = "host-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "dotenv",
  "host-utils",
