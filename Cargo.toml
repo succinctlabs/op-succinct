@@ -1,6 +1,6 @@
 [workspace]
 members = [ "aggregation-client",
-    "crates/*",
+    "crates/*", "host-server",
     "native-host",
     "validity-client",
     "zkvm-client",
