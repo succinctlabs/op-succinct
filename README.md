@@ -31,7 +31,8 @@ just run-multi <start> <end> [use-cache] [prove]
 
 - [use-cache]: Optional flag to re-use the native execution cache (default: false).
 - [prove]: Optional flag to prove the execution (default: false).
+- [stats]: Optional flag to print out the statistics (default: false).
 
 Observations: 
 * For most blocks, the cycle count per transaction is around 4M cycles per transaction.
-* TODO: Do further analysis on the cycle count.
+* Some example cycle count estimates can be found [here](https://www.notion.so/succinctlabs/SP1-Kona-8b025f81f28f4d149eb4816db4e6d80b?pvs=4).
