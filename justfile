@@ -24,10 +24,6 @@ run-multi start end verbosity="0" use-cache="false" prove="false":
   if [ "{{prove}}" = "true" ]; then
     PROVE_FLAG="--prove"
   fi
-  LOG_FLAG=""
-  if [ "{{verbosity}}" != "0" ]; then
-    export RUST_LOG=info
-  fi
 
   cargo run --bin multi --release -- --start {{start}} --end {{end}} --verbosity {{verbosity}} $CACHE_FLAG $PROVE_FLAG
 

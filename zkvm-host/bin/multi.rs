@@ -2,10 +2,12 @@ use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
+use client_utils::precompiles::PRECOMPILE_HOOK_FD;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
-use kona_host::{init_tracing_subscriber, start_server_and_native_client};
+use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
+use zkvm_host::precompile_hook;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -37,6 +39,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
+    utils::setup_logger();
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
@@ -58,8 +61,6 @@ async fn main() -> Result<()> {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
-        // Initialize the tracer.
-        init_tracing_subscriber(host_cli.v).unwrap();
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone())
             .await
@@ -77,11 +78,16 @@ async fn main() -> Result<()> {
         let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
         let proof = prover.prove(&pk, sp1_stdin).run().unwrap();
 
+        // Save the proof to data/proofs.
         proof
             .save(format!("data/proofs/{}-{}.bin", args.start, args.end))
             .expect("saving proof failed");
     } else {
-        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+        let (_, report) = prover
+            .execute(MULTI_BLOCK_ELF, sp1_stdin)
+            .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
+            .run()
+            .unwrap();
 
         println!(
             "Cycle count: {}",
