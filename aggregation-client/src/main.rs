@@ -7,8 +7,7 @@ use client_utils::RawBootInfo;
 use sha2::{Digest, Sha256};
 
 pub fn main() {
-    // Read the verification keys.
-    // TODO: Does this need to be a public input? Or is it constrained already by the write_proof stuff?
+    // Read the vkey and commit to it as part of the proof.
     let client_vkey = sp1_zkvm::io::read::<[u32; 8]>();
 
     // Read the public values.
