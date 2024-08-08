@@ -24,6 +24,11 @@ struct ProofRequest {
 }
 
 #[derive(Serialize)]
+struct ProofResponse {
+    proof_id: String,
+}
+
+#[derive(Serialize)]
 struct ProofStatus {
     status: String,
     bytestring: Vec<u8>,
@@ -43,7 +48,7 @@ async fn main() {
 
 async fn request_proof(
     Json(payload): Json<ProofRequest>,
-) -> Result<(StatusCode, String), AppError> {
+) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     dotenv::dotenv().ok();
 
     // ZTODO: Save data fetcher, NetworkProver, and NetworkClient globally
@@ -72,7 +77,7 @@ async fn request_proof(
         .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
         .await?;
 
-    Ok((StatusCode::OK, proof_id))
+    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
 async fn get_proof_status(
