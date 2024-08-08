@@ -37,7 +37,7 @@ async fn main() {
         .route("/request_proof", post(request_proof))
         .route("/status/:proof_id", get(get_proof_status));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3002")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();
