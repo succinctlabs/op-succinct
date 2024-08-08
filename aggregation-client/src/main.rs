@@ -16,9 +16,7 @@ pub fn main() {
 
     // Verify the proofs.
     let mut last_boot_info_opt: Option<&RawBootInfo> = None;
-    for i in 0..boot_infos.len() {
-        let boot_info = &boot_infos[i];
-
+    for boot_info in boot_infos.iter() {
         if let Some(last_boot_info) = last_boot_info_opt {
             assert_eq!(last_boot_info.l2_claim_block + 1, boot_info.l2_claim_block);
             assert_eq!(last_boot_info.l2_claim, boot_info.l2_output_root);
