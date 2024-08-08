@@ -47,6 +47,7 @@ serde = { workspace = true }
 
 # server
 axum = "0.7.4"
+bincode.workspace = true
 
 [build-dependencies]
 sp1-helper = { workspace = true }

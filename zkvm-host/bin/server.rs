@@ -5,22 +5,29 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use client_utils::RawBootInfo;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
-    NetworkProver, Prover,
+    HashableKey, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
 };
 use std::{env, fs};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
+pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
 
 #[derive(Deserialize)]
-struct ProofRequest {
+struct SpanProofRequest {
     start: u64,
     end: u64,
+}
+
+#[derive(Deserialize)]
+struct AggProofRequest {
+    subproofs: Vec<Vec<u8>>,
 }
 
 #[derive(Serialize)]
@@ -31,13 +38,14 @@ struct ProofResponse {
 #[derive(Serialize)]
 struct ProofStatus {
     status: String,
-    bytestring: Vec<u8>,
+    proof: Vec<u8>,
 }
 
 #[tokio::main]
 async fn main() {
     let app = Router::new()
-        .route("/request_proof", post(request_proof))
+        .route("/request_span_proof", post(request_span_proof))
+        .route("/request_agg_proof", post(request_agg_proof))
         .route("/status/:proof_id", get(get_proof_status));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3002")
@@ -46,11 +54,10 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn request_proof(
-    Json(payload): Json<ProofRequest>,
+async fn request_span_proof(
+    Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     dotenv::dotenv().ok();
-
     // ZTODO: Save data fetcher, NetworkProver, and NetworkClient globally
     // and access via Store.
     let data_fetcher = SP1KonaDataFetcher {
@@ -80,6 +87,40 @@ async fn request_proof(
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
+async fn request_agg_proof(
+    Json(payload): Json<AggProofRequest>,
+) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
+    let mut proofs: Vec<SP1ProofWithPublicValues> = payload
+        .subproofs
+        .iter()
+        .map(|sp| bincode::deserialize(&sp).unwrap())
+        .collect();
+
+    let boot_infos: Vec<RawBootInfo> = proofs
+        .iter_mut()
+        .map(|proof| proof.public_values.read::<RawBootInfo>())
+        .collect();
+
+    let prover = NetworkProver::new();
+    let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
+
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&vkey.hash_u32());
+    for proof in proofs {
+        let SP1Proof::Compressed(compressed_proof) = proof.proof else {
+            panic!();
+        };
+        stdin.write_proof(compressed_proof, vkey.vk.clone());
+    }
+    stdin.write(&boot_infos);
+
+    let proof_id = prover
+        .request_proof(AGG_ELF, stdin, ProofMode::Plonk)
+        .await?;
+
+    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+}
+
 async fn get_proof_status(
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
@@ -96,7 +137,7 @@ async fn get_proof_status(
         StatusCode::OK,
         Json(ProofStatus {
             status: status.as_str_name().to_string(),
-            bytestring: proof,
+            proof,
         }),
     ))
 }
