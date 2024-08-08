@@ -5,7 +5,7 @@ default:
   @just --list
 
 # Runs the kona-host program for a single block.
-run-single l2_block_num verbosity="0" use-cache="false":
+run-single l2_block_num use-cache="false":
   #!/usr/bin/env bash
   CACHE_FLAG=""
   if [ "{{use-cache}}" = "true" ]; then
