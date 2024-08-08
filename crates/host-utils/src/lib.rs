@@ -49,6 +49,7 @@ pub fn get_sp1_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     // Get the workspace root, which is where the data directory is.
     let data_dir = host_cli.data_dir.as_ref().expect("Data directory not set!");
     let kv_store = load_kv_store(data_dir);
+    println!("{}", kv_store.len());
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),

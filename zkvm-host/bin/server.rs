@@ -1,9 +1,7 @@
-mod errors;
-use errors::AppError;
-
 use axum::{
     extract::Path,
     http::StatusCode,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
@@ -37,7 +35,7 @@ async fn main() {
         .route("/request_proof", post(request_proof))
         .route("/status/:proof_id", get(get_proof_status));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3002")
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -48,6 +46,8 @@ async fn request_proof(
 ) -> Result<(StatusCode, String), AppError> {
     dotenv::dotenv().ok();
 
+    // ZTODO: Save data fetcher, NetworkProver, and NetworkClient globally
+    // and access via Store.
     let data_fetcher = SP1KonaDataFetcher {
         l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
         ..Default::default()
@@ -68,8 +68,6 @@ async fn request_proof(
     let sp1_stdin = get_sp1_stdin(&host_cli)?;
 
     let prover = NetworkProver::new();
-    prover.setup(MULTI_BLOCK_ELF);
-
     let proof_id = prover
         .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
         .await?;
@@ -96,4 +94,21 @@ async fn get_proof_status(
             bytestring: proof,
         }),
     ))
+}
+
+pub struct AppError(anyhow::Error);
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("{}", self.0)).into_response()
+    }
+}
+
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
 }

@@ -2650,20 +2650,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "host-server"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "dotenv",
- "host-utils",
- "kona-host",
- "serde",
- "sp1-sdk",
- "tokio",
-]
-
-[[package]]
 name = "host-utils"
 version = "0.1.0"
 dependencies = [
@@ -7693,6 +7679,7 @@ name = "zkvm-host"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "cargo_metadata",
  "clap",
  "client-utils",
@@ -7701,6 +7688,7 @@ dependencies = [
  "kona-host",
  "num-format",
  "revm",
+ "serde",
  "sp1-helper",
  "sp1-sdk",
  "tokio",
