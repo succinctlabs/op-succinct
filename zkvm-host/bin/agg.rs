@@ -1,7 +1,6 @@
 use std::{env, fs};
 
 use anyhow::Result;
-use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use client_utils::RawBootInfo;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};

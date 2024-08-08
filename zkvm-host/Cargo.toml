@@ -24,6 +24,7 @@ path = "bin/agg.rs"
 # workspace
 tokio = { workspace = true }
 clap = { workspace = true }
+cargo-metadata = { workspace = true }
 
 # kona
 kona-host = { workspace = true }
@@ -36,6 +37,8 @@ sp1-sdk = { workspace = true }
 anyhow.workspace = true
 dotenv.workspace = true
 num-format.workspace = true
+revm.workspace = true
+client-utils.workspace = true
 
 [build-dependencies]
 sp1-helper = { workspace = true }
