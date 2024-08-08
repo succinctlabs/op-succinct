@@ -65,8 +65,6 @@ async fn main() -> Result<()> {
         start_server_and_native_client(host_cli.clone())
             .await
             .unwrap();
-    } else {
-        utils::setup_logger();
     }
 
     // Get the stdin for the block.
