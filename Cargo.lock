@@ -2653,20 +2653,13 @@ dependencies = [
 name = "host-server"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "axum",
- "cargo_metadata",
- "clap",
- "client-utils",
  "dotenv",
  "host-utils",
  "kona-host",
- "num-format",
- "revm",
  "serde",
  "sp1-sdk",
  "tokio",
- "zkvm-host",
 ]
 
 [[package]]
