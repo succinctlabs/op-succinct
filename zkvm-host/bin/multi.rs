@@ -9,7 +9,7 @@ use host_utils::{
 };
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{utils, ExecutionReport, ProverClient};
 use zkvm_host::{precompile_hook, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
@@ -36,6 +36,44 @@ struct Args {
     /// Generate proof.
     #[arg(short, long)]
     prove: bool,
+}
+
+/// Based on the stats flag, print out simple or detailed statistics.
+async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &ExecutionReport) {
+    if args.stats {
+        // Get the total instruction count for execution across all blocks.
+        let block_execution_instruction_count: u64 =
+            *report.cycle_tracker.get("block-execution").unwrap();
+
+        let nb_blocks = args.end - args.start + 1;
+
+        // Fetch the number of transactions in the blocks from the L2 RPC.
+        let block_data_range = data_fetcher
+            .get_block_data_range(ChainMode::L2, args.start, args.end)
+            .await
+            .expect("Failed to fetch block data range.");
+
+        let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
+        let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
+
+        println!(
+            "{}",
+            ExecutionStats {
+                total_instruction_count: report.total_instruction_count(),
+                block_execution_instruction_count,
+                nb_blocks,
+                nb_transactions,
+                total_gas_used,
+            }
+        );
+    } else {
+        println!(
+            "Total cycle count: {}",
+            report
+                .total_instruction_count()
+                .to_formatted_string(&Locale::en)
+        );
+    }
 }
 
 /// Execute the Kona program for a single block.
@@ -91,39 +129,7 @@ async fn main() -> Result<()> {
             .run()
             .unwrap();
 
-        let total_instruction_count = report.total_instruction_count();
-
-        if args.stats {
-            // Get the total instruction count for execution across all blocks.
-            let block_execution_instruction_count: u64 =
-                *report.cycle_tracker.get("block-execution").unwrap();
-
-            let nb_blocks = args.end - args.start + 1;
-
-            // Fetch the number of transactions in the blocks from the L2 RPC.
-            let block_data_range = data_fetcher
-                .get_block_data_range(ChainMode::L2, args.start, args.end)
-                .await?;
-
-            let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
-            let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
-
-            println!(
-                "{}",
-                ExecutionStats {
-                    total_instruction_count,
-                    block_execution_instruction_count,
-                    nb_blocks,
-                    nb_transactions,
-                    total_gas_used,
-                }
-            );
-        } else {
-            println!(
-                "Total cycle count: {}",
-                total_instruction_count.to_formatted_string(&Locale::en)
-            );
-        }
+        print_stats(&data_fetcher, &args, &report).await;
     }
 
     Ok(())
