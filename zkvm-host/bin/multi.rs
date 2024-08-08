@@ -22,10 +22,6 @@ struct Args {
     #[arg(short, long)]
     end: u64,
 
-    /// Verbosity level.
-    #[arg(short, long, default_value = "0")]
-    verbosity: u8,
-
     /// Skip running native execution.
     #[arg(short, long)]
     use_cache: bool,
@@ -48,7 +44,7 @@ async fn main() -> Result<()> {
     };
 
     let host_cli = data_fetcher
-        .get_host_cli_args(args.start, args.end, args.verbosity, ProgramType::Multi)
+        .get_host_cli_args(args.start, args.end, ProgramType::Multi)
         .await?;
 
     let data_dir = host_cli

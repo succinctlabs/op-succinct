@@ -11,10 +11,10 @@ run-single l2_block_num verbosity="0" use-cache="false":
   if [ "{{use-cache}}" = "true" ]; then
     CACHE_FLAG="--use-cache"
   fi
-  cargo run --bin single --release -- --l2-block {{l2_block_num}} --verbosity {{verbosity}} $CACHE_FLAG
+  cargo run --bin single --release -- --l2-block {{l2_block_num}} $CACHE_FLAG
 
 # Runs the kona-host program for multiple blocks.
-run-multi start end verbosity="0" use-cache="false" prove="false":
+run-multi start end use-cache="false" prove="false":
   #!/usr/bin/env bash
   CACHE_FLAG=""
   if [ "{{use-cache}}" = "true" ]; then
@@ -25,7 +25,7 @@ run-multi start end verbosity="0" use-cache="false" prove="false":
     PROVE_FLAG="--prove"
   fi
 
-  cargo run --bin multi --release -- --start {{start}} --end {{end}} --verbosity {{verbosity}} $CACHE_FLAG $PROVE_FLAG
+  cargo run --bin multi --release -- --start {{start}} --end {{end}} $CACHE_FLAG $PROVE_FLAG
 
 # Runs the client program in native execution mode. Modified version of Kona Native Client execution:
 # https://github.com/ethereum-optimism/kona/blob/ae71b9df103c941c06b0dc5400223c4f13fe5717/bin/client/justfile#L65-L108
