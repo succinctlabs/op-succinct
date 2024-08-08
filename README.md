@@ -31,7 +31,6 @@ just run-multi <start> <end> [use-cache] [prove]
 
 - [use-cache]: Optional flag to re-use the native execution cache (default: false).
 - [prove]: Optional flag to prove the execution (default: false).
-- [stats]: Optional flag to print out the statistics (default: false).
 
 Observations: 
 * For most blocks, the cycle count per transaction is around 4M cycles per transaction.

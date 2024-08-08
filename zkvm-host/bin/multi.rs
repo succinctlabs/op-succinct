@@ -8,7 +8,6 @@ use host_utils::{
     get_sp1_stdin, ProgramType,
 };
 use kona_host::start_server_and_native_client;
-use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
 use zkvm_host::{precompile_hook, ExecutionStats};
 
@@ -29,10 +28,6 @@ struct Args {
     #[arg(short, long)]
     use_cache: bool,
 
-    /// Whether to print out the statistics.
-    #[arg(short, long, default_value = "true")]
-    stats: bool,
-
     /// Generate proof.
     #[arg(short, long)]
     prove: bool,
@@ -40,40 +35,31 @@ struct Args {
 
 /// Based on the stats flag, print out simple or detailed statistics.
 async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &ExecutionReport) {
-    if args.stats {
-        // Get the total instruction count for execution across all blocks.
-        let block_execution_instruction_count: u64 =
-            *report.cycle_tracker.get("block-execution").unwrap();
+    // Get the total instruction count for execution across all blocks.
+    let block_execution_instruction_count: u64 =
+        *report.cycle_tracker.get("block-execution").unwrap();
 
-        let nb_blocks = args.end - args.start + 1;
+    let nb_blocks = args.end - args.start + 1;
 
-        // Fetch the number of transactions in the blocks from the L2 RPC.
-        let block_data_range = data_fetcher
-            .get_block_data_range(ChainMode::L2, args.start, args.end)
-            .await
-            .expect("Failed to fetch block data range.");
+    // Fetch the number of transactions in the blocks from the L2 RPC.
+    let block_data_range = data_fetcher
+        .get_block_data_range(ChainMode::L2, args.start, args.end)
+        .await
+        .expect("Failed to fetch block data range.");
 
-        let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
-        let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
+    let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
+    let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
 
-        println!(
-            "{}",
-            ExecutionStats {
-                total_instruction_count: report.total_instruction_count(),
-                block_execution_instruction_count,
-                nb_blocks,
-                nb_transactions,
-                total_gas_used,
-            }
-        );
-    } else {
-        println!(
-            "Total cycle count: {}",
-            report
-                .total_instruction_count()
-                .to_formatted_string(&Locale::en)
-        );
-    }
+    println!(
+        "{}",
+        ExecutionStats {
+            total_instruction_count: report.total_instruction_count(),
+            block_execution_instruction_count,
+            nb_blocks,
+            nb_transactions,
+            total_gas_used,
+        }
+    );
 }
 
 /// Execute the Kona program for a single block.
