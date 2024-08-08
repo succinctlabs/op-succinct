@@ -42,6 +42,8 @@ async fn main() {
 }
 
 async fn request_proof(Json(payload): Json<ProofRequest>) -> (StatusCode, String) {
+    dotenv::dotenv().ok();
+
     let data_fetcher = SP1KonaDataFetcher {
         l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
         ..Default::default()
@@ -79,8 +81,9 @@ async fn request_proof(Json(payload): Json<ProofRequest>) -> (StatusCode, String
 }
 
 async fn get_proof_status(Path(proof_id): Path<String>) -> Json<ProofStatus> {
-    let private_key = env::var("SP1_PRIVATE_KEY")
-        .unwrap_or_else(|_| panic!("SP1_PRIVATE_KEY must be set for remote proving"));
+    dotenv::dotenv().ok();
+    let private_key = env::var("SP1_PRIVATE_KEY").unwrap();
+
     let client = NetworkClient::new(&private_key);
     let (status, maybe_proof) = client.get_proof_status(&proof_id).await.unwrap();
 
