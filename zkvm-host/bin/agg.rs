@@ -3,7 +3,8 @@ use std::fs;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::RawBootInfo;
+use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
+use host_utils::fetcher::SP1KonaDataFetcher;
 use sp1_sdk::{utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin};
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -24,12 +25,16 @@ struct Args {
     verbosity: u8,
 }
 
-/// Execute the Kona program for a single block.
+/// Load the aggregation proof data.
+fn load_aggregation_proof_data() {}
+
+// Execute the Kona program for a single block.
 #[tokio::main]
 async fn main() -> Result<()> {
     utils::setup_logger();
 
     let args = Args::parse();
+    let fetcher = SP1KonaDataFetcher::new();
     let prover = ProverClient::new();
 
     let metadata = MetadataCommand::new().exec().unwrap();
@@ -46,15 +51,28 @@ async fn main() -> Result<()> {
         }
         let mut deserialized_proof =
             SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
-
         proofs.push(deserialized_proof.proof);
-        boot_infos.push(deserialized_proof.public_values.read::<RawBootInfo>());
+
+        // The public values are the ABI-encoded BootInfo.
+        let mut boot_info_buf = [0u8; BOOT_INFO_SIZE];
+        deserialized_proof
+            .public_values
+            .read_slice(&mut boot_info_buf);
+        let boot_info = RawBootInfo::abi_decode(&boot_info_buf).unwrap();
+        boot_infos.push(boot_info);
+    }
+
+    // Fetch the headers from the L1 head of the last block to the L1 head of the first block.
+    // let mut headers = Vec::with_capacity(proofs.len());
+    for boot_info in boot_infos.iter().rev() {
+        // TODO: Fetch the headers from the L1 provider.
+        // let header = fetcher.get_header(boot_info.l1_head).await?;
+        // headers.push(header);
     }
 
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
     let mut stdin = SP1Stdin::new();
-    stdin.write(&vkey.hash_u32());
     for proof in proofs {
         let SP1Proof::Compressed(compressed_proof) = proof else {
             panic!();
