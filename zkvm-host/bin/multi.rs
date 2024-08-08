@@ -73,6 +73,7 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
 
     if args.prove {
+        // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
         let proof = prover.prove(&pk, sp1_stdin).run().unwrap();
 
@@ -81,6 +82,7 @@ async fn main() -> Result<()> {
             .save(format!("data/proofs/{}-{}.bin", args.start, args.end))
             .expect("saving proof failed");
     } else {
+        // Otherwise, execute the program.
         let (_, report) = prover
             .execute(MULTI_BLOCK_ELF, sp1_stdin)
             .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
