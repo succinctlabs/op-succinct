@@ -7365,6 +7365,8 @@ dependencies = [
 name = "zkvm-host"
 version = "0.1.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
  "anyhow",
  "cargo_metadata",
  "clap",

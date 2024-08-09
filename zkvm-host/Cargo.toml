@@ -25,6 +25,8 @@ path = "bin/agg.rs"
 tokio = { workspace = true }
 clap = { workspace = true }
 cargo_metadata = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-primitives = { workspace = true }
 
 # kona
 kona-host = { workspace = true }
