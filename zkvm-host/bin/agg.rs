@@ -71,23 +71,23 @@ async fn main() -> Result<()> {
     let last_head = boot_infos.first().unwrap().l1_head;
 
     // Confirm that the headers are in the correct order.
-    let start_header = fetcher
-        .get_header_by_hash(last_head.hash, ChainMode::Mainnet)
-        .await?;
+    let start_header = fetcher.get_header_by_hash(ChainMode::L1, last_head).await?;
     let end_header = fetcher
-        .get_header_by_hash(first_head.hash, ChainMode::Mainnet)
+        .get_header_by_hash(ChainMode::L1, first_head)
         .await?;
     if start_header.number > end_header.number {
         panic!("Headers are not in the correct order");
     }
-    let mut headers = Vec::with_capacity((end_header.number - start_header.number + 1) as usize);
+    let mut headers = Vec::with_capacity(
+        (end_header.number.unwrap() - start_header.number.unwrap() + 1) as usize,
+    );
     let mut curr_head = end_header;
 
     // Fetch the headers from the end header to the start header.
     while curr_head.number > start_header.number {
         headers.push(curr_head.clone());
         curr_head = fetcher
-            .get_header_by_hash(curr_head.parent_hash, ChainMode::Mainnet)
+            .get_header_by_hash(ChainMode::L1, curr_head.parent_hash)
             .await?;
     }
 
