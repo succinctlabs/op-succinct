@@ -1,3 +1,4 @@
+use alloy_primitives::B256;
 use axum::{
     extract::Path,
     http::StatusCode,
@@ -5,7 +6,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use client_utils::RawBootInfo;
+use client_utils::{types::AggregationInputs, RawBootInfo};
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,7 @@ use sp1_sdk::{
     HashableKey, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
 };
 use std::{env, fs};
+use zkvm_host::utils::fetch_header_preimages;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -28,6 +30,7 @@ struct SpanProofRequest {
 #[derive(Deserialize)]
 struct AggProofRequest {
     subproofs: Vec<Vec<u8>>,
+    l1_head: B256,
 }
 
 #[derive(Serialize)]
@@ -48,7 +51,7 @@ async fn main() {
         .route("/request_agg_proof", post(request_agg_proof))
         .route("/status/:proof_id", get(get_proof_status));
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3002")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -60,13 +63,10 @@ async fn request_span_proof(
     dotenv::dotenv().ok();
     // ZTODO: Save data fetcher, NetworkProver, and NetworkClient globally
     // and access via Store.
-    let data_fetcher = SP1KonaDataFetcher {
-        l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
-        ..Default::default()
-    };
+    let data_fetcher = SP1KonaDataFetcher::new();
 
     let host_cli = data_fetcher
-        .get_host_cli_args(payload.start, payload.end, 0, ProgramType::Multi)
+        .get_host_cli_args(payload.start, payload.end, ProgramType::Multi)
         .await?;
 
     let data_dir = host_cli.data_dir.clone().unwrap();
@@ -93,7 +93,7 @@ async fn request_agg_proof(
     let mut proofs: Vec<SP1ProofWithPublicValues> = payload
         .subproofs
         .iter()
-        .map(|sp| bincode::deserialize(&sp).unwrap())
+        .map(|sp| bincode::deserialize(sp).unwrap())
         .collect();
 
     let boot_infos: Vec<RawBootInfo> = proofs
@@ -101,18 +101,23 @@ async fn request_agg_proof(
         .map(|proof| proof.public_values.read::<RawBootInfo>())
         .collect();
 
+    let headers = fetch_header_preimages(&boot_infos, payload.l1_head).await?;
+
     let prover = NetworkProver::new();
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
     let mut stdin = SP1Stdin::new();
-    stdin.write(&vkey.hash_u32());
     for proof in proofs {
         let SP1Proof::Compressed(compressed_proof) = proof.proof else {
             panic!();
         };
         stdin.write_proof(compressed_proof, vkey.vk.clone());
     }
-    stdin.write(&boot_infos);
+    stdin.write(&AggregationInputs {
+        boot_infos,
+        headers,
+        l1_head: payload.l1_head,
+    });
 
     let proof_id = prover
         .request_proof(AGG_ELF, stdin, ProofMode::Plonk)
