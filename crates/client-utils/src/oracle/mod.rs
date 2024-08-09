@@ -7,6 +7,9 @@ use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
+use kzg_rs::Blob as KzgRsBlob;
+use kzg_rs::Bytes48;
+use kzg_rs::{get_kzg_settings, KzgSettings};
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -148,8 +151,13 @@ impl InMemoryOracle {
         for (commitment, blob) in blobs.iter() {
             println!("cycle-tracker-start: blob-verification");
             // TODO: Add SP1 patch for BLS12_381.
-            kzg_rs::verify_blob_kzg_proof(&blob.data, commitment, &blob.kzg_proof)
-                .map_err(|e| format!("blob verification failed for {:?}: {}", commitment, e))?;
+            kzg_rs::KzgProof::verify_blob_kzg_proof(
+                KzgRsBlob::from_slice(&blob.data.0).unwrap(),
+                &Bytes48::from_slice(&commitment.0).unwrap(),
+                &Bytes48::from_slice(&blob.kzg_proof.0).unwrap(),
+                &get_kzg_settings(),
+            )
+            .map_err(|e| anyhow!("blob verification failed for {:?}: {:?}", commitment, e))?;
             println!("cycle-tracker-end: blob-verification");
 
             // TODO: Would this allow us to leave 000...000 segments in blobs that were not empty and prove that?
