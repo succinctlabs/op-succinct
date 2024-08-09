@@ -15,3 +15,4 @@ sp1-zkvm = { workspace = true }
 sp1-lib = { workspace = true }
 client-utils = { workspace = true }
 alloy-consensus = { workspace = true }
+alloy-primitives = { workspace = true }

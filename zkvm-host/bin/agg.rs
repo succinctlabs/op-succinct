@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
+use client_utils::{types::AggregationInputs, RawBootInfo, BOOT_INFO_SIZE};
 use host_utils::fetcher::{ChainMode, SP1KonaDataFetcher};
 use sp1_sdk::{utils, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin};
 
@@ -66,28 +66,25 @@ async fn main() -> Result<()> {
 
     let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs);
 
-    // Fetch the headers from the L1 head of the last block to the L1 head of the first block.
+    // Fetch the headers from the L1 head of the first boot info to the current L1 head, inclusive.
     let first_head = boot_infos.last().unwrap().l1_head;
-    let last_head = boot_infos.first().unwrap().l1_head;
 
     // Confirm that the headers are in the correct order.
-    let start_header = fetcher.get_header_by_hash(ChainMode::L1, last_head).await?;
-    let end_header = fetcher
+    let start_header = fetcher
         .get_header_by_hash(ChainMode::L1, first_head)
         .await?;
+    let end_header = fetcher.get_head(ChainMode::L1).await?;
     if start_header.number > end_header.number {
         panic!("Headers are not in the correct order");
     }
-    let mut headers = Vec::with_capacity(
-        (end_header.number.unwrap() - start_header.number.unwrap() + 1) as usize,
-    );
-    let mut curr_head = end_header;
+    let mut headers = Vec::new();
 
-    // Fetch the headers from the end header to the start header.
-    while curr_head.number > start_header.number {
-        headers.push(curr_head.clone());
-        curr_head = fetcher
-            .get_header_by_hash(ChainMode::L1, curr_head.parent_hash)
+    let mut curr_header = end_header.clone();
+    // Fetch the headers from the end header to the start header, inclusive.
+    while curr_header.number >= start_header.number {
+        headers.push(curr_header.clone());
+        curr_header = fetcher
+            .get_header_by_hash(ChainMode::L1, curr_header.parent_hash)
             .await?;
     }
 
@@ -103,8 +100,13 @@ async fn main() -> Result<()> {
         };
         stdin.write_proof(compressed_proof, vkey.vk.clone());
     }
-    stdin.write(&boot_infos);
-    stdin.write(&headers);
+
+    // Write the aggregation inputs to the stdin.
+    stdin.write(&AggregationInputs {
+        boot_infos,
+        headers,
+        l1_head: end_header.hash_slow(),
+    });
 
     let (agg_pk, _) = prover.setup(AGG_ELF);
 

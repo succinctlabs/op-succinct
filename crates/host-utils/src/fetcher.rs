@@ -1,9 +1,9 @@
 use alloy::{
     eips::BlockNumberOrTag,
     providers::{Provider, ProviderBuilder, RootProvider},
-    rpc::types::Header,
     transports::http::{reqwest::Url, Client, Http},
 };
+use alloy_consensus::Header;
 use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
@@ -82,7 +82,17 @@ impl SP1KonaDataFetcher {
             .await?
             .unwrap()
             .header;
-        Ok(header)
+        Ok(header.try_into().unwrap())
+    }
+
+    pub async fn get_head(&self, chain_mode: ChainMode) -> Result<Header> {
+        let provider = self.get_provider(chain_mode);
+        let header = provider
+            .get_block_by_number(BlockNumberOrTag::Latest, false)
+            .await?
+            .unwrap()
+            .header;
+        Ok(header.try_into().unwrap())
     }
 
     pub async fn get_header_by_number(
@@ -96,7 +106,7 @@ impl SP1KonaDataFetcher {
             .await?
             .unwrap()
             .header;
-        Ok(header)
+        Ok(header.try_into().unwrap())
     }
 
     /// Get the block data for a range of blocks inclusive.

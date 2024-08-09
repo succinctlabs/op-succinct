@@ -12,6 +12,8 @@ pub use oracle::InMemoryOracle;
 
 pub mod precompiles;
 
+pub mod types;
+
 extern crate alloc;
 
 pub mod driver;
