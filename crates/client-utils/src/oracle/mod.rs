@@ -147,9 +147,9 @@ impl InMemoryOracle {
         // Verify reconstructed blobs.
         for (commitment, blob) in blobs.iter() {
             println!("cycle-tracker-start: blob-verification");
+            kzg_rs::verify_blob_kzg_proof(&blob.data, commitment, &blob.kzg_proof)
+                .map_err(|e| format!("blob verification failed for {:?}: {}", commitment, e))?;
             println!("cycle-tracker-end: blob-verification");
-            // kzg::verify_blob_kzg_proof(&blob.data, commitment, &blob.kzg_proof)
-            // .map_err(|e| format!("blob verification failed for {:?}: {}", commitment, e))?;
 
             // TODO: Would this allow us to leave 000...000 segments in blobs that were not empty and prove that?
             // May need to track to ensure each blob element has been included.

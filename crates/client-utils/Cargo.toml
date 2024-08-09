@@ -17,6 +17,9 @@ alloy-eips.workspace = true
 alloy-primitives.workspace = true
 revm.workspace = true
 
+# kzg
+kzg-rs.workspace = true
+
 # workspace (kona)
 kona-primitives.workspace = true
 kona-executor.workspace = true
