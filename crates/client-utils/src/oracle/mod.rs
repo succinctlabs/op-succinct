@@ -150,7 +150,7 @@ impl InMemoryOracle {
         // Verify reconstructed blobs.
         for (commitment, blob) in blobs.iter() {
             println!("cycle-tracker-start: blob-verification");
-            // TODO: Add SP1 patch for BLS12_381.
+            // TODO: Move to verify_blob_kzg_proof_batch whenever it's ready. Ping Bharghav.
             kzg_rs::KzgProof::verify_blob_kzg_proof(
                 KzgRsBlob::from_slice(&blob.data.0).unwrap(),
                 &Bytes48::from_slice(&commitment.0).unwrap(),
