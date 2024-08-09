@@ -20,7 +20,7 @@ struct Args {
 
     /// L1 Head
     #[arg(short, long)]
-    latest_l1_head: B256,
+    latest_checkpoint_head: B256,
 }
 
 /// Load the aggregation proof data.
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
 
     let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs);
-    let headers = fetch_header_preimages(&boot_infos, args.latest_l1_head).await?;
+    let headers = fetch_header_preimages(&boot_infos, args.latest_checkpoint_head).await?;
 
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
     stdin.write(&AggregationInputs {
         boot_infos,
         headers,
-        l1_head: args.latest_l1_head,
+        l1_head: args.latest_checkpoint_head,
     });
 
     let (agg_pk, _) = prover.setup(AGG_ELF);
