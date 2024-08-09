@@ -1,6 +1,7 @@
 //! A simple program that aggregates the proofs of multiple programs proven with the zkVM.
 
-#![no_main]
+#![cfg_attr(target_os = "zkvm", no_main)]
+#[cfg(target_os = "zkvm")]
 sp1_zkvm::entrypoint!(main);
 
 use client_utils::RawBootInfo;
@@ -43,7 +44,9 @@ pub fn main() {
         let abi_encoded_boot_info = boot_info.abi_encode();
         let pv_digest = Sha256::digest(abi_encoded_boot_info);
 
-        sp1_lib::verify::verify_sp1_proof(&MULTI_BLOCK_PROGRAM_VKEY_DIGEST, &pv_digest.into());
+        if cfg!(target_os = "zkvm") {
+            sp1_lib::verify::verify_sp1_proof(&MULTI_BLOCK_PROGRAM_VKEY_DIGEST, &pv_digest.into());
+        }
     });
 
     // Consolidate the boot info into a single BootInfo struct that represents the range proven.
