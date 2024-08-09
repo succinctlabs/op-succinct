@@ -19,17 +19,17 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/ethereum-optimism/kona" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona", features = [
+kona-common = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
+kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
+kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona" }
+kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
+kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
+kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes", default-features = false }
+kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
+kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
+kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/index-data-bytes" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
@@ -59,15 +59,15 @@ zkvm-host = { path = "zkvm-host" }
 # Note: Using ethers instead of alloy because kona-host depends on alloy-primitives, which causes
 # dependency conflicts when resolving alloy-primitives from alloy crate instead of standalone alloy-primitives.
 # Once kona-host moves to using the new alloy, we can use alloy instead of ethers.
-ethers = { version = "2.0" }
-alloy = { version = "0.1", default-features = false, features = ["full"] }
+# ethers = { version = "2.0" }
+alloy = { version = "=0.2.0", default-features = false, features = ["full"] }
 alloy-primitives = { version = "0.7.6", default-features = false }
 alloy-rlp = { version = "0.3.5", default-features = false }
-alloy-consensus = { version = "0.1", default-features = false }
+alloy-consensus = { version = "=0.2.0", default-features = false }
 alloy-sol-types = { version = "0.7.6" }
-alloy-eips = { version = "0.1", default-features = false }
+alloy-eips = { version = "=0.2.0", default-features = false }
 revm = { git = "https://github.com/bluealloy/revm", tag = "v37", version = "10.0.0", default-features = false }
-op-alloy-consensus = { version = "0.1", default-features = false }
+op-alloy-consensus = { version = "=0.1.4", default-features = false }
 num-format = "0.4.4"
 bincode = "1.3.3"
 

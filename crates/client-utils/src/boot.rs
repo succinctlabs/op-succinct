@@ -1,7 +1,7 @@
 //! This module contains the prologue phase of the client program, pulling in the boot
 //! information, which is passed to the zkVM a public inputs to be verified on chain.
 
-use alloy_primitives::{B256, U256};
+use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
 use kona_client::BootInfo;
