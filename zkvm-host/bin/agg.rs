@@ -73,6 +73,8 @@ async fn main() -> Result<()> {
     let start_header = fetcher
         .get_header_by_hash(ChainMode::L1, first_head)
         .await?;
+    // End header is the current L1 head.
+    // TODO: Should this be the finalized header?
     let end_header = fetcher.get_head(ChainMode::L1).await?;
     if start_header.number > end_header.number {
         panic!("Headers are not in the correct order");
