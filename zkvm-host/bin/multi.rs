@@ -7,7 +7,7 @@ use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_sp1_stdin, ProgramType,
 };
-use kona_host::start_server_and_native_client;
+use kona_host::{init_tracing_subscriber, start_server_and_native_client};
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
 use zkvm_host::{precompile_hook, ExecutionStats};
 
@@ -66,7 +66,7 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    utils::setup_logger();
+    // utils::setup_logger();
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
@@ -86,6 +86,9 @@ async fn main() -> Result<()> {
     if !args.use_cache {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
+
+        // Init tracing subscriber.
+        let _ = init_tracing_subscriber(4);
 
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone())
