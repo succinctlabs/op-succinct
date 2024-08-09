@@ -3,8 +3,9 @@ use std::fs;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::RawBootInfo;
-use sp1_sdk::{utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin};
+use client_utils::{types::AggregationInputs, RawBootInfo, BOOT_INFO_SIZE};
+use host_utils::fetcher::{ChainMode, SP1KonaDataFetcher};
+use sp1_sdk::{utils, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin};
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
@@ -24,44 +25,90 @@ struct Args {
     verbosity: u8,
 }
 
-/// Execute the Kona program for a single block.
-#[tokio::main]
-async fn main() -> Result<()> {
-    utils::setup_logger();
-
-    let args = Args::parse();
-    let prover = ProverClient::new();
-
+/// Load the aggregation proof data.
+fn load_aggregation_proof_data(proof_names: Vec<String>) -> (Vec<SP1Proof>, Vec<RawBootInfo>) {
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
     let proof_directory = format!("{}/data/proofs", workspace_root);
 
-    let mut proofs = Vec::with_capacity(args.proofs.len());
-    let mut boot_infos = Vec::with_capacity(args.proofs.len());
+    let mut proofs = Vec::with_capacity(proof_names.len());
+    let mut boot_infos = Vec::with_capacity(proof_names.len());
 
-    for proof_name in args.proofs.iter() {
+    for proof_name in proof_names.iter() {
         let proof_path = format!("{}/{}.bin", proof_directory, proof_name);
         if fs::metadata(&proof_path).is_err() {
             panic!("Proof file not found: {}", proof_path);
         }
         let mut deserialized_proof =
             SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
-
         proofs.push(deserialized_proof.proof);
-        boot_infos.push(deserialized_proof.public_values.read::<RawBootInfo>());
+
+        // The public values are the ABI-encoded BootInfo.
+        let mut boot_info_buf = [0u8; BOOT_INFO_SIZE];
+        deserialized_proof
+            .public_values
+            .read_slice(&mut boot_info_buf);
+        let boot_info = RawBootInfo::abi_decode(&boot_info_buf).unwrap();
+        boot_infos.push(boot_info);
     }
+
+    (proofs, boot_infos)
+}
+
+// Execute the Kona program for a single block.
+#[tokio::main]
+async fn main() -> Result<()> {
+    utils::setup_logger();
+
+    let args = Args::parse();
+    let fetcher = SP1KonaDataFetcher::new();
+    let prover = ProverClient::new();
+
+    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs);
+
+    // Fetch the headers from the L1 head of the first boot info to the current L1 head, inclusive.
+    let first_head = boot_infos.last().unwrap().l1_head;
+
+    // Confirm that the headers are in the correct order.
+    let start_header = fetcher
+        .get_header_by_hash(ChainMode::L1, first_head)
+        .await?;
+    // End header is the current L1 head.
+    // TODO: Should this be the finalized header/fetched from a different source?
+    let end_header = fetcher.get_head(ChainMode::L1).await?;
+    if start_header.number > end_header.number {
+        panic!("Headers are not in the correct order");
+    }
+    let mut headers = Vec::new();
+
+    let mut curr_header = end_header.clone();
+    // Fetch the headers from the end header to the start header, inclusive.
+    while curr_header.number >= start_header.number {
+        headers.push(curr_header.clone());
+        curr_header = fetcher
+            .get_header_by_hash(ChainMode::L1, curr_header.parent_hash)
+            .await?;
+    }
+
+    // Reverse the headers to put them in order from start to end.
+    headers.reverse();
 
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
     let mut stdin = SP1Stdin::new();
-    stdin.write(&vkey.hash_u32());
     for proof in proofs {
         let SP1Proof::Compressed(compressed_proof) = proof else {
             panic!();
         };
         stdin.write_proof(compressed_proof, vkey.vk.clone());
     }
-    stdin.write(&boot_infos);
+
+    // Write the aggregation inputs to the stdin.
+    stdin.write(&AggregationInputs {
+        boot_infos,
+        headers,
+        l1_head: end_header.hash_slow(),
+    });
 
     let (agg_pk, _) = prover.setup(AGG_ELF);
 

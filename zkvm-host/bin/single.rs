@@ -19,10 +19,6 @@ struct Args {
     #[arg(short, long)]
     l2_block: u64,
 
-    /// Verbosity level.
-    #[arg(short, long, default_value = "0")]
-    verbosity: u8,
-
     /// Skip running native execution.
     #[arg(short, long)]
     use_cache: bool,
@@ -36,7 +32,7 @@ async fn main() -> Result<()> {
     utils::setup_logger();
 
     let data_fetcher = SP1KonaDataFetcher {
-        l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
+        l2_rpc: env::var("L2_RPC").expect("L2_RPC is not set."),
         ..Default::default()
     };
 
@@ -45,12 +41,7 @@ async fn main() -> Result<()> {
     let l2_safe_head = args.l2_block - 1;
 
     let host_cli = data_fetcher
-        .get_host_cli_args(
-            l2_safe_head,
-            args.l2_block,
-            args.verbosity,
-            ProgramType::Single,
-        )
+        .get_host_cli_args(l2_safe_head, args.l2_block, ProgramType::Single)
         .await?;
 
     let data_dir = host_cli

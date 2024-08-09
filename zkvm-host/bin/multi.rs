@@ -6,7 +6,7 @@ use client_utils::precompiles::PRECOMPILE_HOOK_FD;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
-use sp1_sdk::{utils, ProverClient, SP1Stdin};
+use sp1_sdk::{utils, ProverClient};
 use zkvm_host::precompile_hook;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
