@@ -3185,7 +3185,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3211,7 +3211,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3221,7 +3221,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3234,7 +3234,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3269,7 +3269,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3286,7 +3286,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3318,7 +3318,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3332,7 +3332,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3346,7 +3346,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/index-data-bytes#d47d9390c99f6ff7994579cf33fdf6da851993ac"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#44146a5efa2e2d019755ecc0c1f1dd96b84a7cf1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
