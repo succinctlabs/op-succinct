@@ -29,7 +29,7 @@ fn verify_l1_heads(agg_inputs: &AggregationInputs) {
         .collect();
 
     // Iterate through all headers in the chain.
-    let mut current_hash = agg_inputs.l1_head;
+    let mut current_hash = agg_inputs.latest_l1_checkpoint_head;
     // Iterate through the headers in reverse order. The headers should be sequentially linked and
     // include the L1 head of each boot info.
     for header in agg_inputs.headers.iter().rev() {
