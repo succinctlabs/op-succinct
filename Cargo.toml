@@ -75,13 +75,13 @@ kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs.git", branch = "ratan/z
     "cache",
 ] }
 
-sp1-lib = "1.1.1"
-sp1-zkvm = "1.1.1"
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 # sp1-sdk = "1.1.1"
 # sp1-helper = "1.1.1"
 # Note: Using `dev` branch temporarily for the cycle-tracker-report features.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
+sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 
 
 # sp1
