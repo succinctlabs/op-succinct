@@ -14,3 +14,4 @@ sha2 = { workspace = true }
 sp1-zkvm = { workspace = true }
 sp1-lib = { workspace = true }
 client-utils = { workspace = true }
+alloy-consensus = { workspace = true }

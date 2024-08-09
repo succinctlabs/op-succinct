@@ -60,7 +60,7 @@ zkvm-host = { path = "zkvm-host" }
 # dependency conflicts when resolving alloy-primitives from alloy crate instead of standalone alloy-primitives.
 # Once kona-host moves to using the new alloy, we can use alloy instead of ethers.
 ethers = { version = "2.0" }
-alloy = { version = "0.1", default-features = false }
+alloy = { version = "0.1", default-features = false, features = ["full"] }
 alloy-primitives = { version = "0.7.6", default-features = false }
 alloy-rlp = { version = "0.3.5", default-features = false }
 alloy-consensus = { version = "0.1", default-features = false }
