@@ -117,7 +117,8 @@ fn main() {
 
             cfg_if! {
                 if #[cfg(target_os = "zkvm")] {
-                    println!("SP1 heap pointer [1]: {:?}", sp1_zkvm::heap::SimpleAlloc::get_heap_pointer());
+                    let sp1_heap_pointer_pre_execution = sp1_zkvm::heap::SimpleAlloc::get_heap_pointer();
+                    println!("SP1 heap pointer [1]: {:?}", sp1_heap_pointer_pre_execution);
                 }
             }
             for payload in l2_attrs_with_parents {
@@ -163,7 +164,7 @@ fn main() {
             }
             cfg_if! {
                 if #[cfg(target_os = "zkvm")] {
-                    println!("SP1 heap pointer [2]: {:?}", sp1_zkvm::heap::SimpleAlloc::get_heap_pointer());
+                    println!("SP1 heap pointer [2]: {:?}", sp1_zkvm::heap::SimpleAlloc::set_heap_pointer(sp1_heap_pointer_pre_execution));
                 }
             }
 
