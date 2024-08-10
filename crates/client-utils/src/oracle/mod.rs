@@ -76,7 +76,8 @@ impl HintWriterClient for InMemoryOracle {
 struct Blob {
     // TODO: Advantage / disadvantage of using FixedBytes?
     commitment: FixedBytes<48>,
-    data: FixedBytes<4096>,
+    // 4096 Field elements, each 32 bytes.
+    data: FixedBytes<131072>,
     kzg_proof: FixedBytes<48>,
 }
 
@@ -111,10 +112,10 @@ impl InMemoryOracle {
                     if let Some(blob_data) = self.cache.get(&blob_data_key) {
                         let commitment: FixedBytes<48> = blob_data[..48].try_into().unwrap();
                         let element: [u8; 8] = blob_data[72..].try_into().unwrap();
-                        let element: u64 = u64::from_be_bytes(element);
+                        let element_idx: u64 = u64::from_be_bytes(element);
 
                         // Blob is stored as one 48 byte element.
-                        if element == 4096 {
+                        if element_idx == 4096 {
                             blobs
                                 .entry(commitment)
                                 .or_default()
@@ -128,7 +129,7 @@ impl InMemoryOracle {
                             .entry(commitment)
                             .or_default()
                             .data
-                            .get_mut((element as usize) << 5..(element as usize + 1) << 5)
+                            .get_mut((element_idx as usize) << 5..(element_idx as usize + 1) << 5)
                             .map(|slice| {
                                 if slice.iter().all(|&byte| byte == 0) {
                                     slice.copy_from_slice(value);

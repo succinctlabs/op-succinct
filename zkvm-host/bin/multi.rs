@@ -66,7 +66,7 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    // utils::setup_logger();
+    utils::setup_logger();
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
@@ -87,8 +87,8 @@ async fn main() -> Result<()> {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
-        // Init tracing subscriber.
-        let _ = init_tracing_subscriber(4);
+        // // Init tracing subscriber.
+        // let _ = init_tracing_subscriber(4);
 
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone())

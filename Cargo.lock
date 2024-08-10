@@ -3556,7 +3556,6 @@ dependencies = [
 [[package]]
 name = "kzg-rs"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kzg-rs.git?branch=ratan/zkvm-pairings-with-kzg#9d5cd358828e3e62e518b06005f3b1f1b1efe6ae"
 dependencies = [
  "ff 0.13.0",
  "glob",
@@ -6202,7 +6201,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#a615855c4c2d355aa02145cfc643b6848dc67c08"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#7b11008d05023cadb9def590e50344cd1bbea303"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6234,7 +6233,7 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#a615855c4c2d355aa02145cfc643b6848dc67c08"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#7b11008d05023cadb9def590e50344cd1bbea303"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6523,7 +6522,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#a615855c4c2d355aa02145cfc643b6848dc67c08"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#7b11008d05023cadb9def590e50344cd1bbea303"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -8005,7 +8004,7 @@ dependencies = [
 [[package]]
 name = "zkvm-pairings"
 version = "0.1.0"
-source = "git+https://github.com/0xWOLAND/zkvm-pairings?branch=bhargav/refactor#c43759102a86f73b848b838e9d7d0c1e72c9f886"
+source = "git+https://github.com/0xWOLAND/zkvm-pairings?branch=bhargav/refactor#ac77aa749049f0ae2803dc10fc3959cc7cd84932"
 dependencies = [
  "byteorder",
  "cfg-if",
