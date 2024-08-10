@@ -80,6 +80,7 @@ sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "experime
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 
+zkvm-pairings = { git = "https://github.com/0xWOLAND/zkvm-pairings.git", branch = "bhargav/refactor" }
 
 # sp1
 [profile.release-client-lto]

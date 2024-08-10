@@ -33,5 +33,5 @@ sha2.workspace = true
 # sp1
 sp1-zkvm.workspace = true
 
-# # kzg
-# kzg-rs.workspace = true
+# kzg
+zkvm-pairings.workspace = true

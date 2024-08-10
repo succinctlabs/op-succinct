@@ -109,6 +109,59 @@ pub(crate) const ANNOTATED_ECDSA_RECOVER: PrecompileWithAddress =
 //     "kzg-point-evaluation"
 // );
 
+fn bn_add_precompile() -> PrecompileWithAddress {
+    PrecompileWithAddress(
+        bn128::add::ISTANBUL.0,
+        Precompile::Standard(|input: &Bytes, gas_limit: u64| -> PrecompileResult {
+            println!("cycle-tracker-start: bn-add");
+            let output = zkvm_pairings::revm::run_add(input);
+            let bytes = Bytes::from(output);
+            println!("cycle-tracker-end: bn-add");
+            Ok(PrecompileOutput {
+                gas_used: bn128::add::ISTANBUL_ADD_GAS_COST,
+                bytes,
+            })
+        }),
+    )
+}
+
+fn bn_mul_precompile() -> PrecompileWithAddress {
+    PrecompileWithAddress(
+        bn128::mul::ISTANBUL.0,
+        Precompile::Standard(|input: &Bytes, gas_limit: u64| -> PrecompileResult {
+            println!("cycle-tracker-start: bn-mul");
+            let output = zkvm_pairings::revm::run_mul(input);
+            let bytes = Bytes::from(output);
+            println!("cycle-tracker-end: bn-mul");
+            Ok(PrecompileOutput {
+                gas_used: bn128::mul::ISTANBUL_MUL_GAS_COST,
+                bytes,
+            })
+        }),
+    )
+}
+
+fn bn_pair_precompile() -> PrecompileWithAddress {
+    PrecompileWithAddress(
+        bn128::pair::ISTANBUL.0,
+        Precompile::Standard(|input: &Bytes, gas_limit: u64| -> PrecompileResult {
+            println!("cycle-tracker-start: bn-pair");
+            let output = zkvm_pairings::revm::run_pair(
+                input,
+                bn128::pair::ISTANBUL_PAIR_PER_POINT,
+                bn128::pair::ISTANBUL_PAIR_BASE,
+                gas_limit,
+            )
+            .unwrap();
+            println!("cycle-tracker-end: bn-pair");
+            Ok(PrecompileOutput {
+                gas_used: output.0,
+                bytes: Bytes::from(output.1),
+            })
+        }),
+    )
+}
+
 /// The [PrecompileOverride] implementation for the FPVM-accelerated precompiles.
 #[derive(Debug)]
 pub struct ZKVMPrecompileOverride<F, H>
@@ -146,13 +199,16 @@ where
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [
                 ANNOTATED_ECDSA_RECOVER,
-                ANNOTATED_SHA256,
-                ANNOTATED_RIPEMD160,
-                ANNOTATED_IDENTITY,
-                ANNOTATED_BN_ADD,
-                ANNOTATED_BN_MUL,
-                ANNOTATED_BN_PAIR,
-                ANNOTATED_MODEXP,
+                bn_add_precompile(),
+                bn_mul_precompile(),
+                bn_pair_precompile(),
+                // ANNOTATED_SHA256,
+                // ANNOTATED_RIPEMD160,
+                // ANNOTATED_IDENTITY,
+                // ANNOTATED_BN_ADD,
+                // ANNOTATED_BN_MUL,
+                // ANNOTATED_BN_PAIR,
+                // ANNOTATED_MODEXP,
                 // ANNOTATED_KZG_POINT_EVAL,
             ];
             ctx_precompiles.extend(override_precompiles);
