@@ -1,6 +1,7 @@
 //! Contains the [PrecompileOverride] trait implementation for the FPVM-accelerated precompiles.
 
 use alloc::sync::Arc;
+use alloy_primitives::hex;
 use alloy_primitives::Address;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
@@ -77,8 +78,11 @@ macro_rules! create_hook_precompile {
                             }
                             BN_MUL => {
                                 println!("Testing bn-mul");
+                                println!("Input {:?}, and expected output: {:?}", input, bytes);
                                 let output = zkvm_pairings::revm::run_mul(input);
+                                println!("Received output {:?}", hex::encode(output.clone()));
                                 let got_bytes = Bytes::from(output);
+                                println!("Got bytes {:?}", got_bytes);
                                 assert_eq!(got_bytes, bytes);
                             }
                             BN_PAIR => {
@@ -117,6 +121,18 @@ macro_rules! create_hook_precompile {
             }),
         )
     };
+}
+
+mod tests {
+    use alloy_primitives::{bytes, hex};
+
+    #[test]
+    fn test_bn_mul() {
+        let input = bytes!("20b781dd0db3b7980a4b3814128c86e597e1442d0fc9eb7f932a5229494d6b7917d1cef436eb2f665670c7b34854e62c227043a7b111a539c0295518bbab3ca91e57cd7d385ce3b0d436ec73d61caaa8290ef07388228daa83627d6b2eb3e41d0000000000000000000000000000000000000000000000000000000000000000");
+        let output = zkvm_pairings::revm::run_mul(&input);
+        let expected_output = bytes!("239f13d5597aa26f424e4afefb9d82396ae2bdb102c9ec90c68b4254c2769da90a36984eadebffe544f078bbaadb33193fda7bd1aed33e683399c13ac24fc433");
+        assert_eq!(output, expected_output);
+    }
 }
 
 // pub(crate) const ANNOTATED_SHA256: PrecompileWithAddress =

@@ -8017,7 +8017,7 @@ dependencies = [
 [[package]]
 name = "zkvm-pairings"
 version = "0.1.0"
-source = "git+https://github.com/0xWOLAND/zkvm-pairings.git?branch=bhargav/refactor#694fa43cc697dcf9044f7328d6bb184488374425"
+source = "git+https://github.com/0xWOLAND/zkvm-pairings.git?branch=bhargav/refactor#9ec7a076c9d804d274aab9938377e84ab30e91c4"
 dependencies = [
  "byteorder",
  "cfg-if",

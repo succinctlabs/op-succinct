@@ -81,6 +81,7 @@ sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimen
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 
 zkvm-pairings = { git = "https://github.com/0xWOLAND/zkvm-pairings.git", branch = "bhargav/refactor" }
+# zkvm-pairings = { path = "../zkvm-pairings" }
 
 # sp1
 [profile.release-client-lto]
