@@ -115,6 +115,11 @@ fn main() {
                 continue;
             }
 
+            cfg_if! {
+                if #[cfg(target_os = "zkvm")] {
+                    println!("SP1 heap pointer [1]: {:?}", sp1_zkvm::heap::SimpleAlloc::get_heap_pointer());
+                }
+            }
             for payload in l2_attrs_with_parents {
                 // Execute the payload to generate a new block header.
                 println!(
@@ -154,6 +159,11 @@ fn main() {
                 // Increment last_block_num and check if we have reached the claim block.
                 if new_block_number == boot.l2_claim_block {
                     break 'step;
+                }
+            }
+            cfg_if! {
+                if #[cfg(target_os = "zkvm")] {
+                    println!("SP1 heap pointer [2]: {:?}", sp1_zkvm::heap::SimpleAlloc::get_heap_pointer());
                 }
             }
 

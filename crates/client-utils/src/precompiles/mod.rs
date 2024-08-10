@@ -144,18 +144,18 @@ where
                 ContextPrecompiles::new(PrecompileSpecId::from_spec_id(spec_id)).clone();
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
-            let override_precompiles = [
-                ANNOTATED_ECDSA_RECOVER,
-                ANNOTATED_SHA256,
-                ANNOTATED_RIPEMD160,
-                ANNOTATED_IDENTITY,
-                ANNOTATED_BN_ADD,
-                ANNOTATED_BN_MUL,
-                ANNOTATED_BN_PAIR,
-                ANNOTATED_MODEXP,
-                // ANNOTATED_KZG_POINT_EVAL,
-            ];
-            ctx_precompiles.extend(override_precompiles);
+            // let override_precompiles = [
+            //     // ANNOTATED_ECDSA_RECOVER,
+            //     // ANNOTATED_SHA256,
+            //     // ANNOTATED_RIPEMD160,
+            //     // ANNOTATED_IDENTITY,
+            //     // ANNOTATED_BN_ADD,
+            //     // ANNOTATED_BN_MUL,
+            //     // ANNOTATED_BN_PAIR,
+            //     // ANNOTATED_MODEXP,
+            //     // ANNOTATED_KZG_POINT_EVAL,
+            // ];
+            // ctx_precompiles.extend(override_precompiles);
 
             ctx_precompiles
         });
