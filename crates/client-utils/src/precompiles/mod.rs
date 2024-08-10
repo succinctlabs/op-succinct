@@ -1,6 +1,7 @@
 //! Contains the [PrecompileOverride] trait implementation for the FPVM-accelerated precompiles.
 
 use alloc::sync::Arc;
+use alloy_primitives::Address;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::{
@@ -57,11 +58,43 @@ macro_rules! create_hook_precompile {
                 // Read the result from the hook.
                 // Note: We're manually deserializing the PrecompileResult type as it does not have
                 // `serde` support.
+                const BN_ADD: Address = bn128::add::ISTANBUL.0;
+                const BN_MUL: Address = bn128::mul::ISTANBUL.0;
+                const BN_PAIR: Address = bn128::pair::ISTANBUL.0;
+
                 let result_vec = sp1_zkvm::io::read_vec();
                 let result = match result_vec[0] {
                     0 => {
                         let gas_used = u64::from_le_bytes(result_vec[1..9].try_into().unwrap());
                         let bytes = Bytes::from(result_vec[9..].to_vec());
+
+                        match address {
+                            BN_ADD => {
+                                println!("Testing bn-add");
+                                let output = zkvm_pairings::revm::run_add(input);
+                                let got_bytes = Bytes::from(output);
+                                assert_eq!(got_bytes, bytes);
+                            }
+                            BN_MUL => {
+                                println!("Testing bn-mul");
+                                let output = zkvm_pairings::revm::run_mul(input);
+                                let got_bytes = Bytes::from(output);
+                                assert_eq!(got_bytes, bytes);
+                            }
+                            BN_PAIR => {
+                                println!("Testing bn-pair");
+                                let output = zkvm_pairings::revm::run_pair(
+                                    input,
+                                    bn128::pair::ISTANBUL_PAIR_PER_POINT,
+                                    bn128::pair::ISTANBUL_PAIR_BASE,
+                                    gas_limit,
+                                )
+                                .unwrap();
+                                let got_bytes = Bytes::from(output.1);
+                                assert_eq!(got_bytes, bytes);
+                            }
+                            _ => (),
+                        }
                         Ok(PrecompileOutput { gas_used, bytes })
                     }
                     1 => {
@@ -86,20 +119,20 @@ macro_rules! create_hook_precompile {
     };
 }
 
-pub(crate) const ANNOTATED_SHA256: PrecompileWithAddress =
-    create_annotated_precompile!(hash::SHA256, "sha256");
-pub(crate) const ANNOTATED_RIPEMD160: PrecompileWithAddress =
-    create_annotated_precompile!(hash::RIPEMD160, "ripemd160");
-pub(crate) const ANNOTATED_IDENTITY: PrecompileWithAddress =
-    create_annotated_precompile!(identity::FUN, "identity");
+// pub(crate) const ANNOTATED_SHA256: PrecompileWithAddress =
+//     create_annotated_precompile!(hash::SHA256, "sha256");
+// pub(crate) const ANNOTATED_RIPEMD160: PrecompileWithAddress =
+//     create_annotated_precompile!(hash::RIPEMD160, "ripemd160");
+// pub(crate) const ANNOTATED_IDENTITY: PrecompileWithAddress =
+//     create_annotated_precompile!(identity::FUN, "identity");
 pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
     create_hook_precompile!(bn128::add::ISTANBUL, "bn-add");
 pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
     create_hook_precompile!(bn128::mul::ISTANBUL, "bn-mul");
 pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
     create_hook_precompile!(bn128::pair::ISTANBUL, "bn-pair");
-pub(crate) const ANNOTATED_MODEXP: PrecompileWithAddress =
-    create_annotated_precompile!(modexp::BERLIN, "modexp");
+// pub(crate) const ANNOTATED_MODEXP: PrecompileWithAddress =
+//     create_annotated_precompile!(modexp::BERLIN, "modexp");
 pub(crate) const ANNOTATED_ECDSA_RECOVER: PrecompileWithAddress =
     create_annotated_precompile!(secp256k1::ECRECOVER, "ecrecover");
 
@@ -199,15 +232,15 @@ where
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [
                 ANNOTATED_ECDSA_RECOVER,
-                bn_add_precompile(),
-                bn_mul_precompile(),
-                bn_pair_precompile(),
+                // bn_add_precompile(),
+                // bn_mul_precompile(),
+                // bn_pair_precompile(),
                 // ANNOTATED_SHA256,
                 // ANNOTATED_RIPEMD160,
                 // ANNOTATED_IDENTITY,
-                // ANNOTATED_BN_ADD,
-                // ANNOTATED_BN_MUL,
-                // ANNOTATED_BN_PAIR,
+                ANNOTATED_BN_ADD,
+                ANNOTATED_BN_MUL,
+                ANNOTATED_BN_PAIR,
                 // ANNOTATED_MODEXP,
                 // ANNOTATED_KZG_POINT_EVAL,
             ];

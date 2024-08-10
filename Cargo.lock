@@ -8017,12 +8017,13 @@ dependencies = [
 [[package]]
 name = "zkvm-pairings"
 version = "0.1.0"
-source = "git+https://github.com/0xWOLAND/zkvm-pairings.git?branch=bhargav/refactor#c0e1495f58a35fc36dcc8c9edf0ce719dc1c55b5"
+source = "git+https://github.com/0xWOLAND/zkvm-pairings.git?branch=bhargav/refactor#694fa43cc697dcf9044f7328d6bb184488374425"
 dependencies = [
  "byteorder",
  "cfg-if",
  "crunchy",
  "ff 0.13.0",
+ "hex",
  "num-bigint 0.4.6",
  "rand",
  "rand_core",
