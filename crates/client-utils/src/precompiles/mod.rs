@@ -40,12 +40,6 @@ pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
 pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
     create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
 
-// TODO: When we upgrade to the latest version of revm that supports kzg-rs that compiles within SP1, we can uncomment this.
-// pub(crate) const ANNOTATED_KZG_POINT_EVAL: PrecompileWithAddress = create_annotated_precompile!(
-//     kzg_point_evaluation::POINT_EVALUATION,
-//     "kzg-point-evaluation"
-// );
-
 /// The [PrecompileOverride] implementation for the FPVM-accelerated precompiles.
 #[derive(Debug)]
 pub struct ZKVMPrecompileOverride<F, H>
@@ -82,15 +76,9 @@ where
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [
-                // ANNOTATED_ECDSA_RECOVER,
-                // ANNOTATED_SHA256,
-                // ANNOTATED_RIPEMD160,
-                // ANNOTATED_IDENTITY,
                 ANNOTATED_BN_ADD,
                 ANNOTATED_BN_MUL,
                 ANNOTATED_BN_PAIR,
-                // ANNOTATED_MODEXP,
-                // ANNOTATED_KZG_POINT_EVAL,
             ];
             ctx_precompiles.extend(override_precompiles);
 
