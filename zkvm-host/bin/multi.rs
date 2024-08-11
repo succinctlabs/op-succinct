@@ -74,9 +74,7 @@ async fn main() -> Result<()> {
     utils::setup_logger();
     let args = Args::parse();
 
-    let data_fetcher = SP1KonaDataFetcher {
-        ..Default::default()
-    };
+    let data_fetcher = SP1KonaDataFetcher::new();
 
     let host_cli = data_fetcher
         .get_host_cli_args(args.start, args.end, ProgramType::Multi)
@@ -110,13 +108,17 @@ async fn main() -> Result<()> {
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
 
-        // Create a proof directory if it doesn't exist.
-        if !std::path::Path::new("data/proofs").exists() {
-            fs::create_dir_all("data/proofs").unwrap();
+        // Create a proof directory for the chain ID if it doesn't exist.
+        let proof_dir = format!(
+            "data/{}/proofs",
+            data_fetcher.get_chain_id(ChainMode::L2).await.unwrap()
+        );
+        if !std::path::Path::new(&proof_dir).exists() {
+            fs::create_dir_all(&proof_dir).unwrap();
         }
-        // Save the proof to data/proofs.
+        // Save the proof to the proof directory corresponding to the chain ID.
         proof
-            .save(format!("data/proofs/{}-{}.bin", args.start, args.end))
+            .save(format!("{}/{}-{}.bin", proof_dir, args.start, args.end))
             .expect("saving proof failed");
     } else {
         // TODO: Remove this precompile hook once we merge the BN and BLS precompiles.
