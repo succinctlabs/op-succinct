@@ -58,6 +58,7 @@ dependencies = [
  "bincode",
  "client-utils",
  "hex",
+ "serde_cbor",
  "sha2",
  "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
  "sp1-zkvm",
@@ -2640,6 +2641,12 @@ dependencies = [
  "tokio-util",
  "tracing",
 ]
+
+[[package]]
+name = "half"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
 name = "halo2"
@@ -5475,6 +5482,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_cbor"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bef2ebfde456fb76bbcf9f59315333decc4fda0b2b44b420243c11e0f5ec1f5"
+dependencies = [
+ "half",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.205"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7482,10 +7499,12 @@ dependencies = [
  "clap",
  "client-utils",
  "dotenv",
+ "futures",
  "host-utils",
  "kona-host",
  "num-format",
  "revm",
+ "serde_cbor",
  "sp1-helper",
  "sp1-sdk",
  "tokio",

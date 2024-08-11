@@ -15,6 +15,7 @@ use alloy_primitives::keccak256;
 
 use crate::{L2Output, ProgramType};
 
+#[derive(Clone)]
 /// The SP1KonaDataFetcher struct is used to fetch the L2 output data and L2 claim data for a given block number.
 /// It is used to generate the boot info for the native host program.
 pub struct SP1KonaDataFetcher {

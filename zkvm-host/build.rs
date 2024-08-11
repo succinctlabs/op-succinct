@@ -39,12 +39,13 @@ fn build_zkvm_program(program: &str) {
 }
 
 fn main() {
-    let programs = vec!["zkvm-client", "validity-client"];
+    // TODO: Don't build the multi-block program so it doesn't change.
+    // let programs = vec!["zkvm-client", "validity-client"];
 
-    for program in programs {
-        build_native_program(program);
-        build_zkvm_program(program);
-    }
+    // for program in programs {
+    //     build_native_program(program);
+    //     build_zkvm_program(program);
+    // }
 
     build_zkvm_program("aggregation-client");
 }

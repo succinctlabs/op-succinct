@@ -36,20 +36,27 @@ pub async fn fetch_header_preimages(
     let start_header = get_earliest_l1_head_in_batch(&fetcher, boot_infos).await?;
 
     // Fetch the full header for the latest L1 Head (which is validated on chain).
-    let mut curr_header = fetcher
+    let latest_header = fetcher
         .get_header_by_hash(ChainMode::L1, checkpoint_block_hash)
         .await?;
 
-    // Walk back from the latest header until we reach the first header, getting all the preimages.
-    let mut headers = Vec::new();
-    while curr_header.number >= start_header.number {
-        headers.push(curr_header.clone());
-        curr_header = fetcher
-            .get_header_by_hash(ChainMode::L1, curr_header.parent_hash)
-            .await?;
+    // Create a vector of futures for fetching all headers
+    let mut header_futures = Vec::new();
+    for block_number in start_header.number..=latest_header.number {
+        // TODO: There's probably a better way to do this with interior mutability for the fetcher.
+        let fetcher_clone = fetcher.clone();
+        header_futures.push(tokio::spawn(async move {
+            fetcher_clone
+                .get_header_by_number(ChainMode::L1, block_number)
+                .await
+        }));
     }
 
-    // Reverse the headers to put them in order from start to end.
-    headers.reverse();
+    // Await all futures concurrently
+    let headers_result: Vec<Result<Header>> = futures::future::try_join_all(header_futures).await?;
+
+    // Collect the results, filtering out any errors
+    let headers: Vec<Header> = headers_result.into_iter().map(|r| r.unwrap()).collect();
+
     Ok(headers)
 }
