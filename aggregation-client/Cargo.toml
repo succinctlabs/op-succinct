@@ -16,3 +16,4 @@ sp1-lib = { workspace = true }
 client-utils = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-primitives = { workspace = true }
+serde_cbor.workspace = true
