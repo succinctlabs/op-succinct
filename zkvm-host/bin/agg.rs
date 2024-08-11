@@ -28,10 +28,13 @@ struct Args {
 }
 
 /// Load the aggregation proof data.
-fn load_aggregation_proof_data(proof_names: Vec<String>) -> (Vec<SP1Proof>, Vec<RawBootInfo>) {
+fn load_aggregation_proof_data(
+    proof_names: Vec<String>,
+    l2_chain_id: u64,
+) -> (Vec<SP1Proof>, Vec<RawBootInfo>) {
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
-    let proof_directory = format!("{}/data/proofs", workspace_root);
+    let proof_directory = format!("{}/data/{}/proofs", workspace_root, l2_chain_id);
 
     let mut proofs = Vec::with_capacity(proof_names.len());
     let mut boot_infos = Vec::with_capacity(proof_names.len());
@@ -67,7 +70,8 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
     let fetcher = SP1KonaDataFetcher::new();
 
-    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs);
+    let l2_chain_id = fetcher.get_chain_id(ChainMode::L2).await?;
+    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, l2_chain_id);
     let latest_checkpoint_head = fetcher
         .get_header_by_number(ChainMode::L1, args.latest_checkpoint_head_nb)
         .await?

@@ -86,6 +86,12 @@ impl SP1KonaDataFetcher {
         Ok(header.try_into().unwrap())
     }
 
+    pub async fn get_chain_id(&self, chain_mode: ChainMode) -> Result<u64> {
+        let provider = self.get_provider(chain_mode);
+        let chain_id = provider.get_chain_id().await?;
+        Ok(chain_id)
+    }
+
     pub async fn get_head(&self, chain_mode: ChainMode) -> Result<Header> {
         let provider = self.get_provider(chain_mode);
         let header = provider
@@ -248,12 +254,19 @@ impl SP1KonaDataFetcher {
         let workspace_root = metadata.workspace_root;
         let data_directory = match multi_block {
             ProgramType::Single => {
-                format!("{}/data/single/{}", workspace_root, l2_claim_block_nb)
+                let proof_dir = format!(
+                    "{}/data/{}/single/{}",
+                    workspace_root, l2_chain_id, l2_claim_block_nb
+                );
+                proof_dir
             }
-            ProgramType::Multi => format!(
-                "{}/data/multi/{}-{}",
-                workspace_root, l2_block_safe_head, l2_claim_block_nb
-            ),
+            ProgramType::Multi => {
+                let proof_dir = format!(
+                    "{}/data/{}/multi/{}-{}",
+                    workspace_root, l2_chain_id, l2_block_safe_head, l2_claim_block_nb
+                );
+                proof_dir
+            }
         };
 
         // The native programs are built with profile release-client-lto in build.rs

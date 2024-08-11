@@ -7,8 +7,8 @@ use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_sp1_stdin, ProgramType,
 };
-use kona_host::start_server_and_native_client;
-use sp1_sdk::{utils, ExecutionReport, ProverClient};
+use kona_host::{init_tracing_subscriber, start_server_and_native_client};
+use sp1_sdk::{ExecutionReport, ProverClient};
 use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
@@ -59,9 +59,9 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
             nb_transactions,
             total_gas_used,
             bn_stats: BnStats {
-                bn_add_cycles: *report.cycle_tracker.get("precompile-bn-add").unwrap(),
-                bn_mul_cycles: *report.cycle_tracker.get("precompile-bn-mul").unwrap(),
-                bn_pair_cycles: *report.cycle_tracker.get("precompile-bn-pair").unwrap(),
+                bn_add_cycles: *report.cycle_tracker.get("precompile-bn-add").unwrap_or(&0),
+                bn_mul_cycles: *report.cycle_tracker.get("precompile-bn-mul").unwrap_or(&0),
+                bn_pair_cycles: *report.cycle_tracker.get("precompile-bn-pair").unwrap_or(&0),
             }
         }
     );
@@ -71,7 +71,7 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    utils::setup_logger();
+    // utils::setup_logger();
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher {
@@ -91,6 +91,8 @@ async fn main() -> Result<()> {
     if !args.use_cache {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
+
+        let _ = init_tracing_subscriber(4);
 
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone())
