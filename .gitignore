@@ -5,7 +5,7 @@
 /target
 
 # witness data
-data
+data/multi
 
 # zip
 **.zip
