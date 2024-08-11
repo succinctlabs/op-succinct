@@ -12,6 +12,10 @@ name = "single"
 path = "bin/single.rs"
 
 [[bin]]
+name = "fetch_and_save_proof"
+path = "bin/fetch_and_save_proof.rs"
+
+[[bin]]
 name = "multi"
 path = "bin/multi.rs"
 

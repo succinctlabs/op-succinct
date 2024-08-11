@@ -105,6 +105,10 @@ async fn main() -> Result<()> {
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
 
+        // Create a proof directory if it doesn't exist.
+        if !std::path::Path::new("data/proofs").exists() {
+            fs::create_dir_all("data/proofs").unwrap();
+        }
         // Save the proof to data/proofs.
         proof
             .save(format!("data/proofs/{}-{}.bin", args.start, args.end))
