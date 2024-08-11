@@ -6257,14 +6257,15 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b5bbfa79abbae15dd642ea8176a21a635ff3c00059961d1ea27ad04e5b441c"
+source = "git+https://github.com/0xWOLAND/bn.git?branch=bhargav/accelerate#6ee8138c555f94d4a3ef4e8eaaaa664b491a92a4"
 dependencies = [
  "byteorder",
+ "cfg-if",
  "crunchy",
  "lazy_static",
  "rand",
  "rustc-hex",
+ "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
 ]
 
 [[package]]

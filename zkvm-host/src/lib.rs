@@ -4,7 +4,7 @@ use revm::{
 };
 
 mod stats;
-pub use stats::ExecutionStats;
+pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
 

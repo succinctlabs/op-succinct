@@ -93,5 +93,5 @@ lto = "fat"
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
-# TODO: REMOVE THIS WHEN SWITCHING BACK TO BHARGHAV's ZKVM-PAIRINGS FOR BLS12-381
-# bls12_381 = { git = "https://github.com/leruaa/bls12_381", branch = "msm_variable_base" }
+# TODO: Move this to the main branch of 0xWOLAND/bn when it's ready.
+bn = { git = "https://github.com/0xWOLAND/bn.git", package = "substrate-bn", branch = "bhargav/accelerate", default-features = false }

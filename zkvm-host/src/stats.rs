@@ -2,6 +2,13 @@ use std::fmt;
 
 use num_format::{Locale, ToFormattedString};
 
+#[derive(Debug)]
+pub struct BnStats {
+    pub bn_pair_cycles: u64,
+    pub bn_add_cycles: u64,
+    pub bn_mul_cycles: u64,
+}
+
 /// Statistics for the multi-block execution.
 #[derive(Debug)]
 pub struct ExecutionStats {
@@ -10,6 +17,7 @@ pub struct ExecutionStats {
     pub nb_blocks: u64,
     pub nb_transactions: u64,
     pub total_gas_used: u64,
+    pub bn_stats: BnStats,
 }
 
 /// Write a statistic to the formatter.
@@ -45,6 +53,9 @@ impl fmt::Display for ExecutionStats {
             "Block Execution Cycles",
             self.block_execution_instruction_count,
         )?;
+        write_stat(f, "Bn Pair Cycles", self.bn_stats.bn_pair_cycles)?;
+        write_stat(f, "Bn Add Cycles", self.bn_stats.bn_add_cycles)?;
+        write_stat(f, "Bn Mul Cycles", self.bn_stats.bn_mul_cycles)?;
         write_stat(f, "Total Blocks", self.nb_blocks)?;
         write_stat(f, "Total Transactions", self.nb_transactions)?;
         write_stat(f, "Cycles per Block", cycles_per_block)?;
