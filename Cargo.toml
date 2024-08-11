@@ -59,10 +59,8 @@ alloy-consensus = { version = "0.2", default-features = false }
 alloy-sol-types = { version = "0.7.6" }
 op-alloy-consensus = { version = "0.1.4", default-features = false }
 num-format = "0.4.4"
+
 # ethereum
-# Note: Using ethers instead of alloy because kona-host depends on alloy-primitives, which causes
-# dependency conflicts when resolving alloy-primitives from alloy crate instead of standalone alloy-primitives.
-# Once kona-host moves to using the new alloy, we can use alloy instead of ethers.
 alloy = { version = "0.2", default-features = false, features = ["full"] }
 alloy-primitives = { version = "0.7.6", default-features = false }
 alloy-rlp = { version = "0.3.5", default-features = false }
