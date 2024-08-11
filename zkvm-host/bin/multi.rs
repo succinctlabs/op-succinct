@@ -8,7 +8,7 @@ use host_utils::{
     get_sp1_stdin, ProgramType,
 };
 use kona_host::start_server_and_native_client;
-use sp1_sdk::{ExecutionReport, ProverClient};
+use sp1_sdk::{utils, ExecutionReport, ProverClient};
 use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
