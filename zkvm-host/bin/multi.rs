@@ -59,9 +59,9 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
             nb_transactions,
             total_gas_used,
             bn_stats: BnStats {
-                bn_add_cycles: *report.cycle_tracker.get("bn-add").unwrap(),
-                bn_mul_cycles: *report.cycle_tracker.get("bn-mul").unwrap(),
-                bn_pair_cycles: *report.cycle_tracker.get("bn-pair").unwrap(),
+                bn_add_cycles: *report.cycle_tracker.get("precompile-bn-add").unwrap(),
+                bn_mul_cycles: *report.cycle_tracker.get("precompile-bn-mul").unwrap(),
+                bn_pair_cycles: *report.cycle_tracker.get("precompile-bn-pair").unwrap(),
             }
         }
     );
