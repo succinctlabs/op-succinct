@@ -9,7 +9,7 @@ use host_utils::{
 };
 use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use zkvm_host::{precompile_hook, ExecutionStats};
+use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -58,6 +58,11 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
             nb_blocks,
             nb_transactions,
             total_gas_used,
+            bn_stats: BnStats {
+                bn_add_cycles: *report.cycle_tracker.get("bn-add").unwrap(),
+                bn_mul_cycles: *report.cycle_tracker.get("bn-mul").unwrap(),
+                bn_pair_cycles: *report.cycle_tracker.get("bn-pair").unwrap(),
+            }
         }
     );
 }

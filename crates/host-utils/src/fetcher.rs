@@ -233,7 +233,9 @@ impl SP1KonaDataFetcher {
 
         // Get L1 head.
         let l2_block_timestamp = l2_claim_block.header.timestamp;
-        let target_timestamp = l2_block_timestamp + 300;
+        // Note: This limit is set so that the l1 head is always ahead of the l2 claim block.
+        // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.)
+        let target_timestamp = l2_block_timestamp + 600;
         let l1_head = self
             .find_block_by_timestamp(ChainMode::L1, target_timestamp)
             .await?;
