@@ -5876,17 +5876,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp1-lib"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git#57867346f086a0c15e0503d693d897bda6bf06b0"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "serde",
-]
-
-[[package]]
 name = "sp1-primitives"
 version = "1.1.1"
 source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#7b11008d05023cadb9def590e50344cd1bbea303"
@@ -6268,14 +6257,15 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/0xWOLAND/bn.git#f6fd4e1779dc791de6af05bd3d25d1bf8bf59f29"
+source = "git+https://github.com/0xWOLAND/bn.git?branch=bhargav/accelerate#6ee8138c555f94d4a3ef4e8eaaaa664b491a92a4"
 dependencies = [
  "byteorder",
+ "cfg-if",
  "crunchy",
  "lazy_static",
  "rand",
  "rustc-hex",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git)",
+ "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
 ]
 
 [[package]]
