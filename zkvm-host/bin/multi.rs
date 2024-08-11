@@ -101,7 +101,9 @@ async fn main() -> Result<()> {
     if args.prove {
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
-        let proof = prover.prove(&pk, sp1_stdin).run().unwrap();
+
+        // Generate proofs in compressed mode for aggregation verification.
+        let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
 
         // Save the proof to data/proofs.
         proof
