@@ -39,7 +39,7 @@ fn build_zkvm_program(program: &str) {
 }
 
 fn main() {
-    // TODO: Don't build the multi-block program so it doesn't change.
+    // Don't build the single block program as it's unused.
     // let programs = vec!["zkvm-client", "validity-client"];
     let programs = vec!["validity-client"];
 
