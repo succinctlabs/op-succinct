@@ -1,4 +1,3 @@
-use alloy_consensus::Header;
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 
