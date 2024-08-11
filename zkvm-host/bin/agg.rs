@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
     stdin.write(&AggregationInputs {
         boot_infos,
         headers,
-        l1_head: args.latest_checkpoint_head,
+        latest_l1_checkpoint_head: args.latest_checkpoint_head,
     });
 
     let (agg_pk, _) = prover.setup(AGG_ELF);

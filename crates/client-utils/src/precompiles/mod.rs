@@ -92,16 +92,23 @@ pub(crate) const ANNOTATED_RIPEMD160: PrecompileWithAddress =
     create_annotated_precompile!(hash::RIPEMD160, "ripemd160");
 pub(crate) const ANNOTATED_IDENTITY: PrecompileWithAddress =
     create_annotated_precompile!(identity::FUN, "identity");
-pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
-    create_hook_precompile!(bn128::add::ISTANBUL, "bn-add");
-pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
-    create_hook_precompile!(bn128::mul::ISTANBUL, "bn-mul");
-pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
-    create_hook_precompile!(bn128::pair::ISTANBUL, "bn-pair");
 pub(crate) const ANNOTATED_MODEXP: PrecompileWithAddress =
     create_annotated_precompile!(modexp::BERLIN, "modexp");
 pub(crate) const ANNOTATED_ECDSA_RECOVER: PrecompileWithAddress =
     create_annotated_precompile!(secp256k1::ECRECOVER, "ecrecover");
+pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
+    create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add");
+pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
+    create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul");
+pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
+    create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
+
+pub(crate) const HOOK_BN_ADD: PrecompileWithAddress =
+    create_hook_precompile!(bn128::add::ISTANBUL, "bn-add");
+pub(crate) const HOOK_BN_MUL: PrecompileWithAddress =
+    create_hook_precompile!(bn128::mul::ISTANBUL, "bn-mul");
+pub(crate) const HOOK_BN_PAIR: PrecompileWithAddress =
+    create_hook_precompile!(bn128::pair::ISTANBUL, "bn-pair");
 
 // TODO: When we upgrade to the latest version of revm that supports kzg-rs that compiles within SP1, we can uncomment this.
 // pub(crate) const ANNOTATED_KZG_POINT_EVAL: PrecompileWithAddress = create_annotated_precompile!(
@@ -145,14 +152,14 @@ where
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [
-                ANNOTATED_ECDSA_RECOVER,
-                ANNOTATED_SHA256,
-                ANNOTATED_RIPEMD160,
-                ANNOTATED_IDENTITY,
+                // ANNOTATED_ECDSA_RECOVER,
+                // ANNOTATED_SHA256,
+                // ANNOTATED_RIPEMD160,
+                // ANNOTATED_IDENTITY,
                 ANNOTATED_BN_ADD,
                 ANNOTATED_BN_MUL,
                 ANNOTATED_BN_PAIR,
-                ANNOTATED_MODEXP,
+                // ANNOTATED_MODEXP,
                 // ANNOTATED_KZG_POINT_EVAL,
             ];
             ctx_precompiles.extend(override_precompiles);
