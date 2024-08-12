@@ -25,6 +25,7 @@ use kona_derive::{
 use kona_mpt::TrieDBFetcher;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
 use kona_primitives::{BlockInfo, L2AttributesWithParent, L2BlockInfo};
+use log::debug;
 
 /// An oracle-backed derivation pipeline.
 pub type OraclePipeline<O> = DerivationPipeline<
@@ -143,7 +144,7 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
     /// Produces the disputed [Vec<L2AttributesWithParent>] payloads, starting with the one after
     /// the L2 output root, for all the payloads derived in a given span batch.
     pub async fn produce_payloads(&mut self) -> Result<Vec<L2AttributesWithParent>> {
-        println!(
+        debug!(
             "Stepping on Pipeline for L2 Block: {}",
             self.l2_safe_head.block_info.number
         );
