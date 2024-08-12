@@ -137,14 +137,41 @@ async fn get_proof_status(
     let client = NetworkClient::new(&private_key);
     let (status, maybe_proof) = client.get_proof_status(&proof_id).await?;
 
-    let status = SP1ProofStatus::try_from(status.status)?;
-    let proof = maybe_proof.unwrap_or(vec![]);
+    let status: SP1ProofStatus = SP1ProofStatus::try_from(status.status)?;
+    if status == SP1ProofStatus::ProofFulfilled {
+        let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
+        match proof.proof.clone() {
+            SP1Proof::Compressed(_) => {
+                // If it's a compressed proof, we need to serialize the entire struct with bincode.
+                let proof_bytes = bincode::serialize(&proof).unwrap();
+                return Ok((
+                    StatusCode::OK,
+                    Json(ProofStatus {
+                        status: status.as_str_name().to_string(),
+                        proof: proof_bytes,
+                    }),
+                ));
+            }
+            SP1Proof::Plonk(_) => {
+                // If it's a PLONK proof, we need to get the proof bytes that we put on-chain.
+                let proof_bytes = proof.bytes();
+                return Ok((
+                    StatusCode::OK,
+                    Json(ProofStatus {
+                        status: status.as_str_name().to_string(),
+                        proof: proof_bytes,
+                    }),
+                ));
+            }
+            _ => (),
+        }
+    }
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
             status: status.as_str_name().to_string(),
-            proof,
+            proof: vec![],
         }),
     ))
 }
