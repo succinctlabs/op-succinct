@@ -88,7 +88,8 @@ async fn main() -> Result<()> {
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, latest_checkpoint_head).unwrap();
 
-    let (agg_pk, _) = prover.setup(AGG_ELF);
+    let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
+    println!("agg elf vkey: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
         prover

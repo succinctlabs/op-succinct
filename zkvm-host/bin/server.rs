@@ -22,19 +22,19 @@ use zkvm_host::utils::fetch_header_preimages;
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Debug)]
 struct SpanProofRequest {
     start: u64,
     end: u64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize, Debug)]
 struct AggProofRequest {
     subproofs: Vec<Vec<u8>>,
     l1_head: B256,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct ProofResponse {
     proof_id: String,
 }
@@ -65,6 +65,7 @@ async fn main() {
 async fn request_span_proof(
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
+    info!("Received span proof request: {:?}", payload);
     dotenv::dotenv().ok();
     // ZTODO: Save data fetcher, NetworkProver, and NetworkClient globally
     // and access via Store.
@@ -95,6 +96,7 @@ async fn request_span_proof(
 async fn request_agg_proof(
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
+    info!("Received agg proof request: {:?}", payload);
     let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
         .subproofs
         .iter()
@@ -128,6 +130,7 @@ async fn request_agg_proof(
 async fn get_proof_status(
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
+    info!("Received proof status request: {:?}", proof_id);
     dotenv::dotenv().ok();
     let private_key = env::var("SP1_PRIVATE_KEY")?;
 

@@ -210,6 +210,14 @@ impl SP1KonaDataFetcher {
         };
         let l2_output_root = keccak256(l2_output_encoded.abi_encode());
 
+        // Used for getting the initial state.
+        // println!("L2 output root: {:?}", l2_output_root);
+        // println!("L2 output root block number: {:?}", l2_block_safe_head);
+        // println!(
+        //     "L2 output root block timestamp: {:?}",
+        //     l2_output_block.header.timestamp
+        // );
+
         // Get L2 claim data.
         let l2_claim_block = l2_provider
             .get_block_by_number(l2_claim_block_nb.into(), false)
