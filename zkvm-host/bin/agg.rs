@@ -83,13 +83,13 @@ async fn main() -> Result<()> {
 
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
-    println!("multi block elf vkey hash_u32: {:?}", vkey.vk.hash_u32());
+    println!("Multi-block ELF Verification Key U32 Hash: {:?}", vkey.vk.hash_u32());
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, latest_checkpoint_head).unwrap();
 
     let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
-    println!("agg elf vkey: {:?}", agg_vk.vk.bytes32());
+    println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
         prover
