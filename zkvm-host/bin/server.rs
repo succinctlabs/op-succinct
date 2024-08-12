@@ -9,11 +9,12 @@ use axum::{
 use client_utils::RawBootInfo;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
+use log::info;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
-    NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
+    utils, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, fs};
 use zkvm_host::utils::fetch_header_preimages;
@@ -46,6 +47,8 @@ struct ProofStatus {
 
 #[tokio::main]
 async fn main() {
+    utils::setup_logger();
+
     let app = Router::new()
         .route("/request_span_proof", post(request_span_proof))
         .route("/request_agg_proof", post(request_agg_proof))
@@ -54,6 +57,8 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
+
+    info!("Server listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
 }
 
