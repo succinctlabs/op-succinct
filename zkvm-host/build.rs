@@ -39,7 +39,9 @@ fn build_zkvm_program(program: &str) {
 }
 
 fn main() {
-    let programs = vec!["zkvm-client", "validity-client"];
+    // Don't build the single block program as it's unused.
+    // let programs = vec!["zkvm-client", "validity-client"];
+    let programs = vec!["validity-client"];
 
     for program in programs {
         build_native_program(program);

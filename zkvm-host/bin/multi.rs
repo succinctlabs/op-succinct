@@ -1,13 +1,15 @@
-use std::{env, fs};
+use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
 use client_utils::precompiles::PRECOMPILE_HOOK_FD;
-use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
+use host_utils::{
+    fetcher::{ChainMode, SP1KonaDataFetcher},
+    get_proof_stdin, ProgramType,
+};
 use kona_host::start_server_and_native_client;
-use num_format::{Locale, ToFormattedString};
-use sp1_sdk::{utils, ProverClient};
-use zkvm_host::precompile_hook;
+use sp1_sdk::{utils, ExecutionReport, ProverClient};
+use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -29,6 +31,44 @@ struct Args {
     /// Skip running native execution.
     #[arg(short, long)]
     use_cache: bool,
+
+    /// Generate proof.
+    #[arg(short, long)]
+    prove: bool,
+}
+
+/// Based on the stats flag, print out simple or detailed statistics.
+async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &ExecutionReport) {
+    // Get the total instruction count for execution across all blocks.
+    let block_execution_instruction_count: u64 =
+        *report.cycle_tracker.get("block-execution").unwrap();
+
+    let nb_blocks = args.end - args.start + 1;
+
+    // Fetch the number of transactions in the blocks from the L2 RPC.
+    let block_data_range = data_fetcher
+        .get_block_data_range(ChainMode::L2, args.start, args.end)
+        .await
+        .expect("Failed to fetch block data range.");
+
+    let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
+    let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
+
+    println!(
+        "{}",
+        ExecutionStats {
+            total_instruction_count: report.total_instruction_count(),
+            block_execution_instruction_count,
+            nb_blocks,
+            nb_transactions,
+            total_gas_used,
+            bn_stats: BnStats {
+                bn_add_cycles: *report.cycle_tracker.get("precompile-bn-add").unwrap_or(&0),
+                bn_mul_cycles: *report.cycle_tracker.get("precompile-bn-mul").unwrap_or(&0),
+                bn_pair_cycles: *report.cycle_tracker.get("precompile-bn-pair").unwrap_or(&0),
+            }
+        }
+    );
 }
 
 /// Execute the Kona program for a single block.
@@ -38,13 +78,10 @@ async fn main() -> Result<()> {
     utils::setup_logger();
     let args = Args::parse();
 
-    let data_fetcher = SP1KonaDataFetcher {
-        l2_rpc: env::var("CLABBY_RPC_L2").expect("CLABBY_RPC_L2 is not set."),
-        ..Default::default()
-    };
+    let data_fetcher = SP1KonaDataFetcher::new();
 
     let host_cli = data_fetcher
-        .get_host_cli_args(args.start, args.end, args.verbosity, ProgramType::Multi)
+        .get_host_cli_args(args.start, args.end, ProgramType::Multi)
         .await?;
 
     let data_dir = host_cli
@@ -64,21 +101,39 @@ async fn main() -> Result<()> {
     }
 
     // Get the stdin for the block.
-    let sp1_stdin = get_sp1_stdin(&host_cli)?;
+    let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let prover = ProverClient::new();
-    let (_, report) = prover
-        .execute(MULTI_BLOCK_ELF, sp1_stdin)
-        .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
-        .run()
-        .unwrap();
 
-    println!(
-        "Cycle count: {}",
-        report
-            .total_instruction_count()
-            .to_formatted_string(&Locale::en)
-    );
+    if args.prove {
+        // If the prove flag is set, generate a proof.
+        let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
+
+        // Generate proofs in compressed mode for aggregation verification.
+        let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
+
+        // Create a proof directory for the chain ID if it doesn't exist.
+        let proof_dir = format!(
+            "data/{}/proofs",
+            data_fetcher.get_chain_id(ChainMode::L2).await.unwrap()
+        );
+        if !std::path::Path::new(&proof_dir).exists() {
+            fs::create_dir_all(&proof_dir).unwrap();
+        }
+        // Save the proof to the proof directory corresponding to the chain ID.
+        proof
+            .save(format!("{}/{}-{}.bin", proof_dir, args.start, args.end))
+            .expect("saving proof failed");
+    } else {
+        // TODO: Remove this precompile hook once we merge the BN and BLS precompiles.
+        let (_, report) = prover
+            .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
+            .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
+            .run()
+            .unwrap();
+
+        print_stats(&data_fetcher, &args, &report).await;
+    }
 
     Ok(())
 }

@@ -1,11 +1,14 @@
 use std::fs;
 
-use alloy_primitives::B256;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::{types::AggregationInputs, RawBootInfo, BOOT_INFO_SIZE};
-use sp1_sdk::{utils, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin};
+use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
+use host_utils::{
+    fetcher::{ChainMode, SP1KonaDataFetcher},
+    get_agg_proof_stdin,
+};
+use sp1_sdk::{utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues};
 use zkvm_host::utils::fetch_header_preimages;
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -18,16 +21,23 @@ struct Args {
     #[arg(short, long, num_args = 1.., value_delimiter = ',')]
     proofs: Vec<String>,
 
-    /// L1 Head
+    /// The block number corresponding to the latest L1 checkpoint.
     #[arg(short, long)]
-    latest_l1_head: B256,
+    latest_checkpoint_head_nb: u64,
+
+    /// Prove flag.
+    #[arg(short, long)]
+    prove: bool,
 }
 
 /// Load the aggregation proof data.
-fn load_aggregation_proof_data(proof_names: Vec<String>) -> (Vec<SP1Proof>, Vec<RawBootInfo>) {
+fn load_aggregation_proof_data(
+    proof_names: Vec<String>,
+    l2_chain_id: u64,
+) -> (Vec<SP1Proof>, Vec<RawBootInfo>) {
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
-    let proof_directory = format!("{}/data/proofs", workspace_root);
+    let proof_directory = format!("{}/data/{}/proofs", workspace_root, l2_chain_id);
 
     let mut proofs = Vec::with_capacity(proof_names.len());
     let mut boot_infos = Vec::with_capacity(proof_names.len());
@@ -56,39 +66,40 @@ fn load_aggregation_proof_data(proof_names: Vec<String>) -> (Vec<SP1Proof>, Vec<
 // Execute the Kona program for a single block.
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv::dotenv().ok();
     utils::setup_logger();
 
     let args = Args::parse();
     let prover = ProverClient::new();
+    let fetcher = SP1KonaDataFetcher::new();
 
-    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs);
-    let headers = fetch_header_preimages(&boot_infos, args.latest_l1_head).await?;
+    let l2_chain_id = fetcher.get_chain_id(ChainMode::L2).await?;
+    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, l2_chain_id);
+    let latest_checkpoint_head = fetcher
+        .get_header_by_number(ChainMode::L1, args.latest_checkpoint_head_nb)
+        .await?
+        .hash_slow();
+    let headers = fetch_header_preimages(&boot_infos, latest_checkpoint_head).await?;
 
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
-    let mut stdin = SP1Stdin::new();
-    for proof in proofs {
-        let SP1Proof::Compressed(compressed_proof) = proof else {
-            panic!();
-        };
-        stdin.write_proof(compressed_proof, vkey.vk.clone());
-    }
+    println!("multi block elf vkey hash_u32: {:?}", vkey.vk.hash_u32());
 
-    // Write the aggregation inputs to the stdin.
-    stdin.write(&AggregationInputs {
-        boot_infos,
-        headers,
-        l1_head: args.latest_l1_head,
-    });
+    let stdin =
+        get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, latest_checkpoint_head).unwrap();
 
     let (agg_pk, _) = prover.setup(AGG_ELF);
 
-    // let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
-    prover
-        .prove(&agg_pk, stdin)
-        .plonk()
-        .run()
-        .expect("proving failed");
+    if args.prove {
+        prover
+            .prove(&agg_pk, stdin)
+            .plonk()
+            .run()
+            .expect("proving failed");
+    } else {
+        let (_, report) = prover.execute(AGG_ELF, stdin).run().unwrap();
+        println!("report: {:?}", report);
+    }
 
     Ok(())
 }

@@ -4,7 +4,8 @@ use anyhow::Result;
 use client_utils::RawBootInfo;
 use host_utils::fetcher::{ChainMode, SP1KonaDataFetcher};
 
-async fn get_earliest_l1_header(
+/// Search through the boot_infos to find the L1 Header with the earliest block number.
+async fn get_earliest_l1_head_in_batch(
     fetcher: &SP1KonaDataFetcher,
     boot_infos: &Vec<RawBootInfo>,
 ) -> Result<Header> {
@@ -23,28 +24,39 @@ async fn get_earliest_l1_header(
     Ok(earliest_l1_header.unwrap())
 }
 
+/// Fetch the headers for all the blocks in the range from the earliest L1 Head in the boot_infos
+/// through the checkpointed L1 Head.
 pub async fn fetch_header_preimages(
     boot_infos: &Vec<RawBootInfo>,
-    latest: B256,
+    checkpoint_block_hash: B256,
 ) -> Result<Vec<Header>> {
     let fetcher = SP1KonaDataFetcher::new();
 
     // Get the earliest L1 Head from the boot_infos.
-    let start_header = get_earliest_l1_header(&fetcher, boot_infos).await?;
+    let start_header = get_earliest_l1_head_in_batch(&fetcher, boot_infos).await?;
 
     // Fetch the full header for the latest L1 Head (which is validated on chain).
-    let mut curr_header = fetcher.get_header_by_hash(ChainMode::L1, latest).await?;
+    let latest_header = fetcher
+        .get_header_by_hash(ChainMode::L1, checkpoint_block_hash)
+        .await?;
 
-    // Walk back from the latest header until we reach the first header, getting all the preimages.
-    let mut headers = Vec::new();
-    while curr_header.number >= start_header.number {
-        headers.push(curr_header.clone());
-        curr_header = fetcher
-            .get_header_by_hash(ChainMode::L1, curr_header.parent_hash)
-            .await?;
+    // Create a vector of futures for fetching all headers
+    let mut header_futures = Vec::new();
+    for block_number in start_header.number..=latest_header.number {
+        // TODO: There's probably a better way to do this with interior mutability for the fetcher.
+        let fetcher_clone = fetcher.clone();
+        header_futures.push(tokio::spawn(async move {
+            fetcher_clone
+                .get_header_by_number(ChainMode::L1, block_number)
+                .await
+        }));
     }
 
-    // Reverse the headers to put them in order from start to end.
-    headers.reverse();
+    // Await all futures concurrently
+    let headers_result: Vec<Result<Header>> = futures::future::try_join_all(header_futures).await?;
+
+    // Collect the results, filtering out any errors
+    let headers: Vec<Header> = headers_result.into_iter().map(|r| r.unwrap()).collect();
+
     Ok(headers)
 }

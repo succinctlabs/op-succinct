@@ -6,14 +6,14 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use client_utils::{types::AggregationInputs, RawBootInfo};
-use host_utils::{fetcher::SP1KonaDataFetcher, get_sp1_stdin, ProgramType};
+use client_utils::RawBootInfo;
+use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
-    HashableKey, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
+    NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, fs};
 use zkvm_host::utils::fetch_header_preimages;
@@ -77,7 +77,7 @@ async fn request_span_proof(
     // Start the server and native client.
     start_server_and_native_client(host_cli.clone()).await?;
 
-    let sp1_stdin = get_sp1_stdin(&host_cli)?;
+    let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let prover = NetworkProver::new();
     let proof_id = prover
@@ -90,15 +90,20 @@ async fn request_span_proof(
 async fn request_agg_proof(
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
-    let mut proofs: Vec<SP1ProofWithPublicValues> = payload
+    let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
         .subproofs
         .iter()
         .map(|sp| bincode::deserialize(sp).unwrap())
         .collect();
 
-    let boot_infos: Vec<RawBootInfo> = proofs
+    let boot_infos: Vec<RawBootInfo> = proofs_with_pv
         .iter_mut()
         .map(|proof| proof.public_values.read::<RawBootInfo>())
+        .collect();
+
+    let proofs: Vec<SP1Proof> = proofs_with_pv
+        .iter_mut()
+        .map(|proof| proof.proof.clone())
         .collect();
 
     let headers = fetch_header_preimages(&boot_infos, payload.l1_head).await?;
@@ -106,18 +111,7 @@ async fn request_agg_proof(
     let prover = NetworkProver::new();
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
-    let mut stdin = SP1Stdin::new();
-    for proof in proofs {
-        let SP1Proof::Compressed(compressed_proof) = proof.proof else {
-            panic!();
-        };
-        stdin.write_proof(compressed_proof, vkey.vk.clone());
-    }
-    stdin.write(&AggregationInputs {
-        boot_infos,
-        headers,
-        l1_head: payload.l1_head,
-    });
+    let stdin = get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, payload.l1_head).unwrap();
 
     let proof_id = prover
         .request_proof(AGG_ELF, stdin, ProofMode::Plonk)

@@ -4,6 +4,7 @@
 #[cfg(target_os = "zkvm")]
 sp1_zkvm::entrypoint!(main);
 
+use alloy_consensus::Header;
 use alloy_primitives::B256;
 use client_utils::{types::AggregationInputs, RawBootInfo};
 use std::collections::HashMap;
@@ -16,11 +17,11 @@ use sha2::{Digest, Sha256};
 /// Note: This is the hardcoded program vkey for the multi-block program. Whenever the multi-block
 /// program changes, update this.
 const MULTI_BLOCK_PROGRAM_VKEY_DIGEST: [u32; 8] = [
-    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
+    895087545, 1130190967, 1295967846, 1405778237, 118912697, 772722381, 908537909, 1761020158,
 ];
 
 /// Verify that the L1 heads in the boot infos are in the header chain.
-fn verify_l1_heads(agg_inputs: &AggregationInputs) {
+fn verify_l1_heads(agg_inputs: &AggregationInputs, headers: &[Header]) {
     // Create a map of each l1_head in the BootInfo's to booleans
     let mut l1_heads_map: HashMap<B256, bool> = agg_inputs
         .boot_infos
@@ -29,10 +30,10 @@ fn verify_l1_heads(agg_inputs: &AggregationInputs) {
         .collect();
 
     // Iterate through all headers in the chain.
-    let mut current_hash = agg_inputs.l1_head;
+    let mut current_hash = agg_inputs.latest_l1_checkpoint_head;
     // Iterate through the headers in reverse order. The headers should be sequentially linked and
     // include the L1 head of each boot info.
-    for header in agg_inputs.headers.iter().rev() {
+    for header in headers.iter().rev() {
         assert_eq!(current_hash, header.hash_slow());
 
         // Mark the l1_head as found if it's in our map
@@ -56,6 +57,10 @@ fn verify_l1_heads(agg_inputs: &AggregationInputs) {
 pub fn main() {
     // Read in the public values corresponding to each multi-block proof.
     let agg_inputs = sp1_zkvm::io::read::<AggregationInputs>();
+    // Note: The headers are in order from start to end. We use serde_cbor as bincode serialization causes
+    // issues with the zkVM.
+    let headers_bytes = sp1_zkvm::io::read_vec();
+    let headers: Vec<Header> = serde_cbor::from_slice(&headers_bytes).unwrap();
     assert!(!agg_inputs.boot_infos.is_empty());
 
     // Confirm that the boot infos are sequential.
@@ -83,7 +88,7 @@ pub fn main() {
     });
 
     // Verify the L1 heads of each boot info are on the L1.
-    verify_l1_heads(&agg_inputs);
+    verify_l1_heads(&agg_inputs, &headers);
 
     let first_boot_info = &agg_inputs.boot_infos[0];
     let last_boot_info = &agg_inputs.boot_infos[agg_inputs.boot_infos.len() - 1];
