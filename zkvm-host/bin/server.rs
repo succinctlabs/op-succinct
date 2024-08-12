@@ -144,6 +144,8 @@ async fn get_proof_status(
         match proof.proof.clone() {
             SP1Proof::Compressed(_) => {
                 // If it's a compressed proof, we need to serialize the entire struct with bincode.
+                // Note: We're re-serializing the entire struct with bincode here, but this is fine
+                // because we're on localhost and the size of the struct is small.
                 let proof_bytes = bincode::serialize(&proof).unwrap();
                 return Ok((
                     StatusCode::OK,
