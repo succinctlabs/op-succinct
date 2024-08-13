@@ -50,3 +50,7 @@ cargo run --bin fetch_and_save_proof --release -- --request-id <proofrequest_id>
 ```
 
 Ex. `cargo run --bin fetch_and_save_proof --release -- --request-id proofrequest_01j4ze00ftfjpbd4zkf250qwey --start 123812410 --end 123812412`
+
+## Run the OP Proposer
+
+To run the OP Proposer with the L2 Output Oracle, see [OP_PROPOSER.md](./OP_PROPOSER.md).

@@ -1,0 +1,6 @@
+services:
+  kona-sp1-server:
+    image: ratansuccinct/kona-sp1-server:latest
+    env_file:
+      - .env.server
+    restart: unless-stopped

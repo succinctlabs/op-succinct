@@ -1,0 +1,44 @@
+# Use a multi-stage build for efficiency
+FROM golang:1.21 AS go-builder
+FROM rust:1.79 AS rust-builder
+
+# Set up Go environment
+FROM go-builder AS optimism-builder
+WORKDIR /optimism
+RUN git clone -b zach/zk-proposer https://github.com/succinctlabs/optimism .
+RUN make op-proposer
+
+# Copy Rust environment and build server
+FROM rust-builder AS server-builder
+WORKDIR /app
+COPY . .
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    ~/.sp1/bin/sp1up && \
+    ~/.sp1/bin/cargo-prove prove --version
+RUN cargo build --bin server --release
+
+FROM ubuntu:22.04
+
+# Install Rust
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    && . $HOME/.cargo/env \
+    && rustc --version \
+    && cargo --version \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Rust to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+COPY --from=server-builder /app/target/release/server /usr/local/bin/server
+COPY --from=optimism-builder /optimism/op-proposer/bin/op-proposer /usr/local/bin/op-proposer
+
+# Set up entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 3000
+
+ENTRYPOINT ["/entrypoint.sh"]
