@@ -30,6 +30,7 @@ pub async fn fetch_header_preimages(
     boot_infos: &Vec<RawBootInfo>,
     checkpoint_block_hash: B256,
 ) -> Result<Vec<Header>> {
+    dotenv::dotenv().ok();
     let fetcher = SP1KonaDataFetcher::new();
 
     // Get the earliest L1 Head from the boot_infos.
@@ -40,23 +41,16 @@ pub async fn fetch_header_preimages(
         .get_header_by_hash(ChainMode::L1, checkpoint_block_hash)
         .await?;
 
-    // Create a vector of futures for fetching all headers
-    let mut header_futures = Vec::new();
+    let mut headers: Vec<Header> =
+        Vec::with_capacity((latest_header.number - start_header.number + 1) as usize);
+
     for block_number in start_header.number..=latest_header.number {
-        // TODO: There's probably a better way to do this with interior mutability for the fetcher.
-        let fetcher_clone = fetcher.clone();
-        header_futures.push(tokio::spawn(async move {
-            fetcher_clone
+        headers.push(
+            fetcher
                 .get_header_by_number(ChainMode::L1, block_number)
-                .await
-        }));
+                .await?,
+        );
     }
-
-    // Await all futures concurrently
-    let headers_result: Vec<Result<Header>> = futures::future::try_join_all(header_futures).await?;
-
-    // Collect the results, filtering out any errors
-    let headers: Vec<Header> = headers_result.into_iter().map(|r| r.unwrap()).collect();
 
     Ok(headers)
 }

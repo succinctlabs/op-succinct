@@ -1,22 +1,24 @@
 use alloy_primitives::B256;
 use axum::{
-    extract::Path,
+    extract::{DefaultBodyLimit, Path},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
+use base64::{engine::general_purpose, Engine as _};
 use client_utils::RawBootInfo;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use log::info;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     utils, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, fs};
+use tower_http::limit::RequestBodyLimitLayer;
 use zkvm_host::utils::fetch_header_preimages;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
@@ -28,12 +30,12 @@ struct SpanProofRequest {
     end: u64,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Debug, Deserialize)]
 struct AggProofRequest {
+    #[serde(deserialize_with = "deserialize_base64_vec")]
     subproofs: Vec<Vec<u8>>,
-    l1_head: B256,
+    head: String,
 }
-
 #[derive(Serialize, Deserialize, Debug)]
 struct ProofResponse {
     proof_id: String,
@@ -52,7 +54,9 @@ async fn main() {
     let app = Router::new()
         .route("/request_span_proof", post(request_span_proof))
         .route("/request_agg_proof", post(request_agg_proof))
-        .route("/status/:proof_id", get(get_proof_status));
+        .route("/status/:proof_id", get(get_proof_status))
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(102400 * 1024 * 1024));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
@@ -96,7 +100,7 @@ async fn request_span_proof(
 async fn request_agg_proof(
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
-    info!("Received agg proof request: {:?}", payload);
+    info!("Received agg proof request");
     let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
         .subproofs
         .iter()
@@ -105,7 +109,7 @@ async fn request_agg_proof(
 
     let boot_infos: Vec<RawBootInfo> = proofs_with_pv
         .iter_mut()
-        .map(|proof| proof.public_values.read::<RawBootInfo>())
+        .map(|proof| RawBootInfo::abi_decode(&proof.public_values.to_vec()[..]).unwrap())
         .collect();
 
     let proofs: Vec<SP1Proof> = proofs_with_pv
@@ -113,12 +117,17 @@ async fn request_agg_proof(
         .map(|proof| proof.proof.clone())
         .collect();
 
-    let headers = fetch_header_preimages(&boot_infos, payload.l1_head).await?;
+    // ZTODO: Better error handling.
+    let l1_head_bytes = hex::decode(payload.head.strip_prefix("0x").unwrap())?;
+    let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
+
+    let headers = fetch_header_preimages(&boot_infos, B256::new(l1_head)).await?;
 
     let prover = NetworkProver::new();
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
-    let stdin = get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, payload.l1_head).unwrap();
+    let stdin =
+        get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, B256::new(l1_head)).unwrap();
 
     let proof_id = prover
         .request_proof(AGG_ELF, stdin, ProofMode::Plonk)
@@ -193,4 +202,18 @@ where
     fn from(err: E) -> Self {
         Self(err.into())
     }
+}
+
+fn deserialize_base64_vec<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Vec<String> = Deserialize::deserialize(deserializer)?;
+    s.into_iter()
+        .map(|base64_str| {
+            general_purpose::STANDARD
+                .decode(base64_str)
+                .map_err(serde::de::Error::custom)
+        })
+        .collect()
 }
