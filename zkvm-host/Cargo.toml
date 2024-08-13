@@ -27,6 +27,10 @@ path = "bin/agg.rs"
 name = "server"
 path = "bin/server.rs"
 
+[[bin]]
+name = "vkey"
+path = "bin/vkey.rs"
+
 [dependencies]
 
 # workspace
@@ -57,6 +61,8 @@ bincode.workspace = true
 futures.workspace = true
 serde_cbor.workspace = true
 log.workspace = true
+base64.workspace = true
+tower-http.workspace = true
 
 [build-dependencies]
 sp1-helper = { workspace = true }

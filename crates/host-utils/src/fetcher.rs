@@ -72,6 +72,39 @@ impl SP1KonaDataFetcher {
         }
     }
 
+    /// Fetch headers for a range of blocks inclusive.
+    pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
+        // // Create a vector of futures for fetching all headers
+        // let mut header_futures = Vec::new();
+        // for block_number in start..=end {
+        //     // TODO: There's probably a better way to do this with interior mutability for the fetcher.
+        //     let fetcher_clone = self.clone();
+        //     header_futures.push(tokio::spawn(async move {
+        //         fetcher_clone
+        //             .get_header_by_number(ChainMode::L1, block_number)
+        //             .await
+        //     }));
+        // }
+
+        // // Await all futures concurrently
+        // let headers_result: Vec<Result<Header>> =
+        //     futures::future::try_join_all(header_futures).await?;
+
+        // // Collect the results, filtering out any errors
+        // Ok(headers_result.into_iter().map(|r| r.unwrap()).collect())
+
+        let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as usize);
+
+        for block_number in start..=end {
+            headers.push(
+                self.get_header_by_number(ChainMode::L1, block_number)
+                    .await?,
+            );
+        }
+
+        Ok(headers)
+    }
+
     pub async fn get_header_by_hash(
         &self,
         chain_mode: ChainMode,
