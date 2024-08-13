@@ -90,7 +90,9 @@ kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs", fe
 
 
 # kzg
-kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs" }
+kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs", features = [
+    "cache",
+] }
 
 # sp1
 [profile.release-client-lto]
