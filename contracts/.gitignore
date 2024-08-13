@@ -1,0 +1,9 @@
+out/
+cache/
+.env
+
+# Artifacts and Cache
+artifacts
+forge-artifacts
+cache
+broadcast
