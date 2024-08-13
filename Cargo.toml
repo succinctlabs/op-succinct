@@ -81,7 +81,7 @@ serde_cbor = "0.11.2"
 log = "0.4.22"
 
 # kzg
-kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs" }
+kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs", features = ["cache"] }
 
 # sp1
 [profile.release-client-lto]
@@ -96,3 +96,5 @@ sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "pat
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
 # TODO: Move this to the main branch of 0xWOLAND/bn when it's ready.
 bn = { git = "https://github.com/0xWOLAND/bn.git", package = "substrate-bn", branch = "bhargav/accelerate", default-features = false }
+# TODO: Remove this once we switch off of kzg-rs.
+bls12_381 = { git = "https://github.com/leruaa/bls12_381", branch = "msm_variable_base" }

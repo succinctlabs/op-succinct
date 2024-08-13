@@ -6,10 +6,11 @@ use crate::BytesHasherBuilder;
 use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use itertools::Itertools;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
+use kzg_rs::get_kzg_settings;
 use kzg_rs::Blob as KzgRsBlob;
 use kzg_rs::Bytes48;
-use kzg_rs::{get_kzg_settings, KzgSettings};
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -74,7 +75,7 @@ impl HintWriterClient for InMemoryOracle {
 /// and verify it once, rather than verifying each of the 4096 elements separately.
 #[derive(Default)]
 struct Blob {
-    // TODO: Advantage / disadvantage of using FixedBytes?
+    // TODO: This commitment is currently unused.
     commitment: FixedBytes<48>,
     // 4096 Field elements, each 32 bytes.
     data: FixedBytes<131072>,
@@ -149,9 +150,19 @@ impl InMemoryOracle {
         }
 
         println!("cycle-tracker-report-start: blob-verification");
-        let commitments: Vec<Bytes48> = blobs.keys().cloned().collect();
-        let kzg_proofs: Vec<Bytes48> = blobs.values().map(|blob| blob.kzg_proof).collect();
-        let blob_datas: Vec<Bytes48> = blobs.values().map(|blob| blob.data).collect();
+        let commitments: Vec<Bytes48> = blobs
+            .keys()
+            .cloned()
+            .map(|blob| Bytes48::from_slice(&blob.0).unwrap())
+            .collect_vec();
+        let kzg_proofs: Vec<Bytes48> = blobs
+            .values()
+            .map(|blob| Bytes48::from_slice(&blob.kzg_proof.0).unwrap())
+            .collect_vec();
+        let blob_datas: Vec<KzgRsBlob> = blobs
+            .values()
+            .map(|blob| KzgRsBlob::from_slice(&blob.data.0).unwrap())
+            .collect_vec();
         // Verify reconstructed blobs.
         kzg_rs::KzgProof::verify_blob_kzg_proof_batch(
             blob_datas,
@@ -159,7 +170,7 @@ impl InMemoryOracle {
             kzg_proofs,
             &get_kzg_settings(),
         )
-        .map_err(|e| anyhow!("blob verification failed for {:?}: {:?}", commitment, e))?;
+        .map_err(|e| anyhow!("blob verification failed for batch: {:?}", e))?;
         println!("cycle-tracker-report-end: blob-verification");
 
         Ok(())
