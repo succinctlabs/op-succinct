@@ -1,6 +1,20 @@
 services:
   kona-sp1-server:
-    image: ratansuccinct/kona-sp1-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.server
     env_file:
       - .env.server
     restart: unless-stopped
+    ports:
+      - "3000:3000"
+
+  kona-sp1-proposer:
+    build:
+      context: .
+      dockerfile: Dockerfile.op_proposer
+    env_file:
+      - .env.server
+    restart: unless-stopped
+    depends_on:
+      - kona-sp1-server
