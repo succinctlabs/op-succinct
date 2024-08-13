@@ -17,14 +17,14 @@ RUN apt-get update && apt-get install -y \
 
 # Copy the built op-proposer binary from the previous stage
 COPY --from=optimism-builder /optimism/op-proposer/bin/op-proposer /usr/local/bin/op-proposer
+# TODO: This should be a link to a SQLLite DB server.
 COPY --from=optimism-builder /optimism/proofs.db /usr/local/bin/proofs.db
-
-RUN ls -l /usr/local/bin
-
-RUN chmod +x /usr/local/bin/op-proposer  # Make the file executable
 
 # Set the entrypoint to run op-proposer with environment variables
 COPY op_proposer.sh /usr/local/bin/op_proposer.sh
+
+# Make the binary and entrypoint executable.
+RUN chmod +x /usr/local/bin/op-proposer
 RUN chmod +x /usr/local/bin/op_proposer.sh
 
 ENTRYPOINT ["/usr/local/bin/op_proposer.sh"]

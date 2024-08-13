@@ -23,6 +23,11 @@ Then, run the OP Proposer + SP1 server:
    a. Verify the proofs.
    b. Submit the proofs to the `L2OutputOracle` contract.
 
+To build the server, run:
+```bash
+docker compose build
+```
+
 To start the OP Proposer, run:
 ```bash
 docker compose up -d
