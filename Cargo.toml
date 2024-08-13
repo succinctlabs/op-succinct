@@ -80,6 +80,9 @@ futures = "0.3.30"
 serde_cbor = "0.11.2"
 log = "0.4.22"
 
+# kzg
+kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs" }
+
 # sp1
 [profile.release-client-lto]
 inherits = "release"
