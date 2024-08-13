@@ -107,6 +107,8 @@ async fn request_agg_proof(
         .map(|sp| bincode::deserialize(sp).unwrap())
         .collect();
 
+    // ZTODO: Currently turning the slice back into RawBootInfo
+    // Would be better never abi encode it in the first place.
     let boot_infos: Vec<RawBootInfo> = proofs_with_pv
         .iter_mut()
         .map(|proof| RawBootInfo::abi_decode(&proof.public_values.to_vec()[..]).unwrap())
