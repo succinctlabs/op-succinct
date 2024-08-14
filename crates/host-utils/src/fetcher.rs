@@ -9,7 +9,8 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
-use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc};
+use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
+use tokio::time::sleep;
 
 use alloy_primitives::keccak256;
 
@@ -79,6 +80,7 @@ impl SP1KonaDataFetcher {
         let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as usize);
 
         // Note: Quicknode rate limit at 300 requests per second.
+        // TODO: Remove this when we switch to our internal Sepolia node.
         let batch_size = 200;
         let mut block_number = start;
         while block_number <= end {
@@ -94,6 +96,7 @@ impl SP1KonaDataFetcher {
 
             headers.extend(batch_headers);
             block_number += batch_size;
+            sleep(Duration::from_millis(1500)).await;
         }
         Ok(headers)
     }
