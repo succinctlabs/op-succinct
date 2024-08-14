@@ -49,6 +49,7 @@ pub struct BlockInfo {
 
 impl SP1KonaDataFetcher {
     pub fn new() -> Self {
+        dotenv::dotenv().ok();
         let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
         let l1_provider =
             Arc::new(ProviderBuilder::default().on_http(Url::from_str(&l1_rpc).unwrap()));

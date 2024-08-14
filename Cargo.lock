@@ -2757,6 +2757,7 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "client-utils",
+ "dotenv",
  "kona-host",
  "revm",
  "rkyv",
