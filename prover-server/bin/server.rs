@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use client_utils::RawBootInfo;
+use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use log::info;
@@ -106,7 +106,11 @@ async fn request_agg_proof(
 
     let boot_infos: Vec<RawBootInfo> = proofs_with_pv
         .iter_mut()
-        .map(|proof| proof.public_values.read::<RawBootInfo>())
+        .map(|proof| {
+            let mut raw_boot_info_bytes = [0u8; BOOT_INFO_SIZE];
+            proof.public_values.read_slice(&mut raw_boot_info_bytes);
+            RawBootInfo::abi_decode(&raw_boot_info_bytes).unwrap()
+        })
         .collect();
 
     let proofs: Vec<SP1Proof> = proofs_with_pv
