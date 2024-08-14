@@ -32,14 +32,13 @@ contract ZKUpgraderTest is Test {
     function testUpgradeWorks() public {
         ZKL2OutputOracle l2oo = ZKL2OutputOracle(0xdfe97868233d1aa22e815a266982f2cf17685a27);
 
-        u.upgradeToZK(0x543bA4AADBAb8f9025686Bd03993043599c6fB04);
+        address optimismProxyAdmin = 0x543bA4AADBAb8f9025686Bd03993043599c6fB04;
+        u.upgradeToZK(optimismProxyAdmin);
 
         assertEq(l2oo.owner(), address(0));
         assertEq(address(l2oo.verifierGateway()), 0x3B6041173B80E77f038f3F2C0f9744f04837185e);
         assertEq(l2oo.proposer(), address(0));
     }
-
-    // add test: testFreshDeployWorks (sets outputroot and stuff, and above doesn't)
 
     function testHexString() public {
         assertEq(u.createHexString(0), "0x0");
@@ -48,4 +47,8 @@ contract ZKUpgraderTest is Test {
         assertEq(u.createHexString(16), "0x10");
         assertEq(u.createHexString(256), "0x100");
     }
+
+    // ZTODO: add tests:
+    // testFreshDeployWorks (sets outputroot and stuff, and above doesn't)
+    // test upgrade works (confirm above test doesn't set that stuff)
 }
