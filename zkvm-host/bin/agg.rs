@@ -100,6 +100,8 @@ async fn main() -> Result<()> {
     } else {
         let (_, report) = prover.execute(AGG_ELF, stdin).run().unwrap();
         println!("report: {:?}", report);
+
+        println!("report values: {:?}", report.syscall_counts);
     }
 
     Ok(())

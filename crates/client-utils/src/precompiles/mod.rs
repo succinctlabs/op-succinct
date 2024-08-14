@@ -5,7 +5,10 @@ use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::{
     handler::register::EvmHandler,
-    precompile::{bn128, Precompile, PrecompileResult, PrecompileSpecId, PrecompileWithAddress},
+    precompile::{
+        bn128, hash, identity, modexp, secp256k1, Precompile, PrecompileOutput, PrecompileResult,
+        PrecompileSpecId, PrecompileWithAddress,
+    },
     primitives::Bytes,
     ContextPrecompiles, State,
 };
@@ -33,12 +36,23 @@ macro_rules! create_annotated_precompile {
     };
 }
 
+// Create precompiles for ecrecover.
+pub(crate) const ANNOTATED_SHA256: PrecompileWithAddress =
+    create_annotated_precompile!(hash::SHA256, "sha256");
+pub(crate) const ANNOTATED_RIPEMD160: PrecompileWithAddress =
+    create_annotated_precompile!(hash::RIPEMD160, "ripemd160");
+pub(crate) const ANNOTATED_IDENTITY: PrecompileWithAddress =
+    create_annotated_precompile!(identity::FUN, "identity");
 pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
     create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add");
 pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
     create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul");
 pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
     create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
+pub(crate) const ANNOTATED_MODEXP: PrecompileWithAddress =
+    create_annotated_precompile!(modexp::BERLIN, "modexp");
+pub(crate) const ANNOTATED_ECDSA_RECOVER: PrecompileWithAddress =
+    create_annotated_precompile!(secp256k1::ECRECOVER, "ecrecover");
 
 /// The [PrecompileOverride] implementation for the FPVM-accelerated precompiles.
 #[derive(Debug)]
@@ -76,9 +90,15 @@ where
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [
+                ANNOTATED_ECDSA_RECOVER,
+                ANNOTATED_SHA256,
+                ANNOTATED_RIPEMD160,
+                ANNOTATED_IDENTITY,
                 ANNOTATED_BN_ADD,
                 ANNOTATED_BN_MUL,
                 ANNOTATED_BN_PAIR,
+                ANNOTATED_MODEXP,
+                // ANNOTATED_KZG_POINT_EVAL,
             ];
             ctx_precompiles.extend(override_precompiles);
 
