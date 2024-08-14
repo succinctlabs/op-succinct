@@ -56,17 +56,25 @@ contract ZKL2OutputOracle is Initializable, ISemver {
         uint256 chainId;
     }
 
+    struct ZKInitParams {
+        uint chainId;
+        bytes32 vkey;
+        address verifierGateway;
+        bytes32 startingOutputRoot;
+        address owner;
+    }
+
     /// @notice The chain ID of the L2 chain.
     uint public chainId;
 
     /// @notice The verification key of the SP1 program.
     bytes32 public vkey;
 
-    /// @notice The owner of the contract, who has admin permissions.
-    address public owner;
-
     /// @notice The deployed SP1VerifierGateway contract to request proofs from.
     SP1VerifierGateway public verifierGateway;
+
+    /// @notice The owner of the contract, who has admin permissions.
+    address public owner;
 
     /// @notice A trusted mapping of block numbers to block hashes.
     mapping (uint => bytes32) public historicBlockHashes;
@@ -132,27 +140,21 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     /// @param _l2BlockTime         The time per L2 block, in seconds.
     /// @param _startingBlockNumber The number of the first L2 block.
     /// @param _startingTimestamp   The timestamp of the first L2 block.
-    /// @param _startingOutputRoot  The output root of the first L2 block.
     /// @param _proposer            The address of the proposer.
     /// @param _challenger          The address of the challenger.
     /// @param _finalizationPeriodSeconds The minimum time (in seconds) that must elapse before a withdrawal
     ///                                   can be finalized.
-    /// @param _chainId             The chain ID of the L2 chain.
-    /// @param _owner               The address that has permission to update the vkey and verifier gateway.
+    /// @param _zkInitParams        The chain ID, vkey, verifier gateway, owner, and starting output root for the ZK version of the contract.
     /// @dev Starting block number, timestamp and output root are ignored for upgrades where these values already exist.
     function initialize(
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
         uint256 _startingBlockNumber,
         uint256 _startingTimestamp,
-        bytes32 _startingOutputRoot,
         address _proposer,
         address _challenger,
         uint256 _finalizationPeriodSeconds,
-        uint256 _chainId,
-        address _owner,
-        bytes32 _vkey,
-        address _verifierGateway
+        ZKInitParams memory _zkInitParams
     )
         public
         reinitializer(2)
@@ -169,12 +171,11 @@ contract ZKL2OutputOracle is Initializable, ISemver {
         proposer = _proposer;
         challenger = _challenger;
         finalizationPeriodSeconds = _finalizationPeriodSeconds;
-        chainId = _chainId;
 
         if (l2Outputs.length == 0) {
             l2Outputs.push(
                     Types.OutputProposal({
-                        outputRoot: _startingOutputRoot,
+                        outputRoot: _zkInitParams.startingOutputRoot,
                         timestamp: uint128(_startingTimestamp),
                         l2BlockNumber: uint128(_startingBlockNumber)
                     })
@@ -184,9 +185,10 @@ contract ZKL2OutputOracle is Initializable, ISemver {
             startingTimestamp = _startingTimestamp;
         }
 
-        _transferOwnership(_owner);
-        _updateVKey(_vkey);
-        _updateVerifierGateway(_verifierGateway);
+        chainId = _zkInitParams.chainId;
+        _transferOwnership(_zkInitParams.owner);
+        _updateVKey(_zkInitParams.vkey);
+        _updateVerifierGateway(_zkInitParams.verifierGateway);
     }
 
     /// @notice Getter for the submissionInterval.
@@ -280,8 +282,8 @@ contract ZKL2OutputOracle is Initializable, ISemver {
         );
 
         require(
-            _l2BlockNumber <= nextBlockNumber(),
-            "L2OutputOracle: block number must be less than or equal to next expected block number"
+            _l2BlockNumber >= nextBlockNumber(),
+            "L2OutputOracle: block number must be greater than or equal to next expected block number"
         );
 
         require(
@@ -295,7 +297,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
 
         require(
             historicBlockHashes[_l1BlockNumber] == _l1BlockHash,
-            "L2OutputOracle: block hash does not match the hash at the expected height"
+            "L2OutputOracle: proposed block hash and number are not checkpointed"
         );
 
         PublicValuesStruct memory publicValues = PublicValuesStruct({
@@ -327,7 +329,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     function checkpointBlockHash(uint256 _blockNumber, bytes32 _blockHash) external {
         require(
             blockhash(_blockNumber) == _blockHash,
-            "L2OutputOracle: block hash does not match the hash at the expected height"
+            "L2OutputOracle: block hash and number cannot be checkpointed"
         );
         historicBlockHashes[_blockNumber] = _blockHash;
     }

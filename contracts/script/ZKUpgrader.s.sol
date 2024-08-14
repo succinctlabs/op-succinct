@@ -4,13 +4,15 @@ pragma solidity ^0.8.0;
 import { VmSafe } from "forge-std/Vm.sol";
 import { Script } from "forge-std/Script.sol";
 
-import { console } from "forge-std/console.sol";
+import { Test, console } from "forge-std/Test.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 import { ZKL2OutputOracle } from "src/ZKL2OutputOracle.sol";
-
+import { OutputRootDecoder } from "./OutputRootDecoder.sol";
+import { Proxy } from "@optimism/src/universal/Proxy.sol";
+import { SP1VerifierGateway } from "@sp1-contracts/src/SP1VerifierGateway.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
-contract ZKUpgrader is Script {
+contract ZKUpgrader is Script, Test {
     ////////////////////////////////////////////////////////////////
     //                      Initial State                         //
     ////////////////////////////////////////////////////////////////
@@ -28,8 +30,9 @@ contract ZKUpgrader is Script {
         uint submissionInterval;
         address verifierGateway;
         bytes32 vkey;
-
     }
+
+
 
     ////////////////////////////////////////////////////////////////
     //                        Modifiers                           //
@@ -47,7 +50,11 @@ contract ZKUpgrader is Script {
     //                        Functions                           //
     ////////////////////////////////////////////////////////////////
 
-    function run() public {
+    function run() public broadcast {
+        upgradeToZK(false);
+    }
+
+    function upgradeToZK(bool spoof) public {
 
         /////////////////////////////
         //          INPUTS         //
@@ -61,35 +68,16 @@ contract ZKUpgrader is Script {
         /////////////////////////////
 
         // require that we have permission to upgrade the contract
-        require(Proxy(config.l2OutputOracleProxy).admin() == msg.sender, "ZKUpgrader: not admin");
+        if (!spoof) require(Proxy(payable(config.l2OutputOracleProxy)).admin() == msg.sender, "ZKUpgrader: not admin");
 
         // requier that the verifier gateway is deployed
-        assembly {
-            let verifierGateway := mload(config.verifierGateway)
-            if iszero(extcodesize(verifierGateway)) {
-                revert(0, 0)
-            }
-        }
+        require(address(config.verifierGateway).code.length > 0, "ZKUpgrader: verifier gateway not deployed");
 
         /////////////////////////////
         // OUTPUT ROOT COMPUTATION //
         /////////////////////////////
 
-        string[] memory inputs = new string[](6);
-        inputs[0] = "cast";
-        inputs[1] = "rpc";
-        inputs[2] = "--rpc-url";
-        inputs[3] = config.l2RollupNode;
-        inputs[4] = "optimism_outputAtBlock";
-        // ZTODO: This needs to do the right dropping of 0s
-        inputs[5] = Strings.toHexString(startingBlockNumber);
-
-        bytes memory json_res = vm.ffi(inputs);
-        // ZTODO: This will actually require parsing the JSON.
-        (bytes32 startingOutputRoot, uint startingTimestamp) = abi.decode(res, (bytes32, uint256));
-
-        console.log("Initializing with starting output root:");
-        console.logBytes32(outputRoot);
+        (bytes32 startingOutputRoot, uint startingTimestamp) = fetchOutputRoot(config);
 
         /////////////////////////////
         //     CONTRACT UPGRADE    //
@@ -98,22 +86,28 @@ contract ZKUpgrader is Script {
         // deploy an implementation of the ZK L2OO to the L1
         ZKL2OutputOracle zkL2OutputOracleImpl = new ZKL2OutputOracle();
 
+        ZKL2OutputOracle.ZKInitParams memory zkInitParams = ZKL2OutputOracle.ZKInitParams({
+            chainId: config.chainId,
+            verifierGateway: config.verifierGateway,
+            vkey: config.vkey,
+            owner: config.owner,
+            startingOutputRoot: startingOutputRoot
+        });
+
+        if (spoof) vm.startPrank()
+
         // upgrade the proxy to the new implementation
-        Proxy(config.l2OutputOracleProxy).upgradeToAndCall(
+        Proxy(payable(config.l2OutputOracleProxy)).upgradeToAndCall(
             address(zkL2OutputOracleImpl),
-            abi.encodeCall(L2OutputOracle.initialize, (
+            abi.encodeCall(ZKL2OutputOracle.initialize, (
                 config.submissionInterval,
                 config.l2BlockTime,
                 config.startingBlockNumber,
                 startingTimestamp,
-                startingOutputRoot,
                 config.proposer,
                 config.challenger,
                 config.finalizationPeriod,
-                config.chainId,
-                config.owner,
-                config.vkey,
-                config.verifierGateway
+                zkInitParams
             ))
         );
     }
@@ -129,5 +123,24 @@ contract ZKUpgrader is Script {
         string memory json = vm.readFile(path);
         bytes memory data = vm.parseJson(json);
         return abi.decode(data, (Config));
+    }
+
+    function fetchOutputRoot(Config memory config) public returns (bytes32 startingOutputRoot, uint startingTimestamp) {
+        string[] memory inputs = new string[](6);
+        inputs[0] = "cast";
+        inputs[1] = "rpc";
+        inputs[2] = "--rpc-url";
+        inputs[3] = config.l2RollupNode;
+        inputs[4] = "optimism_outputAtBlock";
+        // ZTODO: This needs to do the right dropping of 0s
+        // inputs[5] = Strings.toHexString(config.startingBlockNumber);
+        inputs[5] = "0x0";
+
+        string memory jsonRes = string(vm.ffi(inputs));
+        bytes memory outputRootBytes = vm.parseJson(jsonRes, ".outputRoot");
+        bytes memory startingTimestampBytes = vm.parseJson(jsonRes, ".blockRef.timestamp");
+
+        startingOutputRoot = abi.decode(outputRootBytes, (bytes32));
+        startingTimestamp = abi.decode(startingTimestampBytes, (uint));
     }
 }
