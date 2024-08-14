@@ -2,16 +2,15 @@ use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
-use host_utils::{
-    fetcher::SP1KonaDataFetcher, get_proof_stdin, precompile::precompile_hook, ProgramType,
-};
+use host_utils::{fetcher::SP1KonaDataFetcher, get_proof_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
 
 use client_utils::precompiles::PRECOMPILE_HOOK_FD;
+use zkvm_host::precompile_hook;
 
-pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../elf/fault-proof-elf");
+pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../elf/zkvm-client-elf");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

@@ -11,13 +11,7 @@ Standalone repo to use Kona & SP1 to verify Optimism blocks.
 **`sp1-kona`**
 - `native-host`: The host program which runs the Kona program natively using `kona`.
 - `zkvm-host`: The host program which runs the Kona program in SP1.
-- `client-programs`: The programs proven in SP1. 
-    - For `zkvm-client` and `validity-client`, which are used to generate proofs for single blocks 
-    and batches of blocks respectively, the binary is first run in native mode on the `kona-host` to
-    fetch the witness data, then uses SP1 to generate the program's proof of execution.
-   - For `aggregation-client`, which is used to generate an aggregate proof for a set of batches,
-   first generate proofs for `validity-client` for each batch, then use `aggregation-client` to
-   generate an aggregate proof.
+- `zkvm-client`: The program proven in SP1. The `zkvm-host` first runs `zkvm-client` on the `kona-host` to fetch the witness data, then uses SP1 to generate the program's proof of execution.
 
 ## Usage
 
