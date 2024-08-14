@@ -137,6 +137,12 @@ var (
 		Value:   "/tmp/batch_decoder/transactions_cache",
 		EnvVars: prefixEnvVars("TX_CACHE_OUT_DIR"),
 	}
+	ChannelOutDirFlag = &cli.StringFlag{
+		Name:    "channel-out-dir",
+		Usage:   "Cache directory for the found channels to determine span batch boundaries",
+		Value:   "/tmp/batch_decoder/channel_cache",
+		EnvVars: prefixEnvVars("CHANNEL_OUT_DIR"),
+	}
 	BatchDecoderConcurrentReqsFlag = &cli.Uint64Flag{
 		Name:    "batch-decoder-concurrent-reqs",
 		Usage:   "Concurrency level when fetching transactions to determine span batch boundaries",
@@ -181,6 +187,7 @@ var optionalFlags = []cli.Flag{
 	MaxBlockRangePerSpanProofFlag,
 	ProofTimeoutFlag,
 	TxCacheOutDirFlag,
+	ChannelOutDirFlag,
 	BatchDecoderConcurrentReqsFlag,
 	KonaServerUrlFlag,
 	MaxConcurrentProofRequestsFlag,

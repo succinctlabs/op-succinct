@@ -54,6 +54,7 @@ type ProposerConfig struct {
 	DbPath                     string
 	BeaconRpc                  string
 	TxCacheOutDir              string
+	ChannelOutDir              string
 	BatchDecoderConcurrentReqs uint64
 	MaxSpanBatchDeviation      uint64
 	MaxBlockRangePerSpanProof  uint64
@@ -115,6 +116,7 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 	ps.DbPath = cfg.DbPath
 	ps.BeaconRpc = cfg.BeaconRpc
 	ps.TxCacheOutDir = cfg.TxCacheOutDir
+	ps.ChannelOutDir = cfg.ChannelOutDir
 	ps.BatchDecoderConcurrentReqs = cfg.BatchDecoderConcurrentReqs
 	ps.MaxSpanBatchDeviation = cfg.MaxSpanBatchDeviation
 	ps.MaxBlockRangePerSpanProof = cfg.MaxBlockRangePerSpanProof

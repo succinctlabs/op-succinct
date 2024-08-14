@@ -73,6 +73,8 @@ type CLIConfig struct {
 	BeaconRpc string
 	// Directory to store the transaction cache when determining span batch boundaries.
 	TxCacheOutDir string
+	// Directory to store the channel cache when determining span batch boundaries.
+	ChannelOutDir string
 	// Number of concurrent requests to make when fetching L1 data to determine span batch boundaries.
 	BatchDecoderConcurrentReqs uint64
 	// If we find a span batch this far ahead of the block we're targeting, we assume an error and just fill in the gap.
@@ -152,6 +154,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		MaxBlockRangePerSpanProof:    ctx.Uint64(flags.MaxBlockRangePerSpanProofFlag.Name),
 		ProofTimeout:                 ctx.Uint64(flags.ProofTimeoutFlag.Name),
 		TxCacheOutDir:                ctx.String(flags.TxCacheOutDirFlag.Name),
+		ChannelOutDir:                ctx.String(flags.ChannelOutDirFlag.Name),
 		BatchDecoderConcurrentReqs:   ctx.Uint64(flags.BatchDecoderConcurrentReqsFlag.Name),
 		KonaServerUrl:                ctx.String(flags.KonaServerUrlFlag.Name),
 		MaxConcurrentProofRequests:   ctx.Uint64(flags.MaxConcurrentProofRequestsFlag.Name),

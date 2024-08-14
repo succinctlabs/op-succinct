@@ -50,6 +50,7 @@ type L2OOContract interface {
 	LatestOutputIndex(*bind.CallOpts) (*big.Int, error)
 	NextOutputIndex(*bind.CallOpts) (*big.Int, error)
 	StartingTimestamp(*bind.CallOpts) (*big.Int, error)
+	StartingBlockNumber(*bind.CallOpts) (*big.Int, error)
 	L2BLOCKTIME(*bind.CallOpts) (*big.Int, error)
 }
 

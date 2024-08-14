@@ -2,10 +2,14 @@ package proposer
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
 	"math/big"
+	"path"
 
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/fetch"
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/reassemble"
@@ -46,10 +50,11 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 	for {
 		// use batch decoder to reassemble the batches from disk to determine the start and end of relevant span batch
 		start, end, err := l.GenerateSpanBatchRange(ctx, nextBlock, l.DriverSetup.Cfg.MaxSpanBatchDeviation)
-		if err == reassemble.NoSpanBatchFoundError {
+
+		if err == errors.New("no span batch found") {
 			l.Log.Info("no span batch found", "nextBlock", nextBlock)
 			break
-		} else if err == reassemble.MaxDeviationExceededError {
+		} else if err == errors.New("max deviation exceeded") {
 			l.Log.Info("max deviation exceeded, autofilling", "start", start, "end", end)
 		} else if err != nil {
 			l.Log.Error("failed to generate span batch range", "err", err)
@@ -155,7 +160,7 @@ func (l *L2OutputSubmitter) FetchBatchesFromChain(ctx context.Context, nextBlock
 }
 
 func (l *L2OutputSubmitter) GenerateSpanBatchRange(ctx context.Context, nextBlock, maxSpanBatchDeviation uint64) (uint64, uint64, error) {
-	batchInbox, l2BlockTime, genesisTimestamp := common.Address{}, uint64(0), uint64(0)
+	batchInbox, l2BlockTime, genesisTimestamp, genesisBlockNum := common.Address{}, uint64(0), uint64(0), uint64(0)
 	rollupCfg, err := rollup.LoadOPStackRollupConfig(l.Cfg.L2ChainID)
 	if err != nil {
 		if (l.Cfg.BatchInbox == common.Address{}) {
@@ -178,22 +183,83 @@ func (l *L2OutputSubmitter) GenerateSpanBatchRange(ctx context.Context, nextBloc
 			return 0, 0, fmt.Errorf("error pulling genesis timestamp from L2OO contract: %w", err)
 		}
 		genesisTimestamp = genesisTimestampU256.Uint64()
+
+		genesisBlockNumU256, err := l.l2ooContract.StartingBlockNumber(callOpts)
+		if err != nil {
+			return 0, 0, fmt.Errorf("error pulling genesis block number from L2OO contract: %w", err)
+		}
+		genesisBlockNum = genesisBlockNumU256.Uint64()
 	} else {
 		batchInbox = rollupCfg.BatchInboxAddress
 		l2BlockTime = rollupCfg.BlockTime
 		genesisTimestamp = rollupCfg.Genesis.L2Time
+		genesisBlockNum = rollupCfg.Genesis.L2.Number
 	}
 
 	reassembleConfig := reassemble.Config{
 		BatchInbox:    batchInbox,
-		InDirectory:   l.DriverSetup.Cfg.TxCacheOutDir,
-		OutDirectory:  "",
+		InDirectory:   l.Cfg.TxCacheOutDir,
+		OutDirectory:  l.Cfg.ChannelOutDir,
 		L2ChainID:     new(big.Int).SetUint64(l.Cfg.L2ChainID),
 		L2GenesisTime: genesisTimestamp,
 		L2BlockTime:   l2BlockTime,
 	}
 
-	return reassemble.GetSpanBatchRange(reassembleConfig, rollupCfg, nextBlock, maxSpanBatchDeviation)
+	// Reassembles the frames into channels and caches them in OutDirectory.
+	reassemble.Channels(reassembleConfig, rollupCfg)
+
+	return GetSpanBatchRange(nextBlock, maxSpanBatchDeviation, genesisBlockNum, l.Cfg.ChannelOutDir, reassembleConfig)
+}
+
+func GetSpanBatchRange(l2Block, maxSpanBatchDeviation, genesisBlockNum uint64, outDir string, config reassemble.Config) (uint64, uint64, error) {
+	files, err := ioutil.ReadDir(outDir)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error reading directory: %w", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() || path.Ext(file.Name()) != ".json" {
+			continue
+		}
+
+		filePath := path.Join(outDir, file.Name())
+		data, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		var ch reassemble.ChannelWithMetadata
+		err = json.Unmarshal(data, &ch)
+		if err != nil {
+			return 0, 0, fmt.Errorf("error reading channel file %s: %w", filePath, err)
+		}
+
+		if len(ch.Batches) == 0 {
+			return 0, 0, errors.New("no span batches in channel")
+		}
+
+		for idx, b := range ch.Batches {
+			startBlock := TimestampToBlock(config, genesisBlockNum, b.GetTimestamp())
+			spanBatch, success := b.AsSpanBatch()
+			if !success {
+				return 0, 0, fmt.Errorf("couldn't convert batch %v to span batch", idx)
+			}
+			blockCount := spanBatch.GetBlockCount()
+			endBlock := startBlock + uint64(blockCount) - 1
+
+			if l2Block >= startBlock && l2Block <= endBlock {
+				return startBlock, endBlock, nil
+			} else if l2Block+maxSpanBatchDeviation < startBlock {
+				return l2Block, startBlock - 1, errors.New("max deviation exceeded")
+			}
+		}
+	}
+
+	return 0, 0, errors.New("no span batch found")
+}
+
+func TimestampToBlock(cfg reassemble.Config, genesisBlockNum, l2Timestamp uint64) uint64 {
+	return ((l2Timestamp - cfg.L2GenesisTime) / cfg.L2BlockTime) + genesisBlockNum
 }
 
 func (l *L2OutputSubmitter) getL1OriginAndFinalized(ctx context.Context, nextBlock uint64) (uint64, uint64, error) {
