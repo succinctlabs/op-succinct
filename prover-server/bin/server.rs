@@ -61,6 +61,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+/// Request a proof for a span of blocks.
 async fn request_span_proof(
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
@@ -92,6 +93,7 @@ async fn request_span_proof(
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
+/// Request an aggregation proof for a set of subproofs.
 async fn request_agg_proof(
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
@@ -129,6 +131,7 @@ async fn request_agg_proof(
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
+/// Get the status of a proof.
 async fn get_proof_status(
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {

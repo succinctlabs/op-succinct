@@ -1,5 +1,5 @@
 [workspace]
-members = ["client-programs/*", "crates/*", "native-host", "zkvm-host"]
+members = ["client-programs/*", "crates/*", "native-host", "zkvm-host", "prover-server"]
 resolver = "2"
 
 [workspace.package]

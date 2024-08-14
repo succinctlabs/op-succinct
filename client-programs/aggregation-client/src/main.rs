@@ -7,12 +7,8 @@ sp1_zkvm::entrypoint!(main);
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use client_utils::{types::AggregationInputs, RawBootInfo};
-use std::collections::HashMap;
-// use kona_client::{
-//     l1::{OracleBlobProvider, OracleL1ChainProvider},
-//     BootInfo,
-// };
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 /// Note: This is the hardcoded program vkey for the multi-block program. Whenever the multi-block
 /// program changes, update this.

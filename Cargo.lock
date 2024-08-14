@@ -4622,6 +4622,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "prover-server"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "anyhow",
+ "axum",
+ "bincode",
+ "cargo_metadata",
+ "clap",
+ "client-utils",
+ "dotenv",
+ "futures",
+ "host-utils",
+ "kona-host",
+ "log",
+ "num-format",
+ "revm",
+ "serde",
+ "serde_cbor",
+ "sp1-helper",
+ "sp1-sdk",
+ "tokio",
+]
+
+[[package]]
 name = "psm"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
