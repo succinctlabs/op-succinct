@@ -55,9 +55,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
- "bincode",
  "client-utils",
- "hex",
  "serde_cbor",
  "sha2",
  "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
@@ -1477,7 +1475,6 @@ dependencies = [
  "rkyv",
  "serde",
  "sha2",
- "sp1-zkvm",
 ]
 
 [[package]]
@@ -4625,23 +4622,17 @@ dependencies = [
 name = "prover-server"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus",
  "alloy-primitives",
  "anyhow",
  "axum",
  "bincode",
- "cargo_metadata",
  "clap",
  "client-utils",
  "dotenv",
- "futures",
  "host-utils",
  "kona-host",
  "log",
- "num-format",
- "revm",
  "serde",
- "serde_cbor",
  "sp1-helper",
  "sp1-sdk",
  "tokio",
@@ -6967,17 +6958,10 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "anyhow",
- "async-trait",
  "cfg-if",
  "client-utils",
  "kona-client",
- "kona-derive",
  "kona-executor",
- "kona-mpt",
- "kona-preimage",
  "kona-primitives",
  "log",
  "op-alloy-consensus",
@@ -7524,23 +7508,14 @@ dependencies = [
 name = "zkvm-host"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus",
- "alloy-primitives",
  "anyhow",
- "axum",
- "bincode",
  "cargo_metadata",
  "clap",
  "client-utils",
  "dotenv",
- "futures",
  "host-utils",
  "kona-host",
- "log",
  "num-format",
- "revm",
- "serde",
- "serde_cbor",
  "sp1-helper",
  "sp1-sdk",
  "tokio",

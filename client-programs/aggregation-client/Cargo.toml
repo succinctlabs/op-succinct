@@ -8,8 +8,6 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-bincode = { workspace = true }
-hex = { workspace = true }
 sha2 = { workspace = true }
 sp1-zkvm = { workspace = true }
 sp1-lib = { workspace = true }

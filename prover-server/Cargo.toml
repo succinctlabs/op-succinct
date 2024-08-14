@@ -20,8 +20,6 @@ path = "bin/server.rs"
 # workspace
 tokio = { workspace = true }
 clap = { workspace = true }
-cargo_metadata = { workspace = true }
-alloy-consensus = { workspace = true }
 alloy-primitives = { workspace = true }
 
 # kona
@@ -34,16 +32,12 @@ host-utils.workspace = true
 sp1-sdk = { workspace = true }
 anyhow.workspace = true
 dotenv.workspace = true
-num-format.workspace = true
-revm.workspace = true
 client-utils.workspace = true
 serde = { workspace = true }
 
 # server
 axum = "0.7.4"
 bincode.workspace = true
-futures.workspace = true
-serde_cbor.workspace = true
 log.workspace = true
 
 [build-dependencies]
