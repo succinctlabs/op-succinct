@@ -53,7 +53,7 @@ fn main() {
 
                 println!("cycle-tracker-start: boot-load");
                 let boot = sp1_zkvm::io::read::<RawBootInfo>();
-                sp1_zkvm::io::commit(&boot);
+                sp1_zkvm::io::commit_slice(&boot.abi_encode());
                 let boot: Arc<BootInfo> = Arc::new(boot.into());
                 println!("cycle-tracker-end: boot-load");
 
