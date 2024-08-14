@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { Test, console } from "forge-std/Test.sol";
 import { ZKUpgrader } from "script/ZKUpgrader.s.sol";
 import { ZKL2OutputOracle } from "src/ZKL2OutputOracle.sol";
+import { Types } from "@optimism/src/libraries/Types.sol";
 import { Proxy } from "@optimism/src/universal/Proxy.sol";
 
 contract ZKUpgraderTest is Test {
@@ -30,10 +31,12 @@ contract ZKUpgraderTest is Test {
     function testUpgradeWorks() public {
         ZKL2OutputOracle l2oo = ZKL2OutputOracle(0xdfe97868233d1aa22e815a266982f2cf17685a27);
 
-        u.upgradeToZK();
+        u.upgradeToZK(0x543bA4AADBAb8f9025686Bd03993043599c6fB04);
 
         assertEq(l2oo.owner(), address(0));
         assertEq(address(l2oo.verifierGateway()), 0x3B6041173B80E77f038f3F2C0f9744f04837185e);
         assertEq(l2oo.proposer(), address(0));
     }
+
+    // add test: testFreshDeployWorks (sets outputroot and stuff, and above doesn't)
 }

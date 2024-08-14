@@ -32,8 +32,6 @@ contract ZKUpgrader is Script, Test {
         bytes32 vkey;
     }
 
-
-
     ////////////////////////////////////////////////////////////////
     //                        Modifiers                           //
     ////////////////////////////////////////////////////////////////
@@ -51,10 +49,10 @@ contract ZKUpgrader is Script, Test {
     ////////////////////////////////////////////////////////////////
 
     function run() public broadcast {
-        upgradeToZK(false);
+        upgradeToZK(address(0));
     }
 
-    function upgradeToZK(bool spoof) public {
+    function upgradeToZK(address spoofedAdmin) public {
 
         /////////////////////////////
         //          INPUTS         //
@@ -66,9 +64,6 @@ contract ZKUpgrader is Script, Test {
         /////////////////////////////
         //      SAFETY CHECKS      //
         /////////////////////////////
-
-        // require that we have permission to upgrade the contract
-        if (!spoof) require(Proxy(payable(config.l2OutputOracleProxy)).admin() == msg.sender, "ZKUpgrader: not admin");
 
         // requier that the verifier gateway is deployed
         require(address(config.verifierGateway).code.length > 0, "ZKUpgrader: verifier gateway not deployed");
@@ -94,7 +89,7 @@ contract ZKUpgrader is Script, Test {
             startingOutputRoot: startingOutputRoot
         });
 
-        if (spoof) vm.startPrank()
+        if (spoofedAdmin != address(0)) vm.startPrank(spoofedAdmin);
 
         // upgrade the proxy to the new implementation
         Proxy(payable(config.l2OutputOracleProxy)).upgradeToAndCall(
