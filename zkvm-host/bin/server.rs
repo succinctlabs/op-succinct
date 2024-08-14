@@ -206,6 +206,8 @@ where
     }
 }
 
+/// Deserialize a vector of base64 strings into a vector of vectors of bytes. Go serializes
+/// the subproofs as base64 strings.
 fn deserialize_base64_vec<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
 where
     D: Deserializer<'de>,
