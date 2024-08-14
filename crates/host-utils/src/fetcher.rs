@@ -78,7 +78,7 @@ impl SP1KonaDataFetcher {
         // the Sepolia node.
         let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as usize);
 
-        // Quicknode rate limit at 300 requests per second.
+        // Note: Quicknode rate limit at 300 requests per second.
         let batch_size = 200;
         let mut block_number = start;
         while block_number <= end {
