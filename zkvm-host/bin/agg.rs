@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
+use client_utils::RawBootInfo;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_agg_proof_stdin,
@@ -50,12 +50,8 @@ fn load_aggregation_proof_data(
             SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
         proofs.push(deserialized_proof.proof);
 
-        // The public values are the ABI-encoded BootInfo.
-        let mut boot_info_buf = [0u8; BOOT_INFO_SIZE];
-        deserialized_proof
-            .public_values
-            .read_slice(&mut boot_info_buf);
-        let boot_info = RawBootInfo::abi_decode(&boot_info_buf).unwrap();
+        // The public values are the RawBootInfo.
+        let boot_info = deserialized_proof.public_values.read::<RawBootInfo>();
         boot_infos.push(boot_info);
     }
 
