@@ -1,0 +1,45 @@
+package main
+
+import (
+	"os"
+
+	opservice "github.com/ethereum-optimism/optimism/op-service"
+	"github.com/urfave/cli/v2"
+
+	"github.com/ethereum-optimism/optimism/op-service/cliapp"
+	oplog "github.com/ethereum-optimism/optimism/op-service/log"
+	"github.com/ethereum-optimism/optimism/op-service/metrics/doc"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/moongate-forks/kona-sp1/op-proposer/flags"
+	"github.com/moongate-forks/kona-sp1/op-proposer/metrics"
+	"github.com/moongate-forks/kona-sp1/op-proposer/proposer"
+)
+
+var (
+	Version   = "v0.10.14"
+	GitCommit = ""
+	GitDate   = ""
+)
+
+func main() {
+	oplog.SetupDefaults()
+
+	app := cli.NewApp()
+	app.Flags = cliapp.ProtectFlags(flags.Flags)
+	app.Version = opservice.FormatVersion(Version, GitCommit, GitDate, "")
+	app.Name = "op-proposer"
+	app.Usage = "L2 Output Submitter"
+	app.Description = "Service for generating and proposing L2 Outputs"
+	app.Action = cliapp.LifecycleCmd(proposer.Main(Version))
+	app.Commands = []*cli.Command{
+		{
+			Name:        "doc",
+			Subcommands: doc.NewSubcommands(metrics.NewMetrics("default")),
+		},
+	}
+
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Crit("Application failed", "message", err)
+	}
+}
