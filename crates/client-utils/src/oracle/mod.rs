@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use crate::BytesHasherBuilder;
-use alloy_primitives::{keccak256, FixedBytes};
+use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
@@ -16,7 +16,8 @@ use sha2::{Digest, Sha256};
 /// the remainder of execution.
 #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
 pub struct InMemoryOracle {
-    cache: HashMap<PreimageKey, Vec<u8>, BytesHasherBuilder>,
+    // TODO: Change this to PreimageKey and everything below.
+    cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
 }
 
 impl InMemoryOracle {
@@ -24,9 +25,9 @@ impl InMemoryOracle {
     /// These values are deserialized using rkyv for zero copy deserialization.
     pub fn from_raw_bytes(input: Vec<u8>) -> Self {
         let archived = unsafe {
-            rkyv::archived_root::<HashMap<PreimageKey, Vec<u8>, BytesHasherBuilder>>(&input)
+            rkyv::archived_root::<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>(&input)
         };
-        let deserialized: HashMap<PreimageKey, Vec<u8>, BytesHasherBuilder> =
+        let deserialized: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> =
             archived.deserialize(&mut Infallible).unwrap();
 
         Self {
@@ -38,17 +39,21 @@ impl InMemoryOracle {
 #[async_trait]
 impl PreimageOracleClient for InMemoryOracle {
     async fn get(&self, key: PreimageKey) -> Result<Vec<u8>> {
+        let lookup_key: [u8; 32] = key.into();
         self.cache
-            .get(&key)
+            .get(&lookup_key)
             .cloned()
-            .ok_or_else(|| anyhow!("Key not found in cache: {}", key))
+            .ok_or_else(|| anyhow!("Key not found in cache: {}", hex::encode(lookup_key)))
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<()> {
-        let value = self
-            .cache
-            .get(&key)
-            .ok_or_else(|| anyhow!("Key not found in cache (exact): {}", key))?;
+        let lookup_key: [u8; 32] = key.into();
+        let value = self.cache.get(&lookup_key).ok_or_else(|| {
+            anyhow!(
+                "Key not found in cache (exact): {}",
+                hex::encode(lookup_key)
+            )
+        })?;
         buf.copy_from_slice(value.as_slice());
         Ok(())
     }
@@ -66,7 +71,7 @@ impl HintWriterClient for InMemoryOracle {
 /// and verify it once, rather than verifying each of the 4096 elements separately.
 #[derive(Default)]
 struct Blob {
-    // TODO: Commitment is not currently used.
+    // TODO: Advantage / disadvantage of using FixedBytes?
     commitment: FixedBytes<48>,
     data: FixedBytes<4096>,
     kzg_proof: FixedBytes<48>,
@@ -79,12 +84,13 @@ impl InMemoryOracle {
         let mut blobs: HashMap<FixedBytes<48>, Blob> = HashMap::new();
 
         for (key, value) in self.cache.iter() {
+            let key: PreimageKey = <[u8; 32] as TryInto<PreimageKey>>::try_into(*key).unwrap();
             match key.key_type() {
                 PreimageKeyType::Local => {}
                 PreimageKeyType::Keccak256 => {
                     let derived_key =
                         PreimageKey::new(keccak256(value).into(), PreimageKeyType::Keccak256);
-                    assert_eq!(*key, derived_key, "zkvm keccak constraint failed!");
+                    assert_eq!(key, derived_key, "zkvm keccak constraint failed!");
                 }
                 PreimageKeyType::GlobalGeneric => {
                     unimplemented!();
@@ -92,11 +98,12 @@ impl InMemoryOracle {
                 PreimageKeyType::Sha256 => {
                     let derived_key: [u8; 32] = Sha256::digest(value).into();
                     let derived_key = PreimageKey::new(derived_key, PreimageKeyType::Sha256);
-                    assert_eq!(*key, derived_key, "zkvm sha256 constraint failed!");
+                    assert_eq!(key, derived_key, "zkvm sha256 constraint failed!");
                 }
                 // Aggregate blobs and proofs in memory and verify after loop.
                 PreimageKeyType::Blob => {
-                    let blob_data_key = PreimageKey::new((*key).into(), PreimageKeyType::Keccak256);
+                    let blob_data_key: [u8; 32] =
+                        PreimageKey::new(key.into(), PreimageKeyType::Keccak256).into();
 
                     if let Some(blob_data) = self.cache.get(&blob_data_key) {
                         let commitment: FixedBytes<48> = blob_data[..48].try_into().unwrap();
@@ -143,6 +150,9 @@ impl InMemoryOracle {
             println!("cycle-tracker-end: blob-verification");
             // kzg::verify_blob_kzg_proof(&blob.data, commitment, &blob.kzg_proof)
             // .map_err(|e| format!("blob verification failed for {:?}: {}", commitment, e))?;
+
+            // TODO: Would this allow us to leave 000...000 segments in blobs that were not empty and prove that?
+            // May need to track to ensure each blob element has been included.
         }
 
         Ok(())
