@@ -17,13 +17,13 @@ contract ZKUpgraderTest is Test {
     }
 
     function testReadJsonSucceeds() public {
-        ZKUpgrader.Config memory config = u.readJson("script/zkconfig.json");
+        ZKUpgrader.Config memory config = u.readJson("zkconfig.json");
         assertEq(config.l2BlockTime, 2);
         assertEq(config.proposer, address(0));
     }
 
     function testFetchOutputRoot() public {
-        ZKUpgrader.Config memory config = u.readJson("script/zkconfig.json");
+        ZKUpgrader.Config memory config = u.readJson("zkconfig.json");
         (bytes32 root, uint ts) = u.fetchOutputRoot(config);
         assertEq(root, 0x6a2fb9128c8bc82eed49ee590fba3e975bd67fede20535d0d20b3000ea6d99b1);
         assertEq(ts, 1691802540);

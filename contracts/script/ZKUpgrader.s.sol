@@ -59,7 +59,7 @@ contract ZKUpgrader is Script, Test {
         /////////////////////////////
 
         // grab the config from the zkconfig.json file
-        Config memory config = readJson("script/zkconfig.json");
+        Config memory config = readJson("zkconfig.json");
 
         /////////////////////////////
         //      SAFETY CHECKS      //
