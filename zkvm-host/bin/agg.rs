@@ -9,7 +9,6 @@ use host_utils::{
     get_agg_proof_stdin,
 };
 use sp1_sdk::{utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues};
-use zkvm_host::utils::fetch_header_preimages;
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
@@ -79,11 +78,16 @@ async fn main() -> Result<()> {
         .get_header_by_number(ChainMode::L1, args.latest_checkpoint_head_nb)
         .await?
         .hash_slow();
-    let headers = fetch_header_preimages(&boot_infos, latest_checkpoint_head).await?;
+    let headers = fetcher
+        .get_header_preimages(&boot_infos, latest_checkpoint_head)
+        .await?;
 
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
-    println!("Multi-block ELF Verification Key U32 Hash: {:?}", vkey.vk.hash_u32());
+    println!(
+        "Multi-block ELF Verification Key U32 Hash: {:?}",
+        vkey.vk.hash_u32()
+    );
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, latest_checkpoint_head).unwrap();

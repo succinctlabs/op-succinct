@@ -2758,6 +2758,7 @@ dependencies = [
  "cargo_metadata",
  "client-utils",
  "kona-host",
+ "revm",
  "rkyv",
  "serde_cbor",
  "sp1-sdk",

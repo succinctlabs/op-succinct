@@ -16,6 +16,9 @@ use sha2::{Digest, Sha256};
 
 /// Note: This is the hardcoded program vkey for the multi-block program. Whenever the multi-block
 /// program changes, update this.
+/// TODO: The aggregation program should take in an arbitrary vkey digest, and the smart contract
+/// should verify the proof matches the arbitrary vkey digest stored in the contract. This means
+/// that the aggregate program would no longer need to update this value.
 const MULTI_BLOCK_PROGRAM_VKEY_DIGEST: [u32; 8] = [
     1182742183, 831715190, 1934100752, 151832364, 1086222319, 415089854, 144530717, 984311993,
 ];

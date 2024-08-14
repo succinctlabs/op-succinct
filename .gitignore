@@ -12,6 +12,7 @@ data
 
 # .env
 .env
+.env.server
 
 # elf
 **elf

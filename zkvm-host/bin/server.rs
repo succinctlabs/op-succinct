@@ -17,7 +17,6 @@ use sp1_sdk::{
     utils, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, fs};
-use zkvm_host::utils::fetch_header_preimages;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -113,7 +112,10 @@ async fn request_agg_proof(
         .map(|proof| proof.proof.clone())
         .collect();
 
-    let headers = fetch_header_preimages(&boot_infos, payload.l1_head).await?;
+    let fetcher = SP1KonaDataFetcher::new();
+    let headers = fetcher
+        .get_header_preimages(&boot_infos, payload.l1_head)
+        .await?;
 
     let prover = NetworkProver::new();
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
