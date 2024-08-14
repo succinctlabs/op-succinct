@@ -7514,8 +7514,10 @@ dependencies = [
 name = "zkvm-host"
 version = "0.1.0"
 dependencies = [
+ "alloy",
  "alloy-consensus",
  "alloy-primitives",
+ "alloy-sol-types",
  "anyhow",
  "axum",
  "base64 0.22.1",

@@ -45,6 +45,7 @@ fn main() {
 
     for program in programs {
         build_native_program(program);
+        // Note: Don't build any of the zkVM programs as the ELF may change, as they're already built.
         // build_zkvm_program(program);
     }
 

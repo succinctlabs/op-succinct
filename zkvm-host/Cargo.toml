@@ -39,6 +39,8 @@ clap = { workspace = true }
 cargo_metadata = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-primitives = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy.workspace = true
 
 # kona
 kona-host = { workspace = true }
