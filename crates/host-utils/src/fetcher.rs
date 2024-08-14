@@ -77,11 +77,23 @@ impl SP1KonaDataFetcher {
         // TODO: Optimize this to fetch headers in parallel. Ran into some issues requesting from
         // the Sepolia node.
         let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as usize);
-        for block_number in start..=end {
-            headers.push(
-                self.get_header_by_number(ChainMode::L1, block_number)
-                    .await?,
-            );
+
+        // Quicknode rate limit at 300 requests per second.
+        let batch_size = 200;
+        let mut block_number = start;
+        while block_number <= end {
+            let batch_end = block_number + batch_size - 1;
+            let batch_headers: Vec<Header> = futures::future::join_all(
+                (block_number..=batch_end.min(end))
+                    .map(|num| self.get_header_by_number(ChainMode::L1, num)),
+            )
+            .await
+            .into_iter()
+            .map(|header| header.unwrap())
+            .collect();
+
+            headers.extend(batch_headers);
+            block_number += batch_size;
         }
         Ok(headers)
     }
