@@ -1,0 +1,13 @@
+{
+    "startingBlockNumber": 0,
+    "l2RollupNode": "",
+    "submissionInterval": 900,
+    "l2BlockTime": 2,
+    "proposer": "",
+    "challenger": "",
+    "finalizationPeriod": 0,
+    "chainId": 0,
+    "owner": "",
+    "vkey": "",
+    "verifierGateway": "0x3B6041173B80E77f038f3F2C0f9744f04837185e"
+}
