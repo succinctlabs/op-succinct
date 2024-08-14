@@ -121,15 +121,15 @@ contract ZKUpgrader is Script, Test {
     }
 
     function fetchOutputRoot(Config memory config) public returns (bytes32 startingOutputRoot, uint startingTimestamp) {
+        string memory hexStartingBlockNumber = createHexString(config.startingBlockNumber);
+
         string[] memory inputs = new string[](6);
         inputs[0] = "cast";
         inputs[1] = "rpc";
         inputs[2] = "--rpc-url";
         inputs[3] = config.l2RollupNode;
         inputs[4] = "optimism_outputAtBlock";
-        // ZTODO: This needs to do the right dropping of 0s
-        // inputs[5] = Strings.toHexString(config.startingBlockNumber);
-        inputs[5] = "0x0";
+        inputs[5] = hexStartingBlockNumber;
 
         string memory jsonRes = string(vm.ffi(inputs));
         bytes memory outputRootBytes = vm.parseJson(jsonRes, ".outputRoot");
@@ -137,5 +137,27 @@ contract ZKUpgrader is Script, Test {
 
         startingOutputRoot = abi.decode(outputRootBytes, (bytes32));
         startingTimestamp = abi.decode(startingTimestampBytes, (uint));
+    }
+
+    function createHexString(uint256 value) public returns (string memory) {
+        string memory hexStartingBlockNum = Strings.toHexString(value);
+        bytes memory startingBlockNumAsBytes = bytes(hexStartingBlockNum);
+        require(
+            startingBlockNumAsBytes.length >= 4 &&
+            startingBlockNumAsBytes[0] == '0' &&
+            startingBlockNumAsBytes[1] == 'x',
+            "Invalid input"
+        );
+
+        if (startingBlockNumAsBytes[2] == '0') {
+            bytes memory result = new bytes(startingBlockNumAsBytes.length - 1);
+            result[0] = '0';
+            result[1] = 'x';
+            for (uint i = 3; i < startingBlockNumAsBytes.length; i++) {
+                result[i - 1] = startingBlockNumAsBytes[i];
+            }
+            return string(result);
+        }
+        return hexStartingBlockNum;
     }
 }

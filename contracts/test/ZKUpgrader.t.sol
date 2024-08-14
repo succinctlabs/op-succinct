@@ -6,6 +6,7 @@ import { ZKUpgrader } from "script/ZKUpgrader.s.sol";
 import { ZKL2OutputOracle } from "src/ZKL2OutputOracle.sol";
 import { Types } from "@optimism/src/libraries/Types.sol";
 import { Proxy } from "@optimism/src/universal/Proxy.sol";
+import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract ZKUpgraderTest is Test {
     ZKUpgrader u;
@@ -39,4 +40,12 @@ contract ZKUpgraderTest is Test {
     }
 
     // add test: testFreshDeployWorks (sets outputroot and stuff, and above doesn't)
+
+    function testHexString() public {
+        assertEq(u.createHexString(0), "0x0");
+        assertEq(u.createHexString(1), "0x1");
+        assertEq(u.createHexString(15), "0xf");
+        assertEq(u.createHexString(16), "0x10");
+        assertEq(u.createHexString(256), "0x100");
+    }
 }
