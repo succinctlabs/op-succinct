@@ -40,12 +40,12 @@ fn build_zkvm_program(program: &str) {
 
 fn main() {
     // Don't build the single block program as it's unused.
-    let programs = vec!["zkvm-client", "validity-client"];
+    let programs = vec!["fault-proof", "range"];
 
     for program in programs {
         build_native_program(program);
         build_zkvm_program(program);
     }
 
-    build_zkvm_program("aggregation-client");
+    build_zkvm_program("aggregation");
 }

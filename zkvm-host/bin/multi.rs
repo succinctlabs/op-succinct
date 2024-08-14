@@ -13,7 +13,7 @@ use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
 use zkvm_host::stats::{BnStats, ExecutionStats};
 
-pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
+pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

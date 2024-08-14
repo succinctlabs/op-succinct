@@ -50,7 +50,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "aggregation-client"
+name = "aggregation"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
@@ -2282,6 +2282,19 @@ dependencies = [
  "arrayvec",
  "auto_impl",
  "bytes",
+]
+
+[[package]]
+name = "fault-proof"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "cfg-if",
+ "client-utils",
+ "kona-client",
+ "kona-executor",
+ "kona-primitives",
+ "sp1-zkvm",
 ]
 
 [[package]]
@@ -4776,6 +4789,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "range"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "cfg-if",
+ "client-utils",
+ "kona-client",
+ "kona-executor",
+ "kona-primitives",
+ "log",
+ "op-alloy-consensus",
+ "sp1-zkvm",
+]
+
+[[package]]
 name = "rayon"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6953,22 +6982,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
 
 [[package]]
-name = "validity-client"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "cfg-if",
- "client-utils",
- "kona-client",
- "kona-executor",
- "kona-primitives",
- "log",
- "op-alloy-consensus",
- "sp1-zkvm",
-]
-
-[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7489,19 +7502,6 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
-]
-
-[[package]]
-name = "zkvm-client"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus",
- "cfg-if",
- "client-utils",
- "kona-client",
- "kona-executor",
- "kona-primitives",
- "sp1-zkvm",
 ]
 
 [[package]]
