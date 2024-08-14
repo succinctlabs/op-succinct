@@ -4,9 +4,6 @@
 
 # Currently, configured to generate a proof once per minute.
 
-echo "KONA_SERVER_URL: $KONA_SERVER_URL"
-
-
 /usr/local/bin/op-proposer \
     --poll-interval=${POLL_INTERVAL:-12s} \
     --rollup-rpc=${ROLLUP_RPC} \

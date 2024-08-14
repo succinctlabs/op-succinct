@@ -1,4 +1,5 @@
 services:
+  # Kona SP1 Server
   kona-sp1-server:
     build:
       context: .
@@ -9,6 +10,7 @@ services:
     ports:
       - "3000:3000"
 
+  # SP1 Kona OP Proposer
   kona-sp1-proposer:
     build:
       context: .
