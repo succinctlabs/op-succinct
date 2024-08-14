@@ -50,14 +50,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "aggregation-client"
+name = "aggregation"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
- "bincode",
  "client-utils",
- "hex",
  "serde_cbor",
  "sha2",
  "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
@@ -1477,7 +1475,6 @@ dependencies = [
  "rkyv",
  "serde",
  "sha2",
- "sp1-zkvm",
 ]
 
 [[package]]
@@ -2288,6 +2285,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "fault-proof"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "cfg-if",
+ "client-utils",
+ "kona-client",
+ "kona-executor",
+ "kona-primitives",
+ "sp1-zkvm",
+]
+
+[[package]]
 name = "ff"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2757,7 +2767,9 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "client-utils",
+ "dotenv",
  "kona-host",
+ "revm",
  "rkyv",
  "serde_cbor",
  "sp1-sdk",
@@ -4620,6 +4632,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "prover-server"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "axum",
+ "bincode",
+ "clap",
+ "client-utils",
+ "dotenv",
+ "host-utils",
+ "kona-host",
+ "log",
+ "serde",
+ "sp1-helper",
+ "sp1-sdk",
+ "tokio",
+]
+
+[[package]]
 name = "psm"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4754,6 +4786,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
 dependencies = [
  "rand_core",
+]
+
+[[package]]
+name = "range"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "cfg-if",
+ "client-utils",
+ "kona-client",
+ "kona-executor",
+ "kona-primitives",
+ "log",
+ "op-alloy-consensus",
+ "sp1-zkvm",
 ]
 
 [[package]]
@@ -6934,29 +6982,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81dfa00651efa65069b0b6b651f4aaa31ba9e3c3ce0137aaad053604ee7e0314"
 
 [[package]]
-name = "validity-client"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "anyhow",
- "async-trait",
- "cfg-if",
- "client-utils",
- "kona-client",
- "kona-derive",
- "kona-executor",
- "kona-mpt",
- "kona-preimage",
- "kona-primitives",
- "log",
- "op-alloy-consensus",
- "sp1-zkvm",
-]
-
-[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7480,39 +7505,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "zkvm-client"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus",
- "cfg-if",
- "client-utils",
- "kona-client",
- "kona-executor",
- "kona-primitives",
- "sp1-zkvm",
-]
-
-[[package]]
 name = "zkvm-host"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus",
- "alloy-primitives",
  "anyhow",
- "axum",
- "bincode",
  "cargo_metadata",
  "clap",
  "client-utils",
  "dotenv",
- "futures",
  "host-utils",
  "kona-host",
- "log",
  "num-format",
- "revm",
- "serde",
- "serde_cbor",
  "sp1-helper",
  "sp1-sdk",
  "tokio",
