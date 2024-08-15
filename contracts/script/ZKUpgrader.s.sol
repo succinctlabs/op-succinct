@@ -13,8 +13,7 @@ contract ZKUpgrader is Script, Utils {
 
     /// @notice Modifier that wraps a function in broadcasting.
     modifier broadcast() {
-        // ZTODO: This has to be the admin wallet for upgrading
-        vm.startBroadcast(msg.sender);
+        vm.startBroadcast(vm.envUint("ADMIN_PK"));
         _;
         vm.stopBroadcast();
     }
