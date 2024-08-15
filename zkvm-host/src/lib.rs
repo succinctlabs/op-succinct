@@ -13,6 +13,7 @@ pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
 
+/// Run the native host runner with a timeout.
 pub async fn run_native_host_runner(
     host_cli: &HostCli,
     timeout: Duration,
@@ -35,14 +36,15 @@ pub async fn run_native_host_runner(
     match result {
         Ok(status) => Ok(status?),
         Err(_) => {
-            error!("Native host runner process timed out after 5 seconds");
+            error!("Native host runner process timed out after {} seconds", timeout.as_secs());
             Command::new("pkill")
                 .arg("-f")
                 .arg("native_host_runner")
                 .output()
                 .expect("Failed to kill native_host_runner");
             Err(anyhow::anyhow!(
-                "Native host runner process timed out after 5 seconds"
+                "Native host runner process timed out after {} seconds",
+                timeout.as_secs()
             ))
         }
     }
