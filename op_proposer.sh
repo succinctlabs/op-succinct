@@ -5,7 +5,7 @@
 # Currently, configured to generate a proof once per minute.
 
 /usr/local/bin/op-proposer \
-    --poll-interval=${POLL_INTERVAL:-12s} \
+    --poll-interval=${POLL_INTERVAL:-60s} \
     --rollup-rpc=${ROLLUP_RPC} \
     --l2oo-address=${L2OO_ADDRESS} \
     --private-key=${PRIVATE_KEY} \
