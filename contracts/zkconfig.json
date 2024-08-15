@@ -1,6 +1,6 @@
 {
     "startingBlockNumber": 0,
-    "l2RollupNode": "http://45.250.254.215:5059",
+    "l2RollupNode": "",
     "submissionInterval": 900,
     "l2BlockTime": 2,
     "proposer": "0x0000000000000000000000000000000000000000",
