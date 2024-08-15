@@ -146,6 +146,7 @@ async fn get_proof_status(
     let private_key = env::var("SP1_PRIVATE_KEY")?;
 
     let client = NetworkClient::new(&private_key);
+
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
     let (status, maybe_proof) = tokio::time::timeout(timeout, client.get_proof_status(&proof_id))
