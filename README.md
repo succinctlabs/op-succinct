@@ -1,6 +1,6 @@
-# kona-sp1
+# SP Stack
 
-Standalone repo to use Kona & SP1 to verify Optimism blocks.
+Standalone repo to use Kona & SP1 to verify OP Stack blocks.
 
 ## Overview
 

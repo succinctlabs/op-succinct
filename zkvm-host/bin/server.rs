@@ -9,7 +9,7 @@ use axum::{
 use base64::{engine::general_purpose, Engine as _};
 use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
-use log::info;
+use log::{error, info};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
@@ -88,10 +88,27 @@ async fn request_span_proof(
         .exec()
         .expect("Failed to get cargo metadata");
     let target_dir = metadata.target_directory.join("release");
-    Command::new(target_dir.join("native_host_runner"))
-        .args(convert_host_cli_to_args(&host_cli))
-        .spawn()?
-        .wait()?;
+
+    // Start the native host runner with a timeout.
+    let result = tokio::time::timeout(
+        std::time::Duration::from_secs(40),
+        tokio::process::Command::new(target_dir.join("native_host_runner"))
+            .args(convert_host_cli_to_args(&host_cli))
+            .env("RUST_LOG", "info")
+            .spawn()?
+            .wait(),
+    )
+    .await;
+
+    match result {
+        Ok(status) => status?,
+        Err(_) => {
+            error!("Native host runner process timed out after 30 seconds");
+            return Err(AppError(anyhow::anyhow!(
+                "Native host runner process timed out after 30 seconds"
+            )));
+        }
+    };
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 

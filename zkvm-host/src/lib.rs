@@ -9,6 +9,7 @@ pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
 
+/// Convert the HostCLI clap arugments to a vector of strings.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
     let mut args = vec![
         // format!("--v={}", host_cli.v),
