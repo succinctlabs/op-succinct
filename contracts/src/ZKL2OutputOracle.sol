@@ -12,7 +12,8 @@ import { SP1VerifierGateway } from "@sp1-contracts/src/SP1VerifierGateway.sol";
 /// @notice The ZKL2OutputOracle contains an array of L2 state outputs, where each output is a
 ///         commitment to the state of the L2 chain. Other contracts like the OptimismPortal use
 ///         these outputs to verify information about the state of L2.
-///         This is a diff of the L2OutputOracle, but where outputs are ZK verified.
+///         This is a diff of Optimism's original L2OutputOracle, but where outputs are ZK verified.
+///         https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/src/L1/L2OutputOracle.sol
 contract ZKL2OutputOracle is Initializable, ISemver {
     /// @notice The number of the first L2 block recorded in this contract.
     uint256 public startingBlockNumber;

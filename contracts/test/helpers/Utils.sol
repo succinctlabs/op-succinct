@@ -9,31 +9,31 @@ import { ZKL2OutputOracle } from "src/ZKL2OutputOracle.sol";
 
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg, bytes32 startingOutputRoot, uint startingTimestamp) public returns (address) {
-        // deploy impl and proxy
         address zkL2OutputOracleImpl = address(new ZKL2OutputOracle());
         cfg.l2OutputOracleProxy = address(new Proxy(address(this)));
 
-        // upgrade the proxy to point to the impl and call initialize with values from config
+        // Upgrade the proxy to point to the implementation and call initialize().
+        // Override the starting output root and timestmp with the passed values.
         upgradeAndInitialize(zkL2OutputOracleImpl, cfg, address(0), startingOutputRoot, startingTimestamp);
 
-        // transfer ownership of proxy to owner
+        // Transfer ownership of proxy to owner specified in the config.
         Proxy(payable(cfg.l2OutputOracleProxy)).changeAdmin(cfg.owner);
 
         return cfg.l2OutputOracleProxy;
     }
 
     function upgradeAndInitialize(address impl, Config memory cfg, address _spoofedAdmin, bytes32 startingOutputRoot, uint startingTimestamp) public {
-        // requier that the verifier gateway is deployed
+        // require that the verifier gateway is deployed
         require(address(cfg.verifierGateway).code.length > 0, "ZKUpgrader: verifier gateway not deployed");
 
-        // use starting output block number to compute starting timestamp and output root if not passed
+        // If we passed a starting output root or starting timestamp, use it.
+        // Otherwise, use the L2 Rollup Node to fetch the values based on the starting block number in the config.
         if (startingOutputRoot == bytes32(0) || startingTimestamp == 0) {
             (bytes32 returnedStartingOutputRoot, uint returnedStartingTimestamp) = fetchOutputRoot(cfg);
             if (startingOutputRoot == bytes32(0)) startingOutputRoot = returnedStartingOutputRoot;
             if (startingTimestamp == 0) startingTimestamp = returnedStartingTimestamp;
         }
 
-        // pack the new init params into a struct
         ZKL2OutputOracle.ZKInitParams memory zkInitParams = ZKL2OutputOracle.ZKInitParams({
             chainId: cfg.chainId,
             verifierGateway: cfg.verifierGateway,
@@ -42,10 +42,9 @@ contract Utils is Test, JSONDecoder {
             startingOutputRoot: startingOutputRoot
         });
 
-        // if spoofing admin, start prank
+        // If we are spoofing the admin (used in testing), start prank.
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
 
-        // upgrade the proxy to the newly deployed implementation
         Proxy(payable(cfg.l2OutputOracleProxy)).upgradeToAndCall(
             impl,
             abi.encodeCall(ZKL2OutputOracle.initialize, (

@@ -10,10 +10,6 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Utils } from "./helpers/Utils.sol";
 
 contract UpgradeTest is Test, Utils {
-    function setUp() public {
-
-    }
-
     function testReadJsonSucceeds() public {
         Config memory config = readJson("zkconfig.json");
         assertEq(config.l2BlockTime, 2);
@@ -65,8 +61,4 @@ contract UpgradeTest is Test, Utils {
         assertEq(createHexString(16), "0x10");
         assertEq(createHexString(256), "0x100");
     }
-
-    // ZTODO: add tests:
-    // testFreshDeployWorks (sets outputroot and stuff, and above doesn't)
-    // test upgrade works (confirm above test doesn't set that stuff)
 }
