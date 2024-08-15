@@ -83,15 +83,35 @@ async fn request_span_proof(
     // Overwrite existing data directory.
     fs::create_dir_all(&data_dir)?;
 
-    // Start the server and native client.
-    start_server_and_native_client(host_cli.clone()).await?;
+    // Start the server and native client with a timeout
+    let timeout = tokio::time::timeout(
+        Duration::from_secs(120),
+        // TODO: This is a heavy process and should be handled in the background.
+        start_server_and_native_client(host_cli.clone()),
+    )
+    .await;
+    match timeout {
+        Ok(result) => result?,
+        Err(_) => {
+            return Err(AppError(anyhow::anyhow!(
+                "Server and native client startup timed out.",
+            )))
+        }
+    }
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let prover = NetworkProver::new();
-    let proof_id = prover
-        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
-        .await?;
+    let proof_request = tokio::time::timeout(
+        Duration::from_secs(120),
+        prover.request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed),
+    )
+    .await;
+
+    let proof_id = match proof_request {
+        Ok(result) => result?,
+        Err(_) => return Err(AppError(anyhow::anyhow!("Proof request timed out"))),
+    };
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
