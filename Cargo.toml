@@ -19,17 +19,27 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
-    "rkyv",
-] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
+#     "rkyv",
+# ] }
+# kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
+# kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+
+kona-common = { path = "../kona/crates/common" }
+kona-common-proc = { path = "../kona/crates/common-proc" }
+kona-preimage = { path = "../kona/crates/preimage", features = ["rkyv"] }
+kona-primitives = { path = "../kona/crates/primitives" }
+kona-mpt = { path = "../kona/crates/mpt" }
+kona-derive = { path = "../kona/crates/derive", default-features = false }
+kona-executor = { path = "../kona/crates/executor" }
+kona-client = { path = "../kona/bin/client" }
+kona-host = { path = "../kona/bin/host" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }

@@ -3225,7 +3225,6 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3251,7 +3250,6 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3261,7 +3259,6 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3274,7 +3271,6 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3309,7 +3305,6 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.1"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3326,7 +3321,6 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3358,7 +3352,6 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3372,7 +3365,6 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3386,7 +3378,6 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.1"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#8fd9f440bb5a08b6833c91104ce11f641bc1552b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6289,9 +6280,8 @@ dependencies = [
 
 [[package]]
 name = "superchain-primitives"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b82ed8be21bf40a5103f855c93c7d15091536adfb0aa0a862e6b7c1f93d16c99"
+version = "0.2.1"
+source = "git+https://github.com/ethereum-optimism/superchain-registry?branch=main#ea7e768a02a6f88a38a1d39d27b9be6c212f4b6e"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
