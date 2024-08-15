@@ -8,10 +8,10 @@ The `contracts/` directory consists of two things:
 
 ## Deploy
 
-To deploy and upgrade the contract, run the following command (where `ADMIN PK` is the private key of the admin address for the L1 proxy contracts):
+To deploy and upgrade the contract, run the following command (where `ADMIN_PK` is the private key of the admin address for the L1 proxy contracts):
 
 ```shell
-forge script script/ZKUpgrader.s.sol:ZKUpgrader  --rpc-url <L1 RPC> --private-key <ADMIN PK> --verify --verifier etherscan --etherscan-api-key <ETHERSCAN API> --broadcast --slow --vvvv
+forge script script/ZKUpgrader.s.sol:ZKUpgrader  --rpc-url <L1_RPC> --private-key <ADMIN_PK> --verify --verifier etherscan --etherscan-api-key <ETHERSCAN_API_KEY> --broadcast --slow --vvvv
 ```
 
 ## Starting Output Root
@@ -20,9 +20,9 @@ Since the `ZKL2OutputOracle.sol` contract requires valid ZK proofs to transition
 
 For existing contracts upgrading, they already have honest values in the contract. For new chains, the `ZKUpgrader` script will initialize the contract as follows:
 
-- `zkconfig.json` includes a starting output block number, as well as an L2 Rollup RPC
-- the script queries the rollup node and gets the corresponding output root and timestamp for that block
-- it uses these three values to seed the contract, and all future output roots posted must be proved against this starting state
+- The `zkconfig.json` file includes a starting output block number, as well as an L2 Rollup RPC.
+- The script queries the rollup node and gets the corresponding output root and timestamp for that block.
+- It uses these three values to seed the contract, and all future output roots posted must be proved against this starting state.
 
 To retrieve these values manually, use:
 ```

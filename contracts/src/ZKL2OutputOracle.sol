@@ -129,8 +129,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
 
-    /// @notice Constructs the L2OutputOracle contract. Initializes variables to the same values as
-    ///         in the getting-started config.
+    /// @notice Constructs the L2OutputOracle contract. Disables initializers.
     constructor() {
         _disableInitializers();
     }

@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract OutputRootDecoder {
+contract JSONDecoder {
+    struct Config {
+        uint chainId;
+        address challenger;
+        uint finalizationPeriod;
+        uint l2BlockTime;
+        address l2OutputOracleProxy;
+        string l2RollupNode;
+        address owner;
+        address proposer;
+        uint startingBlockNumber;
+        uint submissionInterval;
+        address verifierGateway;
+        bytes32 vkey;
+    }
+
     struct OutputAtBlock{
         L2BlockRef blockRef;
         bytes32 outputRoot;
