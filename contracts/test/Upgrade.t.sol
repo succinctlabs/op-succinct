@@ -46,7 +46,7 @@ contract UpgradeTest is Test, Utils {
         uint exampleTimestamp = block.timestamp - 1;
 
         Config memory config = readJson("zkconfig.json");
-        // just put some code at this address so check passes
+        // This is never called, so we just need to add some code to the address so the check passes.
         config.verifierGateway = address(new Proxy(address(this)));
         ZKL2OutputOracle l2oo = ZKL2OutputOracle(deployWithConfig(config, exampleOutputRoot, exampleTimestamp));
 
