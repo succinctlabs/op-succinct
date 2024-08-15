@@ -4,9 +4,7 @@ pragma solidity ^0.8.0;
 import { Test, console } from "forge-std/Test.sol";
 import { ZKUpgrader } from "script/ZKUpgrader.s.sol";
 import { ZKL2OutputOracle } from "src/ZKL2OutputOracle.sol";
-import { Types } from "@optimism/src/libraries/Types.sol";
 import { Proxy } from "@optimism/src/universal/Proxy.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { Utils } from "./helpers/Utils.sol";
 
 contract UpgradeTest is Test, Utils {
