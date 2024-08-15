@@ -9,16 +9,16 @@ use axum::{
 use base64::{engine::general_purpose, Engine as _};
 use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
-use log::{error, info};
+use log::info;
 use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     utils, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
-use std::{env, fs, process::Command, time::Duration};
+use std::{env, fs, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
-use zkvm_host::{convert_host_cli_to_args, utils::fetch_header_preimages};
+use zkvm_host::{run_native_host_runner, utils::fetch_header_preimages};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -84,31 +84,7 @@ async fn request_span_proof(
 
     // Start the server and native client with a timeout
     // TODO: This is a heavy process and should be handled in the background.
-    let metadata = cargo_metadata::MetadataCommand::new()
-        .exec()
-        .expect("Failed to get cargo metadata");
-    let target_dir = metadata.target_directory.join("release");
-
-    // Start the native host runner with a timeout.
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(40),
-        tokio::process::Command::new(target_dir.join("native_host_runner"))
-            .args(convert_host_cli_to_args(&host_cli))
-            .env("RUST_LOG", "info")
-            .spawn()?
-            .wait(),
-    )
-    .await;
-
-    match result {
-        Ok(status) => status?,
-        Err(_) => {
-            error!("Native host runner process timed out after 30 seconds");
-            return Err(AppError(anyhow::anyhow!(
-                "Native host runner process timed out after 30 seconds"
-            )));
-        }
-    };
+    run_native_host_runner(&host_cli, Duration::from_secs(40)).await?;
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 

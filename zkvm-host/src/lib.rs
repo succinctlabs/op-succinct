@@ -1,4 +1,8 @@
+use anyhow::Result;
+use std::{process::Command, time::Duration};
+
 use kona_host::HostCli;
+use log::error;
 use revm::{
     precompile::Precompiles,
     primitives::{Address, Bytes, Precompile},
@@ -8,6 +12,41 @@ mod stats;
 pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
+
+pub async fn run_native_host_runner(
+    host_cli: &HostCli,
+    timeout: Duration,
+) -> Result<std::process::ExitStatus> {
+    let metadata = cargo_metadata::MetadataCommand::new()
+        .exec()
+        .expect("Failed to get cargo metadata");
+    let target_dir = metadata.target_directory.join("release");
+    let args = convert_host_cli_to_args(host_cli);
+    let result = tokio::time::timeout(
+        timeout,
+        tokio::process::Command::new(target_dir.join("native_host_runner"))
+            .args(&args)
+            .env("RUST_LOG", "info")
+            .spawn()?
+            .wait(),
+    )
+    .await;
+
+    match result {
+        Ok(status) => Ok(status?),
+        Err(_) => {
+            error!("Native host runner process timed out after 5 seconds");
+            Command::new("pkill")
+                .arg("-f")
+                .arg("native_host_runner")
+                .output()
+                .expect("Failed to kill native_host_runner");
+            Err(anyhow::anyhow!(
+                "Native host runner process timed out after 5 seconds"
+            ))
+        }
+    }
+}
 
 /// Convert the HostCLI clap arugments to a vector of strings.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
