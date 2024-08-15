@@ -6,54 +6,86 @@ import { Utils } from "./helpers/Utils.sol";
 import { ZKL2OutputOracle } from "src/ZKL2OutputOracle.sol";
 
 contract ZKL2OutputOracleTest is Test, Utils {
-    bytes32 startingOutputRoot = 0xd1e578c114d50dbb4431e81f737481b7d07204a35d5968c4b911ec55ba038ed6;
-    uint startingTimestamp = 1721925325;
-    bytes32 zkVKey = 0x003de3cfc15f7b7e2844f33380b8dde65e0cc65de4f7a27e8b3422d376d982f4;
+    bytes32 STARTING_OUTPUT_ROOT = 0x5DE5BC23543212ACFE6D68CCB2F243C80CBD3765782F424DEF4B1E68BABCFE94;
+    uint STARTING_TIMESTAMP = 1723717092;
+    uint STARTING_BLOCK_NUM = 15954957;
 
-    uint constant L1_BLOCK_NUM = 20528129;
-    bytes32 l1Head = 0xb6bd7b941cd0b2098671484897d070508c2d94ad417b484cb30f68edad011578;
+    bytes32 VK = 0x0092df62aaa9095510bc567d8e3f4c43fe3f4b1884e1a7610c1a892666089519;
+    uint OP_SEPOLIA_CHAIN_ID = 11155420;
 
-    bytes32 claimedOutputRoot = 0x83de1383c4b775a69042d4320cedbef37b0f62b7aec7186bb8fd0a2cebbb8073;
-    bytes proof = hex"fedc1fcc0c401ce68e913792251428e02475772a12db38da45b78f0aaf011a5396fff95b2fbdab6a9fdef15ad8ea58d25e61c8389ff6c6c69a18ff0d30d185fbff7a18e60a6162c634f294b6a46f1ddf269d01437c1d56ec8df35f6d75c490496c031db0040d0149bdb878e9d23753e22105bdcbe6e07571f1617d11c72f5b4f8677d1ba27b05dcb17f68477f2c8ecc72e4c33bb6b85536bed9c466ea68cc99c1e1138e20afd82348fe5180bdbac47e15e121d8f02b2ce22f275b4370e1e0f4a3b65026b0ddf4a1762ec35baa5ad6c92e18c52e06743e1d7b3e105bc5fa4b697612a0bc5258058591da838a15ad3e1c9830b7d5492f86698d68e32d7e8e25e0e050f50351d5b59450932060fa80b6777bba2361f68fc1c3d7661525215c6b5c23a9de2fd2e336640c93e2db350b3549d922873c69d04bcf0090bafe60a8700b56d344d9a0874a88772c9285e4b26eaa3f9c9466e26ae7185879a1ffdb9e30bb080c2ca672c02024943a8ca4cd68b8cb3f2605086a9bcfcf56d080a9277beec07bde0756023ebd7570791c7fb70637f0e9f6109a87c7fe832b2ed91a91dc3c24808f2cc4d196f7b757b6232bfa1bca4b2f5e22487196cf059524be780ee740c2e560e46bf25825045ef51a3ebd67ae727eea5b0e3b10aa1d3a3cc5b4abad6216e803ed20d25f1a77a210ce37f2561a8d909ed597c60285d8f6a405d80320e397a58b54cb420a34b6ebb711c50cb6c4e1d5936e454d265a2b2c3b8aae1632aeffc645352d5154d388031fc6c44a7321ad19053c9d4850e9f85247fc2cfb4c344075e9305a51f33637795a47f7ae0a75be1078d9f42b24b4732a9f1a57df127a5dc6892d18d24137f8ffdb079102030ac3b3da044cf63d23a754e1c4ff71543fd3e49b2c2ec2660c3e111f0354e1b2430da3d1084cb9ae583ac6a1595b95f936be744f06fd819663d6c7b1402a717fff9993806c7de8fa449440e6a321774db6521432babfc2b5d3d4d259c9d0ebb86df54904e8745551e9915bd74107d4fb2e9a1ac37380619fa037d302f248b558520ba08bdcebe22cb912b0e3a94d208e63023cac7c616252b1671b2c81eba47da35e240edb8d5e721d7dbfcc8d88a848eb3c958f6749117d8d678f238ed9881677060908bac0be91d81999d7f2cf40152e3aef3a3a39c04b646b0f8c42b848b41f7fc16ab29a5b38f83c498ce0449f912a1ba7a315719";
+    uint constant L1_BLOCK_NUM = 6504359;
+    bytes32 L1_HEAD = 0x648a03238b239b1afa20953c99812a0640fec18776b07af8b8c0cdbceacf2dc1;
+
+    bytes32 claimedOutputRoot = 0x48A9017ABA4E1E3FCDCF9E792FD2B749F9852FA7CF677021033E39FA2E2608EB;
+    uint claimedL2BlockNum = 15955537;
+    bytes proof = hex"3686e09218b6775028743447d077c686ece6c3756e9290febc1f4dc3367b4c23f8087a1f1b24905ab1843df0aa045e40a5c1fb04d54f62e93bc3db041efc51f8bf3d06d10bb2423f68ea9db9689c14cf2fd7ed6b770b57c442377254433c7f633274e1c905cfc6331cc59eb07372e7d4d125854ead8d58e898dec0fa39290c51875dfd270a9a2f42281bdd336119ec17c174006b6296448ca869f9c30113d52a45e45790111f499eed695572a4857e32b31e563fcdd51245d07967eed7a48c490121fcf816aed1d6883d5438281b3f17c10ef49bbdb0d7abdfd63cbf6b1f78d73152f2520132e5d22138ce4f1e602c9a8e79c3ad82ab9fc43a7ac7d11b3ca541ed0fc4920303f11973e6f3d87ac1839108b82b951f40f81f13899b3f97f40e0e4d26b7a30d4672db3f25a9cd31a37c3f9c74f2bbae172f92a7d2d885d0643ffd3a8137cd0ca9c2aa2fb013a7555a2cc7ba0d605503e073633a263e3cd3e181eb2176edd000f9f0c7b01f44039ed3ab12a3d32987d5884ab10bdd6ecad5864c7c5ad21d990ca24b4478fe0033af8342445446993f955e748e46e0c4d7bc4da241397df86126a217535ef4ce885453dad1de1f1f5ff250de040929c12657b13a83005c9e841565c3de4222afa621cc916b1396ad1c99114f9d13d4f9d3defc690d34d0e7181c97d40f410c6c4197950729da5387159a95496079e37abd80a0cb2c91d08b260fa49472d6b96c6ef55c5c1b08c0f6f799379e4f65e4440b0cb4c4ec960abb54286ca1fa17aaac062b5c22640a19b299ffcbf46eeae0bb9d88266194694a4a131c1bc0397495dea01e80ba0657b0325e0cd0e8bb68d1a5a1a810e44b708a865b0609daaf83ef8c1535af6ec321ed92da1eaf9099c31b52612e62d66a96d0662b200dfcd18c955d609ed09f32bb07b27a7a40590754dbd447a2530651756f2562099f20e9e37d9291eaa0c9ac9ba4ef18ee39113c1d177a2f719b320d8dddbbef187c70b41f398cdd8983317736955c0bb15b81f32a825162490e7ecba4cc5e9900b2d7bf9b4d0231dd5b1ecf9a963a1efc26725821e44e545d65d1cfec836c942e10f1ab07d827bd4526e121329ae8f2b87dba8f93b8d132a31fc72a82f6248f121c29236cb339d86205648d85c5afc03e0570f8013b244b8df2b312e2b6e7983030cc5afdba50c25455a0032a15902819ea07b1c9c7ecc6fc0b8e859f36fdbd";
 
     ZKL2OutputOracle l2oo;
     Config config;
 
     function setUp() public {
-        vm.createSelectFork("https://eth.llamarpc.com", L1_BLOCK_NUM + 1);
-
+        vm.createSelectFork("https://sepolia.gateway.tenderly.co", L1_BLOCK_NUM + 1);
         config = readJson("zkconfig.json");
-        config.vkey = zkVKey;
-        config.startingBlockNumber = 123163274;
 
-        l2oo = ZKL2OutputOracle(deployWithConfig(config, startingOutputRoot, startingTimestamp));
-
-        vm.setBlockhash(L1_BLOCK_NUM, l1Head);
+        // set default params for testing
+        config.vkey = VK;
+        config.startingBlockNumber = STARTING_BLOCK_NUM;
+        config.verifierGateway = 0x9AB9824A1529bd745470EDb237E0326dD421e20B;
+        config.chainId = OP_SEPOLIA_CHAIN_ID;
     }
 
-    function testZKL2OOWithProof() public {
-        l2oo.checkpointBlockHash(L1_BLOCK_NUM, l1Head);
-        vm.warp(block.timestamp + (l2oo.SUBMISSION_INTERVAL() * l2oo.L2_BLOCK_TIME()));
+    function testZKL2OOFork() public {
+        vm.createSelectFork("https://sepolia.gateway.tenderly.co", 6504361);
+        l2oo = ZKL2OutputOracle(0xC4b9F9c275B3729774e2D00D8BC0bb09AFe9adF3);
+        l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
 
-        uint l2BlockNum = config.startingBlockNumber + l2oo.SUBMISSION_INTERVAL();
-        bytes32 lastOutputRoot = l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot;
+    }
 
-        ZKL2OutputOracle.PublicValuesStruct memory publicValues = ZKL2OutputOracle.PublicValuesStruct({
-            l1Head: l1Head,
-            l2PreRoot: lastOutputRoot,
-            claimRoot: claimedOutputRoot,
-            claimBlockNum: l2BlockNum,
-            chainId: 901
-        });
+    function testZKL2OOFreshDeployment() public {
+        l2oo = ZKL2OutputOracle(deployWithConfig(config, STARTING_OUTPUT_ROOT, STARTING_TIMESTAMP));
+        vm.startPrank(l2oo.PROPOSER());
 
-        vm.prank(l2oo.PROPOSER());
-        l2oo.proposeL2Output(claimedOutputRoot, l2BlockNum, l1Head, L1_BLOCK_NUM, proof);
+        // fails if block hash hasn't been checkpointed
+        vm.expectRevert();
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
+
+        // set block hash
+        vm.setBlockhash(L1_BLOCK_NUM, L1_HEAD);
+        l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
+        vm.warp(block.timestamp * 2);
+
+        // succeeds after
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
 
         assertEq(l2oo.getL2Output(1).outputRoot, claimedOutputRoot);
     }
-    // get sample proof and use it to...
-    // 1) prove a proposal works
-    // 2) prove it fails with wrong block num
-    // 3) failed without checkpoint, succeeds with
-    // 4) on fork, withdrawal from Portal
+
+    function testZKL2OOFailsWithWrongParams() public {
+        l2oo = ZKL2OutputOracle(deployWithConfig(config, STARTING_OUTPUT_ROOT, STARTING_TIMESTAMP));
+
+        vm.setBlockhash(L1_BLOCK_NUM, L1_HEAD);
+        l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
+        vm.warp(block.timestamp * 2);
+
+        vm.startPrank(l2oo.PROPOSER());
+
+        // fails with wrong claimed output root
+        vm.expectRevert();
+        l2oo.proposeL2Output(bytes32(0), claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
+
+        // fails with wrong claimed block num
+        vm.expectRevert();
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum + 1, L1_HEAD, L1_BLOCK_NUM, proof);
+
+        // fails with wrong L1 head
+        vm.setBlockhash(L1_BLOCK_NUM, keccak256(""));
+        l2oo.checkpointBlockHash(L1_BLOCK_NUM, keccak256(""));
+        vm.expectRevert();
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, keccak256(""), L1_BLOCK_NUM, proof);
+
+        // fails with wrong proof
+        vm.expectRevert();
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, "");
+    }
 }

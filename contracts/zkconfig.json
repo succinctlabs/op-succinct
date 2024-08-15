@@ -1,7 +1,7 @@
 {
     "startingBlockNumber": 0,
     "l2RollupNode": "",
-    "submissionInterval": 900,
+    "submissionInterval": 150,
     "l2BlockTime": 2,
     "proposer": "0x0000000000000000000000000000000000000000",
     "challenger": "0x0000000000000000000000000000000000000000",

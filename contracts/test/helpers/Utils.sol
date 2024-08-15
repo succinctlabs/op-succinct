@@ -69,6 +69,12 @@ contract Utils is Test, JSONDecoder {
         return abi.decode(data, (Config));
     }
 
+    function readJsonWithRPCFromEnv(string memory filepath) view public returns (Config memory) {
+        Config memory config = readJson(filepath);
+        config.l2RollupNode = vm.envString("L2_ROLLUP_NODE");
+        return config;
+    }
+
     function fetchOutputRoot(Config memory config) public returns (bytes32 startingOutputRoot, uint startingTimestamp) {
         string memory hexStartingBlockNumber = createHexString(config.startingBlockNumber);
 
