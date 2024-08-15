@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, process::Command};
 
 use anyhow::Result;
 use clap::Parser;
@@ -7,9 +7,8 @@ use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin, ProgramType,
 };
-use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
+use zkvm_host::{convert_host_cli_to_args, precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -95,9 +94,15 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        start_server_and_native_client(host_cli.clone())
-            .await
-            .unwrap();
+        let metadata = cargo_metadata::MetadataCommand::new()
+            .exec()
+            .expect("Failed to get cargo metadata");
+        let target_dir = metadata.target_directory.join("release");
+        let args = convert_host_cli_to_args(&host_cli);
+        Command::new(target_dir.join("native_host_runner"))
+            .args(&args)
+            .spawn()?
+            .wait()?;
     }
 
     // Get the stdin for the block.

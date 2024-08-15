@@ -31,6 +31,10 @@ path = "bin/server.rs"
 name = "vkey"
 path = "bin/vkey.rs"
 
+[[bin]]
+name = "native_host_runner"
+path = "bin/native_host_runner.rs"
+
 [dependencies]
 
 # workspace

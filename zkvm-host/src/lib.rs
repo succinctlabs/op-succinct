@@ -1,3 +1,4 @@
+use kona_host::HostCli;
 use revm::{
     precompile::Precompiles,
     primitives::{Address, Bytes, Precompile},
@@ -7,6 +8,42 @@ mod stats;
 pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
+
+pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
+    let mut args = vec![
+        // format!("--v={}", host_cli.v),
+        format!("--l1-head={}", host_cli.l1_head),
+        format!("--l2-head={}", host_cli.l2_head),
+        format!("--l2-output-root={}", host_cli.l2_output_root),
+        format!("--l2-claim={}", host_cli.l2_claim),
+        format!("--l2-block-number={}", host_cli.l2_block_number),
+        format!("--l2-chain-id={}", host_cli.l2_chain_id),
+    ];
+    if let Some(addr) = &host_cli.l2_node_address {
+        args.push("--l2-node-address".to_string());
+        args.push(addr.to_string());
+    }
+    if let Some(addr) = &host_cli.l1_node_address {
+        args.push("--l1-node-address".to_string());
+        args.push(addr.to_string());
+    }
+    if let Some(addr) = &host_cli.l1_beacon_address {
+        args.push("--l1-beacon-address".to_string());
+        args.push(addr.to_string());
+    }
+    if let Some(dir) = &host_cli.data_dir {
+        args.push("--data-dir".to_string());
+        args.push(dir.to_string_lossy().into_owned());
+    }
+    if let Some(exec) = &host_cli.exec {
+        args.push("--exec".to_string());
+        args.push(exec.to_string());
+    }
+    if host_cli.server {
+        args.push("--server".to_string());
+    }
+    args
+}
 
 /// This precompile hook substitutes the precompile with a custom one that can stub out the logic
 /// for specific operations that we don't have precompiles for. Used in `create_hook_precompile`.
