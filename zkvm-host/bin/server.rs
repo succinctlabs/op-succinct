@@ -17,7 +17,7 @@ use sp1_sdk::{
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     utils, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
-use std::{env, fs};
+use std::{env, fs, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
 use zkvm_host::utils::fetch_header_preimages;
 
@@ -146,7 +146,12 @@ async fn get_proof_status(
     let private_key = env::var("SP1_PRIVATE_KEY")?;
 
     let client = NetworkClient::new(&private_key);
-    let (status, maybe_proof) = client.get_proof_status(&proof_id).await?;
+    // Time out this request if it takes too long.
+    let timeout = Duration::from_secs(10);
+    let (status, maybe_proof) = tokio::time::timeout(timeout, client.get_proof_status(&proof_id))
+        .await
+        .map_err(|_| AppError(anyhow::anyhow!("Proof status request timed out")))?
+        .map_err(|e| AppError(anyhow::anyhow!("Failed to get proof status: {}", e)))?;
 
     let status: SP1ProofStatus = SP1ProofStatus::try_from(status.status)?;
     if status == SP1ProofStatus::ProofFulfilled {
