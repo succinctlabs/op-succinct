@@ -27,7 +27,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Clone the repository and build the server
 # TODO: Remove the branch once the PR is merged
-RUN git clone -b ratan/add-docker-setup https://github.com/moongate-forks/kona-sp1.git . && \
+RUN git clone -b ratan/fix-kona-host-issues https://github.com/moongate-forks/kona-sp1.git . && \
     cargo build --bin native_host_runner --release && \
     cargo build --bin server --release && \
 
