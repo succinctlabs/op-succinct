@@ -99,7 +99,7 @@ async fn request_span_proof(
 async fn request_agg_proof(
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
-    info!("Received agg proof request: {:?}", payload);
+    info!("Received agg proof request");
     let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
         .subproofs
         .iter()
@@ -130,7 +130,6 @@ async fn request_agg_proof(
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
     let stdin = get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, l1_head.into()).unwrap();
-
     let proof_id = prover
         .request_proof(AGG_ELF, stdin, ProofMode::Plonk)
         .await?;
