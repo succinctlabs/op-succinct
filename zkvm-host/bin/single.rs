@@ -2,9 +2,7 @@ use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
-use host_utils::{
-    fetcher::SP1KonaDataFetcher, get_proof_stdin, precompile::precompile_hook, ProgramType,
-};
+use host_utils::{fetcher::SP1KonaDataFetcher, get_proof_stdin, ProgramType};
 use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};

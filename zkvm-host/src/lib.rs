@@ -1,8 +1,3 @@
-use anyhow::Result;
-use std::{process::Command, time::Duration};
-
-use kona_host::HostCli;
-use log::error;
 use revm::{
     precompile::Precompiles,
     primitives::{Address, Bytes, Precompile},

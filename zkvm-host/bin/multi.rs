@@ -4,9 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
-    get_proof_stdin,
-    precompile::precompile_hook,
-    ProgramType,
+    get_proof_stdin, ProgramType,
 };
 use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};

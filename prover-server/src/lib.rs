@@ -3,10 +3,6 @@ use std::{process::Command, time::Duration};
 
 use kona_host::HostCli;
 use log::error;
-use revm::{
-    precompile::Precompiles,
-    primitives::{Address, Bytes, Precompile},
-};
 
 /// Convert the HostCli to a vector of arguments that can be passed to a command.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
