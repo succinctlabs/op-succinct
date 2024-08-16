@@ -46,7 +46,7 @@ Fill in the `contracts/zkconfig.json` file:
 - finalizationPeriod: how long after a state is proven can users withdraw?
 - chainId: your L2 chain id (if you aren’t sure, try `cast rpc --rpc-url http://localhost:8551 eth_chainId | tr -d '"' | xargs cast 2d`)
 - owner: address that can update the verification key and contracts
-- vkey: initial verification key (you can call `cargo run --bin vkey` from the root of this repo to generate it)
+- vkey: initial verification key (you can call `cargo run --bin vkey --release` from the root of this repo to generate it)
 - verifierGateway: address of verification contract, deployed on most chains at 0x3B6041173B80E77f038f3F2C0f9744f04837185e
 - l2OutputOracleProxy: your already deployed L2OutputOracle proxy contract to upgrade
 
