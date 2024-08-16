@@ -33,6 +33,5 @@ sha2.workspace = true
 log.workspace = true
 itertools.workspace = true
 
-
 # kzg
 kzg-rs.workspace = true
