@@ -44,17 +44,17 @@ When an OP Stack chain is running, there are 4 main components:
     <summary>Field Info</summary>
 
     - `startingBlockNumber`: The L1 block number at which the rollup starts. Default should be 0.
-    - `l2RollupNode`: The URL of the L2 rollup node (usually empty as it's set at runtime).
+    - `l2RollupNode`: The URL of the L2 rollup node. (After the tutorial, this is `http://localhost:8545`)
     - `submissionInterval`: The number of L2 blocks between each L1 output submission.
     - `l2BlockTime`: The time in seconds between each L2 block.
-    - `proposer`: The Ethereum address of the proposer account.
-    - `challenger`: The Ethereum address of the challenger account.
+    - `proposer`: The Ethereum address of the proposer account. Set to `address(0)` for anyone to submit proofs.
+    - `challenger`: The Ethereum address of the challenger account. Set to `address(0)` for anyone to undo proofs.
     - `finalizationPeriod`: The time period (in seconds) after which a proposed output becomes finalized.
     - `chainId`: The chain ID of the L2 network.
     - `owner`: The Ethereum address of the contract owner.
-    - `vkey`: The verification key for the ZK proof system (currently a placeholder).
+    - `vkey`: The verification key for the aggregate program. Run `cargo run --bin vkey --release` to generate this.
     - `verifierGateway`: The address of the verifier gateway contract.
-    - `l2OutputOracleProxy`: The address of the L2 output oracle proxy contract.
+    - `l2OutputOracleProxy`: The address of your OP Stack chain's L2 Output Oracle proxy contract which will be upgraded.
 
     </details>
 
