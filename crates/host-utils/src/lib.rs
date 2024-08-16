@@ -1,5 +1,6 @@
 pub mod fetcher;
 pub mod helpers;
+pub mod precompile;
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
@@ -54,8 +55,8 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),
-        // TODO: This value corresponds to the size of the space needed to
-        // serialize the KV store. We should compute this dynamically.
+        // Note: This value corresponds to the size of the heap needed to serialize the KV store.
+        // Increase this value if we start running into serialization issues.
         HeapScratch::<33554432>::new(),
         SharedSerializeMap::new(),
     );

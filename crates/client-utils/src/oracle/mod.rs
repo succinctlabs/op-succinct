@@ -20,7 +20,6 @@ use sha2::{Digest, Sha256};
 /// the remainder of execution.
 #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
 pub struct InMemoryOracle {
-    // TODO: Change this to PreimageKey and everything below.
     cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
 }
 
