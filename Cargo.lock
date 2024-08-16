@@ -6261,8 +6261,9 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/0xWOLAND/bn.git?branch=bhargav/accelerate#6ee8138c555f94d4a3ef4e8eaaaa664b491a92a4"
+source = "git+https://github.com/0xWOLAND/bn.git#4970e22d001de8fcc46b07d93308c5f6cd9b1e26"
 dependencies = [
+ "bytemuck",
  "byteorder",
  "cfg-if",
  "crunchy",

@@ -26,8 +26,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/cargo-prove prove --version
 
 # Clone the repository and build the server
-# TODO: Remove the branch once the PR is merged
-RUN git clone -b ratan/block-range-failing-on-main https://github.com/succinctlabs/op-succinct.git . && \
+RUN git clone https://github.com/succinctlabs/op-succinct.git . && \
     cargo build --bin native_host_runner --release && \
     cargo build --bin server --release
 

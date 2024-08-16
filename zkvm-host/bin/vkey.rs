@@ -31,8 +31,7 @@ sol! {
     }
 }
 
-// TODO: Add a command to check the verification keys against the contract.
-// Get the verification keys for the ELFs.
+// Get the verification keys for the ELFs and check them against the contract.
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();

@@ -69,7 +69,7 @@ async fn request_span_proof(
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
     dotenv::dotenv().ok();
-    // ZTODO: Save data fetcher, NetworkProver, and NetworkClient globally
+    // TODO: Save data fetcher, NetworkProver, and NetworkClient globally
     // and access via Store.
     let data_fetcher = SP1KonaDataFetcher::new();
 
@@ -121,8 +121,7 @@ async fn request_agg_proof(
         .map(|proof| proof.proof.clone())
         .collect();
 
-    // ZTODO: Better error handling.
-    let l1_head_bytes = hex::decode(payload.head.strip_prefix("0x").unwrap())?;
+    let l1_head_bytes = hex::decode(payload.head.strip_prefix("0x").expect("Invalid L1 head, no 0x prefix."))?;
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
     let headers = fetch_header_preimages(&boot_infos, l1_head.into()).await?;

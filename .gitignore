@@ -16,3 +16,6 @@ data
 
 # txt
 **.txt
+
+# DB data
+db/

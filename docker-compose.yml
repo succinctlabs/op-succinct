@@ -20,3 +20,5 @@ services:
     restart: unless-stopped
     depends_on:
       - kona-sp1-server
+    volumes:
+      - ./db:/usr/local/bin/dbdata/

@@ -75,12 +75,9 @@ impl SP1KonaDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        // TODO: Optimize this to fetch headers in parallel. Ran into some issues requesting from
-        // the Sepolia node.
         let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as usize);
 
-        // Note: Quicknode rate limit at 300 requests per second.
-        // TODO: Remove this when we switch to our internal Sepolia node.
+        // Note: Node rate limits at 300 requests per second.
         let batch_size = 200;
         let mut block_number = start;
         while block_number <= end {
