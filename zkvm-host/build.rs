@@ -32,6 +32,7 @@ fn build_zkvm_program(program: &str) {
         &format!("../{}", program),
         BuildArgs {
             elf_name: format!("{}-elf", program),
+            docker: true,
             ..Default::default()
         },
     );
