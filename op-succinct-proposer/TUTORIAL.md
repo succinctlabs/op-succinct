@@ -82,7 +82,7 @@ The ZKL2OutputOracle makes the following changes:
 - Require a valid SP1 proof for each output root submission.
 - If `proposer == address(0)`, anyone can submit a proof.
 
-### Step 3: Launch Kona SP1 Server
+### Step 3: Launch `op-succinct`
 
 1. Build and start the Docker container:
    ```
@@ -105,4 +105,4 @@ After completing these steps, your chain will be running as a ZK-OP chain:
 - The Kona SP1 server generates ZK proofs.
 - The modified `op-proposer` submits ZK-proven output roots to L1.
 
-🎉 Congratulations! 🎉 You've successfully upgraded to a ZK-OP chain with `op-succinct`!
+🎉 Congratulations! 🎉 You've successfully upgraded to a ZK-OP chain with `op-succinct`.
