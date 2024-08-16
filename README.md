@@ -16,7 +16,7 @@ Standalone repo to use Kona & SP1 to verify OP Stack blocks.
     and batches of blocks respectively. Their binary's are first run in native mode on the `kona-host` to
     fetch the witness data, then they use SP1 to verifiably execute the program.
    - For `aggregation`, which is used to generate an aggregate proof for a set of batches,
-   first generate proofs for `range` programs for each batch, then use `aggregation-client` to
+   first generate proofs for `range` programs for each batch, then use `aggregation` to
    generate an aggregate proof.
 
 
