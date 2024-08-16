@@ -20,10 +20,6 @@ name = "multi"
 path = "bin/multi.rs"
 
 [[bin]]
-name = "test_multi"
-path = "bin/test_multi.rs"
-
-[[bin]]
 name = "agg"
 path = "bin/agg.rs"
 
