@@ -18,7 +18,7 @@ use sp1_sdk::{
 };
 use std::{env, fs, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
-use zkvm_host::{run_native_host_runner, utils::fetch_header_preimages};
+use zkvm_host::{run_native_host, utils::fetch_header_preimages};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -82,9 +82,8 @@ async fn request_span_proof(
     // Overwrite existing data directory.
     fs::create_dir_all(&data_dir)?;
 
-    // Start the server and native client with a timeout
-    // TODO: This is a heavy process and should be handled in the background.
-    run_native_host_runner(&host_cli, Duration::from_secs(40)).await?;
+    // Start the server and native client with a timeout.
+    run_native_host(&host_cli, Duration::from_secs(40)).await?;
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 

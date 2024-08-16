@@ -13,10 +13,9 @@ pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
 
-/// Run the native host runner with a timeout. Use a binary to execute the native host,
-/// as opposed to spawning a new thread in the same process due to the static cursors
-/// employed by the host.
-pub async fn run_native_host_runner(
+/// Run the native host with a timeout. Use a binary to execute the native host, as opposed to
+/// spawning a new thread in the same process due to the static cursors employed by the host.
+pub async fn run_native_host(
     host_cli: &HostCli,
     timeout: Duration,
 ) -> Result<std::process::ExitStatus> {
@@ -38,7 +37,10 @@ pub async fn run_native_host_runner(
     match result {
         Ok(status) => Ok(status?),
         Err(_) => {
-            error!("Native host runner process timed out after {} seconds", timeout.as_secs());
+            error!(
+                "Native host runner process timed out after {} seconds",
+                timeout.as_secs()
+            );
             Command::new("pkill")
                 .arg("-f")
                 .arg("native_host_runner")
