@@ -95,7 +95,6 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        // run_native_host_runner(&host_cli, Duration::from_secs(30)).await?;
         start_server_and_native_client(host_cli.clone()).await?;
     }
 

@@ -49,8 +49,6 @@ fn main() {
             // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
-                use client_utils::precompiles::ZKVMPrecompileOverride;
-
                 println!("cycle-tracker-start: boot-load");
                 let boot = sp1_zkvm::io::read::<RawBootInfo>();
                 sp1_zkvm::io::commit_slice(&boot.abi_encode());

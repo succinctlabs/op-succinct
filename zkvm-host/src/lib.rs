@@ -13,7 +13,9 @@ pub use stats::{BnStats, ExecutionStats};
 
 pub mod utils;
 
-/// Run the native host runner with a timeout.
+/// Run the native host runner with a timeout. Use a binary to execute the native host,
+/// as opposed to spawning a new thread in the same process due to the static cursors
+/// employed by the host.
 pub async fn run_native_host_runner(
     host_cli: &HostCli,
     timeout: Duration,
@@ -50,7 +52,7 @@ pub async fn run_native_host_runner(
     }
 }
 
-/// Convert the HostCLI clap arugments to a vector of strings.
+/// Convert the HostCli to a vector of arguments that can be passed to a command.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
     let mut args = vec![
         // format!("--v={}", host_cli.v),
