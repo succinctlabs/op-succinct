@@ -2,7 +2,6 @@ use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
-use client_utils::precompiles::PRECOMPILE_HOOK_FD;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin,
@@ -11,7 +10,7 @@ use host_utils::{
 };
 use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use zkvm_host::stats::{BnStats, ExecutionStats};
+use zkvm_host::{BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -97,9 +96,7 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        start_server_and_native_client(host_cli.clone())
-            .await
-            .unwrap();
+        start_server_and_native_client(host_cli.clone()).await?;
     }
 
     // Get the stdin for the block.
@@ -127,10 +124,8 @@ async fn main() -> Result<()> {
             .save(format!("{}/{}-{}.bin", proof_dir, args.start, args.end))
             .expect("saving proof failed");
     } else {
-        // TODO: Remove this precompile hook once we merge the BN and BLS precompiles.
         let (_, report) = prover
             .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
-            .with_hook(PRECOMPILE_HOOK_FD, precompile_hook)
             .run()
             .unwrap();
 

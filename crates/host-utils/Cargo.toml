@@ -18,3 +18,5 @@ cargo_metadata.workspace = true
 serde_cbor.workspace = true
 revm.workspace = true
 dotenv.workspace = true
+tokio.workspace = true
+futures.workspace = true
