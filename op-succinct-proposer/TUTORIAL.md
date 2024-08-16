@@ -93,9 +93,9 @@ The ZKL2OutputOracle makes the following changes:
 This launches a Docker container with `op-proposer` from a fork of the `optimism` monorepo which can be found [here](https://github.com/succinctlabs/optimism/tree/zk-proposer) as well as a server that generates ZK proofs using Kona (Optimism's state transition function library) and SP1 (a zkVM).
 
 The modified `op-proposer` performs the following tasks:
-1. Monitors L1 state to determine when to request a proof.
-2. Requests proofs from the Kona SP1 server.
-3. Once proofs have been generated for a sufficiently large range (specified by `SUBMISSION_INTERVAL` in `zkconfig.json`), aggregates batch proofs and submits them on-chain.
+- Monitors L1 state to determine when to request a proof.
+- Requests proofs from the Kona SP1 server.
+- Once proofs have been generated for a sufficiently large range (specified by `SUBMISSION_INTERVAL` in `zkconfig.json`), aggregates batch proofs and submits them on-chain.
 
 ## Verification
 
