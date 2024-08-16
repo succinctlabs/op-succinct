@@ -1,12 +1,12 @@
-# kona-sp1
+# op-succinct
 
-Standalone repo to use Kona & SP1 to verify Optimism blocks.
+Standalone repo to use Kona & SP1 to verify OP Stack blocks.
 
 ## Overview
 
 **`crates`**
 - `client-utils`: A suite of utilities for the client program.
-- `host-utils`: A suite of utilities for constructing the host which runs the SP1 Kona program.
+- `host-utils`: A suite of utilities for constructing the host which runs the OP Succinct program.
 
 **`sp1-kona`**
 - `native-host`: The host program which runs the Kona program natively using `kona`.
@@ -15,7 +15,7 @@ Standalone repo to use Kona & SP1 to verify Optimism blocks.
 
 ## Usage
 
-Execute the SP1 Kona program for a single block.
+Execute the OP Succinct program for a single block.
 
 ```bash
 just run-single <l2_block_num> [use-cache]
@@ -23,7 +23,7 @@ just run-single <l2_block_num> [use-cache]
 
 - [use-cache]: Optional flag to re-use the native execution cache (default: false).
 
-Execute the SP1 Kona program for a range of blocks.
+Execute the OP Succinct program for a range of blocks.
 
 ```bash
 just run-multi <start> <end> [use-cache] [prove]

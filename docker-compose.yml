@@ -10,7 +10,7 @@ services:
     ports:
       - "3000:3000"
 
-  # SP1 Kona OP Proposer
+  # OP-Succinct OP Proposer
   kona-sp1-proposer:
     build:
       context: .

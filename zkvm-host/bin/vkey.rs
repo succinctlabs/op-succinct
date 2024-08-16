@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     );
 
     let (_, agg_vk) = prover.setup(AGG_ELF);
-    info!("{}", agg_vk.bytes32());
+    info!("Aggregation ELF Verification Key: {}", agg_vk.bytes32());
     let agg_vk_bytes: [u8; 32] = hex::decode(agg_vk.bytes32().replace("0x", ""))
         .unwrap()
         .try_into()

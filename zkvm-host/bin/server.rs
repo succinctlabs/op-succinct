@@ -9,7 +9,6 @@ use axum::{
 use base64::{engine::general_purpose, Engine as _};
 use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
-use kona_host::start_server_and_native_client;
 use log::info;
 use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
@@ -19,7 +18,7 @@ use sp1_sdk::{
 };
 use std::{env, fs, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
-use zkvm_host::utils::fetch_header_preimages;
+use zkvm_host::{run_native_host, utils::fetch_header_preimages};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-client-elf");
@@ -83,35 +82,17 @@ async fn request_span_proof(
     // Overwrite existing data directory.
     fs::create_dir_all(&data_dir)?;
 
-    // Start the server and native client with a timeout
-    let timeout = tokio::time::timeout(
-        Duration::from_secs(120),
-        // TODO: This is a heavy process and should be handled in the background.
-        start_server_and_native_client(host_cli.clone()),
-    )
-    .await;
-    match timeout {
-        Ok(result) => result?,
-        Err(_) => {
-            return Err(AppError(anyhow::anyhow!(
-                "Server and native client startup timed out.",
-            )))
-        }
-    }
+    // Start the server and native client with a timeout.
+    // Note: Ideally, the server should call out to a separate process that executes the native host,
+    // and return an ID that the client can poll on to check if the proof was submitted.
+    run_native_host(&host_cli, Duration::from_secs(40)).await?;
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let prover = NetworkProver::new();
-    let proof_request = tokio::time::timeout(
-        Duration::from_secs(120),
-        prover.request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed),
-    )
-    .await;
-
-    let proof_id = match proof_request {
-        Ok(result) => result?,
-        Err(_) => return Err(AppError(anyhow::anyhow!("Proof request timed out"))),
-    };
+    let proof_id = prover
+        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
+        .await?;
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }

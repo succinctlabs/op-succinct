@@ -95,9 +95,7 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        start_server_and_native_client(host_cli.clone())
-            .await
-            .unwrap();
+        start_server_and_native_client(host_cli.clone()).await?;
     }
 
     // Get the stdin for the block.
