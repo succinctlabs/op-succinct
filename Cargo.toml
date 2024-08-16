@@ -100,6 +100,5 @@ lto = "fat"
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
-# TODO: Remove this once we switch off of kzg-rs.
 bls12_381 = { git = "https://github.com/leruaa/bls12_381", branch = "msm_variable_base" }
 bn = { git = "https://github.com/0xWOLAND/bn.git", package = "substrate-bn", default-features = false }
