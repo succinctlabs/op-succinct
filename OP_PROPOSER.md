@@ -31,17 +31,17 @@ docker compose down
 When you run the OP Proposer, the following processes occur:
 
 1. **Docker Compose Setup**: 
-   - The `docker-compose.yml` file defines two services: `kona-sp1-server` and `kona-sp1-proposer`.
+   - The `docker-compose.yml` file defines two services: `op-succinct-server` and `op-succinct-proposer`.
    - Both services use environment variables from the `.env.server` file.
 
-2. **Kona SP1 Server**:
+2. **OP Succinct Server**:
    - Built using the `Dockerfile.server`.
    - Runs on port 3000.
    - This server handles the ZK-proof generation and verification.
 
-3. **Kona SP1 Proposer**:
+3. **OP Succinct Proposer**:
    - Built using the `Dockerfile.op_proposer`.
-   - Depends on the `kona-sp1-server` service.
+   - Depends on the `op-succinct-server` service.
    - This service runs the modified `op-proposer` binary from the Optimism repository.
 
 4. **OP Proposer Execution**:
@@ -51,7 +51,7 @@ When you run the OP Proposer, the following processes occur:
    - Interacts with the `ZKL2OutputOracle` contract to submit new output proposals.
 
 5. **Proof Generation**:
-   - When a new L2 block is detected, the proposer requests a ZK proof from the Kona SP1 Server.
+   - When a new L2 block is detected, the proposer requests a ZK proof from the OP Succinct Server.
    - The server generates the proof using the SP1 (Succinct Proofs of Execution) system.
    - Proof generation involves executing the L2 block in a ZK-friendly environment and creating a succinct proof of correct execution.
 

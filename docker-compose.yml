@@ -1,6 +1,6 @@
 services:
-  # Kona SP1 Server
-  kona-sp1-server:
+  # OP Succinct Server
+  op-succinct-server:
     build:
       context: .
       dockerfile: Dockerfile.server
@@ -10,8 +10,8 @@ services:
     ports:
       - "3000:3000"
 
-  # OP-Succinct OP Proposer
-  kona-sp1-proposer:
+  # OP Succinct Proposer
+  op-succinct-proposer:
     build:
       context: .
       dockerfile: Dockerfile.op_proposer
@@ -19,6 +19,6 @@ services:
       - .env.server
     restart: unless-stopped
     depends_on:
-      - kona-sp1-server
+      - op-succinct-server
     volumes:
       - ./db:/usr/local/bin/dbdata/
