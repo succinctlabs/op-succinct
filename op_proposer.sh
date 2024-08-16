@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Run op-proposer
+# Run the OP Proposer. Note: The DB is persisted across restarts with a Docker volume at the path
+# `/usr/local/bin/dbdata`.
 
 # Currently, configured to generate a proof once per minute.
 
@@ -12,7 +13,7 @@
     --l1-eth-rpc=${L1_ETH_RPC} \
     --beacon-rpc=${BEACON_RPC} \
     --l2-chain-id=${L2_CHAIN_ID} \
-    --max-concurrent-proof-requests=${MAX_CONCURRENT_PROOF_REQUESTS:-3} \
+    --max-concurrent-proof-requests=${MAX_CONCURRENT_PROOF_REQUESTS:-40} \
     --db-path=/usr/local/bin/dbdata/proofs.db \
     --kona-server-url=${KONA_SERVER_URL:-0.0.0.0:3000} \
-    --max-block-range-per-span-proof=${MAX_BLOCK_RANGE_PER_SPAN_PROOF:-30}
+    --max-block-range-per-span-proof=${MAX_BLOCK_RANGE_PER_SPAN_PROOF:-20}
