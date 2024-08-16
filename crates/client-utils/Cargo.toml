@@ -35,4 +35,3 @@ itertools.workspace = true
 
 # kzg
 kzg-rs.workspace = true
-itertools = "0.13.0"
