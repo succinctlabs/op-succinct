@@ -12,12 +12,9 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    - name: Compile the Validity Client program
-      run: cargo build --profile release-client-lto
-      working-directory: validity-client
-    - name: Compile the zkVM Client program
+    - name: Compile the faul proof program
       run: cargo build --profile release-client-lto
       working-directory: client-programs/fault-proof
-    - name: Compile the client program
+    - name: Compile the range program
       run: cargo build --profile release-client-lto
       working-directory: client-programs/range  
