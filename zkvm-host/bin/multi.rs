@@ -1,4 +1,4 @@
-use std::{fs, time::Duration};
+use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
@@ -9,7 +9,7 @@ use host_utils::{
 };
 use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use zkvm_host::{precompile_hook, run_native_host_runner, BnStats, ExecutionStats};
+use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 

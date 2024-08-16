@@ -66,7 +66,7 @@ fn main() {
                 oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-end: oracle-verify");
 
-                let precompile_overrides = ZKVMPrecompileOverride::default();
+                let precompile_overrides = NoPrecompileOverride;
 
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
