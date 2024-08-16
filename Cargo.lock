@@ -4657,7 +4657,6 @@ dependencies = [
  "sp1-sdk",
  "tokio",
  "tower-http",
- "zkvm-host",
 ]
 
 [[package]]
