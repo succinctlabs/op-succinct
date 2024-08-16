@@ -39,13 +39,14 @@ fn build_zkvm_program(program: &str) {
 
 fn main() {
     // Don't build the single block program as it's unused.
-    let programs = vec!["zkvm-client", "validity-client"];
+    // let programs = vec!["zkvm-client", "validity-client"];
+    let programs = vec!["validity-client"];
 
     for program in programs {
         build_native_program(program);
         // Note: Don't build any of the zkVM programs as the ELF may change, as they're already built.
-        build_zkvm_program(program);
+        // build_zkvm_program(program);
     }
 
-    build_zkvm_program("aggregation-client");
+    // build_zkvm_program("aggregation-client");
 }
