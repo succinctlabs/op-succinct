@@ -1,4 +1,4 @@
-use std::{fs, time::Duration};
+use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
@@ -7,8 +7,9 @@ use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin, ProgramType,
 };
+use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use zkvm_host::{precompile_hook, run_native_host_runner, BnStats, ExecutionStats};
+use zkvm_host::{precompile_hook, BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/validity-client-elf");
 
@@ -94,7 +95,7 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        run_native_host_runner(&host_cli, Duration::from_secs(1)).await?;
+        start_server_and_native_client(host_cli.clone()).await?;
     }
 
     // Get the stdin for the block.
