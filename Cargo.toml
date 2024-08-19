@@ -83,10 +83,10 @@ sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "experime
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 
-# kzg
-kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs", features = [
+kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "bhargav/sp1-bls-patch", features = [
     "cache",
 ] }
+bls12_381 = { git = "https://github.com/0xWOLAND/bls12_381", branch = "bhargav/experiment" }
 
 
 # sp1
@@ -100,5 +100,5 @@ lto = "fat"
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
-bls12_381 = { git = "https://github.com/leruaa/bls12_381", branch = "msm_variable_base" }
 bn = { git = "https://github.com/0xWOLAND/bn.git", package = "substrate-bn" }
+bls12_381 = { git = "https://github.com/0xWOLAND/bls12_381", branch = "bhargav/experiment" }
