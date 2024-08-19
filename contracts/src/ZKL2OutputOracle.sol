@@ -45,18 +45,10 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     uint256 public finalizationPeriodSeconds;
 
     ////////////////////////////////////////////////////////////
-    //                      New Storage                       //
+    //                       ZK Storage                       //
     ////////////////////////////////////////////////////////////
 
-    /// @notice Struct containing the public values committed to for the SP1 proof.
-    struct PublicValuesStruct {
-        bytes32 l1Head;
-        bytes32 l2PreRoot;
-        bytes32 claimRoot;
-        uint256 claimBlockNum;
-        uint256 chainId;
-    }
-
+    /// @notice Parameters to initialize the ZK version of the contract.
     struct ZKInitParams {
         uint chainId;
         bytes32 vkey;
@@ -79,6 +71,15 @@ contract ZKL2OutputOracle is Initializable, ISemver {
 
     /// @notice A trusted mapping of block numbers to block hashes.
     mapping (uint => bytes32) public historicBlockHashes;
+
+    /// @notice Struct containing the public values committed to for the SP1 proof.
+    struct PublicValuesStruct {
+        bytes32 l1Head;
+        bytes32 l2PreRoot;
+        bytes32 claimRoot;
+        uint256 claimBlockNum;
+        uint256 chainId;
+    }
 
     ////////////////////////////////////////////////////////////
     //                         Events                         //
@@ -130,7 +131,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
 
-    /// @notice Constructs the L2OutputOracle contract. Disables initializers.
+    /// @notice Constructs the ZKL2OutputOracle contract. Disables initializers.
     constructor() {
         _disableInitializers();
     }
@@ -302,7 +303,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
 
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             l1Head: _l1BlockHash,
-            l2PreRoot: l2Outputs[nextOutputIndex() - 1].outputRoot,
+            l2PreRoot: l2Outputs[latestOutputIndex()].outputRoot,
             claimRoot: _outputRoot,
             claimBlockNum: _l2BlockNumber,
             chainId: chainId
@@ -419,7 +420,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     ////////////////////////////////////////////////////////////
 
     function transferOwnership(address _newOwner) external onlyOwner {
-        owner = _newOwner;
+        _transferOwnership(_newOwner);
     }
 
     function _transferOwnership(address _newOwner) internal {
