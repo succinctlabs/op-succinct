@@ -44,19 +44,6 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
 
-    ////////////////////////////////////////////////////////////
-    //                       ZK Storage                       //
-    ////////////////////////////////////////////////////////////
-
-    /// @notice Parameters to initialize the ZK version of the contract.
-    struct ZKInitParams {
-        uint chainId;
-        bytes32 vkey;
-        address verifierGateway;
-        bytes32 startingOutputRoot;
-        address owner;
-    }
-
     /// @notice The chain ID of the L2 chain.
     uint public chainId;
 
@@ -71,6 +58,15 @@ contract ZKL2OutputOracle is Initializable, ISemver {
 
     /// @notice A trusted mapping of block numbers to block hashes.
     mapping (uint => bytes32) public historicBlockHashes;
+
+    /// @notice Parameters to initialize the ZK version of the contract.
+    struct ZKInitParams {
+        uint chainId;
+        bytes32 vkey;
+        address verifierGateway;
+        bytes32 startingOutputRoot;
+        address owner;
+    }
 
     /// @notice Struct containing the public values committed to for the SP1 proof.
     struct PublicValuesStruct {
