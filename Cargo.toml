@@ -86,7 +86,6 @@ sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experi
 kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "bhargav/sp1-bls-patch", features = [
     "cache",
 ] }
-bls12_381 = { git = "https://github.com/0xWOLAND/bls12_381", branch = "bhargav/experiment" }
 
 
 # sp1

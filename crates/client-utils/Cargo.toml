@@ -35,4 +35,3 @@ itertools.workspace = true
 
 # kzg
 kzg-rs.workspace = true
-bls12_381.workspace = true
