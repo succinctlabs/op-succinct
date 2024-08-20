@@ -47,11 +47,12 @@ When an OP Stack chain is running, there are 4 main components:
     - `l2RollupNode`: The URL of the L2 rollup node. (After the tutorial, this is `http://localhost:8545`)
     - `submissionInterval`: The number of L2 blocks between each L1 output submission.
     - `l2BlockTime`: The time in seconds between each L2 block.
-    - `proposer`: The Ethereum address of the proposer account. Set to `address(0)` for anyone to submit proofs.
-    - `challenger`: The Ethereum address of the challenger account. Set to `address(0)` for anyone to undo proofs.
-    - `finalizationPeriod`: The time period (in seconds) after which a proposed output becomes finalized.
+    - `proposer`: The Ethereum address of the proposer account. If `address(0)`, anyone can submit proofs.
+    - `challenger`: The Ethereum address of the challenger account. If `address(0)`, no one can dispute proofs.
+    - `finalizationPeriod`: The time period (in seconds) after which a proposed output becomes finalized. Specifically, the time period after
+    which you can withdraw your funds against the proposed output.
     - `chainId`: The chain ID of the L2 network.
-    - `owner`: The Ethereum address of the contract owner.
+    - `owner`: The Ethereum address of the `ZKL2OutputOracle` owner, who can update the verification key and verifier address.
     - `vkey`: The verification key for the aggregate program. Run `cargo run --bin vkey --release` to generate this.
     - `verifierGateway`: The address of the verifier gateway contract.
     - `l2OutputOracleProxy`: The address of your OP Stack chain's L2 Output Oracle proxy contract which will be upgraded.
@@ -76,7 +77,7 @@ When an OP Stack chain is running, there are 4 main components:
 
 To run your OP Stack chain with ZK proofs you need to replace your chain's `L2OutputOracle` with `ZKL2OutputOracle`. 
 
-The existing `L2OutputOracle` allows a permissioned `proposer` role to submit output roots. The permissioned `challenger` role can dispute these output roots. Theree are no checks on the validity of these claims.
+The existing `L2OutputOracle` allows a permissioned `proposer` role to submit output roots. The permissioned `challenger` role can dispute these output roots. There are no checks on the validity of these claims.
 
 The ZKL2OutputOracle makes the following changes:
 - Require a valid SP1 proof for each output root submission.
