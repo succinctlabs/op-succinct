@@ -149,17 +149,31 @@ impl InMemoryOracle {
         }
 
         let kzg_settings = get_kzg_settings();
-        for (commitment, blob) in blobs.iter() {
-            println!("cycle-tracker-report-start: blob-verification");
-            kzg_rs::KzgProof::verify_blob_kzg_proof(
-                KzgRsBlob::from_slice(&blob.data.0).unwrap(),
-                &Bytes48::from_slice(&commitment.0).unwrap(),
-                &Bytes48::from_slice(&blob.kzg_proof.0).unwrap(),
-                &kzg_settings,
-            )
-            .map_err(|e| anyhow!("blob verification failed: {:?}", e))?;
-            println!("cycle-tracker-report-end: blob-verification");
-        }
+        let commitments = blobs
+            .keys()
+            .map(|commitment| Bytes48::from_slice(&commitment.0).unwrap())
+            .collect_vec();
+
+        let proof_bytes = blobs
+            .values()
+            .map(|blob| Bytes48::from_slice(&blob.kzg_proof.0).unwrap())
+            .collect_vec();
+
+        let blobs = blobs
+            .values()
+            .map(|blob| KzgRsBlob::from_slice(&blob.data.0).unwrap())
+            .collect_vec();
+
+        println!("cycle-tracker-report-start: blob-verification");
+        println!("cycle-tracker-report: blobs-count={}", blobs.len());
+        kzg_rs::KzgProof::verify_blob_kzg_proof_batch(
+            blobs,
+            commitments,
+            proof_bytes,
+            &kzg_settings,
+        )
+        .map_err(|e| anyhow!("blob verification failed: {:?}", e))?;
+        println!("cycle-tracker-report-end: blob-verification");
 
         Ok(())
     }
