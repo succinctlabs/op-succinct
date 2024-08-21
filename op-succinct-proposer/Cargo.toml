@@ -23,6 +23,10 @@ path = "bin/native_host_runner.rs"
 name = "vkey"
 path = "bin/vkey.rs"
 
+[[bin]]
+name = "cost_estimator"
+path = "bin/cost_estimator.rs"
+
 [dependencies]
 
 # workspace

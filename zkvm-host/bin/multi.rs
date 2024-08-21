@@ -74,7 +74,7 @@ async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &Ex
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    // utils::setup_logger();
+    utils::setup_logger();
     let args = Args::parse();
 
     let data_fetcher = SP1KonaDataFetcher::new();
@@ -93,44 +93,42 @@ async fn main() -> Result<()> {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 
-        let _ = init_tracing_subscriber(3);
-
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone()).await?;
     }
 
-    // // Get the stdin for the block.
-    // let sp1_stdin = get_proof_stdin(&host_cli)?;
+    // Get the stdin for the block.
+    let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    // let prover = ProverClient::new();
+    let prover = ProverClient::new();
 
-    // if args.prove {
-    //     // If the prove flag is set, generate a proof.
-    //     let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
+    if args.prove {
+        // If the prove flag is set, generate a proof.
+        let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
 
-    //     // Generate proofs in compressed mode for aggregation verification.
-    //     let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
+        // Generate proofs in compressed mode for aggregation verification.
+        let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
 
-    //     // Create a proof directory for the chain ID if it doesn't exist.
-    //     let proof_dir = format!(
-    //         "data/{}/proofs",
-    //         data_fetcher.get_chain_id(ChainMode::L2).await.unwrap()
-    //     );
-    //     if !std::path::Path::new(&proof_dir).exists() {
-    //         fs::create_dir_all(&proof_dir).unwrap();
-    //     }
-    //     // Save the proof to the proof directory corresponding to the chain ID.
-    //     proof
-    //         .save(format!("{}/{}-{}.bin", proof_dir, args.start, args.end))
-    //         .expect("saving proof failed");
-    // } else {
-    //     let (_, report) = prover
-    //         .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
-    //         .run()
-    //         .unwrap();
+        // Create a proof directory for the chain ID if it doesn't exist.
+        let proof_dir = format!(
+            "data/{}/proofs",
+            data_fetcher.get_chain_id(ChainMode::L2).await.unwrap()
+        );
+        if !std::path::Path::new(&proof_dir).exists() {
+            fs::create_dir_all(&proof_dir).unwrap();
+        }
+        // Save the proof to the proof directory corresponding to the chain ID.
+        proof
+            .save(format!("{}/{}-{}.bin", proof_dir, args.start, args.end))
+            .expect("saving proof failed");
+    } else {
+        let (_, report) = prover
+            .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
+            .run()
+            .unwrap();
 
-    //     print_stats(&data_fetcher, &args, &report).await;
-    // }
+        print_stats(&data_fetcher, &args, &report).await;
+    }
 
     Ok(())
 }
