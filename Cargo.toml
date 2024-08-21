@@ -46,6 +46,7 @@ futures = "0.3.30"
 serde_cbor = "0.11.2"
 log = "0.4.22"
 itertools = "0.13.0"
+reqwest = { version = "0.12", features = ["json"] }
 
 
 # serialization
@@ -74,14 +75,14 @@ alloy-sol-types = { version = "0.7.6" }
 op-alloy-consensus = { version = "0.1.4", default-features = false }
 
 # sp1
-sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental", features = [
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = [
     "verify",
 ] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental", features = [
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = [
     "verify",
 ] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
-sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
 
 # kzg
 kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "bhargav/sp1-bls-patch" }
@@ -95,6 +96,8 @@ lto = "fat"
 
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", branch = "patch-v0.10.8", package = "sha2" }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", branch = "patch-sha2-v0.10.8" }
+# sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", branch = "patch-sha3-v0.10.8" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
-bn = { git = "https://github.com/0xWOLAND/bn.git", package = "substrate-bn" }
+substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.6.0" }
+# secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }

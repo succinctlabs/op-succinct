@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use sp1_helper::{build_program_with_args, BuildArgs};
+use sp1_build::{build_program_with_args, BuildArgs};
 
 /// Build a native program.
 fn build_native_program(program: &str) {

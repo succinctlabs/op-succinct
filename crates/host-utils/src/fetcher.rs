@@ -25,6 +25,7 @@ pub struct SP1KonaDataFetcher {
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
     pub l1_beacon_rpc: String,
     pub l2_rpc: String,
+    pub l2_node_rpc: String,
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
 }
 
@@ -57,6 +58,8 @@ impl SP1KonaDataFetcher {
         let l1_beacon_rpc =
             env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
         let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
+        let l2_node_rpc =
+            env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
         let l2_provider =
             Arc::new(ProviderBuilder::default().on_http(Url::from_str(&l2_rpc).unwrap()));
         SP1KonaDataFetcher {
@@ -64,6 +67,7 @@ impl SP1KonaDataFetcher {
             l1_provider,
             l1_beacon_rpc,
             l2_rpc,
+            l2_node_rpc,
             l2_provider,
         }
     }
