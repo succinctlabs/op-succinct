@@ -1201,6 +1201,19 @@ dependencies = [
 [[package]]
 name = "bls12_381"
 version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7bc6d6292be3a19e6379786dac800f551e5865a5bb51ebbe3064ab80433f403"
+dependencies = [
+ "ff 0.13.0",
+ "group 0.13.0",
+ "pairing 0.23.0",
+ "rand_core",
+ "subtle",
+]
+
+[[package]]
+name = "bls12_381"
+version = "0.8.0"
 source = "git+https://github.com/0xWOLAND/bls12_381?branch=bhargav/experiment#e5f63c25859cf5657a64b31e9b583a02ae9a7bac"
 dependencies = [
  "cfg-if",
@@ -1292,6 +1305,20 @@ name = "bytemuck"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fd4c6dcc3b0aea2f5c0b4b82c2b15fe39ddbc76041a310848f4706edf76bb31"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc8b54b395f2fcfbb3d90c47b01c7f444d94d05bdeb775811dec868ac3bbc26"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.74",
+]
 
 [[package]]
 name = "byteorder"
@@ -1465,7 +1492,6 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
- "bls12_381 0.8.0",
  "itertools 0.13.0",
  "kona-client",
  "kona-derive",
@@ -3428,7 +3454,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd9920cd4460ce3cbca19c62f3bb9a9611562478a4dc9d2c556f4a7d049c5b6b"
 dependencies = [
- "bls12_381 0.8.0",
+ "bls12_381 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "glob",
  "hex",
  "once_cell",
@@ -3442,7 +3468,7 @@ name = "kzg-rs"
 version = "0.1.0"
 source = "git+https://github.com/succinctlabs/kzg-rs?branch=bhargav/sp1-bls-patch#9d2488d69ff1b48bc08c4e931f1aa1661007aa98"
 dependencies = [
- "bls12_381 0.8.0",
+ "bls12_381 0.8.0 (git+https://github.com/0xWOLAND/bls12_381?branch=bhargav/experiment)",
  "ff 0.13.0",
  "glob",
  "hex",
@@ -5952,6 +5978,19 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "1.1.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#2a928c01cada3182e62e0d37b005359615bebe2a"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.1.1"
 source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#cb6465650ebed0e1d7e9a7d425810ad772217096"
 dependencies = [
  "anyhow",
@@ -6344,7 +6383,7 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/0xWOLAND/bn.git#4970e22d001de8fcc46b07d93308c5f6cd9b1e26"
+source = "git+https://github.com/sp1-patches/bn.git?branch=patch-v0.6.0#7e23021327f23798f3e6601d383d3fb5f4c7834b"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -6353,7 +6392,7 @@ dependencies = [
  "lazy_static",
  "rand",
  "rustc-hex",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=experimental)",
+ "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=dev)",
 ]
 
 [[package]]
