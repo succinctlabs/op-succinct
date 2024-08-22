@@ -43,6 +43,7 @@ host-utils.workspace = true
 
 # sp1
 sp1-sdk = { workspace = true }
+
 anyhow.workspace = true
 dotenv.workspace = true
 client-utils.workspace = true
@@ -60,3 +61,8 @@ revm.workspace = true
 reqwest.workspace = true
 futures.workspace = true
 itertools.workspace = true
+csv = "1.3.0"
+rayon = "1.10.0"
+
+[build-dependencies]
+sp1-build = { workspace = true }

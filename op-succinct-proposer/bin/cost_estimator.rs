@@ -3,18 +3,18 @@ use clap::Parser;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin,
-    stats::{get_execution_stats, ExecutionStats, SpanBatchStats},
+    stats::{get_execution_stats, ExecutionStats},
     ProgramType,
 };
-use itertools::Itertools;
+use kona_host::HostCli;
 use kona_primitives::RollupConfig;
 use log::info;
 use op_succinct_proposer::run_native_host;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{utils, ExecutionReport, ProverClient};
 use std::{env, fs, path::PathBuf, time::Duration};
-use tokio::process::Child;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -92,30 +92,34 @@ async fn get_span_batch_ranges_from_server(
     Ok(response.ranges)
 }
 
-async fn start_span_batch_server() -> Result<Child> {
-    // Spin up the span_batch_server Docker container
-    let docker_command = "docker run -d -p 8080:8080 span_batch_server";
+async fn write_stats_to_csv(
+    execution_stats: &[ExecutionStats],
+    report_path: &PathBuf,
+) -> Result<()> {
+    // Create directory if it doesn't exist.
+    if let Some(parent) = report_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
 
-    // Execute the Docker command
-    let child = tokio::process::Command::new("sh")
-        .arg("-c")
-        .arg(docker_command)
-        .spawn()?;
+    let mut csv_writer = csv::Writer::from_path(report_path)?;
+    for stats in execution_stats {
+        csv_writer.serialize(stats)?;
+    }
+    csv_writer.flush()?;
 
-    info!("Span batch server container started successfully");
-
-    // Wait for the server to be ready
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-    Ok(child)
+    Ok(())
 }
 
-async fn stop_span_batch_server(child: &mut Child) -> Result<()> {
-    // Stop the Docker container
-    child.kill().await?;
-    child.wait().await?;
-    info!("Span batch server container stopped successfully");
-    Ok(())
+struct BatchHostCli {
+    host_cli: HostCli,
+    start: u64,
+    end: u64,
+}
+
+struct BatchExecutionData {
+    start: u64,
+    end: u64,
+    execution_stats: ExecutionReport,
 }
 
 #[tokio::main]
@@ -147,8 +151,6 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let mut reports = Vec::new();
-
     info!(
         "The span batch ranges which will be executed: {:?}",
         span_batch_ranges
@@ -157,83 +159,73 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
 
     // TODO: These should be executed in parallel.
-    for range in span_batch_ranges {
-        let host_cli = data_fetcher
-            .get_host_cli_args(range.start, range.end, ProgramType::Multi)
-            .await?;
+    const BATCH_SIZE: usize = 5;
+    let futures = span_batch_ranges.chunks(BATCH_SIZE).map(|chunk| {
+        futures::future::join_all(chunk.iter().map(|range| async {
+            let host_cli = data_fetcher
+                .get_host_cli_args(range.start, range.end, ProgramType::Multi)
+                .await
+                .unwrap();
 
-        let data_dir = host_cli
-            .data_dir
-            .clone()
-            .expect("Data directory is not set.");
+            let data_dir = host_cli
+                .data_dir
+                .clone()
+                .expect("Data directory is not set.");
 
-        // Overwrite existing data directory.
-        fs::create_dir_all(&data_dir).unwrap();
+            // Overwrite existing data directory.
+            fs::create_dir_all(&data_dir).unwrap();
 
-        // Start the server and native client.
-        run_native_host(&host_cli, Duration::from_secs(40)).await?;
+            // Start the server and native client.
+            // TODO: This is not resilient to errors, and does not gracefully shut down when we exit.
+            // TODO: Add retries if the server fails to start.
+            run_native_host(&host_cli, Duration::from_secs(60))
+                .await
+                .unwrap();
 
-        let sp1_stdin = get_proof_stdin(&host_cli)?;
+            BatchHostCli {
+                host_cli,
+                start: range.start,
+                end: range.end,
+            }
+        }))
+    });
 
-        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
-        reports.push(report);
-    }
+    let host_cli_futures = futures::future::join_all(futures);
 
-    // Aggregate the total cycles across all of the reports.
-    let total_instruction_count: u64 = reports
-        .iter()
-        .map(|report| report.total_instruction_count())
-        .sum();
-    let total_block_execution_instruction_count: u64 = reports
-        .iter()
-        .map(|report| *report.cycle_tracker.get("block-execution").unwrap())
-        .sum();
-    let total_bn_pair_cycles: u64 = reports
-        .iter()
-        .map(|report| *report.cycle_tracker.get("precompile-bn-pair").unwrap())
-        .sum();
-    let total_bn_add_cycles: u64 = reports
-        .iter()
-        .map(|report| *report.cycle_tracker.get("precompile-bn-add").unwrap())
-        .sum();
-    let total_bn_mul_cycles: u64 = reports
-        .iter()
-        .map(|report| *report.cycle_tracker.get("precompile-bn-mul").unwrap())
-        .sum();
+    let host_clis: Vec<BatchHostCli> = host_cli_futures.await.into_iter().flatten().collect();
 
-    // Fetch the number of transactions in the blocks from the L2 RPC.
-    let block_data_range = data_fetcher
-        .get_block_data_range(ChainMode::L2, args.start, args.end)
-        .await
-        .expect("Failed to fetch block data range.");
-    let total_nb_blocks = args.end - args.start + 1;
+    // Execute the blocks in parallel with par_iter.
+    let reports: Vec<BatchExecutionData> = host_clis
+        .par_iter()
+        .map(|r| {
+            let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
 
-    let total_nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
-    let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
+            let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+            BatchExecutionData {
+                start: r.start,
+                end: r.end,
+                execution_stats: report,
+            }
+        })
+        .collect();
 
-    let span_stats = SpanBatchStats {
-        span_start: args.start,
-        span_end: args.end,
-        total_blocks: total_nb_blocks,
-        total_transactions: total_nb_transactions,
-        total_gas_used,
-        total_cycles: total_instruction_count,
-        total_sp1_gas: total_gas_used,
-        cycles_per_block: total_instruction_count / total_nb_blocks,
-        cycles_per_transaction: total_instruction_count / total_nb_transactions,
-        gas_used_per_block: total_gas_used / total_nb_blocks,
-        gas_used_per_transaction: total_gas_used / total_nb_transactions,
-        total_derivation_cycles: 0,
-        total_execution_cycles: total_block_execution_instruction_count,
-        total_blob_verification_cycles: 0,
-        bn_add_cycles: total_bn_add_cycles,
-        bn_mul_cycles: total_bn_mul_cycles,
-        bn_pair_cycles: total_bn_pair_cycles,
-        kzg_eval_cycles: 0,
-        ec_recover_cycles: 0,
-    };
+    // Get all of the execution stats.
+    let mut execution_stats: Vec<ExecutionStats> = futures::future::join_all(
+        reports
+            .iter()
+            .map(|r| get_execution_stats(&data_fetcher, r.start, r.end, &r.execution_stats)),
+    )
+    .await;
 
-    println!("Span Batch Stats: {:?}", span_stats);
+    // Sort the execution stats by the start block of the range.
+    execution_stats.sort_by_key(|s| s.batch_start);
+
+    // Write the stats to a CSV file.
+    let report = format!(
+        "execution-reports/{}/{}-{}-report.csv",
+        l2_chain_id, args.start, args.end
+    );
+    write_stats_to_csv(&execution_stats, &PathBuf::from(report)).await?;
 
     Ok(())
 }

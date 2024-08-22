@@ -21,3 +21,4 @@ dotenv.workspace = true
 tokio.workspace = true
 futures.workspace = true
 num-format.workspace = true
+serde.workspace = true

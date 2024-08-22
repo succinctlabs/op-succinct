@@ -2,24 +2,33 @@ use std::fmt;
 
 use crate::fetcher::{ChainMode, SP1KonaDataFetcher};
 use num_format::{Locale, ToFormattedString};
-use sp1_sdk::ExecutionReport;
+use serde::{Deserialize, Serialize};
+use sp1_sdk::{CostEstimator, ExecutionReport};
 
-#[derive(Debug)]
-pub struct BnStats {
+/// Statistics for the multi-block execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionStats {
+    pub batch_start: u64,
+    pub batch_end: u64,
+    pub total_instruction_count: u64,
+    pub oracle_verify_instruction_count: u64,
+    pub derivation_instruction_count: u64,
+    pub block_execution_instruction_count: u64,
+    pub blob_verification_instruction_count: u64,
+    pub total_sp1_gas: u64,
+    pub nb_blocks: u64,
+    pub nb_transactions: u64,
+    pub eth_gas_used: u64,
+    pub cycles_per_block: u64,
+    pub cycles_per_transaction: u64,
+    pub transactions_per_block: u64,
+    pub gas_used_per_block: u64,
+    pub gas_used_per_transaction: u64,
     pub bn_pair_cycles: u64,
     pub bn_add_cycles: u64,
     pub bn_mul_cycles: u64,
-}
-
-/// Statistics for the multi-block execution.
-#[derive(Debug)]
-pub struct ExecutionStats {
-    pub total_instruction_count: u64,
-    pub block_execution_instruction_count: u64,
-    pub nb_blocks: u64,
-    pub nb_transactions: u64,
-    pub total_gas_used: u64,
-    pub bn_stats: BnStats,
+    pub kzg_eval_cycles: u64,
+    pub ec_recover_cycles: u64,
 }
 
 /// Write a statistic to the formatter.
@@ -34,12 +43,6 @@ fn write_stat(f: &mut fmt::Formatter<'_>, label: &str, value: u64) -> fmt::Resul
 
 impl fmt::Display for ExecutionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let cycles_per_block = self.block_execution_instruction_count / self.nb_blocks;
-        let cycles_per_transaction = self.block_execution_instruction_count / self.nb_transactions;
-        let transactions_per_block = self.nb_transactions / self.nb_blocks;
-        let gas_used_per_block = self.total_gas_used / self.nb_blocks;
-        let gas_used_per_transaction = self.total_gas_used / self.nb_transactions;
-
         writeln!(
             f,
             "+--------------------------------+---------------------------+"
@@ -55,24 +58,46 @@ impl fmt::Display for ExecutionStats {
             "Block Execution Cycles",
             self.block_execution_instruction_count,
         )?;
+        write_stat(
+            f,
+            "Oracle Verify Cycles",
+            self.oracle_verify_instruction_count,
+        )?;
         // Only write the BN stats if they're non-zero.
-        if self.bn_stats.bn_pair_cycles > 0 {
-            write_stat(f, "Bn Pair Cycles", self.bn_stats.bn_pair_cycles)?;
+        if self.bn_pair_cycles > 0 {
+            write_stat(f, "Bn Pair Cycles", self.bn_pair_cycles)?;
         }
-        if self.bn_stats.bn_add_cycles > 0 {
-            write_stat(f, "Bn Add Cycles", self.bn_stats.bn_add_cycles)?;
+        if self.bn_add_cycles > 0 {
+            write_stat(f, "Bn Add Cycles", self.bn_add_cycles)?;
         }
-        if self.bn_stats.bn_mul_cycles > 0 {
-            write_stat(f, "Bn Mul Cycles", self.bn_stats.bn_mul_cycles)?;
+        if self.bn_mul_cycles > 0 {
+            write_stat(f, "Bn Mul Cycles", self.bn_mul_cycles)?;
         }
+        if self.kzg_eval_cycles > 0 {
+            write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
+        }
+        if self.ec_recover_cycles > 0 {
+            write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
+        }
+        write_stat(
+            f,
+            "Derivation Instruction Cycles",
+            self.derivation_instruction_count,
+        )?;
+        write_stat(
+            f,
+            "Blob Verification Cycles",
+            self.blob_verification_instruction_count,
+        )?;
+        write_stat(f, "Total SP1 Gas", self.total_sp1_gas)?;
         write_stat(f, "Total Blocks", self.nb_blocks)?;
         write_stat(f, "Total Transactions", self.nb_transactions)?;
-        write_stat(f, "Cycles per Block", cycles_per_block)?;
-        write_stat(f, "Cycles per Transaction", cycles_per_transaction)?;
-        write_stat(f, "Transactions per Block", transactions_per_block)?;
-        write_stat(f, "Total Gas Used", self.total_gas_used)?;
-        write_stat(f, "Gas Used per Block", gas_used_per_block)?;
-        write_stat(f, "Gas Used per Transaction", gas_used_per_transaction)?;
+        write_stat(f, "Cycles per Block", self.cycles_per_block)?;
+        write_stat(f, "Cycles per Transaction", self.cycles_per_transaction)?;
+        write_stat(f, "Transactions per Block", self.transactions_per_block)?;
+        write_stat(f, "Total Gas Used", self.eth_gas_used)?;
+        write_stat(f, "Gas Used per Block", self.gas_used_per_block)?;
+        write_stat(f, "Gas Used per Transaction", self.gas_used_per_transaction)?;
         writeln!(
             f,
             "+--------------------------------+---------------------------+"
@@ -89,7 +114,13 @@ pub async fn get_execution_stats(
 ) -> ExecutionStats {
     // Get the total instruction count for execution across all blocks.
     let block_execution_instruction_count: u64 =
-        *report.cycle_tracker.get("block-execution").unwrap();
+        *report.cycle_tracker.get("block-execution").unwrap_or(&0);
+    let oracle_verify_instruction_count: u64 =
+        *report.cycle_tracker.get("oracle-verify").unwrap_or(&0);
+    let derivation_instruction_count: u64 =
+        *report.cycle_tracker.get("payload-derivation").unwrap_or(&0);
+    let blob_verification_instruction_count: u64 =
+        *report.cycle_tracker.get("blob-verification").unwrap_or(&0);
 
     let nb_blocks = end - start + 1;
 
@@ -102,19 +133,46 @@ pub async fn get_execution_stats(
     let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
     let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
 
-    let bn_stats = BnStats {
-        bn_add_cycles: *report.cycle_tracker.get("precompile-bn-add").unwrap_or(&0),
-        bn_mul_cycles: *report.cycle_tracker.get("precompile-bn-mul").unwrap_or(&0),
-        bn_pair_cycles: *report.cycle_tracker.get("precompile-bn-pair").unwrap_or(&0),
-    };
+    let bn_add_cycles: u64 = *report.cycle_tracker.get("precompile-bn-add").unwrap_or(&0);
+    let bn_mul_cycles: u64 = *report.cycle_tracker.get("precompile-bn-mul").unwrap_or(&0);
+    let bn_pair_cycles: u64 = *report.cycle_tracker.get("precompile-bn-pair").unwrap_or(&0);
+    let kzg_eval_cycles: u64 = *report
+        .cycle_tracker
+        .get("precompile-kzg-eval")
+        .unwrap_or(&0);
+    let ec_recover_cycles: u64 = *report
+        .cycle_tracker
+        .get("precompile-ec-recover")
+        .unwrap_or(&0);
+
+    let cycles_per_block = block_execution_instruction_count / nb_blocks;
+    let cycles_per_transaction = block_execution_instruction_count / nb_transactions;
+    let transactions_per_block = nb_transactions / nb_blocks;
+    let gas_used_per_block = total_gas_used / nb_blocks;
+    let gas_used_per_transaction = total_gas_used / nb_transactions;
 
     ExecutionStats {
+        batch_start: start,
+        batch_end: end,
         total_instruction_count: report.total_instruction_count(),
+        derivation_instruction_count,
+        oracle_verify_instruction_count,
         block_execution_instruction_count,
+        blob_verification_instruction_count,
+        total_sp1_gas: report.estimate_gas(),
         nb_blocks,
         nb_transactions,
-        total_gas_used,
-        bn_stats,
+        eth_gas_used: total_gas_used,
+        cycles_per_block,
+        cycles_per_transaction,
+        transactions_per_block,
+        gas_used_per_block,
+        gas_used_per_transaction,
+        bn_add_cycles,
+        bn_mul_cycles,
+        bn_pair_cycles,
+        kzg_eval_cycles,
+        ec_recover_cycles,
     }
 }
 

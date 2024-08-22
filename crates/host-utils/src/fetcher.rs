@@ -371,7 +371,7 @@ impl SP1KonaDataFetcher {
             data_dir: Some(data_directory.into()),
             exec: Some(exec_directory),
             server: false,
-            rollup_config_path: None,
+            // rollup_config_path: None,
             v: 0,
         })
     }

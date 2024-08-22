@@ -34,6 +34,7 @@ cfg_if! {
             InMemoryOracle
         };
         use alloc::vec::Vec;
+        use client_utils::precompiles::ZKVMPrecompileOverride;
     } else {
         use kona_client::CachingOracle;
     }
@@ -60,11 +61,13 @@ fn main() {
                 let oracle = Arc::new(InMemoryOracle::from_raw_bytes(kv_store_bytes));
                 println!("cycle-tracker-end: oracle-load");
 
-                println!("cycle-tracker-start: oracle-verify");
+                println!("cycle-tracker-report-start: oracle-verify");
                 oracle.verify().expect("key value verification failed");
-                println!("cycle-tracker-end: oracle-verify");
+                println!("cycle-tracker-report-end: oracle-verify");
 
-                let precompile_overrides = NoPrecompileOverride;
+                // TODO: Debug why ZkvmPrecompileOverride causes issues when executing the program in the cluster.
+                // Intuitively, it's due to the annotated precompiles not being available in the zkvm, and when they're activated, they're writing to a non-existent memory region.
+                let precompile_overrides = ZKVMPrecompileOverride::default();
 
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
@@ -96,8 +99,10 @@ fn main() {
         .unwrap();
         println!("cycle-tracker-end: derivation-instantiation");
 
-        let mut l2_block_info = driver.l2_safe_head;
-        let mut new_block_header = &driver.l2_safe_head_header.inner().clone();
+        // The initial payload requires block derivation.
+        println!("cycle-tracker-report-start: payload-derivation");
+        let mut payload = driver.produce_payloads().await.unwrap();
+        println!("cycle-tracker-report-end: payload-derivation");
 
         println!("cycle-tracker-start: execution-instantiation");
         let mut executor = StatelessL2BlockExecutor::builder(&boot.rollup_config)
@@ -109,52 +114,47 @@ fn main() {
             .unwrap();
         println!("cycle-tracker-end: execution-instantiation");
 
+        let mut l2_block_info;
+        let mut new_block_header;
         'step: loop {
-            let l2_attrs_with_parents = driver.produce_payloads().await.unwrap();
-            if l2_attrs_with_parents.is_empty() {
-                continue;
+            // Execute the payload to generate a new block header.
+            info!(
+                "Executing Payload for L2 Block: {}",
+                payload.parent.block_info.number + 1
+            );
+            println!("cycle-tracker-report-start: block-execution");
+            new_block_header = executor
+                .execute_payload(payload.attributes.clone())
+                .unwrap();
+            println!("cycle-tracker-report-end: block-execution");
+            let new_block_number = new_block_header.number;
+            assert_eq!(new_block_number, payload.parent.block_info.number + 1);
+
+            // Generate the Payload Envelope, which can be used to derive cached data.
+            let l2_payload_envelope: L2ExecutionPayloadEnvelope = OpBlock {
+                header: new_block_header.clone(),
+                body: payload
+                    .attributes
+                    .transactions
+                    .iter()
+                    .map(|raw_tx| OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap())
+                    .collect::<Vec<OpTxEnvelope>>(),
+                withdrawals: boot
+                    .rollup_config
+                    .is_canyon_active(new_block_header.timestamp)
+                    .then(Vec::new),
+                ..Default::default()
             }
+            .into();
 
-            for payload in l2_attrs_with_parents {
-                // Execute the payload to generate a new block header.
-                info!(
-                    "Executing Payload for L2 Block: {}",
-                    payload.parent.block_info.number + 1
-                );
-                println!("cycle-tracker-report-start: block-execution");
-                new_block_header = executor
-                    .execute_payload(payload.attributes.clone())
-                    .unwrap();
-                println!("cycle-tracker-report-end: block-execution");
-                let new_block_number = new_block_header.number;
-                assert_eq!(new_block_number, payload.parent.block_info.number + 1);
+            // Add all data from this block's execution to the cache.
+            l2_block_info = l2_provider
+                .update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config)
+                .unwrap();
 
-                // Generate the Payload Envelope, which can be used to derive cached data.
-                let l2_payload_envelope: L2ExecutionPayloadEnvelope = OpBlock {
-                    header: new_block_header.clone(),
-                    body: payload
-                        .attributes
-                        .transactions
-                        .iter()
-                        .map(|raw_tx| OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap())
-                        .collect::<Vec<OpTxEnvelope>>(),
-                    withdrawals: boot
-                        .rollup_config
-                        .is_canyon_active(new_block_header.timestamp)
-                        .then(Vec::new),
-                    ..Default::default()
-                }
-                .into();
-
-                // Add all data from this block's execution to the cache.
-                l2_block_info = l2_provider
-                    .update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config)
-                    .unwrap();
-
-                // Increment last_block_num and check if we have reached the claim block.
-                if new_block_number == boot.l2_claim_block {
-                    break 'step;
-                }
+            // Increment last_block_num and check if we have reached the claim block.
+            if new_block_number == boot.l2_claim_block {
+                break 'step;
             }
 
             // Update data for the next iteration.
@@ -162,6 +162,8 @@ fn main() {
                 l2_block_info,
                 Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash_slow()),
             );
+
+            payload = driver.produce_payloads().await.unwrap();
         }
 
         println!("cycle-tracker-start: output-root");

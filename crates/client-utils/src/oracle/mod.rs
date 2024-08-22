@@ -6,7 +6,6 @@ use crate::BytesHasherBuilder;
 use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use itertools::Itertools;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
 use kzg_rs::get_kzg_settings;
 use kzg_rs::Blob as KzgRsBlob;
@@ -75,7 +74,7 @@ impl HintWriterClient for InMemoryOracle {
 #[derive(Default)]
 struct Blob {
     // TODO: This commitment is currently unused.
-    commitment: FixedBytes<48>,
+    _commitment: FixedBytes<48>,
     // 4096 Field elements, each 32 bytes.
     data: FixedBytes<131072>,
     kzg_proof: FixedBytes<48>,

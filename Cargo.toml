@@ -18,17 +18,29 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
+# kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
+#     "rkyv",
+# ] }
+# kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
+# kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+# Note: CachingOracle needs to be exposed publicly in Kona. Make a PR to re-expose it again.
+kona-common = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
+kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
+kona-preimage = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-primitives = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
+kona-mpt = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
+kona-derive = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65", default-features = false }
+kona-executor = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
+kona-client = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
+kona-host = { git = "https://github.com/ethereum-optimism/kona", rev = "e4a032c1325687221d01674f0de0fd757e516e65" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
