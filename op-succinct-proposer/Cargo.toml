@@ -58,3 +58,5 @@ tower-http.workspace = true
 cargo_metadata.workspace = true
 revm.workspace = true
 reqwest.workspace = true
+futures.workspace = true
+itertools.workspace = true

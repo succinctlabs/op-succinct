@@ -75,14 +75,14 @@ alloy-sol-types = { version = "0.7.6" }
 op-alloy-consensus = { version = "0.1.4", default-features = false }
 
 # sp1
-sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = [
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "john/faster-runtime", features = [
     "verify",
 ] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = [
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "john/faster-runtime", features = [
     "verify",
 ] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "john/faster-runtime" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "john/faster-runtime" }
 
 # kzg
 kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "bhargav/sp1-bls-patch" }

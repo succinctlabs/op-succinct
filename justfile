@@ -2,6 +2,7 @@ set fallback := true
 set dotenv-load
 
 default:
+  cargo build --bin native_host_runner --release
   @just --list
 
 # Runs the kona-host program for a single block.

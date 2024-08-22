@@ -1,5 +1,6 @@
 pub mod fetcher;
 pub mod helpers;
+pub mod stats;
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;

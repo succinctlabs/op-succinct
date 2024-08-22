@@ -2,13 +2,13 @@ use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
+use host_utils::stats::{get_execution_stats, ExecutionStats};
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin, ProgramType,
 };
-use kona_host::{init_tracing_subscriber, start_server_and_native_client};
+use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use zkvm_host::{BnStats, ExecutionStats};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -34,40 +34,6 @@ struct Args {
     /// Generate proof.
     #[arg(short, long)]
     prove: bool,
-}
-
-/// Based on the stats flag, print out simple or detailed statistics.
-async fn print_stats(data_fetcher: &SP1KonaDataFetcher, args: &Args, report: &ExecutionReport) {
-    // Get the total instruction count for execution across all blocks.
-    let block_execution_instruction_count: u64 =
-        *report.cycle_tracker.get("block-execution").unwrap();
-
-    let nb_blocks = args.end - args.start + 1;
-
-    // Fetch the number of transactions in the blocks from the L2 RPC.
-    let block_data_range = data_fetcher
-        .get_block_data_range(ChainMode::L2, args.start, args.end)
-        .await
-        .expect("Failed to fetch block data range.");
-
-    let nb_transactions = block_data_range.iter().map(|b| b.transaction_count).sum();
-    let total_gas_used = block_data_range.iter().map(|b| b.gas_used).sum();
-
-    println!(
-        "{}",
-        ExecutionStats {
-            total_instruction_count: report.total_instruction_count(),
-            block_execution_instruction_count,
-            nb_blocks,
-            nb_transactions,
-            total_gas_used,
-            bn_stats: BnStats {
-                bn_add_cycles: *report.cycle_tracker.get("precompile-bn-add").unwrap_or(&0),
-                bn_mul_cycles: *report.cycle_tracker.get("precompile-bn-mul").unwrap_or(&0),
-                bn_pair_cycles: *report.cycle_tracker.get("precompile-bn-pair").unwrap_or(&0),
-            }
-        }
-    );
 }
 
 /// Execute the Kona program for a single block.
@@ -127,7 +93,8 @@ async fn main() -> Result<()> {
             .run()
             .unwrap();
 
-        print_stats(&data_fetcher, &args, &report).await;
+        let stats = get_execution_stats(&data_fetcher, args.start, args.end, &report).await;
+        println!("{:?}", stats);
     }
 
     Ok(())

@@ -1,0 +1,35 @@
+# Use Ubuntu 22.04 as the base image
+FROM ubuntu:22.04
+
+# Install Go and necessary dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.21
+RUN wget https://golang.org/dl/go1.21.0.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz \
+    && rm go1.21.0.linux-amd64.tar.gz
+
+# Set Go environment variables
+ENV PATH="/usr/local/go/bin:${PATH}"
+ENV GOPATH="/go"
+ENV PATH="${GOPATH}/bin:${PATH}"
+
+# Set up Go environment
+WORKDIR /optimism
+RUN git clone -b ratan/add-span-batch-fetch-cmd https://github.com/succinctlabs/optimism .
+
+# Change to the batch_decoder directory and build the application
+WORKDIR /optimism/op-node/cmd/batch_decoder/server
+
+# Build the application
+RUN go build -o batch_decoder_server .
+
+# Expose port 8080
+EXPOSE 8080
+
+# Set the entrypoint to run the server
+ENTRYPOINT ["./batch_decoder_server"]
