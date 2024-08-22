@@ -18,17 +18,17 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
+kona-common = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info", default-features = false }
+kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-client = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-host = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }
@@ -46,7 +46,7 @@ futures = "0.3.30"
 serde_cbor = "0.11.2"
 log = "0.4.22"
 itertools = "0.13.0"
-
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", branch = "patch-v2.0.2" }
 
 # serialization
 serde = { version = "1.0.198", features = ["derive"] }

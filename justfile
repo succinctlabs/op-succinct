@@ -80,3 +80,17 @@ run-client-native l2_block_num l1_rpc='${L1_RPC}' l1_beacon_rpc='${L1_BEACON_RPC
 
   # Output the data required for the ZKVM execution.
   echo "$L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
+
+fetch-rollup-config rollup_rpc="":
+    #!/usr/bin/env sh
+    if [ -z "{{rollup_rpc}}" ]; then
+        if [ -z "$ROLLUP_RPC" ]; then
+            echo "Error: Must provide rollup rpc as argument or env variable (ROLLUP_RPC)" >&2
+            exit 1
+        else
+            RPC="$ROLLUP_RPC"
+        fi
+    else
+        RPC="{{rollup_rpc}}"
+    fi
+    cast rpc --rpc-url "$RPC" optimism_rollupConfig > ./rollup-config.json

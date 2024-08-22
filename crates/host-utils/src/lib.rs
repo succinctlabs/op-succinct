@@ -4,7 +4,8 @@ pub mod precompile;
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use client_utils::{types::AggregationInputs, RawBootInfo};
+use client_utils::{types::AggregationInputs, BootInfoWithHashedConfig};
+use kona_client::BootInfo;
 use kona_host::HostCli;
 use sp1_sdk::{SP1Proof, SP1Stdin};
 
@@ -40,12 +41,13 @@ sol! {
 pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
 
-    let boot_info = RawBootInfo {
+    let boot_info = BootInfo {
         l1_head: host_cli.l1_head,
         l2_output_root: host_cli.l2_output_root,
         l2_claim: host_cli.l2_claim,
         l2_claim_block: host_cli.l2_block_number,
         chain_id: host_cli.l2_chain_id,
+        rollup_config: host_cli.rollup_config.clone(),
     };
     stdin.write(&boot_info);
 
@@ -72,7 +74,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
 /// Get the stdin for the aggregation proof.
 pub fn get_agg_proof_stdin(
     proofs: Vec<SP1Proof>,
-    boot_infos: Vec<RawBootInfo>,
+    boot_infos: Vec<BootInfoWithHashedConfig>,
     headers: Vec<Header>,
     vkey: &sp1_sdk::SP1VerifyingKey,
     latest_checkpoint_head: B256,

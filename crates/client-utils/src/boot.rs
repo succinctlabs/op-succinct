@@ -7,83 +7,82 @@ use anyhow::Result;
 use kona_client::BootInfo;
 use kona_primitives::RollupConfig;
 use serde::{Deserialize, Serialize};
+use tiny_keccak::{Hasher, Keccak};
 
-// ABI encoding of BootInfo is 5 * 32 bytes.
-pub const BOOT_INFO_SIZE: usize = 5 * 32;
+// ABI encoding of BootInfo is 6 * 32 bytes.
+pub const BOOT_INFO_SIZE: usize = 6 * 32;
 
-/// Boot information that is committed to the zkVM as public inputs.
-/// This struct contains all information needed to generate BootInfo,
-/// as the RollupConfig can be derived from the `chain_id`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawBootInfo {
-    /// From [`BootInfo::l1_head`].
-    pub l1_head: B256,
-    /// From [`BootInfo::l2_output_root`].
-    pub l2_output_root: B256,
-    /// From [`BootInfo::l2_claim`].
-    pub l2_claim: B256,
-    /// From [`BootInfo::l2_claim_block`].
-    pub l2_claim_block: u64,
-    /// From [`BootInfo::chain_id`].
-    pub chain_id: u64,
-}
+fn hash_rollup_config(config: &RollupConfig) -> B256 {
+    // Serialize the config to JSON
+    let serialized = serde_json::to_string(config).expect("Failed to serialize RollupConfig");
 
-impl From<RawBootInfo> for BootInfo {
-    /// Convert the BootInfoWithoutRollupConfig into BootInfo by deriving the RollupConfig.
-    fn from(boot_info_without_rollup_config: RawBootInfo) -> Self {
-        let RawBootInfo {
-            l1_head,
-            l2_output_root,
-            l2_claim,
-            l2_claim_block,
-            chain_id,
-        } = boot_info_without_rollup_config;
-        let rollup_config = RollupConfig::from_l2_chain_id(chain_id).unwrap();
+    // Create a Keccak256 hasher
+    let mut keccak = Keccak::v256();
+    let mut hash = [0u8; 32];
 
-        Self {
-            l1_head,
-            l2_output_root,
-            l2_claim,
-            l2_claim_block,
-            chain_id,
-            rollup_config,
-        }
-    }
+    // Hash the serialized string
+    keccak.update(serialized.as_bytes());
+    keccak.finalize(&mut hash);
+
+    hash.into()
 }
 
 sol! {
-    struct RawBootInfoStruct {
+    struct BootInfoStruct {
         bytes32 l1Head;
         bytes32 l2PreRoot;
         bytes32 l2PostRoot;
         uint64 l2BlockNumber;
         uint64 chainId;
+        bytes32 rollupConfigHash;
     }
 }
 
-impl RawBootInfo {
-    /// ABI encode the boot info. This is used to commit to in the zkVM,
-    /// so that we can verify on chain that the correct values were used in
-    /// the proof.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BootInfoWithHashedConfig {
+    pub l1_head: B256,
+    pub l2_output_root: B256,
+    pub l2_claim: B256,
+    pub l2_claim_block: u64,
+    pub chain_id: u64,
+    pub rollup_config_hash: B256,
+}
+
+impl BootInfoWithHashedConfig {
     pub fn abi_encode(&self) -> Vec<u8> {
-        RawBootInfoStruct {
+        BootInfoStruct {
             l1Head: self.l1_head,
             l2PreRoot: self.l2_output_root,
             l2PostRoot: self.l2_claim,
             l2BlockNumber: self.l2_claim_block,
             chainId: self.chain_id,
+            rollupConfigHash: self.rollup_config_hash,
         }
         .abi_encode()
     }
 
     pub fn abi_decode(bytes: &[u8]) -> Result<Self> {
-        let boot_info = RawBootInfoStruct::abi_decode(bytes, true)?;
+        let boot_info = BootInfoStruct::abi_decode(bytes, true)?;
         Ok(Self {
             l1_head: boot_info.l1Head,
             l2_output_root: boot_info.l2PreRoot,
             l2_claim: boot_info.l2PostRoot,
             l2_claim_block: boot_info.l2BlockNumber,
             chain_id: boot_info.chainId,
+            rollup_config_hash: boot_info.rollupConfigHash,
         })
+    }
+}
+
+impl From<BootInfo> for BootInfoWithHashedConfig {
+    fn from(boot_info: BootInfo) -> Self {
+        Self {
+            l1_head: boot_info.l1_head,
+            l2_output_root: boot_info.l2_output_root,
+            l2_claim: boot_info.l2_claim,
+            l2_claim_block: boot_info.l2_claim_block,
+            chain_id: boot_info.chain_id,
+            rollup_config_hash: hash_rollup_config(&boot_info.rollup_config),
+        }
     }
 }

@@ -21,7 +21,7 @@ cfg_if! {
     // from SP1 and compile to a program that can be run in zkVM.
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
-        use client_utils::{RawBootInfo, InMemoryOracle};
+        use client_utils::{InMemoryOracle, BootInfoWithHashedConfig};
         use alloc::vec::Vec;
     } else {
         use kona_client::CachingOracle;
@@ -39,9 +39,10 @@ fn main() {
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
                 println!("cycle-tracker-start: boot-load");
-                let raw_boot_info = sp1_zkvm::io::read::<RawBootInfo>();
-                sp1_zkvm::io::commit_slice(&raw_boot_info.abi_encode());
-                let boot: Arc<BootInfo> = Arc::new(raw_boot_info.into());
+                let boot_info = sp1_zkvm::io::read::<BootInfo>();
+                let boot_info_with_hashed_config: BootInfoWithHashedConfig = boot_info.clone().into();
+                sp1_zkvm::io::commit_slice(&boot_info_with_hashed_config.abi_encode());
+                let boot: Arc<BootInfo> = Arc::new(boot_info);
                 println!("cycle-tracker-end: boot-load");
 
                 println!("cycle-tracker-start: oracle-load");

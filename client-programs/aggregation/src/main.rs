@@ -6,7 +6,7 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use client_utils::{types::AggregationInputs, RawBootInfo};
+use client_utils::{types::AggregationInputs, BootInfoWithHashedConfig};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
@@ -72,6 +72,13 @@ pub fn main() {
         // The chain ID must be the same for all the boot infos, to ensure they're
         // from the same chain and span batch range.
         assert_eq!(prev_boot_info.chain_id, boot_info.chain_id);
+
+        // The rollup config must be the same for all the boot infos, to ensure they're
+        // from the same chain and span batch range.
+        assert_eq!(
+            prev_boot_info.rollup_config_hash,
+            boot_info.rollup_config_hash
+        );
     });
 
     // Verify each multi-block program proof.
@@ -92,13 +99,14 @@ pub fn main() {
     let first_boot_info = &agg_inputs.boot_infos[0];
     let last_boot_info = &agg_inputs.boot_infos[agg_inputs.boot_infos.len() - 1];
     // Consolidate the boot info into a single BootInfo struct that represents the range proven.
-    let final_boot_info = RawBootInfo {
+    let final_boot_info = BootInfoWithHashedConfig {
         // The first boot info's L2 output root is the L2 output root of the range.
         l2_output_root: first_boot_info.l2_output_root,
         l2_claim_block: last_boot_info.l2_claim_block,
         l2_claim: last_boot_info.l2_claim,
         l1_head: agg_inputs.latest_l1_checkpoint_head,
         chain_id: last_boot_info.chain_id,
+        rollup_config_hash: last_boot_info.rollup_config_hash,
     };
 
     // Commit to the aggregated boot info.

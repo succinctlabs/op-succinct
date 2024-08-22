@@ -8,7 +8,7 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-use client_utils::RawBootInfo;
+use kona_client::BootInfo;
 use kona_host::HostCli;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -76,10 +76,7 @@ impl SP1KonaDataFetcher {
     }
 
     /// Get the earliest L1 header in a batch of boot infos.
-    pub async fn get_earliest_l1_head_in_batch(
-        &self,
-        boot_infos: &[RawBootInfo],
-    ) -> Result<Header> {
+    pub async fn get_earliest_l1_head_in_batch(&self, boot_infos: &[BootInfo]) -> Result<Header> {
         let mut earliest_block_num: u64 = u64::MAX;
         let mut earliest_l1_header: Option<Header> = None;
 
@@ -124,7 +121,7 @@ impl SP1KonaDataFetcher {
     /// headers corresponding to the boot infos and the latest L1 head.
     pub async fn get_header_preimages(
         &self,
-        boot_infos: &[RawBootInfo],
+        boot_infos: &Vec<BootInfoWithHashedConfig>,
         checkpoint_block_hash: B256,
     ) -> Result<Vec<Header>> {
         // Get the earliest L1 Head from the boot_infos.
@@ -354,6 +351,9 @@ impl SP1KonaDataFetcher {
             fs::create_dir_all(&data_directory)?;
         }
 
+        // Create the path to the rollup config file.
+        let rollup_config_path = format!("{}/rollup_config.json", workspace_root);
+
         Ok(HostCli {
             l1_head: l1_head.0.into(),
             l2_output_root: l2_output_root.0.into(),
@@ -367,6 +367,7 @@ impl SP1KonaDataFetcher {
             data_dir: Some(data_directory.into()),
             exec: Some(exec_directory),
             server: false,
+            rollup_config_path: Some(rollup_config_path.into()),
             v: 0,
         })
     }
