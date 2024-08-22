@@ -8,7 +8,7 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-use kona_client::BootInfo;
+use client_utils::BootInfoWithHashedConfig;
 use kona_host::HostCli;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -76,7 +76,10 @@ impl SP1KonaDataFetcher {
     }
 
     /// Get the earliest L1 header in a batch of boot infos.
-    pub async fn get_earliest_l1_head_in_batch(&self, boot_infos: &[BootInfo]) -> Result<Header> {
+    pub async fn get_earliest_l1_head_in_batch(
+        &self,
+        boot_infos: &Vec<BootInfoWithHashedConfig>,
+    ) -> Result<Header> {
         let mut earliest_block_num: u64 = u64::MAX;
         let mut earliest_l1_header: Option<Header> = None;
 

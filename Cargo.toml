@@ -18,17 +18,17 @@ repository = ""
 [workspace.dependencies]
 
 # kona
-kona-common = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
-kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
-kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info", features = [
+kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
-kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
-kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info", default-features = false }
-kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
-kona-client = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
-kona-host = { git = "https://github.com/moongate-forks/kona", branch = "serialize-boot-info" }
+kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
+kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
 
 # general
 anyhow = { version = "1.0.86", default-features = false }

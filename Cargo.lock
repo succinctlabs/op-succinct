@@ -2775,9 +2775,11 @@ dependencies = [
  "futures",
  "kona-client",
  "kona-host",
+ "kona-primitives",
  "revm",
  "rkyv",
  "serde_cbor",
+ "serde_json",
  "sp1-sdk",
  "tokio",
 ]
@@ -3242,7 +3244,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3270,7 +3272,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3280,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3293,7 +3295,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3328,7 +3330,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3345,7 +3347,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3378,7 +3380,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3392,7 +3394,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3406,7 +3408,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=serialize-boot-info#a1783f77f56841deae31d44c5f68f090b8bbd758"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
