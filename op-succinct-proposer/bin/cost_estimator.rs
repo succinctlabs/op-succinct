@@ -158,7 +158,6 @@ async fn main() -> Result<()> {
 
     let prover = ProverClient::new();
 
-    // TODO: These should be executed in parallel.
     const BATCH_SIZE: usize = 5;
     let futures = span_batch_ranges.chunks(BATCH_SIZE).map(|chunk| {
         futures::future::join_all(chunk.iter().map(|range| async {
