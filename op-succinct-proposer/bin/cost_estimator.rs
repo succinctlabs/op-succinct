@@ -3,7 +3,7 @@ use clap::Parser;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin,
-    stats::{get_execution_stats, ExecutionStats},
+    stats::get_execution_stats,
     ProgramType,
 };
 use kona_host::HostCli;
@@ -13,8 +13,8 @@ use op_succinct_proposer::run_native_host;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use std::{env, fs, path::PathBuf, time::Duration};
+use sp1_sdk::{utils, ProverClient};
+use std::{env, fs, path::PathBuf, sync::Mutex, time::Duration};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -92,34 +92,18 @@ async fn get_span_batch_ranges_from_server(
     Ok(response.ranges)
 }
 
-async fn write_stats_to_csv(
-    execution_stats: &[ExecutionStats],
-    report_path: &PathBuf,
-) -> Result<()> {
-    // Create directory if it doesn't exist.
-    if let Some(parent) = report_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let mut csv_writer = csv::Writer::from_path(report_path)?;
-    for stats in execution_stats {
-        csv_writer.serialize(stats)?;
-    }
-    csv_writer.flush()?;
-
-    Ok(())
-}
-
 struct BatchHostCli {
     host_cli: HostCli,
     start: u64,
     end: u64,
 }
 
-struct BatchExecutionData {
-    start: u64,
-    end: u64,
-    execution_stats: ExecutionReport,
+fn get_or_create_runtime() -> tokio::runtime::Handle {
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        handle
+    } else {
+        tokio::runtime::Runtime::new().unwrap().handle().clone()
+    }
 }
 
 #[tokio::main]
@@ -193,38 +177,34 @@ async fn main() -> Result<()> {
 
     let host_clis: Vec<BatchHostCli> = host_cli_futures.await.into_iter().flatten().collect();
 
-    // Execute the blocks in parallel with par_iter.
-    let reports: Vec<BatchExecutionData> = host_clis
-        .par_iter()
-        .map(|r| {
-            let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
-
-            let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
-            BatchExecutionData {
-                start: r.start,
-                end: r.end,
-                execution_stats: report,
-            }
-        })
-        .collect();
-
-    // Get all of the execution stats.
-    let mut execution_stats: Vec<ExecutionStats> = futures::future::join_all(
-        reports
-            .iter()
-            .map(|r| get_execution_stats(&data_fetcher, r.start, r.end, &r.execution_stats)),
-    )
-    .await;
-
-    // Sort the execution stats by the start block of the range.
-    execution_stats.sort_by_key(|s| s.batch_start);
-
     // Write the stats to a CSV file.
-    let report = format!(
+    let report_path = PathBuf::from(format!(
         "execution-reports/{}/{}-{}-report.csv",
         l2_chain_id, args.start, args.end
-    );
-    write_stats_to_csv(&execution_stats, &PathBuf::from(report)).await?;
+    ));
+    if let Some(parent) = report_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
 
+    let csv_writer = Mutex::new(csv::Writer::from_path(report_path)?);
+
+    // Execute the blocks in parallel with par_iter and write them to CSV.
+    host_clis.par_iter().for_each(|r| {
+        let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
+
+        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+        let execution_stats = get_or_create_runtime().block_on(get_execution_stats(
+            &data_fetcher,
+            r.start,
+            r.end,
+            &report,
+        ));
+        let mut csv_writer = csv_writer.lock().unwrap();
+        csv_writer
+            .serialize(execution_stats)
+            .expect("Failed to write execution stats to CSV.");
+
+        csv_writer.flush().expect("Failed to flush CSV writer.");
+    });
     Ok(())
 }
