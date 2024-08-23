@@ -1,9 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
+use futures::Future;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin,
-    stats::get_execution_stats,
+    stats::{get_execution_stats, ExecutionStats},
     ProgramType,
 };
 use kona_host::HostCli;
@@ -14,7 +15,12 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
-use std::{env, fs, path::PathBuf, sync::Mutex, time::Duration};
+use std::{
+    env, fs,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
+use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -98,11 +104,18 @@ struct BatchHostCli {
     end: u64,
 }
 
-fn get_or_create_runtime() -> tokio::runtime::Handle {
+/// Utility method for blocking on an async function.
+///
+/// If we're already in a tokio runtime, we'll block in place. Otherwise, we'll create a new
+/// runtime.
+pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
+    // Handle case if we're already in an tokio runtime.
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        handle
+        block_in_place(|| handle.block_on(fut))
     } else {
-        tokio::runtime::Runtime::new().unwrap().handle().clone()
+        // Otherwise create a new runtime.
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create a new runtime");
+        rt.block_on(fut)
     }
 }
 
@@ -142,7 +155,10 @@ async fn main() -> Result<()> {
 
     let prover = ProverClient::new();
 
+    // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes.
+
     const BATCH_SIZE: usize = 5;
+    const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
     let futures = span_batch_ranges.chunks(BATCH_SIZE).map(|chunk| {
         futures::future::join_all(chunk.iter().map(|range| async {
             let host_cli = data_fetcher
@@ -161,7 +177,7 @@ async fn main() -> Result<()> {
             // Start the server and native client.
             // TODO: This is not resilient to errors, and does not gracefully shut down when we exit.
             // TODO: Add retries if the server fails to start.
-            run_native_host(&host_cli, Duration::from_secs(60))
+            run_native_host(&host_cli, NATIVE_HOST_TIMEOUT)
                 .await
                 .unwrap();
 
@@ -186,25 +202,33 @@ async fn main() -> Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let csv_writer = Mutex::new(csv::Writer::from_path(report_path)?);
+    let mut csv_writer = csv::Writer::from_path(report_path)?;
 
     // Execute the blocks in parallel with par_iter and write them to CSV.
-    host_clis.par_iter().for_each(|r| {
-        let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
+    let execution_stats: Vec<ExecutionStats> = host_clis
+        .par_iter()
+        .map(|r| {
+            let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
 
-        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
-        let execution_stats = get_or_create_runtime().block_on(get_execution_stats(
-            &data_fetcher,
-            r.start,
-            r.end,
-            &report,
-        ));
-        let mut csv_writer = csv_writer.lock().unwrap();
+            let start_time = Instant::now();
+            let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+            let execution_duration = start_time.elapsed();
+            block_on(get_execution_stats(
+                &data_fetcher,
+                r.start,
+                r.end,
+                &report,
+                execution_duration,
+            ))
+        })
+        .collect();
+
+    for execution_stats in execution_stats {
         csv_writer
             .serialize(execution_stats)
             .expect("Failed to write execution stats to CSV.");
+    }
+    csv_writer.flush().expect("Failed to flush CSV writer.");
 
-        csv_writer.flush().expect("Failed to flush CSV writer.");
-    });
     Ok(())
 }

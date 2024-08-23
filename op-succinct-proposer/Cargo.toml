@@ -61,7 +61,7 @@ revm.workspace = true
 reqwest.workspace = true
 futures.workspace = true
 itertools.workspace = true
-csv = "1.3.0"
+csv.workspace = true
 rayon = "1.10.0"
 
 [build-dependencies]

@@ -40,6 +40,6 @@ num-format.workspace = true
 client-utils.workspace = true
 revm.workspace = true
 log.workspace = true
-
+csv.workspace = true
 [build-dependencies]
 sp1-build = { workspace = true }

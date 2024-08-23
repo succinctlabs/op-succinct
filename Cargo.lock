@@ -7966,6 +7966,7 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "client-utils",
+ "csv",
  "dotenv",
  "host-utils",
  "kona-host",

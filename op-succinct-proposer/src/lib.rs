@@ -1,5 +1,8 @@
 use anyhow::Result;
+use std::sync::Arc;
 use std::{process::Command, time::Duration};
+use tokio::process::Child;
+use tokio::sync::Mutex;
 
 use kona_host::HostCli;
 use log::error;
@@ -51,32 +54,34 @@ pub async fn run_native_host(
         .expect("Failed to get cargo metadata");
     let target_dir = metadata.target_directory.join("release");
     let args = convert_host_cli_to_args(host_cli);
-    let result = tokio::time::timeout(
-        timeout,
-        tokio::process::Command::new(target_dir.join("native_host_runner"))
-            .args(&args)
-            .env("RUST_LOG", "info")
-            .spawn()?
-            .wait(),
-    )
-    .await;
 
-    match result {
-        Ok(status) => Ok(status?),
-        Err(_) => {
-            error!(
-                "Native host runner process timed out after {} seconds",
-                timeout.as_secs()
-            );
-            Command::new("pkill")
-                .arg("-f")
-                .arg("native_host_runner")
-                .output()
-                .expect("Failed to kill native_host_runner");
-            Err(anyhow::anyhow!(
-                "Native host runner process timed out after {} seconds",
-                timeout.as_secs()
-            ))
+    let child = tokio::process::Command::new(target_dir.join("native_host_runner"))
+        .args(&args)
+        .env("RUST_LOG", "info")
+        .spawn()?;
+
+    let child = Arc::new(Mutex::new(child));
+    let child_clone = Arc::clone(&child);
+
+    let result = tokio::select! {
+        status = wait_for_child(child_clone) => status,
+        _ = tokio::time::sleep(timeout) => {
+            kill_child(&child).await;
+            Err(anyhow::anyhow!("Native host runner process timed out after {} seconds", timeout.as_secs()))
         }
+    };
+
+    result
+}
+
+async fn wait_for_child(child: Arc<Mutex<Child>>) -> Result<std::process::ExitStatus> {
+    let mut child = child.lock().await;
+    child.wait().await.map_err(Into::into)
+}
+
+async fn kill_child(child: &Arc<Mutex<Child>>) {
+    let mut child = child.lock().await;
+    if let Err(e) = child.kill().await {
+        error!("Failed to kill child process: {}", e);
     }
 }

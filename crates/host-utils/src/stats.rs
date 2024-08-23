@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, time::Duration};
 
 use crate::fetcher::{ChainMode, SP1KonaDataFetcher};
 use num_format::{Locale, ToFormattedString};
@@ -10,6 +10,7 @@ use sp1_sdk::{CostEstimator, ExecutionReport};
 pub struct ExecutionStats {
     pub batch_start: u64,
     pub batch_end: u64,
+    pub execution_duration_sec: u64,
     pub total_instruction_count: u64,
     pub oracle_verify_instruction_count: u64,
     pub derivation_instruction_count: u64,
@@ -52,7 +53,20 @@ impl fmt::Display for ExecutionStats {
             f,
             "+--------------------------------+---------------------------+"
         )?;
-        write_stat(f, "Total Cycles", self.total_instruction_count)?;
+        write_stat(f, "Batch Start", self.batch_start)?;
+        write_stat(f, "Batch End", self.batch_end)?;
+        write_stat(
+            f,
+            "Execution Duration (seconds)",
+            self.execution_duration_sec,
+        )?;
+        write_stat(f, "Total Instruction Count", self.total_instruction_count)?;
+        write_stat(
+            f,
+            "Oracle Verify Cycles",
+            self.oracle_verify_instruction_count,
+        )?;
+        write_stat(f, "Derivation Cycles", self.derivation_instruction_count)?;
         write_stat(
             f,
             "Block Execution Cycles",
@@ -60,44 +74,23 @@ impl fmt::Display for ExecutionStats {
         )?;
         write_stat(
             f,
-            "Oracle Verify Cycles",
-            self.oracle_verify_instruction_count,
-        )?;
-        // Only write the BN stats if they're non-zero.
-        if self.bn_pair_cycles > 0 {
-            write_stat(f, "Bn Pair Cycles", self.bn_pair_cycles)?;
-        }
-        if self.bn_add_cycles > 0 {
-            write_stat(f, "Bn Add Cycles", self.bn_add_cycles)?;
-        }
-        if self.bn_mul_cycles > 0 {
-            write_stat(f, "Bn Mul Cycles", self.bn_mul_cycles)?;
-        }
-        if self.kzg_eval_cycles > 0 {
-            write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
-        }
-        if self.ec_recover_cycles > 0 {
-            write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
-        }
-        write_stat(
-            f,
-            "Derivation Instruction Cycles",
-            self.derivation_instruction_count,
-        )?;
-        write_stat(
-            f,
             "Blob Verification Cycles",
             self.blob_verification_instruction_count,
         )?;
         write_stat(f, "Total SP1 Gas", self.total_sp1_gas)?;
-        write_stat(f, "Total Blocks", self.nb_blocks)?;
-        write_stat(f, "Total Transactions", self.nb_transactions)?;
+        write_stat(f, "Number of Blocks", self.nb_blocks)?;
+        write_stat(f, "Number of Transactions", self.nb_transactions)?;
+        write_stat(f, "Ethereum Gas Used", self.eth_gas_used)?;
         write_stat(f, "Cycles per Block", self.cycles_per_block)?;
         write_stat(f, "Cycles per Transaction", self.cycles_per_transaction)?;
         write_stat(f, "Transactions per Block", self.transactions_per_block)?;
-        write_stat(f, "Total Gas Used", self.eth_gas_used)?;
         write_stat(f, "Gas Used per Block", self.gas_used_per_block)?;
         write_stat(f, "Gas Used per Transaction", self.gas_used_per_transaction)?;
+        write_stat(f, "BN Pair Cycles", self.bn_pair_cycles)?;
+        write_stat(f, "BN Add Cycles", self.bn_add_cycles)?;
+        write_stat(f, "BN Mul Cycles", self.bn_mul_cycles)?;
+        write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
+        write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
         writeln!(
             f,
             "+--------------------------------+---------------------------+"
@@ -111,6 +104,7 @@ pub async fn get_execution_stats(
     start: u64,
     end: u64,
     report: &ExecutionReport,
+    execution_duration: Duration,
 ) -> ExecutionStats {
     // Get the total instruction count for execution across all blocks.
     let block_execution_instruction_count: u64 =
@@ -154,6 +148,7 @@ pub async fn get_execution_stats(
     ExecutionStats {
         batch_start: start,
         batch_end: end,
+        execution_duration_sec: execution_duration.as_secs(),
         total_instruction_count: report.total_instruction_count(),
         derivation_instruction_count,
         oracle_verify_instruction_count,
