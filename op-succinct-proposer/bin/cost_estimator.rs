@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use futures::Future;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin,
@@ -13,8 +14,14 @@ use op_succinct_proposer::run_native_host;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::{utils, ExecutionReport, ProverClient};
-use std::{env, fs, path::PathBuf, time::Duration};
+use sp1_sdk::{utils, ProverClient};
+use std::{
+    cmp::min,
+    env, fs,
+    path::PathBuf,
+    time::{Duration, Instant},
+};
+use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -27,6 +34,9 @@ struct HostArgs {
     /// The end block of the range to execute.
     #[clap(long)]
     end: u64,
+    /// The number of blocks to execute in a single batch.
+    #[clap(long, default_value = "5")]
+    batch_size: usize,
     /// Whether to generate a proof or just execute the block.
     #[clap(long)]
     prove: bool,
@@ -92,34 +102,25 @@ async fn get_span_batch_ranges_from_server(
     Ok(response.ranges)
 }
 
-async fn write_stats_to_csv(
-    execution_stats: &[ExecutionStats],
-    report_path: &PathBuf,
-) -> Result<()> {
-    // Create directory if it doesn't exist.
-    if let Some(parent) = report_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let mut csv_writer = csv::Writer::from_path(report_path)?;
-    for stats in execution_stats {
-        csv_writer.serialize(stats)?;
-    }
-    csv_writer.flush()?;
-
-    Ok(())
-}
-
 struct BatchHostCli {
     host_cli: HostCli,
     start: u64,
     end: u64,
 }
 
-struct BatchExecutionData {
-    start: u64,
-    end: u64,
-    execution_stats: ExecutionReport,
+/// Utility method for blocking on an async function.
+///
+/// If we're already in a tokio runtime, we'll block in place. Otherwise, we'll create a new
+/// runtime.
+pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
+    // Handle case if we're already in an tokio runtime.
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        block_in_place(|| handle.block_on(fut))
+    } else {
+        // Otherwise create a new runtime.
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create a new runtime");
+        rt.block_on(fut)
+    }
 }
 
 #[tokio::main]
@@ -151,15 +152,33 @@ async fn main() -> Result<()> {
     )
     .await?;
 
+    // Loop over the span batch ranges. If the distance between the start and end blocks is greater than MAX_BLOCK_RANGE, we will split the range into chunks of MAX_BLOCK_RANGE.
+    let mut split_ranges: Vec<SpanBatchRange> = Vec::new();
+    for range in span_batch_ranges {
+        if range.end - range.start > args.batch_size as u64 {
+            let mut start = range.start;
+            while start < range.end {
+                let end = min(start + args.batch_size as u64, range.end);
+                split_ranges.push(SpanBatchRange { start, end });
+                start = end;
+            }
+        } else {
+            split_ranges.push(range);
+        }
+    }
+
     info!(
         "The span batch ranges which will be executed: {:?}",
-        span_batch_ranges
+        split_ranges
     );
 
     let prover = ProverClient::new();
 
+    // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes. Use ctrl-c handler for this.
+
     const BATCH_SIZE: usize = 5;
-    let futures = span_batch_ranges.chunks(BATCH_SIZE).map(|chunk| {
+    const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
+    let futures = split_ranges.chunks(BATCH_SIZE).map(|chunk| {
         futures::future::join_all(chunk.iter().map(|range| async {
             let host_cli = data_fetcher
                 .get_host_cli_args(range.start, range.end, ProgramType::Multi)
@@ -177,7 +196,7 @@ async fn main() -> Result<()> {
             // Start the server and native client.
             // TODO: This is not resilient to errors, and does not gracefully shut down when we exit.
             // TODO: Add retries if the server fails to start.
-            run_native_host(&host_cli, Duration::from_secs(60))
+            run_native_host(&host_cli, NATIVE_HOST_TIMEOUT)
                 .await
                 .unwrap();
 
@@ -193,38 +212,42 @@ async fn main() -> Result<()> {
 
     let host_clis: Vec<BatchHostCli> = host_cli_futures.await.into_iter().flatten().collect();
 
-    // Execute the blocks in parallel with par_iter.
-    let reports: Vec<BatchExecutionData> = host_clis
+    // Write the stats to a CSV file.
+    let report_path = PathBuf::from(format!(
+        "execution-reports/{}/{}-{}-report.csv",
+        l2_chain_id, args.start, args.end
+    ));
+    if let Some(parent) = report_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let mut csv_writer = csv::Writer::from_path(report_path)?;
+
+    // Execute the blocks in parallel with par_iter and write them to CSV.
+    let execution_stats: Vec<ExecutionStats> = host_clis
         .par_iter()
         .map(|r| {
             let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
 
+            let start_time = Instant::now();
             let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
-            BatchExecutionData {
-                start: r.start,
-                end: r.end,
-                execution_stats: report,
-            }
+            let execution_duration = start_time.elapsed();
+            block_on(get_execution_stats(
+                &data_fetcher,
+                r.start,
+                r.end,
+                &report,
+                execution_duration,
+            ))
         })
         .collect();
 
-    // Get all of the execution stats.
-    let mut execution_stats: Vec<ExecutionStats> = futures::future::join_all(
-        reports
-            .iter()
-            .map(|r| get_execution_stats(&data_fetcher, r.start, r.end, &r.execution_stats)),
-    )
-    .await;
-
-    // Sort the execution stats by the start block of the range.
-    execution_stats.sort_by_key(|s| s.batch_start);
-
-    // Write the stats to a CSV file.
-    let report = format!(
-        "execution-reports/{}/{}-{}-report.csv",
-        l2_chain_id, args.start, args.end
-    );
-    write_stats_to_csv(&execution_stats, &PathBuf::from(report)).await?;
+    for execution_stats in execution_stats {
+        csv_writer
+            .serialize(execution_stats)
+            .expect("Failed to write execution stats to CSV.");
+    }
+    csv_writer.flush().expect("Failed to flush CSV writer.");
 
     Ok(())
 }

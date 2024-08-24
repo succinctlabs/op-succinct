@@ -1,14 +1,15 @@
 use std::fs;
+use std::time::Instant;
 
 use anyhow::Result;
 use clap::Parser;
-use host_utils::stats::{get_execution_stats, ExecutionStats};
+use host_utils::stats::get_execution_stats;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin, ProgramType,
 };
 use kona_host::start_server_and_native_client;
-use sp1_sdk::{utils, ExecutionReport, ProverClient};
+use sp1_sdk::{utils, ProverClient};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -55,6 +56,7 @@ async fn main() -> Result<()> {
         .expect("Data directory is not set.");
 
     // By default, re-run the native execution unless the user passes `--use-cache`.
+    let start_time = Instant::now();
     if !args.use_cache {
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
@@ -62,6 +64,8 @@ async fn main() -> Result<()> {
         // Start the server and native client.
         start_server_and_native_client(host_cli.clone()).await?;
     }
+    let execution_duration = start_time.elapsed();
+    println!("Execution Duration: {:?}", execution_duration);
 
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli)?;
@@ -88,13 +92,38 @@ async fn main() -> Result<()> {
             .save(format!("{}/{}-{}.bin", proof_dir, args.start, args.end))
             .expect("saving proof failed");
     } else {
+        let start_time = Instant::now();
         let (_, report) = prover
             .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
             .run()
             .unwrap();
+        let execution_duration = start_time.elapsed();
 
-        let stats = get_execution_stats(&data_fetcher, args.start, args.end, &report).await;
-        println!("{:?}", stats);
+        let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await.unwrap();
+        let report_path = format!(
+            "execution-reports/multi/{}/{}-{}.csv",
+            l2_chain_id, args.start, args.end
+        );
+
+        // Make the directory if it doesn't exist.
+        let report_dir = format!("execution-reports/multi/{}", l2_chain_id);
+        if !std::path::Path::new(&report_dir).exists() {
+            fs::create_dir_all(&report_dir).unwrap();
+        }
+
+        let stats = get_execution_stats(
+            &data_fetcher,
+            args.start,
+            args.end,
+            &report,
+            execution_duration,
+        )
+        .await;
+        println!("Execution Stats: \n{:?}", stats);
+        // Write to CSV.
+        let mut csv_writer = csv::Writer::from_path(report_path)?;
+        csv_writer.serialize(&stats)?;
+        csv_writer.flush()?;
     }
 
     Ok(())

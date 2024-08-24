@@ -292,8 +292,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "0.7.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccb3ead547f4532bc8af961649942f0b9c16ee9226e26caa3f38420651cc0bf4"
+source = "git+https://github.com/sp1-patches/alloy-core?branch=patch-v0.7.7#7d03e2576454bba809abcf45e2f44c313eaa33d0"
 dependencies = [
  "alloy-rlp",
  "bytes",
@@ -308,6 +307,7 @@ dependencies = [
  "rand",
  "ruint",
  "serde",
+ "sha3",
  "tiny-keccak",
 ]
 
@@ -1214,14 +1214,14 @@ dependencies = [
 [[package]]
 name = "bls12_381"
 version = "0.8.0"
-source = "git+https://github.com/sp1-patches/bls12_381/?branch=patch-v0.8.0#0c37e2976d3c55a5be5e5dd17e5aba444711ecd7"
+source = "git+https://github.com/sp1-patches/bls12_381/?branch=patch-v0.8.0#1e78efba86b6f30a6956a725990dec02f3b0377c"
 dependencies = [
  "cfg-if",
  "ff 0.13.0",
  "group 0.13.0",
  "pairing 0.23.0",
  "rand_core",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=dev)",
+ "sp1-lib 1.2.0-rc1",
  "subtle",
 ]
 
@@ -1305,6 +1305,20 @@ name = "bytemuck"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fd4c6dcc3b0aea2f5c0b4b82c2b15fe39ddbc76041a310848f4706edf76bb31"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cc8b54b395f2fcfbb3d90c47b01c7f444d94d05bdeb775811dec868ac3bbc26"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.75",
+]
 
 [[package]]
 name = "byteorder"
@@ -1369,9 +1383,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.1.13"
+version = "1.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72db2f7947ecee9b03b510377e8bb9077afa27176fdbff55c51027e976fdcc48"
+checksum = "50d2eb3cd3d1bf4529e31c215ee6f93ec5a3d536d9f578f93d9d33ee19562932"
 dependencies = [
  "jobserver",
  "libc",
@@ -1491,7 +1505,7 @@ dependencies = [
  "kona-mpt",
  "kona-preimage",
  "kona-primitives",
- "kzg-rs 0.1.0 (git+https://github.com/succinctlabs/kzg-rs?branch=bhargav/sp1-bls-patch)",
+ "kzg-rs 0.2.0",
  "log",
  "op-alloy-consensus",
  "revm",
@@ -2407,9 +2421,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fc0510504f03c51ada170672ac806f1f105a88aa97a5281117e1ddc3368e51a"
+checksum = "e8c02a5121d4ea3eb16a80748c74f5549a5665e4c21333c6098f283870fbdea6"
 
 [[package]]
 name = "fastrlp"
@@ -3162,12 +3176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "include_bytes_aligned"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ee796ad498c8d9a1d68e477df8f754ed784ef875de1414ebdaf169f70a6a784"
-
-[[package]]
 name = "indenter"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3574,18 +3582,13 @@ dependencies = [
 
 [[package]]
 name = "kzg-rs"
-version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kzg-rs?branch=bhargav/sp1-bls-patch#a080ea61649f1cc8cff5ee39805f42c2d49032cc"
+version = "0.2.0"
+source = "git+https://github.com/succinctlabs/kzg-rs#aafe11719c5a0dcee0ec41ecbdc95bf957c000ce"
 dependencies = [
  "bls12_381 0.8.0 (git+https://github.com/sp1-patches/bls12_381/?branch=patch-v0.8.0)",
  "ff 0.13.0",
- "glob",
  "hex",
- "include_bytes_aligned",
  "once_cell",
- "serde",
- "serde_derive",
- "serde_yaml",
  "sha2",
 ]
 
@@ -4949,9 +4952,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.36"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa76aaf39101c457836aec0ce2316dbdc3ab723cdda1c6bd4e6ad4208acaca7"
+checksum = "b5b9d34b8991d19d98081b46eacdd8eb58c6f2b201139f7c5f643cc155a633af"
 dependencies = [
  "proc-macro2",
 ]
@@ -5196,7 +5199,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper 1.0.1",
- "system-configuration 0.6.0",
+ "system-configuration 0.6.1",
  "tokio",
  "tokio-native-tls",
  "tokio-rustls",
@@ -5285,7 +5288,7 @@ dependencies = [
  "enumn",
  "hashbrown 0.14.5",
  "hex",
- "kzg-rs 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "kzg-rs 0.1.0",
  "once_cell",
  "serde",
 ]
@@ -5767,9 +5770,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.125"
+version = "1.0.127"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83c8e735a073ccf5be70aa8066aa984eaf2fa000db6c8d0100ae605b366d31ed"
+checksum = "8043c06d9f82bd7271361ed64f415fe5e12a77fdb52e573e7f06a516dea329ad"
 dependencies = [
  "indexmap 2.4.0",
  "itoa",
@@ -5912,8 +5915,7 @@ dependencies = [
 [[package]]
 name = "sha3"
 version = "0.10.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
+source = "git+https://github.com/sp1-patches/RustCrypto-hashes?branch=patch-sha3-v0.10.8#8f6d303c0861ba7e5adcc36207c0f41fe5edaabc"
 dependencies = [
  "digest 0.10.7",
  "keccak",
@@ -6199,7 +6201,7 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#2bb0b8f01b77d8ede978ec3b96bb5109e3ea84ec"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=john/faster-runtime#a7d4e4f6bb5a2b3cb9931134ad05a83197cdcae7"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6211,8 +6213,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=john/faster-runtime#a7d4e4f6bb5a2b3cb9931134ad05a83197cdcae7"
+version = "1.2.0-rc1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#4467d6ae0e686f8ff371fe13ea5b74640cf02352"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6650,7 +6652,7 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.6.0#238968cfe18d2aa9d66fd58d8efd6c6511993c03"
+source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.6.0#7e23021327f23798f3e6601d383d3fb5f4c7834b"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -6659,7 +6661,7 @@ dependencies = [
  "lazy_static",
  "rand",
  "rustc-hex",
- "sp1-lib 1.1.1 (git+https://github.com/succinctlabs/sp1.git?branch=dev)",
+ "sp1-lib 1.2.0-rc1",
 ]
 
 [[package]]
@@ -6770,9 +6772,9 @@ dependencies = [
 
 [[package]]
 name = "system-configuration"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658bc6ee10a9b4fcf576e9b0819d95ec16f4d2c02d39fd83ac1c8789785c4a42"
+checksum = "3c879d448e9d986b661742763247d3693ed13609438cf3d006f51f5368a5ba6b"
 dependencies = [
  "bitflags 2.6.0",
  "core-foundation",
@@ -7966,6 +7968,7 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "client-utils",
+ "csv",
  "dotenv",
  "host-utils",
  "kona-host",

@@ -347,7 +347,7 @@ impl SP1KonaDataFetcher {
         // The native programs are built with profile release-client-lto in build.rs
         let exec_directory = match multi_block {
             ProgramType::Single => {
-                format!("{}/target/release-client-lto/fault_proof", workspace_root)
+                format!("{}/target/release-client-lto/fault-proof", workspace_root)
             }
             ProgramType::Multi => format!("{}/target/release-client-lto/range", workspace_root),
         };
