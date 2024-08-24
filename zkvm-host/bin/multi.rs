@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
 
         let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await.unwrap();
         let report_path = format!(
-            "execution-reports/multi/{}/{}-{}.json",
+            "execution-reports/multi/{}/{}-{}.csv",
             l2_chain_id, args.start, args.end
         );
 

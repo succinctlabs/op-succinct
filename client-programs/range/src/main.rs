@@ -1,6 +1,7 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
+use client_utils::precompiles::ZKVMPrecompileOverride;
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
@@ -34,7 +35,6 @@ cfg_if! {
             InMemoryOracle
         };
         use alloc::vec::Vec;
-        use client_utils::precompiles::ZKVMPrecompileOverride;
     } else {
         use kona_client::CachingOracle;
     }
@@ -67,7 +67,7 @@ fn main() {
 
                 // TODO: Debug why ZkvmPrecompileOverride causes issues when executing the program in the cluster.
                 // Intuitively, it's due to the annotated precompiles not being available in the zkvm, and when they're activated, they're writing to a non-existent memory region.
-                let precompile_overrides = ZKVMPrecompileOverride::default();
+                // let precompile_overrides = NoPrecompileOverride;
 
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
@@ -75,9 +75,12 @@ fn main() {
                 let oracle = Arc::new(CachingOracle::new(1024));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
 
-                let precompile_overrides = NoPrecompileOverride;
+                // let precompile_overrides = NoPrecompileOverride;
             }
         }
+        // TODO: Even when I run both with ZKVMPrecompileOverride, I get key not found in cache error.
+        // let precompile_overrides = ZKVMPrecompileOverride::default();
+        let precompile_overrides = NoPrecompileOverride;
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
@@ -110,7 +113,7 @@ fn main() {
             .with_fetcher(l2_provider.clone())
             .with_hinter(l2_provider.clone())
             .with_precompile_overrides(precompile_overrides)
-            .build()
+            .build() 
             .unwrap();
         println!("cycle-tracker-end: execution-instantiation");
 

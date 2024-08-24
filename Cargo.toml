@@ -113,4 +113,7 @@ sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sh
 # sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", branch = "patch-sha3-v0.10.8" }
 ecdsa-core = { git = "https://github.com/sp1-patches/signatures", package = "ecdsa", branch = "patch-ecdsa-v0.16.9" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.6.0" }
+# alloy-primitives = { git = "https://github.com/sp1-patches/alloy-core", branch = "patch-v0.7.7" }
+# alloy-primitives = { path = "../alloy-core/crates/primitives" }
+# alloy-sol-macro-expander = { git = "https://github.com/sp1-patches/alloy-core", branch = "patch-v0.7.7" }
 # secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }
