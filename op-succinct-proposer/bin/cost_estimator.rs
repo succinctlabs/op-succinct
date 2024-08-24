@@ -16,9 +16,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
 use std::{
-    env, fs,
-    path::PathBuf,
-    time::{Duration, Instant},
+    cmp::min, env, fs, path::PathBuf, time::{Duration, Instant}
 };
 use tokio::task::block_in_place;
 
@@ -148,18 +146,34 @@ async fn main() -> Result<()> {
     )
     .await?;
 
+    const MAX_BLOCK_RANGE: usize = 20;
+    // Loop over the span batch ranges. If the distance between the start and end blocks is greater than MAX_BLOCK_RANGE, we will split the range into chunks of MAX_BLOCK_RANGE.
+    let mut split_ranges: Vec<SpanBatchRange> = Vec::new();
+    for range in span_batch_ranges {
+        if range.end - range.start > MAX_BLOCK_RANGE as u64 {
+            let mut start = range.start;
+            while start < range.end {
+                let end = min(start + MAX_BLOCK_RANGE as u64, range.end);
+                split_ranges.push(SpanBatchRange { start, end });
+                start = end;
+            }
+        } else {
+            split_ranges.push(range);
+        }
+    }
+
     info!(
         "The span batch ranges which will be executed: {:?}",
-        span_batch_ranges
+        split_ranges
     );
 
     let prover = ProverClient::new();
 
-    // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes.
+    // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes. Use ctrl-c handler for this.
 
     const BATCH_SIZE: usize = 5;
     const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
-    let futures = span_batch_ranges.chunks(BATCH_SIZE).map(|chunk| {
+    let futures = split_ranges.chunks(BATCH_SIZE).map(|chunk| {
         futures::future::join_all(chunk.iter().map(|range| async {
             let host_cli = data_fetcher
                 .get_host_cli_args(range.start, range.end, ProgramType::Multi)

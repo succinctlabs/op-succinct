@@ -83,7 +83,7 @@ fn main() {
         let precompile_overrides = NoPrecompileOverride;
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone()); 
         let beacon = OracleBlobProvider::new(oracle.clone());
 
         ////////////////////////////////////////////////////////////////
