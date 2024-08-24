@@ -67,7 +67,8 @@ fn main() {
 
                 // TODO: Debug why ZkvmPrecompileOverride causes issues when executing the program in the cluster.
                 // Intuitively, it's due to the annotated precompiles not being available in the zkvm, and when they're activated, they're writing to a non-existent memory region.
-                let precompile_overrides = ZKVMPrecompileOverride::default();
+                // let precompile_overrides = ZKVMPrecompileOverride::default();
+                let precompile_overrides = NoPrecompileOverride;
 
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.

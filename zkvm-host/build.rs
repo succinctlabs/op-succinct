@@ -39,13 +39,14 @@ fn build_zkvm_program(program: &str) {
 }
 
 fn main() {
-    let programs = vec!["fault-proof", "range"];
+    // let programs = vec!["fault-proof", "range"];
+    let programs = vec!["range"];
 
     for program in programs {
         build_native_program(program);
         // Note: Don't build any of the zkVM programs as the ELF may change, as they're already built.
-        build_zkvm_program(program);
+        build_zkvm_program(program); 
     }
 
-    build_zkvm_program("aggregation");
+    // build_zkvm_program("aggregation");
 }
