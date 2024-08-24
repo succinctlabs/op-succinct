@@ -16,7 +16,10 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
 use std::{
-    cmp::min, env, fs, path::PathBuf, time::{Duration, Instant}
+    cmp::min,
+    env, fs,
+    path::PathBuf,
+    time::{Duration, Instant},
 };
 use tokio::task::block_in_place;
 
@@ -31,6 +34,9 @@ struct HostArgs {
     /// The end block of the range to execute.
     #[clap(long)]
     end: u64,
+    /// The number of blocks to execute in a single batch.
+    #[clap(long, default_value = "5")]
+    batch_size: usize,
     /// Whether to generate a proof or just execute the block.
     #[clap(long)]
     prove: bool,
@@ -146,14 +152,13 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    const MAX_BLOCK_RANGE: usize = 20;
     // Loop over the span batch ranges. If the distance between the start and end blocks is greater than MAX_BLOCK_RANGE, we will split the range into chunks of MAX_BLOCK_RANGE.
     let mut split_ranges: Vec<SpanBatchRange> = Vec::new();
     for range in span_batch_ranges {
-        if range.end - range.start > MAX_BLOCK_RANGE as u64 {
+        if range.end - range.start > args.batch_size as u64 {
             let mut start = range.start;
             while start < range.end {
-                let end = min(start + MAX_BLOCK_RANGE as u64, range.end);
+                let end = min(start + args.batch_size as u64, range.end);
                 split_ranges.push(SpanBatchRange { start, end });
                 start = end;
             }
