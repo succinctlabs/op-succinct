@@ -39,7 +39,8 @@ contract Utils is Test, JSONDecoder {
             verifierGateway: cfg.verifierGateway,
             vkey: cfg.vkey,
             owner: cfg.owner,
-            startingOutputRoot: startingOutputRoot
+            startingOutputRoot: startingOutputRoot,
+            rollupConfigHash: cfg.rollupConfigHash
         });
 
         // If we are spoofing the admin (used in testing), start prank.

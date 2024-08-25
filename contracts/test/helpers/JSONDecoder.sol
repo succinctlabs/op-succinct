@@ -11,6 +11,7 @@ contract JSONDecoder {
         string l2RollupNode;
         address owner;
         address proposer;
+        bytes32 rollupConfigHash;
         uint startingBlockNumber;
         uint submissionInterval;
         address verifierGateway;
