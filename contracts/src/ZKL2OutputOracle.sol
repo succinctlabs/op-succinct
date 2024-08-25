@@ -79,6 +79,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
         bytes32 claimRoot;
         uint256 claimBlockNum;
         uint256 chainId;
+        bytes32 rollupConfigHash;
     }
 
     ////////////////////////////////////////////////////////////
@@ -312,7 +313,8 @@ contract ZKL2OutputOracle is Initializable, ISemver {
             l2PreRoot: l2Outputs[latestOutputIndex()].outputRoot,
             claimRoot: _outputRoot,
             claimBlockNum: _l2BlockNumber,
-            chainId: chainId
+            chainId: chainId,
+            rollupConfigHash: rollupConfigHash
         });
 
         verifierGateway.verifyProof(vkey, abi.encode(publicValues), _proof);
