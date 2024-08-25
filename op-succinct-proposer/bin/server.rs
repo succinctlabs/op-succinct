@@ -111,11 +111,7 @@ async fn request_agg_proof(
 
     let boot_infos: Vec<BootInfoWithHashedConfig> = proofs_with_pv
         .iter_mut()
-        .map(|proof| {
-            let mut boot_info_buf = [0u8; BOOT_INFO_SIZE];
-            proof.public_values.read_slice(&mut boot_info_buf);
-            BootInfoWithHashedConfig::abi_decode(&boot_info_buf).unwrap()
-        })
+        .map(|proof| proof.public_values.read())
         .collect();
 
     let proofs: Vec<SP1Proof> = proofs_with_pv

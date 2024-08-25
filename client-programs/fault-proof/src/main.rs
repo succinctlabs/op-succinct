@@ -21,10 +21,14 @@ cfg_if! {
     // from SP1 and compile to a program that can be run in zkVM.
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
-        use client_utils::{InMemoryOracle, BootInfoWithHashedConfig};
+
+        use client_utils::{InMemoryOracle, BootInfoWithNoConfig, BootInfoWithHashedConfig};
+        use kona_primitives::RollupConfig;
         use alloc::vec::Vec;
+        use serde_json;
     } else {
         use kona_client::CachingOracle;
+        use client_utils::pipes::{ORACLE_READER, HINT_WRITER};
     }
 }
 
@@ -39,10 +43,20 @@ fn main() {
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
                 println!("cycle-tracker-start: boot-load");
-                let boot_info = sp1_zkvm::io::read::<BootInfo>();
-                let boot_info_with_hashed_config: BootInfoWithHashedConfig = boot_info.clone().into();
-                sp1_zkvm::io::commit_slice(&boot_info_with_hashed_config.abi_encode());
-                let boot: Arc<BootInfo> = Arc::new(boot_info);
+                let boot_info_with_no_config = sp1_zkvm::io::read::<BootInfoWithNoConfig>();
+                let rollup_config_bytes = sp1_zkvm::io::read_vec();
+                let boot_info_with_hashed_config = BootInfoWithHashedConfig::new(&boot_info_with_no_config, &rollup_config_bytes);
+                sp1_zkvm::io::commit::<BootInfoWithHashedConfig>(&boot_info_with_hashed_config);
+
+                let rollup_config: RollupConfig = serde_json::from_slice(&rollup_config_bytes).expect("failed to parse rollup config");
+                let boot: Arc<BootInfo> = Arc::new(BootInfo {
+                    l1_head: boot_info_with_no_config.l1_head,
+                    l2_output_root: boot_info_with_no_config.l2_output_root,
+                    l2_claim: boot_info_with_no_config.l2_claim,
+                    l2_claim_block: boot_info_with_no_config.l2_claim_block,
+                    chain_id: boot_info_with_no_config.chain_id,
+                    rollup_config,
+                });
                 println!("cycle-tracker-end: boot-load");
 
                 println!("cycle-tracker-start: oracle-load");
@@ -59,7 +73,7 @@ fn main() {
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
             } else {
-                let oracle = Arc::new(CachingOracle::new(1024));
+                let oracle = Arc::new(CachingOracle::new(1024, ORACLE_READER, HINT_WRITER));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
                 let precompile_overrides = NoPrecompileOverride;
             }

@@ -1465,6 +1465,7 @@ dependencies = [
  "async-trait",
  "itertools 0.13.0",
  "kona-client",
+ "kona-common",
  "kona-derive",
  "kona-executor",
  "kona-mpt",
@@ -2298,6 +2299,7 @@ dependencies = [
  "kona-client",
  "kona-executor",
  "kona-primitives",
+ "serde_json",
  "sp1-zkvm",
 ]
 
@@ -2769,6 +2771,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
+ "bincode",
  "cargo_metadata",
  "client-utils",
  "dotenv",
@@ -2776,6 +2779,7 @@ dependencies = [
  "kona-client",
  "kona-host",
  "kona-primitives",
+ "log",
  "revm",
  "rkyv",
  "serde_cbor",
@@ -3244,7 +3248,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3272,7 +3276,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3282,7 +3286,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3294,8 +3298,8 @@ dependencies = [
 
 [[package]]
 name = "kona-derive"
-version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+version = "0.0.3"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3304,8 +3308,6 @@ dependencies = [
  "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-client",
- "alloy-rpc-types",
- "alloy-sol-types",
  "alloy-transport",
  "alloy-transport-http",
  "anyhow",
@@ -3320,7 +3322,6 @@ dependencies = [
  "reqwest 0.12.5",
  "revm",
  "serde",
- "serde_json",
  "sha2",
  "spin 0.9.8",
  "tracing",
@@ -3329,16 +3330,15 @@ dependencies = [
 
 [[package]]
 name = "kona-executor"
-version = "0.0.1"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+version = "0.0.2"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
- "alloy-rlp",
  "anyhow",
- "kona-derive",
  "kona-mpt",
+ "kona-primitives",
  "op-alloy-consensus",
  "revm",
  "tracing",
@@ -3347,7 +3347,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3367,6 +3367,7 @@ dependencies = [
  "kona-derive",
  "kona-mpt",
  "kona-preimage",
+ "kona-primitives",
  "os_pipe",
  "reqwest 0.12.5",
  "revm",
@@ -3380,7 +3381,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3394,12 +3395,11 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
- "cfg-if",
  "kona-common",
  "rkyv",
  "tracing",
@@ -3407,18 +3407,23 @@ dependencies = [
 
 [[package]]
 name = "kona-primitives"
-version = "0.0.1"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#d1b63f8c1f6dba67ef922761e39beb86ddfd5291"
+version = "0.0.2"
+source = "git+https://github.com/ethereum-optimism/kona?branch=main#19b00f3cf456775197a320aed9e900f110057d2f"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
  "alloy-rlp",
- "alloy-sol-types",
  "anyhow",
+ "c-kzg",
+ "hashbrown 0.14.5",
  "op-alloy-consensus",
+ "revm",
  "serde",
+ "sha2",
+ "spin 0.9.8",
  "superchain-primitives",
+ "tracing",
 ]
 
 [[package]]
@@ -3842,7 +3847,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.1.0",
  "proc-macro2",
  "quote",
  "syn 2.0.74",
@@ -4827,6 +4832,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
+ "bincode",
  "cfg-if",
  "client-utils",
  "kona-client",
@@ -4834,6 +4840,7 @@ dependencies = [
  "kona-primitives",
  "log",
  "op-alloy-consensus",
+ "serde_json",
  "sp1-zkvm",
 ]
 

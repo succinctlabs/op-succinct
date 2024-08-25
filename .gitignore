@@ -19,3 +19,6 @@ data
 
 # DB data
 db/
+
+# Rollup Config
+rollup-config.json

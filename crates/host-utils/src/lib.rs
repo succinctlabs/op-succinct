@@ -1,16 +1,13 @@
 pub mod fetcher;
 pub mod helpers;
 pub mod precompile;
-
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use client_utils::{types::AggregationInputs, BootInfoWithHashedConfig};
-use kona_client::BootInfo;
+use client_utils::{types::AggregationInputs, BootInfoWithHashedConfig, BootInfoWithNoConfig};
 use kona_host::HostCli;
-use kona_primitives::RollupConfig;
-use serde_json;
+use log::info;
 use sp1_sdk::{SP1Proof, SP1Stdin};
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::Read};
 
 use anyhow::Result;
 
@@ -44,19 +41,19 @@ sol! {
 pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
 
-    let rollup_config_file = File::open(host_cli.rollup_config_path.as_ref().unwrap())?;
-    let reader = BufReader::new(rollup_config_file);
-    let rollup_config: RollupConfig = serde_json::from_reader(reader)?;
-
-    let boot_info = BootInfo {
+    let boot_info = BootInfoWithNoConfig {
         l1_head: host_cli.l1_head,
         l2_output_root: host_cli.l2_output_root,
         l2_claim: host_cli.l2_claim,
         l2_claim_block: host_cli.l2_block_number,
         chain_id: host_cli.l2_chain_id,
-        rollup_config,
     };
     stdin.write(&boot_info);
+
+    let mut rollup_config_file = File::open(host_cli.rollup_config_path.as_ref().unwrap())?;
+    let mut rollup_config_bytes = Vec::new();
+    rollup_config_file.read_to_end(&mut rollup_config_bytes)?;
+    stdin.write_slice(&rollup_config_bytes);
 
     // Get the workspace root, which is where the data directory is.
     let data_dir = host_cli.data_dir.as_ref().expect("Data directory not set!");

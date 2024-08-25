@@ -19,6 +19,7 @@ alloy-sol-types.workspace = true
 revm.workspace = true
 
 # workspace (kona)
+kona-common.workspace = true
 kona-primitives.workspace = true
 kona-executor.workspace = true
 kona-client.workspace = true

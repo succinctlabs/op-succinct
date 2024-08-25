@@ -6,6 +6,7 @@ edition.workspace = true
 
 [dependencies]
 alloy.workspace = true
+log.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 alloy-sol-types.workspace = true
@@ -23,3 +24,4 @@ revm.workspace = true
 dotenv.workspace = true
 tokio.workspace = true
 futures.workspace = true
+bincode.workspace = true

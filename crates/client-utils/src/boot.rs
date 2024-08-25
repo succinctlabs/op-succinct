@@ -4,24 +4,19 @@
 use alloy_primitives::B256;
 use alloy_sol_types::{sol, SolValue};
 use anyhow::Result;
-use kona_client::BootInfo;
-use kona_primitives::RollupConfig;
 use serde::{Deserialize, Serialize};
 use tiny_keccak::{Hasher, Keccak};
 
 // ABI encoding of BootInfo is 6 * 32 bytes.
 pub const BOOT_INFO_SIZE: usize = 6 * 32;
 
-fn hash_rollup_config(config: &RollupConfig) -> B256 {
-    // Serialize the config to JSON
-    let serialized = serde_json::to_string(config).expect("Failed to serialize RollupConfig");
-
+fn hash_rollup_config(serialized_config: &Vec<u8>) -> B256 {
     // Create a Keccak256 hasher
     let mut keccak = Keccak::v256();
     let mut hash = [0u8; 32];
 
     // Hash the serialized string
-    keccak.update(serialized.as_bytes());
+    keccak.update(serialized_config.as_slice());
     keccak.finalize(&mut hash);
 
     hash.into()
@@ -39,6 +34,15 @@ sol! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BootInfoWithNoConfig {
+    pub l1_head: B256,
+    pub l2_output_root: B256,
+    pub l2_claim: B256,
+    pub l2_claim_block: u64,
+    pub chain_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BootInfoWithHashedConfig {
     pub l1_head: B256,
     pub l2_output_root: B256,
@@ -49,6 +53,17 @@ pub struct BootInfoWithHashedConfig {
 }
 
 impl BootInfoWithHashedConfig {
+    pub fn new(boot_info: &BootInfoWithNoConfig, config: &Vec<u8>) -> Self {
+        Self {
+            l1_head: boot_info.l1_head,
+            l2_output_root: boot_info.l2_output_root,
+            l2_claim: boot_info.l2_claim,
+            l2_claim_block: boot_info.l2_claim_block,
+            chain_id: boot_info.chain_id,
+            rollup_config_hash: hash_rollup_config(config),
+        }
+    }
+
     pub fn abi_encode(&self) -> Vec<u8> {
         BootInfoStruct {
             l1Head: self.l1_head,
@@ -71,18 +86,5 @@ impl BootInfoWithHashedConfig {
             chain_id: boot_info.chainId,
             rollup_config_hash: boot_info.rollupConfigHash,
         })
-    }
-}
-
-impl From<BootInfo> for BootInfoWithHashedConfig {
-    fn from(boot_info: BootInfo) -> Self {
-        Self {
-            l1_head: boot_info.l1_head,
-            l2_output_root: boot_info.l2_output_root,
-            l2_claim: boot_info.l2_claim,
-            l2_claim_block: boot_info.l2_claim_block,
-            chain_id: boot_info.chain_id,
-            rollup_config_hash: hash_rollup_config(&boot_info.rollup_config),
-        }
     }
 }

@@ -355,7 +355,7 @@ impl SP1KonaDataFetcher {
         }
 
         // Create the path to the rollup config file.
-        let rollup_config_path = format!("{}/rollup_config.json", workspace_root);
+        let rollup_config_path = format!("{}/rollup-config.json", workspace_root);
 
         Ok(HostCli {
             l1_head: l1_head.0.into(),

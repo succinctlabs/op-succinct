@@ -2,7 +2,7 @@ mod hasher;
 pub use hasher::BytesHasherBuilder;
 
 mod boot;
-pub use boot::{BootInfoWithHashedConfig, BOOT_INFO_SIZE};
+pub use boot::{BootInfoWithHashedConfig, BootInfoWithNoConfig, BOOT_INFO_SIZE};
 
 mod executor;
 pub use executor::block_on;
@@ -13,6 +13,8 @@ pub use oracle::InMemoryOracle;
 pub mod precompiles;
 
 pub mod types;
+
+pub mod pipes;
 
 extern crate alloc;
 

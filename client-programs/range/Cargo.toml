@@ -11,6 +11,7 @@ repository.workspace = true
 # workspace (general)
 cfg-if.workspace = true
 client-utils.workspace = true
+serde_json.workspace = true
 
 # workspace (ethereum)
 op-alloy-consensus.workspace = true
@@ -26,3 +27,4 @@ kona-client.workspace = true
 sp1-zkvm.workspace = true
 
 log.workspace = true
+bincode.workspace = true
