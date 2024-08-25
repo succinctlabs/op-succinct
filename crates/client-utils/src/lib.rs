@@ -1,7 +1,7 @@
 mod hasher;
 pub use hasher::BytesHasherBuilder;
 
-mod boot;
+pub mod boot;
 pub use boot::{BootInfoWithHashedConfig, BootInfoWithNoConfig, BOOT_INFO_SIZE};
 
 mod executor;

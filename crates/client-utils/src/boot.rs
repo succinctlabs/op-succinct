@@ -10,7 +10,7 @@ use tiny_keccak::{Hasher, Keccak};
 // ABI encoding of BootInfo is 6 * 32 bytes.
 pub const BOOT_INFO_SIZE: usize = 6 * 32;
 
-fn hash_rollup_config(serialized_config: &Vec<u8>) -> B256 {
+pub fn hash_rollup_config(serialized_config: &Vec<u8>) -> B256 {
     // Create a Keccak256 hasher
     let mut keccak = Keccak::v256();
     let mut hash = [0u8; 32];

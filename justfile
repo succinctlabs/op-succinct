@@ -168,3 +168,21 @@ fetch-rollup-config rollup_rpc="" l2_rpc="":
 
     # Clean up
     rm ./chain-config.json
+
+    echo "Updated rollup config saved to ./rollup-config.json"
+
+    # Generate hash using the Cargo binary
+    HASH=$(cargo run --bin hash_rollup_config)
+
+    # Check if the hash is 32 bytes (64 hexadecimal characters)
+    if [ ${#HASH} -ne 66 ]; then
+        echo "Error: Expected 32 byte hash, but got: $HASH" >&2
+        exit 1
+    fi
+
+    # Update zkconfig.json with the new hash
+    if [ -f contracts/zkconfig.json ]; then
+        jq --arg hash "$HASH" '.rollupConfigHash = $hash' contracts/zkconfig.json > contracts/zkconfig.tmp && mv contracts/zkconfig.tmp contracts/zkconfig.json
+    else
+        echo "{\"rollupConfigHash\": \"$HASH\"}" > contracts/zkconfig.json
+    fi

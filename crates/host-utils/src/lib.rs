@@ -5,7 +5,6 @@ use alloy_consensus::Header;
 use alloy_primitives::B256;
 use client_utils::{types::AggregationInputs, BootInfoWithHashedConfig, BootInfoWithNoConfig};
 use kona_host::HostCli;
-use log::info;
 use sp1_sdk::{SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 

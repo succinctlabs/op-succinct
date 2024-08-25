@@ -23,6 +23,10 @@ path = "bin/native_host_runner.rs"
 name = "vkey"
 path = "bin/vkey.rs"
 
+[[bin]]
+name = "hash_rollup_config"
+path = "bin/hash_rollup_config.rs"
+
 [dependencies]
 
 # workspace
@@ -35,12 +39,12 @@ kona-host = { workspace = true }
 
 # local
 host-utils.workspace = true
+client-utils.workspace = true
 
 # sp1
 sp1-sdk = { workspace = true }
 anyhow.workspace = true
 dotenv.workspace = true
-client-utils.workspace = true
 serde = { workspace = true }
 
 # server
