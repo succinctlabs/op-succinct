@@ -390,7 +390,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     /// @notice Returns the number of outputs that have been proposed.
     ///         Will revert if no outputs have been proposed yet.
     /// @return The number of outputs that have been proposed.
-    function latestOutputIndex() external view returns (uint256) {
+    function latestOutputIndex() public view returns (uint256) {
         return l2Outputs.length - 1;
     }
 
@@ -452,11 +452,11 @@ contract ZKL2OutputOracle is Initializable, ISemver {
         verifierGateway = SP1VerifierGateway(_verifierGateway);
     }
 
-    function updateRollupConfigHash(address _rollupConfigHash) external onlyOwner {
+    function updateRollupConfigHash(bytes32 _rollupConfigHash) external onlyOwner {
         _updateRollupConfigHash(_rollupConfigHash);
     }
 
-    function _updateRollupConfigHash(address _rollupConfigHash) internal {
+    function _updateRollupConfigHash(bytes32 _rollupConfigHash) internal {
         emit UpdatedRollupConfigHash(rollupConfigHash, _rollupConfigHash);
         rollupConfigHash = _rollupConfigHash;
     }
