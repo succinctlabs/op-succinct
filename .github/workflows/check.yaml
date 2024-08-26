@@ -17,4 +17,4 @@ jobs:
       working-directory: client-programs/fault-proof
     - name: Compile the range program
       run: cargo build --profile release-client-lto
-      working-directory: client-programs/range  
+      working-directory: client-programs/range
