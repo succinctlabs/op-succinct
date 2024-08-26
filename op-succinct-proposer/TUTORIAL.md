@@ -8,7 +8,7 @@ Before starting, ensure you have:
 
 1. Access to the Admin keys for upgrading L1 contracts of the OP Stack chain.
 2. Fault proofs turned off (you should be using `L2OutputOracle`, not `FaultDisputeGameFactory` for output roots).
-3. The original `op-proposer` stopped.
+3. Stopped the original `op-proposer`.
 4. At least 1 ETH in your `PROPOSER` wallet.
 5. All dependencies from the Optimism tutorial installed.
 6. Your L2 geth node running with `--gcmode=archive` and `--state.scheme=hash` flags. You can do this with [ops-anton](https://github.com/anton-rs/ops-anton/blob/main/L2/op-mainnet/op-geth/op-geth.sh).
@@ -43,7 +43,7 @@ When an OP Stack chain is running, there are 4 main components:
     <details>
     <summary>Field Info</summary>
 
-    - `startingBlockNumber`: The L1 block number at which the rollup starts. Default should be 0.
+    - `startingBlockNumber`: The L2 block number at which the rollup starts. Default should be 0.
     - `l2RollupNode`: The URL of the L2 rollup node. (After the tutorial, this is `http://localhost:8545`)
     - `submissionInterval`: The number of L2 blocks between each L1 output submission.
     - `l2BlockTime`: The time in seconds between each L2 block.
