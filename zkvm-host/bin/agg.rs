@@ -51,8 +51,7 @@ fn load_aggregation_proof_data(
             SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
         proofs.push(deserialized_proof.proof);
 
-        // The only public values are the BootInfoStruct.
-        // The public values are the ABI-encoded RawBootInfo.
+        // The public values are the ABI-encoded BootInfoStruct.
         let mut raw_boot_info_bytes = [0u8; BOOT_INFO_SIZE];
         deserialized_proof
             .public_values
