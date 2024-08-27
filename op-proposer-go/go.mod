@@ -8,15 +8,11 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
 	github.com/urfave/cli/v2 v2.27.3
-// github.com/succinctlabs/optimism v0.0.0-20240827-c660e23e27989df99f89a71e214d288193ae715d
-// github.com/succinctlabs/optimism/op-node/cmd/batch_decoder/utils v0.0.0-20240827-c660e23e27989df99f89a71e214d288193ae715d
 )
 
 // v1.9.0 tag on ethereum-optimism uses a fork of go-ethereum
 // https://github.com/ethereum-optimism/optimism/blob/ec45f6634ab2855a4ae5d30c4e240d79f081d689/go.mod#L231
 replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101315.3-rc.2
-
-// replace github.com/ethereum-optimism/optimism v1.9.0 => github.com/succinctlabs/optimism v0.0.0-20240827-c660e23e27989df99f89a71e214d288193ae715d
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
