@@ -6,11 +6,11 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"sort"
 
 	"github.com/succinctlabs/op-succinct-go/server/utils"
 
-	// "github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/utils"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gorilla/mux"
 )
 
@@ -47,13 +47,13 @@ func handleSpanBatchRanges(w http.ResponseWriter, r *http.Request) {
 	}
 
 	config := utils.BatchDecoderConfig{
-		L2ChainID:   new(big.Int).SetUint64(req.L2ChainID),
-		L2Node:      req.L2Node,
-		L1RPC:       req.L1RPC,
-		L1Beacon:    req.L1Beacon,
-		BatchSender: req.BatchSender,
-		StartBlock:  req.StartBlock,
-		EndBlock:    req.EndBlock,
+		L2ChainID:    new(big.Int).SetUint64(req.L2ChainID),
+		L2Node:       req.L2Node,
+		L1RPC:        req.L1RPC,
+		L1Beacon:     req.L1Beacon,
+		BatchSender:  common.HexToAddress(req.BatchSender),
+		L2StartBlock: req.StartBlock,
+		L2EndBlock:   req.EndBlock,
 		// TODO: Make directory specific to L2 chain. This avoids race conditions when multiple chains are running on the same machine.
 		DataDir: fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", req.L2ChainID),
 	}
@@ -64,6 +64,11 @@ func handleSpanBatchRanges(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Sort the ranges by start block
+	sort.Slice(ranges, func(i, j int) bool {
+		return ranges[i].Start < ranges[j].Start
+	})
 
 	response := SpanBatchResponse{
 		Ranges: ranges,

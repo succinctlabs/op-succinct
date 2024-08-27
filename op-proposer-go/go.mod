@@ -6,6 +6,8 @@ require (
 	github.com/ethereum-optimism/optimism v1.9.0
 	github.com/ethereum/go-ethereum v1.13.15
 	github.com/gorilla/mux v1.8.1
+	github.com/joho/godotenv v1.5.1
+	github.com/urfave/cli/v2 v2.27.3
 // github.com/succinctlabs/optimism v0.0.0-20240827-c660e23e27989df99f89a71e214d288193ae715d
 // github.com/succinctlabs/optimism/op-node/cmd/batch_decoder/utils v0.0.0-20240827-c660e23e27989df99f89a71e214d288193ae715d
 )
@@ -95,7 +97,6 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
-	github.com/urfave/cli/v2 v2.27.3 // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/crypto v0.25.0 // indirect

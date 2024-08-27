@@ -33,17 +33,20 @@ type BatchDecoderConfig struct {
 	L2GenesisBlock    uint64
 	L2BlockTime       uint64
 	BatchInboxAddress common.Address
-	StartBlock        uint64
-	EndBlock          uint64
+	L2StartBlock      uint64
+	L2EndBlock        uint64
 	L2ChainID         *big.Int
 	L2Node            string
 	L1RPC             string
 	L1Beacon          string
-	BatchSender       string
+	BatchSender       common.Address
 	DataDir           string
 }
 
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
+// TODO: In more recent blocks, the span batch ranges are only 20 blocks. The "span batches" returned
+// don't refelct the number of batches posted. This indicates that a configuration change was made for the size
+// of the span batch posted. It would be more efficient for us to be able to fetch a larger span batch range.
 func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange, error) {
 	rollupCfg, err := setupBatchDecoderConfig(&config)
 	if err != nil {
@@ -58,7 +61,7 @@ func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange,
 		return nil, fmt.Errorf("failed to dial rollup client: %w", err)
 	}
 
-	l1Origin, finalizedL1, err := getL1Origins(rollupClient, config.StartBlock, config.EndBlock)
+	l1Origin, finalizedL1, err := getL1Origins(rollupClient, config.L2StartBlock, config.L2EndBlock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 origin and finalized: %w", err)
 	}
@@ -87,7 +90,7 @@ func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange,
 	}
 
 	// Get all span batch ranges in the given L2 block range.
-	ranges, err := GetSpanBatchRanges(reassembleConfig, rollupCfg, config.StartBlock, config.EndBlock, 1000000)
+	ranges, err := GetSpanBatchRanges(reassembleConfig, rollupCfg, config.L2StartBlock, config.L2EndBlock, 1000000)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get span batch ranges: %w", err)
 	}
@@ -99,7 +102,7 @@ func TimestampToBlock(rollupCfg *rollup.Config, l2Timestamp uint64) uint64 {
 	return ((l2Timestamp - rollupCfg.Genesis.L2Time) / rollupCfg.BlockTime) + rollupCfg.Genesis.L2.Number
 }
 
-// GetSpanBatchRanges returns all span batch ranges between startBlock and endBlock
+// Get the block ranges for each span batch in the given L2 block range.
 func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, startBlock, endBlock, maxSpanBatchDeviation uint64) ([]SpanBatchRange, error) {
 	frames := reassemble.LoadFrames(config.InDirectory, config.BatchInbox)
 	framesByChannel := make(map[derive.ChannelID][]reassemble.FrameWithMetadata)
@@ -127,6 +130,7 @@ func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, star
 			if batchStartBlock > endBlock || batchEndBlock < startBlock {
 				continue
 			} else {
+				fmt.Printf("Span batch: %v\n %v\n", common.Bytes2Hex(spanBatch.ParentCheck[:]), common.Bytes2Hex(spanBatch.L1OriginCheck[:]))
 				ranges = append(ranges, SpanBatchRange{Start: max(startBlock, batchStartBlock), End: min(endBlock, batchEndBlock)})
 			}
 		}
@@ -263,13 +267,15 @@ func processFrames(cfg reassemble.Config, rollupCfg *rollup.Config, id derive.Ch
 	}
 }
 
+// Read all of the batches posted to the BatchInbox contract in the given L1 block range.
+// Once the batches are fetched, they are written to the given data directory.
 func fetchBatches(config BatchDecoderConfig, rollupCfg *rollup.Config, l1Origin, finalizedL1 uint64) error {
 	fetchConfig := fetch.Config{
 		Start:   l1Origin,
 		End:     finalizedL1,
 		ChainID: rollupCfg.L1ChainID,
 		BatchSenders: map[common.Address]struct{}{
-			common.HexToAddress(config.BatchSender): {},
+			config.BatchSender: {},
 		},
 		BatchInbox:         config.BatchInboxAddress,
 		OutDirectory:       config.DataDir,
