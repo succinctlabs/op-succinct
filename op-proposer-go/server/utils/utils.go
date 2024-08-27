@@ -43,6 +43,25 @@ type BatchDecoderConfig struct {
 	DataDir           string
 }
 
+func GetRollupConfigFromL2Rpc(l2Rpc string) (*rollup.Config, error) {
+	l2Client, err := ethclient.Dial(l2Rpc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial L2 client: %w", err)
+	}
+
+	chainID, err := l2Client.ChainID(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain ID: %w", err)
+	}
+
+	rollupCfg, err := rollup.LoadOPStackRollupConfig(chainID.Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to load rollup config: %w", err)
+	}
+
+	return rollupCfg, nil
+}
+
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
 // TODO: In more recent blocks, the span batch ranges are only 20 blocks. The "span batches" returned
 // don't refelct the number of batches posted. This indicates that a configuration change was made for the size
@@ -130,7 +149,6 @@ func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, star
 			if batchStartBlock > endBlock || batchEndBlock < startBlock {
 				continue
 			} else {
-				fmt.Printf("Span batch: %v\n %v\n", common.Bytes2Hex(spanBatch.ParentCheck[:]), common.Bytes2Hex(spanBatch.L1OriginCheck[:]))
 				ranges = append(ranges, SpanBatchRange{Start: max(startBlock, batchStartBlock), End: min(endBlock, batchEndBlock)})
 			}
 		}
@@ -298,6 +316,7 @@ func fetchBatches(config BatchDecoderConfig, rollupCfg *rollup.Config, l1Origin,
 	return nil
 }
 
+// Setup the L1 Beacon client.
 func setupBeacon(config BatchDecoderConfig) (*sources.L1BeaconClient, error) {
 	if config.L1Beacon == "" {
 		fmt.Println("L1 Beacon endpoint not set. Unable to fetch post-ecotone channel frames")
