@@ -34,12 +34,13 @@ sol! {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BootInfoWithNoConfig {
+pub struct BootInfoWithBytesConfig {
     pub l1_head: B256,
     pub l2_output_root: B256,
     pub l2_claim: B256,
     pub l2_claim_block: u64,
     pub chain_id: u64,
+    pub rollup_config_bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,14 +54,14 @@ pub struct BootInfoWithHashedConfig {
 }
 
 impl BootInfoWithHashedConfig {
-    pub fn new(boot_info: &BootInfoWithNoConfig, config: &Vec<u8>) -> Self {
+    pub fn new(boot_info: &BootInfoWithBytesConfig) -> Self {
         Self {
             l1_head: boot_info.l1_head,
             l2_output_root: boot_info.l2_output_root,
             l2_claim: boot_info.l2_claim,
             l2_claim_block: boot_info.l2_claim_block,
             chain_id: boot_info.chain_id,
-            rollup_config_hash: hash_rollup_config(config),
+            rollup_config_hash: hash_rollup_config(&boot_info.rollup_config_bytes),
         }
     }
 

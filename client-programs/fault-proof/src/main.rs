@@ -22,7 +22,7 @@ cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
 
-        use client_utils::{InMemoryOracle, BootInfoWithNoConfig, BootInfoWithHashedConfig};
+        use client_utils::{InMemoryOracle, BootInfoWithBytesConfig, BootInfoWithHashedConfig};
         use kona_primitives::RollupConfig;
         use alloc::vec::Vec;
         use serde_json;
@@ -43,18 +43,17 @@ fn main() {
             // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
                 println!("cycle-tracker-start: boot-load");
-                let boot_info_with_no_config = sp1_zkvm::io::read::<BootInfoWithNoConfig>();
-                let rollup_config_bytes = sp1_zkvm::io::read_vec();
-                let boot_info_with_hashed_config = BootInfoWithHashedConfig::new(&boot_info_with_no_config, &rollup_config_bytes);
+                let boot_info_with_bytes_config = sp1_zkvm::io::read::<BootInfoWithBytesConfig>();
+                let boot_info_with_hashed_config = BootInfoWithHashedConfig::new(&boot_info_with_bytes_config);
                 sp1_zkvm::io::commit::<BootInfoWithHashedConfig>(&boot_info_with_hashed_config);
 
-                let rollup_config: RollupConfig = serde_json::from_slice(&rollup_config_bytes).expect("failed to parse rollup config");
+                let rollup_config: RollupConfig = serde_json::from_slice(&boot_info_with_bytes_config.rollup_config_bytes).expect("failed to parse rollup config");
                 let boot: Arc<BootInfo> = Arc::new(BootInfo {
-                    l1_head: boot_info_with_no_config.l1_head,
-                    l2_output_root: boot_info_with_no_config.l2_output_root,
-                    l2_claim: boot_info_with_no_config.l2_claim,
-                    l2_claim_block: boot_info_with_no_config.l2_claim_block,
-                    chain_id: boot_info_with_no_config.chain_id,
+                    l1_head: boot_info_with_bytes_config.l1_head,
+                    l2_output_root: boot_info_with_bytes_config.l2_output_root,
+                    l2_claim: boot_info_with_bytes_config.l2_claim,
+                    l2_claim_block: boot_info_with_bytes_config.l2_claim_block,
+                    chain_id: boot_info_with_bytes_config.chain_id,
                     rollup_config,
                 });
                 println!("cycle-tracker-end: boot-load");
