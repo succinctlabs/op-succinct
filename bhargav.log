@@ -1,0 +1,177 @@
+[2m2024-08-27T18:22:06.885520Z[0m [32m INFO[0m Starting preimage server and client program.
+cycle-tracker-start: derivation-instantiation
+cycle-tracker-end: derivation-instantiation
+cycle-tracker-start: execution-instantiation
+cycle-tracker-end: execution-instantiation
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-report-start: block-execution
+cycle-tracker-report-end: block-execution
+cycle-tracker-start: output-root
+cycle-tracker-end: output-root
+Completed Proof. Output Root: 0x6aa9f8c16550aa0166078af3757a94b4c853af778d62fa5ff41188fa8b696d9b
+[2m2024-08-27T18:22:18.972377Z[0m [32m INFO[0m Preimage server and client program have exited.
+[2m2024-08-27T18:22:27.714425Z[0m [32m INFO[0m [1mexecute[0m: clk = 0 pc = 0x321368    
+[2m2024-08-27T18:22:27.717690Z[0m [32m INFO[0m [1mexecute[0m: ┌╴boot-load    
+[2m2024-08-27T18:22:27.722326Z[0m [32m INFO[0m [1mexecute[0m: └╴5,080 cycles    
+[2m2024-08-27T18:22:27.722696Z[0m [32m INFO[0m [1mexecute[0m: ┌╴oracle-load    
+[2m2024-08-27T18:22:44.109573Z[0m [32m INFO[0m [1mexecute[0m: clk = 10000000 pc = 0x32a31c    
+[2m2024-08-27T18:22:54.976566Z[0m [32m INFO[0m [1mexecute[0m: clk = 20000000 pc = 0x323dd8    
+[2m2024-08-27T18:23:00.569167Z[0m [32m INFO[0m [1mexecute[0m: clk = 30000000 pc = 0x32a510    
+[2m2024-08-27T18:23:13.738572Z[0m [32m INFO[0m [1mexecute[0m: clk = 40000000 pc = 0x3210a4    
+[2m2024-08-27T18:23:21.273947Z[0m [32m INFO[0m [1mexecute[0m: clk = 50000000 pc = 0x321404    
+[2m2024-08-27T18:23:28.849392Z[0m [32m INFO[0m [1mexecute[0m: clk = 60000000 pc = 0x32108c    
+[2m2024-08-27T18:23:35.974012Z[0m [32m INFO[0m [1mexecute[0m: clk = 70000000 pc = 0x32a41c    
+[2m2024-08-27T18:23:37.334205Z[0m [32m INFO[0m [1mexecute[0m: └╴71,938,870 cycles    
+[2m2024-08-27T18:23:37.334560Z[0m [32m INFO[0m [1mexecute[0m: ┌╴oracle-verify    
+stdout: WARNING: Using insecure random number generator.
+[2m2024-08-27T18:23:43.184150Z[0m [32m INFO[0m [1mexecute[0m: clk = 80000000 pc = 0x321084    
+[2m2024-08-27T18:23:48.217323Z[0m [32m INFO[0m [1mexecute[0m: clk = 90000000 pc = 0x3210a4    
+[2m2024-08-27T18:23:54.454763Z[0m [32m INFO[0m [1mexecute[0m: clk = 100000000 pc = 0x3241ac    
+[2m2024-08-27T18:24:01.138714Z[0m [32m INFO[0m [1mexecute[0m: clk = 110000000 pc = 0x3241a8    
+[2m2024-08-27T18:24:06.338560Z[0m [32m INFO[0m [1mexecute[0m: clk = 120000000 pc = 0x52ca64    
+[2m2024-08-27T18:24:12.367077Z[0m [32m INFO[0m [1mexecute[0m: clk = 130000000 pc = 0x52ca10    
+[2m2024-08-27T18:24:18.521431Z[0m [32m INFO[0m [1mexecute[0m: clk = 140000000 pc = 0x321084    
+[2m2024-08-27T18:24:24.502522Z[0m [32m INFO[0m [1mexecute[0m: clk = 150000000 pc = 0x52ca18    
+[2m2024-08-27T18:24:28.290279Z[0m [32m INFO[0m [1mexecute[0m: clk = 160000000 pc = 0x52ca1c    
+[2m2024-08-27T18:24:31.837648Z[0m [32m INFO[0m [1mexecute[0m: clk = 170000000 pc = 0x3292f4    
+[2m2024-08-27T18:24:37.812571Z[0m [32m INFO[0m [1mexecute[0m: clk = 180000000 pc = 0x52ca24    
+[2m2024-08-27T18:24:44.306830Z[0m [32m INFO[0m [1mexecute[0m: clk = 190000000 pc = 0x324e48    
+[2m2024-08-27T18:24:51.061810Z[0m [32m INFO[0m [1mexecute[0m: clk = 200000000 pc = 0x52ca14    
+[2m2024-08-27T18:24:56.711853Z[0m [32m INFO[0m [1mexecute[0m: clk = 210000000 pc = 0x52ca28    
+[2m2024-08-27T18:25:00.340225Z[0m [32m INFO[0m [1mexecute[0m: clk = 220000000 pc = 0x3263b8    
+[2m2024-08-27T18:25:06.019230Z[0m [32m INFO[0m [1mexecute[0m: clk = 230000000 pc = 0x544f4c    
+[2m2024-08-27T18:25:10.141185Z[0m [32m INFO[0m [1mexecute[0m: clk = 240000000 pc = 0x3210dc    
+[2m2024-08-27T18:25:13.338629Z[0m [32m INFO[0m [1mexecute[0m: clk = 250000000 pc = 0x320f94    
+[2m2024-08-27T18:25:16.538653Z[0m [32m INFO[0m [1mexecute[0m: clk = 260000000 pc = 0x320fb8    
+[2m2024-08-27T18:25:19.747899Z[0m [32m INFO[0m [1mexecute[0m: clk = 270000000 pc = 0x320ffc    
+[2m2024-08-27T18:25:22.953585Z[0m [32m INFO[0m [1mexecute[0m: clk = 280000000 pc = 0x3241b4    
+[2m2024-08-27T18:25:26.154398Z[0m [32m INFO[0m [1mexecute[0m: clk = 290000000 pc = 0x52ca20    
+[2m2024-08-27T18:25:29.353893Z[0m [32m INFO[0m [1mexecute[0m: clk = 300000000 pc = 0x52ca28    
+[2m2024-08-27T18:25:32.554568Z[0m [32m INFO[0m [1mexecute[0m: clk = 310000000 pc = 0x52ca74    
+[2m2024-08-27T18:25:35.750609Z[0m [32m INFO[0m [1mexecute[0m: clk = 320000000 pc = 0x52ca20    
+[2m2024-08-27T18:25:38.945854Z[0m [32m INFO[0m [1mexecute[0m: clk = 330000000 pc = 0x324dbc    
+[2m2024-08-27T18:25:42.142514Z[0m [32m INFO[0m [1mexecute[0m: clk = 340000000 pc = 0x52ca6c    
+[2m2024-08-27T18:25:45.339736Z[0m [32m INFO[0m [1mexecute[0m: clk = 350000000 pc = 0x324ec4    
+[2m2024-08-27T18:25:48.535822Z[0m [32m INFO[0m [1mexecute[0m: clk = 360000000 pc = 0x359c4c    
+[2m2024-08-27T18:25:51.729977Z[0m [32m INFO[0m [1mexecute[0m: clk = 370000000 pc = 0x320f98    
+[2m2024-08-27T18:25:54.923744Z[0m [32m INFO[0m [1mexecute[0m: clk = 380000000 pc = 0x3210ac    
+[2m2024-08-27T18:25:58.119504Z[0m [32m INFO[0m [1mexecute[0m: clk = 390000000 pc = 0x52ca1c    
+[2m2024-08-27T18:26:01.314048Z[0m [32m INFO[0m [1mexecute[0m: clk = 400000000 pc = 0x52caa4    
+[2m2024-08-27T18:26:01.609813Z[0m [32m INFO[0m [1mexecute[0m: │ ┌╴blob-verification    
+[2m2024-08-27T18:26:04.535541Z[0m [32m INFO[0m [1mexecute[0m: clk = 410000000 pc = 0x32ac64    
+[2m2024-08-27T18:26:08.211563Z[0m [32m INFO[0m [1mexecute[0m: clk = 420000000 pc = 0x32148c    
+[2m2024-08-27T18:26:11.813067Z[0m [32m INFO[0m [1mexecute[0m: clk = 430000000 pc = 0x32109c    
+[2m2024-08-27T18:26:15.414797Z[0m [32m INFO[0m [1mexecute[0m: clk = 440000000 pc = 0x32f6c4    
+[2m2024-08-27T18:26:18.873003Z[0m [32m INFO[0m [1mexecute[0m: clk = 450000000 pc = 0x321454    
+[2m2024-08-27T18:26:21.881501Z[0m [32m INFO[0m [1mexecute[0m: clk = 460000000 pc = 0x32c320    
+[2m2024-08-27T18:26:24.154627Z[0m [32m INFO[0m [1mexecute[0m: clk = 470000000 pc = 0x32bc5c    
+[2m2024-08-27T18:26:26.358684Z[0m [32m INFO[0m [1mexecute[0m: clk = 480000000 pc = 0x3474e0    
+[2m2024-08-27T18:26:28.646193Z[0m [32m INFO[0m [1mexecute[0m: clk = 490000000 pc = 0x52a55c    
+[2m2024-08-27T18:26:30.929070Z[0m [32m INFO[0m [1mexecute[0m: clk = 500000000 pc = 0x3477fc    
+[2m2024-08-27T18:26:33.217686Z[0m [32m INFO[0m [1mexecute[0m: clk = 510000000 pc = 0x32f34c    
+[2m2024-08-27T18:26:35.515547Z[0m [32m INFO[0m [1mexecute[0m: clk = 520000000 pc = 0x321080    
+[2m2024-08-27T18:26:37.623396Z[0m [32m INFO[0m [1mexecute[0m: clk = 530000000 pc = 0x321064    
+[2m2024-08-27T18:26:39.736017Z[0m [32m INFO[0m [1mexecute[0m: clk = 540000000 pc = 0x3210ac    
+[2m2024-08-27T18:26:41.852630Z[0m [32m INFO[0m [1mexecute[0m: clk = 550000000 pc = 0x321084    
+[2m2024-08-27T18:26:43.971779Z[0m [32m INFO[0m [1mexecute[0m: clk = 560000000 pc = 0x321074    
+[2m2024-08-27T18:26:46.081238Z[0m [32m INFO[0m [1mexecute[0m: clk = 570000000 pc = 0x3210ac    
+[2m2024-08-27T18:26:48.187469Z[0m [32m INFO[0m [1mexecute[0m: clk = 580000000 pc = 0x32123c    
+[2m2024-08-27T18:26:50.294488Z[0m [32m INFO[0m [1mexecute[0m: clk = 590000000 pc = 0x320f68    
+[2m2024-08-27T18:26:53.634937Z[0m [32m INFO[0m [1mexecute[0m: clk = 600000000 pc = 0x321084    
+[2m2024-08-27T18:26:53.954652Z[0m [32m INFO[0m [1mexecute[0m: │ └╴200,385,924 cycles    
+[2m2024-08-27T18:26:53.954775Z[0m [32m INFO[0m [1mexecute[0m: └╴529,363,517 cycles    
+[2m2024-08-27T18:26:53.955068Z[0m [32m INFO[0m [1mexecute[0m: ┌╴derivation-instantiation    
+[2m2024-08-27T18:26:54.406435Z[0m [32m INFO[0m [1mexecute[0m: └╴1,278,079 cycles    
+[2m2024-08-27T18:26:54.406982Z[0m [32m INFO[0m [1mexecute[0m: ┌╴execution-instantiation    
+[2m2024-08-27T18:26:54.408569Z[0m [32m INFO[0m [1mexecute[0m: └╴7,883 cycles    
+[2m2024-08-27T18:26:56.039104Z[0m [32m INFO[0m [1mexecute[0m: clk = 610000000 pc = 0x3210a8    
+[2m2024-08-27T18:26:58.252374Z[0m [32m INFO[0m [1mexecute[0m: clk = 620000000 pc = 0x321094    
+[2m2024-08-27T18:27:00.469194Z[0m [32m INFO[0m [1mexecute[0m: clk = 630000000 pc = 0x321240    
+[2m2024-08-27T18:27:02.681072Z[0m [32m INFO[0m [1mexecute[0m: clk = 640000000 pc = 0x3210ac    
+[2m2024-08-27T18:27:04.901308Z[0m [32m INFO[0m [1mexecute[0m: clk = 650000000 pc = 0x321294    
+[2m2024-08-27T18:27:07.117740Z[0m [32m INFO[0m [1mexecute[0m: clk = 660000000 pc = 0x3210ac    
+[2m2024-08-27T18:27:09.337051Z[0m [32m INFO[0m [1mexecute[0m: clk = 670000000 pc = 0x32109c    
+[2m2024-08-27T18:27:11.552649Z[0m [32m INFO[0m [1mexecute[0m: clk = 680000000 pc = 0x321340    
+[2m2024-08-27T18:27:13.769902Z[0m [32m INFO[0m [1mexecute[0m: clk = 690000000 pc = 0x52c700    
+[2m2024-08-27T18:27:15.986994Z[0m [32m INFO[0m [1mexecute[0m: clk = 700000000 pc = 0x321088    
+[2m2024-08-27T18:27:18.208588Z[0m [32m INFO[0m [1mexecute[0m: clk = 710000000 pc = 0x5237f0    
+[2m2024-08-27T18:27:20.438097Z[0m [32m INFO[0m [1mexecute[0m: clk = 720000000 pc = 0x3210a4    
+[2m2024-08-27T18:27:22.675381Z[0m [32m INFO[0m [1mexecute[0m: clk = 730000000 pc = 0x32109c    
+[2m2024-08-27T18:27:24.912439Z[0m [32m INFO[0m [1mexecute[0m: clk = 740000000 pc = 0x325b10    
+[2m2024-08-27T18:27:27.148898Z[0m [32m INFO[0m [1mexecute[0m: clk = 750000000 pc = 0x52ca68    
+[2m2024-08-27T18:27:29.387417Z[0m [32m INFO[0m [1mexecute[0m: clk = 760000000 pc = 0x52ca68    
+[2m2024-08-27T18:27:31.630159Z[0m [32m INFO[0m [1mexecute[0m: clk = 770000000 pc = 0x49af94    
+[2m2024-08-27T18:27:33.999198Z[0m [32m INFO[0m [1mexecute[0m: clk = 780000000 pc = 0x320f4c    
+[2m2024-08-27T18:27:37.576297Z[0m [32m INFO[0m [1mexecute[0m: clk = 790000000 pc = 0x4a91c8    
+[2m2024-08-27T18:27:39.864155Z[0m [32m INFO[0m [1mexecute[0m: clk = 800000000 pc = 0x4a91c8    
+[2m2024-08-27T18:27:42.209355Z[0m [32m INFO[0m [1mexecute[0m: clk = 810000000 pc = 0x4c50ec    
+[2m2024-08-27T18:27:44.484066Z[0m [32m INFO[0m [1mexecute[0m: clk = 820000000 pc = 0x4c5138    
+[2m2024-08-27T18:27:46.761660Z[0m [32m INFO[0m [1mexecute[0m: clk = 830000000 pc = 0x4c52fc    
+[2m2024-08-27T18:27:49.038766Z[0m [32m INFO[0m [1mexecute[0m: clk = 840000000 pc = 0x544e74    
+[2m2024-08-27T18:27:51.318611Z[0m [32m INFO[0m [1mexecute[0m: clk = 850000000 pc = 0x4c527c    
+[2m2024-08-27T18:27:53.593948Z[0m [32m INFO[0m [1mexecute[0m: clk = 860000000 pc = 0x4c65a0    
+[2m2024-08-27T18:27:55.887029Z[0m [32m INFO[0m [1mexecute[0m: clk = 870000000 pc = 0x3211c8    
+[2m2024-08-27T18:27:58.243960Z[0m [32m INFO[0m [1mexecute[0m: clk = 880000000 pc = 0x52ca14    
+[2m2024-08-27T18:28:00.577779Z[0m [32m INFO[0m [1mexecute[0m: clk = 890000000 pc = 0x52ca14    
+[2m2024-08-27T18:28:02.913960Z[0m [32m INFO[0m [1mexecute[0m: clk = 900000000 pc = 0x52ca28    
+[2m2024-08-27T18:28:05.256671Z[0m [32m INFO[0m [1mexecute[0m: clk = 910000000 pc = 0x321130    
+[2m2024-08-27T18:28:07.582883Z[0m [32m INFO[0m [1mexecute[0m: clk = 920000000 pc = 0x3211c0    
+[2m2024-08-27T18:28:09.912514Z[0m [32m INFO[0m [1mexecute[0m: clk = 930000000 pc = 0x52ca1c    
+[2m2024-08-27T18:28:12.241160Z[0m [32m INFO[0m [1mexecute[0m: clk = 940000000 pc = 0x52ca14    
+[2m2024-08-27T18:28:14.561153Z[0m [32m INFO[0m [1mexecute[0m: clk = 950000000 pc = 0x321030    
+[2m2024-08-27T18:28:16.868026Z[0m [32m INFO[0m [1mexecute[0m: clk = 960000000 pc = 0x544f58    
+[2m2024-08-27T18:28:17.532238Z[0m [32m INFO[0m [1mexecute[0m: ┌╴block-execution    
+[2m2024-08-27T18:28:19.155544Z[0m [32m INFO[0m [1mexecute[0m: clk = 970000000 pc = 0x523dd8    
+[2m2024-08-27T18:28:21.450164Z[0m [32m INFO[0m [1mexecute[0m: clk = 980000000 pc = 0x5240d4    
+[2m2024-08-27T18:28:23.733239Z[0m [32m INFO[0m [1mexecute[0m: clk = 990000000 pc = 0x52497c    
+[2m2024-08-27T18:28:26.021886Z[0m [32m INFO[0m [1mexecute[0m: clk = 1000000000 pc = 0x5244c0    
+[2m2024-08-27T18:28:28.307943Z[0m [32m INFO[0m [1mexecute[0m: clk = 1010000000 pc = 0x43b1fc    
+[2m2024-08-27T18:28:30.590073Z[0m [32m INFO[0m [1mexecute[0m: clk = 1020000000 pc = 0x320f60    
+[2m2024-08-27T18:28:32.873692Z[0m [32m INFO[0m [1mexecute[0m: clk = 1030000000 pc = 0x5249ec    
+[2m2024-08-27T18:28:35.157844Z[0m [32m INFO[0m [1mexecute[0m: clk = 1040000000 pc = 0x2edd44    
+[2m2024-08-27T18:28:37.443121Z[0m [32m INFO[0m [1mexecute[0m: clk = 1050000000 pc = 0x524024    
+[2m2024-08-27T18:28:39.726292Z[0m [32m INFO[0m [1mexecute[0m: clk = 1060000000 pc = 0x321090    
+[2m2024-08-27T18:28:42.008170Z[0m [32m INFO[0m [1mexecute[0m: clk = 1070000000 pc = 0x321090    
+[2m2024-08-27T18:28:44.289997Z[0m [32m INFO[0m [1mexecute[0m: clk = 1080000000 pc = 0x5238a0    
+[2m2024-08-27T18:28:46.571902Z[0m [32m INFO[0m [1mexecute[0m: clk = 1090000000 pc = 0x544f64    
+[2m2024-08-27T18:28:48.848342Z[0m [32m INFO[0m [1mexecute[0m: clk = 1100000000 pc = 0x320f90    
+[2m2024-08-27T18:28:51.132929Z[0m [32m INFO[0m [1mexecute[0m: clk = 1110000000 pc = 0x35c14c    
+[2m2024-08-27T18:28:52.941456Z[0m [32m INFO[0m [1mexecute[0m: └╴154,954,480 cycles    
+[2m2024-08-27T18:28:53.013187Z[0m [32m INFO[0m [1mexecute[0m: ┌╴block-execution    
+[2m2024-08-27T18:28:53.434612Z[0m [32m INFO[0m [1mexecute[0m: clk = 1120000000 pc = 0x51ff18    
+[2m2024-08-27T18:28:55.716481Z[0m [32m INFO[0m [1mexecute[0m: clk = 1130000000 pc = 0x321068    
+[2m2024-08-27T18:28:57.999649Z[0m [32m INFO[0m [1mexecute[0m: clk = 1140000000 pc = 0x2fce24    
+[2m2024-08-27T18:29:00.281742Z[0m [32m INFO[0m [1mexecute[0m: clk = 1150000000 pc = 0x544f50    
+[2m2024-08-27T18:29:02.957275Z[0m [32m INFO[0m [1mexecute[0m: clk = 1160000000 pc = 0x46bb64    
+[2m2024-08-27T18:29:05.652304Z[0m [32m INFO[0m [1mexecute[0m: clk = 1170000000 pc = 0x522898    
+[2m2024-08-27T18:29:08.214722Z[0m [32m INFO[0m [1mexecute[0m: clk = 1180000000 pc = 0x523c04    
+[2m2024-08-27T18:29:10.776763Z[0m [32m INFO[0m [1mexecute[0m: clk = 1190000000 pc = 0x5240fc    
+[2m2024-08-27T18:29:13.343097Z[0m [32m INFO[0m [1mexecute[0m: clk = 1200000000 pc = 0x51fe3c    
+[2m2024-08-27T18:29:15.907303Z[0m [32m INFO[0m [1mexecute[0m: clk = 1210000000 pc = 0x524e88    
+[2m2024-08-27T18:29:18.471404Z[0m [32m INFO[0m [1mexecute[0m: clk = 1220000000 pc = 0x3210d4    
+[2m2024-08-27T18:29:21.034189Z[0m [32m INFO[0m [1mexecute[0m: clk = 1230000000 pc = 0x2edd40    
+[2m2024-08-27T18:29:23.598647Z[0m [32m INFO[0m [1mexecute[0m: clk = 1240000000 pc = 0x43b1f0    
+[2m2024-08-27T18:29:26.168373Z[0m [32m INFO[0m [1mexecute[0m: clk = 1250000000 pc = 0x264f9c    
+[2m2024-08-27T18:29:28.630236Z[0m [32m INFO[0m [1mexecute[0m: └╴141,369,711 cycles    
+[2m2024-08-27T18:29:28.694298Z[0m [32m INFO[0m [1mexecute[0m: ┌╴block-execution    
+[2m2024-08-27T18:29:28.751174Z[0m [32m INFO[0m [1mexecute[0m: clk = 1260000000 pc = 0x325750    
+[2m2024-08-27T18:29:31.316559Z[0m [32m INFO[0m [1mexecute[0m: clk = 1270000000 pc = 0x524568    
+[2m2024-08-27T18:29:33.892811Z[0m [32m INFO[0m [1mexecute[0m: clk = 1280000000 pc = 0x321244    
+[2m2024-08-27T18:29:36.489652Z[0m [32m INFO[0m [1mexecute[0m: clk = 1290000000 pc = 0x303050    

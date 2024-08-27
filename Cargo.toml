@@ -83,7 +83,7 @@ sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "experime
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experimental" }
 
-kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs" }
+kzg-rs = { version = "0.2.1" }
 
 
 # sp1
