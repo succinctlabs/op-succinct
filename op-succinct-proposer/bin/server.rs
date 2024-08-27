@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use base64::{engine::general_purpose, Engine as _};
-use client_utils::{BootInfoWithHashedConfig, BOOT_INFO_SIZE};
+use client_utils::boot::BootInfoStruct;
 use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
 use log::info;
 use op_succinct_proposer::run_native_host;
@@ -109,7 +109,7 @@ async fn request_agg_proof(
         .map(|sp| bincode::deserialize(sp).unwrap())
         .collect();
 
-    let boot_infos: Vec<BootInfoWithHashedConfig> = proofs_with_pv
+    let boot_infos: Vec<BootInfoStruct> = proofs_with_pv
         .iter_mut()
         .map(|proof| proof.public_values.read())
         .collect();

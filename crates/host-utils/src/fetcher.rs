@@ -8,7 +8,7 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-use client_utils::BootInfoWithHashedConfig;
+use client_utils::boot::BootInfoStruct;
 use kona_host::HostCli;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -78,14 +78,14 @@ impl SP1KonaDataFetcher {
     /// Get the earliest L1 header in a batch of boot infos.
     pub async fn get_earliest_l1_head_in_batch(
         &self,
-        boot_infos: &Vec<BootInfoWithHashedConfig>,
+        boot_infos: &Vec<BootInfoStruct>,
     ) -> Result<Header> {
         let mut earliest_block_num: u64 = u64::MAX;
         let mut earliest_l1_header: Option<Header> = None;
 
         for boot_info in boot_infos {
             let l1_block_header = self
-                .get_header_by_hash(ChainMode::L1, boot_info.l1_head)
+                .get_header_by_hash(ChainMode::L1, boot_info.l1Head)
                 .await?;
             if l1_block_header.number < earliest_block_num {
                 earliest_block_num = l1_block_header.number;
@@ -124,7 +124,7 @@ impl SP1KonaDataFetcher {
     /// headers corresponding to the boot infos and the latest L1 head.
     pub async fn get_header_preimages(
         &self,
-        boot_infos: &Vec<BootInfoWithHashedConfig>,
+        boot_infos: &Vec<BootInfoStruct>,
         checkpoint_block_hash: B256,
     ) -> Result<Vec<Header>> {
         // Get the earliest L1 Head from the boot_infos.

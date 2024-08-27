@@ -3,7 +3,7 @@ pub mod helpers;
 pub mod precompile;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use client_utils::{types::AggregationInputs, BootInfoWithBytesConfig, BootInfoWithHashedConfig};
+use client_utils::{boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig};
 use kona_host::HostCli;
 use sp1_sdk::{SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
@@ -77,7 +77,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
 /// Get the stdin for the aggregation proof.
 pub fn get_agg_proof_stdin(
     proofs: Vec<SP1Proof>,
-    boot_infos: Vec<BootInfoWithHashedConfig>,
+    boot_infos: Vec<BootInfoStruct>,
     headers: Vec<Header>,
     vkey: &sp1_sdk::SP1VerifyingKey,
     latest_checkpoint_head: B256,

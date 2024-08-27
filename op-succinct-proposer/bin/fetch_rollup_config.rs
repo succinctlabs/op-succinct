@@ -18,13 +18,13 @@ fn fetch_rollup_config(rollup_rpc: Option<String>, l2_rpc: Option<String>) -> Re
 
     // Fetch rollup config
     let rollup_config = Command::new("cast")
-        .args(&["rpc", "--rpc-url", &rollup_rpc, "optimism_rollupConfig"])
+        .args(["rpc", "--rpc-url", &rollup_rpc, "optimism_rollupConfig"])
         .output()?;
     fs::write("rollup-config.json", &rollup_config.stdout)?;
 
     // Fetch chain config
     let chain_config = Command::new("cast")
-        .args(&["rpc", "--rpc-url", &l2_rpc, "debug_chainConfig"])
+        .args(["rpc", "--rpc-url", &l2_rpc, "debug_chainConfig"])
         .output()?;
     fs::write("chain-config.json", &chain_config.stdout)?;
 

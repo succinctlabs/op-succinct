@@ -34,7 +34,6 @@ rkyv.workspace = true
 sha2.workspace = true
 log.workspace = true
 itertools.workspace = true
-tiny-keccak.workspace = true
 
 # kzg
 kzg-rs.workspace = true

@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::BootInfoWithHashedConfig;
+use client_utils::boot::BootInfoStruct;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_agg_proof_stdin,
@@ -33,7 +33,7 @@ struct Args {
 fn load_aggregation_proof_data(
     proof_names: Vec<String>,
     l2_chain_id: u64,
-) -> (Vec<SP1Proof>, Vec<BootInfoWithHashedConfig>) {
+) -> (Vec<SP1Proof>, Vec<BootInfoStruct>) {
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
     let proof_directory = format!("{}/data/{}/proofs", workspace_root, l2_chain_id);
@@ -50,8 +50,8 @@ fn load_aggregation_proof_data(
             SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
         proofs.push(deserialized_proof.proof);
 
-        // The only public values are the BootInfoWithHashedConfig.
-        let boot_info: BootInfoWithHashedConfig = deserialized_proof.public_values.read();
+        // The only public values are the BootInfoStruct.
+        let boot_info: BootInfoStruct = deserialized_proof.public_values.read();
         boot_infos.push(boot_info);
     }
 

@@ -29,7 +29,7 @@ cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
 
-        use client_utils::{InMemoryOracle, BootInfoWithBytesConfig, BootInfoWithHashedConfig};
+        use client_utils::{InMemoryOracle, BootInfoWithBytesConfig, boot::BootInfoStruct};
         use kona_primitives::RollupConfig;
         use alloc::vec::Vec;
         use serde_json;
@@ -51,8 +51,8 @@ fn main() {
             if #[cfg(target_os = "zkvm")] {
                 println!("cycle-tracker-start: boot-load");
                 let boot_info_with_bytes_config = sp1_zkvm::io::read::<BootInfoWithBytesConfig>();
-                let boot_info_with_hashed_config = BootInfoWithHashedConfig::new(&boot_info_with_bytes_config);
-                sp1_zkvm::io::commit::<BootInfoWithHashedConfig>(&boot_info_with_hashed_config);
+                let boot_info_struct = BootInfoStruct::from(boot_info_with_bytes_config.clone());
+                sp1_zkvm::io::commit::<BootInfoStruct>(&boot_info_struct);
 
                 let rollup_config: RollupConfig = serde_json::from_slice(&boot_info_with_bytes_config.rollup_config_bytes).expect("failed to parse rollup config");
                 let boot: Arc<BootInfo> = Arc::new(BootInfo {

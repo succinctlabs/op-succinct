@@ -6,7 +6,8 @@ sp1_zkvm::entrypoint!(main);
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use client_utils::{types::AggregationInputs, BootInfoWithHashedConfig};
+use alloy_sol_types::SolValue;
+use client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
@@ -25,7 +26,7 @@ fn verify_l1_heads(agg_inputs: &AggregationInputs, headers: &[Header]) {
     let mut l1_heads_map: HashMap<B256, bool> = agg_inputs
         .boot_infos
         .iter()
-        .map(|boot_info| (boot_info.l1_head, false))
+        .map(|boot_info| (boot_info.l1Head, false))
         .collect();
 
     // Iterate through all headers in the chain.
@@ -67,18 +68,15 @@ pub fn main() {
         let (prev_boot_info, boot_info) = (&pair[0], &pair[1]);
 
         // The claimed block of the previous boot info must be the L2 output root of the current boot.
-        assert_eq!(prev_boot_info.l2_claim, boot_info.l2_output_root);
+        assert_eq!(prev_boot_info.l2PostRoot, boot_info.l2PreRoot);
 
         // The chain ID must be the same for all the boot infos, to ensure they're
         // from the same chain and span batch range.
-        assert_eq!(prev_boot_info.chain_id, boot_info.chain_id);
+        assert_eq!(prev_boot_info.chainId, boot_info.chainId);
 
         // The rollup config must be the same for all the boot infos, to ensure they're
         // from the same chain and span batch range.
-        assert_eq!(
-            prev_boot_info.rollup_config_hash,
-            boot_info.rollup_config_hash
-        );
+        assert_eq!(prev_boot_info.rollupConfigHash, boot_info.rollupConfigHash);
     });
 
     // Verify each multi-block program proof.
@@ -99,14 +97,14 @@ pub fn main() {
     let first_boot_info = &agg_inputs.boot_infos[0];
     let last_boot_info = &agg_inputs.boot_infos[agg_inputs.boot_infos.len() - 1];
     // Consolidate the boot info into a single BootInfo struct that represents the range proven.
-    let final_boot_info = BootInfoWithHashedConfig {
+    let final_boot_info = BootInfoStruct {
         // The first boot info's L2 output root is the L2 output root of the range.
-        l2_output_root: first_boot_info.l2_output_root,
-        l2_claim_block: last_boot_info.l2_claim_block,
-        l2_claim: last_boot_info.l2_claim,
-        l1_head: agg_inputs.latest_l1_checkpoint_head,
-        chain_id: last_boot_info.chain_id,
-        rollup_config_hash: last_boot_info.rollup_config_hash,
+        l2PreRoot: first_boot_info.l2PreRoot,
+        l2BlockNumber: last_boot_info.l2BlockNumber,
+        l2PostRoot: last_boot_info.l2PostRoot,
+        l1Head: agg_inputs.latest_l1_checkpoint_head,
+        chainId: last_boot_info.chainId,
+        rollupConfigHash: last_boot_info.rollupConfigHash,
     };
 
     // Commit to the aggregated boot info.

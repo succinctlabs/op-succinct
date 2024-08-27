@@ -1,7 +1,9 @@
 use alloy::hex;
+use alloy::sol_types::SolValue;
 use anyhow::Result;
 use clap::Parser;
-use client_utils::{BootInfoWithHashedConfig, BOOT_INFO_SIZE};
+use client_utils::boot::BootInfoStruct;
+use client_utils::BOOT_INFO_SIZE;
 use dotenv::dotenv;
 use sp1_sdk::{NetworkProver, SP1ProofWithPublicValues};
 use std::fs;
@@ -47,7 +49,7 @@ async fn main() -> Result<()> {
     if args.agg_proof {
         let mut raw_boot_info = [0u8; BOOT_INFO_SIZE];
         proof.public_values.read_slice(&mut raw_boot_info);
-        let boot_info = BootInfoWithHashedConfig::abi_decode(&raw_boot_info).unwrap();
+        let boot_info = BootInfoStruct::abi_decode(&raw_boot_info, true).unwrap();
 
         let proof_bytes = proof.bytes();
         println!("Proof bytes: {:?}", hex::encode(proof_bytes));
