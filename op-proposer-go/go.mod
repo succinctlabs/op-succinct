@@ -1,6 +1,6 @@
 module github.com/succinctlabs/op-succinct-go
 
-go 1.22.2
+go 1.22
 
 require (
 	github.com/ethereum-optimism/optimism v1.9.0
