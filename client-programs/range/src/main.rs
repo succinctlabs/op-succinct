@@ -51,6 +51,8 @@ fn main() {
             if #[cfg(target_os = "zkvm")] {
                 println!("cycle-tracker-start: boot-load");
                 let boot_info_with_bytes_config = sp1_zkvm::io::read::<BootInfoWithBytesConfig>();
+
+                // Converts the rollup config bytes into a rollupConfigHash before committing the BootInfoStruct.
                 let boot_info_struct = BootInfoStruct::from(boot_info_with_bytes_config.clone());
                 sp1_zkvm::io::commit::<BootInfoStruct>(&boot_info_struct);
 
