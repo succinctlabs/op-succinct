@@ -12,7 +12,7 @@ import (
 )
 
 // This test fetches span batches for a recent block range and confirms that the number of span batches is non-zero.
-// This is a sanity check to ensure that the span batch fetching logic is working correctly.
+// Sanity check to ensure that the span batch fetching logic is working correctly.
 func TestHandleSpanBatchRanges(t *testing.T) {
 
 	// Load environment variables
