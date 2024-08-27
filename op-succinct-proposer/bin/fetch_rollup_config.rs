@@ -2,54 +2,69 @@ use alloy_primitives::B256;
 use anyhow::{bail, Context, Result};
 use client_utils::boot::hash_rollup_config;
 use serde_json::{json, Value};
+use sp1_sdk::install::block_on;
 use std::env;
 use std::fs;
-use std::process::Command;
 
 /// Fetch the rollup config from the rollup node and save it to a file.
-fn fetch_rollup_config(rollup_rpc: Option<String>, l2_rpc: Option<String>) -> Result<()> {
-    // Determine RPC URLs
-    let rollup_rpc = rollup_rpc
-        .or_else(|| env::var("L2_NODE_RPC").ok())
-        .context("Must provide rollup rpc as argument or env variable (L2_NODE_RPC)")?;
+fn fetch_rollup_config() -> Result<()> {
+    let (rollup_rpc, l2_rpc) = get_rpc_urls();
 
-    let l2_rpc = l2_rpc
-        .or_else(|| env::var("L2_RPC").ok())
-        .context("Must provide L2 rpc as argument or env variable (L2_RPC)")?;
+    let rollup_config = fetch_rpc_data(&rollup_rpc, "optimism_rollupConfig")?;
+    let chain_config = fetch_rpc_data(&l2_rpc, "debug_chainConfig")?;
 
-    // TODO: Modify these to not use cast and instead use a RPC client.
-    // Fetch rollup config.
-    let rollup_config = Command::new("cast")
-        .args(["rpc", "--rpc-url", &rollup_rpc, "optimism_rollupConfig"])
-        .output()?;
-    fs::write("rollup-config.json", &rollup_config.stdout)?;
+    save_config_to_file("rollup-config.json", &rollup_config)?;
+    save_config_to_file("chain-config.json", &chain_config)?;
 
-    // Fetch chain config.
-    let chain_config = Command::new("cast")
-        .args(["rpc", "--rpc-url", &l2_rpc, "debug_chainConfig"])
-        .output()?;
-    fs::write("chain-config.json", &chain_config.stdout)?;
+    let rollup_json: Value = serde_json::from_str(&rollup_config)?;
+    let chain_json: Value = serde_json::from_str(&chain_config)?;
 
-    // Read and parse JSON files
-    let rollup_json: Value = serde_json::from_str(&fs::read_to_string("rollup-config.json")?)?;
-    let chain_json: Value = serde_json::from_str(&fs::read_to_string("chain-config.json")?)?;
-
-    // Process and merge configs
     let merged_config = merge_configs(&rollup_json, &chain_json)?;
-
-    // Write merged config to file
     let merged_config_str = serde_json::to_string_pretty(&merged_config)?;
-    fs::write("rollup-config.json", &merged_config_str)?;
 
-    // Clean up
+    save_config_to_file("rollup-config.json", &merged_config_str)?;
     fs::remove_file("chain-config.json")?;
 
     println!("Updated rollup config saved to ./rollup-config.json");
 
-    // Generate hash
     let hash: B256 = hash_rollup_config(&merged_config_str.as_bytes().to_vec());
-
     update_zkconfig_rollup_config_hash(hash)
+}
+
+/// Get the rollup RPC URLs.
+fn get_rpc_urls() -> (String, String) {
+    let rollup_rpc = env::var("L2_NODE_RPC")
+        .expect("Must provide rollup rpc as argument or env variable (L2_NODE_RPC)");
+    let l2_rpc =
+        env::var("L2_RPC").expect("Must provide L2 rpc as argument or env variable (L2_RPC)");
+
+    (rollup_rpc, l2_rpc)
+}
+
+/// Fetch data from the RPC.
+fn fetch_rpc_data(rpc_url: &str, method: &str) -> Result<String> {
+    let client = reqwest::Client::new();
+    let response = block_on(async {
+        client
+            .post(rpc_url)
+            .json(&json!({
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": [],
+                "id": 1
+            }))
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await
+    })?;
+
+    Ok(response["result"].to_string())
+}
+
+fn save_config_to_file(filename: &str, content: &str) -> Result<()> {
+    fs::write(filename, content)?;
+    Ok(())
 }
 
 /// Update the rollup config hash in the zkconfig.json file.
@@ -71,6 +86,7 @@ fn update_zkconfig_rollup_config_hash(hash: B256) -> Result<()> {
     Ok(())
 }
 
+/// Merge the rollup and chain configs.
 fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
     let elasticity = chain["optimism"]["eip1559Elasticity"]
         .as_u64()
@@ -81,7 +97,16 @@ fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
 
     let mut merged = rollup.clone();
 
-    // Merge time fields
+    merge_time_fields(&mut merged, chain);
+    set_base_fee_params(&mut merged, elasticity, denominator);
+    set_canyon_base_fee_params(&mut merged, chain, elasticity);
+    rename_batcher_addr(&mut merged)?;
+
+    Ok(merged)
+}
+
+/// Merge the time fields from the chain config into the rollup config.
+fn merge_time_fields(merged: &mut Value, chain: &Value) {
     for field in &[
         "regolithTime",
         "canyonTime",
@@ -95,22 +120,28 @@ fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
             merged[field] = json!(value);
         }
     }
+}
 
-    // Set base_fee_params
+/// Set the base fee params in the rollup config.
+fn set_base_fee_params(merged: &mut Value, elasticity: u64, denominator: u64) {
     merged["base_fee_params"] = json!({
         "elasticity_multiplier": elasticity,
         "max_change_denominator": denominator
     });
+}
 
-    // Set canyon_base_fee_params if present
+/// Set the canyon base fee params in the rollup config.
+fn set_canyon_base_fee_params(merged: &mut Value, chain: &Value, elasticity: u64) {
     if let Some(canyon_denominator) = chain["optimism"]["eip1559DenominatorCanyon"].as_u64() {
         merged["canyon_base_fee_params"] = json!({
             "elasticity_multiplier": elasticity,
             "max_change_denominator": canyon_denominator
         });
     }
+}
 
-    // Rename batcherAddr to batcherAddress
+/// Rename the batcher address in the rollup config.
+fn rename_batcher_addr(merged: &mut Value) -> Result<()> {
     if let Some(system_config) = merged["genesis"]["system_config"].as_object_mut() {
         if let Some(batcher_addr) = system_config.remove("batcherAddr") {
             system_config.insert("batcherAddress".to_string(), batcher_addr);
@@ -120,15 +151,10 @@ fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
     } else {
         bail!("Invalid structure in rollup config: missing system_config");
     }
-
-    Ok(merged)
+    Ok(())
 }
 
 fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    let args: Vec<String> = env::args().collect();
-    let rollup_rpc = args.get(1).cloned();
-    let l2_rpc = args.get(2).cloned();
-
-    fetch_rollup_config(rollup_rpc, l2_rpc)
+    fetch_rollup_config()
 }
