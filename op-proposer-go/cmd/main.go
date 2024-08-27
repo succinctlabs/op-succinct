@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/joho/godotenv"
 	"github.com/succinctlabs/op-succinct-go/server/utils"
 	"github.com/urfave/cli/v2"
@@ -62,20 +59,11 @@ func main() {
 			},
 		},
 		Action: func(cliCtx *cli.Context) error {
-			// Get the chain id from the L2 node URL
-			client, err := ethclient.Dial(cliCtx.String("l2"))
+			rollupCfg, err := utils.GetRollupConfigFromL2Rpc(cliCtx.String("l2"))
 			if err != nil {
 				log.Fatal(err)
 			}
-			L2ChainID, err := client.ChainID(context.Background())
-			if err != nil {
-				log.Fatal(err)
-			}
-			dataDir := fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", L2ChainID.Uint64())
-			rollupCfg, err := rollup.LoadOPStackRollupConfig(L2ChainID.Uint64())
-			if err != nil {
-				log.Fatal(err)
-			}
+
 			config := utils.BatchDecoderConfig{
 				L2GenesisTime:     rollupCfg.Genesis.L2Time,
 				L2GenesisBlock:    rollupCfg.Genesis.L2.Number,
@@ -83,12 +71,12 @@ func main() {
 				BatchInboxAddress: rollupCfg.BatchInboxAddress,
 				L2StartBlock:      cliCtx.Uint64("start"),
 				L2EndBlock:        cliCtx.Uint64("end"),
-				L2ChainID:         L2ChainID,
+				L2ChainID:         rollupCfg.L2ChainID,
 				L2Node:            cliCtx.String("l2.node"),
 				L1RPC:             cliCtx.String("l1"),
 				L1Beacon:          cliCtx.String("l1.beacon"),
 				BatchSender:       rollupCfg.Genesis.SystemConfig.BatcherAddr,
-				DataDir:           dataDir,
+				DataDir:           fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", rollupCfg.L2ChainID),
 			}
 
 			ranges, err := utils.GetAllSpanBatchesInBlockRange(config)
