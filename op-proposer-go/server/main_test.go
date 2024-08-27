@@ -58,7 +58,6 @@ func TestHandleSpanBatchRanges(t *testing.T) {
 		BatchSender:  rollupCfg.Genesis.SystemConfig.BatcherAddr,
 		L2StartBlock: startBlock,
 		L2EndBlock:   endBlock,
-		// TODO: Make directory specific to L2 chain. This avoids race conditions when multiple chains are running on the same machine.
 		DataDir: fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", rollupCfg.L2ChainID),
 	}
 

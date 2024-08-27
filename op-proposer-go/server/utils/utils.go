@@ -63,9 +63,6 @@ func GetRollupConfigFromL2Rpc(l2Rpc string) (*rollup.Config, error) {
 }
 
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
-// TODO: In more recent blocks, the span batch ranges are only 20 blocks. The "span batches" returned
-// don't refelct the number of batches posted. This indicates that a configuration change was made for the size
-// of the span batch posted. It would be more efficient for us to be able to fetch a larger span batch range.
 func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange, error) {
 	rollupCfg, err := setupBatchDecoderConfig(&config)
 	if err != nil {
@@ -209,7 +206,7 @@ func getL1Origins(rollupClient *sources.RollupClient, startBlock, endBlock uint6
 }
 
 // Copied from op-proposer-go/op-node/cmd/batch_decoder/utils/reassemble.go, because it wasn't exported.
-// TODO: Ask optimism team to export this function.
+// TODO: Ask Optimism team to export this function.
 func processFrames(cfg reassemble.Config, rollupCfg *rollup.Config, id derive.ChannelID, frames []reassemble.FrameWithMetadata) reassemble.ChannelWithMetadata {
 	spec := rollup.NewChainSpec(rollupCfg)
 	ch := derive.NewChannel(id, eth.L1BlockRef{Number: frames[0].InclusionBlock})

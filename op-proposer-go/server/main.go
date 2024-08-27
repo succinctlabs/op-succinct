@@ -54,7 +54,6 @@ func handleSpanBatchRanges(w http.ResponseWriter, r *http.Request) {
 		BatchSender:  common.HexToAddress(req.BatchSender),
 		L2StartBlock: req.StartBlock,
 		L2EndBlock:   req.EndBlock,
-		// TODO: Make directory specific to L2 chain. This avoids race conditions when multiple chains are running on the same machine.
 		DataDir: fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", req.L2ChainID),
 	}
 
