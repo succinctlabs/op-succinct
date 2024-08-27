@@ -22,3 +22,4 @@ tokio.workspace = true
 futures.workspace = true
 num-format.workspace = true
 serde.workspace = true
+sp1-build.workspace = true

@@ -68,6 +68,8 @@ struct SpanBatchRange {
     end: u64,
 }
 
+/// Get the boundaries of the span batches from the Go server from the optimism monorepo. This endpoint
+/// downloads the data posted to the Optimism L1 Batch Inbox contract.
 async fn get_span_batch_ranges_from_server(
     data_fetcher: &SP1KonaDataFetcher,
     start: u64,
@@ -86,9 +88,9 @@ async fn get_span_batch_ranges_from_server(
         batchSender: batch_sender.to_string(),
     };
 
+    // Get the span batch server URL from the environment.
     let span_batch_server_url =
         env::var("SPAN_BATCH_SERVER_URL").unwrap_or("http://localhost:8080".to_string());
-
     let query_url = format!("{}/span-batch-ranges", span_batch_server_url);
 
     let response: SpanBatchResponse = client
@@ -99,6 +101,7 @@ async fn get_span_batch_ranges_from_server(
         .json()
         .await?;
 
+    // Return the ranges.
     Ok(response.ranges)
 }
 
@@ -136,7 +139,6 @@ async fn main() -> Result<()> {
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
     // Fetch the span batch ranges according to args.start and args.end
-    // TODO: If the ranges are greater than 20 blocks, we will have to split them in a custom way.
     let span_batch_ranges: Vec<SpanBatchRange> = get_span_batch_ranges_from_server(
         &data_fetcher,
         args.start,

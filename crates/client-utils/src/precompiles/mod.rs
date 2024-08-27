@@ -3,13 +3,15 @@
 use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
+use revm::db::states::state::State;
+use revm::handler::Handler;
 use revm::{
     handler::register::EvmHandler,
     precompile::{
         bn128, secp256k1, Precompile, PrecompileResult, PrecompileSpecId, PrecompileWithAddress,
     },
     primitives::Bytes,
-    ContextPrecompiles, State,
+    ContextPrecompiles,
 };
 
 pub const PRECOMPILE_HOOK_FD: u32 = 115;

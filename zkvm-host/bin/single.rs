@@ -46,10 +46,6 @@ async fn main() -> Result<()> {
 
     // By default, re-run the native execution unless the user passes `--use-cache`.
     if !args.use_cache {
-        println!(
-            "Overwriting existing data directory. {}",
-            data_dir.display()
-        );
         // Overwrite existing data directory.
         fs::create_dir_all(&data_dir).unwrap();
 

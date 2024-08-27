@@ -105,7 +105,7 @@ async fn main() -> Result<()> {
             l2_chain_id, args.start, args.end
         );
 
-        // Make the directory if it doesn't exist.
+        // Create the report directory if it doesn't exist.
         let report_dir = format!("execution-reports/multi/{}", l2_chain_id);
         if !std::path::Path::new(&report_dir).exists() {
             fs::create_dir_all(&report_dir).unwrap();
@@ -120,6 +120,7 @@ async fn main() -> Result<()> {
         )
         .await;
         println!("Execution Stats: \n{:?}", stats);
+
         // Write to CSV.
         let mut csv_writer = csv::Writer::from_path(report_path)?;
         csv_writer.serialize(&stats)?;

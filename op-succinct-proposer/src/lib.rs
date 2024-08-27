@@ -55,14 +55,15 @@ pub async fn run_native_host(
     let target_dir = metadata.target_directory.join("release");
     let args = convert_host_cli_to_args(host_cli);
 
+    // Run the native host runner.
     let child = tokio::process::Command::new(target_dir.join("native_host_runner"))
         .args(&args)
         .env("RUST_LOG", "info")
         .spawn()?;
-
     let child = Arc::new(Mutex::new(child));
     let child_clone = Arc::clone(&child);
 
+    // Time out the native host runner after the given timeout.
     let result = tokio::select! {
         status = wait_for_child(child_clone) => status,
         _ = tokio::time::sleep(timeout) => {

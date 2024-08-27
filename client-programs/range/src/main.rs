@@ -37,6 +37,7 @@ cfg_if! {
         use alloc::vec::Vec;
     } else {
         use kona_client::CachingOracle;
+        use client_utils::pipes::{ORACLE_READER, HINT_WRITER};
     }
 }
 
@@ -72,7 +73,7 @@ fn main() {
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
             } else {
-                let oracle = Arc::new(CachingOracle::new(1024));
+                let oracle = Arc::new(CachingOracle::new(1024, ORACLE_READER, HINT_WRITER));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
 
                 // let precompile_overrides = NoPrecompileOverride;
@@ -83,7 +84,7 @@ fn main() {
         let precompile_overrides = NoPrecompileOverride;
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone()); 
+        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
 
         ////////////////////////////////////////////////////////////////
@@ -113,7 +114,7 @@ fn main() {
             .with_fetcher(l2_provider.clone())
             .with_hinter(l2_provider.clone())
             .with_precompile_overrides(precompile_overrides)
-            .build() 
+            .build()
             .unwrap();
         println!("cycle-tracker-end: execution-instantiation");
 
