@@ -77,7 +77,6 @@ alloy-sol-types = { version = "0.7.6" }
 op-alloy-consensus = { version = "0.1.4", default-features = false }
 
 # sp1
-# TODO: Change to stable tag.
 sp1-lib = { version = "1.2.0-rc1", features = ["verify"] }
 sp1-zkvm = { version = "1.2.0-rc1", features = ["verify"] }
 sp1-sdk = { version = "1.2.0-rc1" }

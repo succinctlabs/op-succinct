@@ -75,11 +75,13 @@ pub async fn run_native_host(
     result
 }
 
+/// Wait for the child process to exit.
 async fn wait_for_child(child: Arc<Mutex<Child>>) -> Result<std::process::ExitStatus> {
     let mut child = child.lock().await;
     child.wait().await.map_err(Into::into)
 }
 
+/// Kill the child process.
 async fn kill_child(child: &Arc<Mutex<Child>>) {
     let mut child = child.lock().await;
     if let Err(e) = child.kill().await {

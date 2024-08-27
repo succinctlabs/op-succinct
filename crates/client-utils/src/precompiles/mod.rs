@@ -37,16 +37,16 @@ macro_rules! create_annotated_precompile {
     };
 }
 
-// pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
-//     create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add");
-// pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
-//     create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul");
-// pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
-//     create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
-// pub(crate) const ANNOTATED_KZG_EVAL: PrecompileWithAddress = create_annotated_precompile!(
-//     revm::precompile::kzg_point_evaluation::POINT_EVALUATION,
-//     "kzg-eval"
-// );
+pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
+    create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add");
+pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
+    create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul");
+pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
+    create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
+pub(crate) const ANNOTATED_KZG_EVAL: PrecompileWithAddress = create_annotated_precompile!(
+    revm::precompile::kzg_point_evaluation::POINT_EVALUATION,
+    "kzg-eval"
+);
 pub(crate) const ANNOTATED_EC_RECOVER: PrecompileWithAddress =
     create_annotated_precompile!(secp256k1::ECRECOVER, "ec-recover");
 
@@ -85,14 +85,14 @@ where
                 ContextPrecompiles::new(PrecompileSpecId::from_spec_id(spec_id)).clone();
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
-            // let override_precompiles = [
-            //     // ANNOTATED_BN_ADD,
-            //     // ANNOTATED_BN_MUL,
-            //     // ANNOTATED_BN_PAIR,
-            //     // ANNOTATED_KZG_EVAL,
-            //     // ANNOTATED_EC_RECOVER,
-            // ];
-            // ctx_precompiles.extend(override_precompiles);
+            let override_precompiles = [
+                ANNOTATED_BN_ADD,
+                ANNOTATED_BN_MUL,
+                ANNOTATED_BN_PAIR,
+                ANNOTATED_KZG_EVAL,
+                ANNOTATED_EC_RECOVER,
+            ];
+            ctx_precompiles.extend(override_precompiles);
 
             ctx_precompiles
         });

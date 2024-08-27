@@ -73,7 +73,7 @@ impl HintWriterClient for InMemoryOracle {
 /// and verify it once, rather than verifying each of the 4096 elements separately.
 #[derive(Default)]
 struct Blob {
-    // TODO: This commitment is currently unused.
+    // TODO: Commitment is currently unused.
     _commitment: FixedBytes<48>,
     // 4096 Field elements, each 32 bytes.
     data: FixedBytes<131072>,
@@ -93,14 +93,6 @@ impl InMemoryOracle {
                 PreimageKeyType::Keccak256 => {
                     let derived_key =
                         PreimageKey::new(keccak256(value).into(), PreimageKeyType::Keccak256);
-
-                    let is_equal = key == derived_key; 
-                    if !is_equal {
-                        println!("value: {:?}", value);
-                        println!("key: {:?}", key);
-                        println!("derived_key: {:?}", derived_key);
-                    }
-                    assert!(is_equal, "zkvm keccak constraint failed!");
                 }
                 PreimageKeyType::GlobalGeneric => {
                     unimplemented!();

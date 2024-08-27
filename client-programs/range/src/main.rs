@@ -79,7 +79,7 @@ fn main() {
                 // let precompile_overrides = NoPrecompileOverride;
             }
         }
-        // TODO: Even when I run both with ZKVMPrecompileOverride, I get key not found in cache error.
+        // TODO: Even when running both with ZKVMPrecompileOverride, I get key not found in cache error.
         // let precompile_overrides = ZKVMPrecompileOverride::default();
         let precompile_overrides = NoPrecompileOverride;
 
