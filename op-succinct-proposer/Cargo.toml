@@ -24,7 +24,7 @@ name = "vkey"
 path = "bin/vkey.rs"
 
 [[bin]]
-name = "fetch_rollup_config"
+name = "fetch-rollup-config"
 path = "bin/fetch_rollup_config.rs"
 
 [dependencies]

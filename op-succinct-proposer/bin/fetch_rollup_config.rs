@@ -6,23 +6,25 @@ use std::env;
 use std::fs;
 use std::process::Command;
 
+/// Fetch the rollup config from the rollup node and save it to a file.
 fn fetch_rollup_config(rollup_rpc: Option<String>, l2_rpc: Option<String>) -> Result<()> {
     // Determine RPC URLs
     let rollup_rpc = rollup_rpc
-        .or_else(|| env::var("ROLLUP_RPC").ok())
-        .context("Must provide rollup rpc as argument or env variable (ROLLUP_RPC)")?;
+        .or_else(|| env::var("L2_NODE_RPC").ok())
+        .context("Must provide rollup rpc as argument or env variable (L2_NODE_RPC)")?;
 
     let l2_rpc = l2_rpc
         .or_else(|| env::var("L2_RPC").ok())
         .context("Must provide L2 rpc as argument or env variable (L2_RPC)")?;
 
-    // Fetch rollup config
+    // TODO: Modify these to not use cast and instead use a RPC client.
+    // Fetch rollup config.
     let rollup_config = Command::new("cast")
         .args(["rpc", "--rpc-url", &rollup_rpc, "optimism_rollupConfig"])
         .output()?;
     fs::write("rollup-config.json", &rollup_config.stdout)?;
 
-    // Fetch chain config
+    // Fetch chain config.
     let chain_config = Command::new("cast")
         .args(["rpc", "--rpc-url", &l2_rpc, "debug_chainConfig"])
         .output()?;
@@ -46,6 +48,12 @@ fn fetch_rollup_config(rollup_rpc: Option<String>, l2_rpc: Option<String>) -> Re
 
     // Generate hash
     let hash: B256 = hash_rollup_config(&merged_config_str.as_bytes().to_vec());
+
+    update_zkconfig_rollup_config_hash(hash)
+}
+
+/// Update the rollup config hash in the zkconfig.json file.
+fn update_zkconfig_rollup_config_hash(hash: B256) -> Result<()> {
     let hash_str = format!("0x{:x}", hash);
 
     // Update zkconfig.json with the new hash
@@ -117,6 +125,7 @@ fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
 }
 
 fn main() -> Result<()> {
+    dotenv::dotenv().ok();
     let args: Vec<String> = env::args().collect();
     let rollup_rpc = args.get(1).cloned();
     let l2_rpc = args.get(2).cloned();

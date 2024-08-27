@@ -7,7 +7,7 @@
   "l2RollupNode": "",
   "owner": "0x0000000000000000000000000000000000000000",
   "proposer": "0x0000000000000000000000000000000000000000",
-  "rollupConfigHash": "0xdccedb9de001748738c29cde32603b2b4a05dd03aa5185bfae530056edc27c02",
+  "rollupConfigHash": "0x7cfdc1b0168f70e9b2b7aaf126025ec80e6d476309b0803b30c6e58faaba4213",
   "startingBlockNumber": 0,
   "submissionInterval": 150,
   "verifierGateway": "0x3B6041173B80E77f038f3F2C0f9744f04837185e",
