@@ -22,3 +22,6 @@ db/
 
 # Rollup Config
 rollup-config.json
+
+# Execution Report
+execution-reports/
