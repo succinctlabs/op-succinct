@@ -86,12 +86,6 @@ sp1-helper = { git = "https://github.com/succinctlabs/sp1.git", branch = "experi
 # kzg
 kzg-rs = { version = "0.2.1" }
 
-
-# kzg
-kzg-rs = { git = "https://github.com/leruaa/kzg-rs", branch = "verify_blobs", features = [
-    "cache",
-] }
-
 # sp1
 [profile.release-client-lto]
 inherits = "release"
