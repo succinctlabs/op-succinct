@@ -199,8 +199,9 @@ func getL1Origins(rollupClient *sources.RollupClient, startBlock, endBlock uint6
 		return 0, 0, fmt.Errorf("failed to get output at end block: %w", err)
 	}
 
-	// TODO: Change 12 to the L1 block time.
-	// How do you fetch the L1 block time?
+	// Fetch an L1 origin that is at least 10 minutes after the end block to guarantee that the batches have been posted.
+	// TODO: This won't work if the L1 block time is not 12 seconds. Find a way to get the L1 block time, OR find the nearest
+	// L1 origin that is after the timestamp we want.
 	l1BlockTime := 12
 	endL1Origin := output.BlockRef.L1Origin.Number + (uint64(60/l1BlockTime) * 10)
 
