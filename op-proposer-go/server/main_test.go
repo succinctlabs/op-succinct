@@ -15,11 +15,8 @@ import (
 // Sanity check to ensure that the span batch fetching logic is working correctly.
 func TestHandleSpanBatchRanges(t *testing.T) {
 
-	// Load environment variables
-	err := godotenv.Load()
-	if err != nil {
-		t.Fatalf("Error loading .env file: %v", err)
-	}
+	// Load environment variables if the .env file exists.
+	_ = godotenv.Load()
 
 	l2Rpc := os.Getenv("L2_RPC")
 	l2Node := os.Getenv("L2_NODE_RPC")
