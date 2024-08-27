@@ -1,0 +1,6 @@
+[book]
+authors = ["Uma Roy"]
+language = "en"
+multilingual = false
+src = "src"
+title = "OP Succinct"
