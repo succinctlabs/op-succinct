@@ -20,6 +20,7 @@ ENV PATH="${GOPATH}/bin:${PATH}"
 
 # Set up Go environment
 WORKDIR /optimism
+# TODO: Modify this to instead pull a Docker image, rather than cloning the repo.
 RUN git clone -b ratan/add-span-batch-fetch-cmd https://github.com/succinctlabs/optimism .
 
 # Change to the batch_decoder directory and build the application
