@@ -21,7 +21,6 @@ cfg_if! {
     // from SP1 and compile to a program that can be run in zkVM.
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
-
         use client_utils::{InMemoryOracle, boot::BootInfoStruct, BootInfoWithBytesConfig};
         use kona_primitives::RollupConfig;
         use alloc::vec::Vec;
