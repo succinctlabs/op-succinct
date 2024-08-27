@@ -1,9 +1,10 @@
 use std::fs;
 
+use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
-use client_utils::boot::BootInfoStruct;
+use client_utils::{boot::BootInfoStruct, BOOT_INFO_SIZE};
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_agg_proof_stdin,
@@ -51,7 +52,12 @@ fn load_aggregation_proof_data(
         proofs.push(deserialized_proof.proof);
 
         // The only public values are the BootInfoStruct.
-        let boot_info: BootInfoStruct = deserialized_proof.public_values.read();
+        // The public values are the ABI-encoded RawBootInfo.
+        let mut raw_boot_info_bytes = [0u8; BOOT_INFO_SIZE];
+        deserialized_proof
+            .public_values
+            .read_slice(&mut raw_boot_info_bytes);
+        let boot_info = BootInfoStruct::abi_decode(&raw_boot_info_bytes, false).unwrap();
         boot_infos.push(boot_info);
     }
 

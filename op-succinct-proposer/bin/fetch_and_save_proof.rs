@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     if args.agg_proof {
         let mut raw_boot_info = [0u8; BOOT_INFO_SIZE];
         proof.public_values.read_slice(&mut raw_boot_info);
-        let boot_info = BootInfoStruct::abi_decode(&raw_boot_info, true).unwrap();
+        let boot_info = BootInfoStruct::abi_decode(&raw_boot_info, false).unwrap();
 
         let proof_bytes = proof.bytes();
         println!("Proof bytes: {:?}", hex::encode(proof_bytes));
