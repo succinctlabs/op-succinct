@@ -19,7 +19,6 @@ use std::{
     cmp::min,
     env, fs,
     path::PathBuf,
-    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::task::block_in_place;
@@ -69,8 +68,8 @@ struct SpanBatchRange {
     end: u64,
 }
 
-/// Get the boundaries of the span batches from the Go server from the optimism monorepo. This endpoint
-/// downloads the data posted to the Optimism L1 Batch Inbox contract.
+/// Get the span batches posted between the start and end blocks. Sends a request to a Go server
+/// that runs a Span Batch Decoder.
 async fn get_span_batch_ranges_from_server(
     data_fetcher: &SP1KonaDataFetcher,
     start: u64,
