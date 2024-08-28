@@ -53,7 +53,7 @@ pub async fn run_native_host(
     let args = convert_host_cli_to_args(host_cli);
 
     // Run the native host runner.
-    let mut child = tokio::process::Command::new(target_dir.join("native_host_runner"))
+    let mut child = tokio::process::Command::new(target_dir.join("native_host_runner/native_host_runner"))
         .args(&args)
         .env("RUST_LOG", "info")
         .spawn()?;

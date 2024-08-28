@@ -73,7 +73,6 @@ impl HintWriterClient for InMemoryOracle {
 /// and verify it once, rather than verifying each of the 4096 elements separately.
 #[derive(Default)]
 struct Blob {
-    // TODO: Commitment is currently unused.
     _commitment: FixedBytes<48>,
     // 4096 Field elements, each 32 bytes.
     data: FixedBytes<131072>,

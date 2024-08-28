@@ -2004,14 +2004,17 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 [[package]]
 name = "ecdsa"
 version = "0.16.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4b1e0c257a9e9f25f90ff76d7a68360ed497ee519c8e428d1825ef0000799d4"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.8#f518b4a79d427fa9f42086480ea0cf360c11f022"
 dependencies = [
+ "anyhow",
+ "cfg-if",
  "der",
  "digest 0.10.7",
  "elliptic-curve",
+ "hex-literal",
  "rfc6979",
  "signature",
+ "sp1-lib 1.2.0-rc1",
  "spki",
 ]
 
@@ -5282,8 +5285,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.8#f518b4a79d427fa9f42086480ea0cf360c11f022"
 dependencies = [
  "hmac",
  "subtle",
@@ -7915,8 +7917,3 @@ dependencies = [
  "sp1-sdk",
  "tokio",
 ]
-
-[[patch.unused]]
-name = "ecdsa"
-version = "0.16.9"
-source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#1caae137b2b2c458b8a542b1c4e9fb40293c67a3"

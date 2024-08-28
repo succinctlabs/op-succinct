@@ -6,7 +6,7 @@ use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
-use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
+use kona_executor::StatelessL2BlockExecutor;
 
 use alloy_eips::eip2718::Decodable2718;
 use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
@@ -48,9 +48,9 @@ fn main() {
         ////////////////////////////////////////////////////////////////
 
         cfg_if! {
-            // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
-            // and in memory oracle.
             if #[cfg(target_os = "zkvm")] {
+                // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
+                // and in memory oracle.
                 println!("cycle-tracker-start: boot-load");
                 let boot = sp1_zkvm::io::read::<RawBootInfo>();
                 sp1_zkvm::io::commit_slice(&boot.abi_encode());
@@ -65,23 +65,16 @@ fn main() {
                 println!("cycle-tracker-report-start: oracle-verify");
                 oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-report-end: oracle-verify");
-
-                // TODO: Debug why ZkvmPrecompileOverride causes issues when executing the program in the cluster.
-                // Intuitively, it's due to the annotated precompiles not being available in the zkvm, and when they're activated, they're writing to a non-existent memory region.
-                // let precompile_overrides = NoPrecompileOverride;
-
-            // If we are compiling for online mode, create a caching oracle that speaks to the
-            // fetcher via hints, and gather boot info from this oracle.
             } else {
+                // If we are compiling for online mode, create a caching oracle that speaks to the
+                // fetcher via hints, and gather boot info from this oracle.
                 let oracle = Arc::new(CachingOracle::new(1024, ORACLE_READER, HINT_WRITER));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
-
-                // let precompile_overrides = NoPrecompileOverride;
             }
         }
-        // TODO: Even when running both with ZKVMPrecompileOverride, I get key not found in cache error.
-        // let precompile_overrides = ZKVMPrecompileOverride::default();
-        let precompile_overrides = NoPrecompileOverride;
+        // Note: On some blocks, key not found in cache errors occur due to the precompiles. For
+        // recent blocks this isn't an issue, but we should look into this more in the future.
+        let precompile_overrides = ZKVMPrecompileOverride::default();
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
