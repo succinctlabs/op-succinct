@@ -19,6 +19,7 @@ use std::{
     cmp::min,
     env, fs,
     path::PathBuf,
+    sync::Arc,
     time::{Duration, Instant},
 };
 use tokio::task::block_in_place;
@@ -126,7 +127,15 @@ pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
     }
 }
 
-
+fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
+    const DEFAULT_SIZE: u64 = 20;
+    match chain_id {
+        8453 => 5,      // Base
+        11155111 => 20, // OP Sepolia
+        10 => 10,       // OP Mainnet
+        _ => DEFAULT_SIZE,
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -156,13 +165,15 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    // Loop over the span batch ranges. If the distance between the start and end blocks is greater than MAX_BLOCK_RANGE, we will split the range into chunks of MAX_BLOCK_RANGE.
+    let batch_size = get_max_span_batch_range_size(l2_chain_id);
+
+    // Loop over the span batch ranges. If the distance between the start and end blocks is greater than batch_size, we will split the range into chunks of batch_size.
     let mut split_ranges: Vec<SpanBatchRange> = Vec::new();
     for range in span_batch_ranges {
-        if range.end - range.start > args.batch_size as u64 {
+        if range.end - range.start > batch_size {
             let mut start = range.start;
             while start < range.end {
-                let end = min(start + args.batch_size as u64, range.end);
+                let end = min(start + batch_size, range.end);
                 split_ranges.push(SpanBatchRange { start, end });
                 start = end;
             }
@@ -179,39 +190,39 @@ async fn main() -> Result<()> {
     let prover = ProverClient::new();
 
     // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes. Use ctrl-c handler for this.
-
-    // TODO: Add chain config for the batch size.
-    const BATCH_SIZE: usize = 5;
+    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
     const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
-    let futures = split_ranges.chunks(BATCH_SIZE).map(|chunk| {
-        futures::future::join_all(chunk.iter().map(|range| async {
-            let host_cli = data_fetcher
-                .get_host_cli_args(range.start, range.end, ProgramType::Multi)
-                .await
-                .unwrap();
+    let futures = split_ranges
+        .chunks(CONCURRENT_NATIVE_HOST_RUNNERS)
+        .map(|chunk| {
+            futures::future::join_all(chunk.iter().map(|range| async {
+                let host_cli = data_fetcher
+                    .get_host_cli_args(range.start, range.end, ProgramType::Multi)
+                    .await
+                    .unwrap();
 
-            let data_dir = host_cli
-                .data_dir
-                .clone()
-                .expect("Data directory is not set.");
+                let data_dir = host_cli
+                    .data_dir
+                    .clone()
+                    .expect("Data directory is not set.");
 
-            // Overwrite existing data directory.
-            fs::create_dir_all(&data_dir).unwrap();
+                // Overwrite existing data directory.
+                fs::create_dir_all(&data_dir).unwrap();
 
-            // Start the server and native client.
-            // TODO: This is not resilient to errors, and does not gracefully shut down when we exit.
-            // TODO: Add retries if the server fails to start.
-            run_native_host(&host_cli, NATIVE_HOST_TIMEOUT)
-                .await
-                .unwrap();
+                // Start the server and native client.
+                // TODO: This is not resilient to errors, and does not gracefully shut down when we exit.
+                // TODO: Add retries if the server fails to start.
+                run_native_host(&host_cli, NATIVE_HOST_TIMEOUT)
+                    .await
+                    .unwrap();
 
-            BatchHostCli {
-                host_cli,
-                start: range.start,
-                end: range.end,
-            }
-        }))
-    });
+                BatchHostCli {
+                    host_cli,
+                    start: range.start,
+                    end: range.end,
+                }
+            }))
+        });
 
     let host_cli_futures = futures::future::join_all(futures);
 

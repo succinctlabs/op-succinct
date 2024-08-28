@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::{process::Command, time::Duration};
 use tokio::process::Child;
 use tokio::sync::Mutex;
+use tokio::time::timeout;
 
 use kona_host::HostCli;
 use log::error;
@@ -47,7 +48,7 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
 /// spawning a new thread in the same process due to the static cursors employed by the host.
 pub async fn run_native_host(
     host_cli: &HostCli,
-    timeout: Duration,
+    timeout_secs: Duration,
 ) -> Result<std::process::ExitStatus> {
     let metadata = cargo_metadata::MetadataCommand::new()
         .exec()
@@ -56,23 +57,25 @@ pub async fn run_native_host(
     let args = convert_host_cli_to_args(host_cli);
 
     // Run the native host runner.
-    let child = tokio::process::Command::new(target_dir.join("native_host_runner"))
+    let mut child = tokio::process::Command::new(target_dir.join("native_host_runner"))
         .args(&args)
         .env("RUST_LOG", "info")
         .spawn()?;
-    let child = Arc::new(Mutex::new(child));
-    let child_clone = Arc::clone(&child);
 
-    // Time out the native host runner after the given timeout.
-    let result = tokio::select! {
-        status = wait_for_child(child_clone) => status,
-        _ = tokio::time::sleep(timeout) => {
-            kill_child(&child).await;
-            Err(anyhow::anyhow!("Native host runner process timed out after {} seconds", timeout.as_secs()))
-        }
-    };
+    // Return the child process handle
+    Ok(timeout(timeout_secs, child.wait()).await??)
+    // let child_clone = Arc::clone(&child);
 
-    result
+    // // Time out the native host runner after the given timeout.
+    // let result = tokio::select! {
+    //     status = wait_for_child(child_clone) => status,
+    //     _ = tokio::time::sleep(timeout) => {
+    //         kill_child(&child).await;
+    //         Err(anyhow::anyhow!("Native host runner process timed out after {} seconds", timeout.as_secs()))
+    //     }
+    // };
+
+    // result
 }
 
 /// Wait for the child process to exit.
