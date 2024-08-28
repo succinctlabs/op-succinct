@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/fetch"
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/reassemble"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-proposer/proposer/db/ent"
+	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

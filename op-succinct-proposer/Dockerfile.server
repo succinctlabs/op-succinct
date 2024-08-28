@@ -24,11 +24,12 @@ RUN rustc --version && cargo --version
 RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/sp1up && \
     ~/.sp1/bin/cargo-prove prove --version
+    
+# Copy the project files, excluding target and data directories
+COPY --exclude="target" --exclude="data" --exclude="execution-reports" . .
 
-# Clone the repository and build the server
-RUN git clone https://github.com/succinctlabs/op-succinct.git . && \
-    cargo build --bin native_host_runner --release && \
-    cargo build --bin server --release
+# Build the server
+RUN cargo build --bin server --release
 
 # Expose port 3000
 EXPOSE 3000

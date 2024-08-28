@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-proposer/proposer/db/ent"
-	"github.com/ethereum-optimism/optimism/op-proposer/proposer/db/ent/proofrequest"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
+	"github.com/succinctlabs/op-succinct-go/proposer/db/ent/proofrequest"
 )
 
 func (l *L2OutputSubmitter) ProcessPendingProofs() error {

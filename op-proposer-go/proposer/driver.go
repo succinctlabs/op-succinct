@@ -20,10 +20,10 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-proposer/bindings"
 	"github.com/ethereum-optimism/optimism/op-proposer/metrics"
-	"github.com/ethereum-optimism/optimism/op-proposer/proposer/db"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/succinctlabs/op-succinct-go/proposer/db"
 )
 
 var (

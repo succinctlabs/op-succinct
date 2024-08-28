@@ -18,9 +18,6 @@ data
 **.txt
 !LICENSE.txt
 
-# DB data
-db/
-
 # Reports
 execution-reports/
 
