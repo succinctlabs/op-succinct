@@ -126,6 +126,8 @@ pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
     }
 }
 
+
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
@@ -178,6 +180,7 @@ async fn main() -> Result<()> {
 
     // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes. Use ctrl-c handler for this.
 
+    // TODO: Add chain config for the batch size.
     const BATCH_SIZE: usize = 5;
     const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
     let futures = split_ranges.chunks(BATCH_SIZE).map(|chunk| {

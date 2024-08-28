@@ -68,7 +68,7 @@ alloy = { version = "0.2", default-features = false, features = ["full"] }
 alloy-primitives = { version = "0.7.6", default-features = false }
 alloy-rlp = { version = "0.3.5", default-features = false }
 alloy-eips = { version = "0.2", default-features = false }
-revm = { version = "13.0", default-features = false }
+revm = { version = "13.0", default-features = false, features = ["kzg-rs"] }
 bincode = "1.3.3"
 base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }

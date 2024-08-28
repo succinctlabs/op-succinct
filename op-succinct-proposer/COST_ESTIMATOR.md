@@ -8,7 +8,7 @@ just
 
 Then start the host in the background.
 ```bash
-docker built -t span_batch_server -f op-succinct-proposer/Dockerfile.span_batch_server .
+docker build -t span_batch_server -f op-succinct-proposer/Dockerfile.span_batch_server .
 docker run -p 8080:8080 -d span_batch_server
 ```
 
@@ -19,5 +19,5 @@ into smaller ranges optimized along the span batch boundaries. Then, it will agg
 statistics.
 
 ```bash
-cargo run --bin cost_estimator -- --start 16230000 --end 16230100
+cargo run --bin cost_estimator --release -- --start 16230000 --end 16230100
 ```

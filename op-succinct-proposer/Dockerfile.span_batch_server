@@ -1,17 +1,19 @@
-# Use Ubuntu 22.04 as the base image
-FROM ubuntu:22.04
+# Use Ubuntu 24.04 as the base image
+FROM --platform=linux/amd64 ubuntu:24.04
 
 # Install Go and necessary dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     git \
     build-essential \
+    # g++-x86-64-linux-gnu \
+    # libc6-dev-amd64-cross \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Go 1.21
-RUN wget https://golang.org/dl/go1.21.0.linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz \
-    && rm go1.21.0.linux-amd64.tar.gz
+# Install Go 1.22
+RUN wget https://golang.org/dl/go1.22.0.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz \
+    && rm go1.22.0.linux-amd64.tar.gz
 
 # Set Go environment variables
 ENV PATH="/usr/local/go/bin:${PATH}"
@@ -19,18 +21,19 @@ ENV GOPATH="/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
 
 # Set up Go environment
-WORKDIR /optimism
-# TODO: Modify this to instead pull a Docker image, rather than cloning the repo.
-RUN git clone -b ratan/add-span-batch-fetch-cmd https://github.com/succinctlabs/optimism .
+WORKDIR /app
 
-# Change to the batch_decoder directory and build the application
-WORKDIR /optimism/op-node/cmd/batch_decoder/server
+# Copy the local op-proposer-go directory
+COPY ./op-proposer-go /app/op-proposer-go
+
+# Change to the server directory and build the application
+WORKDIR /app/op-proposer-go/server
 
 # Build the application
-RUN go build -o batch_decoder_server .
+RUN go build -o span_batch_server main.go
 
 # Expose port 8080
 EXPOSE 8080
 
 # Set the entrypoint to run the server
-ENTRYPOINT ["./batch_decoder_server"]
+ENTRYPOINT ["./span_batch_server"]
