@@ -44,7 +44,7 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
 /// spawning a new thread in the same process due to the static cursors employed by the host.
 pub async fn run_native_host(
     host_cli: &HostCli,
-    timeout_secs: Duration,
+    timeout_duration: Duration,
 ) -> Result<std::process::ExitStatus> {
     let metadata = cargo_metadata::MetadataCommand::new()
         .exec()
@@ -59,5 +59,5 @@ pub async fn run_native_host(
         .spawn()?;
 
     // Return the child process handle
-    Ok(timeout(timeout_secs, child.wait()).await??)
+    Ok(timeout(timeout_duration, child.wait()).await??)
 }
