@@ -77,7 +77,12 @@ func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange,
 		return nil, fmt.Errorf("failed to dial rollup client: %w", err)
 	}
 
-	l1Origin, finalizedL1, err := getL1Origins(rollupClient, config.L2StartBlock, config.L2EndBlock)
+	l1Client, err := ethclient.Dial(config.L1RPC)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial L1 client: %w", err)
+	}
+
+	l1Origin, finalizedL1, err := getL1Origins(rollupClient, l1Client, config.L2StartBlock, config.L2EndBlock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 origin and finalized: %w", err)
 	}
@@ -181,7 +186,7 @@ func setupBatchDecoderConfig(config *BatchDecoderConfig) (*rollup.Config, error)
 }
 
 // Get the L1 origin corresponding to the given L2 block and the latest finalized L1 block.
-func getL1Origins(rollupClient *sources.RollupClient, startBlock, endBlock uint64) (uint64, uint64, error) {
+func getL1Origins(rollupClient *sources.RollupClient, l1Client *ethclient.Client, startBlock, endBlock uint64) (uint64, uint64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -191,6 +196,19 @@ func getL1Origins(rollupClient *sources.RollupClient, startBlock, endBlock uint6
 	}
 	startL1Origin := output.BlockRef.L1Origin.Number
 
+	// Get the diff in seconds between startL1Origin and startL1Origin -1 to get the L1 block time.
+	block, err := l1Client.BlockByNumber(ctx, big.NewInt(int64(startL1Origin)))
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get block at start L1 origin: %w", err)
+	}
+	startBlockTime := block.Time()
+
+	block, err = l1Client.BlockByNumber(ctx, big.NewInt(int64(startL1Origin-1)))
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get block at start L1 origin - 1: %w", err)
+	}
+	l1BlockTime := startBlockTime - block.Time()
+
 	output, err = rollupClient.OutputAtBlock(ctx, endBlock)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get output at end block: %w", err)
@@ -199,7 +217,6 @@ func getL1Origins(rollupClient *sources.RollupClient, startBlock, endBlock uint6
 	// Fetch an L1 origin that is at least 10 minutes after the end block to guarantee that the batches have been posted.
 	// TODO: This won't work if the L1 block time is not 12 seconds. Find a way to get the L1 block time, OR find the nearest
 	// L1 origin that is after the timestamp we want.
-	l1BlockTime := 12
 	endL1Origin := output.BlockRef.L1Origin.Number + (uint64(60/l1BlockTime) * 10)
 
 	return startL1Origin, endL1Origin, nil
