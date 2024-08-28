@@ -1,17 +1,17 @@
 //! Contains the host <-> client communication utilities.
 
-use std::collections::HashMap;
-
 use crate::BytesHasherBuilder;
 use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use itertools::Itertools;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
 use kzg_rs::get_kzg_settings;
 use kzg_rs::Blob as KzgRsBlob;
 use kzg_rs::Bytes48;
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
 /// Rather than relying on a trusted host for data, the data in this oracle
@@ -93,6 +93,7 @@ impl InMemoryOracle {
                 PreimageKeyType::Keccak256 => {
                     let derived_key =
                         PreimageKey::new(keccak256(value).into(), PreimageKeyType::Keccak256);
+                    assert_eq!(key, derived_key, "zkvm keccak256 constraint failed!");
                 }
                 PreimageKeyType::GlobalGeneric => {
                     unimplemented!();
