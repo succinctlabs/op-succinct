@@ -32,7 +32,6 @@ fn build_native_host_runner() {
         .exec()
         .expect("Failed to get cargo metadata");
     let target_dir = metadata.target_directory.join("native_host_runner");
-    println!("cargo:warning=target_dir: {:?}", target_dir);
 
     let status = Command::new("cargo")
         .args([

@@ -53,11 +53,13 @@ pub async fn run_native_host(
     let args = convert_host_cli_to_args(host_cli);
 
     // Run the native host runner.
-    let mut child = tokio::process::Command::new(target_dir.join("native_host_runner/native_host_runner"))
-        .args(&args)
-        .env("RUST_LOG", "info")
-        .spawn()?;
+    let mut child =
+        tokio::process::Command::new(target_dir.join("native_host_runner/native_host_runner"))
+            .args(&args)
+            .env("RUST_LOG", "info")
+            .spawn()?;
 
-    // Return the child process handle
+    // Return the child process handle.
+    // TODO: There's no nice way to retry the native host runner/executor.
     Ok(timeout(timeout_duration, child.wait()).await??)
 }

@@ -4080,6 +4080,7 @@ dependencies = [
  "itertools 0.13.0",
  "kona-host",
  "kona-primitives",
+ "lazy_static",
  "log",
  "rayon",
  "reqwest 0.12.7",
@@ -4089,6 +4090,7 @@ dependencies = [
  "sp1-sdk",
  "tokio",
  "tower-http",
+ "uuid 1.10.0",
 ]
 
 [[package]]

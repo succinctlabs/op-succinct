@@ -8,7 +8,7 @@ use host_utils::{
 };
 use kona_host::HostCli;
 use kona_primitives::RollupConfig;
-use log::info;
+use log::{error, info};
 use op_succinct_proposer::run_native_host;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
@@ -189,9 +189,11 @@ async fn run_native_data_generation(
 
                 fs::create_dir_all(&data_dir).unwrap();
 
-                run_native_host(&host_cli, NATIVE_HOST_TIMEOUT)
-                    .await
-                    .unwrap();
+                let res = run_native_host(&host_cli, NATIVE_HOST_TIMEOUT).await;
+                if res.is_err() {
+                    error!("Failed to run native host: {:?}", res.err().unwrap());
+                    std::process::exit(1);
+                }
 
                 BatchHostCli {
                     host_cli,
