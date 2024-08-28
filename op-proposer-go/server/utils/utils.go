@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -20,6 +21,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
+
+var ErrNoSpanBatchFound = errors.New("no span batch found for the given block")
+var ErrMaxDeviationExceeded = errors.New("max deviation exceeded")
 
 // SpanBatchRange represents a range of L2 blocks covered by a span batch
 type SpanBatchRange struct {
@@ -157,6 +161,39 @@ func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, star
 	}
 
 	return ranges, nil
+}
+
+// Find the span batch that contains the given L2 block. If no span batch contains the given block, return the start block of the span batch that is closest to the given block.
+func GetSpanBatchRange(config reassemble.Config, rollupCfg *rollup.Config, l2Block, maxSpanBatchDeviation uint64) (uint64, uint64, error) {
+	frames := reassemble.LoadFrames(config.InDirectory, config.BatchInbox)
+	framesByChannel := make(map[derive.ChannelID][]reassemble.FrameWithMetadata)
+	for _, frame := range frames {
+		framesByChannel[frame.Frame.ID] = append(framesByChannel[frame.Frame.ID], frame)
+	}
+	for id, frames := range framesByChannel {
+		ch := processFrames(config, rollupCfg, id, frames)
+		if len(ch.Batches) == 0 {
+			log.Fatalf("no span batches in channel")
+			return 0, 0, errors.New("no span batches in channel")
+		}
+
+		for idx, b := range ch.Batches {
+			startBlock := TimestampToBlock(rollupCfg, b.GetTimestamp())
+			spanBatch, success := b.AsSpanBatch()
+			if !success {
+				log.Fatalf("couldn't convert batch %v to span batch\n", idx)
+				return 0, 0, errors.New("couldn't convert batch to span batch")
+			}
+			blockCount := spanBatch.GetBlockCount()
+			endBlock := startBlock + uint64(blockCount) - 1
+			if l2Block >= startBlock && l2Block <= endBlock {
+				return startBlock, endBlock, nil
+			} else if l2Block+maxSpanBatchDeviation < startBlock {
+				return l2Block, startBlock - 1, ErrMaxDeviationExceeded
+			}
+		}
+	}
+	return 0, 0, ErrNoSpanBatchFound
 }
 
 func setupBatchDecoderConfig(config *BatchDecoderConfig) (*rollup.Config, error) {
