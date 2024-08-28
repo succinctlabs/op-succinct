@@ -136,38 +136,34 @@ fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    dotenv::dotenv().ok();
-    utils::setup_logger();
-
-    let args = HostArgs::parse();
-
-    let data_fetcher = SP1KonaDataFetcher::new();
-
-    let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
-    let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
-
-    // Fetch the span batch ranges according to args.start and args.end
-    let span_batch_ranges: Vec<SpanBatchRange> = get_span_batch_ranges_from_server(
-        &data_fetcher,
+async fn fetch_span_batch_ranges(
+    data_fetcher: &SP1KonaDataFetcher,
+    args: &HostArgs,
+    l2_chain_id: u64,
+    rollup_config: &RollupConfig,
+) -> Result<Vec<SpanBatchRange>> {
+    get_span_batch_ranges_from_server(
+        data_fetcher,
         args.start,
         args.end,
         l2_chain_id,
         rollup_config
             .genesis
             .system_config
+            .clone()
             .unwrap()
             .batcher_address
             .to_string()
             .as_str(),
     )
-    .await?;
+    .await
+}
 
+/// Split ranges according to the max span batch range size per L2 chain.
+fn split_ranges(span_batch_ranges: Vec<SpanBatchRange>, l2_chain_id: u64) -> Vec<SpanBatchRange> {
     let batch_size = get_max_span_batch_range_size(l2_chain_id);
+    let mut split_ranges = Vec::new();
 
-    // Loop over the span batch ranges. If the distance between the start and end blocks is greater than batch_size, we will split the range into chunks of batch_size.
-    let mut split_ranges: Vec<SpanBatchRange> = Vec::new();
     for range in span_batch_ranges {
         if range.end - range.start > batch_size {
             let mut start = range.start;
@@ -181,16 +177,17 @@ async fn main() -> Result<()> {
         }
     }
 
-    info!(
-        "The span batch ranges which will be executed: {:?}",
-        split_ranges
-    );
+    split_ranges
+}
 
-    let prover = ProverClient::new();
-
-    // TODO: If a Ctrl+C is sent, we should gracefully shut down the host processes. We should also shut down the prove processes. Use ctrl-c handler for this.
+/// Concurrently run the native data generation process for each split range.
+async fn run_native_data_generation(
+    data_fetcher: &SP1KonaDataFetcher,
+    split_ranges: &[SpanBatchRange],
+) -> Vec<BatchHostCli> {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
     const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
+
     let futures = split_ranges
         .chunks(CONCURRENT_NATIVE_HOST_RUNNERS)
         .map(|chunk| {
@@ -205,12 +202,8 @@ async fn main() -> Result<()> {
                     .clone()
                     .expect("Data directory is not set.");
 
-                // Overwrite existing data directory.
                 fs::create_dir_all(&data_dir).unwrap();
 
-                // Start the server and native client.
-                // TODO: This is not resilient to errors, and does not gracefully shut down when we exit.
-                // TODO: Add retries if the server fails to start.
                 run_native_host(&host_cli, NATIVE_HOST_TIMEOUT)
                     .await
                     .unwrap();
@@ -223,11 +216,43 @@ async fn main() -> Result<()> {
             }))
         });
 
-    let host_cli_futures = futures::future::join_all(futures);
+    futures::future::join_all(futures)
+        .await
+        .into_iter()
+        .flatten()
+        .collect()
+}
 
-    let host_clis: Vec<BatchHostCli> = host_cli_futures.await.into_iter().flatten().collect();
+/// Run the zkVM execution process for each split range in parallel.
+async fn execute_blocks_parallel(
+    host_clis: &[BatchHostCli],
+    prover: &ProverClient,
+    data_fetcher: &SP1KonaDataFetcher,
+) -> Vec<ExecutionStats> {
+    host_clis
+        .par_iter()
+        .map(|r| {
+            let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
 
-    // Write the stats to a CSV file.
+            let start_time = Instant::now();
+            let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+            let execution_duration = start_time.elapsed();
+            block_on(get_execution_stats(
+                data_fetcher,
+                r.start,
+                r.end,
+                &report,
+                execution_duration,
+            ))
+        })
+        .collect()
+}
+
+fn write_execution_stats_to_csv(
+    execution_stats: &[ExecutionStats],
+    l2_chain_id: u64,
+    args: &HostArgs,
+) -> Result<()> {
     let report_path = PathBuf::from(format!(
         "execution-reports/{}/{}-{}-report.csv",
         l2_chain_id, args.start, args.end
@@ -238,31 +263,40 @@ async fn main() -> Result<()> {
 
     let mut csv_writer = csv::Writer::from_path(report_path)?;
 
-    // Execute the blocks in parallel with par_iter and write them to CSV.
-    let execution_stats: Vec<ExecutionStats> = host_clis
-        .par_iter()
-        .map(|r| {
-            let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
-
-            let start_time = Instant::now();
-            let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
-            let execution_duration = start_time.elapsed();
-            block_on(get_execution_stats(
-                &data_fetcher,
-                r.start,
-                r.end,
-                &report,
-                execution_duration,
-            ))
-        })
-        .collect();
-
-    for execution_stats in execution_stats {
+    for stats in execution_stats {
         csv_writer
-            .serialize(execution_stats)
+            .serialize(stats)
             .expect("Failed to write execution stats to CSV.");
     }
     csv_writer.flush().expect("Failed to flush CSV writer.");
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    dotenv::dotenv().ok();
+    utils::setup_logger();
+
+    let args = HostArgs::parse();
+    let data_fetcher = SP1KonaDataFetcher::new();
+    let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
+    let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
+
+    let span_batch_ranges =
+        fetch_span_batch_ranges(&data_fetcher, &args, l2_chain_id, &rollup_config).await?;
+    let split_ranges = split_ranges(span_batch_ranges, l2_chain_id);
+
+    info!(
+        "The span batch ranges which will be executed: {:?}",
+        split_ranges
+    );
+
+    let prover = ProverClient::new();
+    let host_clis = run_native_data_generation(&data_fetcher, &split_ranges).await;
+
+    let execution_stats = execute_blocks_parallel(&host_clis, &prover, &data_fetcher).await;
+    write_execution_stats_to_csv(&execution_stats, l2_chain_id, &args)?;
 
     Ok(())
 }
