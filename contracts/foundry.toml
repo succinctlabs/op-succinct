@@ -2,9 +2,11 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-ffi = true
-fs_permissions = [
-    { access = "read", path = "zkconfig.json" }
+remappings = [
+    "@openzeppelin/=lib/openzeppelin-contracts/",
+    "@optimism/=lib/optimism/packages/contracts-bedrock/",
+    "@forge-std/=lib/forge-std/src/",
+    "@sp1-contracts/=lib/sp1-contracts/contracts/"
 ]
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config
