@@ -4,7 +4,6 @@ use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::db::states::state::State;
-use revm::handler::Handler;
 use revm::{
     handler::register::EvmHandler,
     precompile::{

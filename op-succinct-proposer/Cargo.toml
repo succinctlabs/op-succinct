@@ -16,10 +16,6 @@ name = "server"
 path = "bin/server.rs"
 
 [[bin]]
-name = "native_host_runner"
-path = "bin/native_host_runner.rs"
-
-[[bin]]
 name = "vkey"
 path = "bin/vkey.rs"
 
@@ -66,3 +62,4 @@ rayon = "1.10.0"
 
 [build-dependencies]
 sp1-build = { workspace = true }
+cargo_metadata.workspace = true
