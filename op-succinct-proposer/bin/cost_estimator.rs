@@ -14,7 +14,6 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
-use tokio::task::block_in_place;
 use std::{
     cmp::min,
     env, fs,
@@ -22,6 +21,7 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
+use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -171,8 +171,9 @@ async fn run_native_data_generation(
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
-    const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(180);
+    const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(300);
 
+    // TODO: Shut down all processes when the program exits OR a Ctrl+C is pressed.
     let futures = split_ranges
         .chunks(CONCURRENT_NATIVE_HOST_RUNNERS)
         .map(|chunk| {
