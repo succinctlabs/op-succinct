@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use futures::Future;
+use futures::executor::block_on;
 use host_utils::{
     fetcher::{ChainMode, SP1KonaDataFetcher},
     get_proof_stdin,
@@ -21,7 +21,6 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 
@@ -109,21 +108,6 @@ struct BatchHostCli {
     host_cli: HostCli,
     start: u64,
     end: u64,
-}
-
-/// Utility method for blocking on an async function.
-///
-/// If we're already in a tokio runtime, we'll block in place. Otherwise, we'll create a new
-/// runtime.
-pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
-    // Handle case if we're already in an tokio runtime.
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        block_in_place(|| handle.block_on(fut))
-    } else {
-        // Otherwise create a new runtime.
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create a new runtime");
-        rt.block_on(fut)
-    }
 }
 
 fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
