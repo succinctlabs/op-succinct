@@ -232,6 +232,7 @@ async fn execute_blocks_parallel(
         .collect()
 }
 
+/// Write the execution stats to a CSV file.
 fn write_execution_stats_to_csv(
     execution_stats: &[ExecutionStats],
     l2_chain_id: u64,
