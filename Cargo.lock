@@ -58,7 +58,11 @@ dependencies = [
  "client-utils",
  "serde_cbor",
  "sha2",
+<<<<<<< HEAD
  "sp1-lib 1.2.0-rc1 (registry+https://github.com/rust-lang/crates.io-index)",
+=======
+ "sp1-lib 1.1.1",
+>>>>>>> origin/main
  "sp1-zkvm",
 ]
 
@@ -1507,7 +1511,11 @@ dependencies = [
  "kona-mpt",
  "kona-preimage",
  "kona-primitives",
+<<<<<<< HEAD
  "kzg-rs 0.2.0",
+=======
+ "kzg-rs 0.2.1",
+>>>>>>> origin/main
  "log",
  "op-alloy-consensus",
  "revm",
@@ -3586,14 +3594,22 @@ dependencies = [
 
 [[package]]
 name = "kzg-rs"
+<<<<<<< HEAD
 version = "0.2.0"
 source = "git+https://github.com/succinctlabs/kzg-rs#aafe11719c5a0dcee0ec41ecbdc95bf957c000ce"
 dependencies = [
  "bls12_381 0.8.0 (git+https://github.com/sp1-patches/bls12_381/?branch=patch-v0.8.0)",
+=======
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea38b4917cfb194709222324913a33a999b25f9da59e2c8da304fc0ef55f996a"
+dependencies = [
+>>>>>>> origin/main
  "ff 0.13.0",
  "hex",
  "once_cell",
  "sha2",
+ "sp1_bls12_381",
 ]
 
 [[package]]
@@ -6203,9 +6219,14 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
+<<<<<<< HEAD
 version = "1.2.0-rc1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f600a97b145e66f0f5e56595527c359f5cc8cb1f9dc8a6da1ba34bb845c9d1e"
+=======
+version = "1.1.1"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#cb6465650ebed0e1d7e9a7d425810ad772217096"
+>>>>>>> origin/main
 dependencies = [
  "anyhow",
  "bincode",
@@ -6218,7 +6239,12 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "1.2.0-rc1"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c1ff739c2ac79851da1c7e8abc4e3eb84ddadf6c"
+=======
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f600a97b145e66f0f5e56595527c359f5cc8cb1f9dc8a6da1ba34bb845c9d1e"
+>>>>>>> origin/main
 dependencies = [
  "anyhow",
  "bincode",
@@ -6580,8 +6606,27 @@ dependencies = [
  "rand",
  "serde",
  "sha2",
+<<<<<<< HEAD
  "sp1-lib 1.2.0-rc1 (registry+https://github.com/rust-lang/crates.io-index)",
+=======
+ "sp1-lib 1.1.1",
+>>>>>>> origin/main
  "sp1-primitives",
+]
+
+[[package]]
+name = "sp1_bls12_381"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a27c4b8901334dc09099dd82f80a72ddfc76b0046f4b342584c808f1931bed5a"
+dependencies = [
+ "cfg-if",
+ "ff 0.13.0",
+ "group 0.13.0",
+ "pairing 0.23.0",
+ "rand_core",
+ "sp1-lib 1.2.0-rc1",
+ "subtle",
 ]
 
 [[package]]
@@ -6677,7 +6722,11 @@ dependencies = [
  "lazy_static",
  "rand",
  "rustc-hex",
+<<<<<<< HEAD
  "sp1-lib 1.2.0-rc1 (git+https://github.com/succinctlabs/sp1.git?branch=dev)",
+=======
+ "sp1-lib 1.1.1",
+>>>>>>> origin/main
 ]
 
 [[package]]
