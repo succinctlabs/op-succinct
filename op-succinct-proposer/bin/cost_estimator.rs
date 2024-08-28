@@ -286,6 +286,7 @@ async fn main() -> Result<()> {
     let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
+    // TODO: Modify fetch_span_batch_ranges to start up the Docker container.
     let span_batch_ranges =
         fetch_span_batch_ranges(&data_fetcher, &args, l2_chain_id, &rollup_config).await?;
     let split_ranges = split_ranges(span_batch_ranges, l2_chain_id);

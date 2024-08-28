@@ -49,15 +49,16 @@ pub async fn run_native_host(
     let metadata = cargo_metadata::MetadataCommand::new()
         .exec()
         .expect("Failed to get cargo metadata");
-    let target_dir = metadata.target_directory.join("release");
+    let target_dir = metadata
+        .target_directory
+        .join("native_host_runner/release/native_host_runner");
     let args = convert_host_cli_to_args(host_cli);
 
     // Run the native host runner.
-    let mut child =
-        tokio::process::Command::new(target_dir.join("native_host_runner/native_host_runner"))
-            .args(&args)
-            .env("RUST_LOG", "info")
-            .spawn()?;
+    let mut child = tokio::process::Command::new(target_dir)
+        .args(&args)
+        .env("RUST_LOG", "info")
+        .spawn()?;
 
     // Return the child process handle.
     // TODO: There's no nice way to retry the native host runner/executor.
