@@ -1,12 +1,8 @@
 use anyhow::Result;
-use std::sync::Arc;
-use std::{process::Command, time::Duration};
-use tokio::process::Child;
-use tokio::sync::Mutex;
+use std::time::Duration;
 use tokio::time::timeout;
 
 use kona_host::HostCli;
-use log::error;
 
 /// Convert the HostCli to a vector of arguments that can be passed to a command.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
@@ -64,30 +60,4 @@ pub async fn run_native_host(
 
     // Return the child process handle
     Ok(timeout(timeout_secs, child.wait()).await??)
-    // let child_clone = Arc::clone(&child);
-
-    // // Time out the native host runner after the given timeout.
-    // let result = tokio::select! {
-    //     status = wait_for_child(child_clone) => status,
-    //     _ = tokio::time::sleep(timeout) => {
-    //         kill_child(&child).await;
-    //         Err(anyhow::anyhow!("Native host runner process timed out after {} seconds", timeout.as_secs()))
-    //     }
-    // };
-
-    // result
-}
-
-/// Wait for the child process to exit.
-async fn wait_for_child(child: Arc<Mutex<Child>>) -> Result<std::process::ExitStatus> {
-    let mut child = child.lock().await;
-    child.wait().await.map_err(Into::into)
-}
-
-/// Kill the child process.
-async fn kill_child(child: &Arc<Mutex<Child>>) {
-    let mut child = child.lock().await;
-    if let Err(e) = child.kill().await {
-        error!("Failed to kill child process: {}", e);
-    }
 }
