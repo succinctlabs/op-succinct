@@ -420,7 +420,7 @@ contract ZKL2OutputOracle is Initializable, ISemver {
     /// @notice Returns the number of outputs that have been proposed.
     ///         Will revert if no outputs have been proposed yet.
     /// @return The number of outputs that have been proposed.
-    function latestOutputIndex() external view returns (uint256) {
+    function latestOutputIndex() public view returns (uint256) {
         return l2Outputs.length - 1;
     }
 
