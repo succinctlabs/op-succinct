@@ -26,7 +26,7 @@ fn build_native_program(program: &str) {
     );
 }
 
-/// Build the native host runner.
+/// Build the native host runner to a separate target directory to avoid build lockups.
 fn build_native_host_runner() {
     let metadata = cargo_metadata::MetadataCommand::new()
         .exec()
