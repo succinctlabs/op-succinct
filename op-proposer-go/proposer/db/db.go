@@ -15,6 +15,7 @@ type ProofDB struct {
 	client *ent.Client
 }
 
+// Initialize the database and return a handle to it.
 func InitDB(dbPath string) (*ProofDB, error) {
 	connectionString := fmt.Sprintf("file:%s?_fk=1", dbPath)
 	client, err := ent.Open("sqlite3", connectionString)

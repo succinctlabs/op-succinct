@@ -40,13 +40,14 @@ type BatchDecoderConfig struct {
 	L2StartBlock      uint64
 	L2EndBlock        uint64
 	L2ChainID         *big.Int
-	L2Node            string
-	L1RPC             string
-	L1Beacon          string
+	L2Node            dial.RollupClientInterface
+	L1RPC             sources.EthClient
+	L1Beacon          sources.L1BeaconClient
 	BatchSender       common.Address
 	DataDir           string
 }
 
+// Get the rollup config from the given L2 RPC.
 func GetRollupConfigFromL2Rpc(l2Rpc string) (*rollup.Config, error) {
 	l2Client, err := ethclient.Dial(l2Rpc)
 	if err != nil {
@@ -67,7 +68,7 @@ func GetRollupConfigFromL2Rpc(l2Rpc string) (*rollup.Config, error) {
 }
 
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
-func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange, error) {
+func GetAllSpanBatchesInL2BlockRange(config BatchDecoderConfig) ([]SpanBatchRange, error) {
 	rollupCfg, err := setupBatchDecoderConfig(&config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup config: %w", err)
@@ -76,30 +77,13 @@ func GetAllSpanBatchesInBlockRange(config BatchDecoderConfig) ([]SpanBatchRange,
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	rollupClient, err := dial.DialRollupClientWithTimeout(ctx, dial.DefaultDialTimeout, nil, config.L2Node)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial rollup client: %w", err)
-	}
-
-	l1Client, err := ethclient.Dial(config.L1RPC)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial L1 client: %w", err)
-	}
-
-	l1Origin, finalizedL1, err := getL1Origins(rollupClient, l1Client, config.L2StartBlock, config.L2EndBlock)
+	l1Start, l1End, err := GetL1SearchBoundaries(config.L2Node, config.L1RPC, config.L2StartBlock, config.L2EndBlock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 origin and finalized: %w", err)
 	}
 
-	// Clear the out directory so that loading the transaction frames is fast. Otherwise, when loading thousands of transactions,
-	// this process can become quite slow.
-	err = os.RemoveAll(config.DataDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clear out directory: %w", err)
-	}
-
-	// Step on the L1 and store all batches posted in config.DataDir.
-	err = fetchBatches(config, rollupCfg, l1Origin, finalizedL1)
+	// Fetch the batches posted to the BatchInbox contract in the given L1 block range and store them in config.DataDir.
+	err = fetchBatchesBetweenL1Blocks(config, rollupCfg, l1Start, l1End)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch batches: %w", err)
 	}
@@ -196,6 +180,7 @@ func GetSpanBatchRange(config reassemble.Config, rollupCfg *rollup.Config, l2Blo
 	return 0, 0, ErrNoSpanBatchFound
 }
 
+// Set up the batch decoder config.
 func setupBatchDecoderConfig(config *BatchDecoderConfig) (*rollup.Config, error) {
 	rollupCfg, err := rollup.LoadOPStackRollupConfig(config.L2ChainID.Uint64())
 	if err != nil {
@@ -222,8 +207,11 @@ func setupBatchDecoderConfig(config *BatchDecoderConfig) (*rollup.Config, error)
 	return rollupCfg, nil
 }
 
-// Get the L1 origin corresponding to the given L2 block and the latest finalized L1 block.
-func getL1Origins(rollupClient *sources.RollupClient, l1Client *ethclient.Client, startBlock, endBlock uint64) (uint64, uint64, error) {
+// Get the L1 boundaries corresponding to the given L2 block range. Specifically, get the L1 origin
+// for the first block and an L1 block 10 minutes after the last block to ensure that the batches
+// were posted to L1 for these blocks in that period. Pick blocks where it's nearly guaranteeed that
+// the relevant batches were posted to L1.
+func GetL1SearchBoundaries(rollupClient dial.RollupClientInterface, l1Client ethclient.Client, startBlock, endBlock uint64) (uint64, uint64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -240,23 +228,78 @@ func getL1Origins(rollupClient *sources.RollupClient, l1Client *ethclient.Client
 	}
 	startBlockTime := block.Time()
 
+	// Get the L1 block time by retrieving the timestamp diff between two consecutive L1 blocks.
 	block, err = l1Client.BlockByNumber(ctx, big.NewInt(int64(startL1Origin-1)))
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get block at start L1 origin - 1: %w", err)
 	}
 	l1BlockTime := startBlockTime - block.Time()
 
+	// Get the L1 origin for the last block.
 	output, err = rollupClient.OutputAtBlock(ctx, endBlock)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get output at end block: %w", err)
 	}
 
-	// Fetch an L1 origin that is at least 10 minutes after the end block to guarantee that the batches have been posted.
-	// TODO: This won't work if the L1 block time is not 12 seconds. Find a way to get the L1 block time, OR find the nearest
-	// L1 origin that is after the timestamp we want.
+	// Fetch an L1 block that is at least 10 minutes after the end block to guarantee that the batches have been posted.
 	endL1Origin := output.BlockRef.L1Origin.Number + (uint64(60/l1BlockTime) * 10)
 
 	return startL1Origin, endL1Origin, nil
+}
+
+// Read all of the batches posted to the BatchInbox contract in the given L1 block range. Once the
+// batches are fetched, they are written to the given data directory.
+func fetchBatchesBetweenL1Blocks(config BatchDecoderConfig, rollupCfg *rollup.Config, l1Start, l1End uint64) error {
+	// Clear the out directory so that loading the transaction frames is fast. Otherwise, when loading thousands of transactions,
+	// this process can become quite slow.
+	err := os.RemoveAll(config.DataDir)
+	if err != nil {
+		return fmt.Errorf("failed to clear out directory: %w", err)
+	}
+
+	fetchConfig := fetch.Config{
+		Start:   l1Start,
+		End:     l1End,
+		ChainID: rollupCfg.L1ChainID,
+		BatchSenders: map[common.Address]struct{}{
+			config.BatchSender: {},
+		},
+		BatchInbox:         config.BatchInboxAddress,
+		OutDirectory:       config.DataDir,
+		ConcurrentRequests: 10,
+	}
+
+	l1Client, err := ethclient.Dial(config.L1RPC)
+	if err != nil {
+		return fmt.Errorf("failed to dial L1 client: %w", err)
+	}
+
+	totalValid, totalInvalid := fetch.Batches(l1Client, &config.L1Beacon, fetchConfig)
+	fmt.Printf("Fetched batches in range [%v,%v). Found %v valid & %v invalid batches\n", fetchConfig.Start, fetchConfig.End, totalValid, totalInvalid)
+
+	return nil
+}
+
+// Setup the L1 Beacon client.
+func SetupBeacon(l1BeaconUrl string) (*sources.L1BeaconClient, error) {
+	if l1BeaconUrl == "" {
+		fmt.Println("L1 Beacon endpoint not set. Unable to fetch post-ecotone channel frames")
+		return nil, nil
+	}
+
+	beaconClient := sources.NewBeaconHTTPClient(client.NewBasicHTTPClient(l1BeaconUrl, nil))
+	beaconCfg := sources.L1BeaconClientConfig{FetchAllSidecars: false}
+	beacon := sources.NewL1BeaconClient(beaconClient, beaconCfg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := beacon.GetVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check L1 Beacon API version: %w", err)
+	}
+
+	return beacon, nil
 }
 
 // Copied from op-proposer-go/op-node/cmd/batch_decoder/utils/reassemble.go, because it wasn't exported.
@@ -335,57 +378,4 @@ func processFrames(cfg reassemble.Config, rollupCfg *rollup.Config, id derive.Ch
 		BatchTypes:     batchTypes,
 		ComprAlgos:     comprAlgos,
 	}
-}
-
-// Read all of the batches posted to the BatchInbox contract in the given L1 block range.
-// Once the batches are fetched, they are written to the given data directory.
-func fetchBatches(config BatchDecoderConfig, rollupCfg *rollup.Config, l1Origin, finalizedL1 uint64) error {
-	fetchConfig := fetch.Config{
-		Start:   l1Origin,
-		End:     finalizedL1,
-		ChainID: rollupCfg.L1ChainID,
-		BatchSenders: map[common.Address]struct{}{
-			config.BatchSender: {},
-		},
-		BatchInbox:         config.BatchInboxAddress,
-		OutDirectory:       config.DataDir,
-		ConcurrentRequests: 10,
-	}
-
-	l1Client, err := ethclient.Dial(config.L1RPC)
-	if err != nil {
-		return fmt.Errorf("failed to dial L1 client: %w", err)
-	}
-
-	beacon, err := setupBeacon(config)
-	if err != nil {
-		return err
-	}
-
-	totalValid, totalInvalid := fetch.Batches(l1Client, beacon, fetchConfig)
-	fmt.Printf("Fetched batches in range [%v,%v). Found %v valid & %v invalid batches\n", fetchConfig.Start, fetchConfig.End, totalValid, totalInvalid)
-
-	return nil
-}
-
-// Setup the L1 Beacon client.
-func setupBeacon(config BatchDecoderConfig) (*sources.L1BeaconClient, error) {
-	if config.L1Beacon == "" {
-		fmt.Println("L1 Beacon endpoint not set. Unable to fetch post-ecotone channel frames")
-		return nil, nil
-	}
-
-	beaconClient := sources.NewBeaconHTTPClient(client.NewBasicHTTPClient(config.L1Beacon, nil))
-	beaconCfg := sources.L1BeaconClientConfig{FetchAllSidecars: false}
-	beacon := sources.NewL1BeaconClient(beaconClient, beaconCfg)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	_, err := beacon.GetVersion(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check L1 Beacon API version: %w", err)
-	}
-
-	return beacon, nil
 }

@@ -185,6 +185,7 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 	return nil
 }
 
+// Request a proof from the OP Succinct server.
 func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 	prevConfirmedBlock := p.StartBlock - 1
 	var proofId string
@@ -225,11 +226,12 @@ type ProofResponse struct {
 	ProofID string `json:"proof_id"`
 }
 
-func (l *L2OutputSubmitter) RequestSpanProof(start, end uint64) (string, error) {
-	l.Log.Info("requesting span proof", "start", start, "end", end)
+// Request a span proof for the range [l2Start, l2End].
+func (l *L2OutputSubmitter) RequestSpanProof(l2Start, l2End uint64) (string, error) {
+	l.Log.Info("requesting span proof", "start", l2Start, "end", l2End)
 	requestBody := SpanProofRequest{
-		Start: start,
-		End:   end,
+		Start: l2Start,
+		End:   l2End,
 	}
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {

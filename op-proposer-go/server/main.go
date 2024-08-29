@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sort"
 
-	"github.com/succinctlabs/op-succinct-go/server/utils"
+	"github.com/succinctlabs/op-succinct-go/proposer/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gorilla/mux"
@@ -46,18 +46,25 @@ func handleSpanBatchRanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	l1BeaconClient, err := utils.SetupBeacon(req.L1Beacon)
+	if err != nil {
+		fmt.Printf("Error setting up beacon: %v\n", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	config := utils.BatchDecoderConfig{
 		L2ChainID:    new(big.Int).SetUint64(req.L2ChainID),
 		L2Node:       req.L2Node,
 		L1RPC:        req.L1RPC,
-		L1Beacon:     req.L1Beacon,
+		L1Beacon:     *l1BeaconClient,
 		BatchSender:  common.HexToAddress(req.BatchSender),
 		L2StartBlock: req.StartBlock,
 		L2EndBlock:   req.EndBlock,
 		DataDir: fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", req.L2ChainID),
 	}
 
-	ranges, err := utils.GetAllSpanBatchesInBlockRange(config)
+	ranges, err := utils.GetAllSpanBatchesInL2BlockRange(config)
 	if err != nil {
 		fmt.Printf("Error getting span batch ranges: %v\n", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -10,36 +10,71 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/fetch"
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/reassemble"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/succinctlabs/op-succinct-go/server/utils"
+	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
+	"github.com/succinctlabs/op-succinct-go/proposer/utils"
 )
 
 func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
-	// nextBlock is equal to the highest value in the `EndBlock` column of the db, plus 1
-	latestEndBlock, err := l.db.GetLatestEndBlock()
+	// nextBlock is equal to the highest value in the `EndBlock` column of the db, plus 1.
+	latestL2EndBlock, err := l.db.GetLatestEndBlock()
 	if err != nil {
 		if ent.IsNotFound(err) {
 			latestEndBlockU256, err := l.l2ooContract.LatestBlockNumber(&bind.CallOpts{Context: ctx})
 			if err != nil {
 				return fmt.Errorf("failed to get latest output index: %w", err)
 			} else {
-				latestEndBlock = latestEndBlockU256.Uint64()
+				latestL2EndBlock = latestEndBlockU256.Uint64()
 			}
 		} else {
 			l.Log.Error("failed to get latest end requested", "err", err)
 			return err
 		}
 	}
-	nextBlock := latestEndBlock + 1
-	l.Log.Info("deriving span batch for L2 block", "nextBlock", nextBlock)
+	newL2StartBlock := latestL2EndBlock + 1
+	l.Log.Info("deriving span batch for L2 block", "nextBlock", newL2StartBlock)
 
-	// use batch decoder to pull all batches from next block's L1 Origin through Finalized L1 from chain to disk
-	err = l.FetchBatchesFromChain(ctx, nextBlock)
+	rollupClient, err := l.RollupProvider.RollupClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get rollup client: %w", err)
+	}
+
+	// Get the latest finalized L1 block.
+	status, err := rollupClient.SyncStatus(ctx)
+	if err != nil {
+		l.Log.Error("proposer unable to get sync status", "err", err)
+		return err
+	}
+	// TODO: This is modified from using the L1 finalized block to using the L2 finalized block. Confirm
+	// that this is correct.
+	newL2EndBlock := status.FinalizedL2.Number
+
+	l1Start, l1End, err := utils.GetL1SearchBoundaries(rollupClient, l.L1Client, newL2StartBlock, newL2EndBlock)
+	if err != nil {
+		l.Log.Error("failed to get L1 origin and finalized", "err", err)
+		return err
+	}
+
+	rollupCfg, err := utils.GetRollupConfigFromL2Rpc(l.DriverSetup.Cfg.L2Node)
+
+	config := utils.BatchDecoderConfig{
+		L2ChainID:    new(big.Int).SetUint64(l.Cfg.L2ChainID),
+		L2Node:       l.Cfg.L2Node,
+		L1RPC:        l.Cfg.L1RPC,
+		L1Beacon:     l.Cfg.BeaconRpc,
+		BatchSender:  l.Cfg.BatcherAddress,
+		L2StartBlock: newL2StartBlock,
+		L2EndBlock:   newL2EndBlock,
+		DataDir:      fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", l.Cfg.L2ChainID),
+	}
+	// Pull all of the batches from the l1Start to l1End from chain to disk.
+	ranges, err = utils.GetAllSpanBatchesInL2BlockRange(config)
+
+	// Use the batch decoder to pull all batches from the next block's L1 Origin through Finalized L1 from chain to disk.
+	err = l.FetchBatchesFromChain(ctx, nextL2Block)
 	if err != nil {
 		l.Log.Error("failed to fetch batches from chain", "err", err)
 		return err
@@ -156,6 +191,7 @@ func (l *L2OutputSubmitter) FetchBatchesFromChain(ctx context.Context, nextBlock
 	return nil
 }
 
+// Note: Span batch ranges are non-overlapping and are contiguous.
 func (l *L2OutputSubmitter) GenerateSpanBatchRange(ctx context.Context, nextBlock, maxSpanBatchDeviation uint64) (uint64, uint64, error) {
 	batchInbox, l2BlockTime, genesisTimestamp := common.Address{}, uint64(0), uint64(0)
 	rollupCfg, err := rollup.LoadOPStackRollupConfig(l.Cfg.L2ChainID)
@@ -215,7 +251,7 @@ func (l *L2OutputSubmitter) getL1OriginAndFinalized(ctx context.Context, nextBlo
 	}
 	l1Origin := output.BlockRef.L1Origin.Number
 
-	// get the latest finalized L1
+	// Get the latest finalized L1 block.
 	status, err := rollupClient.SyncStatus(cCtx)
 	if err != nil {
 		l.Log.Error("proposer unable to get sync status", "err", err)
