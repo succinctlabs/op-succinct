@@ -5,8 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/joho/godotenv"
 	"github.com/succinctlabs/op-succinct-go/proposer/utils"
 	"github.com/urfave/cli/v2"
@@ -70,7 +70,7 @@ func main() {
 				log.Fatal(err)
 			}
 
-			l1Client, err := sources.NewEthClient(cliCtx.String("l1"))
+			l1Client, err := ethclient.Dial(cliCtx.String("l1"))
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -87,9 +87,9 @@ func main() {
 				L2StartBlock:      cliCtx.Uint64("start"),
 				L2EndBlock:        cliCtx.Uint64("end"),
 				L2ChainID:         rollupCfg.L2ChainID,
-				L2Node:            cliCtx.String("l2.node"),
-				L1RPC:             cliCtx.String("l1"),
-				L1Beacon:          *l1BeaconClient,
+				L2Node:            rollupClient,
+				L1RPC:             l1Client,
+				L1Beacon:          l1BeaconClient,
 				BatchSender:       rollupCfg.Genesis.SystemConfig.BatcherAddr,
 				DataDir:           fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", rollupCfg.L2ChainID),
 			}

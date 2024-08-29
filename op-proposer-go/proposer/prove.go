@@ -331,7 +331,7 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (string, []byte, erro
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Errorf("Error reading the response body: %v", err)
+		return "", nil, fmt.Errorf("error reading the response body: %v", err)
 	}
 
 	// Create a variable of the Response type
@@ -340,7 +340,7 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (string, []byte, erro
 	// Unmarshal the JSON into the response variable
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Errorf("Error decoding JSON response: %v", err)
+		return "", nil, fmt.Errorf("error decoding JSON response: %v", err)
 	}
 
 	return response.Status, response.Proof, nil

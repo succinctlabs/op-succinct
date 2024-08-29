@@ -41,8 +41,8 @@ type BatchDecoderConfig struct {
 	L2EndBlock        uint64
 	L2ChainID         *big.Int
 	L2Node            dial.RollupClientInterface
-	L1RPC             sources.EthClient
-	L1Beacon          sources.L1BeaconClient
+	L1RPC             *ethclient.Client
+	L1Beacon          *sources.L1BeaconClient
 	BatchSender       common.Address
 	DataDir           string
 }
@@ -74,10 +74,7 @@ func GetAllSpanBatchesInL2BlockRange(config BatchDecoderConfig) ([]SpanBatchRang
 		return nil, fmt.Errorf("failed to setup config: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	l1Start, l1End, err := GetL1SearchBoundaries(config.L2Node, config.L1RPC, config.L2StartBlock, config.L2EndBlock)
+	l1Start, l1End, err := GetL1SearchBoundaries(config.L2Node, *config.L1RPC, config.L2StartBlock, config.L2EndBlock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 origin and finalized: %w", err)
 	}
@@ -269,12 +266,8 @@ func fetchBatchesBetweenL1Blocks(config BatchDecoderConfig, rollupCfg *rollup.Co
 		ConcurrentRequests: 10,
 	}
 
-	l1Client, err := ethclient.Dial(config.L1RPC)
-	if err != nil {
-		return fmt.Errorf("failed to dial L1 client: %w", err)
-	}
+	totalValid, totalInvalid := fetch.Batches(*config.L1RPC, config.L1Beacon, fetchConfig)
 
-	totalValid, totalInvalid := fetch.Batches(l1Client, &config.L1Beacon, fetchConfig)
 	fmt.Printf("Fetched batches in range [%v,%v). Found %v valid & %v invalid batches\n", fetchConfig.Start, fetchConfig.End, totalValid, totalInvalid)
 
 	return nil
