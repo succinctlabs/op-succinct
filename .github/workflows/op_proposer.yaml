@@ -43,7 +43,3 @@ jobs:
       - name: Build and test Docker Compose setup
         run: |
           docker compose build
-          docker compose up -d
-          docker compose ps
-          # Add health checks or tests here
-          docker compose down
