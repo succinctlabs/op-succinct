@@ -28,3 +28,5 @@ execution-reports/
 db/proofs.db
 
 **/bin/op-proposer
+
+artifact_*
