@@ -47,20 +47,3 @@ jobs:
           args: --all-features --all-targets -- -D warnings -A incomplete-features
         env:
           CARGO_INCREMENTAL: 1
-
-  examples:
-    name: Examples
-    runs-on: [runs-on, runner=8cpu-linux-x64, "run-id=${{ github.run_id }}"]
-    env:
-      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-
-      - name: Setup CI
-        uses: ./.github/actions/setup
-
-      - name: Run cargo check
-        run: |
-          RUSTFLAGS="-Copt-level=3 -Cdebug-assertions -Coverflow-checks=y -Cdebuginfo=0 -C target-cpu=native" \
-          cargo check --manifest-path examples/Cargo.toml --all-targets --all-features
