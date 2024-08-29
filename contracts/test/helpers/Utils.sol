@@ -70,7 +70,7 @@ contract Utils is Test, JSONDecoder {
 
     function readJsonWithRPCFromEnv(string memory filepath) view public returns (Config memory) {
         Config memory config = readJson(filepath);
-        config.l2RollupNode = vm.envString("L2_ROLLUP_NODE");
+        config.l2RollupNode = vm.envString("L2_NODE_RPC");
         return config;
     }
 

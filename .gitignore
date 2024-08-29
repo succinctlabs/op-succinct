@@ -23,3 +23,6 @@ execution-reports/
 
 # Rollup Config
 **/rollup-config.json
+
+# DB
+db/proofs.db

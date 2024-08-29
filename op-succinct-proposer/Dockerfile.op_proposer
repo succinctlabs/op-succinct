@@ -7,7 +7,9 @@ WORKDIR /optimism
 COPY ./op-proposer-go/ /optimism/op-proposer
 WORKDIR /optimism/op-proposer/proposer
 RUN make op-proposer
-RUN chmod +x /optimism/op-proposer/proposer/bin/op-proposer
+RUN ls -l /optimism/op-proposer/proposer
+RUN ls -l /optimism/op-proposer/proposer/bin
+RUN pwd
 
 # Use a slim Debian image for the final stage
 FROM ubuntu:22.04
@@ -24,6 +26,7 @@ COPY --from=optimism-builder /optimism/op-proposer/proposer/bin/op-proposer /usr
 COPY ./op-succinct-proposer/op_proposer.sh /usr/local/bin/op_proposer.sh
 
 # Make the binary and entrypoint executable.
+RUN ls -l /usr/local/bin/
 RUN chmod +x /usr/local/bin/op-proposer
 RUN chmod +x /usr/local/bin/op_proposer.sh
 

@@ -11,6 +11,14 @@ remappings = [
     # version for 0.8.15 on some Optimism contracts.
     "@sp1-contracts/=lib/sp1-contracts/contracts/",
     "@rari-capital/=lib/optimism/packages/contracts-bedrock/lib/",
+    # Optimism repo uses absolute imports, so we need to have remappings for the paths we use.
+    "src/libraries/=lib/optimism/packages/contracts-bedrock/src/libraries/",
+    "src/L1/=lib/optimism/packages/contracts-bedrock/src/L1/",
+    "src/L2/=lib/optimism/packages/contracts-bedrock/src/L2/",
 ]
 
+# Enable read-write access to zkconfig.json
+fs_permissions = [{ access = "read-write", path = "./zkconfig.json" }]
+
+dotenv = ".env"
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

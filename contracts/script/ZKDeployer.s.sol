@@ -10,7 +10,7 @@ contract ZKDeployer is Script, Utils {
     function run() public {
         vm.startBroadcast();
 
-        Config memory config = readJson("zkconfig.json");
+        Config memory config = readJsonWithRPCFromEnv("zkconfig.json");
         config.l2OutputOracleProxy = address(new Proxy(msg.sender));
 
         address zkL2OutputOracleImpl = address(new ZKL2OutputOracle());

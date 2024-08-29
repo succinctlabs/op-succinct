@@ -43,7 +43,7 @@ async fn main() -> Result<()> {
     info!("Program Hash [view on Explorer]:");
     info!("0x{}", hex::encode(program_hash));
 
-    info!(
+    println!(
         "Multi-block ELF Verification Key U32 Hash: {:?}",
         vkey.vk.hash_u32()
     );

@@ -58,20 +58,20 @@ fn build_zkvm_program(program: &str) {
         &format!("../client-programs/{}", program),
         BuildArgs {
             elf_name: format!("{}-elf", program),
-            docker: true,
+            // docker: true,
             ..Default::default()
         },
     );
 }
 
 fn main() {
-    let programs = vec!["range"];
+    // let programs = vec!["range"];
 
-    for program in programs {
-        build_native_program(program);
-        build_zkvm_program(program);
-    }
+    // for program in programs {
+    //     build_native_program(program);
+    //     build_zkvm_program(program);
+    // }
 
-    build_zkvm_program("aggregation");
+    // build_zkvm_program("aggregation");
     build_native_host_runner();
 }
