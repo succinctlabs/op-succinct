@@ -16,6 +16,7 @@ import (
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent/proofrequest"
 )
 
+// 1) Retry all failed proofs
 func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	failedReqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusFAILED)
 	if err != nil {
@@ -28,7 +29,9 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		}
 	}
 
-	reqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusREQ)
+	// Get all pending proofs with a status of requested and a prover ID that is not empty.
+	// TODO: There should be a proofrequest status where the prover ID is not empty.
+	reqs, err := l.db.GetAllPendingProofs()
 	if err != nil {
 		return err
 	}
@@ -36,7 +39,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	for _, req := range reqs {
 		status, proof, err := l.GetProofStatus(req.ProverRequestID)
 		if err != nil {
-			l.Log.Error("failed to get proof status", "err", err)
+			l.Log.Error("failed to get proof status for ID", "id", req.ProverRequestID, "err", err)
 			return err
 		}
 		if status == "PROOF_FULFILLED" {
@@ -71,8 +74,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 }
 
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
-	// If an AGG proof failed, we're in trouble.
-	// Try again.
+	// If an AGG proof failed, something went deeply wrong. Simply try again.
 	if req.Type == proofrequest.TypeAGG {
 		l.Log.Error("agg proof failed, adding to db to retry", "req", req)
 
@@ -83,7 +85,7 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
 		}
 	}
 
-	// If a SPAN proof failed, assume it was too big.
+	// If a SPAN proof failed, assume it was too big and the SP1 runtime OOM'd.
 	// Therefore, create two new entries for the original proof split in half.
 	l.Log.Info("span proof failed, splitting in half to retry", "req", req)
 	tmpStart := req.StartBlock

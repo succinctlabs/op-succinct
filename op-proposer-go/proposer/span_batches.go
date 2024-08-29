@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
 	"github.com/succinctlabs/op-succinct-go/proposer/utils"
@@ -50,18 +51,25 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 		return err
 	}
 
+	// Get the rollup config for the chain to fetch the batcher address.
+	rollupCfg, err := rollup.LoadOPStackRollupConfig(l.Cfg.L2ChainID)
+	if err != nil {
+		return fmt.Errorf("failed to load rollup config: %w", err)
+	}
+
 	config := utils.BatchDecoderConfig{
 		L2ChainID:    new(big.Int).SetUint64(l.Cfg.L2ChainID),
 		L2Node:       rollupClient,
 		L1RPC:        *l.L1Client,
 		L1Beacon:     l1BeaconClient,
-		BatchSender:  l.Cfg.BatcherAddress,
+		BatchSender:  rollupCfg.Genesis.SystemConfig.BatcherAddr,
 		L2StartBlock: newL2StartBlock,
 		L2EndBlock:   newL2EndBlock,
 		DataDir:      fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", l.Cfg.L2ChainID),
 	}
 	// Pull all of the batches from the l1Start to l1End from chain to disk.
 	ranges, err := utils.GetAllSpanBatchesInL2BlockRange(config)
+	fmt.Println("Found", len(ranges), "valid span batches.")
 	if err != nil {
 		l.Log.Error("failed to get span batch ranges", "err", err)
 		return err

@@ -26,7 +26,14 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/cargo-prove prove --version
     
 # Copy the project files, excluding target and data directories
-COPY . .
+# TODO: Once the repo is refactored to just be Rust, Go and Solidity at the top level, can just copy the Rust directory.
+COPY Cargo.toml Cargo.lock ./
+COPY zkvm-host ./zkvm-host
+COPY op-succinct-proposer ./op-succinct-proposer
+COPY native-host ./native-host
+COPY elf ./elf
+COPY crates ./crates
+COPY client-programs ./client-programs
 
 # Build the server
 RUN cargo build --bin server --release

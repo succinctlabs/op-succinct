@@ -211,6 +211,21 @@ func (db *ProofDB) GetLatestEndBlock() (uint64, error) {
 	return uint64(maxEnd.EndBlock), nil
 }
 
+// Get all pending proofs with a status of requested and a prover ID that is not empty.
+func (db *ProofDB) GetAllPendingProofs() ([]*ent.ProofRequest, error) {
+	proofs, err := db.client.ProofRequest.Query().
+		Where(
+			proofrequest.StatusEQ(proofrequest.StatusREQ),
+			proofrequest.ProverRequestIDNEQ(""),
+		).
+		All(context.Background())
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending proofs: %w", err)
+	}
+	return proofs, nil
+}
+
 // GetAllProofsWithStatus returns all proofs with the given status.
 func (db *ProofDB) GetAllProofsWithStatus(status proofrequest.Status) ([]*ent.ProofRequest, error) {
 	proofs, err := db.client.ProofRequest.Query().
@@ -372,8 +387,8 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 	return true, end, nil
 }
 
-/// Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
-/// don't fully cover the range, return an error.
+// / Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
+// / don't fully cover the range, return an error.
 func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error) {
 	ctx := context.Background()
 	client := db.client
