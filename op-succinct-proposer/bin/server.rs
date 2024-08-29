@@ -86,7 +86,7 @@ async fn request_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native host,
     // and return an ID that the client can poll on to check if the proof was submitted.
-    run_native_host(&host_cli, Duration::from_secs(40)).await?;
+    run_native_host(&host_cli, Duration::from_secs(60)).await?;
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 

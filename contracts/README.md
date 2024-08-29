@@ -13,7 +13,7 @@ The `contracts/` directory consists of two things:
 For OP Sepolia, you can deploy a fresh proxy with the following command:
 
 ```shell
-forge script script/ZKDeployer.s.sol:ZKDeployer --rpc-url <L1_RPC> --private-key <ADMIN_PK> --verify --verifier etherscan --etherscan-api-key <ETHERSCAN_API_KEY> --broadcast --slow --vvvv
+forge script script/ZKDeployer.s.sol:ZKDeployer --rpc-url <L1_RPC> --private-key <ADMIN_PK> --verify --verifier etherscan --etherscan-api-key <ETHERSCAN_API_KEY> --broadcast --slow -vvvv --ffi
 ```
 
 ## Upgrade Existing Proxy
