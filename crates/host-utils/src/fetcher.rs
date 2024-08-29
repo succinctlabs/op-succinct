@@ -18,9 +18,9 @@ use alloy_primitives::keccak256;
 use crate::{L2Output, ProgramType};
 
 #[derive(Clone)]
-/// The SP1KonaDataFetcher struct is used to fetch the L2 output data and L2 claim data for a given block number.
+/// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a given block number.
 /// It is used to generate the boot info for the native host program.
-pub struct SP1KonaDataFetcher {
+pub struct OPSuccinctDataFetcher {
     pub l1_rpc: String,
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
     pub l1_beacon_rpc: String,
@@ -29,9 +29,9 @@ pub struct SP1KonaDataFetcher {
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
 }
 
-impl Default for SP1KonaDataFetcher {
+impl Default for OPSuccinctDataFetcher {
     fn default() -> Self {
-        SP1KonaDataFetcher::new()
+        OPSuccinctDataFetcher::new()
     }
 }
 
@@ -49,7 +49,7 @@ pub struct BlockInfo {
     pub gas_used: u64,
 }
 
-impl SP1KonaDataFetcher {
+impl OPSuccinctDataFetcher {
     pub fn new() -> Self {
         dotenv::dotenv().ok();
         let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
@@ -62,7 +62,7 @@ impl SP1KonaDataFetcher {
             env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
         let l2_provider =
             Arc::new(ProviderBuilder::default().on_http(Url::from_str(&l2_rpc).unwrap()));
-        SP1KonaDataFetcher {
+        OPSuccinctDataFetcher {
             l1_rpc,
             l1_provider,
             l1_beacon_rpc,

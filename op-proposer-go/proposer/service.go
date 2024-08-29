@@ -59,7 +59,7 @@ type ProposerConfig struct {
 	MaxBlockRangePerSpanProof  uint64
 	L2ChainID                  uint64
 	ProofTimeout               uint64
-	KonaServerUrl              string
+	OPSuccinctServerUrl        string
 	MaxConcurrentProofRequests uint64
 	BatchInbox                 common.Address
 	BatcherAddress             common.Address
@@ -118,7 +118,7 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 	ps.BatchDecoderConcurrentReqs = cfg.BatchDecoderConcurrentReqs
 	ps.MaxSpanBatchDeviation = cfg.MaxSpanBatchDeviation
 	ps.MaxBlockRangePerSpanProof = cfg.MaxBlockRangePerSpanProof
-	ps.KonaServerUrl = cfg.KonaServerUrl
+	ps.OPSuccinctServerUrl = cfg.OPSuccinctServerUrl
 	ps.ProofTimeout = cfg.ProofTimeout
 	ps.L2ChainID = cfg.L2ChainID
 	ps.MaxConcurrentProofRequests = cfg.MaxConcurrentProofRequests

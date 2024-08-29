@@ -119,11 +119,11 @@ var (
 		Value:   14400,
 		EnvVars: prefixEnvVars("MAX_PROOF_TIME"),
 	}
-	KonaServerUrlFlag = &cli.StringFlag{
-		Name:    "kona-server-url",
-		Usage:   "URL of the Kona server to request proofs from",
+	OPSuccinctServerUrlFlag = &cli.StringFlag{
+		Name:    "op-succinct-server-url",
+		Usage:   "URL of the OP Succinct server to request proofs from",
 		Value:   "http://127.0.0.1:3000",
-		EnvVars: prefixEnvVars("KONA_SERVER_URL"),
+		EnvVars: prefixEnvVars("OP_SUCCINCT_SERVER_URL"),
 	}
 	MaxConcurrentProofRequestsFlag = &cli.Uint64Flag{
 		Name:    "max-concurrent-proof-requests",
@@ -182,7 +182,7 @@ var optionalFlags = []cli.Flag{
 	ProofTimeoutFlag,
 	TxCacheOutDirFlag,
 	BatchDecoderConcurrentReqsFlag,
-	KonaServerUrlFlag,
+	OPSuccinctServerUrlFlag,
 	MaxConcurrentProofRequestsFlag,
 	BatchInboxFlag,
 	BatcherAddressFlag,

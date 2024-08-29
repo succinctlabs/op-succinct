@@ -15,5 +15,5 @@
     --l2-chain-id=${L2_CHAIN_ID} \
     --max-concurrent-proof-requests=${MAX_CONCURRENT_PROOF_REQUESTS:-40} \
     --db-path=/usr/local/bin/dbdata/proofs.db \
-    --kona-server-url=${KONA_SERVER_URL:-0.0.0.0:3000} \
+    --op-succinct-server-url=${OP_SUCCINCT_SERVER_URL:-0.0.0.0:3000} \
     --max-block-range-per-span-proof=${MAX_BLOCK_RANGE_PER_SPAN_PROOF:-20}

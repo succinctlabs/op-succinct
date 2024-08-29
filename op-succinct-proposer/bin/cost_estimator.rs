@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use host_utils::{
-    fetcher::{ChainMode, SP1KonaDataFetcher},
+    fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::{get_execution_stats, ExecutionStats},
     ProgramType,
@@ -71,7 +71,7 @@ struct SpanBatchRange {
 /// Get the span batches posted between the start and end blocks. Sends a request to a Go server
 /// that runs a Span Batch Decoder.
 async fn get_span_batch_ranges_from_server(
-    data_fetcher: &SP1KonaDataFetcher,
+    data_fetcher: &OPSuccinctDataFetcher,
     start: u64,
     end: u64,
     l2_chain_id: u64,
@@ -122,7 +122,7 @@ fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
 }
 
 async fn fetch_span_batch_ranges(
-    data_fetcher: &SP1KonaDataFetcher,
+    data_fetcher: &OPSuccinctDataFetcher,
     args: &HostArgs,
     l2_chain_id: u64,
     rollup_config: &RollupConfig,
@@ -167,7 +167,7 @@ fn split_ranges(span_batch_ranges: Vec<SpanBatchRange>, l2_chain_id: u64) -> Vec
 
 /// Concurrently run the native data generation process for each split range.
 async fn run_native_data_generation(
-    data_fetcher: &SP1KonaDataFetcher,
+    data_fetcher: &OPSuccinctDataFetcher,
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
@@ -230,7 +230,7 @@ pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
 async fn execute_blocks_parallel(
     host_clis: &[BatchHostCli],
     prover: &ProverClient,
-    data_fetcher: &SP1KonaDataFetcher,
+    data_fetcher: &OPSuccinctDataFetcher,
 ) -> Vec<ExecutionStats> {
     host_clis
         .par_iter()
@@ -283,7 +283,7 @@ async fn main() -> Result<()> {
     utils::setup_logger();
 
     let args = HostArgs::parse();
-    let data_fetcher = SP1KonaDataFetcher::new();
+    let data_fetcher = OPSuccinctDataFetcher::new();
     let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 

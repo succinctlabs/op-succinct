@@ -210,11 +210,11 @@ func (db *ProofDB) GetLatestEndBlock() (uint64, error) {
 	return uint64(maxEnd.EndBlock), nil
 }
 
-func (db *ProofDB) GetAllPendingProofs() ([]*ent.ProofRequest, error) {
+// GetAllProofsWithStatus returns all proofs with the given status.
+func (db *ProofDB) GetAllProofsWithStatus(status proofrequest.Status) ([]*ent.ProofRequest, error) {
 	proofs, err := db.client.ProofRequest.Query().
 		Where(
-			proofrequest.StatusEQ(proofrequest.StatusREQ),
-			proofrequest.ProverRequestIDNEQ(""),
+			proofrequest.StatusEQ(status),
 		).
 		All(context.Background())
 
@@ -222,39 +222,22 @@ func (db *ProofDB) GetAllPendingProofs() ([]*ent.ProofRequest, error) {
 		if ent.IsNotFound(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to query pending proof: %w", err)
+		return nil, fmt.Errorf("failed to query proofs with status %s: %w", status, err)
 	}
 
 	return proofs, nil
 }
 
-func (db *ProofDB) GetProofsFailedOnServer() ([]*ent.ProofRequest, error) {
-	proofs, err := db.client.ProofRequest.Query().
-		Where(
-			proofrequest.StatusEQ(proofrequest.StatusFAILED),
-			proofrequest.ProverRequestIDEQ(""),
-		).
-		All(context.Background())
-
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to query failed proof: %w", err)
-	}
-
-	return proofs, nil
-}
-
-func (db *ProofDB) CountRequestedProofs() (int, error) {
+// Return the number of proofs with the given status.
+func (db *ProofDB) GetNumberOfProofsWithStatus(status proofrequest.Status) (int, error) {
 	count, err := db.client.ProofRequest.Query().
 		Where(
-			proofrequest.StatusEQ(proofrequest.StatusREQ),
+			proofrequest.StatusEQ(status),
 		).
 		Count(context.Background())
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to count pending proofs: %w", err)
+		return 0, fmt.Errorf("failed to count proofs with status %s: %w", status, err)
 	}
 
 	return count, nil
@@ -319,14 +302,14 @@ func (db *ProofDB) GetAllCompletedAggProofs(startBlock uint64) ([]*ent.ProofRequ
 }
 
 func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, uint64, error) {
-	// Start a transaction
+	// Start a DB transaction.
 	tx, err := db.client.Tx(context.Background())
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Check if there's already an AGG proof in progress
+	// If there's already an AGG proof in progress/completed with the same start block, return.
 	count, err := tx.ProofRequest.Query().
 		Where(
 			proofrequest.TypeEQ(proofrequest.TypeAGG),
@@ -335,13 +318,15 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 		).
 		Count(context.Background())
 	if err != nil {
-		return false, 0, fmt.Errorf("failed to check existing AGG proofs: %w", err)
+		return false, 0, fmt.Errorf("failed to query DB for AGG proof with start block %d: %w", from, err)
 	}
 	if count > 0 {
-		return false, 0, nil // There's already an AGG proof in progress
+		// There's already an AGG proof in progress with the same start block.
+		return false, 0, nil
 	}
 
-	// Find consecutive SPAN proofs
+	// If there's no AGG proof in process, query to see if there is a complete SPAN proof chain that
+	// covers at least [from, minTo]. If so, create an AGG proof for that range.
 	start := from
 	var end uint64
 	for {
@@ -386,11 +371,13 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 	return true, end, nil
 }
 
-func (db *ProofDB) GetSubproofs(start, end uint64) ([][]byte, error) {
+/// Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
+/// don't fully cover the range, return an error.
+func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error) {
 	ctx := context.Background()
 	client := db.client
 
-	// Start the query
+	// Query the DB for the span proofs that cover the range [start, end].
 	query := client.ProofRequest.Query().
 		Where(
 			proofrequest.TypeEQ(proofrequest.TypeSPAN),
@@ -400,13 +387,13 @@ func (db *ProofDB) GetSubproofs(start, end uint64) ([][]byte, error) {
 		).
 		Order(ent.Asc(proofrequest.FieldStartBlock))
 
-	// Execute the query
+	// Execute the query.
 	spans, err := query.All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query span proofs: %w", err)
 	}
 
-	// Check if we have a valid chain of proofs
+	// Verify that the proofs are consecutive and cover the entire range.
 	var result [][]byte
 	currentBlock := start
 

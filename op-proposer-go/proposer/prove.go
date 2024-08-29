@@ -17,7 +17,7 @@ import (
 )
 
 func (l *L2OutputSubmitter) ProcessPendingProofs() error {
-	failedReqs, err := l.db.GetProofsFailedOnServer()
+	failedReqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusFAILED)
 	if err != nil {
 		return fmt.Errorf("failed to get proofs failed on server: %w", err)
 	}
@@ -28,7 +28,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		}
 	}
 
-	reqs, err := l.db.GetAllPendingProofs()
+	reqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusREQ)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 			l.Log.Info("found agg proof with already checkpointed l1 block info")
 		}
 	} else {
-		currentRequestedProofs, err := l.db.CountRequestedProofs()
+		currentRequestedProofs, err := l.db.GetNumberOfProofsWithStatus(proofrequest.StatusREQ)
 		if err != nil {
 			return fmt.Errorf("failed to count requested proofs: %w", err)
 		}
@@ -146,9 +146,9 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 			return
 		}
 
-		err = l.RequestKonaProof(p)
+		err = l.RequestOPSuccinctProof(p)
 		if err != nil {
-			l.Log.Error("failed to request proof from Kona SP1", "err", err, "proof", p)
+			l.Log.Error("failed to request proof from the OP Succinct server", "err", err, "proof", p)
 			err = l.db.UpdateProofStatus(nextProofToRequest.ID, "FAILED")
 			if err != nil {
 				l.Log.Error("failed to revert proof status", "err", err, "proverRequestID", nextProofToRequest.ID)
@@ -185,7 +185,7 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 	return nil
 }
 
-func (l *L2OutputSubmitter) RequestKonaProof(p ent.ProofRequest) error {
+func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 	prevConfirmedBlock := p.StartBlock - 1
 	var proofId string
 	var err error
@@ -239,9 +239,13 @@ func (l *L2OutputSubmitter) RequestSpanProof(start, end uint64) (string, error) 
 	return l.RequestProofFromServer("request_span_proof", jsonBody)
 }
 
+// Request an aggregate proof for the range [start+1, end]. If there is not a consecutive set of span proofs,
+// which cover the range, the request will error.
 func (l *L2OutputSubmitter) RequestAggProof(start, end uint64, l1BlockHash string) (string, error) {
 	l.Log.Info("requesting agg proof", "start", start, "end", end)
-	subproofs, err := l.db.GetSubproofs(start+1, end)
+
+	// Query the DB for the consecutive span proofs that cover the range [start+1, end].
+	subproofs, err := l.db.GetConsecutiveSpanProofs(start+1, end)
 	if err != nil {
 		return "", fmt.Errorf("failed to get subproofs: %w", err)
 	}
@@ -254,11 +258,14 @@ func (l *L2OutputSubmitter) RequestAggProof(start, end uint64, l1BlockHash strin
 		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
+	// Request the agg proof from the server.
 	return l.RequestProofFromServer("request_agg_proof", jsonBody)
 }
 
+// Request a proof from the OP Succinct server, given the path and the body of the request. Returns
+// the proof ID on a successful request.
 func (l *L2OutputSubmitter) RequestProofFromServer(urlPath string, jsonBody []byte) (string, error) {
-	req, err := http.NewRequest("POST", l.Cfg.KonaServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequest("POST", l.Cfg.OPSuccinctServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -276,16 +283,16 @@ func (l *L2OutputSubmitter) RequestProofFromServer(urlPath string, jsonBody []by
 	}
 	defer resp.Body.Close()
 
-	// Read the response body
+	// Read the response body.
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("error reading the response body: %v", err)
 	}
 
-	// Create a variable of the Response type
+	// Create a variable of the Response type.
 	var response ProofResponse
 
-	// Unmarshal the JSON into the response variable
+	// Unmarshal the JSON into the response variable.
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return "", fmt.Errorf("error decoding JSON response: %v", err)
@@ -300,8 +307,9 @@ type ProofStatus struct {
 	Proof  []byte `json:"proof"`
 }
 
+// Get the status of a proof given its ID.
 func (l *L2OutputSubmitter) GetProofStatus(proofId string) (string, []byte, error) {
-	req, err := http.NewRequest("GET", l.Cfg.KonaServerUrl+"/status/"+proofId, nil)
+	req, err := http.NewRequest("GET", l.Cfg.OPSuccinctServerUrl+"/status/"+proofId, nil)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create request: %w", err)
 	}

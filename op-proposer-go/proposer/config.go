@@ -83,8 +83,8 @@ type CLIConfig struct {
 	L2ChainID uint64
 	// The maximum amount of time we will spend waiting for a proof before giving up and trying again.
 	ProofTimeout uint64
-	// The URL of the Kona server to request proofs from.
-	KonaServerUrl string
+	// The URL of the OP Succinct server to request proofs from.
+	OPSuccinctServerUrl string
 	// The maximum proofs that can be requested from the server concurrently.
 	MaxConcurrentProofRequests uint64
 	// The batch inbox on L1 to read batches from. Note that this is ignored if L2 Chain ID is in rollup config.
@@ -153,7 +153,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		ProofTimeout:                 ctx.Uint64(flags.ProofTimeoutFlag.Name),
 		TxCacheOutDir:                ctx.String(flags.TxCacheOutDirFlag.Name),
 		BatchDecoderConcurrentReqs:   ctx.Uint64(flags.BatchDecoderConcurrentReqsFlag.Name),
-		KonaServerUrl:                ctx.String(flags.KonaServerUrlFlag.Name),
+		OPSuccinctServerUrl:          ctx.String(flags.OPSuccinctServerUrlFlag.Name),
 		MaxConcurrentProofRequests:   ctx.Uint64(flags.MaxConcurrentProofRequestsFlag.Name),
 		BatchInbox:                   ctx.String(flags.BatchInboxFlag.Name),
 		BatcherAddress:               ctx.String(flags.BatcherAddressFlag.Name),
