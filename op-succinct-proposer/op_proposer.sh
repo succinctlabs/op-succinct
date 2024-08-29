@@ -7,11 +7,11 @@
 
 /usr/local/bin/op-proposer \
     --poll-interval=${POLL_INTERVAL:-60s} \
-    --rollup-rpc=${ROLLUP_RPC} \
+    --rollup-rpc=${L2_NODE_RPC} \
     --l2oo-address=${L2OO_ADDRESS} \
     --private-key=${PRIVATE_KEY} \
-    --l1-eth-rpc=${L1_ETH_RPC} \
-    --beacon-rpc=${BEACON_RPC} \
+    --l1-eth-rpc=${L1_RPC} \
+    --beacon-rpc=${L1_BEACON_RPC} \
     --l2-chain-id=${L2_CHAIN_ID} \
     --max-concurrent-proof-requests=${MAX_CONCURRENT_PROOF_REQUESTS:-40} \
     --db-path=/usr/local/bin/dbdata/proofs.db \

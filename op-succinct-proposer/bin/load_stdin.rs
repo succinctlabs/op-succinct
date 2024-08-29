@@ -1,6 +1,4 @@
-use bincode;
 use client_utils::RawBootInfo;
-use host_utils::fetcher::SP1KonaDataFetcher;
 use sp1_sdk::{utils, SP1Stdin};
 use std::fs;
 

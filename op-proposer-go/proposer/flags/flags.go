@@ -25,17 +25,17 @@ var (
 	L1EthRpcFlag = &cli.StringFlag{
 		Name:    "l1-eth-rpc",
 		Usage:   "HTTP provider URL for L1",
-		EnvVars: prefixEnvVars("L1_ETH_RPC"),
+		EnvVars: prefixEnvVars("L1_RPC"),
 	}
 	RollupRpcFlag = &cli.StringFlag{
 		Name:    "rollup-rpc",
 		Usage:   "HTTP provider URL for the rollup node. A comma-separated list enables the active rollup provider.",
-		EnvVars: prefixEnvVars("ROLLUP_RPC"),
+		EnvVars: prefixEnvVars("L2_NODE_RPC"),
 	}
 	BeaconRpcFlag = &cli.StringFlag{
 		Name:    "beacon-rpc",
 		Usage:   "HTTP provider URL for the beacon node",
-		EnvVars: prefixEnvVars("BEACON_RPC"),
+		EnvVars: prefixEnvVars("L1_BEACON_RPC"),
 	}
 	L2ChainIDFlag = &cli.Uint64Flag{
 		Name:    "l2-chain-id",
