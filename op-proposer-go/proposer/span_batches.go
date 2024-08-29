@@ -53,7 +53,7 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 	config := utils.BatchDecoderConfig{
 		L2ChainID:    new(big.Int).SetUint64(l.Cfg.L2ChainID),
 		L2Node:       rollupClient,
-		L1RPC:        l.L1Client,
+		L1RPC:        *l.L1Client,
 		L1Beacon:     l1BeaconClient,
 		BatchSender:  l.Cfg.BatcherAddress,
 		L2StartBlock: newL2StartBlock,

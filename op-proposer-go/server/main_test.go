@@ -66,7 +66,7 @@ func TestHandleSpanBatchRanges(t *testing.T) {
 	config := utils.BatchDecoderConfig{
 		L2ChainID:    rollupCfg.L2ChainID,
 		L2Node:       rollupClient,
-		L1RPC:        l1Client,
+		L1RPC:        *l1Client,
 		L1Beacon:     l1BeaconClient,
 		BatchSender:  rollupCfg.Genesis.SystemConfig.BatcherAddr,
 		L2StartBlock: startBlock,

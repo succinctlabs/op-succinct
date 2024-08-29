@@ -72,7 +72,7 @@ func handleSpanBatchRanges(w http.ResponseWriter, r *http.Request) {
 	config := utils.BatchDecoderConfig{
 		L2ChainID:    new(big.Int).SetUint64(req.L2ChainID),
 		L2Node:       l2Node,
-		L1RPC:        l1Client,
+		L1RPC:        *l1Client,
 		L1Beacon:     l1BeaconClient,
 		BatchSender:  common.HexToAddress(req.BatchSender),
 		L2StartBlock: req.StartBlock,

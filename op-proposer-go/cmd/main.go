@@ -88,7 +88,7 @@ func main() {
 				L2EndBlock:        cliCtx.Uint64("end"),
 				L2ChainID:         rollupCfg.L2ChainID,
 				L2Node:            rollupClient,
-				L1RPC:             l1Client,
+				L1RPC:             *l1Client,
 				L1Beacon:          l1BeaconClient,
 				BatchSender:       rollupCfg.Genesis.SystemConfig.BatcherAddr,
 				DataDir:           fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", rollupCfg.L2ChainID),
