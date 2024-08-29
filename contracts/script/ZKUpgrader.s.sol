@@ -12,13 +12,7 @@ contract ZKUpgrader is Script, Utils {
         vm.startBroadcast(vm.envUint("ADMIN_PK"));
 
         address zkL2OutputOracleImpl = address(new ZKL2OutputOracle());
-        upgradeAndInitialize(
-            zkL2OutputOracleImpl,
-            config,
-            address(0),
-            bytes32(0),
-            0
-        );
+        upgradeAndInitialize(zkL2OutputOracleImpl, config, address(0), bytes32(0), 0);
 
         vm.stopBroadcast();
     }

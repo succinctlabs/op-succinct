@@ -1,8 +1,9 @@
 name: CI
 
 on:
-  push:
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
@@ -43,3 +44,5 @@ jobs:
         run: |
           forge test -vvv
         id: test
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
