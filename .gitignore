@@ -26,3 +26,5 @@ execution-reports/
 
 # DB
 db/proofs.db
+
+**/bin/op-proposer
