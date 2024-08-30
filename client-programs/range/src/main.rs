@@ -1,12 +1,12 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
-use op_succinct_utils_client::precompiles::ZKVMPrecompileOverride;
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
 use kona_executor::StatelessL2BlockExecutor;
+use op_succinct_utils_client::precompiles::ZKVMPrecompileOverride;
 
 use alloy_eips::eip2718::Decodable2718;
 use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};

@@ -2,13 +2,13 @@ use std::{fs, time::Instant};
 
 use anyhow::Result;
 use clap::Parser;
+use kona_host::start_server_and_native_client;
 use op_succinct_utils_host::{
     fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::get_execution_stats,
     ProgramType,
 };
-use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ProverClient};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../elf/range-elf");

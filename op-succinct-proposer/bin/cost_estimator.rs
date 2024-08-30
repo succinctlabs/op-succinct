@@ -1,15 +1,15 @@
 use anyhow::Result;
 use clap::Parser;
+use kona_host::HostCli;
+use kona_primitives::RollupConfig;
+use log::{error, info};
+use op_succinct_proposer::run_native_host;
 use op_succinct_utils_host::{
     fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::{get_execution_stats, ExecutionStats},
     ProgramType,
 };
-use kona_host::HostCli;
-use kona_primitives::RollupConfig;
-use log::{error, info};
-use op_succinct_proposer::run_native_host;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
