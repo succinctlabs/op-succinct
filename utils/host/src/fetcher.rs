@@ -27,7 +27,6 @@ pub struct OPSuccinctDataFetcher {
     pub l2_rpc: String,
     pub l2_node_rpc: String,
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
-    pub l2_node_rpc: String,
 }
 
 impl Default for OPSuccinctDataFetcher {
@@ -68,7 +67,6 @@ impl OPSuccinctDataFetcher {
             l1_provider,
             l1_beacon_rpc,
             l2_rpc,
-            l2_node_rpc,
             l2_provider,
             l2_node_rpc,
         }
@@ -90,9 +88,7 @@ impl OPSuccinctDataFetcher {
         let mut earliest_l1_header: Option<Header> = None;
 
         for boot_info in boot_infos {
-            let l1_block_header = self
-                .get_header_by_hash(ChainMode::L1, boot_info.l1Head)
-                .await?;
+            let l1_block_header = self.get_header_by_hash(ChainMode::L1, boot_info.l1Head).await?;
             if l1_block_header.number < earliest_block_num {
                 earliest_block_num = l1_block_header.number;
                 earliest_l1_header = Some(l1_block_header);

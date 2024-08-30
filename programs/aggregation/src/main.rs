@@ -9,8 +9,7 @@ use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
 use std::collections::HashMap;
 
-use itertools::Itertools;
-use op_succinct_client_utils::{types::AggregationInputs, boot::BootInfoStruct};
+use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use sha2::{Digest, Sha256};
 
 /// The verification key for the multi-block program.
@@ -26,8 +25,8 @@ const MULTI_BLOCK_PROGRAM_VKEY_DIGEST: [u32; 8] =
 pub fn main() {
     // Read in the public values corresponding to each multi-block proof.
     let agg_inputs = sp1_zkvm::io::read::<AggregationInputs>();
-    // Note: The headers are in order from start to end. We use serde_cbor as bincode serialization causes
-    // issues with the zkVM.
+    // Note: The headers are in order from start to end. We use serde_cbor as bincode serialization
+    // causes issues with the zkVM.
     let headers_bytes = sp1_zkvm::io::read_vec();
     let headers: Vec<Header> = serde_cbor::from_slice(&headers_bytes).unwrap();
     assert!(!agg_inputs.boot_infos.is_empty());
@@ -36,7 +35,8 @@ pub fn main() {
     agg_inputs.boot_infos.windows(2).for_each(|pair| {
         let (prev_boot_info, boot_info) = (&pair[0], &pair[1]);
 
-        // The claimed block of the previous boot info must be the L2 output root of the current boot.
+        // The claimed block of the previous boot info must be the L2 output root of the current
+        // boot.
         assert_eq!(prev_boot_info.l2PostRoot, boot_info.l2PreRoot);
 
         // The chain ID must be the same for all the boot infos, to ensure they're
@@ -60,9 +60,9 @@ pub fn main() {
         }
     });
 
-    // Create a map of each l1 head in the [`RawBootInfo`]'s to booleans
+    // Create a map of each l1 head in the [`BootInfoStruct`]'s to booleans
     let mut l1_heads_map: HashMap<B256, bool> =
-    agg_inputs.boot_infos.iter().map(|boot_info| (boot_info.l1_head, false)).collect();
+        agg_inputs.boot_infos.iter().map(|boot_info| (boot_info.l1Head, false)).collect();
 
     // Iterate through the headers in reverse order. The headers should be sequentially linked and
     // include the l1 head of each boot info.
@@ -94,9 +94,8 @@ pub fn main() {
         l1Head: agg_inputs.latest_l1_checkpoint_head,
         chainId: last_boot_info.chainId,
         rollupConfigHash: last_boot_info.rollupConfigHash,
-    }
+    };
 
-    // Commit to the aggregated [`RawBootInfo`].
+    // Commit to the aggregated [`BootInfoStruct`].
     sp1_zkvm::io::commit_slice(&final_boot_info.abi_encode());
-
 }

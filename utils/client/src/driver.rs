@@ -13,7 +13,6 @@ use kona_client::{
     BootInfo, HintType,
 };
 use kona_derive::{
-    errors::StageError,
     pipeline::{DerivationPipeline, Pipeline, PipelineBuilder, StepResult},
     sources::EthereumDataSource,
     stages::{

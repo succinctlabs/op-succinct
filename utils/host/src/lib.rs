@@ -5,7 +5,9 @@ pub mod stats;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use kona_host::HostCli;
-use op_succinct_client_utils::{boot::BootInfoStruct,types::AggregationInputs, RawBootInfo, BootInfoWithBytesConfig};
+use op_succinct_client_utils::{
+    boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig,
+};
 use sp1_sdk::{SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 

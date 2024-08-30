@@ -8,7 +8,7 @@ use axum::{
 };
 use base64::{engine::general_purpose, Engine as _};
 use log::info;
-use op_succinct_client_utils::{boot::BootInfoStruct, BOOT_INFO_SIZE};
+use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType,
 };
@@ -107,10 +107,8 @@ async fn request_agg_proof(
     let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> =
         payload.subproofs.iter().map(|sp| bincode::deserialize(sp).unwrap()).collect();
 
-    let boot_infos: Vec<BootInfoStruct> = proofs_with_pv
-        .iter_mut()
-        .map(|proof| proof.public_values.read())
-        .collect();
+    let boot_infos: Vec<BootInfoStruct> =
+        proofs_with_pv.iter_mut().map(|proof| proof.public_values.read()).collect();
 
     let proofs: Vec<SP1Proof> =
         proofs_with_pv.iter_mut().map(|proof| proof.proof.clone()).collect();

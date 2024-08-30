@@ -24,17 +24,6 @@ pub fn hash_rollup_config(serialized_config: &Vec<u8>) -> B256 {
     B256::from_slice(hash.as_slice())
 }
 
-impl From<RawBootInfo> for BootInfo {
-    /// Convert the BootInfoWithoutRollupConfig into BootInfo by deriving the RollupConfig.
-    fn from(boot_info_without_rollup_config: RawBootInfo) -> Self {
-        let RawBootInfo { l1_head, l2_output_root, l2_claim, l2_claim_block, chain_id } =
-            boot_info_without_rollup_config;
-        let rollup_config = RollupConfig::from_l2_chain_id(chain_id).unwrap();
-
-        Self { l1_head, l2_output_root, l2_claim, l2_claim_block, chain_id, rollup_config }
-    }
-}
-
 sol! {
     #[derive(Debug, Serialize, Deserialize)]
     struct BootInfoStruct {

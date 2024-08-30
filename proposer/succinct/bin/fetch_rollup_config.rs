@@ -1,10 +1,9 @@
 use alloy_primitives::B256;
 use anyhow::{bail, Context, Result};
-use client_utils::boot::hash_rollup_config;
+use op_succinct_client_utils::boot::hash_rollup_config;
 use serde_json::{json, Value};
-use sp1_sdk::install::block_on;
-use std::env;
-use std::fs;
+use sp1_sdk::block_on;
+use std::{env, fs};
 
 /// Fetch the rollup config from the rollup node and save it to a file.
 fn fetch_rollup_config() -> Result<()> {

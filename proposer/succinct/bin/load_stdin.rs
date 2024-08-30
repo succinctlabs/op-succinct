@@ -1,4 +1,4 @@
-use op_succinct_client_utils::RawBootInfo;
+use op_succinct_client_utils::boot::BootInfoStruct;
 use sp1_sdk::{utils, SP1Stdin};
 use std::fs;
 
@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Deserialize the bytes into SP1Stdin
     let mut stdin: SP1Stdin = bincode::deserialize(&artifact_bytes)?;
 
-    let boot = stdin.read::<RawBootInfo>();
+    let boot = stdin.read::<BootInfoStruct>();
 
     println!("{:?}", boot);
 

@@ -4,6 +4,7 @@ use crate::BytesHasherBuilder;
 use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use itertools::Itertools;
 use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
