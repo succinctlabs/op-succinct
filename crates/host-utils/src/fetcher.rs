@@ -261,7 +261,7 @@ impl OPSuccinctDataFetcher {
     ) -> Result<HostCli> {
         if l2_start_block >= l2_end_block {
             return Err(anyhow::anyhow!(
-                "L2 block safe head is greater than or equal to the claim block number"
+                "L2 start block is greater than or equal to L2 end block"
             ));
         }
 

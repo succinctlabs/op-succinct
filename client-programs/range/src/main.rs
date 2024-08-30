@@ -6,7 +6,7 @@ use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
-use kona_executor::StatelessL2BlockExecutor;
+use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
 
 use alloy_eips::eip2718::Decodable2718;
 use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
@@ -74,7 +74,10 @@ fn main() {
         }
         // Note: On some blocks, key not found in cache errors occur due to the precompiles. For
         // recent blocks this isn't an issue, but we should look into this more in the future.
-        let precompile_overrides = ZKVMPrecompileOverride::default();
+        // Note: ZkvmPrecompileOverride also causes issues with native host execution on it's own!
+        // Specifically for these blocks on OP Sepolia: 16583890-16583891
+        // let precompile_overrides = ZKVMPrecompileOverride::default();
+        let precompile_overrides = NoPrecompileOverride;
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
@@ -127,6 +130,11 @@ fn main() {
             let new_block_number = new_block_header.number;
             assert_eq!(new_block_number, payload.parent.block_info.number + 1);
 
+            // Increment last_block_num and check if we have reached the claim block.
+            if new_block_number == boot.l2_claim_block {
+                break 'step;
+            }
+
             // Generate the Payload Envelope, which can be used to derive cached data.
             let l2_payload_envelope: L2ExecutionPayloadEnvelope = OpBlock {
                 header: new_block_header.clone(),
@@ -148,11 +156,6 @@ fn main() {
             l2_block_info = l2_provider
                 .update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config)
                 .unwrap();
-
-            // Increment last_block_num and check if we have reached the claim block.
-            if new_block_number == boot.l2_claim_block {
-                break 'step;
-            }
 
             // Update data for the next iteration.
             driver.update_safe_head(
