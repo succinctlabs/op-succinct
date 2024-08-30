@@ -59,13 +59,8 @@ async fn get_span_batch_ranges_from_server(
         env::var("SPAN_BATCH_SERVER_URL").unwrap_or("http://localhost:8080".to_string());
     let query_url = format!("{}/span-batch-ranges", span_batch_server_url);
 
-    let response: SpanBatchResponse = client
-        .post(&query_url)
-        .json(&request)
-        .send()
-        .await?
-        .json()
-        .await?;
+    let response: SpanBatchResponse =
+        client.post(&query_url).json(&request).send().await?.json().await?;
 
     Ok(response.ranges)
 }
@@ -82,14 +77,7 @@ async fn main() -> Result<()> {
         args.start,
         args.end,
         l2_chain_id,
-        rollup_config
-            .genesis
-            .system_config
-            .clone()
-            .unwrap()
-            .batcher_address
-            .to_string()
-            .as_str(),
+        rollup_config.genesis.system_config.clone().unwrap().batcher_address.to_string().as_str(),
     )
     .await?;
 

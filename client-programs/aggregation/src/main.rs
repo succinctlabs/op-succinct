@@ -15,7 +15,8 @@ use std::collections::HashMap;
 /// TODO: The aggregation program should take in an arbitrary vkey digest, and the smart contract
 /// should verify the proof matches the arbitrary vkey digest stored in the contract. This means
 /// that the aggregate program would no longer need to update this value.
-const MULTI_BLOCK_PROGRAM_VKEY_DIGEST: [u32; 8] = [1172625895, 1280247262, 651076015, 321432881, 243715685, 1565992912, 1444792760, 1908047081];
+const MULTI_BLOCK_PROGRAM_VKEY_DIGEST: [u32; 8] =
+    [1172625895, 1280247262, 651076015, 321432881, 243715685, 1565992912, 1444792760, 1908047081];
 
 /// Verify that the L1 heads in the boot infos are in the header chain.
 fn verify_l1_heads(agg_inputs: &AggregationInputs, headers: &[Header]) {

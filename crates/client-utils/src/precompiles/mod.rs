@@ -3,12 +3,12 @@
 use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
-use revm::precompile::secp256r1;
 use revm::{
     db::states::state::State,
     handler::register::EvmHandler,
     precompile::{
-        bn128, secp256k1, Precompile, PrecompileResult, PrecompileSpecId, PrecompileWithAddress,
+        bn128, secp256k1, secp256r1, Precompile, PrecompileResult, PrecompileSpecId,
+        PrecompileWithAddress,
     },
     primitives::Bytes,
     ContextPrecompiles,
@@ -84,7 +84,8 @@ where
             // Alphanet does the same here: https://github.com/paradigmxyz/alphanet/blob/f28e4220a1a637c19ef6b4928e9a427560d46fcb/crates/node/src/evm.rs#L53-L56
             ctx_precompiles.extend(secp256r1::precompiles());
 
-            // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
+            // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the
+            // cycle count.
             let override_precompiles = [
                 ANNOTATED_BN_ADD,
                 ANNOTATED_BN_MUL,

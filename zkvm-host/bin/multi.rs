@@ -3,7 +3,10 @@ use std::{fs, time::Instant};
 use anyhow::Result;
 use clap::Parser;
 use host_utils::{
-    fetcher::{ChainMode, OPSuccinctDataFetcher}, get_proof_stdin, stats::get_execution_stats, ProgramType
+    fetcher::{ChainMode, OPSuccinctDataFetcher},
+    get_proof_stdin,
+    stats::get_execution_stats,
+    ProgramType,
 };
 use kona_host::start_server_and_native_client;
 use sp1_sdk::{utils, ProverClient};
