@@ -4,7 +4,7 @@ members = [
     "crates/*",
     "native-host",
     "zkvm-host",
-    "op-succinct-proposer",
+    "proposer/succinct",
 ]
 resolver = "2"
 
