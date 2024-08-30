@@ -62,7 +62,6 @@ dependencies = [
  "alloy-consensus",
  "alloy-primitives",
  "client-utils",
- "eyre",
  "itertools 0.13.0",
  "serde_cbor",
  "sha2",
