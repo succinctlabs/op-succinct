@@ -5,11 +5,19 @@ on:
     branches:
       - main
     paths:
-      - 'op-proposer-go/**'
+      - 'proposer/**', 'elf/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'proposer/**', 'elf/**'
 
 jobs:
   test_op_proposer_go:
-    runs-on: ubuntu-latest
+    runs-on:
+      - runs-on
+      - runner=16cpu-linux-x64
+      - run-id=${{ github.run_id }}  
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -19,7 +27,7 @@ jobs:
         go-version: '1.22'
     - name: Run main_test.go
       run: go test -v ./server/main_test.go
-      working-directory: op-proposer-go
+      working-directory: proposer/op
       env:
         L2_RPC: ${{ secrets.L2_RPC }}
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
