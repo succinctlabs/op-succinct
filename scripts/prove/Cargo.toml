@@ -29,8 +29,6 @@ alloy-sol-types = { workspace = true }
 anyhow.workspace = true
 dotenv.workspace = true
 num-format.workspace = true
-revm.workspace = true
-log.workspace = true
 
 # kona
 kona-host = { workspace = true }

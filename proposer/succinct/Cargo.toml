@@ -66,14 +66,11 @@ alloy.workspace = true
 base64.workspace = true
 tower-http.workspace = true
 cargo_metadata.workspace = true
-revm.workspace = true
 reqwest.workspace = true
 futures.workspace = true
-itertools.workspace = true
 csv.workspace = true
 rayon = "1.10.0"
-lazy_static = "1.5.0"
-uuid = "1.10.0"
+
 [build-dependencies]
 sp1-build = { workspace = true }
 cargo_metadata.workspace = true

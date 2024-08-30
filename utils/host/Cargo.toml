@@ -6,25 +6,18 @@ edition.workspace = true
 
 [dependencies]
 alloy.workspace = true
-log.workspace = true
 alloy-primitives.workspace = true
 alloy-consensus.workspace = true
 alloy-sol-types.workspace = true
 op-succinct-client-utils.workspace = true
 rkyv.workspace = true
 kona-host.workspace = true
-kona-client.workspace = true
-kona-primitives.workspace = true
 sp1-sdk.workspace = true
 anyhow.workspace = true
 cargo_metadata.workspace = true
 serde_cbor.workspace = true
-serde_json.workspace = true
-revm.workspace = true
 dotenv.workspace = true
 tokio.workspace = true
 futures.workspace = true
-bincode.workspace = true
 num-format.workspace = true
 serde.workspace = true
-sp1-build.workspace = true

@@ -29,7 +29,6 @@ kona-derive.workspace = true
 
 # general
 serde.workspace = true
-serde_json.workspace = true
 rkyv.workspace = true
 sha2.workspace = true
 log.workspace = true
