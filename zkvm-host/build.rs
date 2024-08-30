@@ -41,8 +41,8 @@ fn build_zkvm_program(program: &str) {
 fn main() {
     let programs = vec!["range"];
     for program in programs {
-        build_native_program(program);
-        build_zkvm_program(program);
+        // build_native_program(program);
+        // build_zkvm_program(program);
     }
 
     // build_zkvm_program("aggregation");
