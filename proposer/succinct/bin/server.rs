@@ -7,13 +7,8 @@ use axum::{
     Json, Router,
 };
 use base64::{engine::general_purpose, Engine as _};
-<<<<<<< HEAD:op-succinct-proposer/bin/server.rs
-use client_utils::boot::BootInfoStruct;
-use host_utils::{fetcher::SP1KonaDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType};
-=======
->>>>>>> origin/main:proposer/succinct/bin/server.rs
 use log::info;
-use op_succinct_client_utils::{RawBootInfo, BOOT_INFO_SIZE};
+use op_succinct_client_utils::{boot::BootInfoStruct, BOOT_INFO_SIZE};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType,
 };

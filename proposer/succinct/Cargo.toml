@@ -20,10 +20,10 @@ name = "vkey"
 path = "bin/vkey.rs"
 
 [[bin]]
-<<<<<<< HEAD:op-succinct-proposer/Cargo.toml
 name = "fetch-rollup-config"
 path = "bin/fetch_rollup_config.rs"
-=======
+
+[[bin]]
 name = "cost_estimator"
 path = "bin/cost_estimator.rs"
 
@@ -34,7 +34,6 @@ path = "bin/load_stdin.rs"
 [[bin]]
 name = "span_batch_ranges"
 path = "bin/span_batch_ranges.rs"
->>>>>>> origin/main:proposer/succinct/Cargo.toml
 
 [dependencies]
 
@@ -48,22 +47,14 @@ kona-host = { workspace = true }
 kona-primitives.workspace = true
 
 # local
-<<<<<<< HEAD:op-succinct-proposer/Cargo.toml
-host-utils.workspace = true
-client-utils.workspace = true
-=======
 op-succinct-host-utils.workspace = true
->>>>>>> origin/main:proposer/succinct/Cargo.toml
 
 # sp1
 sp1-sdk = { workspace = true }
 
 anyhow.workspace = true
 dotenv.workspace = true
-<<<<<<< HEAD:op-succinct-proposer/Cargo.toml
-=======
 op-succinct-client-utils.workspace = true
->>>>>>> origin/main:proposer/succinct/Cargo.toml
 serde = { workspace = true }
 serde_json.workspace = true
 
@@ -77,16 +68,12 @@ tower-http.workspace = true
 cargo_metadata.workspace = true
 revm.workspace = true
 reqwest.workspace = true
-<<<<<<< HEAD:op-succinct-proposer/Cargo.toml
-=======
 futures.workspace = true
 itertools.workspace = true
 csv.workspace = true
 rayon = "1.10.0"
 lazy_static = "1.5.0"
 uuid = "1.10.0"
->>>>>>> origin/main:proposer/succinct/Cargo.toml
-
 [build-dependencies]
 sp1-build = { workspace = true }
 cargo_metadata.workspace = true

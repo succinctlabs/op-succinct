@@ -10,12 +10,8 @@ repository.workspace = true
 [dependencies]
 # workspace (general)
 cfg-if.workspace = true
-<<<<<<< HEAD:client-programs/range/Cargo.toml
-client-utils.workspace = true
-serde_json.workspace = true
-=======
 op-succinct-client-utils.workspace = true
->>>>>>> origin/main:programs/range/Cargo.toml
+serde_json.workspace = true
 
 # workspace (ethereum)
 op-alloy-consensus.workspace = true

@@ -8,12 +8,8 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-<<<<<<< HEAD:crates/host-utils/src/fetcher.rs
-use client_utils::boot::BootInfoStruct;
-=======
->>>>>>> origin/main:utils/host/src/fetcher.rs
 use kona_host::HostCli;
-use op_succinct_client_utils::RawBootInfo;
+use op_succinct_client_utils::boot::BootInfoStruct;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
 
@@ -94,13 +90,9 @@ impl OPSuccinctDataFetcher {
         let mut earliest_l1_header: Option<Header> = None;
 
         for boot_info in boot_infos {
-<<<<<<< HEAD:crates/host-utils/src/fetcher.rs
             let l1_block_header = self
                 .get_header_by_hash(ChainMode::L1, boot_info.l1Head)
                 .await?;
-=======
-            let l1_block_header = self.get_header_by_hash(ChainMode::L1, boot_info.l1_head).await?;
->>>>>>> origin/main:utils/host/src/fetcher.rs
             if l1_block_header.number < earliest_block_num {
                 earliest_block_num = l1_block_header.number;
                 earliest_l1_header = Some(l1_block_header);
@@ -352,11 +344,7 @@ impl OPSuccinctDataFetcher {
             data_dir: Some(data_directory.into()),
             exec: Some(exec_directory),
             server: false,
-<<<<<<< HEAD:crates/host-utils/src/fetcher.rs
             rollup_config_path: Some(rollup_config_path.into()),
-=======
-            rollup_config_path: None,
->>>>>>> origin/main:utils/host/src/fetcher.rs
             v: 0,
         })
     }

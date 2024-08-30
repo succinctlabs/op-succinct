@@ -21,21 +21,13 @@ cfg_if! {
     // from SP1 and compile to a program that can be run in zkVM.
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
-<<<<<<< HEAD:client-programs/fault-proof/src/main.rs
-        use client_utils::{InMemoryOracle, boot::BootInfoStruct, BootInfoWithBytesConfig};
+        use op_succinct_client_utils::{InMemoryOracle, boot::BootInfoStruct, BootInfoWithBytesConfig};
         use kona_primitives::RollupConfig;
-=======
-        use op_succinct_client_utils::{RawBootInfo, InMemoryOracle};
->>>>>>> origin/main:programs/fault-proof/src/main.rs
         use alloc::vec::Vec;
         use serde_json;
     } else {
         use kona_client::CachingOracle;
-<<<<<<< HEAD:client-programs/fault-proof/src/main.rs
-        use client_utils::pipes::{ORACLE_READER, HINT_WRITER};
-=======
         use op_succinct_client_utils::pipes::{ORACLE_READER, HINT_WRITER};
->>>>>>> origin/main:programs/fault-proof/src/main.rs
     }
 }
 

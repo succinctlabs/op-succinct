@@ -61,13 +61,9 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
-<<<<<<< HEAD
  "alloy-sol-types",
- "client-utils",
-=======
  "itertools 0.13.0",
  "op-succinct-client-utils",
->>>>>>> origin/main
  "serde_cbor",
  "sha2",
  "sp1-lib 1.2.0-rc2",
@@ -1463,38 +1459,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
-<<<<<<< HEAD
-name = "client-utils"
-version = "0.1.0"
-dependencies = [
- "alloy-consensus",
- "alloy-eips",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-sol-types",
- "anyhow",
- "async-trait",
- "itertools 0.13.0",
- "kona-client",
- "kona-common",
- "kona-derive",
- "kona-executor",
- "kona-mpt",
- "kona-preimage",
- "kona-primitives",
- "kzg-rs 0.2.1",
- "log",
- "op-alloy-consensus",
- "revm 13.0.0 (git+https://github.com/bluealloy/revm)",
- "rkyv",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-=======
->>>>>>> origin/main
 name = "cobs"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1919,11 +1883,7 @@ dependencies = [
  "convert_case",
  "proc-macro2",
  "quote",
-<<<<<<< HEAD
- "rustc_version 0.4.0",
-=======
  "rustc_version 0.4.1",
->>>>>>> origin/main
  "syn 2.0.76",
 ]
 
@@ -2419,11 +2379,8 @@ dependencies = [
  "kona-client",
  "kona-executor",
  "kona-primitives",
-<<<<<<< HEAD
- "serde_json",
-=======
  "op-succinct-client-utils",
->>>>>>> origin/main
+ "serde_json",
  "sp1-zkvm",
 ]
 
@@ -2887,35 +2844,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "host-utils"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-consensus",
- "alloy-primitives",
- "alloy-sol-types",
- "anyhow",
- "bincode",
- "cargo_metadata",
- "client-utils",
- "dotenv",
- "futures",
- "kona-client",
- "kona-host",
- "kona-primitives",
- "log",
- "revm 13.0.0 (git+https://github.com/bluealloy/revm)",
- "rkyv",
- "serde_cbor",
- "serde_json",
- "sp1-sdk",
- "tokio",
-]
-
-[[package]]
-=======
->>>>>>> origin/main
 name = "http"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3375,11 +3303,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3397,11 +3321,7 @@ dependencies = [
  "kona-primitives",
  "lru",
  "op-alloy-consensus",
-<<<<<<< HEAD
- "revm 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-=======
  "revm",
->>>>>>> origin/main
  "serde",
  "serde_json",
  "spin 0.9.8",
@@ -3411,11 +3331,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.2"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3425,11 +3341,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.2"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3442,11 +3354,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.2"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3454,10 +3362,6 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
-<<<<<<< HEAD
- "alloy-rpc-client",
-=======
->>>>>>> origin/main
  "alloy-transport",
  "anyhow",
  "async-trait",
@@ -3468,14 +3372,7 @@ dependencies = [
  "miniz_oxide 0.8.0",
  "op-alloy-consensus",
  "reqwest 0.12.7",
-<<<<<<< HEAD
- "revm 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
- "sha2",
- "spin 0.9.8",
-=======
- "serde",
->>>>>>> origin/main
  "tracing",
  "unsigned-varint",
 ]
@@ -3483,11 +3380,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.1"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3496,18 +3389,14 @@ dependencies = [
  "kona-mpt",
  "kona-primitives",
  "op-alloy-consensus",
- "revm 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revm",
  "tracing",
 ]
 
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3530,11 +3419,7 @@ dependencies = [
  "kona-primitives",
  "os_pipe",
  "reqwest 0.12.7",
-<<<<<<< HEAD
- "revm 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-=======
  "revm",
->>>>>>> origin/main
  "serde",
  "serde_json",
  "tokio",
@@ -3545,29 +3430,21 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.2"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-trie",
  "anyhow",
- "revm 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revm",
  "tracing",
 ]
 
 [[package]]
 name = "kona-preimage"
 version = "0.0.2"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -3580,11 +3457,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.1"
-<<<<<<< HEAD
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#df189a2f53961ba48a00994e3a0ecea02e1ecf2c"
-=======
 source = "git+https://github.com/ethereum-optimism/kona?branch=main#2206cde65df13978ff5a238ceb0d4bcbc6aab7ce"
->>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3594,11 +3467,7 @@ dependencies = [
  "c-kzg",
  "hashbrown 0.14.5",
  "op-alloy-consensus",
-<<<<<<< HEAD
- "revm 13.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
-=======
  "revm",
->>>>>>> origin/main
  "serde",
  "sha2",
  "spin 0.9.8",
@@ -4036,11 +3905,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
-<<<<<<< HEAD
- "proc-macro-crate 3.2.0",
-=======
  "proc-macro-crate 1.3.1",
->>>>>>> origin/main
  "proc-macro2",
  "quote",
  "syn 2.0.76",
@@ -4132,6 +3997,7 @@ dependencies = [
  "revm",
  "rkyv",
  "serde",
+ "serde_json",
  "sha2",
 ]
 
@@ -4144,16 +4010,21 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "anyhow",
+ "bincode",
  "cargo_metadata",
  "dotenv",
  "futures",
+ "kona-client",
  "kona-host",
+ "kona-primitives",
+ "log",
  "num-format",
  "op-succinct-client-utils",
  "revm",
  "rkyv",
  "serde",
  "serde_cbor",
+ "serde_json",
  "sp1-build",
  "sp1-sdk",
  "tokio",
@@ -4179,21 +4050,14 @@ dependencies = [
  "kona-primitives",
  "lazy_static",
  "log",
-<<<<<<< HEAD
- "reqwest 0.12.7",
- "revm 13.0.0 (git+https://github.com/bluealloy/revm)",
- "serde",
- "serde_json",
- "sp1-helper",
-=======
  "op-succinct-client-utils",
  "op-succinct-host-utils",
  "rayon",
  "reqwest 0.12.7",
  "revm",
  "serde",
+ "serde_json",
  "sp1-build",
->>>>>>> origin/main
  "sp1-sdk",
  "tokio",
  "tower-http",
@@ -4204,6 +4068,7 @@ dependencies = [
 name = "op-succinct-prove"
 version = "0.1.0"
 dependencies = [
+ "alloy-sol-types",
  "anyhow",
  "cargo_metadata",
  "clap",
@@ -5132,11 +4997,8 @@ dependencies = [
  "kona-primitives",
  "log",
  "op-alloy-consensus",
-<<<<<<< HEAD
- "serde_json",
-=======
  "op-succinct-client-utils",
->>>>>>> origin/main
+ "serde_json",
  "sp1-zkvm",
 ]
 
@@ -5358,22 +5220,10 @@ dependencies = [
  "auto_impl",
  "cfg-if",
  "dyn-clone",
- "revm-interpreter 9.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "revm-precompile 10.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revm-interpreter",
+ "revm-precompile",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "revm"
-version = "13.0.0"
-source = "git+https://github.com/bluealloy/revm#a46a88b6e77de56276d5b4eb60a6f1bf47a5313f"
-dependencies = [
- "auto_impl",
- "cfg-if",
- "dyn-clone",
- "revm-interpreter 9.0.0 (git+https://github.com/bluealloy/revm)",
- "revm-precompile 10.0.0 (git+https://github.com/bluealloy/revm)",
 ]
 
 [[package]]
@@ -5382,16 +5232,8 @@ version = "9.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2ad04c7d87dc3421a5ccca76e56dbd0b29a358c03bb41fe9e80976e9d3f397d"
 dependencies = [
- "revm-primitives 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revm-primitives",
  "serde",
-]
-
-[[package]]
-name = "revm-interpreter"
-version = "9.0.0"
-source = "git+https://github.com/bluealloy/revm#a46a88b6e77de56276d5b4eb60a6f1bf47a5313f"
-dependencies = [
- "revm-primitives 8.0.0 (git+https://github.com/bluealloy/revm)",
 ]
 
 [[package]]
@@ -5408,24 +5250,9 @@ dependencies = [
  "kzg-rs 0.1.0",
  "once_cell",
  "p256",
- "revm-primitives 8.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revm-primitives",
  "ripemd",
  "secp256k1",
- "sha2",
- "substrate-bn",
-]
-
-[[package]]
-name = "revm-precompile"
-version = "10.0.0"
-source = "git+https://github.com/bluealloy/revm#a46a88b6e77de56276d5b4eb60a6f1bf47a5313f"
-dependencies = [
- "aurora-engine-modexp",
- "cfg-if",
- "k256",
- "once_cell",
- "revm-primitives 8.0.0 (git+https://github.com/bluealloy/revm)",
- "ripemd",
  "sha2",
  "substrate-bn",
 ]
@@ -5451,23 +5278,6 @@ dependencies = [
  "kzg-rs 0.1.0",
  "once_cell",
  "serde",
-]
-
-[[package]]
-name = "revm-primitives"
-version = "8.0.0"
-source = "git+https://github.com/bluealloy/revm#a46a88b6e77de56276d5b4eb60a6f1bf47a5313f"
-dependencies = [
- "alloy-eips",
- "alloy-primitives",
- "auto_impl",
- "bitflags 2.6.0",
- "bitvec",
- "cfg-if",
- "dyn-clone",
- "enumn",
- "hashbrown 0.14.5",
- "hex",
 ]
 
 [[package]]
@@ -6028,22 +5838,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.76",
-<<<<<<< HEAD
-]
-
-[[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap 2.4.0",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
-=======
->>>>>>> origin/main
 ]
 
 [[package]]
@@ -6206,14 +6000,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3534c49b852e04f5145c4b8b480c87806086acb85d2346912d57c7a8fbb0f12c"
->>>>>>> origin/main
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -6223,11 +6012,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "sp1-core"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 name = "sp1-core-executor"
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6268,7 +6052,6 @@ name = "sp1-core-machine"
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45e4b2ef0a4e19253c1901cc6b96181d16f2b184e4840bf6df4e9ba79f34decb"
->>>>>>> origin/main
 dependencies = [
  "anyhow",
  "arrayref",
@@ -6277,7 +6060,6 @@ dependencies = [
  "bytemuck",
  "cfg-if",
  "curve25519-dalek",
- "dashu",
  "elf",
  "elliptic-curve",
  "generic-array 1.1.0",
@@ -6324,7 +6106,6 @@ dependencies = [
  "strum_macros",
  "tempfile",
  "thiserror",
- "tiny-keccak",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
@@ -6355,14 +6136,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-derive"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d2af56e4bbbc1950916a0ae75293cdb79b98992b103b0aa1d9fd3a06fdbcdef"
->>>>>>> origin/main
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6370,19 +6146,6 @@ dependencies = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "sp1-helper"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-dependencies = [
- "cargo_metadata",
- "chrono",
- "sp1-build",
-]
-
-[[package]]
-=======
->>>>>>> origin/main
 name = "sp1-lib"
 version = "1.1.1"
 source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
@@ -6411,14 +6174,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-primitives"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7180d57586adfe1d212ffddd044a179415823ccaeaddfeb17788c627135fb2c"
->>>>>>> origin/main
 dependencies = [
  "itertools 0.13.0",
  "lazy_static",
@@ -6430,14 +6188,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-prover"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3d88a36d8c81777af8a45ffa4e95bd7cda7426f23b3196c2b1073c82ff8d916"
->>>>>>> origin/main
 dependencies = [
  "anyhow",
  "bincode",
@@ -6475,14 +6228,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-circuit"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96b6b4bee94645ef4d22d7bd75728823efcc15f408b190ebedbd45bf0b68ce15"
->>>>>>> origin/main
 dependencies = [
  "bincode",
  "itertools 0.13.0",
@@ -6505,14 +6253,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-compiler"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1909d329420a602889c2ab0ee2ecc3513de5aa23a8d036fc7015f03ea1e3defa"
->>>>>>> origin/main
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6540,14 +6283,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-core"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00e846f994800afd84b7cead471a5b2e804f0e38f965497cdceb93fad8e33608"
->>>>>>> origin/main
 dependencies = [
  "arrayref",
  "backtrace",
@@ -6583,14 +6321,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-core-v2"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb7e2d95d154217cd7b73ec9d7b57fea830b9c2c2fc2d6cd576f0ca195814772"
->>>>>>> origin/main
 dependencies = [
  "arrayref",
  "backtrace",
@@ -6629,14 +6362,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-derive"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4deb8da6b6c57599071a8d1730e2af5b3922a85a77470513b14ba0f8d9da9960"
->>>>>>> origin/main
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6645,14 +6373,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-gnark-ffi"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07a699e5e619a9c50eb98eab1a2dd19c3db46879aa792965f3cc869f46d6b4d8"
->>>>>>> origin/main
 dependencies = [
  "anyhow",
  "bincode",
@@ -6677,14 +6400,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-program"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea81ce0e6be0ceabf421d10239ca6c439a0f3e88ef4d441f07102870075e6c8"
->>>>>>> origin/main
 dependencies = [
  "itertools 0.13.0",
  "p3-air",
@@ -6714,14 +6432,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-sdk"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57811a47cbd84f6e1ba7a3f8686f557bbc028a3f82b3515bad0e8f3d0870f5cf"
->>>>>>> origin/main
 dependencies = [
  "alloy-sol-types",
  "anyhow",
@@ -6796,14 +6509,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-zkvm"
-<<<<<<< HEAD
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-=======
 version = "1.2.0-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3abb3d72cb37e4cb7fc5a687d5ce55edefcec5e5a2378eb04cd682919cb71c7c"
->>>>>>> origin/main
 dependencies = [
  "bincode",
  "cfg-if",
@@ -6948,15 +6656,9 @@ dependencies = [
 
 [[package]]
 name = "superchain-primitives"
-<<<<<<< HEAD
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f92c0bb828219b159e625b816e9248adafb028eabb86917b0dfbca9c658c0990"
-=======
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa28a95195192539fa2a3ff607057b08c6ad0839b9edb2aff17917c93c42d661"
->>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -7191,15 +6893,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-<<<<<<< HEAD
-version = "1.39.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9babc99b9923bfa4804bd74722ff02c0381021eafa4db9949217e3be8e84fff5"
-=======
 version = "1.40.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2b070231665d27ad9ec9b8df639893f46727666c6767db40317fbe920a5d998"
->>>>>>> origin/main
 dependencies = [
  "backtrace",
  "bytes",
@@ -7313,11 +7009,7 @@ version = "0.19.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
 dependencies = [
-<<<<<<< HEAD
- "indexmap 2.4.0",
-=======
  "indexmap 2.5.0",
->>>>>>> origin/main
  "toml_datetime",
  "winnow 0.5.40",
 ]
@@ -7575,15 +7267,6 @@ name = "unicode-xid"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "229730647fbc343e3a80e463c1db7f78f3855d3f3739bee0dda773c9a037c90a"
-<<<<<<< HEAD
-
-[[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
-=======
->>>>>>> origin/main
 
 [[package]]
 name = "unsigned-varint"
@@ -8191,31 +7874,3 @@ dependencies = [
  "sha3",
  "subtle",
 ]
-<<<<<<< HEAD
-
-[[package]]
-name = "zkvm-host"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
- "anyhow",
- "cargo_metadata",
- "clap",
- "client-utils",
- "dotenv",
- "host-utils",
- "kona-host",
- "log",
- "num-format",
- "revm 13.0.0 (git+https://github.com/bluealloy/revm)",
- "sp1-helper",
- "sp1-sdk",
- "tokio",
-]
-
-[[patch.unused]]
-name = "ecdsa"
-version = "0.16.9"
-source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.9#1caae137b2b2c458b8a542b1c4e9fb40293c67a3"
-=======
->>>>>>> origin/main

@@ -9,21 +9,21 @@ use sha2::{Digest, Sha256};
 // ABI encoding of BootInfo is 6 * 32 bytes.
 pub const BOOT_INFO_SIZE: usize = 6 * 32;
 
-/// Hash the serialized rollup config using SHA256. Note: The rollup config is never unrolled on-chain,
-/// so switching to a different hash function is not a concern, as long as the config hash is
-/// consistent with the one on the contract.
+/// Hash the serialized rollup config using SHA256. Note: The rollup config is never unrolled
+/// on-chain, so switching to a different hash function is not a concern, as long as the config hash
+/// is consistent with the one on the contract.
 pub fn hash_rollup_config(serialized_config: &Vec<u8>) -> B256 {
     // Create a SHA256 hasher
     let mut hasher = Sha256::new();
 
-<<<<<<< HEAD:crates/client-utils/src/boot.rs
     // Hash the serialized config
     hasher.update(serialized_config.as_slice());
 
     // Finalize and convert to B256
     let hash = hasher.finalize();
     B256::from_slice(hash.as_slice())
-=======
+}
+
 impl From<RawBootInfo> for BootInfo {
     /// Convert the BootInfoWithoutRollupConfig into BootInfo by deriving the RollupConfig.
     fn from(boot_info_without_rollup_config: RawBootInfo) -> Self {
@@ -33,7 +33,6 @@ impl From<RawBootInfo> for BootInfo {
 
         Self { l1_head, l2_output_root, l2_claim, l2_claim_block, chain_id, rollup_config }
     }
->>>>>>> origin/main:utils/client/src/boot.rs
 }
 
 sol! {

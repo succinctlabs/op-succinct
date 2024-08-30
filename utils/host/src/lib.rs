@@ -1,18 +1,11 @@
 pub mod fetcher;
 pub mod helpers;
-<<<<<<< HEAD:crates/host-utils/src/lib.rs
-pub mod precompile;
-use alloy_consensus::Header;
-use alloy_primitives::B256;
-use client_utils::{boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig};
-=======
 pub mod stats;
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
->>>>>>> origin/main:utils/host/src/lib.rs
 use kona_host::HostCli;
-use op_succinct_client_utils::{types::AggregationInputs, RawBootInfo};
+use op_succinct_client_utils::{boot::BootInfoStruct,types::AggregationInputs, RawBootInfo, BootInfoWithBytesConfig};
 use sp1_sdk::{SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 

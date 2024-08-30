@@ -30,24 +30,16 @@ cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
 
-<<<<<<< HEAD:client-programs/range/src/main.rs
-        use client_utils::{InMemoryOracle, BootInfoWithBytesConfig, boot::BootInfoStruct};
         use kona_primitives::RollupConfig;
-=======
         use op_succinct_client_utils::{
-            RawBootInfo,
+            BootInfoWithBytesConfig, boot::BootInfoStruct,
             InMemoryOracle
         };
->>>>>>> origin/main:programs/range/src/main.rs
         use alloc::vec::Vec;
         use serde_json;
     } else {
         use kona_client::CachingOracle;
-<<<<<<< HEAD:client-programs/range/src/main.rs
-        use client_utils::pipes::{ORACLE_READER, HINT_WRITER};
-=======
         use op_succinct_client_utils::pipes::{ORACLE_READER, HINT_WRITER};
->>>>>>> origin/main:programs/range/src/main.rs
     }
 }
 
@@ -89,11 +81,8 @@ fn main() {
                 oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-report-end: oracle-verify");
             } else {
-<<<<<<< HEAD:client-programs/range/src/main.rs
-=======
                 // If we are compiling for online mode, create a caching oracle that speaks to the
                 // fetcher via hints, and gather boot info from this oracle.
->>>>>>> origin/main:programs/range/src/main.rs
                 let oracle = Arc::new(CachingOracle::new(1024, ORACLE_READER, HINT_WRITER));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
             }

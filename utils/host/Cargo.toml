@@ -24,10 +24,7 @@ revm.workspace = true
 dotenv.workspace = true
 tokio.workspace = true
 futures.workspace = true
-<<<<<<< HEAD:crates/host-utils/Cargo.toml
 bincode.workspace = true
-=======
 num-format.workspace = true
 serde.workspace = true
 sp1-build.workspace = true
->>>>>>> origin/main:utils/host/Cargo.toml

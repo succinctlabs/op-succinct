@@ -2,13 +2,8 @@ use alloy::hex;
 use alloy::sol_types::SolValue;
 use anyhow::Result;
 use clap::Parser;
-<<<<<<< HEAD:op-succinct-proposer/bin/fetch_and_save_proof.rs
-use client_utils::boot::BootInfoStruct;
-use client_utils::BOOT_INFO_SIZE;
-=======
->>>>>>> origin/main:proposer/succinct/bin/fetch_and_save_proof.rs
 use dotenv::dotenv;
-use op_succinct_client_utils::{RawBootInfo, BOOT_INFO_SIZE};
+use op_succinct_client_utils::{boot::BootInfoStruct, BOOT_INFO_SIZE};
 use sp1_sdk::{NetworkProver, SP1ProofWithPublicValues};
 use std::{fs, path::Path};
 
