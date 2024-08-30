@@ -2,13 +2,7 @@
 members = [
     "utils/*",
     "programs/*",
-<<<<<<< HEAD
-    "crates/*",
     "scripts/*",
-=======
-    "native-host",
-    "zkvm-host",
->>>>>>> origin/main
     "proposer/succinct",
 ]
 resolver = "2"
