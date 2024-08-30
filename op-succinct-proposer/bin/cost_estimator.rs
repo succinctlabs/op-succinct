@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use host_utils::{
+use op_succinct_utils_host::{
     fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::{get_execution_stats, ExecutionStats},

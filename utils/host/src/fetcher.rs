@@ -8,7 +8,7 @@ use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-use client_utils::RawBootInfo;
+use op_succinct_utils_client::RawBootInfo;
 use kona_host::HostCli;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;

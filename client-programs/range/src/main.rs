@@ -1,7 +1,7 @@
 //! A program to verify a Optimism L2 block STF in the zkVM.
 #![cfg_attr(target_os = "zkvm", no_main)]
 
-use client_utils::precompiles::ZKVMPrecompileOverride;
+use op_succinct_utils_client::precompiles::ZKVMPrecompileOverride;
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
@@ -16,7 +16,7 @@ use alloc::sync::Arc;
 use alloy_consensus::Sealed;
 use cfg_if::cfg_if;
 
-use client_utils::{
+use op_succinct_utils_client::{
     driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
 };
 
@@ -30,19 +30,19 @@ cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
 
-        use client_utils::{
+        use op_succinct_utils_client::{
             RawBootInfo,
             InMemoryOracle
         };
         use alloc::vec::Vec;
     } else {
         use kona_client::CachingOracle;
-        use client_utils::pipes::{ORACLE_READER, HINT_WRITER};
+        use op_succinct_utils_client::pipes::{ORACLE_READER, HINT_WRITER};
     }
 }
 
 fn main() {
-    client_utils::block_on(async move {
+    op_succinct_utils_client::block_on(async move {
         ////////////////////////////////////////////////////////////////
         //                          PROLOGUE                          //
         ////////////////////////////////////////////////////////////////

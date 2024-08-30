@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "client-programs/*",
-    "crates/*",
+    "utils/*",
     "native-host",
     "zkvm-host",
     "op-succinct-proposer",
@@ -58,8 +58,8 @@ rkyv = "0.7.44"
 hex = "0.4.3"
 
 # local
-client-utils = { path = "crates/client-utils" }
-host-utils = { path = "crates/host-utils" }
+op-succinct-utils-client = { path = "utils/client" }
+op-succinct-utils-host = { path = "utils/host" }
 zkvm-host = { path = "zkvm-host" }
 op-succinct-proposer = { path = "op-succinct-proposer" }
 

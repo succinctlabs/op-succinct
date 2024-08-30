@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use host_utils::fetcher::{ChainMode, OPSuccinctDataFetcher};
+use op_succinct_utils_host::fetcher::{ChainMode, OPSuccinctDataFetcher};
 use kona_primitives::RollupConfig;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};

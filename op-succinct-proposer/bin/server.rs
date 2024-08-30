@@ -7,8 +7,8 @@ use axum::{
     Json, Router,
 };
 use base64::{engine::general_purpose, Engine as _};
-use client_utils::{RawBootInfo, BOOT_INFO_SIZE};
-use host_utils::{
+use op_succinct_utils_client::{RawBootInfo, BOOT_INFO_SIZE};
+use op_succinct_utils_host::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType,
 };
 use log::info;
