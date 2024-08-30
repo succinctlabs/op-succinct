@@ -59,7 +59,8 @@ hex = "0.4.3"
 # local
 client-utils = { path = "crates/client-utils" }
 host-utils = { path = "crates/host-utils" }
-zkvm-host = { path = "zkvm-host" }
+op-succinct-prove = { path = "scripts/prove" }
+op-succinct-witnessgen = { path = "scripts/witnessgen" }
 op-succinct-proposer = { path = "proposer/succinct" }
 
 # ethereum
