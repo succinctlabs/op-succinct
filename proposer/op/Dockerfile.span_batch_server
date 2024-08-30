@@ -6,8 +6,6 @@ RUN apt-get update && apt-get install -y \
     wget \
     git \
     build-essential \
-    # g++-x86-64-linux-gnu \
-    # libc6-dev-amd64-cross \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go 1.22
@@ -24,7 +22,7 @@ ENV PATH="${GOPATH}/bin:${PATH}"
 WORKDIR /app
 
 # Copy the local op-proposer-go directory
-COPY ./op-proposer-go /app/op-proposer-go
+COPY ./proposer/op /app/op-proposer-go
 
 # Change to the server directory and build the application
 WORKDIR /app/op-proposer-go/server

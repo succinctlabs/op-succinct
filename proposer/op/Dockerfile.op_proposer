@@ -4,7 +4,7 @@ FROM golang:1.22 AS go-builder
 # Set up Go environment
 FROM go-builder AS optimism-builder
 WORKDIR /optimism
-COPY ./op-proposer-go/ /optimism/op-proposer
+COPY ./proposer/op /optimism/op-proposer
 WORKDIR /optimism/op-proposer/proposer
 RUN make op-proposer
 RUN ls -l /optimism/op-proposer/proposer
