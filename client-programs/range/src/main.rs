@@ -6,7 +6,7 @@ use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
-use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
+use kona_executor::StatelessL2BlockExecutor;
 
 use alloy_eips::eip2718::Decodable2718;
 use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
@@ -72,12 +72,7 @@ fn main() {
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
             }
         }
-        // Note: On some blocks, key not found in cache errors occur due to the precompiles. For
-        // recent blocks this isn't an issue, but we should look into this more in the future.
-        // Note: ZkvmPrecompileOverride also causes issues with native host execution on it's own!
-        // Specifically for these blocks on OP Sepolia: 16583890-16583891
-        // let precompile_overrides = ZKVMPrecompileOverride::default();
-        let precompile_overrides = NoPrecompileOverride;
+        let precompile_overrides = ZKVMPrecompileOverride::default();
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
