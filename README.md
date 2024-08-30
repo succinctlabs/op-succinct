@@ -1,5 +1,11 @@
 # op-succinct
 
+## ⚠️ Work in Progress
+
+**Warning**: This repository is currently a work in progress. The code and documentation are actively being developed and may be subject to significant changes. Use with caution and expect frequent updates.
+
+## Overview
+
 This repo provides a way to take an OP stack chain & turn it in a full ZK-validity proven chain in < 1 hour by deploying 1 smart contract and spinning up a lightweight "proposer" service that ... 
 
 Benefits include:... 
@@ -54,10 +60,10 @@ To learn how to estimate cycle counts for a given block range, check out our [Cy
 - `client-utils`: A suite of utilities for the client program.
 - `host-utils`: A suite of utilities for constructing the host which runs the OP Succinct program.
 
-**`sp1-kona`**
+**`op-succinct`**
 - `native-host`: The host program which runs the `op-succinct` program natively using `kona`.
 - `zkvm-host`: The host program which runs the `op-succinct` program in the SP1 zkVM.
-- `client-programs`: The programs proven in SP1.
+- `programs`: The programs proven in SP1.
     - `fault-proof` and `range` are used to verifiably derive and execute single blocks
     and batches of blocks respectively. Their binary's are first run in native mode on the `kona-host` to
     fetch the witness data, then they use SP1 to verifiably execute the program.
