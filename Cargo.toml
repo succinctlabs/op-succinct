@@ -1,8 +1,14 @@
 [workspace]
 members = [
+    "utils/*",
     "programs/*",
+<<<<<<< HEAD
     "crates/*",
     "scripts/*",
+=======
+    "native-host",
+    "zkvm-host",
+>>>>>>> origin/main
     "proposer/succinct",
 ]
 resolver = "2"
@@ -57,10 +63,10 @@ rkyv = "0.7.44"
 hex = "0.4.3"
 
 # local
-client-utils = { path = "crates/client-utils" }
-host-utils = { path = "crates/host-utils" }
 op-succinct-prove = { path = "scripts/prove" }
 op-succinct-witnessgen = { path = "scripts/witnessgen" }
+op-succinct-client-utils = { path = "utils/client" }
+op-succinct-host-utils = { path = "utils/host" }
 op-succinct-proposer = { path = "proposer/succinct" }
 
 # ethereum

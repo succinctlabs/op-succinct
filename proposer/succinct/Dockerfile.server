@@ -31,7 +31,7 @@ COPY scripts/prove ./scripts/prove
 COPY proposer/succinct ./proposer/succinct
 COPY scripts/witnessgen ./scripts/witnessgen
 COPY elf ./elf
-COPY crates ./crates
+COPY utils ./utils
 COPY programs ./programs
 
 # Build the server
