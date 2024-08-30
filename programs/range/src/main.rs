@@ -6,7 +6,7 @@ use kona_client::{
     BootInfo,
 };
 use kona_executor::StatelessL2BlockExecutor;
-use op_succinct_utils_client::precompiles::ZKVMPrecompileOverride;
+use op_succinct_client_utils::precompiles::ZKVMPrecompileOverride;
 
 use alloy_eips::eip2718::Decodable2718;
 use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
@@ -16,7 +16,7 @@ use alloc::sync::Arc;
 use alloy_consensus::Sealed;
 use cfg_if::cfg_if;
 
-use op_succinct_utils_client::{
+use op_succinct_client_utils::{
     driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
 };
 
@@ -30,19 +30,19 @@ cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
 
-        use op_succinct_utils_client::{
+        use op_succinct_client_utils::{
             RawBootInfo,
             InMemoryOracle
         };
         use alloc::vec::Vec;
     } else {
         use kona_client::CachingOracle;
-        use op_succinct_utils_client::pipes::{ORACLE_READER, HINT_WRITER};
+        use op_succinct_client_utils::pipes::{ORACLE_READER, HINT_WRITER};
     }
 }
 
 fn main() {
-    op_succinct_utils_client::block_on(async move {
+    op_succinct_client_utils::block_on(async move {
         ////////////////////////////////////////////////////////////////
         //                          PROLOGUE                          //
         ////////////////////////////////////////////////////////////////

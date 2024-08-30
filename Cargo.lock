@@ -61,7 +61,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
- "op-succinct-utils-client",
+ "op-succinct-client-utils",
  "serde_cbor",
  "sha2",
  "sp1-lib 1.2.0-rc1",
@@ -2393,7 +2393,7 @@ dependencies = [
  "kona-client",
  "kona-executor",
  "kona-primitives",
- "op-succinct-utils-client",
+ "op-succinct-client-utils",
  "sp1-zkvm",
 ]
 
@@ -4009,40 +4009,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-proposer"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-primitives",
- "anyhow",
- "axum",
- "base64 0.22.1",
- "bincode",
- "cargo_metadata",
- "clap",
- "csv",
- "dotenv",
- "futures",
- "itertools 0.13.0",
- "kona-host",
- "kona-primitives",
- "lazy_static",
- "log",
- "op-succinct-utils-client",
- "op-succinct-utils-host",
- "rayon",
- "reqwest 0.12.7",
- "revm",
- "serde",
- "sp1-build",
- "sp1-sdk",
- "tokio",
- "tower-http",
- "uuid 1.10.0",
-]
-
-[[package]]
-name = "op-succinct-utils-client"
+name = "op-succinct-client-utils"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus",
@@ -4070,7 +4037,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-utils-host"
+name = "op-succinct-host-utils"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -4083,7 +4050,7 @@ dependencies = [
  "futures",
  "kona-host",
  "num-format",
- "op-succinct-utils-client",
+ "op-succinct-client-utils",
  "revm",
  "rkyv",
  "serde",
@@ -4091,6 +4058,39 @@ dependencies = [
  "sp1-build",
  "sp1-sdk",
  "tokio",
+]
+
+[[package]]
+name = "op-succinct-proposer"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-primitives",
+ "anyhow",
+ "axum",
+ "base64 0.22.1",
+ "bincode",
+ "cargo_metadata",
+ "clap",
+ "csv",
+ "dotenv",
+ "futures",
+ "itertools 0.13.0",
+ "kona-host",
+ "kona-primitives",
+ "lazy_static",
+ "log",
+ "op-succinct-client-utils",
+ "op-succinct-host-utils",
+ "rayon",
+ "reqwest 0.12.7",
+ "revm",
+ "serde",
+ "sp1-build",
+ "sp1-sdk",
+ "tokio",
+ "tower-http",
+ "uuid 1.10.0",
 ]
 
 [[package]]
@@ -5002,7 +5002,7 @@ dependencies = [
  "kona-primitives",
  "log",
  "op-alloy-consensus",
- "op-succinct-utils-client",
+ "op-succinct-client-utils",
  "sp1-zkvm",
 ]
 
@@ -7912,8 +7912,8 @@ dependencies = [
  "kona-host",
  "log",
  "num-format",
- "op-succinct-utils-client",
- "op-succinct-utils-host",
+ "op-succinct-client-utils",
+ "op-succinct-host-utils",
  "revm",
  "sp1-build",
  "sp1-sdk",

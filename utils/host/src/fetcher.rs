@@ -9,7 +9,7 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
-use op_succinct_utils_client::RawBootInfo;
+use op_succinct_client_utils::RawBootInfo;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
 use tokio::time::sleep;
 

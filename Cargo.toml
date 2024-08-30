@@ -58,8 +58,8 @@ rkyv = "0.7.44"
 hex = "0.4.3"
 
 # local
-op-succinct-utils-client = { path = "utils/client" }
-op-succinct-utils-host = { path = "utils/host" }
+op-succinct-client-utils = { path = "utils/client" }
+op-succinct-host-utils = { path = "utils/host" }
 zkvm-host = { path = "zkvm-host" }
 op-succinct-proposer = { path = "proposer/succinct" }
 

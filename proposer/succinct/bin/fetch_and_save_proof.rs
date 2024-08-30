@@ -2,7 +2,7 @@ use alloy::hex;
 use anyhow::Result;
 use clap::Parser;
 use dotenv::dotenv;
-use op_succinct_utils_client::{RawBootInfo, BOOT_INFO_SIZE};
+use op_succinct_client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use sp1_sdk::{NetworkProver, SP1ProofWithPublicValues};
 use std::{fs, path::Path};
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use kona_primitives::RollupConfig;
-use op_succinct_utils_host::fetcher::{ChainMode, OPSuccinctDataFetcher};
+use op_succinct_host_utils::fetcher::{ChainMode, OPSuccinctDataFetcher};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;

@@ -5,7 +5,7 @@ pub mod stats;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use kona_host::HostCli;
-use op_succinct_utils_client::{types::AggregationInputs, RawBootInfo};
+use op_succinct_client_utils::{types::AggregationInputs, RawBootInfo};
 use sp1_sdk::{SP1Proof, SP1Stdin};
 
 use anyhow::Result;

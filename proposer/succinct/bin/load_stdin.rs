@@ -1,4 +1,4 @@
-use op_succinct_utils_client::RawBootInfo;
+use op_succinct_client_utils::RawBootInfo;
 use sp1_sdk::{utils, SP1Stdin};
 use std::fs;
 

@@ -3,7 +3,7 @@ use std::{fs, time::Instant};
 use anyhow::Result;
 use clap::Parser;
 use kona_host::start_server_and_native_client;
-use op_succinct_utils_host::{
+use op_succinct_host_utils::{
     fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::get_execution_stats,
