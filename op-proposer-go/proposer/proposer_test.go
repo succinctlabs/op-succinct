@@ -99,13 +99,6 @@ func TestCheckpointBlockHash(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Get the Rollup Config
-	// chainId := uint64(11155420)
-	// rollupCfg, err := rollup.LoadOPStackRollupConfig(chainId)
-	// if err != nil {
-	// 	t.Fatalf("failed to load rollup config: %v", err)
-	// }
-
 	fmt.Println("txMgr RPC URL:", txMgrConfig.L1RPCURL)
 	fmt.Println("Private Key:", txMgrConfig.PrivateKey)
 
