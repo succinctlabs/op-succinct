@@ -6,7 +6,7 @@ use sp1_sdk::block_on;
 use std::{env, fs};
 
 /// Fetch the rollup config from the rollup node and save it to a file.
-fn fetch_rollup_config() -> Result<()> {
+fn save_rollup_config_to_zkconfig() -> Result<()> {
     let (rollup_rpc, l2_rpc) = get_rpc_urls();
 
     let rollup_config = fetch_rpc_data(&rollup_rpc, "optimism_rollupConfig")?;
@@ -155,5 +155,5 @@ fn rename_batcher_addr(merged: &mut Value) -> Result<()> {
 
 fn main() -> Result<()> {
     dotenv::dotenv().ok();
-    fetch_rollup_config()
+    save_rollup_config_to_zkconfig()
 }
