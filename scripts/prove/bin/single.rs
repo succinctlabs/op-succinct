@@ -7,7 +7,7 @@ use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use sp1_sdk::{utils, ProverClient};
 
-pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../elf/fault-proof-elf");
+pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/fault-proof-elf");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

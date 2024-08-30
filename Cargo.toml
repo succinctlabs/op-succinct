@@ -2,8 +2,7 @@
 members = [
     "client-programs/*",
     "crates/*",
-    "native-host",
-    "zkvm-host",
+    "scripts/*",
     "op-succinct-proposer",
 ]
 resolver = "2"

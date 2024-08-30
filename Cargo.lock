@@ -3746,17 +3746,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "native-host"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "kona-host",
- "log",
- "tokio",
-]
-
-[[package]]
 name = "native-tls"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4091,6 +4080,37 @@ dependencies = [
  "tokio",
  "tower-http",
  "uuid 1.10.0",
+]
+
+[[package]]
+name = "op-succinct-prove"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "clap",
+ "client-utils",
+ "csv",
+ "dotenv",
+ "host-utils",
+ "kona-host",
+ "log",
+ "num-format",
+ "revm",
+ "sp1-build",
+ "sp1-sdk",
+ "tokio",
+]
+
+[[package]]
+name = "op-succinct-witnessgen"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "kona-host",
+ "log",
+ "tokio",
 ]
 
 [[package]]
@@ -7898,24 +7918,4 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
-]
-
-[[package]]
-name = "zkvm-host"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cargo_metadata",
- "clap",
- "client-utils",
- "csv",
- "dotenv",
- "host-utils",
- "kona-host",
- "log",
- "num-format",
- "revm",
- "sp1-build",
- "sp1-sdk",
- "tokio",
 ]
