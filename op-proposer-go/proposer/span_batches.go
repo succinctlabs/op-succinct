@@ -41,8 +41,7 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 		l.Log.Error("proposer unable to get sync status", "err", err)
 		return err
 	}
-	// TODO: This is modified from using the L1 finalized block to using the L2 finalized block. Confirm
-	// that this is correct.
+	// Note: Originally, this used the L1 finalized block. However, to satisfy the new API, we now use the L2 finalized block.
 	newL2EndBlock := status.FinalizedL2.Number
 
 	l1BeaconClient, err := utils.SetupBeacon(l.Cfg.BeaconRpc)

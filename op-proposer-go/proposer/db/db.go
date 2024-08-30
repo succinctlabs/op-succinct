@@ -387,8 +387,8 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 	return true, end, nil
 }
 
-// / Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
-// / don't fully cover the range, return an error.
+// Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
+// don't fully cover the range, return an error.
 func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error) {
 	ctx := context.Background()
 	client := db.client
