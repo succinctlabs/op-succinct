@@ -3,9 +3,9 @@
 use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
-use revm::db::states::state::State;
 use revm::precompile::secp256r1;
 use revm::{
+    db::states::state::State,
     handler::register::EvmHandler,
     precompile::{
         bn128, secp256k1, Precompile, PrecompileResult, PrecompileSpecId, PrecompileWithAddress,
@@ -64,9 +64,7 @@ where
     H: TrieDBHinter,
 {
     fn default() -> Self {
-        Self {
-            _phantom: core::marker::PhantomData::<(F, H)>,
-        }
+        Self { _phantom: core::marker::PhantomData::<(F, H)> }
     }
 }
 
