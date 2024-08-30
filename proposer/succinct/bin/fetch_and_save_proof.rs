@@ -1,5 +1,4 @@
-use alloy::hex;
-use alloy::sol_types::SolValue;
+use alloy::{hex, sol_types::SolValue};
 use anyhow::Result;
 use clap::Parser;
 use dotenv::dotenv;

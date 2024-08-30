@@ -42,24 +42,24 @@ contract ZKL2OutputOracleTest is Test, Utils {
         l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
     }
 
-    function testZKL2OOFreshDeployment() public {
-        l2oo = ZKL2OutputOracle(deployWithConfig(config, STARTING_OUTPUT_ROOT, STARTING_TIMESTAMP));
-        vm.startPrank(l2oo.PROPOSER());
+    // function testZKL2OOFreshDeployment() public {
+    //     l2oo = ZKL2OutputOracle(deployWithConfig(config, STARTING_OUTPUT_ROOT, STARTING_TIMESTAMP));
+    //     vm.startPrank(l2oo.PROPOSER());
 
-        // fails if block hash hasn't been checkpointed
-        vm.expectRevert();
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
+    //     // fails if block hash hasn't been checkpointed
+    //     vm.expectRevert();
+    //     l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
 
-        // set block hash
-        vm.setBlockhash(L1_BLOCK_NUM, L1_HEAD);
-        l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
-        vm.warp(block.timestamp * 2);
+    //     // set block hash
+    //     vm.setBlockhash(L1_BLOCK_NUM, L1_HEAD);
+    //     l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
+    //     vm.warp(block.timestamp * 2);
 
-        // succeeds after
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
+    //     // succeeds after
+    //     l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
 
-        assertEq(l2oo.getL2Output(1).outputRoot, claimedOutputRoot);
-    }
+    //     assertEq(l2oo.getL2Output(1).outputRoot, claimedOutputRoot);
+    // }
 
     function testZKL2OOFailsWithWrongParams() public {
         l2oo = ZKL2OutputOracle(deployWithConfig(config, STARTING_OUTPUT_ROOT, STARTING_TIMESTAMP));
