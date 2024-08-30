@@ -21,7 +21,7 @@ ENV PATH="${GOPATH}/bin:${PATH}"
 # Set up Go environment
 WORKDIR /app
 
-# Copy the local op-proposer-go directory
+# Copy the local proposer/op directory
 COPY ./proposer/op /app/op-proposer-go
 
 # Change to the server directory and build the application
