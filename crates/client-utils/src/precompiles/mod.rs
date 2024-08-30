@@ -4,6 +4,7 @@ use alloc::sync::Arc;
 use kona_executor::PrecompileOverride;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::db::states::state::State;
+use revm::precompile::secp256r1;
 use revm::{
     handler::register::EvmHandler,
     precompile::{
@@ -12,8 +13,6 @@ use revm::{
     primitives::Bytes,
     ContextPrecompiles,
 };
-
-pub const PRECOMPILE_HOOK_FD: u32 = 115;
 
 /// Create an annotated precompile that simply tracks the cycle count of a precompile.
 macro_rules! create_annotated_precompile {
@@ -82,6 +81,10 @@ where
         handler.pre_execution.load_precompiles = Arc::new(move || {
             let mut ctx_precompiles =
                 ContextPrecompiles::new(PrecompileSpecId::from_spec_id(spec_id)).clone();
+
+            // With Fjord, EIP-7212 is activated, so we need to load the precompiles for secp256r1.
+            // Alphanet does the same here: https://github.com/paradigmxyz/alphanet/blob/f28e4220a1a637c19ef6b4928e9a427560d46fcb/crates/node/src/evm.rs#L53-L56
+            ctx_precompiles.extend(secp256r1::precompiles());
 
             // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the cycle count.
             let override_precompiles = [

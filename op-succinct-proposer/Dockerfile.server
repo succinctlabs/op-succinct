@@ -25,8 +25,14 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/sp1up && \
     ~/.sp1/bin/cargo-prove prove --version
     
-# Copy the project files, excluding target and data directories
-COPY . .
+# Copy the relevant OP Succinct server files.
+COPY Cargo.toml Cargo.lock ./
+COPY zkvm-host ./zkvm-host
+COPY op-succinct-proposer ./op-succinct-proposer
+COPY native-host ./native-host
+COPY elf ./elf
+COPY crates ./crates
+COPY client-programs ./client-programs
 
 # Build the server
 RUN cargo build --bin server --release

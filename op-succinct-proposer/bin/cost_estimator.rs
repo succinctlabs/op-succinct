@@ -121,29 +121,6 @@ fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
     }
 }
 
-async fn fetch_span_batch_ranges(
-    data_fetcher: &OPSuccinctDataFetcher,
-    args: &HostArgs,
-    l2_chain_id: u64,
-    rollup_config: &RollupConfig,
-) -> Result<Vec<SpanBatchRange>> {
-    get_span_batch_ranges_from_server(
-        data_fetcher,
-        args.start,
-        args.end,
-        l2_chain_id,
-        rollup_config
-            .genesis
-            .system_config
-            .clone()
-            .unwrap()
-            .batcher_address
-            .to_string()
-            .as_str(),
-    )
-    .await
-}
-
 /// Split ranges according to the max span batch range size per L2 chain.
 fn split_ranges(span_batch_ranges: Vec<SpanBatchRange>, l2_chain_id: u64) -> Vec<SpanBatchRange> {
     let batch_size = get_max_span_batch_range_size(l2_chain_id);
@@ -288,8 +265,21 @@ async fn main() -> Result<()> {
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
     // TODO: Modify fetch_span_batch_ranges to start up the Docker container.
-    let span_batch_ranges =
-        fetch_span_batch_ranges(&data_fetcher, &args, l2_chain_id, &rollup_config).await?;
+    let span_batch_ranges = get_span_batch_ranges_from_server(
+        &data_fetcher,
+        args.start,
+        args.end,
+        l2_chain_id,
+        rollup_config
+            .genesis
+            .system_config
+            .clone()
+            .unwrap()
+            .batcher_address
+            .to_string()
+            .as_str(),
+    )
+    .await?;
     let split_ranges = split_ranges(span_batch_ranges, l2_chain_id);
 
     info!(
