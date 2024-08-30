@@ -65,12 +65,13 @@ fn build_zkvm_program(program: &str) {
 }
 
 fn main() {
-    // let programs = vec!["fault-proof", "range"];
+    let programs = vec!["range"];
 
-    // for program in programs {
-    //     build_native_program(program);
+    for program in programs {
+        // Note: Don't comment this out, because the Docker program depends on the native program for range being built.
+        build_native_program(program);
     //     build_zkvm_program(program);
-    // }
+    }
 
     // build_zkvm_program("aggregation");
     build_native_host_runner();
