@@ -28,8 +28,8 @@ fn main() {
 
     // Read in the headers.
     //
-    // Note: The headers are in order from start to end. We use serde_cbor as bincode serialization
-    // causes issues with the zkVM.
+    // Note: The headers are in order from start to end. We use [serde_cbor] as bincode
+    // serialization causes issues with the zkVM.
     let headers_bytes = sp1_zkvm::io::read_vec();
     let headers: Vec<Header> = serde_cbor::from_slice(&headers_bytes).unwrap();
     assert!(!agg_inputs.boot_infos.is_empty());
@@ -47,7 +47,7 @@ fn main() {
 
     // Verify each multi-block program proof.
     agg_inputs.boot_infos.iter().for_each(|boot_info| {
-        // Compute the public values digest as the hash of the abi-encoded boot info.
+        // Compute the public values digest as the hash of the abi-encoded [`RawBootInfo`].
         let abi_encoded_boot_info = boot_info.abi_encode();
         let pv_digest = Sha256::digest(abi_encoded_boot_info);
 
@@ -57,7 +57,7 @@ fn main() {
         }
     });
 
-    // Create a map of each l1 head in the BootInfo's to booleans
+    // Create a map of each l1 head in the [`RawBootInfo`]s to booleans
     let mut l1_heads_map: HashMap<B256, bool> =
         agg_inputs.boot_infos.iter().map(|boot_info| (boot_info.l1_head, false)).collect();
 
@@ -92,6 +92,6 @@ fn main() {
         chain_id: last_boot_info.chain_id,
     };
 
-    // Commit to the aggregated boot info.
+    // Commit to the aggregated [`RawBootInfo`].
     sp1_zkvm::io::commit_slice(&final_boot_info.abi_encode());
 }
