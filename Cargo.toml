@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "client-programs/*",
     "utils/*",
+    "programs/*",
     "native-host",
     "zkvm-host",
     "op-succinct-proposer",
