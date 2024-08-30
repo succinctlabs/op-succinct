@@ -31,7 +31,7 @@ COPY zkvm-host ./zkvm-host
 COPY op-succinct-proposer ./op-succinct-proposer
 COPY native-host ./native-host
 COPY elf ./elf
-COPY crates ./crates
+COPY utils ./utils
 COPY programs ./programs
 
 # Build the server
