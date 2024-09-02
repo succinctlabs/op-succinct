@@ -16,25 +16,26 @@ We've packaged the `op-succinct-proposer` service in a docker-compose file to ma
 Build the docker images for the `op-succinct-proposer` service.
 
 ```bash
-sudo docker-compose -f docker-compose.proposer.yml build
+cd proposer
+sudo docker-compose build
 ```
 
 ## 2) Run the Proposer
 
 This command launches the `op-succinct-proposer` service in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original `op-proposer` service.
 
-```
-sudo docker-compose -f docker-compose.proposer.yml up
+```bash
+sudo docker-compose up
 ```
 
 To see the logs of the `op-succinct-proposer` service, run:
 
 ```bash
-sudo docker-compose -f docker-compose.proposer.yml logs -f
+sudo docker-compose logs -f
 ```
 
 and to stop the `op-succinct-proposer` service, run:
 
 ```bash
-sudo docker-compose -f docker-compose.proposer.yml down
+sudo docker-compose down
 ```
