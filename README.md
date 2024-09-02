@@ -1,83 +1,31 @@
 # op-succinct
 
-## ⚠️ Work in Progress
+OP Succinct turns any OP stack rollup into a full type-1 zkEVM Rollup in 1 hour using SP1.
 
-**Warning**: This repository is currently a work in progress. The code and documentation are actively being developed and may be subject to significant changes. Use with caution and expect frequent updates.
+**[Docs]()**
+| [Learn More]()
 
-## Overview
-
-This repo provides a way to take an OP stack chain & turn it in a full ZK-validity proven chain in < 1 hour by deploying 1 smart contract and spinning up a lightweight "proposer" service that ... 
-
-Benefits include:... 
-
-Read more: [blog post]
-
-Reach out if you're interested in using this in production: ... 
+> [!CAUTION]
+>
+> This repository is still an active work-in-progress and is not audited or meant for production usage.
 
 ## Getting Started
 
-### Use an existing OP stack rollup
-
-* Get an existing OP stack rollup deployed using [...] or with [...].
-    * Today, we require that the rollup uses Ethereum for DA (blobs or calldata).
-    * We require that the rollups use `OptimismPortalGatewayV1.sol` (not the V2 of the Gateway, which is for optimistic fault proofs).
-
-### Deploy ZK L2 Output Oracle
-
-Our ZK L2 Output Oracle is a "ZK" version of the L2 Output Oracle used by the V1 version of the OP stack (the non-fault proof version). In particular,... 
-
-To deploy it, you can use the following commands in the `contracts` folder of this repo:
-
-```
-```
-
-Make sure to set your `.env` with a `PRIVATE_KEY` and ... and following the .env.example.
-
-
-### Spin up the ZK op-proposer
-
-The next step of the integration
-
-**Get prover network API key**: follow instructions here
-
-### Transfer L2 Output Oracle to ZK L2 Output Oracle
-
-The final step is to ...
-
-### Check it's working
-
-Now you can check that it's working by examining: ... 
-
-To troubleshooot you can: ...
-
-## Profiling Cycle Counts
-
-To learn how to estimate cycle counts for a given block range, check out our [Cycle Count Guide](./zkvm-host/CYCLE_COUNT.md).
+Today, you can already use OP Succinct to upgrade any existing OP Stack rollup to a type-1 zkEVM rollup. To get started, make sure you have [Rust], [Foundry], and [Docker] installed. Then, follow the steps in the [book]() to deploy the `ZKL2OutputOracle` contract and start the `op-succinct-proposer` service.
 
 ## Repository Overview
 
-**`crates`**
-- `client-utils`: A suite of utilities for the client program.
-- `host-utils`: A suite of utilities for constructing the host which runs the OP Succinct program.
+The repository is organized into the following directories:
 
-**`op-succinct`**
-- `native-host`: The host program which runs the `op-succinct` program natively using `kona`.
-- `zkvm-host`: The host program which runs the `op-succinct` program in the SP1 zkVM.
-- `programs`: The programs proven in SP1.
-    - `fault-proof` and `range` are used to verifiably derive and execute single blocks
-    and batches of blocks respectively. Their binary's are first run in native mode on the `kona-host` to
-    fetch the witness data, then they use SP1 to verifiably execute the program.
-   - For `aggregation`, which is used to generate an aggregate proof for a set of batches,
-   first generate proofs for `range` programs for each batch, then use `aggregation` to
-   generate an aggregate proof.
+- `book`: The documentation for OP Succinct users and developers.
+- `contracts`: The solidity contracts for posting state roots to L1.
+- `programs`: The programs for proving the execution and derivation of the L2 state transitions and proof aggregation.
+- `proposer`: The implementation of the `op-succinct-proposer` service.
+- `scripts`: The scripts for proving and generating witnesses.
 
 ## Acknowlements
 
 This repo could not exist without:
-* Kona
-* OP Stack
-* SP1
-
-## Open Source
-
-This code is open sourced under the [Apache 2.0 License](./LICENSE.txt).
+* [OP Stack](https://docs.optimism.io/stack/getting-started): Modular software components for building L2 blockchains.
+* [Kona](https://github.com/anton-rs/kona/tree/main): A portable implementations of the OP Stack rollup state transition, namely the derivation pipeline and the block execution logic.
+* [SP1](https://github.com/succinctlabs/sp1): A fast, feature-complete zkVM for developers that can prove the execution of arbitrary Rust (or any LLVM-compiled) program.
