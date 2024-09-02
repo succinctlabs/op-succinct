@@ -1,8 +1,10 @@
 # Summary
 
 - [Introduction](./introduction.md)
-- [Getting Started](./deploy/intro.md)
-  - [Base OP Stack Rollup](./deploy/op-stack.md)
-  - [Deploy ZK L2 Output Oracle](./deploy/smart-contract.md)
-  - [Deploy ZK Proposer](./deploy/zk-proposer.md)
+- [Architecture](./architecture.md)
+- [Getting Started](./getting-started/intro.md)
+  - [Prerequisites](./getting-started/prerequisites.md)
+  - [L2 Output Oracle](./getting-started/l2-output-oracle.md)
+  - [Proposer](./getting-started/proposer.md)
+  - [Configuration](./getting-started/configuration.md)
 - [Cost Estimator CLI Tool](./cost-estimator.md)

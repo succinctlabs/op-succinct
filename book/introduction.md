@@ -2,7 +2,7 @@
 
 *Documentation for OP Succinct users and developers.*
 
-OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https://vitalik.eth.limo/general/2022/08/04/zkevm.html) in one hour using SP1. OP Succinct provides:
+OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https://vitalik.eth.limo/general/2022/08/04/zkevm.html) using SP1. OP Succinct provides:
 
 - **1 hour finality** secured by ZKPs, a dramatic improvement over the 7-day withdrawal window of standard OP Stack rollups.
 - **Unlimited customization** for rollup modifications in pure Rust and easy maitainability.
