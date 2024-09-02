@@ -23,4 +23,4 @@ jobs:
 
       - name: Build Docker Compose setup
         run: |
-          docker compose -f proposer/docker-compose.yml build
+          docker compose build
