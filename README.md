@@ -23,7 +23,7 @@ The repository is organized into the following directories:
 - `proposer`: The implementation of the `op-succinct-proposer` service.
 - `scripts`: The scripts for proving and generating witnesses.
 
-## Acknowlements
+## Acknowledgments
 
 This repo could not exist without:
 * [OP Stack](https://docs.optimism.io/stack/getting-started): Modular software components for building L2 blockchains.
