@@ -36,10 +36,13 @@ jobs:
         curl -L https://sp1.succinct.xyz | bash
         ~/.sp1/bin/sp1up 
         ~/.sp1/bin/cargo-prove prove --version
-    - name: Compile programs
-      run: |
-        cargo prove build --binary fault-proof &
-        cargo prove build --binary range &
-        cargo prove build --binary aggregation &
-        wait
-      working-directory: programs
+        source /home/runner/.bashrc
+    - name: Compile the fault proof program
+      run: cargo prove build --binary fault-proof
+      working-directory: programs/fault-proof
+    - name: Compile the range program
+      run: cargo prove build --binary range
+      working-directory: programs/range
+    - name: Compile the aggregation program
+      run: cargo prove build --binary aggregation
+      working-directory: programs/aggregation
