@@ -32,7 +32,6 @@ kona-host = { workspace = true }
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
-op-succinct-proposer.workspace = true
 
 # sp1
 sp1-sdk = { workspace = true }
@@ -47,4 +46,3 @@ csv.workspace = true
 [build-dependencies]
 sp1-build = { workspace = true }
 op-succinct-host-utils = { workspace = true }
-cargo_metadata = { workspace = true }
