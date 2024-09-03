@@ -16,7 +16,7 @@ jobs:
       - run-id=${{ github.run_id }} 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Compile the fault proof program
       run: cargo build --profile release-client-lto
       working-directory: programs/fault-proof
@@ -29,6 +29,8 @@ jobs:
       - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }} 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
     - name: Install SP1 toolchain
       run: |
         curl -L https://sp1.succinct.xyz | bash
