@@ -87,8 +87,6 @@ async fn request_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
-    // TODO: If this fails, we should definitely NOT request a proof! Otherwise, we get execution
-    // failures on the cluster.
     let mut witnessgen_executor = WitnessGenExecutor::default();
     witnessgen_executor.spawn_witnessgen(&host_cli).await?;
     witnessgen_executor.flush().await?;

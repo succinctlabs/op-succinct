@@ -138,7 +138,6 @@ async fn run_native_data_generation(
 ) -> Vec<BatchHostCli> {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
 
-    // TODO: Shut down all processes when the program exits OR a Ctrl+C is pressed.
     let futures = split_ranges.chunks(CONCURRENT_NATIVE_HOST_RUNNERS).map(|chunk| async {
         let mut witnessgen_executor = WitnessGenExecutor::default();
 
