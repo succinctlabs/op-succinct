@@ -9,9 +9,11 @@ on:
       - main
 
 jobs:
-  build_and_run:
-    runs-on: ubuntu-latest
-
+  build_native_programs:
+    runs-on:
+      - runs-on
+      - runner=16cpu-linux-x64
+      - run-id=${{ github.run_id }} 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -21,3 +23,21 @@ jobs:
     - name: Compile the range program
       run: cargo build --profile release-client-lto
       working-directory: programs/range
+  build_zkvm_programs:
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }} 
+    steps:
+    - name: Install SP1 toolchain
+      run: |
+        curl -L https://sp1.succinct.xyz | bash
+        ~/.sp1/bin/sp1up 
+        ~/.sp1/bin/cargo-prove prove --version
+    - name: Compile programs
+      run: |
+        cargo prove build --binary fault-proof &
+        cargo prove build --binary range &
+        cargo prove build --binary aggregation &
+        wait
+      working-directory: programs
