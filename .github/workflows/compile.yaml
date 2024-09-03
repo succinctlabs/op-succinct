@@ -36,7 +36,7 @@ jobs:
         curl -L https://sp1.succinct.xyz | bash
         ~/.sp1/bin/sp1up 
         ~/.sp1/bin/cargo-prove prove --version
-        source /home/runner/.bashrc
+        source $HOME/.bashrc
     - name: Compile the fault proof program
       run: cargo prove build --binary fault-proof
       working-directory: programs/fault-proof
