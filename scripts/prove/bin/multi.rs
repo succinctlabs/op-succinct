@@ -6,9 +6,9 @@ use op_succinct_host_utils::{
     fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::get_execution_stats,
+    witnessgen::WitnessGenExecutor,
     ProgramType,
 };
-use op_succinct_proposer::WitnessGenExecutor;
 use sp1_sdk::{utils, ProverClient};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
