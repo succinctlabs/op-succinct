@@ -1,11 +1,10 @@
-use std::{env, fs, time::Duration};
+use std::{env, fs};
 
 use anyhow::Result;
 use clap::Parser;
-use kona_host::start_server_and_native_client;
 use num_format::{Locale, ToFormattedString};
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, get_proof_stdin, ProgramType};
-use op_succinct_proposer::run_witnessgen;
+use op_succinct_proposer::WitnessGenExecutor;
 use sp1_sdk::{utils, ProverClient};
 
 pub const SINGLE_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/fault-proof-elf");
@@ -47,10 +46,9 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        let output = run_witnessgen(&host_cli, Duration::from_secs(0)).await;
-        if output.is_err() {
-            panic!("Running witness generation failed: {}", output.err().unwrap());
-        }
+        let mut witnessgen_executor = WitnessGenExecutor::default();
+        witnessgen_executor.spawn_witnessgen(&host_cli).await?;
+        witnessgen_executor.flush().await?;
     }
 
     // Get the stdin for the block.

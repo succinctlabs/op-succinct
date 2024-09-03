@@ -2,25 +2,19 @@ use anyhow::Result;
 use clap::Parser;
 use kona_host::HostCli;
 use kona_primitives::RollupConfig;
-use log::{error, info};
+use log::info;
 use op_succinct_host_utils::{
     fetcher::{ChainMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::{get_execution_stats, ExecutionStats},
     ProgramType,
 };
-use op_succinct_proposer::run_parallel_witnessgen;
+use op_succinct_proposer::WitnessGenExecutor;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
-use std::{
-    cmp::min,
-    env, fs,
-    future::Future,
-    path::PathBuf,
-    time::{Duration, Instant},
-};
+use std::{cmp::min, env, fs, future::Future, path::PathBuf, time::Instant};
 use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
@@ -143,26 +137,29 @@ async fn run_native_data_generation(
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
-    const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(300);
 
     // TODO: Shut down all processes when the program exits OR a Ctrl+C is pressed.
     let futures = split_ranges.chunks(CONCURRENT_NATIVE_HOST_RUNNERS).map(|chunk| async {
-        let batch_host_clis: Vec<BatchHostCli> =
-            futures::future::join_all(chunk.iter().map(|range| async {
-                let host_cli = data_fetcher
-                    .get_host_cli_args(range.start, range.end, ProgramType::Multi)
-                    .await
-                    .unwrap();
-                BatchHostCli { host_cli, start: range.start, end: range.end }
-            }))
-            .await;
+        let mut witnessgen_executor = WitnessGenExecutor::default();
 
-        let host_clis = batch_host_clis.iter().map(|b| b.host_cli.clone()).collect::<Vec<_>>();
-
-        let output = run_parallel_witnessgen(host_clis, NATIVE_HOST_TIMEOUT).await;
-        if output.is_err() {
-            panic!("Running witness generation failed: {}", output.err().unwrap());
+        let mut batch_host_clis = Vec::new();
+        for range in chunk.iter() {
+            let host_cli = data_fetcher
+                .get_host_cli_args(range.start, range.end, ProgramType::Multi)
+                .await
+                .unwrap();
+            batch_host_clis.push(BatchHostCli {
+                host_cli: host_cli.clone(),
+                start: range.start,
+                end: range.end,
+            });
+            witnessgen_executor
+                .spawn_witnessgen(&host_cli)
+                .await
+                .expect("Failed to spawn witness generation process.");
         }
+
+        witnessgen_executor.flush().await.expect("Failed to flush witness generation.");
 
         batch_host_clis
     });

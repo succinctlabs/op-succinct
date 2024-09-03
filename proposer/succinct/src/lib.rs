@@ -40,92 +40,92 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
     args
 }
 
-/// Run the native host with a timeout. Use a binary to execute the native host, as opposed to
-/// spawning a new thread in the same process due to the static cursors employed by the host.
-pub async fn run_witnessgen(host_cli: &HostCli, timeout_duration: Duration) -> Result<()> {
-    let metadata =
-        cargo_metadata::MetadataCommand::new().exec().expect("Failed to get cargo metadata");
-    let target_dir =
-        metadata.target_directory.join("native_host_runner/release/native_host_runner");
-    let args = convert_host_cli_to_args(host_cli);
+/// Default timeout for witness generation.
+pub const WITNESSGEN_TIMEOUT: Duration = Duration::from_secs(300);
 
-    // Run the native host runner.
-    let mut child =
-        tokio::process::Command::new(target_dir).args(&args).env("RUST_LOG", "info").spawn()?;
+struct WitnessGenProcess {
+    child: tokio::process::Child,
+    exec: String,
+}
 
-    // Set up a timeout that will kill the process if it exceeds the duration
-    match tokio::time::timeout(timeout_duration, child.wait()).await {
-        Ok(result) => {
-            let result = result.unwrap();
-            if result.success() {
-                Ok(())
-            } else {
-                Err(anyhow::anyhow!("Process failed with exit code: {}", result.code().unwrap()))
-            }
-        }
-        Err(_) => {
-            // Timeout occurred, kill the process
-            child.kill().await?;
-            Err(anyhow::anyhow!("Process timed out and was killed."))
-        }
+/// Stateful executor for witness generation. Useful for executing several witness generation processes in parallel.
+pub struct WitnessGenExecutor {
+    ongoing_processes: Vec<WitnessGenProcess>,
+    timeout: Duration,
+}
+
+impl Default for WitnessGenExecutor {
+    fn default() -> Self {
+        Self::new(WITNESSGEN_TIMEOUT)
     }
 }
 
-pub async fn run_parallel_witnessgen(
-    host_clis: Vec<HostCli>,
-    timeout_duration: Duration,
-) -> Result<()> {
-    let metadata =
-        cargo_metadata::MetadataCommand::new().exec().expect("Failed to get cargo metadata");
-    let target_dir =
-        metadata.target_directory.join("native_host_runner/release/native_host_runner");
-
-    let mut command_args = Vec::new();
-    for host_cli in host_clis.clone() {
-        let args = convert_host_cli_to_args(&host_cli);
-        command_args.push(args);
+impl WitnessGenExecutor {
+    pub fn new(timeout: Duration) -> Self {
+        Self { ongoing_processes: Vec::new(), timeout }
     }
 
-    let mut children = Vec::new();
-    for args in command_args {
-        let child = tokio::process::Command::new(&target_dir)
-            .args(&args)
-            .env("RUST_LOG", "info")
-            .spawn()?;
-        children.push(child);
+    /// Spawn a witness generation process for the given host CLI, and adds it to the list of ongoing processes.
+    pub async fn spawn_witnessgen(&mut self, host_cli: &HostCli) -> Result<()> {
+        let metadata =
+            cargo_metadata::MetadataCommand::new().exec().expect("Failed to get cargo metadata");
+        let target_dir =
+            metadata.target_directory.join("native_host_runner/release/native_host_runner");
+        let args = convert_host_cli_to_args(host_cli);
+
+        // Run the native host runner.
+        let child =
+            tokio::process::Command::new(target_dir).args(&args).env("RUST_LOG", "info").spawn()?;
+        self.ongoing_processes
+            .push(WitnessGenProcess { child, exec: host_cli.exec.clone().unwrap() });
+        Ok(())
     }
 
-    let mut any_failed = false;
-    for child in &mut children {
-        match timeout(timeout_duration, child.wait()).await {
-            Ok(Ok(status)) if !status.success() => {
-                any_failed = true;
-                break;
+    /// Wait for all ongoing witness generation processes to complete. If any process fails,
+    /// kill all ongoing processes and return an error.
+    pub async fn flush(&mut self) -> Result<()> {
+        let mut any_failed = false;
+        let binary_name = self.ongoing_processes[0].exec.split('/').last().unwrap().to_string();
+        for child in &mut self.ongoing_processes {
+            match timeout(self.timeout, child.child.wait()).await {
+                Ok(Ok(status)) if !status.success() => {
+                    any_failed = true;
+                    break;
+                }
+                Ok(Err(e)) => {
+                    any_failed = true;
+                    eprintln!("Child process error: {}", e);
+                    break;
+                }
+                Err(_) => {
+                    any_failed = true;
+                    eprintln!("Child process timed out");
+                    break;
+                }
+                _ => {}
             }
-            Ok(Err(e)) => {
-                any_failed = true;
-                eprintln!("Child process error: {}", e);
-                break;
-            }
-            Err(_) => {
-                any_failed = true;
-                eprintln!("Child process timed out");
-                break;
-            }
-            _ => {}
+        }
+        if any_failed {
+            self.kill_all(binary_name).await?;
+            Err(anyhow::anyhow!("One or more child processes failed or timed out"))
+        } else {
+            Ok(())
         }
     }
 
-    if any_failed {
-        // Terminate remaining children
-        for mut child in children {
-            let _ = child.kill().await?;
+    /// Kill all ongoing "native client" processes and the associated spawned witness gen
+    /// programs. Specifically, whenever witness generation is spawned, there is a "native
+    /// client" process that spawns a "witness gen" program. Just killing the "native client"
+    /// process will not kill the "witness gen" program, so we need to explicitly kill the
+    /// "witness gen" program as well.
+    async fn kill_all(&mut self, binary_name: String) -> Result<()> {
+        // Kill the "native client" processes.
+        for mut child in self.ongoing_processes.drain(..) {
+            let _ = child.child.kill().await?;
         }
+
         // Kill the spawned witness gen program.
-        let binary_name = host_clis[0].exec.as_ref().unwrap().split('/').last().unwrap();
         std::process::Command::new("pkill").arg("-f").arg(binary_name).output()?;
-        Err(anyhow::anyhow!("One or more child processes failed or timed out"))
-    } else {
         Ok(())
     }
 }
