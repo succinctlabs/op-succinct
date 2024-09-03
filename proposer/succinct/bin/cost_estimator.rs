@@ -250,8 +250,8 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
     for stats in execution_stats {
         batch_start = min(batch_start, stats.batch_start);
         batch_end = max(batch_end, stats.batch_end);
-        aggregate_stats.batch_start += stats.batch_start;
-        aggregate_stats.batch_end += stats.batch_end;
+
+        // Accumulate most statistics across all blocks.
         aggregate_stats.execution_duration_sec += stats.execution_duration_sec;
         aggregate_stats.total_instruction_count += stats.total_instruction_count;
         aggregate_stats.oracle_verify_instruction_count += stats.oracle_verify_instruction_count;
@@ -271,6 +271,8 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
         aggregate_stats.ec_recover_cycles += stats.ec_recover_cycles;
     }
 
+    // For statistics that are per-block or per-transaction, we take the average over the entire
+    // range.
     aggregate_stats.cycles_per_block =
         aggregate_stats.total_instruction_count / aggregate_stats.nb_blocks;
     aggregate_stats.cycles_per_transaction =
@@ -281,6 +283,7 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
     aggregate_stats.gas_used_per_transaction =
         aggregate_stats.eth_gas_used / aggregate_stats.nb_transactions;
 
+    // Use the earliest start and latest end across all blocks.
     aggregate_stats.batch_start = batch_start;
     aggregate_stats.batch_end = batch_end;
 
@@ -291,13 +294,13 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     utils::setup_logger();
-
+    
     let args = HostArgs::parse();
     let data_fetcher = OPSuccinctDataFetcher::new();
     let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
-    // TODO: Modify fetch_span_batch_ranges to start up the Docker container.
+    // TODO: Modify fetch_span_batch_ranges to start up the Docker container and shut it down at the end of the process.
     let span_batch_ranges = get_span_batch_ranges_from_server(
         &data_fetcher,
         args.start,
