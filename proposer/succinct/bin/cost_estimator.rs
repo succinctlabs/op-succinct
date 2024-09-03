@@ -59,7 +59,7 @@ struct SpanBatchRequest {
 
 #[derive(Deserialize, Debug, Clone)]
 struct SpanBatchResponse {
-    ranges: Vec<SpanBatchRange>,
+    ranges: Option<Vec<SpanBatchRange>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,8 +96,13 @@ async fn get_span_batch_ranges_from_server(
     let response: SpanBatchResponse =
         client.post(&query_url).json(&request).send().await?.json().await?;
 
+    // If the response is empty, return one range with the start and end blocks.
+    if response.ranges.is_none() {
+        return Ok(vec![SpanBatchRange { start, end }]);
+    }
+
     // Return the ranges.
-    Ok(response.ranges)
+    Ok(response.ranges.unwrap())
 }
 
 struct BatchHostCli {
@@ -144,32 +149,39 @@ async fn run_native_data_generation(
 ) -> Vec<BatchHostCli> {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
 
-    let futures = split_ranges.chunks(CONCURRENT_NATIVE_HOST_RUNNERS).map(|chunk| async {
+    // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
+    // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
+    // being overloaded with too many concurrent requests, while also improving witness generation
+    // throughput.
+    let batch_host_clis = split_ranges.chunks(CONCURRENT_NATIVE_HOST_RUNNERS).map(|chunk| {
         let mut witnessgen_executor = WitnessGenExecutor::default();
 
         let mut batch_host_clis = Vec::new();
         for range in chunk.iter() {
-            let host_cli = data_fetcher
-                .get_host_cli_args(range.start, range.end, ProgramType::Multi)
-                .await
-                .unwrap();
+            let host_cli = block_on(data_fetcher.get_host_cli_args(
+                range.start,
+                range.end,
+                ProgramType::Multi,
+            ))
+            .expect("Failed to get host CLI args.");
             batch_host_clis.push(BatchHostCli {
                 host_cli: host_cli.clone(),
                 start: range.start,
                 end: range.end,
             });
-            witnessgen_executor
-                .spawn_witnessgen(&host_cli)
-                .await
+            block_on(witnessgen_executor.spawn_witnessgen(&host_cli))
                 .expect("Failed to spawn witness generation process.");
         }
 
-        witnessgen_executor.flush().await.expect("Failed to flush witness generation.");
+        let res = block_on(witnessgen_executor.flush());
+        if res.is_err() {
+            panic!("Failed to generate witnesses: {:?}", res.err().unwrap());
+        }
 
         batch_host_clis
     });
 
-    futures::future::join_all(futures).await.into_iter().flatten().collect()
+    batch_host_clis.into_iter().flatten().collect()
 }
 
 /// Utility method for blocking on an async function.
@@ -259,11 +271,15 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
         aggregate_stats.ec_recover_cycles += stats.ec_recover_cycles;
     }
 
-    aggregate_stats.cycles_per_block = aggregate_stats.total_instruction_count / aggregate_stats.nb_blocks;
-    aggregate_stats.cycles_per_transaction = aggregate_stats.total_instruction_count / aggregate_stats.nb_transactions;
-    aggregate_stats.transactions_per_block = aggregate_stats.nb_transactions / aggregate_stats.nb_blocks;
+    aggregate_stats.cycles_per_block =
+        aggregate_stats.total_instruction_count / aggregate_stats.nb_blocks;
+    aggregate_stats.cycles_per_transaction =
+        aggregate_stats.total_instruction_count / aggregate_stats.nb_transactions;
+    aggregate_stats.transactions_per_block =
+        aggregate_stats.nb_transactions / aggregate_stats.nb_blocks;
     aggregate_stats.gas_used_per_block = aggregate_stats.eth_gas_used / aggregate_stats.nb_blocks;
-    aggregate_stats.gas_used_per_transaction = aggregate_stats.eth_gas_used / aggregate_stats.nb_transactions;
+    aggregate_stats.gas_used_per_transaction =
+        aggregate_stats.eth_gas_used / aggregate_stats.nb_transactions;
 
     aggregate_stats.batch_start = batch_start;
     aggregate_stats.batch_end = batch_end;
