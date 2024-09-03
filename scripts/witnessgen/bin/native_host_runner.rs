@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use kona_host::{init_tracing_subscriber, start_server, start_server_and_native_client, HostCli};
-use log::{error, info};
+use log::info;
 
 // Source: https://github.com/ethereum-optimism/kona/blob/main/bin/host/src/main.rs
 #[tokio::main(flavor = "multi_thread")]
