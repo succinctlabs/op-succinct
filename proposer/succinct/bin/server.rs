@@ -10,9 +10,9 @@ use base64::{engine::general_purpose, Engine as _};
 use log::info;
 use op_succinct_client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin,
+    witnessgen::WitnessGenExecutor, ProgramType,
 };
-use op_succinct_proposer::WitnessGenExecutor;
 use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
