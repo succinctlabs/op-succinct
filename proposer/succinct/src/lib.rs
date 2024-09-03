@@ -105,6 +105,8 @@ impl WitnessGenExecutor {
         }
     }
 
+    /// Wait for all ongoing witness generation processes to complete. If any process fails, return
+    /// an error.
     async fn wait_for_processes(&mut self) -> Result<()> {
         for child in &mut self.ongoing_processes {
             match timeout(self.timeout, child.child.wait()).await {
