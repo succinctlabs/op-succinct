@@ -16,13 +16,7 @@ contract ZKDeployer is Script, Utils {
 
         address zkL2OutputOracleImpl = address(new ZKL2OutputOracle());
 
-        upgradeAndInitialize(
-            zkL2OutputOracleImpl,
-            config,
-            address(0),
-            bytes32(0),
-            0
-        );
+        upgradeAndInitialize(zkL2OutputOracleImpl, config, address(0), bytes32(0), 0);
 
         vm.stopBroadcast();
     }
