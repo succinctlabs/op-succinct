@@ -252,17 +252,18 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
         aggregate_stats.nb_blocks += stats.nb_blocks;
         aggregate_stats.nb_transactions += stats.nb_transactions;
         aggregate_stats.eth_gas_used += stats.eth_gas_used;
-        aggregate_stats.cycles_per_block += stats.cycles_per_block;
-        aggregate_stats.cycles_per_transaction += stats.cycles_per_transaction;
-        aggregate_stats.transactions_per_block += stats.transactions_per_block;
-        aggregate_stats.gas_used_per_block += stats.gas_used_per_block;
-        aggregate_stats.gas_used_per_transaction += stats.gas_used_per_transaction;
         aggregate_stats.bn_pair_cycles += stats.bn_pair_cycles;
         aggregate_stats.bn_add_cycles += stats.bn_add_cycles;
         aggregate_stats.bn_mul_cycles += stats.bn_mul_cycles;
         aggregate_stats.kzg_eval_cycles += stats.kzg_eval_cycles;
         aggregate_stats.ec_recover_cycles += stats.ec_recover_cycles;
     }
+
+    aggregate_stats.cycles_per_block = aggregate_stats.total_instruction_count / aggregate_stats.nb_blocks;
+    aggregate_stats.cycles_per_transaction = aggregate_stats.total_instruction_count / aggregate_stats.nb_transactions;
+    aggregate_stats.transactions_per_block = aggregate_stats.nb_transactions / aggregate_stats.nb_blocks;
+    aggregate_stats.gas_used_per_block = aggregate_stats.eth_gas_used / aggregate_stats.nb_blocks;
+    aggregate_stats.gas_used_per_transaction = aggregate_stats.eth_gas_used / aggregate_stats.nb_transactions;
 
     aggregate_stats.batch_start = batch_start;
     aggregate_stats.batch_end = batch_end;
@@ -300,7 +301,7 @@ async fn main() -> Result<()> {
     write_execution_stats_to_csv(&execution_stats, l2_chain_id, &args)?;
 
     let aggregate_execution_stats = aggregate_execution_stats(&execution_stats);
-    println!("Aggregate Execution Stats: {:?}", aggregate_execution_stats);
+    println!("Aggregate Execution Stats\n: {}", aggregate_execution_stats);
 
     Ok(())
 }
