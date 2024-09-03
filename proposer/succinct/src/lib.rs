@@ -42,10 +42,7 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
 
 /// Run the native host with a timeout. Use a binary to execute the native host, as opposed to
 /// spawning a new thread in the same process due to the static cursors employed by the host.
-pub async fn run_native_host(
-    host_cli: &HostCli,
-    timeout_duration: Duration,
-) -> Result<std::process::ExitStatus> {
+pub async fn run_witnessgen(host_cli: &HostCli, timeout_duration: Duration) -> Result<()> {
     let metadata =
         cargo_metadata::MetadataCommand::new().exec().expect("Failed to get cargo metadata");
     let target_dir =
@@ -56,7 +53,79 @@ pub async fn run_native_host(
     let mut child =
         tokio::process::Command::new(target_dir).args(&args).env("RUST_LOG", "info").spawn()?;
 
-    // Return the child process handle.
-    // TODO: There's no nice way to retry the native host runner/executor.
-    Ok(timeout(timeout_duration, child.wait()).await??)
+    // Set up a timeout that will kill the process if it exceeds the duration
+    match tokio::time::timeout(timeout_duration, child.wait()).await {
+        Ok(result) => {
+            let result = result.unwrap();
+            if result.success() {
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!("Process failed with exit code: {}", result.code().unwrap()))
+            }
+        }
+        Err(_) => {
+            // Timeout occurred, kill the process
+            child.kill().await?;
+            Err(anyhow::anyhow!("Process timed out and was killed."))
+        }
+    }
+}
+
+pub async fn run_parallel_witnessgen(
+    host_clis: Vec<HostCli>,
+    timeout_duration: Duration,
+) -> Result<()> {
+    let metadata =
+        cargo_metadata::MetadataCommand::new().exec().expect("Failed to get cargo metadata");
+    let target_dir =
+        metadata.target_directory.join("native_host_runner/release/native_host_runner");
+
+    let mut command_args = Vec::new();
+    for host_cli in host_clis.clone() {
+        let args = convert_host_cli_to_args(&host_cli);
+        command_args.push(args);
+    }
+
+    let mut children = Vec::new();
+    for args in command_args {
+        let child = tokio::process::Command::new(&target_dir)
+            .args(&args)
+            .env("RUST_LOG", "info")
+            .spawn()?;
+        children.push(child);
+    }
+
+    let mut any_failed = false;
+    for child in &mut children {
+        match timeout(timeout_duration, child.wait()).await {
+            Ok(Ok(status)) if !status.success() => {
+                any_failed = true;
+                break;
+            }
+            Ok(Err(e)) => {
+                any_failed = true;
+                eprintln!("Child process error: {}", e);
+                break;
+            }
+            Err(_) => {
+                any_failed = true;
+                eprintln!("Child process timed out");
+                break;
+            }
+            _ => {}
+        }
+    }
+
+    if any_failed {
+        // Terminate remaining children
+        for mut child in children {
+            let _ = child.kill().await?;
+        }
+        // Kill the spawned witness gen program.
+        let binary_name = host_clis[0].exec.as_ref().unwrap().split('/').last().unwrap();
+        std::process::Command::new("pkill").arg("-f").arg(binary_name).output()?;
+        Err(anyhow::anyhow!("One or more child processes failed or timed out"))
+    } else {
+        Ok(())
+    }
 }

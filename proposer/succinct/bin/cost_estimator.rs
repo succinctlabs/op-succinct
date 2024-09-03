@@ -9,7 +9,7 @@ use op_succinct_host_utils::{
     stats::{get_execution_stats, ExecutionStats},
     ProgramType,
 };
-use op_succinct_proposer::run_native_host;
+use op_succinct_proposer::run_parallel_witnessgen;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -146,25 +146,25 @@ async fn run_native_data_generation(
     const NATIVE_HOST_TIMEOUT: Duration = Duration::from_secs(300);
 
     // TODO: Shut down all processes when the program exits OR a Ctrl+C is pressed.
-    let futures = split_ranges.chunks(CONCURRENT_NATIVE_HOST_RUNNERS).map(|chunk| {
-        futures::future::join_all(chunk.iter().map(|range| async {
-            let host_cli = data_fetcher
-                .get_host_cli_args(range.start, range.end, ProgramType::Multi)
-                .await
-                .unwrap();
+    let futures = split_ranges.chunks(CONCURRENT_NATIVE_HOST_RUNNERS).map(|chunk| async {
+        let batch_host_clis: Vec<BatchHostCli> =
+            futures::future::join_all(chunk.iter().map(|range| async {
+                let host_cli = data_fetcher
+                    .get_host_cli_args(range.start, range.end, ProgramType::Multi)
+                    .await
+                    .unwrap();
+                BatchHostCli { host_cli, start: range.start, end: range.end }
+            }))
+            .await;
 
-            let data_dir = host_cli.data_dir.clone().expect("Data directory is not set.");
+        let host_clis = batch_host_clis.iter().map(|b| b.host_cli.clone()).collect::<Vec<_>>();
 
-            fs::create_dir_all(&data_dir).unwrap();
+        let output = run_parallel_witnessgen(host_clis, NATIVE_HOST_TIMEOUT).await;
+        if output.is_err() {
+            panic!("Running witness generation failed: {}", output.err().unwrap());
+        }
 
-            let res = run_native_host(&host_cli, NATIVE_HOST_TIMEOUT).await;
-            if res.is_err() {
-                error!("Failed to run native host: {:?}", res.err().unwrap());
-                std::process::exit(1);
-            }
-
-            BatchHostCli { host_cli, start: range.start, end: range.end }
-        }))
+        batch_host_clis
     });
 
     futures::future::join_all(futures).await.into_iter().flatten().collect()

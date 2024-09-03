@@ -12,7 +12,7 @@ use op_succinct_client_utils::{RawBootInfo, BOOT_INFO_SIZE};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType,
 };
-use op_succinct_proposer::run_native_host;
+use op_succinct_proposer::run_witnessgen;
 use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
@@ -89,7 +89,7 @@ async fn request_span_proof(
     // host, and return an ID that the client can poll on to check if the proof was submitted.
     // TODO: If this fails, we should definitely NOT request a proof! Otherwise, we get execution
     // failures on the cluster.
-    run_native_host(&host_cli, Duration::from_secs(60)).await?;
+    run_witnessgen(&host_cli, Duration::from_secs(60)).await?;
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 

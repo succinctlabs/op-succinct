@@ -12,11 +12,7 @@ async fn main() -> Result<()> {
     if cfg.server {
         start_server(cfg).await?;
     } else {
-        let res = start_server_and_native_client(cfg).await;
-        if res.is_err() {
-            error!("Failed to run server and native client: {:?}", res.err().unwrap());
-            std::process::exit(1);
-        }
+        start_server_and_native_client(cfg).await?;
     }
 
     info!("Exiting host program.");

@@ -1,4 +1,7 @@
-use std::{fs, time::Instant};
+use std::{
+    fs,
+    time::{Duration, Instant},
+};
 
 use anyhow::Result;
 use clap::Parser;
@@ -9,6 +12,7 @@ use op_succinct_host_utils::{
     stats::get_execution_stats,
     ProgramType,
 };
+use op_succinct_proposer::{run_parallel_witnessgen, run_witnessgen};
 use sp1_sdk::{utils, ProverClient};
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
@@ -57,7 +61,10 @@ async fn main() -> Result<()> {
         fs::create_dir_all(&data_dir).unwrap();
 
         // Start the server and native client.
-        start_server_and_native_client(host_cli.clone()).await?;
+        let output = run_parallel_witnessgen(vec![host_cli.clone()], Duration::from_secs(1)).await;
+        if output.is_err() {
+            panic!("Running witness generation failed: {}", output.err().unwrap());
+        }
     }
     let execution_duration = start_time.elapsed();
     println!("Execution Duration: {:?}", execution_duration);
