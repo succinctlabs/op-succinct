@@ -32,6 +32,35 @@ pub struct ExecutionStats {
     pub ec_recover_cycles: u64,
 }
 
+impl Default for ExecutionStats {
+    fn default() -> Self {
+        ExecutionStats {
+            batch_start: 0,
+            batch_end: 0,
+            execution_duration_sec: 0,
+            total_instruction_count: 0,
+            oracle_verify_instruction_count: 0,
+            derivation_instruction_count: 0,
+            block_execution_instruction_count: 0,
+            blob_verification_instruction_count: 0,
+            total_sp1_gas: 0,
+            nb_blocks: 0,
+            nb_transactions: 0,
+            eth_gas_used: 0,
+            cycles_per_block: 0,
+            cycles_per_transaction: 0,
+            transactions_per_block: 0,
+            gas_used_per_block: 0,
+            gas_used_per_transaction: 0,
+            bn_pair_cycles: 0,
+            bn_add_cycles: 0,
+            bn_mul_cycles: 0,
+            kzg_eval_cycles: 0,
+            ec_recover_cycles: 0,
+        }
+    }
+}
+
 /// Write a statistic to the formatter.
 fn write_stat(f: &mut fmt::Formatter<'_>, label: &str, value: u64) -> fmt::Result {
     writeln!(f, "| {:<30} | {:>25} |", label, value.to_formatted_string(&Locale::en))

@@ -19,22 +19,20 @@ It is required that the L2 RPC is an archival node for your OP stack rollup, wit
 
 Then run the following command:
 ```shell
-RUST_LOG=info just run-multi <start_l2_block> <end_l2_block>
+RUST_LOG=info just cost-estimator <start_l2_block> <end_l2_block>
 ```
 
-This will fetch the required data for generating a ZKP for the given block range, "execute" the
-corresponding SP1 program, and return the cycle count. Then, you can extrapolate the cycle count
-to a cost based on the cost per billion cycles.
-
-Proofs over a span batch are split into several "span proofs", which prove the validity of a section of the span batch. Then, these span proofs are aggregated into a single proof, which is submitted to the L1.
+This command will execute `op-succinct` as if it's in production. First, it will divide the entire block range
+into smaller ranges optimized along the span batch boundaries. Then it will fetch the required data for generating the ZKP for each of these ranges, and execute the SP1 `span` program. Once each program finishes, it will collect the statistics and output the aggregate statistics
+for the entire block range. From this data, you can extrapolate the cycle count to a cost based on the cost per billion cycles.
 
 ## Example Block Range
 
-On OP Sepolia, generating a proof from 15840000 to 15840050 (50 blocks) takes ~1.5B cycles and takes
+On OP Sepolia, generating a proof from 15840000 to 15840050 (50 blocks) generates 4 span proofs, takes ~1.8B cycles and takes
 ~2 minutes to execute.
 
 ```bash
-RUST_LOG=info just run-multi 15840000 15840050
+RUST_LOG=info just cost-estimator 15840000 15840050
 
 ...Execution Logs...
 
@@ -57,6 +55,4 @@ RUST_LOG=info just run-multi 15840000 15840050
 ## Misc
 - For large enough block ranges, the RISC-V SP1 program will surpass the SP1 memory limit. Recommended limit is 20-30 blocks.
 - Your L2 node must have been synced for the blocks in the range you are proving. 
-   - OP Sepolia Node: Synced from block 15800000 onwards.
-   - OP Mainnet Node: Synced from block 122940000 onwards.
 

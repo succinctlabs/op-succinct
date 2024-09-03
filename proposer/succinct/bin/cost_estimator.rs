@@ -14,7 +14,13 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
-use std::{cmp::min, env, fs, future::Future, path::PathBuf, time::Instant};
+use std::{
+    cmp::{max, min},
+    env, fs,
+    future::Future,
+    path::PathBuf,
+    time::Instant,
+};
 use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
@@ -224,6 +230,46 @@ fn write_execution_stats_to_csv(
     Ok(())
 }
 
+/// Aggregate the execution statistics for an array of execution stats objects.
+fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionStats {
+    let mut aggregate_stats = ExecutionStats::default();
+    let mut batch_start = u64::MAX;
+    let mut batch_end = u64::MIN;
+    for stats in execution_stats {
+        batch_start = min(batch_start, stats.batch_start);
+        batch_end = max(batch_end, stats.batch_end);
+        aggregate_stats.batch_start += stats.batch_start;
+        aggregate_stats.batch_end += stats.batch_end;
+        aggregate_stats.execution_duration_sec += stats.execution_duration_sec;
+        aggregate_stats.total_instruction_count += stats.total_instruction_count;
+        aggregate_stats.oracle_verify_instruction_count += stats.oracle_verify_instruction_count;
+        aggregate_stats.derivation_instruction_count += stats.derivation_instruction_count;
+        aggregate_stats.block_execution_instruction_count +=
+            stats.block_execution_instruction_count;
+        aggregate_stats.blob_verification_instruction_count +=
+            stats.blob_verification_instruction_count;
+        aggregate_stats.total_sp1_gas += stats.total_sp1_gas;
+        aggregate_stats.nb_blocks += stats.nb_blocks;
+        aggregate_stats.nb_transactions += stats.nb_transactions;
+        aggregate_stats.eth_gas_used += stats.eth_gas_used;
+        aggregate_stats.cycles_per_block += stats.cycles_per_block;
+        aggregate_stats.cycles_per_transaction += stats.cycles_per_transaction;
+        aggregate_stats.transactions_per_block += stats.transactions_per_block;
+        aggregate_stats.gas_used_per_block += stats.gas_used_per_block;
+        aggregate_stats.gas_used_per_transaction += stats.gas_used_per_transaction;
+        aggregate_stats.bn_pair_cycles += stats.bn_pair_cycles;
+        aggregate_stats.bn_add_cycles += stats.bn_add_cycles;
+        aggregate_stats.bn_mul_cycles += stats.bn_mul_cycles;
+        aggregate_stats.kzg_eval_cycles += stats.kzg_eval_cycles;
+        aggregate_stats.ec_recover_cycles += stats.ec_recover_cycles;
+    }
+
+    aggregate_stats.batch_start = batch_start;
+    aggregate_stats.batch_end = batch_end;
+
+    aggregate_stats
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
@@ -252,6 +298,9 @@ async fn main() -> Result<()> {
 
     let execution_stats = execute_blocks_parallel(&host_clis, &prover, &data_fetcher).await;
     write_execution_stats_to_csv(&execution_stats, l2_chain_id, &args)?;
+
+    let aggregate_execution_stats = aggregate_execution_stats(&execution_stats);
+    println!("Aggregate Execution Stats: {:?}", aggregate_execution_stats);
 
     Ok(())
 }
