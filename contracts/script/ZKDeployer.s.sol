@@ -11,12 +11,18 @@ contract ZKDeployer is Script, Utils {
         vm.startBroadcast();
 
         Config memory config = readJsonWithRPCFromEnv("zkconfig.json");
-        // Note: This seems wrong. Why are we using the msg.sender as a proxy? Unless the owner is that.
+        // TODO: This seems wrong. Why are we using the msg.sender as a proxy?
         config.l2OutputOracleProxy = address(new Proxy(msg.sender));
 
         address zkL2OutputOracleImpl = address(new ZKL2OutputOracle());
 
-        upgradeAndInitialize(zkL2OutputOracleImpl, config, address(0), bytes32(0), 0);
+        upgradeAndInitialize(
+            zkL2OutputOracleImpl,
+            config,
+            address(0),
+            bytes32(0),
+            0
+        );
 
         vm.stopBroadcast();
     }
