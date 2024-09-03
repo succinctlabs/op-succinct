@@ -48,7 +48,8 @@ struct WitnessGenProcess {
     exec: String,
 }
 
-/// Stateful executor for witness generation. Useful for executing several witness generation processes in parallel.
+/// Stateful executor for witness generation. Useful for executing several witness generation
+/// processes in parallel.
 pub struct WitnessGenExecutor {
     ongoing_processes: Vec<WitnessGenProcess>,
     timeout: Duration,
@@ -65,7 +66,8 @@ impl WitnessGenExecutor {
         Self { ongoing_processes: Vec::new(), timeout }
     }
 
-    /// Spawn a witness generation process for the given host CLI, and adds it to the list of ongoing processes.
+    /// Spawn a witness generation process for the given host CLI, and adds it to the list of
+    /// ongoing processes.
     pub async fn spawn_witnessgen(&mut self, host_cli: &HostCli) -> Result<()> {
         let metadata =
             cargo_metadata::MetadataCommand::new().exec().expect("Failed to get cargo metadata");
@@ -84,33 +86,43 @@ impl WitnessGenExecutor {
     /// Wait for all ongoing witness generation processes to complete. If any process fails,
     /// kill all ongoing processes and return an error.
     pub async fn flush(&mut self) -> Result<()> {
-        let mut any_failed = false;
         let binary_name = self.ongoing_processes[0].exec.split('/').last().unwrap().to_string();
-        for child in &mut self.ongoing_processes {
-            match timeout(self.timeout, child.child.wait()).await {
-                Ok(Ok(status)) if !status.success() => {
-                    any_failed = true;
-                    break;
-                }
-                Ok(Err(e)) => {
-                    any_failed = true;
-                    eprintln!("Child process error: {}", e);
-                    break;
-                }
-                Err(_) => {
-                    any_failed = true;
-                    eprintln!("Child process timed out");
-                    break;
-                }
-                _ => {}
-            }
-        }
+
+        // TODO: If any process fails or a Ctrl+C is received, kill all ongoing processes. This is
+        // quite involved, as the behavior differs between Unix and Windows. When using
+        // Ctrl+C handler, you also need to be careful to restore the original behavior
+        // after your custom behavior, otherwise you won't be able to terminate "normally".
+
+        // Wait for all processes to complete.
+        let result = self.wait_for_processes().await;
+        let any_failed = result.is_err();
+
         if any_failed {
             self.kill_all(binary_name).await?;
             Err(anyhow::anyhow!("One or more child processes failed or timed out"))
         } else {
             Ok(())
         }
+    }
+
+    async fn wait_for_processes(&mut self) -> Result<()> {
+        for child in &mut self.ongoing_processes {
+            match timeout(self.timeout, child.child.wait()).await {
+                Ok(Ok(status)) if !status.success() => {
+                    return Err(anyhow::anyhow!("Child process exited with non-zero status"));
+                }
+                Ok(Err(e)) => {
+                    eprintln!("Child process error: {}", e);
+                    return Err(anyhow::anyhow!("Child process error"));
+                }
+                Err(_) => {
+                    eprintln!("Child process timed out");
+                    return Err(anyhow::anyhow!("Child process timed out"));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
     }
 
     /// Kill all ongoing "native client" processes and the associated spawned witness gen
