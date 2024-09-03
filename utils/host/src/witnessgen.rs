@@ -135,7 +135,7 @@ impl WitnessGenExecutor {
     async fn kill_all(&mut self, binary_name: String) -> Result<()> {
         // Kill the "native client" processes.
         for mut child in self.ongoing_processes.drain(..) {
-            let _ = child.child.kill().await?;
+            child.child.kill().await?;
         }
 
         // Kill the spawned witness gen program.
