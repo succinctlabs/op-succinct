@@ -18,6 +18,7 @@ use std::{
     cmp::{max, min},
     env, fs,
     future::Future,
+    net::TcpListener,
     path::PathBuf,
     process::Command,
     time::Instant,
@@ -293,6 +294,12 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
 
 /// Build and manage the Docker container for the span batch server.
 fn manage_span_batch_server_container() -> Result<()> {
+    // Check if port 8080 is already in use
+    if TcpListener::bind("0.0.0.0:8080").is_err() {
+        info!("Port 8080 is already in use. Assuming span_batch_server is running.");
+        return Ok(());
+    }
+
     // Build the Docker container if it doesn't exist.
     let build_status = Command::new("docker")
         .args([
@@ -315,12 +322,27 @@ fn manage_span_batch_server_container() -> Result<()> {
     if !run_status.success() {
         return Err(anyhow::anyhow!("Failed to start Docker container"));
     }
+
+    // Sleep for 5 seconds to allow the server to start.
+    block_on(tokio::time::sleep(std::time::Duration::from_secs(5)));
     Ok(())
 }
 
 /// Shut down Docker container.
 fn shutdown_span_batch_server_container() -> Result<()> {
-    let stop_status = Command::new("docker").args(["stop", "span_batch_server"]).status()?;
+    // Get the container ID
+    let container_id = String::from_utf8(
+        Command::new("docker").args(["ps", "-q", "-f", "ancestor=span_batch_server"]).output()?.stdout,
+    )?
+    .trim()
+    .to_string();
+
+    if container_id.is_empty() {
+        return Ok(()); // Container not running, nothing to stop
+    }
+
+    // Stop the container
+    let stop_status = Command::new("docker").args(["stop", &container_id]).status()?;
     if !stop_status.success() {
         return Err(anyhow::anyhow!("Failed to stop Docker container"));
     }
@@ -362,7 +384,7 @@ async fn main() -> Result<()> {
     write_execution_stats_to_csv(&execution_stats, l2_chain_id, &args)?;
 
     let aggregate_execution_stats = aggregate_execution_stats(&execution_stats);
-    println!("Aggregate Execution Stats\n: {}", aggregate_execution_stats);
+    println!("Aggregate Execution Stats: \n {}", aggregate_execution_stats);
 
     shutdown_span_batch_server_container()?;
 
