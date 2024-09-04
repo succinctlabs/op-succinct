@@ -20,7 +20,7 @@ use std::{
     future::Future,
     net::TcpListener,
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
     time::Instant,
 };
 use tokio::task::block_in_place;
@@ -310,6 +310,8 @@ fn manage_span_batch_server_container() -> Result<()> {
             "proposer/op/Dockerfile.span_batch_server",
             ".",
         ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()?;
     if !build_status.success() {
         return Err(anyhow::anyhow!("Failed to build Docker container"));
@@ -318,6 +320,8 @@ fn manage_span_batch_server_container() -> Result<()> {
     // Start the Docker container.
     let run_status = Command::new("docker")
         .args(["run", "-p", "8080:8080", "-d", "span_batch_server"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()?;
     if !run_status.success() {
         return Err(anyhow::anyhow!("Failed to start Docker container"));
@@ -334,6 +338,7 @@ fn shutdown_span_batch_server_container() -> Result<()> {
     let container_id = String::from_utf8(
         Command::new("docker")
             .args(["ps", "-q", "-f", "ancestor=span_batch_server"])
+            .stdout(Stdio::piped())
             .output()?
             .stdout,
     )?
@@ -344,8 +349,13 @@ fn shutdown_span_batch_server_container() -> Result<()> {
         return Ok(()); // Container not running, nothing to stop
     }
 
-    // Stop the container
-    let stop_status = Command::new("docker").args(["stop", &container_id]).status()?;
+    // Stop the container.
+    // TODO: The container ID shows up in stdout, and so do the Docker logs. Quiet these.
+    let stop_status = Command::new("docker")
+        .args(["stop", &container_id])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
     if !stop_status.success() {
         return Err(anyhow::anyhow!("Failed to stop Docker container"));
     }
@@ -363,11 +373,9 @@ async fn main() -> Result<()> {
     let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
-    // Check if the Docker image span_batch_server exists.
+    // Start the Docker container if it doesn't exist.
     manage_span_batch_server_container()?;
 
-    // TODO: Modify fetch_span_batch_ranges to start up the Docker container and shut it down at the
-    // end of the process.
     let span_batch_ranges = get_span_batch_ranges_from_server(
         &data_fetcher,
         args.start,
@@ -389,6 +397,7 @@ async fn main() -> Result<()> {
     let aggregate_execution_stats = aggregate_execution_stats(&execution_stats);
     println!("Aggregate Execution Stats: \n {}", aggregate_execution_stats);
 
+    // Shutdown the Docker container for fetching span batches.
     shutdown_span_batch_server_container()?;
 
     Ok(())
