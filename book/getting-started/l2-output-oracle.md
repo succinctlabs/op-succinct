@@ -66,6 +66,8 @@ forge script script/ZKDeployer.s.sol:ZKDeployer \
 
 If successful, you should see the following output:
 
+TODO: The user should use the proxy address, NOT THE IMPLEMENTATION CONTRACT BELOW. Output the proxy address explicitly from the script.
+
 ```
 Submitting verification for [src/ZKL2OutputOracle.sol:ZKL2OutputOracle] 0xfe6BcbCD9c067d937431b54AfF107D4F8f2aC653.
 Submitted contract for verification:
