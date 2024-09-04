@@ -292,7 +292,8 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
     aggregate_stats
 }
 
-/// Build and manage the Docker container for the span batch server.
+/// Build and manage the Docker container for the span batch server. Note: All logs are piped to
+/// /dev/null, so the user doesn't see them.
 fn manage_span_batch_server_container() -> Result<()> {
     // Check if port 8080 is already in use
     if TcpListener::bind("0.0.0.0:8080").is_err() {
@@ -332,7 +333,7 @@ fn manage_span_batch_server_container() -> Result<()> {
     Ok(())
 }
 
-/// Shut down Docker container.
+/// Shut down Docker container. Note: All logs are piped to /dev/null, so the user doesn't see them.
 fn shutdown_span_batch_server_container() -> Result<()> {
     // Get the container ID associated with the span_batch_server image.
     let container_id = String::from_utf8(
