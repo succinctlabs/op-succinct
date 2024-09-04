@@ -25,7 +25,7 @@ Inside the `contracts` folder there is a file called `zkconfig.json` that contai
 
 | Parameter | Description |
 |-----------|-------------|
-| `startingBlockNumber` | The L2 block number at which the rollup starts. Default should be 0. |
+| `startingBlockNumber` | The L2 block number at which to start generating validity proofs. You can fetch this with `cast bn --rpc-url <L2_RPC_URL>`. |
 | `l2RollupNode` | The URL of the L2 rollup node. (After the tutorial, this is `http://localhost:8545`) |
 | `submissionInterval` | The number of L2 blocks between each L1 output submission. |
 | `l2BlockTime` | The time in seconds between each L2 block. |
