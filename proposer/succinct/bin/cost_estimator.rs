@@ -19,6 +19,7 @@ use std::{
     env, fs,
     future::Future,
     path::PathBuf,
+    process::Command,
     time::Instant,
 };
 use tokio::task::block_in_place;
@@ -290,17 +291,58 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
     aggregate_stats
 }
 
+/// Build and manage the Docker container for the span batch server.
+fn manage_span_batch_server_container() -> Result<()> {
+    // Build the Docker container if it doesn't exist.
+    let build_status = Command::new("docker")
+        .args(&[
+            "build",
+            "-t",
+            "span_batch_server",
+            "-f",
+            "proposer/op/Dockerfile.span_batch_server",
+            ".",
+        ])
+        .status()?;
+    if !build_status.success() {
+        return Err(anyhow::anyhow!("Failed to build Docker container"));
+    }
+
+    // Start the Docker container.
+    let run_status = Command::new("docker")
+        .args(&["run", "-p", "8080:8080", "-d", "span_batch_server"])
+        .status()?;
+    if !run_status.success() {
+        return Err(anyhow::anyhow!("Failed to start Docker container"));
+    }
+    Ok(())
+}
+
+/// Shut down Docker container.
+fn shutdown_span_batch_server_container() -> Result<()> {
+    let stop_status = Command::new("docker").args(&["stop", "span_batch_server"]).status()?;
+    if !stop_status.success() {
+        return Err(anyhow::anyhow!("Failed to stop Docker container"));
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     utils::setup_logger();
-    
+
     let args = HostArgs::parse();
     let data_fetcher = OPSuccinctDataFetcher::new();
+
     let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
-    // TODO: Modify fetch_span_batch_ranges to start up the Docker container and shut it down at the end of the process.
+    // Check if the Docker image span_batch_server exists.
+    manage_span_batch_server_container()?;
+
+    // TODO: Modify fetch_span_batch_ranges to start up the Docker container and shut it down at the
+    // end of the process.
     let span_batch_ranges = get_span_batch_ranges_from_server(
         &data_fetcher,
         args.start,
@@ -321,6 +363,8 @@ async fn main() -> Result<()> {
 
     let aggregate_execution_stats = aggregate_execution_stats(&execution_stats);
     println!("Aggregate Execution Stats\n: {}", aggregate_execution_stats);
+
+    shutdown_span_batch_server_container()?;
 
     Ok(())
 }
