@@ -295,7 +295,7 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
 fn manage_span_batch_server_container() -> Result<()> {
     // Build the Docker container if it doesn't exist.
     let build_status = Command::new("docker")
-        .args(&[
+        .args([
             "build",
             "-t",
             "span_batch_server",
@@ -310,7 +310,7 @@ fn manage_span_batch_server_container() -> Result<()> {
 
     // Start the Docker container.
     let run_status = Command::new("docker")
-        .args(&["run", "-p", "8080:8080", "-d", "span_batch_server"])
+        .args(["run", "-p", "8080:8080", "-d", "span_batch_server"])
         .status()?;
     if !run_status.success() {
         return Err(anyhow::anyhow!("Failed to start Docker container"));
@@ -320,7 +320,7 @@ fn manage_span_batch_server_container() -> Result<()> {
 
 /// Shut down Docker container.
 fn shutdown_span_batch_server_container() -> Result<()> {
-    let stop_status = Command::new("docker").args(&["stop", "span_batch_server"]).status()?;
+    let stop_status = Command::new("docker").args(["stop", "span_batch_server"]).status()?;
     if !stop_status.success() {
         return Err(anyhow::anyhow!("Failed to stop Docker container"));
     }
