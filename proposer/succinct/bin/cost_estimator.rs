@@ -18,7 +18,9 @@ use std::{
     cmp::{max, min},
     env, fs,
     future::Future,
+    net::TcpListener,
     path::PathBuf,
+    process::{Command, Stdio},
     time::Instant,
 };
 use tokio::task::block_in_place;
@@ -290,17 +292,90 @@ fn aggregate_execution_stats(execution_stats: &[ExecutionStats]) -> ExecutionSta
     aggregate_stats
 }
 
+/// Build and manage the Docker container for the span batch server. Note: All logs are piped to
+/// /dev/null, so the user doesn't see them.
+fn manage_span_batch_server_container() -> Result<()> {
+    // Check if port 8080 is already in use
+    if TcpListener::bind("0.0.0.0:8080").is_err() {
+        info!("Port 8080 is already in use. Assuming span_batch_server is running.");
+        return Ok(());
+    }
+
+    // Build the Docker container if it doesn't exist.
+    let build_status = Command::new("docker")
+        .args([
+            "build",
+            "-t",
+            "span_batch_server",
+            "-f",
+            "proposer/op/Dockerfile.span_batch_server",
+            ".",
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+    if !build_status.success() {
+        return Err(anyhow::anyhow!("Failed to build Docker container"));
+    }
+
+    // Start the Docker container.
+    let run_status = Command::new("docker")
+        .args(["run", "-p", "8080:8080", "-d", "span_batch_server"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+    if !run_status.success() {
+        return Err(anyhow::anyhow!("Failed to start Docker container"));
+    }
+
+    // Sleep for 5 seconds to allow the server to start.
+    block_on(tokio::time::sleep(std::time::Duration::from_secs(5)));
+    Ok(())
+}
+
+/// Shut down Docker container. Note: All logs are piped to /dev/null, so the user doesn't see them.
+fn shutdown_span_batch_server_container() -> Result<()> {
+    // Get the container ID associated with the span_batch_server image.
+    let container_id = String::from_utf8(
+        Command::new("docker")
+            .args(["ps", "-q", "-f", "ancestor=span_batch_server"])
+            .stdout(Stdio::piped())
+            .output()?
+            .stdout,
+    )?
+    .trim()
+    .to_string();
+
+    if container_id.is_empty() {
+        return Ok(()); // Container not running, nothing to stop
+    }
+
+    // Stop the container.
+    let stop_status = Command::new("docker")
+        .args(["stop", &container_id])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+    if !stop_status.success() {
+        return Err(anyhow::anyhow!("Failed to stop Docker container"));
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     utils::setup_logger();
-    
+
     let args = HostArgs::parse();
     let data_fetcher = OPSuccinctDataFetcher::new();
+
     let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
-    // TODO: Modify fetch_span_batch_ranges to start up the Docker container and shut it down at the end of the process.
+    // Start the Docker container if it doesn't exist.
+    manage_span_batch_server_container()?;
+
     let span_batch_ranges = get_span_batch_ranges_from_server(
         &data_fetcher,
         args.start,
@@ -320,7 +395,10 @@ async fn main() -> Result<()> {
     write_execution_stats_to_csv(&execution_stats, l2_chain_id, &args)?;
 
     let aggregate_execution_stats = aggregate_execution_stats(&execution_stats);
-    println!("Aggregate Execution Stats\n: {}", aggregate_execution_stats);
+    println!("Aggregate Execution Stats: \n {}", aggregate_execution_stats);
+
+    // Shutdown the Docker container for fetching span batches.
+    shutdown_span_batch_server_container()?;
 
     Ok(())
 }
