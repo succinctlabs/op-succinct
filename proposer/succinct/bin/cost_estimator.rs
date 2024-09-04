@@ -330,9 +330,12 @@ fn manage_span_batch_server_container() -> Result<()> {
 
 /// Shut down Docker container.
 fn shutdown_span_batch_server_container() -> Result<()> {
-    // Get the container ID
+    // Get the container ID associated with the span_batch_server image.
     let container_id = String::from_utf8(
-        Command::new("docker").args(["ps", "-q", "-f", "ancestor=span_batch_server"]).output()?.stdout,
+        Command::new("docker")
+            .args(["ps", "-q", "-f", "ancestor=span_batch_server"])
+            .output()?
+            .stdout,
     )?
     .trim()
     .to_string();
