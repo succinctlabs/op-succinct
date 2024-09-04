@@ -350,7 +350,6 @@ fn shutdown_span_batch_server_container() -> Result<()> {
     }
 
     // Stop the container.
-    // TODO: The container ID shows up in stdout, and so do the Docker logs. Quiet these.
     let stop_status = Command::new("docker")
         .args(["stop", &container_id])
         .stdout(Stdio::null())
