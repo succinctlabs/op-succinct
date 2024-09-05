@@ -1,6 +1,7 @@
-use alloy_primitives::hex;
+use alloy_primitives::{hex, keccak256};
 use op_succinct_client_utils::BytesHasherBuilder;
 use std::{collections::HashMap, fs, io::Read, path::PathBuf};
+use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
 
 pub fn load_kv_store(data_dir: &PathBuf) -> HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> {
     let capacity = get_file_count(data_dir);
@@ -13,15 +14,20 @@ pub fn load_kv_store(data_dir: &PathBuf) -> HashMap<[u8; 32], Vec<u8>, BytesHash
         if path.is_file() {
             // Extract the file name
             let file_name = path.file_stem().unwrap().to_str().unwrap();
+            println!("File name: {:?}", file_name);
 
             // Convert the file name to PreimageKey
             if let Ok(key) = hex::decode(file_name) {
+                // Hash the key with SHA256.
+                let key = PreimageKey::new(keccak256(&key).into(), PreimageKeyType::Keccak256);
+
                 // Read the file contents
                 let mut file = fs::File::open(path).expect("Failed to open file");
                 let mut contents = Vec::new();
                 file.read_to_end(&mut contents).expect("Failed to read file");
 
                 // Insert the key-value pair into the cache
+                println!("Inserting key: {:?}", key);
                 cache.insert(key.try_into().unwrap(), contents);
             }
         }

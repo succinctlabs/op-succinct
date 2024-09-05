@@ -4131,6 +4131,7 @@ dependencies = [
  "dotenv",
  "futures",
  "kona-host",
+ "kona-preimage",
  "num-format",
  "op-succinct-client-utils",
  "revm",
