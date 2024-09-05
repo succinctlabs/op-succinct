@@ -1402,6 +1402,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bzip2-sys"
+version = "0.1.11+1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "736a955f3fa7875102d57c82b8cac37ec45224a07fd32d58f9f7a186b6cd4cdc"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
 name = "c-kzg"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1838,9 +1849,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "6.0.1"
+version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
+checksum = "5041cc499144891f3790297212f32a74fb938e5136a14943f338ef9e0ae276cf"
 dependencies = [
  "cfg-if",
  "crossbeam-utils",
@@ -2040,12 +2051,6 @@ dependencies = [
  "redox_users",
  "windows-sys 0.48.0",
 ]
-
-[[package]]
-name = "doc-comment"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "doctest-file"
@@ -3405,7 +3410,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3433,7 +3438,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.3"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3443,7 +3448,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.3"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3456,7 +3461,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.3"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3481,7 +3486,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3497,7 +3502,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3521,6 +3526,7 @@ dependencies = [
  "os_pipe",
  "reqwest 0.12.7",
  "revm",
+ "rocksdb",
  "serde",
  "serde_json",
  "tokio",
@@ -3531,7 +3537,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.3"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.0",
@@ -3545,7 +3551,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.3"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-primitives 0.8.0",
  "anyhow",
@@ -3558,7 +3564,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.2"
-source = "git+https://github.com/ethereum-optimism/kona?branch=main#b1ebc3ca66c0a4a474bf13df223ba8d809e7d36d"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3568,10 +3574,10 @@ dependencies = [
  "c-kzg",
  "hashbrown 0.14.5",
  "op-alloy-consensus",
+ "op-alloy-protocol",
  "revm",
  "serde",
  "sha2",
- "spin 0.9.8",
  "superchain-primitives",
  "tracing",
 ]
@@ -3646,6 +3652,20 @@ checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
  "bitflags 2.6.0",
  "libc",
+]
+
+[[package]]
+name = "librocksdb-sys"
+version = "0.16.0+8.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce3d60bc059831dc1c83903fb45c103f75db65c5a7bf22272764d9cc683e348c"
+dependencies = [
+ "bindgen",
+ "bzip2-sys",
+ "cc",
+ "glob",
+ "libc",
+ "libz-sys",
 ]
 
 [[package]]
@@ -3811,15 +3831,6 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
-]
-
-[[package]]
-name = "ntapi"
-version = "0.3.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c28774a7fd2fbb4f0babd8237ce554b73af68021b5f695a3cebd6c59bac0980f"
-dependencies = [
- "winapi",
 ]
 
 [[package]]
@@ -4067,6 +4078,16 @@ dependencies = [
  "alloy-rlp",
  "derive_more 1.0.0",
  "spin 0.9.8",
+]
+
+[[package]]
+name = "op-alloy-protocol"
+version = "0.2.8"
+source = "git+https://github.com/alloy-rs/op-alloy#0d8ef62ae942c85d260e64f08d10e0a429c00289"
+dependencies = [
+ "alloy-primitives 0.8.0",
+ "hashbrown 0.14.5",
+ "superchain-primitives",
 ]
 
 [[package]]
@@ -5455,6 +5476,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rocksdb"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bd13e55d6d7b8cd0ea569161127567cd587676c99f4472f779a0279aa60a7a7"
+dependencies = [
+ "libc",
+ "librocksdb-sys",
+]
+
+[[package]]
 name = "rrs-succinct"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5539,9 +5570,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "0.38.35"
+version = "0.38.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a85d50532239da68e9addb745ba38ff4612a242c1c7ceea689c4bc7c2f43c36f"
+checksum = "3f55e80d50763938498dd5ebb18647174e0c76dc38c5505294bb224624f30f36"
 dependencies = [
  "bitflags 2.6.0",
  "errno",
@@ -6076,7 +6107,7 @@ dependencies = [
 [[package]]
 name = "sp1-build"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -6088,7 +6119,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6124,7 +6155,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "anyhow",
  "arrayref",
@@ -6189,7 +6220,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "curve25519-dalek",
  "dashu",
@@ -6209,7 +6240,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6246,7 +6277,7 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6259,7 +6290,7 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "itertools 0.13.0",
  "lazy_static",
@@ -6272,7 +6303,7 @@ dependencies = [
 [[package]]
 name = "sp1-prover"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6311,7 +6342,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "bincode",
  "itertools 0.13.0",
@@ -6335,7 +6366,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6364,7 +6395,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "arrayref",
  "backtrace",
@@ -6401,7 +6432,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core-v2"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "arrayref",
  "backtrace",
@@ -6441,7 +6472,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6451,7 +6482,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6477,7 +6508,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-program"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "itertools 0.13.0",
  "p3-air",
@@ -6508,7 +6539,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "alloy-sol-types 0.7.7",
  "anyhow",
@@ -6541,7 +6572,7 @@ dependencies = [
  "sp1-stark",
  "strum",
  "strum_macros",
- "sysinfo 0.30.13",
+ "sysinfo",
  "tempfile",
  "thiserror",
  "tokio",
@@ -6553,7 +6584,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "arrayref",
  "getrandom",
@@ -6577,14 +6608,14 @@ dependencies = [
  "serde",
  "sp1-derive",
  "sp1-primitives",
- "sysinfo 0.15.9",
+ "sysinfo",
  "tracing",
 ]
 
 [[package]]
 name = "sp1-zkvm"
 version = "1.2.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#c3267d648230652df798006eb518aa4710cbdf48"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=dev#770bf0d083f96598b0e784b4c417d26317431c23"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -6806,23 +6837,6 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.15.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de94457a09609f33fec5e7fceaf907488967c6c7c75d64da6a7ce6ffdb8b5abd"
-dependencies = [
- "cc",
- "cfg-if",
- "core-foundation-sys",
- "doc-comment",
- "libc",
- "ntapi 0.3.7",
- "once_cell",
- "rayon",
- "winapi",
-]
-
-[[package]]
-name = "sysinfo"
 version = "0.30.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a5b4ddaee55fb2bea2bf0e5000747e5f5c0de765e5a5ff87f4cd106439f4bb3"
@@ -6830,7 +6844,7 @@ dependencies = [
  "cfg-if",
  "core-foundation-sys",
  "libc",
- "ntapi 0.4.1",
+ "ntapi",
  "once_cell",
  "rayon",
  "windows",
@@ -7045,9 +7059,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "267ac89e0bec6e691e5813911606935d77c476ff49024f98abcea3e7b15e37af"
+checksum = "4f4e6ce100d0eb49a2734f8c0812bcd324cf357d21810932c5df6b96ef2b86f1"
 dependencies = [
  "futures-core",
  "pin-project-lite",
