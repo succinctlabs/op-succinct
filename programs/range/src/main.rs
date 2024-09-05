@@ -25,7 +25,7 @@ use log::info;
 use op_alloy_consensus::OpTxEnvelope;
 use op_succinct_client_utils::{
     driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
-    precompiles::ZKVMPrecompileOverride,
+    precompiles::zkvm_handle_register,
 };
 
 cfg_if! {
@@ -75,7 +75,6 @@ fn main() {
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
             }
         }
-        let precompile_overrides = ZKVMPrecompileOverride::default();
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
@@ -107,7 +106,7 @@ fn main() {
             .with_parent_header(driver.clone_l2_safe_head_header())
             .with_fetcher(l2_provider.clone())
             .with_hinter(l2_provider.clone())
-            .with_precompile_overrides(precompile_overrides)
+            .with_handle_register(zkvm_handle_register)
             .build()
             .unwrap();
         println!("cycle-tracker-end: execution-instantiation");
