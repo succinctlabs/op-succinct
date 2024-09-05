@@ -46,7 +46,7 @@ docker-compose build
 
 This command launches the `op-succinct-proposer` service in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original `op-proposer` service.
 
-After a few minutes, you should see the `op-succinct-proposer` service start to generate proofs and submit them to the L1.
+After a few minutes, you should see the `op-succinct-proposer` service start to generate span proofs. Once enough span proofs have been generated, they will be verified in an aggregate proof and submitted to the L1.
 
 ```bash
 docker-compose up
