@@ -1,5 +1,4 @@
 //! Contains the [PrecompileOverride] trait implementation for the FPVM-accelerated precompiles.
-
 use alloc::sync::Arc;
 use kona_mpt::{TrieDB, TrieDBFetcher, TrieDBHinter};
 use revm::{
