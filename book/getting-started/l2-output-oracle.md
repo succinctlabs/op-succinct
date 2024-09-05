@@ -1,4 +1,4 @@
-# L2 Output Oracle
+# Deploy L2 Output Oracle
 
 The first step in deploying OP Succinct is to deploy a Solidity smart contract that will verify ZKPs of OP derivation (OP's name for their state transition function) and contain the latest state root of your rollup.
 
