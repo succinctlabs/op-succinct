@@ -10,7 +10,7 @@ use kona_host::{
     HostCli,
 };
 use op_succinct_client_utils::{types::AggregationInputs, RawBootInfo};
-use sp1_sdk::{SP1Proof, SP1Stdin};
+use sp1_sdk::{block_on, SP1Proof, SP1Stdin};
 
 use anyhow::Result;
 
@@ -52,14 +52,14 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     stdin.write(&boot_info);
 
     // Get the workspace root, which is where the data directory is.
+
+    // Get the disk KV store.
     let disk_kv_store = DiskKeyValueStore::new(host_cli.data_dir.clone().unwrap());
 
+    // Convert the disk KV store to a memory KV store.
     let mem_kv_store: MemoryKeyValueStore = disk_kv_store.try_into().map_err(|_| {
         anyhow::anyhow!("Failed to convert DiskKeyValueStore to MemoryKeyValueStore")
     })?;
-
-    // // Convert the disk KV store to a memory KV store
-    // let mem_kv_store = block_on(disk_kv_store.read()).to_memory_store();
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),
@@ -68,6 +68,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         HeapScratch::<33554432>::new(),
         SharedSerializeMap::new(),
     );
+    // Serialize the underlying KV store.
     serializer.serialize_value(&mem_kv_store.store)?;
 
     let buffer = serializer.into_serializer().into_inner();
