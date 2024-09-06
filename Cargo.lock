@@ -4150,7 +4150,6 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "dotenv",
- "downcast-rs",
  "futures",
  "kona-host",
  "kona-preimage",

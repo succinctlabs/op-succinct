@@ -10,7 +10,7 @@ use kona_host::{
     HostCli,
 };
 use op_succinct_client_utils::{types::AggregationInputs, RawBootInfo};
-use sp1_sdk::{block_on, SP1Proof, SP1Stdin};
+use sp1_sdk::{SP1Proof, SP1Stdin};
 
 use anyhow::Result;
 
