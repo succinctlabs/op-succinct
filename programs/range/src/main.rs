@@ -60,8 +60,8 @@ fn main() {
                 println!("cycle-tracker-end: boot-load");
 
                 println!("cycle-tracker-start: oracle-load");
-                let kv_store_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
-                let oracle = Arc::new(InMemoryOracle::from_raw_bytes(kv_store_bytes));
+                let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
+                let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
                 println!("cycle-tracker-end: oracle-load");
 
                 println!("cycle-tracker-report-start: oracle-verify");
@@ -155,6 +155,7 @@ fn main() {
                 Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash_slow()),
             );
 
+            // Produce the next payload.
             payload = driver.produce_payloads().await.unwrap();
         }
 

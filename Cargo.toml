@@ -40,26 +40,17 @@ kzg-rs = { version = "0.2.2" }
 # TODO: Change to stable tag when released.
 # Note: Explicitly needed to downgrade superchain-primitives to 0.3.1.
 # cargo update -p superchain-primitives@0.3.2 --precise 0.3.1
-kona-common = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter", features = [
+kona-common = { git = "https://github.com/ethereum-optimism/kona" }
+kona-common-proc = { git = "https://github.com/ethereum-optimism/kona" }
+kona-preimage = { git = "https://github.com/ethereum-optimism/kona", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter", default-features = false }
-kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-# kona-common = { path = "../kona/crates/common" }
-# kona-common-proc = { path = "../kona/crates/common-proc" }
-# kona-preimage = { path = "../kona/crates/preimage", features = ["rkyv"] }
-# kona-primitives = { path = "../kona/crates/primitives" }
-# kona-mpt = { path = "../kona/crates/mpt" }
-# kona-derive = { path = "../kona/crates/derive", default-features = false }
-# kona-executor = { path = "../kona/crates/executor" }
-# kona-client = { path = "../kona/bin/client" }
-# kona-host = { path = "../kona/bin/host" }
+kona-primitives = { git = "https://github.com/ethereum-optimism/kona" }
+kona-mpt = { git = "https://github.com/ethereum-optimism/kona" }
+kona-derive = { git = "https://github.com/ethereum-optimism/kona", default-features = false }
+kona-executor = { git = "https://github.com/ethereum-optimism/kona" }
+kona-client = { git = "https://github.com/ethereum-optimism/kona" }
+kona-host = { git = "https://github.com/ethereum-optimism/kona" }
 
 
 # op-succinct
@@ -84,14 +75,14 @@ op-alloy-consensus = { version = "0.2", default-features = false }
 # sp1-zkvm = { version = "1.2.0-rc1", features = ["verify"] }
 # sp1-sdk = { version = "1.2.0-rc1" }
 # sp1-build = { version = "1.2.0-rc1" }
-sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = [
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2", features = [
     "verify",
 ] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = [
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2", features = [
     "verify",
 ] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2" }
 
 [profile.release-client-lto]
 inherits = "release"
