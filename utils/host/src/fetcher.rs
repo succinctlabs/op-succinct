@@ -1,10 +1,10 @@
 use alloy::{
     eips::BlockNumberOrTag,
+    primitives::{Address, B256},
     providers::{Provider, ProviderBuilder, RootProvider},
     transports::http::{reqwest::Url, Client, Http},
 };
 use alloy_consensus::Header;
-use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
@@ -40,6 +40,13 @@ impl Default for OPSuccinctDataFetcher {
 pub enum ChainMode {
     L1,
     L2,
+}
+
+/// Whether to keep the cache or delete the cache.
+#[derive(Clone, Copy)]
+pub enum CacheMode {
+    KeepCache,
+    DeleteCache,
 }
 
 /// The info to fetch for a block.
@@ -237,6 +244,7 @@ impl OPSuccinctDataFetcher {
         l2_start_block: u64,
         l2_end_block: u64,
         multi_block: ProgramType,
+        cache_mode: CacheMode,
     ) -> Result<HostCli> {
         if l2_start_block >= l2_end_block {
             return Err(anyhow::anyhow!("L2 start block is greater than or equal to L2 end block"));
@@ -318,11 +326,19 @@ impl OPSuccinctDataFetcher {
             ProgramType::Multi => format!("{}/target/release-client-lto/range", workspace_root),
         };
 
-        // Create data directory. This will be used by the host program running in native execution
-        // mode to save all preimages.
-        if !Path::new(&data_directory).exists() {
-            fs::create_dir_all(&data_directory)?;
+        // Delete the data directory if the cache mode is DeleteCache.
+        match cache_mode {
+            CacheMode::KeepCache => (),
+            CacheMode::DeleteCache => {
+                if Path::new(&data_directory).exists() {
+                    fs::remove_dir_all(&data_directory)?;
+                }
+            }
         }
+
+        // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
+        // witness data.
+        fs::create_dir_all(&data_directory)?;
 
         Ok(HostCli {
             l1_head: l1_head.0.into(),

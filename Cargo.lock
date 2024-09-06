@@ -3410,7 +3410,6 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3438,7 +3437,6 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3448,7 +3446,6 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3461,7 +3458,6 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3486,7 +3482,6 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3502,7 +3497,6 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3526,6 +3520,7 @@ dependencies = [
  "os_pipe",
  "reqwest 0.12.7",
  "revm",
+ "rkyv",
  "rocksdb",
  "serde",
  "serde_json",
@@ -3537,7 +3532,6 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.0",
@@ -3551,7 +3545,6 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-primitives 0.8.0",
  "anyhow",
@@ -3564,7 +3557,6 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/type-annotations#1bb1e469d90b368233510ebf5693ac3420aeefdf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4134,11 +4126,9 @@ dependencies = [
  "kona-preimage",
  "num-format",
  "op-succinct-client-utils",
- "revm",
  "rkyv",
  "serde",
  "serde_cbor",
- "sp1-build",
  "sp1-sdk",
  "tokio",
 ]
@@ -4147,50 +4137,43 @@ dependencies = [
 name = "op-succinct-proposer"
 version = "0.1.0"
 dependencies = [
- "alloy",
  "alloy-primitives 0.8.0",
  "anyhow",
  "axum",
  "base64 0.22.1",
  "bincode",
  "cargo_metadata",
- "clap",
- "csv",
  "dotenv",
- "futures",
- "itertools 0.13.0",
- "kona-host",
- "kona-primitives",
- "lazy_static",
  "log",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
- "rayon",
- "reqwest 0.12.7",
- "revm",
  "serde",
  "sp1-build",
  "sp1-sdk",
  "tokio",
  "tower-http",
- "uuid 1.10.0",
 ]
 
 [[package]]
 name = "op-succinct-prove"
 version = "0.1.0"
 dependencies = [
+ "alloy",
+ "alloy-primitives 0.8.0",
  "anyhow",
  "cargo_metadata",
  "clap",
  "csv",
  "dotenv",
  "kona-host",
+ "kona-primitives",
  "log",
  "num-format",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
- "revm",
+ "rayon",
+ "reqwest 0.12.7",
+ "serde",
  "sp1-build",
  "sp1-sdk",
  "tokio",
