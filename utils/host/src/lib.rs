@@ -9,7 +9,7 @@ use kona_host::{
     kv::{DiskKeyValueStore, MemoryKeyValueStore},
     HostCli,
 };
-use op_succinct_client_utils::{types::AggregationInputs, RawBootInfo};
+use op_succinct_client_utils::{types::AggregationInputs, InMemoryOracle, RawBootInfo};
 use sp1_sdk::{SP1Proof, SP1Stdin};
 
 use anyhow::Result;
@@ -69,7 +69,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         SharedSerializeMap::new(),
     );
     // Serialize the underlying KV store.
-    serializer.serialize_value(&mem_kv_store.store)?;
+    serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
 
     let buffer = serializer.into_serializer().into_inner();
     let kv_store_bytes = buffer.into_vec();
