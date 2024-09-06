@@ -42,6 +42,7 @@ fn build_native_host_runner() {
 }
 
 /// Build a program for the zkVM.
+#[allow(dead_code)]
 fn build_zkvm_program(program: &str) {
     build_program_with_args(
         &format!("../../programs/{}", program),
