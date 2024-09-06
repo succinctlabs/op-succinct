@@ -3410,6 +3410,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3437,6 +3438,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.3"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3446,6 +3448,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.3"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3458,6 +3461,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.3"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3482,6 +3486,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.2"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3497,6 +3502,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3532,6 +3538,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.3"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.0",
@@ -3545,6 +3552,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.3"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloy-primitives 0.8.0",
  "anyhow",
@@ -3557,6 +3565,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.2"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/add-converter#c07ad8e3c76ebf27de7993e609d3830c6a54eb65"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4137,7 +4146,7 @@ dependencies = [
 name = "op-succinct-proposer"
 version = "0.1.0"
 dependencies = [
- "alloy-primitives",
+ "alloy-primitives 0.8.0",
  "anyhow",
  "axum",
  "base64 0.22.1",

@@ -50,7 +50,7 @@ kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add
 kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter", default-features = false }
 kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
 kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
-# kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
 # kona-common = { path = "../kona/crates/common" }
 # kona-common-proc = { path = "../kona/crates/common-proc" }
 # kona-preimage = { path = "../kona/crates/preimage", features = ["rkyv"] }
