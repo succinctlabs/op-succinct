@@ -40,17 +40,27 @@ kzg-rs = { version = "0.2.2" }
 # TODO: Change to stable tag when released.
 # Note: Explicitly needed to downgrade superchain-primitives to 0.3.1.
 # cargo update -p superchain-primitives@0.3.2 --precise 0.3.1
-kona-common = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona", branch = "main", features = [
+kona-common = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", branch = "main", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona", branch = "main" }
+kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter", default-features = false }
+kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/add-converter" }
+# kona-common = { path = "../kona/crates/common" }
+# kona-common-proc = { path = "../kona/crates/common-proc" }
+# kona-preimage = { path = "../kona/crates/preimage", features = ["rkyv"] }
+# kona-primitives = { path = "../kona/crates/primitives" }
+# kona-mpt = { path = "../kona/crates/mpt" }
+# kona-derive = { path = "../kona/crates/derive", default-features = false }
+# kona-executor = { path = "../kona/crates/executor" }
+# kona-client = { path = "../kona/bin/client" }
+# kona-host = { path = "../kona/bin/host" }
+
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -97,3 +107,7 @@ bn = { git = "https://github.com/0xWOLAND/bn.git", package = "substrate-bn" }
 # Note: Patch alloy-primitives to use sha3 instead of tiny-keccak. Reduces cycle count for Keccak by 50%.
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", branch = "patch-sha3-v0.10.8" }
 alloy-primitives = { git = "https://github.com/sp1-patches/alloy-core", branch = "patch-v0.7.7" }
+
+# Patch op-alloy-protocol for recent exports for compatibility with kona.
+# TODO: Can remove later.
+op-alloy-protocol = { git = "https://github.com/alloy-rs/op-alloy" }

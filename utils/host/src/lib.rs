@@ -7,7 +7,7 @@ use alloy_consensus::Header;
 use alloy_primitives::B256;
 use kona_host::HostCli;
 use op_succinct_client_utils::{types::AggregationInputs, RawBootInfo};
-use sp1_sdk::{SP1Proof, SP1Stdin};
+use sp1_sdk::{block_on, SP1Proof, SP1Stdin};
 
 use anyhow::Result;
 
@@ -20,8 +20,6 @@ use rkyv::{
     },
     AlignedVec,
 };
-
-use crate::helpers::load_kv_store;
 
 pub enum ProgramType {
     Single,
@@ -51,8 +49,10 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     stdin.write(&boot_info);
 
     // Get the workspace root, which is where the data directory is.
-    let data_dir = host_cli.data_dir.as_ref().expect("Data directory not set!");
-    let kv_store = load_kv_store(data_dir);
+    let disk_kv_store = host_cli.construct_kv_store();
+
+    // Convert the disk KV store to a memory KV store
+    let mem_kv_store = block_on(disk_kv_store.read()).to_memory_store();
 
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(AlignedVec::new()),
@@ -61,7 +61,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         HeapScratch::<33554432>::new(),
         SharedSerializeMap::new(),
     );
-    serializer.serialize_value(&kv_store)?;
+    serializer.serialize_value(&mem_kv_store.store)?;
 
     let buffer = serializer.into_serializer().into_inner();
     let kv_store_bytes = buffer.into_vec();
