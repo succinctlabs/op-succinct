@@ -21,23 +21,13 @@ pub struct InMemoryOracle {
 }
 
 impl InMemoryOracle {
-    pub fn from_raw_in_memory_oracle_bytes(input: Vec<u8>) -> Self {
+    /// Creates a new [InMemoryOracle] from the raw bytes passed into the zkVM.
+    /// These values are deserialized using rkyv for zero copy deserialization.
+    pub fn from_raw_bytes(input: Vec<u8>) -> Self {
         let archived = unsafe { rkyv::archived_root::<Self>(&input) };
         let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
 
         deserialized
-    }
-
-    /// Creates a new [InMemoryOracle] from the raw hashmap bytes passed into the zkVM.
-    /// These values are deserialized using rkyv for zero copy deserialization.
-    pub fn from_raw_bytes(input: Vec<u8>) -> Self {
-        let archived = unsafe {
-            rkyv::archived_root::<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>(&input)
-        };
-        let deserialized: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> =
-            archived.deserialize(&mut Infallible).unwrap();
-
-        Self { cache: deserialized }
     }
 
     /// Creates a new [InMemoryOracle] from a HashMap of B256 keys and Vec<u8> values.
