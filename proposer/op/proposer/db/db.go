@@ -367,7 +367,6 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 	start := from
 	var end uint64
 	for {
-		fmt.Println("querying for span proof that starts at", start)
 		spanProof, err := tx.ProofRequest.Query().
 			Where(
 				proofrequest.TypeEQ(proofrequest.TypeSPAN),
@@ -381,7 +380,6 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 			}
 			return false, 0, fmt.Errorf("failed to query SPAN proof: %w", err)
 		}
-		fmt.Println("found span proof", start, spanProof.EndBlock)
 		end = spanProof.EndBlock
 		start = end + 1
 	}
