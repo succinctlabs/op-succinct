@@ -40,17 +40,17 @@ kzg-rs = { version = "0.2.2" }
 # TODO: Change to stable tag when released.
 # Note: Explicitly needed to downgrade superchain-primitives to 0.3.1.
 # cargo update -p superchain-primitives@0.3.2 --precise 0.3.1
-kona-common = { git = "https://github.com/ethereum-optimism/kona" }
-kona-common-proc = { git = "https://github.com/ethereum-optimism/kona" }
-kona-preimage = { git = "https://github.com/ethereum-optimism/kona", features = [
+kona-common = { git = "https://github.com/anton-rs/kona" }
+kona-common-proc = { git = "https://github.com/anton-rs/kona" }
+kona-preimage = { git = "https://github.com/anton-rs/kona", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/ethereum-optimism/kona" }
-kona-mpt = { git = "https://github.com/ethereum-optimism/kona" }
-kona-derive = { git = "https://github.com/ethereum-optimism/kona", default-features = false }
-kona-executor = { git = "https://github.com/ethereum-optimism/kona" }
-kona-client = { git = "https://github.com/ethereum-optimism/kona" }
-kona-host = { git = "https://github.com/ethereum-optimism/kona" }
+kona-primitives = { git = "https://github.com/anton-rs/kona" }
+kona-mpt = { git = "https://github.com/anton-rs/kona" }
+kona-derive = { git = "https://github.com/anton-rs/kona", default-features = false }
+kona-executor = { git = "https://github.com/anton-rs/kona" }
+kona-client = { git = "https://github.com/anton-rs/kona" }
+kona-host = { git = "https://github.com/anton-rs/kona" }
 
 
 # op-succinct
@@ -100,5 +100,5 @@ sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sh
 alloy-primitives = { git = "https://github.com/sp1-patches/alloy-core", branch = "patch-v0.7.7" }
 
 # Patch op-alloy-protocol for recent exports for compatibility with kona.
-# TODO: Can remove later.
+# TODO: Can remove later, currently patched in Kona.
 op-alloy-protocol = { git = "https://github.com/alloy-rs/op-alloy" }
