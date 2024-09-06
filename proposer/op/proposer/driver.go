@@ -559,22 +559,22 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			// // 1) Queue up any span batches that are ready to prove.
-			// // This is done by checking the chain for completed channels and pulling span batches out.
-			// // We break apart span batches if they exceed the max size, and gracefully handle bugs in span batch decoding.
-			// // We add ranges to be proven to the DB as "UNREQ" so they are queued up to request later.
-			// l.Log.Info("Stage 1: Deriving Span Batches...")
-			// err := l.DeriveNewSpanBatches(ctx)
-			// if err != nil {
-			// 	l.Log.Error("failed to add next span batches to db", "err", err)
-			// 	continue
-			// }
+			// 1) Queue up any span batches that are ready to prove.
+			// This is done by checking the chain for completed channels and pulling span batches out.
+			// We break apart span batches if they exceed the max size, and gracefully handle bugs in span batch decoding.
+			// We add ranges to be proven to the DB as "UNREQ" so they are queued up to request later.
+			l.Log.Info("Stage 1: Deriving Span Batches...")
+			err := l.DeriveNewSpanBatches(ctx)
+			if err != nil {
+				l.Log.Error("failed to add next span batches to db", "err", err)
+				continue
+			}
 
 			// 2) Check the statuses of all requested proofs.
 			// If it's successfully returned, we validate that we have it on disk and set status = "COMPLETE".
 			// If it fails or times out, we set status = "FAILED" (and, if it's a span proof, split the request in half to try again).
 			l.Log.Info("Stage 2: Processing Pending Proofs...")
-			err := l.ProcessPendingProofs()
+			err = l.ProcessPendingProofs()
 			if err != nil {
 				l.Log.Error("failed to update requested proofs", "err", err)
 				continue
@@ -590,24 +590,24 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				continue
 			}
 
-			// // 4) Request all unrequested proofs from the prover network.
-			// // Any DB entry with status = "UNREQ" means it's queued up and ready.
-			// // We request all of these (both span and agg) from the prover network.
-			// // For agg proofs, we also checkpoint the blockhash in advance.
-			// l.Log.Info("Stage 4: Requesting Queued Proofs...")
-			// err = l.RequestQueuedProofs(ctx)
-			// if err != nil {
-			// 	l.Log.Error("failed to request unrequested proofs", "err", err)
-			// 	continue
-			// }
+			// 4) Request all unrequested proofs from the prover network.
+			// Any DB entry with status = "UNREQ" means it's queued up and ready.
+			// We request all of these (both span and agg) from the prover network.
+			// For agg proofs, we also checkpoint the blockhash in advance.
+			l.Log.Info("Stage 4: Requesting Queued Proofs...")
+			err = l.RequestQueuedProofs(ctx)
+			if err != nil {
+				l.Log.Error("failed to request unrequested proofs", "err", err)
+				continue
+			}
 
-			// // 5) Submit agg proofs on chain.
-			// // If we have a completed agg proof waiting in the DB, we submit them on chain.
-			// l.Log.Info("Stage 5: Submitting Agg Proofs...")
-			// err = l.SubmitAggProofs(ctx)
-			// if err != nil {
-			// 	l.Log.Error("failed to submit agg proofs", "err", err)
-			// }
+			// 5) Submit agg proofs on chain.
+			// If we have a completed agg proof waiting in the DB, we submit them on chain.
+			l.Log.Info("Stage 5: Submitting Agg Proofs...")
+			err = l.SubmitAggProofs(ctx)
+			if err != nil {
+				l.Log.Error("failed to submit agg proofs", "err", err)
+			}
 		case <-l.done:
 			return
 		}
