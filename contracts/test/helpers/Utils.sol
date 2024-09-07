@@ -114,18 +114,30 @@ contract Utils is Test, JSONDecoder {
     function fetchL2StartingBlockNumber(
         Config memory config
     ) public returns (uint256) {
-        string[] memory inputs = new string[](4);
+        string[] memory inputs = new string[](3);
         inputs[0] = "cast";
-        inputs[1] = "bn";
-        inputs[2] = "--rpc-url";
-        inputs[3] = config.l2GethNode;
+        inputs[1] = "2h";
+        inputs[2] = "16934644";
+        // inputs[0] = "cast";
+        // inputs[1] = "bn";
+        // inputs[2] = "--rpc-url";
+        // inputs[3] = "http://45.250.254.215:8548";
 
         bytes memory result = vm.ffi(inputs);
-        console.logBytes(result);
+        string memory resultString = vm.toString(result);
+        console.log(resultString);
 
-        // The result is being misinterpreted as a bytes32 value, when it's actually a number! Convert it to a string, then to a uint256.
-        // console.log("Result string:", resultString);
-        uint256 startingBlockNumber = uint256(bytes32(bytes(jsonRes)));
+        // string[] memory inputs2 = new string[](2);
+        // inputs2[0] = "cast";
+        // inputs2[1] = "d2h";
+        // inputs2[2] = resultString;
+
+        // bytes memory result2 = vm.ffi(inputs2);
+
+        // console.log(string(result2));
+
+        // Parse the sliced string to a uint
+        uint256 startingBlockNumber = vm.parseUint(resultString);
 
         // // Convert the result to a bytes32 value and then to a uint256.
         // console.logBytes32(bytes32(result));
