@@ -51,8 +51,6 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     };
     stdin.write(&boot_info);
 
-    // Get the workspace root, which is where the data directory is.
-
     // Get the disk KV store.
     let disk_kv_store = DiskKeyValueStore::new(host_cli.data_dir.clone().unwrap());
 
