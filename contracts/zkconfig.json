@@ -1,6 +1,7 @@
 {
     "startingBlockNumber": 16837928,
     "l2RollupNode": "",
+    "l2GethNode": "",
     "submissionInterval": 150,
     "l2BlockTime": 2,
     "proposer": "0x0000000000000000000000000000000000000000",

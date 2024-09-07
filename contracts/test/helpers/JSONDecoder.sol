@@ -7,6 +7,7 @@ contract JSONDecoder {
         address challenger;
         uint256 finalizationPeriod;
         uint256 l2BlockTime;
+        string l2GethNode;
         address l2OutputOracleProxy;
         string l2RollupNode;
         address owner;
