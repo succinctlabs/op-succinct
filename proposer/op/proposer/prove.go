@@ -241,7 +241,7 @@ type ProofResponse struct {
 // Request a span proof for the range [l2Start, l2End].
 func (l *L2OutputSubmitter) RequestSpanProof(l2Start, l2End uint64) (string, error) {
 	if l2Start >= l2End {
-		return "", fmt.Errorf("l2Start must be greater than l2End")
+		return "", fmt.Errorf("l2Start must be less than l2End")
 	}
 
 	l.Log.Info("requesting span proof", "start", l2Start, "end", l2End)
