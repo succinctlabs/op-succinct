@@ -45,7 +45,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			return err
 		}
 		if status == "PROOF_FULFILLED" {
-			// update the proof to the DB and update status to "COMPLETE"
+			// Update the proof in the DB and update status to COMPLETE.
 			l.Log.Info("proof fulfilled", "id", req.ProverRequestID)
 			err = l.db.AddProof(req.ID, proof)
 			if err != nil {
