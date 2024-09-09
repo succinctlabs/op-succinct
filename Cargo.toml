@@ -75,14 +75,14 @@ op-alloy-consensus = { version = "0.2", default-features = false }
 # sp1-zkvm = { version = "1.2.0", features = ["verify"] }
 # sp1-sdk = { version = "1.2.0" }
 # sp1-build = { version = "1.2.0" }
-sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2", features = [
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "v1.3.0-rc3", features = [
     "verify",
 ] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2", features = [
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "v1.3.0-rc3", features = [
     "verify",
 ] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2" }
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "tamir/v1.3.0-rc2" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "v1.3.0-rc3" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "v1.3.0-rc3" }
 
 [profile.release-client-lto]
 inherits = "release"
