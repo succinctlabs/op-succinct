@@ -9,7 +9,9 @@ use kona_host::{
     kv::{DiskKeyValueStore, MemoryKeyValueStore},
     HostCli,
 };
-use op_succinct_client_utils::{types::AggregationInputs, InMemoryOracle, BootInfoWithBytesConfig, boot::BootInfoStruct};
+use op_succinct_client_utils::{
+    boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, InMemoryOracle,
+};
 use sp1_sdk::{SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 

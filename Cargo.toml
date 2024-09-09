@@ -38,28 +38,17 @@ kzg-rs = { version = "0.2.2" }
 
 # kona
 # TODO: Change to stable tag when released.
-# kona-common = { git = "https://github.com/anton-rs/kona" }
-# kona-common-proc = { git = "https://github.com/anton-rs/kona" }
-# kona-preimage = { git = "https://github.com/anton-rs/kona", features = [
-#     "rkyv",
-# ] }
-# kona-primitives = { git = "https://github.com/anton-rs/kona" }
-# kona-mpt = { git = "https://github.com/anton-rs/kona" }
-# kona-derive = { git = "https://github.com/anton-rs/kona", default-features = false }
-# kona-executor = { git = "https://github.com/anton-rs/kona" }
-# kona-client = { git = "https://github.com/anton-rs/kona" }
-# kona-host = { git = "https://github.com/anton-rs/kona" }
-kona-common = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
-kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
-kona-preimage = { git = "https://github.com/moongate-forks/kona", features = [
+kona-common = { git = "https://github.com/anton-rs/kona" }
+kona-common-proc = { git = "https://github.com/anton-rs/kona" }
+kona-preimage = { git = "https://github.com/anton-rs/kona", features = [
     "rkyv",
-], branch = "ratan/fix-compilation-kona" }
-kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
-kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
-kona-derive = { git = "https://github.com/moongate-forks/kona", default-features = false, branch = "ratan/fix-compilation-kona" }
-kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
-kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
-kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/fix-compilation-kona" }
+] }
+kona-primitives = { git = "https://github.com/anton-rs/kona" }
+kona-mpt = { git = "https://github.com/anton-rs/kona" }
+kona-derive = { git = "https://github.com/anton-rs/kona", default-features = false }
+kona-executor = { git = "https://github.com/anton-rs/kona" }
+kona-client = { git = "https://github.com/anton-rs/kona" }
+kona-host = { git = "https://github.com/anton-rs/kona" }
 
 
 # op-succinct

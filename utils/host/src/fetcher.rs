@@ -106,7 +106,7 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as u64);
+        let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1).try_into().unwrap());
 
         // Note: Node rate limits at 300 requests per second.
         let batch_size = 200;
