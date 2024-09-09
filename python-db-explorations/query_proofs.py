@@ -32,22 +32,40 @@ def query_span_proofs(db_path, start_block):
     results = cursor.fetchall()
     if results:
         first_result = results[0]
-        # print(f"ID: {first_result[0]}")
-        # print(f"Type: {first_result[1]}")
-        # print(f"Start Block: {first_result[2]}")
-        # print(f"End Block: {first_result[3]}")
-        # print(f"Status: {first_result[4]}")
-        # print(f"Request Added Time: {first_result[5]}")
-        # print(f"Prover Request ID: {first_result[6]}")
-        # print(f"Proof Request Time: {first_result[7]}")
-        # print(f"L1 Block Number: {first_result[8]}")
-        # print(f"L1 Block Hash: {first_result[9]}")
-        # print(f"Proof: {first_result[10]}")
+        # ProofRequest struct from proofrequest.go:
+        # type ProofRequest struct {
+        #     ID               int                `json:"id,omitempty"`
+        #     Type             proofrequest.Type  `json:"type,omitempty"`
+        #     StartBlock       uint64             `json:"start_block,omitempty"`
+        #     EndBlock         uint64             `json:"end_block,omitempty"`
+        #     Status           proofrequest.Status `json:"status,omitempty"`
+        #     RequestAddedTime uint64             `json:"request_added_time,omitempty"`
+        #     ProverRequestID  string             `json:"prover_request_id,omitempty"`
+        #     ProofRequestTime uint64             `json:"proof_request_time,omitempty"`
+        #     L1BlockNumber    uint64             `json:"l1_block_number,omitempty"`
+        #     L1BlockHash      string             `json:"l1_block_hash,omitempty"`
+        #     Proof            []byte             `json:"proof,omitempty"`
+        # }
 
-    # print("Results:", results)
     conn.close()
     
     return results
+
+def query_agg_proofs(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    query = """
+    SELECT * FROM proof_requests
+    WHERE type = 'AGG'
+    """
+    cursor.execute(query)
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    return results
+
 
 if __name__ == "__main__":
     # Load environment variables from .env file
@@ -59,7 +77,7 @@ if __name__ == "__main__":
         raise ValueError("L2OO_ADDRESS not found in .env file")
 
     print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
-    print("Querying span proofs")
+    print("\nQuerying span proofs")
     db_path = "../db/proofs.db"
 
     start_block = 17048966  # Replace with the desired start block
@@ -70,3 +88,9 @@ if __name__ == "__main__":
         for proof in proofs:
             print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
         start_block += 1
+    
+    # Query for AGG proofs
+    agg_proofs = query_agg_proofs(db_path)
+    print("\nAGG Proofs:")
+    for proof in agg_proofs:
+        print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
