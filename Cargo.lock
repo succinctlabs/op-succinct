@@ -3406,7 +3406,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3434,7 +3434,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3444,7 +3444,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3457,7 +3457,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3482,7 +3482,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3498,7 +3498,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3533,7 +3533,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.0",
@@ -3547,7 +3547,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloy-primitives 0.8.0",
  "anyhow",
@@ -3560,7 +3560,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#63f7ce356858b8833a2674bb4b60c293e29cfcee"
+source = "git+https://github.com/moongate-forks/kona?branch=ratan/fix-compilation-kona#64259e6881ff09c0b8d80e30396bafa7de6eac06"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",

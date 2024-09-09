@@ -106,7 +106,7 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as usize);
+        let mut headers: Vec<Header> = Vec::with_capacity((end - start + 1) as u64);
 
         // Note: Node rate limits at 300 requests per second.
         let batch_size = 200;
@@ -338,7 +338,7 @@ impl OPSuccinctDataFetcher {
 
         // Create the path to the rollup config file.
         let rollup_config_path = format!("{}/rollup-config.json", workspace_root);
-        
+
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
         fs::create_dir_all(&data_directory)?;
