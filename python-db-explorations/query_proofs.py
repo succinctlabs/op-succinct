@@ -1,5 +1,7 @@
 import sqlite3
 from enum import Enum
+import os
+from dotenv import load_dotenv
 
 class ProofType(Enum):
     SPAN = 1
@@ -48,14 +50,23 @@ def query_span_proofs(db_path, start_block):
     return results
 
 if __name__ == "__main__":
+    # Load environment variables from .env file
+    load_dotenv()
+
+    # Get L2OO_ADDRESS from environment variables
+    L2OO_ADDRESS = os.getenv('L2OO_ADDRESS')
+    if L2OO_ADDRESS is None:
+        raise ValueError("L2OO_ADDRESS not found in .env file")
+
+    print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
     print("Querying span proofs")
     db_path = "../db/proofs.db"
 
-    start_block = 16843141  # Replace with the desired start block
-    for i in range(1000):
+    start_block = 17048966  # Replace with the desired start block
+    for i in range(3000):
     
         proofs = query_span_proofs(db_path, start_block)
     
         for proof in proofs:
-            print(f"Proof ID: {proof[0]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
+            print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
         start_block += 1
