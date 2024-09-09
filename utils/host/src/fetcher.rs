@@ -1,10 +1,10 @@
 use alloy::{
     eips::BlockNumberOrTag,
+    primitives::{Address, B256},
     providers::{Provider, ProviderBuilder, RootProvider},
     transports::http::{reqwest::Url, Client, Http},
 };
 use alloy_consensus::Header;
-use alloy_primitives::{Address, B256};
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
@@ -40,6 +40,13 @@ impl Default for OPSuccinctDataFetcher {
 pub enum ChainMode {
     L1,
     L2,
+}
+
+/// Whether to keep the cache or delete the cache.
+#[derive(Clone, Copy)]
+pub enum CacheMode {
+    KeepCache,
+    DeleteCache,
 }
 
 /// The info to fetch for a block.
@@ -210,7 +217,7 @@ impl OPSuccinctDataFetcher {
         let latest_block =
             provider.get_block_by_number(BlockNumberOrTag::Latest, false).await?.unwrap();
         let mut low = 0;
-        let mut high = latest_block.header.number.unwrap();
+        let mut high = latest_block.header.number;
 
         while low <= high {
             let mid = (low + high) / 2;
@@ -218,7 +225,7 @@ impl OPSuccinctDataFetcher {
             let block_timestamp = block.header.timestamp;
 
             match block_timestamp.cmp(&target_timestamp) {
-                Ordering::Equal => return Ok(block.header.hash.unwrap().0.into()),
+                Ordering::Equal => return Ok(block.header.hash.0.into()),
                 Ordering::Less => low = mid + 1,
                 Ordering::Greater => high = mid - 1,
             }
@@ -226,7 +233,7 @@ impl OPSuccinctDataFetcher {
 
         // Return the block hash of the closest block after the target timestamp
         let block = provider.get_block_by_number(low.into(), false).await?.unwrap();
-        Ok(block.header.hash.unwrap().0.into())
+        Ok(block.header.hash.0.into())
     }
 
     /// Get the L2 output data for a given block number and save the boot info to a file in the data
@@ -237,6 +244,7 @@ impl OPSuccinctDataFetcher {
         l2_start_block: u64,
         l2_end_block: u64,
         multi_block: ProgramType,
+        cache_mode: CacheMode,
     ) -> Result<HostCli> {
         if l2_start_block >= l2_end_block {
             return Err(anyhow::anyhow!("L2 start block is greater than or equal to L2 end block"));
@@ -248,7 +256,7 @@ impl OPSuccinctDataFetcher {
         let l2_output_block =
             l2_provider.get_block_by_number(l2_start_block.into(), false).await?.unwrap();
         let l2_output_state_root = l2_output_block.header.state_root;
-        let l2_head = l2_output_block.header.hash.expect("L2 head is missing");
+        let l2_head = l2_output_block.header.hash;
         let l2_output_storage_hash = l2_provider
             .get_proof(Address::from_str("0x4200000000000000000000000000000000000016")?, Vec::new())
             .block_id(l2_start_block.into())
@@ -267,7 +275,7 @@ impl OPSuccinctDataFetcher {
         let l2_claim_block =
             l2_provider.get_block_by_number(l2_end_block.into(), false).await?.unwrap();
         let l2_claim_state_root = l2_claim_block.header.state_root;
-        let l2_claim_hash = l2_claim_block.header.hash.expect("L2 claim hash is missing");
+        let l2_claim_hash = l2_claim_block.header.hash;
         let l2_claim_storage_hash = l2_provider
             .get_proof(Address::from_str("0x4200000000000000000000000000000000000016")?, Vec::new())
             .block_id(l2_end_block.into())
@@ -318,14 +326,22 @@ impl OPSuccinctDataFetcher {
             ProgramType::Multi => format!("{}/target/release-client-lto/range", workspace_root),
         };
 
-        // Create data directory. This will be used by the host program running in native execution
-        // mode to save all preimages.
-        if !Path::new(&data_directory).exists() {
-            fs::create_dir_all(&data_directory)?;
+        // Delete the data directory if the cache mode is DeleteCache.
+        match cache_mode {
+            CacheMode::KeepCache => (),
+            CacheMode::DeleteCache => {
+                if Path::new(&data_directory).exists() {
+                    fs::remove_dir_all(&data_directory)?;
+                }
+            }
         }
 
         // Create the path to the rollup config file.
         let rollup_config_path = format!("{}/rollup-config.json", workspace_root);
+        
+        // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
+        // witness data.
+        fs::create_dir_all(&data_directory)?;
 
         Ok(HostCli {
             l1_head: l1_head.0.into(),

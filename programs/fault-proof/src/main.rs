@@ -1,24 +1,29 @@
-//! A program to verify a Optimism L2 block STF in the zkVM.
+//! A program to verify a OP Stack chain's block STF in the zkVM.
+//!
+//! This binary contains the client program for executing the Optimism rollup state transition
+//! across a single block, which can be used in an on chain dispute game. Depending on the
+//! compilation pipeline, it will compile to be run either in native mode or in zkVM mode. In native
+//! mode, the data for verifying the execute of the Optimism rollup's state transition is fetched
+//! from RPC, while in zkVM mode, the data is supplied by the host binary to the verifiable program.
+
 #![cfg_attr(target_os = "zkvm", no_main)]
 
+extern crate alloc;
+
+use alloc::sync::Arc;
+
+use alloy_consensus::Header;
+use cfg_if::cfg_if;
 use kona_client::{
     l1::{DerivationDriver, OracleBlobProvider, OracleL1ChainProvider},
     l2::OracleL2ChainProvider,
     BootInfo,
 };
-
-use kona_executor::{NoPrecompileOverride, StatelessL2BlockExecutor};
+use kona_executor::StatelessL2BlockExecutor;
 use kona_primitives::L2AttributesWithParent;
-
-use alloc::sync::Arc;
-use alloy_consensus::Header;
-use cfg_if::cfg_if;
-
-extern crate alloc;
+use op_succinct_client_utils::precompiles::zkvm_handle_register;
 
 cfg_if! {
-    // If the target OS is zkVM, set everything up to read input data
-    // from SP1 and compile to a program that can be run in zkVM.
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
         use op_succinct_client_utils::{InMemoryOracle, boot::BootInfoStruct, BootInfoWithBytesConfig};
@@ -61,22 +66,19 @@ fn main() {
                 println!("cycle-tracker-end: boot-load");
 
                 println!("cycle-tracker-start: oracle-load");
-                let kv_store_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
-                let oracle = Arc::new(InMemoryOracle::from_raw_bytes(kv_store_bytes));
+                let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
+                let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
                 println!("cycle-tracker-end: oracle-load");
 
                 println!("cycle-tracker-start: oracle-verify");
                 oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-end: oracle-verify");
-
-                let precompile_overrides = NoPrecompileOverride;
-
+            }
             // If we are compiling for online mode, create a caching oracle that speaks to the
             // fetcher via hints, and gather boot info from this oracle.
-            } else {
+            else {
                 let oracle = Arc::new(CachingOracle::new(1024, ORACLE_READER, HINT_WRITER));
                 let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
-                let precompile_overrides = NoPrecompileOverride;
             }
         }
 
@@ -110,7 +112,7 @@ fn main() {
             .with_parent_header(driver.take_l2_safe_head_header())
             .with_fetcher(l2_provider.clone())
             .with_hinter(l2_provider)
-            .with_precompile_overrides(precompile_overrides)
+            .with_handle_register(zkvm_handle_register)
             .build()
             .unwrap();
         println!("cycle-tracker-end: execution-instantiation");
@@ -123,9 +125,9 @@ fn main() {
         let output_root = executor.compute_output_root().unwrap();
         println!("cycle-tracker-end: output-root");
 
-        // ////////////////////////////////////////////////////////////////
-        // //                          EPILOGUE                          //
-        // ////////////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////////////
+        //                          EPILOGUE                          //
+        ////////////////////////////////////////////////////////////////
 
         assert_eq!(number, boot.l2_claim_block);
         assert_eq!(output_root, boot.l2_claim);

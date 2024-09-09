@@ -10,16 +10,18 @@ use base64::{engine::general_purpose, Engine as _};
 use log::info;
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, ProgramType,
+    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    get_agg_proof_stdin, get_proof_stdin,
+    witnessgen::WitnessGenExecutor,
+    ProgramType,
 };
-use op_succinct_proposer::run_native_host;
 use serde::{Deserialize, Deserializer, Serialize};
 use sp1_sdk::{
     network::client::NetworkClient,
     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     utils, NetworkProver, Prover, SP1Proof, SP1ProofWithPublicValues,
 };
-use std::{env, fs, time::Duration};
+use std::{env, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
@@ -76,20 +78,16 @@ async fn request_span_proof(
     // and access via Store.
     let data_fetcher = OPSuccinctDataFetcher::new();
 
-    let host_cli =
-        data_fetcher.get_host_cli_args(payload.start, payload.end, ProgramType::Multi).await?;
-
-    let data_dir = host_cli.data_dir.clone().unwrap();
-
-    // Overwrite existing data directory.
-    fs::create_dir_all(&data_dir)?;
+    let host_cli = data_fetcher
+        .get_host_cli_args(payload.start, payload.end, ProgramType::Multi, CacheMode::DeleteCache)
+        .await?;
 
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
-    // TODO: If this fails, we should definitely NOT request a proof! Otherwise, we get execution
-    // failures on the cluster.
-    run_native_host(&host_cli, Duration::from_secs(60)).await?;
+    let mut witnessgen_executor = WitnessGenExecutor::default();
+    witnessgen_executor.spawn_witnessgen(&host_cli).await?;
+    witnessgen_executor.flush().await?;
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
