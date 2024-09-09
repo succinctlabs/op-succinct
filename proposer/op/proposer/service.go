@@ -52,6 +52,7 @@ type ProposerConfig struct {
 
 	// Additional fields required for ZK Proposer
 	DbPath                     string
+	UseCachedDb                bool
 	BeaconRpc                  string
 	TxCacheOutDir              string
 	BatchDecoderConcurrentReqs uint64

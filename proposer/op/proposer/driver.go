@@ -137,7 +137,7 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 		return nil, err
 	}
 
-	db, err := db.InitDB(setup.Cfg.DbPath)
+	db, err := db.InitDB(setup.Cfg.DbPath, setup.Cfg.UseCachedDb)
 	if err != nil {
 		cancel()
 		return nil, err
