@@ -88,19 +88,30 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
 	} else {
 		// If a SPAN proof failed, assume it was too big and the SP1 runtime OOM'd.
 		// Therefore, create two new entries for the original proof split in half.
-		// TODO: Never split a SPAN proof into a range smaller than 1 block. Start must always be < end.
-		l.Log.Info("span proof failed, splitting in half to retry", "req", req)
-		tmpStart := req.StartBlock
-		tmpEnd := tmpStart + ((req.EndBlock - tmpStart) / 2)
-		for i := 0; i < 2; i++ {
-			err := l.db.NewEntryWithReqAddedTimestamp("SPAN", tmpStart, tmpEnd, 0)
+		if req.StartBlock+1 == req.EndBlock {
+			// If the start and end block are consecutive, we can't split the proof in half.
+			l.Log.Info("Span proof failed. Start and end block are consecutive. Adding to DB to retry.", "req", req)
+			err := l.db.NewEntryWithReqAddedTimestamp("SPAN", req.StartBlock, req.EndBlock, 0)
 			if err != nil {
 				l.Log.Error("failed to add new proof request", "err", err)
 				return err
 			}
+		} else {
+			// We split in half to retry by default in case the runtime OOM'd.
+			l.Log.Info("Span proof failed. Start and end block are not consecutive. Splitting in half to retry.", "req", req)
+			midPoint := req.StartBlock + ((req.EndBlock - req.StartBlock) / 2)
+			
+			err := l.db.NewEntryWithReqAddedTimestamp("SPAN", req.StartBlock, midPoint, 0)
+			if err != nil {
+				l.Log.Error("failed to add first half proof request", "err", err)
+				return err
+			}
 
-			tmpStart = tmpEnd + 1
-			tmpEnd = req.EndBlock
+			err = l.db.NewEntryWithReqAddedTimestamp("SPAN", midPoint+1, req.EndBlock, 0)
+			if err != nil {
+				l.Log.Error("failed to add second half proof request", "err", err)
+				return err
+			}
 		}
 	}
 
