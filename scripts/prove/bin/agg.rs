@@ -53,9 +53,7 @@ fn load_aggregation_proof_data(
 
         // The public values are the ABI-encoded BootInfoStruct.
         let mut raw_boot_info_bytes = [0u8; BOOT_INFO_SIZE];
-        deserialized_proof
-            .public_values
-            .read_slice(&mut raw_boot_info_bytes);
+        deserialized_proof.public_values.read_slice(&mut raw_boot_info_bytes);
         let boot_info = BootInfoStruct::abi_decode(&raw_boot_info_bytes, false).unwrap();
         boot_infos.push(boot_info);
     }
