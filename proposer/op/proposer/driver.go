@@ -514,6 +514,7 @@ func (l *L2OutputSubmitter) sendCheckpointTransaction(ctx context.Context, block
 }
 
 // loop is responsible for creating & submitting the next outputs
+// TODO: Look into adding a transaction cache so the loop isn't waiting for the transaction to confirm. This sometimes takes up to 30s.
 func (l *L2OutputSubmitter) loop() {
 	defer l.wg.Done()
 	ctx := l.ctx

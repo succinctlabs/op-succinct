@@ -88,6 +88,7 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
 	} else {
 		// If a SPAN proof failed, assume it was too big and the SP1 runtime OOM'd.
 		// Therefore, create two new entries for the original proof split in half.
+		// TODO: Never split a SPAN proof into a range smaller than 1 block. Start must always be < end.
 		l.Log.Info("span proof failed, splitting in half to retry", "req", req)
 		tmpStart := req.StartBlock
 		tmpEnd := tmpStart + ((req.EndBlock - tmpStart) / 2)
