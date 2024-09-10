@@ -22,18 +22,26 @@ contract Utils is Test, JSONDecoder {
         return cfg.l2OutputOracleProxy;
     }
 
-    function upgradeAndInitialize(address impl, Config memory cfg, address _spoofedAdmin) public {
+    function upgradeAndInitialize(
+        address impl,
+        Config memory cfg,
+        address _spoofedAdmin
+    ) public {
         // require that the verifier gateway is deployed
-        require(address(cfg.verifierGateway).code.length > 0, "ZKUpgrader: verifier gateway not deployed");
+        require(
+            address(cfg.verifierGateway).code.length > 0,
+            "ZKUpgrader: verifier gateway not deployed"
+        );
 
-        ZKL2OutputOracle.ZKInitParams memory zkInitParams = ZKL2OutputOracle.ZKInitParams({
-            chainId: cfg.chainId,
-            verifierGateway: cfg.verifierGateway,
-            vkey: cfg.vkey,
-            owner: cfg.owner,
-            startingOutputRoot: cfg.startingOutputRoot,
-            rollupConfigHash: cfg.rollupConfigHash
-        });
+        ZKL2OutputOracle.ZKInitParams memory zkInitParams = ZKL2OutputOracle
+            .ZKInitParams({
+                chainId: cfg.chainId,
+                verifierGateway: cfg.verifierGateway,
+                vkey: cfg.vkey,
+                owner: cfg.owner,
+                startingOutputRoot: cfg.startingOutputRoot,
+                rollupConfigHash: cfg.rollupConfigHash
+            });
 
         // If we are spoofing the admin (used in testing), start prank.
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
@@ -56,37 +64,14 @@ contract Utils is Test, JSONDecoder {
         );
     }
 
-    function readJson(string memory filepath) public view returns (Config memory) {
+    function readJson(
+        string memory filepath
+    ) public view returns (Config memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", filepath);
         string memory json = vm.readFile(path);
         bytes memory data = vm.parseJson(json);
         return abi.decode(data, (Config));
-    }
-
-    function fetchOutputRoot(Config memory config)
-        public
-        returns (bytes32 startingOutputRoot, uint256 startingTimestamp)
-    {
-        string memory hexStartingBlockNumber = createHexString(config.startingBlockNumber);
-
-        string memory l2NodeRpc = vm.envString("L2_NODE_RPC");
-
-        string[] memory inputs = new string[](6);
-        inputs[0] = "cast";
-        inputs[1] = "rpc";
-        inputs[2] = "--rpc-url";
-        // TODO: Reading the env in this way doesn't work. Need to load it in another way.
-        inputs[3] = l2NodeRpc;
-        inputs[4] = "optimism_outputAtBlock";
-        inputs[5] = hexStartingBlockNumber;
-
-        string memory jsonRes = string(vm.ffi(inputs));
-        bytes memory outputRootBytes = vm.parseJson(jsonRes, ".outputRoot");
-        bytes memory startingTimestampBytes = vm.parseJson(jsonRes, ".blockRef.timestamp");
-
-        startingOutputRoot = abi.decode(outputRootBytes, (bytes32));
-        startingTimestamp = abi.decode(startingTimestampBytes, (uint256));
     }
 
     // This script updates the rollup config hash and the block number in the config.
@@ -113,12 +98,15 @@ contract Utils is Test, JSONDecoder {
         vm.ffi(inputs2);
     }
 
-    function createHexString(uint256 value) public pure returns (string memory) {
+    function createHexString(
+        uint256 value
+    ) public pure returns (string memory) {
         string memory hexStartingBlockNum = Strings.toHexString(value);
         bytes memory startingBlockNumAsBytes = bytes(hexStartingBlockNum);
         require(
-            startingBlockNumAsBytes.length >= 4 && startingBlockNumAsBytes[0] == "0"
-                && startingBlockNumAsBytes[1] == "x",
+            startingBlockNumAsBytes.length >= 4 &&
+                startingBlockNumAsBytes[0] == "0" &&
+                startingBlockNumAsBytes[1] == "x",
             "Invalid input"
         );
 
