@@ -114,6 +114,7 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 
 	// Additional fields required for ZK Proposer
 	ps.DbPath = cfg.DbPath
+	ps.UseCachedDb = cfg.UseCachedDb
 	ps.BeaconRpc = cfg.BeaconRpc
 	ps.TxCacheOutDir = cfg.TxCacheOutDir
 	ps.BatchDecoderConcurrentReqs = cfg.BatchDecoderConcurrentReqs
