@@ -111,6 +111,7 @@ contract Utils is Test, JSONDecoder {
 
     // This script updates the rollup config hash and the block number in the config.
     function updateRollupConfig() public {
+        // Build the fetch-rollup-config binary.
         string[] memory inputs = new string[](5);
         inputs[0] = "cargo";
         inputs[1] = "build";
@@ -119,6 +120,7 @@ contract Utils is Test, JSONDecoder {
         inputs[4] = "--release";
         vm.ffi(inputs);
 
+        // Run the fetch-rollup-config binary which updates the rollup config hash and the block number in the config.
         string[] memory inputs2 = new string[](5);
         inputs2[0] = "cargo";
         inputs2[1] = "run";
