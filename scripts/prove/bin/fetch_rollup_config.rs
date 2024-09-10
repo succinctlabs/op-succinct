@@ -1,53 +1,82 @@
 use alloy_primitives::B256;
 use anyhow::{bail, Context, Result};
+use log::info;
 use op_succinct_client_utils::boot::hash_rollup_config;
 use op_succinct_host_utils::fetcher::{ChainMode, OPSuccinctDataFetcher};
 use serde_json::{json, Value};
-use sp1_sdk::block_on;
-use std::{env, fs, path::PathBuf};
+use sp1_sdk::{block_on, HashableKey, ProverClient};
+use std::{fs, path::PathBuf};
+
+pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 
 /// Fetch the rollup config from the rollup node and save it to a file.
 fn save_rollup_config_to_zkconfig() -> Result<()> {
-    let (rollup_rpc, l2_rpc) = get_rpc_urls();
-
-    let rollup_config = fetch_rpc_data(&rollup_rpc, "optimism_rollupConfig")?;
-    let chain_config = fetch_rpc_data(&l2_rpc, "debug_chainConfig")?;
+    let sp1_kona_data_fetcher = OPSuccinctDataFetcher::default();
 
     // Get the workspace root with cargo metadata to make the paths.
-    let workspace_root = cargo_metadata::MetadataCommand::new().exec()?.workspace_root;
+    let workspace_root =
+        PathBuf::from(cargo_metadata::MetadataCommand::new().exec()?.workspace_root);
+
+    let mut l2oo_config = get_l2oo_config_from_contracts(&workspace_root)?;
+
+    // If the starting block number is not set, set it to the latest block number from the L2 RPC.
+    if l2oo_config["startingBlockNumber"].as_u64().unwrap_or(0) == 0 {
+        // Get the latest block number from the L2 RPC.
+        let latest_block = block_on(sp1_kona_data_fetcher.get_head(ChainMode::L2))?;
+        l2oo_config["startingBlockNumber"] = json!(latest_block.number - 10);
+    }
+
+    let rollup_json =
+        fetch_rpc_data(&sp1_kona_data_fetcher.l2_node_rpc, "optimism_rollupConfig", vec![])?;
+    let starting_block_number = l2oo_config["startingBlockNumber"].as_u64().unwrap();
+
+    // Convert the starting block number to a hex string as that's what the optimism_outputAtBlock RPC call expects.
+    let starting_block_number_hex = format!("0x{:x}", starting_block_number);
+    let optimism_output_data = fetch_rpc_data(
+        &sp1_kona_data_fetcher.l2_node_rpc,
+        "optimism_outputAtBlock",
+        vec![starting_block_number_hex.into()],
+    )?;
+    let chain_json = fetch_rpc_data(&sp1_kona_data_fetcher.l2_rpc, "debug_chainConfig", vec![])?;
 
     // Canonicalize the paths
     let rollup_config_path =
         PathBuf::from(workspace_root.join("rollup-config.json")).canonicalize()?;
-
-    let rollup_json: Value = serde_json::from_str(&rollup_config)?;
-    let chain_json: Value = serde_json::from_str(&chain_config)?;
 
     let merged_config = merge_configs(&rollup_json, &chain_json)?;
     let merged_config_str = serde_json::to_string_pretty(&merged_config)?;
 
     fs::write(rollup_config_path, &merged_config_str)?;
 
-    println!("Updated rollup config saved to ./rollup-config.json");
+    info!("Updated rollup config saved to ./rollup-config.json");
 
     let hash: B256 = hash_rollup_config(&merged_config_str.as_bytes().to_vec());
-    update_zkconfig_rollup_config_hash(hash, &workspace_root.into_std_path_buf())?;
+
+    // Set the rollup config hash.
+    let hash_str = format!("0x{:x}", hash);
+    l2oo_config["rollupConfigHash"] = json!(hash_str);
+
+    // Fetch the starting output root and starting timestamp.
+    let timestamp = optimism_output_data["blockRef"]["timestamp"].as_u64().unwrap();
+    let output_root = optimism_output_data["outputRoot"].clone();
+    l2oo_config["startingOutputRoot"] = output_root;
+    l2oo_config["startingTimestamp"] = json!(timestamp);
+
+    // Set the chain id.
+    l2oo_config["chainId"] = json!(block_on(sp1_kona_data_fetcher.get_chain_id(ChainMode::L2))?);
+
+    // Set the vkey.
+    let prover = ProverClient::new();
+    let (_, vkey) = prover.setup(AGG_ELF);
+    l2oo_config["vkey"] = json!(vkey.vk.bytes32());
+
+    write_l2oo_config_to_zkconfig(l2oo_config, &workspace_root)?;
 
     Ok(())
 }
 
-/// Get the rollup RPC URLs.
-fn get_rpc_urls() -> (String, String) {
-    let rollup_rpc = env::var("L2_NODE_RPC")
-        .expect("Must provide rollup rpc as argument or env variable (L2_NODE_RPC)");
-    let l2_rpc =
-        env::var("L2_RPC").expect("Must provide L2 rpc as argument or env variable (L2_RPC)");
-
-    (rollup_rpc, l2_rpc)
-}
-
 /// Fetch data from the RPC.
-fn fetch_rpc_data(rpc_url: &str, method: &str) -> Result<String> {
+fn fetch_rpc_data(rpc_url: &str, method: &str, params: Vec<Value>) -> Result<Value> {
     let client = reqwest::Client::new();
     let response = block_on(async {
         client
@@ -55,7 +84,7 @@ fn fetch_rpc_data(rpc_url: &str, method: &str) -> Result<String> {
             .json(&json!({
                 "jsonrpc": "2.0",
                 "method": method,
-                "params": [],
+                "params": params,
                 "id": 1
             }))
             .send()
@@ -64,41 +93,29 @@ fn fetch_rpc_data(rpc_url: &str, method: &str) -> Result<String> {
             .await
     })?;
 
-    Ok(response["result"].to_string())
+    Ok(response["result"].clone())
 }
 
-/// Update the rollup config hash in the zkconfig.json file.
-fn update_zkconfig_rollup_config_hash(hash: B256, workspace_root: &PathBuf) -> Result<()> {
-    let hash_str = format!("0x{:x}", hash);
-
-    // Update zkconfig.json with the new hash
+/// Get the L2OO rollup config from the contracts directory.
+fn get_l2oo_config_from_contracts(workspace_root: &PathBuf) -> Result<Value> {
     let zkconfig_path = workspace_root.join("contracts/zkconfig.json").canonicalize()?;
-    let zkconfig = if fs::metadata(&zkconfig_path).is_ok() {
-        let mut config: Value = serde_json::from_str(&fs::read_to_string(&zkconfig_path)?)?;
-        config["rollupConfigHash"] = json!(hash_str);
-
-        // If the starting block number is not set, set it to the latest block number from the L2 RPC.
-        if config["startingBlockNumber"].as_u64().unwrap_or(0) == 0 {
-            // Get the latest block number from the L2 RPC.
-            let sp1_kona_data_fetcher = OPSuccinctDataFetcher::default();
-            let latest_block = block_on(sp1_kona_data_fetcher.get_head(ChainMode::L2))?;
-            config["startingBlockNumber"] = json!(latest_block.number - 10);
-        }
-
-        config
+    if fs::metadata(&zkconfig_path).is_ok() {
+        let zkconfig_str = fs::read_to_string(zkconfig_path)?;
+        Ok(serde_json::from_str(&zkconfig_str)?)
     } else {
-        json!({ "rollupConfigHash": hash_str })
-    };
+        bail!("Missing zkconfig.json");
+    }
+}
 
-    fs::write(zkconfig_path, serde_json::to_string_pretty(&zkconfig)?)?;
-
+/// Write the L2OO rollup config to the zkconfig.json file.
+fn write_l2oo_config_to_zkconfig(config: Value, workspace_root: &PathBuf) -> Result<()> {
+    let zkconfig_path = workspace_root.join("contracts/zkconfig.json").canonicalize()?;
+    fs::write(zkconfig_path, serde_json::to_string_pretty(&config)?)?;
     Ok(())
 }
 
 /// Merge the rollup and chain configs.
 fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
-    println!("rollup: {:?}", rollup);
-    println!("chain: {:?}", chain);
     let elasticity = chain["optimism"]["eip1559Elasticity"]
         .as_u64()
         .context("Missing eip1559Elasticity in chain config")?;

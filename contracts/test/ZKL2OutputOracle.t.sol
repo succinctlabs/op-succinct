@@ -43,7 +43,9 @@ contract ZKL2OutputOracleTest is Test, Utils {
     }
 
     function testZKL2OOFailsWithWrongParams() public {
-        l2oo = ZKL2OutputOracle(deployWithConfig(config, STARTING_OUTPUT_ROOT, STARTING_TIMESTAMP));
+        config.startingOutputRoot = STARTING_OUTPUT_ROOT;
+        config.startingTimestamp = STARTING_TIMESTAMP;
+        l2oo = ZKL2OutputOracle(deployWithConfig(config));
 
         vm.setBlockhash(L1_BLOCK_NUM, L1_HEAD);
         l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);

@@ -20,5 +20,4 @@ remappings = [
 # Enable read-write access to zkconfig.json
 fs_permissions = [{ access = "read-write", path = "./zkconfig.json" }]
 
-dotenv = ".env"
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

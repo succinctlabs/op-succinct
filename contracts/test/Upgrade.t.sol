@@ -47,7 +47,9 @@ contract UpgradeTest is Test, Utils {
         Config memory config = readJson("zkconfig.json");
         // This is never called, so we just need to add some code to the address so the check passes.
         config.verifierGateway = address(new Proxy(address(this)));
-        ZKL2OutputOracle l2oo = ZKL2OutputOracle(deployWithConfig(config, exampleOutputRoot, exampleTimestamp));
+        config.startingOutputRoot = exampleOutputRoot;
+        config.startingTimestamp = exampleTimestamp;
+        ZKL2OutputOracle l2oo = ZKL2OutputOracle(deployWithConfig(config));
 
         assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, exampleOutputRoot);
         assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).timestamp, exampleTimestamp);
