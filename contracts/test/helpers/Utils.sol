@@ -64,6 +64,7 @@ contract Utils is Test, JSONDecoder {
         );
     }
 
+    // Read the config from the json file.
     function readJson(
         string memory filepath
     ) public view returns (Config memory) {
@@ -96,29 +97,5 @@ contract Utils is Test, JSONDecoder {
         inputs2[5] = "--quiet";
 
         vm.ffi(inputs2);
-    }
-
-    function createHexString(
-        uint256 value
-    ) public pure returns (string memory) {
-        string memory hexStartingBlockNum = Strings.toHexString(value);
-        bytes memory startingBlockNumAsBytes = bytes(hexStartingBlockNum);
-        require(
-            startingBlockNumAsBytes.length >= 4 &&
-                startingBlockNumAsBytes[0] == "0" &&
-                startingBlockNumAsBytes[1] == "x",
-            "Invalid input"
-        );
-
-        if (startingBlockNumAsBytes[2] == "0") {
-            bytes memory result = new bytes(startingBlockNumAsBytes.length - 1);
-            result[0] = "0";
-            result[1] = "x";
-            for (uint256 i = 3; i < startingBlockNumAsBytes.length; i++) {
-                result[i - 1] = startingBlockNumAsBytes[i];
-            }
-            return string(result);
-        }
-        return hexStartingBlockNum;
     }
 }

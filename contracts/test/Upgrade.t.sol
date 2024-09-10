@@ -35,12 +35,4 @@ contract UpgradeTest is Test, Utils {
             exampleTimestamp
         );
     }
-
-    function testHexString() public {
-        assertEq(createHexString(0), "0x0");
-        assertEq(createHexString(1), "0x1");
-        assertEq(createHexString(15), "0xf");
-        assertEq(createHexString(16), "0x10");
-        assertEq(createHexString(256), "0x100");
-    }
 }
