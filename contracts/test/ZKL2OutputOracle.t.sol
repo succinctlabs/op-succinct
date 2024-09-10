@@ -26,7 +26,7 @@ contract ZKL2OutputOracleTest is Test, Utils {
 
     function setUp() public {
         vm.createSelectFork("https://sepolia.gateway.tenderly.co", L1_BLOCK_NUM + 1);
-        config = readJson("zkconfig.json");
+        config = readJson("zkl2ooconfig.json");
 
         // set default params for testing
         config.vkey = VK;

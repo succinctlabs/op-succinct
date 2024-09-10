@@ -36,7 +36,7 @@ cd contracts
 
 ### 4) Set Deployment Parameters
 
-Inside the `contracts` folder there is a file called `zkconfig.json` that contains the parameters for the deployment. You will need to fill it with your chain's specific details.
+Inside the `contracts` folder there is a file called `zkl2ooconfig.json` that contains the parameters for the deployment. You will need to fill it with your chain's specific details.
 
 The following parameters are required: `proposer`, `challenger`, `finalizationPeriod`, `owner`, `verifierGateway`. The rest of the fields (`startingBlockNumber`, `l2BlockTime`, `chainId` and `vkey`) are automatically fetched by the `fetch-rollup-config` script which is invoked by the `ZKDeployer` forge script. To use a manually set `startingBlockNumber`, set `USE_CACHED_STARTING_BLOCK` to `true`.
 

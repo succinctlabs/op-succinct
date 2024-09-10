@@ -9,7 +9,7 @@ import {Utils} from "./helpers/Utils.sol";
 
 contract UpgradeTest is Test, Utils {
     function testReadJsonSucceeds() public {
-        Config memory config = readJson("zkconfig.json");
+        Config memory config = readJson("zkl2ooconfig.json");
         assertEq(config.l2BlockTime, 2);
         assertEq(config.proposer, address(0));
     }
@@ -19,7 +19,7 @@ contract UpgradeTest is Test, Utils {
         vm.warp(12345678);
         uint256 exampleTimestamp = block.timestamp - 1;
 
-        Config memory config = readJson("zkconfig.json");
+        Config memory config = readJson("zkl2ooconfig.json");
         // This is never called, so we just need to add some code to the address so the check passes.
         config.verifierGateway = address(new Proxy(address(this)));
         config.startingOutputRoot = exampleOutputRoot;

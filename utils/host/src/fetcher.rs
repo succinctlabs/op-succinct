@@ -33,6 +33,7 @@ pub struct OPSuccinctDataFetcher {
     pub l2_rpc: String,
     pub l2_node_rpc: String,
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
+    pub rollup_config: RollupConfig,
 }
 
 impl Default for OPSuccinctDataFetcher {
@@ -79,19 +80,21 @@ impl OPSuccinctDataFetcher {
         let l2_provider =
             Arc::new(ProviderBuilder::default().on_http(Url::from_str(&l2_rpc).unwrap()));
 
-        let fetcher = OPSuccinctDataFetcher {
+        let mut fetcher = OPSuccinctDataFetcher {
             l1_rpc,
             l1_provider,
             l1_beacon_rpc,
             l2_rpc,
             l2_provider,
             l2_node_rpc,
+            rollup_config: RollupConfig::default(),
         };
 
         // Load and save the rollup config.
         let rollup_config =
             fetcher.fetch_rollup_config().await.expect("Failed to fetch rollup config");
         save_rollup_config(&rollup_config).expect("Failed to save rollup config");
+        fetcher.rollup_config = rollup_config;
 
         fetcher
     }

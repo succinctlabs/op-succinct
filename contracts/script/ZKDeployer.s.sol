@@ -13,7 +13,7 @@ contract ZKDeployer is Script, Utils {
         // Update the rollup config to match the current chain. If the starting block number is 0, the latest block number and starting output root will be fetched.
         updateRollupConfig();
 
-        Config memory config = readJson("zkconfig.json");
+        Config memory config = readJson("zkl2ooconfig.json");
 
         // TODO: This seems wrong. Why are we using the msg.sender as a proxy?
         config.l2OutputOracleProxy = address(new Proxy(msg.sender));
