@@ -67,7 +67,7 @@ contract Utils is Test, JSONDecoder {
 
     // This script updates the rollup config hash and the block number in the config.
     function updateRollupConfig() public {
-        // Build the fetch-rollup-config binary.
+        // Build the fetch-rollup-config binary. Use the quiet flag to suppress build output.
         string[] memory inputs = new string[](6);
         inputs[0] = "cargo";
         inputs[1] = "build";
@@ -78,6 +78,7 @@ contract Utils is Test, JSONDecoder {
         vm.ffi(inputs);
 
         // Run the fetch-rollup-config binary which updates the rollup config hash and the block number in the config.
+        // Use the quiet flag to suppress build output.
         string[] memory inputs2 = new string[](6);
         inputs2[0] = "cargo";
         inputs2[1] = "run";
