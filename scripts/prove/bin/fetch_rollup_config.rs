@@ -125,7 +125,7 @@ fn write_l2oo_config_to_zkconfig(config: Value, workspace_root: &PathBuf) -> Res
     Ok(())
 }
 
-/// Merge the rollup and chain configs.
+/// Merge the rollup and chain configs. TODO: Simplify this more, use better types.
 fn merge_configs(rollup: &Value, chain: &Value) -> Result<Value> {
     let elasticity = chain["optimism"]["eip1559Elasticity"]
         .as_u64()
