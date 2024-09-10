@@ -74,13 +74,6 @@ contract Utils is Test, JSONDecoder {
         return abi.decode(data, (Config));
     }
 
-    function readJsonWithRPCFromEnv(
-        string memory filepath
-    ) public view returns (Config memory) {
-        Config memory config = readJson(filepath);
-        return config;
-    }
-
     function fetchOutputRoot(
         Config memory config
     ) public returns (bytes32 startingOutputRoot, uint256 startingTimestamp) {

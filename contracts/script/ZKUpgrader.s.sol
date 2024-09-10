@@ -7,6 +7,9 @@ import {Utils} from "../test/helpers/Utils.sol";
 
 contract ZKUpgrader is Script, Utils {
     function run() public {
+        // Update the rollup config to match the current chain. If the starting block number is 0, the latest block number and starting output root will be fetched.
+        updateRollupConfig();
+
         Config memory config = readJson("zkconfig.json");
 
         vm.startBroadcast(vm.envUint("ADMIN_PK"));
