@@ -26,13 +26,7 @@ contract UpgradeTest is Test, Utils {
         config.startingTimestamp = exampleTimestamp;
         ZKL2OutputOracle l2oo = ZKL2OutputOracle(deployWithConfig(config));
 
-        assertEq(
-            l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot,
-            exampleOutputRoot
-        );
-        assertEq(
-            l2oo.getL2Output(l2oo.latestOutputIndex()).timestamp,
-            exampleTimestamp
-        );
+        assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, exampleOutputRoot);
+        assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).timestamp, exampleTimestamp);
     }
 }

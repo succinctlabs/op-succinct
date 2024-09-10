@@ -22,26 +22,18 @@ contract Utils is Test, JSONDecoder {
         return cfg.l2OutputOracleProxy;
     }
 
-    function upgradeAndInitialize(
-        address impl,
-        Config memory cfg,
-        address _spoofedAdmin
-    ) public {
+    function upgradeAndInitialize(address impl, Config memory cfg, address _spoofedAdmin) public {
         // require that the verifier gateway is deployed
-        require(
-            address(cfg.verifierGateway).code.length > 0,
-            "ZKUpgrader: verifier gateway not deployed"
-        );
+        require(address(cfg.verifierGateway).code.length > 0, "ZKUpgrader: verifier gateway not deployed");
 
-        ZKL2OutputOracle.ZKInitParams memory zkInitParams = ZKL2OutputOracle
-            .ZKInitParams({
-                chainId: cfg.chainId,
-                verifierGateway: cfg.verifierGateway,
-                vkey: cfg.vkey,
-                owner: cfg.owner,
-                startingOutputRoot: cfg.startingOutputRoot,
-                rollupConfigHash: cfg.rollupConfigHash
-            });
+        ZKL2OutputOracle.ZKInitParams memory zkInitParams = ZKL2OutputOracle.ZKInitParams({
+            chainId: cfg.chainId,
+            verifierGateway: cfg.verifierGateway,
+            vkey: cfg.vkey,
+            owner: cfg.owner,
+            startingOutputRoot: cfg.startingOutputRoot,
+            rollupConfigHash: cfg.rollupConfigHash
+        });
 
         // If we are spoofing the admin (used in testing), start prank.
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
@@ -65,9 +57,7 @@ contract Utils is Test, JSONDecoder {
     }
 
     // Read the config from the json file.
-    function readJson(
-        string memory filepath
-    ) public view returns (Config memory) {
+    function readJson(string memory filepath) public view returns (Config memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", filepath);
         string memory json = vm.readFile(path);
