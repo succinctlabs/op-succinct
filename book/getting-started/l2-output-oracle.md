@@ -12,7 +12,24 @@ git clone https://github.com/succinctlabs/op-succinct.git
 cd op-succinct
 ```
 
-### 2) Navigate to the contracts directory:
+### 2) Set environment variables:
+
+```bash
+cp .env.example .env
+```
+
+Make sure to set your `.env` with the following variables:
+
+```
+L1_RPC=...
+L1_BEACON_RPC=...
+L2_NODE_RPC=...
+L2_RPC=...
+PRIVATE_KEY=...
+ETHERSCAN_API_KEY=...
+```
+
+### 3) Navigate to the contracts directory:
 
 ```bash
 cd contracts
@@ -41,17 +58,6 @@ Inside the `contracts` folder there is a file called `zkconfig.json` that contai
 ### 4) Deploy the `ZKL2OutputOracle` contract:
 
 This foundry script will deploy the `ZKL2OutputOracle` contract to the specified L1 RPC and use the provided private key to sign the transaction.
-
-Make sure to set your env with the following variables:
-
-```
-L1_RPC=...
-L2_NODE_RPC=...
-PRIVATE_KEY=...
-ETHERSCAN_API_KEY=...
-```
-
-and then run the following command to deploy the contract:
 
 ```bash
 forge script script/ZKDeployer.s.sol:ZKDeployer \

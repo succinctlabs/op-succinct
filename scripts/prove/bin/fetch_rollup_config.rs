@@ -5,12 +5,12 @@ use op_succinct_client_utils::boot::hash_rollup_config;
 use op_succinct_host_utils::fetcher::{ChainMode, OPSuccinctDataFetcher};
 use serde_json::{json, Value};
 use sp1_sdk::{block_on, HashableKey, ProverClient};
-use std::{fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 
 /// Fetch the rollup config from the rollup node as well as the relevant config for the L200 and save it to a file.
-/// 
+///
 fn save_rollup_config_to_zkconfig() -> Result<()> {
     let sp1_kona_data_fetcher = OPSuccinctDataFetcher::default();
 
@@ -21,7 +21,7 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
     let mut l2oo_config = get_l2oo_config_from_contracts(&workspace_root)?;
 
     // If the starting block number is not set, set it to 10 blocks before the latest block on L2.
-    if l2oo_config["startingBlockNumber"].as_u64().unwrap_or(0) == 0 {
+    if env::var("USE_CACHED_STARTING_BLOCK").unwrap_or("false".to_string()) != "true" {
         // Set the starting block number to 10 blocks before the latest block on L2.
         let latest_block = block_on(sp1_kona_data_fetcher.get_head(ChainMode::L2))?;
         l2oo_config["startingBlockNumber"] = json!(latest_block.number - 10);
