@@ -9,7 +9,8 @@ use std::{fs, path::PathBuf};
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 
-/// Fetch the rollup config from the rollup node and save it to a file.
+/// Fetch the rollup config from the rollup node as well as the relevant config for the L200 and save it to a file.
+/// 
 fn save_rollup_config_to_zkconfig() -> Result<()> {
     let sp1_kona_data_fetcher = OPSuccinctDataFetcher::default();
 
@@ -19,16 +20,17 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
 
     let mut l2oo_config = get_l2oo_config_from_contracts(&workspace_root)?;
 
-    // If the starting block number is not set, set it to the latest block number from the L2 RPC.
+    // If the starting block number is not set, set it to 10 blocks before the latest block on L2.
     if l2oo_config["startingBlockNumber"].as_u64().unwrap_or(0) == 0 {
-        // Get the latest block number from the L2 RPC.
+        // Set the starting block number to 10 blocks before the latest block on L2.
         let latest_block = block_on(sp1_kona_data_fetcher.get_head(ChainMode::L2))?;
         l2oo_config["startingBlockNumber"] = json!(latest_block.number - 10);
     }
+    let starting_block_number = l2oo_config["startingBlockNumber"].as_u64().unwrap();
 
     let rollup_json =
         fetch_rpc_data(&sp1_kona_data_fetcher.l2_node_rpc, "optimism_rollupConfig", vec![])?;
-    let starting_block_number = l2oo_config["startingBlockNumber"].as_u64().unwrap();
+    let l2_block_time = rollup_json["block_time"].as_u64().unwrap();
 
     // Convert the starting block number to a hex string as that's what the optimism_outputAtBlock RPC call expects.
     let starting_block_number_hex = format!("0x{:x}", starting_block_number);
@@ -39,7 +41,7 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
     )?;
     let chain_json = fetch_rpc_data(&sp1_kona_data_fetcher.l2_rpc, "debug_chainConfig", vec![])?;
 
-    // Canonicalize the paths
+    // Canonicalize the paths.
     let rollup_config_path =
         PathBuf::from(workspace_root.join("rollup-config.json")).canonicalize()?;
 
@@ -52,11 +54,14 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
 
     let hash: B256 = hash_rollup_config(&merged_config_str.as_bytes().to_vec());
 
+    // Set the L2 block time from the rollup config.
+    l2oo_config["l2BlockTime"] = json!(l2_block_time);
+
     // Set the rollup config hash.
     let hash_str = format!("0x{:x}", hash);
     l2oo_config["rollupConfigHash"] = json!(hash_str);
 
-    // Fetch the starting output root and starting timestamp.
+    // Set the starting output root and starting timestamp.
     let timestamp = optimism_output_data["blockRef"]["timestamp"].as_u64().unwrap();
     let output_root = optimism_output_data["outputRoot"].clone();
     l2oo_config["startingOutputRoot"] = output_root;
