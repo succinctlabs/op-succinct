@@ -109,6 +109,26 @@ contract Utils is Test, JSONDecoder {
         startingTimestamp = abi.decode(startingTimestampBytes, (uint256));
     }
 
+    // This script updates the rollup config hash and the block number in the config.
+    function updateRollupConfig() public {
+        string[] memory inputs = new string[](5);
+        inputs[0] = "cargo";
+        inputs[1] = "build";
+        inputs[2] = "--bin";
+        inputs[3] = "fetch-rollup-config";
+        inputs[4] = "--release";
+        vm.ffi(inputs);
+
+        string[] memory inputs2 = new string[](5);
+        inputs2[0] = "cargo";
+        inputs2[1] = "run";
+        inputs2[2] = "--bin";
+        inputs2[3] = "fetch-rollup-config";
+        inputs2[4] = "--release";
+
+        vm.ffi(inputs2);
+    }
+
     function createHexString(uint256 value) public pure returns (string memory) {
         string memory hexStartingBlockNum = Strings.toHexString(value);
         bytes memory startingBlockNumAsBytes = bytes(hexStartingBlockNum);

@@ -10,7 +10,13 @@ contract ZKDeployer is Script, Utils {
     function run() public returns (address) {
         vm.startBroadcast();
 
+        // Get the latest rollup config hash.
+        updateRollupConfigHash();
+
         Config memory config = readJsonWithRPCFromEnv("zkconfig.json");
+
+        // If starting block number is 0, set it to the latest block number - 10.
+
         // TODO: This seems wrong. Why are we using the msg.sender as a proxy?
         config.l2OutputOracleProxy = address(new Proxy(msg.sender));
 

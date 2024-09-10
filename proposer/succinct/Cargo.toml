@@ -11,10 +11,6 @@ homepage.workspace = true
 name = "server"
 path = "bin/server.rs"
 
-[[bin]]
-name = "fetch-rollup-config"
-path = "bin/fetch_rollup_config.rs"
-
 [dependencies]
 
 # workspace
