@@ -31,9 +31,7 @@ In the root directory, create a file called `.env` (mirroring `.env.example`) an
 | `PROVER_NETWORK_RPC` | The RPC URL for the Succinct Prover Network. |
 | `SP1_PRIVATE_KEY` | The private key for the SP1 account. |
 | `SP1_PROVER` | The type of prover to use (set to "network"). |
-| `SKIP_SIMULATION` | Whether to skip simulation of the proof before sending to the SP1 server (default is true). |
-| `USE_CACHED_STARTING_BLOCK` | Whether to use the cached starting block number from `zkconfig.json` (default is true). |
-| `ETHERSCAN_API_KEY` | The Etherscan API key to use for verifying the contract on Etherscan. |
+| `SKIP_SIMULATION` | Whether to skip simulation of the proof before sending to the SP1 server (default is false). |
 
 
 ## 2) Build the Proposer

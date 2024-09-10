@@ -18,9 +18,10 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
     let workspace_root =
         PathBuf::from(cargo_metadata::MetadataCommand::new().exec()?.workspace_root);
 
+    // Read the L2OO config from the contracts directory.
     let mut l2oo_config = get_l2oo_config_from_contracts(&workspace_root)?;
 
-    // If the starting block number is not set, set it to 10 blocks before the latest block on L2.
+    // If we are not using a cached starting block number, set it to 10 blocks before the latest block on L2.
     if env::var("USE_CACHED_STARTING_BLOCK").unwrap_or("false".to_string()) != "true" {
         // Set the starting block number to 10 blocks before the latest block on L2.
         let latest_block = block_on(sp1_kona_data_fetcher.get_head(ChainMode::L2))?;
@@ -28,8 +29,10 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
     }
     let starting_block_number = l2oo_config["startingBlockNumber"].as_u64().unwrap();
 
+    // Fetch the rollup config from the rollup node.
     let rollup_json =
         fetch_rpc_data(&sp1_kona_data_fetcher.l2_node_rpc, "optimism_rollupConfig", vec![])?;
+    // Get the L2 block time from the rollup config.
     let l2_block_time = rollup_json["block_time"].as_u64().unwrap();
 
     // Convert the starting block number to a hex string as that's what the optimism_outputAtBlock RPC call expects.
@@ -48,10 +51,12 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
     let merged_config = merge_configs(&rollup_json, &chain_json)?;
     let merged_config_str = serde_json::to_string_pretty(&merged_config)?;
 
+    // Write the merged config to the rollup-config.json file.
     fs::write(rollup_config_path, &merged_config_str)?;
 
     info!("Updated rollup config saved to ./rollup-config.json");
 
+    // Hash the rollup config.
     let hash: B256 = hash_rollup_config(&merged_config_str.as_bytes().to_vec());
 
     // Set the L2 block time from the rollup config.
@@ -75,6 +80,7 @@ fn save_rollup_config_to_zkconfig() -> Result<()> {
     let (_, vkey) = prover.setup(AGG_ELF);
     l2oo_config["vkey"] = json!(vkey.vk.bytes32());
 
+    // Write the L2OO rollup config to the zkconfig.json file.
     write_l2oo_config_to_zkconfig(l2oo_config, &workspace_root)?;
 
     Ok(())
