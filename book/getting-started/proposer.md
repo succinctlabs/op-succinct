@@ -31,7 +31,7 @@ In the root directory, create a file called `.env` (mirroring `.env.example`) an
 | `PROVER_NETWORK_RPC` | The RPC URL for the Succinct Prover Network. |
 | `SP1_PRIVATE_KEY` | The private key for the SP1 account. |
 | `SP1_PROVER` | The type of prover to use (set to "network"). |
-| `SKIP_SIMULATION` | Whether to skip simulation of the proof before sending to the SP1 server (default is false). |
+| `SKIP_SIMULATION` | Whether to skip simulation of the proof before sending to the SP1 server (default is true). |
 
 
 ## 2) Build the Proposer
