@@ -3,6 +3,7 @@
 
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
+use kona_primitives::RollupConfig;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -12,12 +13,14 @@ pub const BOOT_INFO_SIZE: usize = 6 * 32;
 /// Hash the serialized rollup config using SHA256. Note: The rollup config is never unrolled
 /// on-chain, so switching to a different hash function is not a concern, as long as the config hash
 /// is consistent with the one on the contract.
-pub fn hash_rollup_config(serialized_config: &Vec<u8>) -> B256 {
+pub fn hash_rollup_config(config: &RollupConfig) -> B256 {
+    let serialized_config = serde_json::to_string_pretty(config).unwrap();
+
     // Create a SHA256 hasher
     let mut hasher = Sha256::new();
 
     // Hash the serialized config
-    hasher.update(serialized_config.as_slice());
+    hasher.update(serialized_config.as_bytes());
 
     // Finalize and convert to B256
     let hash = hasher.finalize();
@@ -39,13 +42,14 @@ sol! {
 impl From<BootInfoWithBytesConfig> for BootInfoStruct {
     /// Convert a `BootInfoWithBytesConfig` to a `BootInfoStruct`.
     fn from(boot_info: BootInfoWithBytesConfig) -> Self {
+        let rollup_config = serde_json::from_slice(&boot_info.rollup_config_bytes).unwrap();
         BootInfoStruct {
             l1Head: boot_info.l1_head,
             l2PreRoot: boot_info.l2_output_root,
             l2PostRoot: boot_info.l2_claim,
             l2BlockNumber: boot_info.l2_claim_block,
             chainId: boot_info.chain_id,
-            rollupConfigHash: hash_rollup_config(&boot_info.rollup_config_bytes),
+            rollupConfigHash: hash_rollup_config(&rollup_config),
         }
     }
 }

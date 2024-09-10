@@ -4,7 +4,7 @@ use kona_host::HostCli;
 use kona_primitives::RollupConfig;
 use log::info;
 use op_succinct_host_utils::{
-    fetcher::{CacheMode, ChainMode, OPSuccinctDataFetcher},
+    fetcher::{CacheMode, OPSuccinctDataFetcher, RPCMode},
     get_proof_stdin,
     stats::{get_execution_stats, ExecutionStats},
     witnessgen::WitnessGenExecutor,
@@ -370,9 +370,9 @@ async fn main() -> Result<()> {
     utils::setup_logger();
 
     let args = HostArgs::parse();
-    let data_fetcher = OPSuccinctDataFetcher::new();
+    let data_fetcher = OPSuccinctDataFetcher::new().await;
 
-    let l2_chain_id = data_fetcher.get_chain_id(ChainMode::L2).await?;
+    let l2_chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
     let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
 
     // Start the Docker container if it doesn't exist.

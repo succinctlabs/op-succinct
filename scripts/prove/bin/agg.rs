@@ -6,7 +6,7 @@ use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, BOOT_INFO_SIZE};
 use op_succinct_host_utils::{
-    fetcher::{ChainMode, OPSuccinctDataFetcher},
+    fetcher::{OPSuccinctDataFetcher, RPCMode},
     get_agg_proof_stdin,
 };
 use sp1_sdk::{utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues};
@@ -69,12 +69,12 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
     let prover = ProverClient::new();
-    let fetcher = OPSuccinctDataFetcher::new();
+    let fetcher = OPSuccinctDataFetcher::new().await;
 
-    let l2_chain_id = fetcher.get_chain_id(ChainMode::L2).await?;
+    let l2_chain_id = fetcher.get_chain_id(RPCMode::L2).await?;
     let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, l2_chain_id);
     let latest_checkpoint_head = fetcher
-        .get_header_by_number(ChainMode::L1, args.latest_checkpoint_head_nb)
+        .get_header_by_number(RPCMode::L1, args.latest_checkpoint_head_nb)
         .await?
         .hash_slow();
     let headers = fetcher.get_header_preimages(&boot_infos, latest_checkpoint_head).await?;

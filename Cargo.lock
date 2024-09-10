@@ -4106,6 +4106,7 @@ dependencies = [
  "revm",
  "rkyv",
  "serde",
+ "serde_json",
  "sha2",
 ]
 
@@ -4123,11 +4124,15 @@ dependencies = [
  "futures",
  "kona-host",
  "kona-preimage",
+ "kona-primitives",
+ "log",
  "num-format",
  "op-succinct-client-utils",
+ "reqwest 0.12.7",
  "rkyv",
  "serde",
  "serde_cbor",
+ "serde_json",
  "sp1-sdk",
  "tokio",
 ]

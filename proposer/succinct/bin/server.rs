@@ -76,7 +76,7 @@ async fn request_span_proof(
     dotenv::dotenv().ok();
     // TODO: Save data fetcher, NetworkProver, and NetworkClient globally
     // and access via Store.
-    let data_fetcher = OPSuccinctDataFetcher::new();
+    let data_fetcher = OPSuccinctDataFetcher::new().await;
 
     let host_cli = data_fetcher
         .get_host_cli_args(payload.start, payload.end, ProgramType::Multi, CacheMode::DeleteCache)
@@ -115,7 +115,7 @@ async fn request_agg_proof(
         hex::decode(payload.head.strip_prefix("0x").expect("Invalid L1 head, no 0x prefix."))?;
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
-    let fetcher = OPSuccinctDataFetcher::new();
+    let fetcher = OPSuccinctDataFetcher::new().await;
     let headers = fetcher.get_header_preimages(&boot_infos, l1_head.into()).await?;
 
     let prover = NetworkProver::new();
