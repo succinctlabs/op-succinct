@@ -80,13 +80,14 @@ if __name__ == "__main__":
     print("\nQuerying span proofs")
     db_path = "../db/proofs.db"
 
-    start_block = 17048966  # Replace with the desired start block
-    for i in range(3000):
+    start_block = 17100785  # Replace with the desired start block
+    for i in range(4000):
     
         proofs = query_span_proofs(db_path, start_block)
     
         for proof in proofs:
-            print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
+            if proof[4] == "FAILED" and proof[6] == None:
+                print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
         start_block += 1
     
     # Query for AGG proofs
