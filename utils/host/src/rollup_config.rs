@@ -124,6 +124,6 @@ pub fn save_rollup_config(rollup_config: &RollupConfig) -> Result<()> {
         workspace_root.join(format!("rollup-configs/{}.json", rollup_config.l2_chain_id));
 
     let rollup_config_str = serde_json::to_string_pretty(rollup_config)?;
-    fs::write(rollup_config_path, &rollup_config_str)?;
+    fs::write(rollup_config_path, rollup_config_str)?;
     Ok(())
 }
