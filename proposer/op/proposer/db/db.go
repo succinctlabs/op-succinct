@@ -20,6 +20,8 @@ type ProofDB struct {
 func InitDB(dbPath string, useCachedDb bool) (*ProofDB, error) {
 	if !useCachedDb {
 		os.Remove(dbPath)
+	} else {
+		fmt.Printf("Using cached DB at %s\n", dbPath)
 	}
 	connectionString := fmt.Sprintf("file:%s?_fk=1", dbPath)
 	client, err := ent.Open("sqlite3", connectionString)

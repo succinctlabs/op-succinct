@@ -183,6 +183,7 @@ var optionalFlags = []cli.Flag{
 	ActiveSequencerCheckDurationFlag,
 	WaitNodeSyncFlag,
 	DbPathFlag,
+	UseCachedDbFlag,
 	MaxSpanBatchDeviationFlag,
 	MaxBlockRangePerSpanProofFlag,
 	ProofTimeoutFlag,
