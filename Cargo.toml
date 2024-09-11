@@ -37,20 +37,17 @@ tower-http = { version = "0.5.2", features = ["limit"] }
 kzg-rs = { version = "0.2.2" }
 
 # kona
-# TODO: Change to stable tag when released.
-# Note: Explicitly needed to downgrade superchain-primitives to 0.3.1.
-# cargo update -p superchain-primitives@0.3.2 --precise 0.3.1
-kona-common = { git = "https://github.com/anton-rs/kona" }
-kona-common-proc = { git = "https://github.com/anton-rs/kona" }
-kona-preimage = { git = "https://github.com/anton-rs/kona", features = [
+kona-common = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
+kona-common-proc = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
+kona-preimage = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3", features = [
     "rkyv",
 ] }
-kona-primitives = { git = "https://github.com/anton-rs/kona" }
-kona-mpt = { git = "https://github.com/anton-rs/kona" }
-kona-derive = { git = "https://github.com/anton-rs/kona", default-features = false }
-kona-executor = { git = "https://github.com/anton-rs/kona" }
-kona-client = { git = "https://github.com/anton-rs/kona" }
-kona-host = { git = "https://github.com/anton-rs/kona" }
+kona-primitives = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
+kona-mpt = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
+kona-derive = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3", default-features = false }
+kona-executor = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
+kona-client = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
+kona-host = { git = "https://github.com/anton-rs/kona", tag = "kona-client-v0.1.0-alpha.3" }
 
 
 # op-succinct
