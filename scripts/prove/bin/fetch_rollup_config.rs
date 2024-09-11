@@ -5,7 +5,10 @@ use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sp1_sdk::{HashableKey, ProverClient};
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 
@@ -99,7 +102,7 @@ async fn update_l2oo_config() -> Result<()> {
 /// Get the L2OO rollup config from the contracts directory.
 ///
 /// Note: The L2OO config is stored in `contracts/zkl2ooconfig.json`.
-fn get_existing_l2oo_config(workspace_root: &PathBuf) -> Result<L2OOConfig> {
+fn get_existing_l2oo_config(workspace_root: &Path) -> Result<L2OOConfig> {
     let zkconfig_path = workspace_root.join("contracts/zkl2ooconfig.json").canonicalize()?;
     if fs::metadata(&zkconfig_path).is_ok() {
         let zkconfig_str = fs::read_to_string(zkconfig_path)?;
@@ -110,7 +113,7 @@ fn get_existing_l2oo_config(workspace_root: &PathBuf) -> Result<L2OOConfig> {
 }
 
 /// Write the L2OO rollup config to `contracts/zkl2ooconfig.json`.
-fn write_l2oo_config(config: L2OOConfig, workspace_root: &PathBuf) -> Result<()> {
+fn write_l2oo_config(config: L2OOConfig, workspace_root: &Path) -> Result<()> {
     let zkconfig_path = workspace_root.join("contracts/zkl2ooconfig.json").canonicalize()?;
     // Write the L2OO rollup config to the zkl2ooconfig.json file.
     fs::write(zkconfig_path, serde_json::to_string_pretty(&config)?)?;
