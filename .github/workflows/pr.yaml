@@ -21,7 +21,7 @@ concurrency:
 jobs:
   lint:
     name: Formatting & Clippy
-    runs-on: [runs-on, runner=8cpu-linux-x64, "run-id=${{ github.run_id }}"]
+    runs-on: [runs-on, runner=32cpu-linux-arm64	, "run-id=${{ github.run_id }}"]
     env:
       CARGO_NET_GIT_FETCH_WITH_CLI: "true"
     steps:
