@@ -124,7 +124,7 @@ fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
 }
 
 /// Split ranges according to the max span batch range size per L2 chain.
-/// 
+///
 /// If the width of the span batch range returned by the server is 0, expand it to 1, and propogate those changes.
 fn split_ranges(span_batch_ranges: Vec<SpanBatchRange>, l2_chain_id: u64) -> Vec<SpanBatchRange> {
     // Sort the ranges by start block.
