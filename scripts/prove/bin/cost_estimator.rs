@@ -134,7 +134,7 @@ fn split_ranges(span_batch_ranges: Vec<SpanBatchRange>, l2_chain_id: u64) -> Vec
     let batch_size = get_max_span_batch_range_size(l2_chain_id);
     let mut split_ranges = Vec::new();
 
-    for (_, range) in span_batch_ranges.iter().enumerate() {
+    for range in span_batch_ranges.iter() {
         if range.end - range.start > batch_size {
             let mut start = range.start;
             while start < range.end {
