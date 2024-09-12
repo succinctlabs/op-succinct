@@ -15,8 +15,7 @@ contract ZKDeployer is Script, Utils {
 
         Config memory config = readJson("zkl2ooconfig.json");
 
-        // TODO: This seems wrong. Why are we using the msg.sender as a proxy?
-        config.l2OutputOracleProxy = address(new Proxy(msg.sender));
+        config.l2OutputOracleProxy = address(new Proxy(config.owner));
 
         address zkL2OutputOracleImpl = address(new ZKL2OutputOracle());
 
