@@ -313,7 +313,11 @@ impl OPSuccinctDataFetcher {
         cache_mode: CacheMode,
     ) -> Result<HostCli> {
         if l2_start_block >= l2_end_block {
-            return Err(anyhow::anyhow!("L2 start block is greater than or equal to L2 end block"));
+            return Err(anyhow::anyhow!(
+                "L2 start block is greater than or equal to L2 end block. Start: {}, End: {}",
+                l2_start_block,
+                l2_end_block
+            ));
         }
 
         let l2_provider = self.l2_provider.clone();

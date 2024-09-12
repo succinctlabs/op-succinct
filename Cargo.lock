@@ -4219,7 +4219,9 @@ dependencies = [
  "clap",
  "kona-host",
  "log",
+ "sp1-sdk",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -23,7 +23,7 @@ fn build_native_host_runner() {
     let target_dir = metadata.target_directory.join("native_host_runner");
 
     let status = Command::new("cargo")
-        .args([
+        .args([ 
             "build",
             "--workspace",
             "--bin",
@@ -52,10 +52,10 @@ fn build_zkvm_program(program: &str) {
             ..Default::default()
         },
     );
-}
+} 
 
 fn main() {
-    let programs = vec!["range"];
+    let programs = vec!["fault-proof", "range"];
 
     for program in programs {
         // Note: Don't comment this out, because the Docker program depends on the native program
@@ -67,5 +67,5 @@ fn main() {
     // build_zkvm_program("aggregation");
     // Note: Don't comment this out, because the Docker program depends on the native host runner
     // being built.
-    build_native_host_runner();
+    build_native_host_runner(); 
 }

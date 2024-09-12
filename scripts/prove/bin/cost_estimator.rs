@@ -124,21 +124,38 @@ fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
 }
 
 /// Split ranges according to the max span batch range size per L2 chain.
+/// 
+/// If the width of the span batch range returned by the server is 0, expand it to 1, and propogate those changes.
 fn split_ranges(span_batch_ranges: Vec<SpanBatchRange>, l2_chain_id: u64) -> Vec<SpanBatchRange> {
+    // Sort the ranges by start block.
+    let mut span_batch_ranges = span_batch_ranges.clone();
+    span_batch_ranges.sort_by_key(|range| range.start);
+
     let batch_size = get_max_span_batch_range_size(l2_chain_id);
     let mut split_ranges = Vec::new();
 
-    for range in span_batch_ranges {
+    for (_, range) in span_batch_ranges.iter().enumerate() {
         if range.end - range.start > batch_size {
             let mut start = range.start;
             while start < range.end {
                 let end = min(start + batch_size, range.end);
                 split_ranges.push(SpanBatchRange { start, end });
-                // The start of the next range should be the end of the current range + 1.
                 start = end + 1;
             }
         } else {
-            split_ranges.push(range);
+            split_ranges.push(range.clone());
+        }
+    }
+
+    // Iterate through the split ranges and fix any ranges that have the same start and end block.
+    // Ensure that the start of the next range gets incremented by one as well.
+    for i in 0..split_ranges.len() {
+        if split_ranges[i].start == split_ranges[i].end {
+            split_ranges[i].end += 1;
+            // Only increment the start of the next range if it's not the last range.
+            if i < split_ranges.len() - 1 {
+                split_ranges[i + 1].start += 1;
+            }
         }
     }
 
