@@ -37,6 +37,10 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
     if host_cli.server {
         args.push("--server".to_string());
     }
+    if let Some(rollup_config_path) = &host_cli.rollup_config_path {
+        args.push("--rollup-config-path".to_string());
+        args.push(rollup_config_path.to_string_lossy().into_owned());
+    }
     args
 }
 
