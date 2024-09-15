@@ -6,6 +6,7 @@ use log::info;
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RPCMode},
     get_proof_stdin,
+    rollup_config::read_rollup_config,
     stats::{get_execution_stats, ExecutionStats},
     witnessgen::WitnessGenExecutor,
     ProgramType,
@@ -16,7 +17,8 @@ use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
 use std::{
     cmp::{max, min},
-    env, fs,
+    env,
+    fs::{self},
     future::Future,
     net::TcpListener,
     path::PathBuf,
@@ -114,7 +116,7 @@ struct BatchHostCli {
 }
 
 fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
-    const DEFAULT_SIZE: u64 = 20;
+    const DEFAULT_SIZE: u64 = 50;
     match chain_id {
         8453 => 5,      // Base
         11155111 => 20, // OP Sepolia
@@ -167,7 +169,7 @@ async fn run_native_data_generation(
     data_fetcher: &OPSuccinctDataFetcher,
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
-    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
+    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 1;
 
     // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
     // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
@@ -391,7 +393,9 @@ async fn main() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new().await;
 
     let l2_chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
-    let rollup_config = RollupConfig::from_l2_chain_id(l2_chain_id).unwrap();
+
+    // Read the rollup config.
+    let rollup_config: RollupConfig = read_rollup_config(l2_chain_id).unwrap();
 
     // Start the Docker container if it doesn't exist.
     manage_span_batch_server_container()?;
