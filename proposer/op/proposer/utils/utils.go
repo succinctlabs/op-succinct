@@ -2,12 +2,15 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"math/big"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/cmd/batch_decoder/fetch"
@@ -47,25 +50,130 @@ type BatchDecoderConfig struct {
 	DataDir           string
 }
 
-// Get the rollup config from the given L2 RPC.
-func GetRollupConfigFromL2Rpc(l2Rpc string) (*rollup.Config, error) {
-	l2Client, err := ethclient.Dial(l2Rpc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial L2 client: %w", err)
+// CustomBytes32 is a wrapper around eth.Bytes32 that can unmarshal from both
+// full-length and minimal hex strings.
+type CustomBytes32 eth.Bytes32
+
+func (b *CustomBytes32) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
 	}
 
-	chainID, err := l2Client.ChainID(context.Background())
+	// Remove "0x" prefix if present
+	s = strings.TrimPrefix(s, "0x")
+
+	// Pad the string to 64 characters (32 bytes) with leading zeros
+	s = fmt.Sprintf("%064s", s)
+
+	// Add back the "0x" prefix
+	s = "0x" + s
+
+	bytes, err := common.ParseHexOrString(s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain ID: %w", err)
+		return err
 	}
 
-	rollupCfg, err := rollup.LoadOPStackRollupConfig(chainID.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to load rollup config: %w", err)
+	if len(bytes) != 32 {
+		return fmt.Errorf("invalid length for Bytes32: got %d, want 32", len(bytes))
 	}
 
-	return rollupCfg, nil
+	copy((*b)[:], bytes)
+	return nil
 }
+
+func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error) {
+	path := fmt.Sprintf("../../../rollup-configs/%d.json", l2ChainId)
+	rollupCfg, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read rollup config: %w", err)
+	}
+
+	// Unmarshal into a map first
+	var rawConfig map[string]interface{}
+	if err := json.Unmarshal(rollupCfg, &rawConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal rollup config: %w", err)
+	}
+
+	// Handle the custom Overhead and Scalar fields
+	if genesis, ok := rawConfig["genesis"].(map[string]interface{}); ok {
+		if l1, ok := genesis["l1"].(map[string]interface{}); ok {
+			if number, ok := l1["number"].(string); ok {
+				if intNumber, err := strconv.ParseInt(strings.TrimPrefix(number, "0x"), 16, 64); err == nil {
+					l1["number"] = intNumber
+				}
+			}
+		}
+		if l2, ok := genesis["l2"].(map[string]interface{}); ok {
+			if number, ok := l2["number"].(string); ok {
+				if intNumber, err := strconv.ParseInt(strings.TrimPrefix(number, "0x"), 16, 64); err == nil {
+					l2["number"] = intNumber
+				}
+			}
+		}
+		if systemConfig, ok := genesis["system_config"].(map[string]interface{}); ok {
+			if overhead, ok := systemConfig["overhead"].(string); ok {
+				var customOverhead CustomBytes32
+				if err := customOverhead.UnmarshalJSON([]byte(`"` + overhead + `"`)); err != nil {
+					return nil, fmt.Errorf("failed to parse overhead: %w", err)
+				}
+				systemConfig["overhead"] = eth.Bytes32(customOverhead)
+			}
+			if scalar, ok := systemConfig["scalar"].(string); ok {
+				var customScalar CustomBytes32
+				if err := customScalar.UnmarshalJSON([]byte(`"` + scalar + `"`)); err != nil {
+					return nil, fmt.Errorf("failed to parse scalar: %w", err)
+				}
+				systemConfig["scalar"] = eth.Bytes32(customScalar)
+			}
+		}
+	}
+	if baseFeeParams, ok := rawConfig["base_fee_params"].(map[string]interface{}); ok {
+		if maxChangeDenominator, ok := baseFeeParams["max_change_denominator"].(string); ok {
+			if intMaxChangeDenominator, err := strconv.ParseInt(strings.TrimPrefix(maxChangeDenominator, "0x"), 16, 64); err == nil {
+				baseFeeParams["max_change_denominator"] = intMaxChangeDenominator
+			}
+		}
+	}
+	if canyonBaseFeeParams, ok := rawConfig["canyon_base_fee_params"].(map[string]interface{}); ok {
+		if maxChangeDenominator, ok := canyonBaseFeeParams["max_change_denominator"].(string); ok {
+			if intMaxChangeDenominator, err := strconv.ParseInt(strings.TrimPrefix(maxChangeDenominator, "0x"), 16, 64); err == nil {
+				canyonBaseFeeParams["max_change_denominator"] = intMaxChangeDenominator
+			}
+		}
+	}
+
+	// Re-marshal the modified config
+	modifiedConfig, err := json.Marshal(rawConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to re-marshal modified config: %w", err)
+	}
+
+	// Unmarshal into the actual rollup.Config struct
+	var config rollup.Config
+	if err := json.Unmarshal(modifiedConfig, &config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal modified rollup config: %w", err)
+	}
+
+	return &config, nil
+}
+
+// // / Load the rollup config for the given L2 chain ID from the rollup-configs directory.
+// func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error) {
+// 	path := fmt.Sprintf("../../../rollup-configs/%d.json", l2ChainId)
+// 	rollupCfg, err := os.ReadFile(path)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to read rollup config for chain ID %d: %w", l2ChainId, err)
+// 	}
+
+// 	var config rollup.Config
+// 	err = json.Unmarshal(rollupCfg, &config)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to unmarshal rollup config for chain ID %d: %w", l2ChainId, err)
+// 	}
+
+// 	return &config, nil
+// }
 
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
 func GetAllSpanBatchesInL2BlockRange(config BatchDecoderConfig) ([]SpanBatchRange, error) {
@@ -104,6 +212,7 @@ func GetAllSpanBatchesInL2BlockRange(config BatchDecoderConfig) ([]SpanBatchRang
 	return ranges, nil
 }
 
+// / Get the L2 block number for the given L2 timestamp.
 func TimestampToBlock(rollupCfg *rollup.Config, l2Timestamp uint64) uint64 {
 	return ((l2Timestamp - rollupCfg.Genesis.L2Time) / rollupCfg.BlockTime) + rollupCfg.Genesis.L2.Number
 }
@@ -128,7 +237,10 @@ func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, star
 			batchStartBlock := TimestampToBlock(rollupCfg, b.GetTimestamp())
 			spanBatch, success := b.AsSpanBatch()
 			if !success {
-				log.Fatalf("couldn't convert batch %v to span batch\n", idx)
+				// If AsSpanBatch fails, return the entire range
+				log.Printf("couldn't convert batch %v to span batch\n", idx)
+				ranges = append(ranges, SpanBatchRange{Start: startBlock, End: endBlock})
+				return ranges, nil
 			}
 			blockCount := spanBatch.GetBlockCount()
 			batchEndBlock := batchStartBlock + uint64(blockCount) - 1
@@ -144,42 +256,9 @@ func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, star
 	return ranges, nil
 }
 
-// Find the span batch that contains the given L2 block. If no span batch contains the given block, return the start block of the span batch that is closest to the given block.
-func GetSpanBatchRange(config reassemble.Config, rollupCfg *rollup.Config, l2Block, maxSpanBatchDeviation uint64) (uint64, uint64, error) {
-	frames := reassemble.LoadFrames(config.InDirectory, config.BatchInbox)
-	framesByChannel := make(map[derive.ChannelID][]reassemble.FrameWithMetadata)
-	for _, frame := range frames {
-		framesByChannel[frame.Frame.ID] = append(framesByChannel[frame.Frame.ID], frame)
-	}
-	for id, frames := range framesByChannel {
-		ch := processFrames(config, rollupCfg, id, frames)
-		if len(ch.Batches) == 0 {
-			log.Fatalf("no span batches in channel")
-			return 0, 0, errors.New("no span batches in channel")
-		}
-
-		for idx, b := range ch.Batches {
-			startBlock := TimestampToBlock(rollupCfg, b.GetTimestamp())
-			spanBatch, success := b.AsSpanBatch()
-			if !success {
-				log.Fatalf("couldn't convert batch %v to span batch\n", idx)
-				return 0, 0, errors.New("couldn't convert batch to span batch")
-			}
-			blockCount := spanBatch.GetBlockCount()
-			endBlock := startBlock + uint64(blockCount) - 1
-			if l2Block >= startBlock && l2Block <= endBlock {
-				return startBlock, endBlock, nil
-			} else if l2Block+maxSpanBatchDeviation < startBlock {
-				return l2Block, startBlock - 1, ErrMaxDeviationExceeded
-			}
-		}
-	}
-	return 0, 0, ErrNoSpanBatchFound
-}
-
 // Set up the batch decoder config.
 func setupBatchDecoderConfig(config *BatchDecoderConfig) (*rollup.Config, error) {
-	rollupCfg, err := rollup.LoadOPStackRollupConfig(config.L2ChainID.Uint64())
+	rollupCfg, err := LoadOPStackRollupConfigFromChainID(config.L2ChainID.Uint64())
 	if err != nil {
 		return nil, err
 	}
