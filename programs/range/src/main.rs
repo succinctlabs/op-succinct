@@ -171,8 +171,10 @@ fn main() {
                 Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash_slow()),
             );
 
-            // Produce the next payload.
+            println!("cycle-tracker-report-start: payload-derivation");
+            // Produce the next payload. If a span batch boundary is passed, the driver will step until the next batch.
             payload = driver.produce_payloads().await.unwrap();
+            println!("cycle-tracker-report-end: payload-derivation");
         }
 
         println!("cycle-tracker-start: output-root");

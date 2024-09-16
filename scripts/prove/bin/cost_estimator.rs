@@ -97,6 +97,7 @@ async fn get_span_batch_ranges_from_server(
         env::var("SPAN_BATCH_SERVER_URL").unwrap_or("http://localhost:8089".to_string());
     let query_url = format!("{}/span-batch-ranges", span_batch_server_url);
 
+    // Send the request to the span batch server. If the request fails, return the corresponding error.
     let response: SpanBatchResponse =
         client.post(&query_url).json(&request).send().await?.json().await?;
 
@@ -343,8 +344,6 @@ fn manage_span_batch_server_container() -> Result<()> {
     // Start the Docker container.
     let run_status = Command::new("docker")
         .args(["run", "-p", "8089:8089", "-d", "span_batch_server"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
         .status()?;
     if !run_status.success() {
         return Err(anyhow::anyhow!("Failed to start Docker container"));
