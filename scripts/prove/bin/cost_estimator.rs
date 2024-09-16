@@ -357,8 +357,6 @@ fn manage_span_batch_server_container() -> Result<()> {
     // Start the Docker container.
     let run_status = Command::new("docker")
         .args(["run", "-p", "8089:8089", "-d", "span_batch_server"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
         .status()?;
     if !run_status.success() {
         return Err(anyhow::anyhow!("Failed to start Docker container"));

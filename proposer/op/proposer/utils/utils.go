@@ -9,6 +9,8 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -83,7 +85,10 @@ func (b *CustomBytes32) UnmarshalJSON(data []byte) error {
 }
 
 func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error) {
-	path := fmt.Sprintf("../../../rollup-configs/%d.json", l2ChainId)
+	_, currentFile, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(currentFile)
+	path := filepath.Join(currentDir, "..", "..", "..", "..", "rollup-configs", fmt.Sprintf("%d.json", l2ChainId))
+	fmt.Printf("Path: %v\n", path)
 	rollupCfg, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rollup config: %w", err)
@@ -157,23 +162,6 @@ func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error
 
 	return &config, nil
 }
-
-// // / Load the rollup config for the given L2 chain ID from the rollup-configs directory.
-// func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error) {
-// 	path := fmt.Sprintf("../../../rollup-configs/%d.json", l2ChainId)
-// 	rollupCfg, err := os.ReadFile(path)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to read rollup config for chain ID %d: %w", l2ChainId, err)
-// 	}
-
-// 	var config rollup.Config
-// 	err = json.Unmarshal(rollupCfg, &config)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to unmarshal rollup config for chain ID %d: %w", l2ChainId, err)
-// 	}
-
-// 	return &config, nil
-// }
 
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
 func GetAllSpanBatchesInL2BlockRange(config BatchDecoderConfig) ([]SpanBatchRange, error) {
