@@ -84,72 +84,34 @@ func (b *CustomBytes32) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// LoadOPStackRollupConfigFromChainID loads and parses the rollup config for the given L2 chain ID.
 func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error) {
+	// Determine the path to the rollup config file
 	_, currentFile, _, _ := runtime.Caller(0)
 	currentDir := filepath.Dir(currentFile)
 	path := filepath.Join(currentDir, "..", "..", "..", "..", "rollup-configs", fmt.Sprintf("%d.json", l2ChainId))
 	fmt.Printf("Path: %v\n", path)
+
+	// Read the rollup config file
 	rollupCfg, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rollup config: %w", err)
 	}
 
-	// Unmarshal into a map first
+	// Parse the JSON config
 	var rawConfig map[string]interface{}
 	if err := json.Unmarshal(rollupCfg, &rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal rollup config: %w", err)
 	}
 
-	// Handle the custom Overhead and Scalar fields
-	if genesis, ok := rawConfig["genesis"].(map[string]interface{}); ok {
-		if l1, ok := genesis["l1"].(map[string]interface{}); ok {
-			if number, ok := l1["number"].(string); ok {
-				if intNumber, err := strconv.ParseInt(strings.TrimPrefix(number, "0x"), 16, 64); err == nil {
-					l1["number"] = intNumber
-				}
-			}
-		}
-		if l2, ok := genesis["l2"].(map[string]interface{}); ok {
-			if number, ok := l2["number"].(string); ok {
-				if intNumber, err := strconv.ParseInt(strings.TrimPrefix(number, "0x"), 16, 64); err == nil {
-					l2["number"] = intNumber
-				}
-			}
-		}
-		if systemConfig, ok := genesis["system_config"].(map[string]interface{}); ok {
-			if overhead, ok := systemConfig["overhead"].(string); ok {
-				var customOverhead CustomBytes32
-				if err := customOverhead.UnmarshalJSON([]byte(`"` + overhead + `"`)); err != nil {
-					return nil, fmt.Errorf("failed to parse overhead: %w", err)
-				}
-				systemConfig["overhead"] = eth.Bytes32(customOverhead)
-			}
-			if scalar, ok := systemConfig["scalar"].(string); ok {
-				var customScalar CustomBytes32
-				if err := customScalar.UnmarshalJSON([]byte(`"` + scalar + `"`)); err != nil {
-					return nil, fmt.Errorf("failed to parse scalar: %w", err)
-				}
-				systemConfig["scalar"] = eth.Bytes32(customScalar)
-			}
-		}
-	}
-	if baseFeeParams, ok := rawConfig["base_fee_params"].(map[string]interface{}); ok {
-		if maxChangeDenominator, ok := baseFeeParams["max_change_denominator"].(string); ok {
-			if intMaxChangeDenominator, err := strconv.ParseInt(strings.TrimPrefix(maxChangeDenominator, "0x"), 16, 64); err == nil {
-				baseFeeParams["max_change_denominator"] = intMaxChangeDenominator
-			}
-		}
-	}
-	if canyonBaseFeeParams, ok := rawConfig["canyon_base_fee_params"].(map[string]interface{}); ok {
-		if maxChangeDenominator, ok := canyonBaseFeeParams["max_change_denominator"].(string); ok {
-			if intMaxChangeDenominator, err := strconv.ParseInt(strings.TrimPrefix(maxChangeDenominator, "0x"), 16, 64); err == nil {
-				canyonBaseFeeParams["max_change_denominator"] = intMaxChangeDenominator
-			}
-		}
+	// Convert the Rust SuperchainConfig types to Go types, as they differ in a few places.
+	convertedConfig, err := convertConfigTypes(rawConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert config types: %w", err)
 	}
 
-	// Re-marshal the modified config
-	modifiedConfig, err := json.Marshal(rawConfig)
+	// Marshal the converted config back to JSON
+	modifiedConfig, err := json.Marshal(convertedConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-marshal modified config: %w", err)
 	}
@@ -161,6 +123,64 @@ func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error
 	}
 
 	return &config, nil
+}
+
+// The JSON serialization of the Rust superchain-primitives types differ from the Go types (ex. U256 instead of Bytes32, U64 instead of uint64, etc.)
+// This function converts the Rust types in the rollup config JSON to the Go types.
+func convertConfigTypes(rawConfig map[string]interface{}) (map[string]interface{}, error) {
+	// Convert genesis block numbers
+	if genesis, ok := rawConfig["genesis"].(map[string]interface{}); ok {
+		convertBlockNumber(genesis, "l1")
+		convertBlockNumber(genesis, "l2")
+		convertSystemConfig(genesis)
+	}
+
+	// Convert base fee parameters
+	convertBaseFeeParams(rawConfig, "base_fee_params")
+	convertBaseFeeParams(rawConfig, "canyon_base_fee_params")
+
+	return rawConfig, nil
+}
+
+// convertBlockNumber converts the block number from hex string to integer.
+func convertBlockNumber(data map[string]interface{}, key string) {
+	if block, ok := data[key].(map[string]interface{}); ok {
+		if number, ok := block["number"].(string); ok {
+			if intNumber, err := strconv.ParseInt(strings.TrimPrefix(number, "0x"), 16, 64); err == nil {
+				block["number"] = intNumber
+			}
+		}
+	}
+}
+
+// convertSystemConfig converts the overhead and scalar fields in the system config.
+func convertSystemConfig(genesis map[string]interface{}) {
+	if systemConfig, ok := genesis["system_config"].(map[string]interface{}); ok {
+		convertBytes32Field(systemConfig, "overhead")
+		convertBytes32Field(systemConfig, "scalar")
+	}
+}
+
+// convertBytes32Field converts a hex string to CustomBytes32 which can unmarshal from both
+// full-length and minimal hex strings.
+func convertBytes32Field(data map[string]interface{}, key string) {
+	if value, ok := data[key].(string); ok {
+		var customValue CustomBytes32
+		if err := customValue.UnmarshalJSON([]byte(`"` + value + `"`)); err == nil {
+			data[key] = eth.Bytes32(customValue)
+		}
+	}
+}
+
+// convertBaseFeeParams converts the max_change_denominator from hex string to integer.
+func convertBaseFeeParams(rawConfig map[string]interface{}, key string) {
+	if params, ok := rawConfig[key].(map[string]interface{}); ok {
+		if maxChangeDenominator, ok := params["max_change_denominator"].(string); ok {
+			if intValue, err := strconv.ParseInt(strings.TrimPrefix(maxChangeDenominator, "0x"), 16, 64); err == nil {
+				params["max_change_denominator"] = intValue
+			}
+		}
+	}
 }
 
 // GetAllSpanBatchesInBlockRange fetches span batches within a range of L2 blocks.
