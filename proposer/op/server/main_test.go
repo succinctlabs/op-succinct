@@ -28,7 +28,7 @@ func TestHandleSpanBatchRanges(t *testing.T) {
 		t.Fatalf("Required environment variables are not set")
 	}
 
-	// Get the L2 chain ID from the L2 RPC
+	// Get the L2 chain ID from the L2 RPC.
 	l2Client, err := ethclient.Dial(l2Rpc)
 	if err != nil {
 		t.Fatalf("Failed to connect to L2 RPC: %v", err)
@@ -37,7 +37,7 @@ func TestHandleSpanBatchRanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get chain ID: %v", err)
 	}
-	// Rollup config
+	// Load the rollup config for the given L2 chain ID.
 	rollupCfg, err := utils.LoadOPStackRollupConfigFromChainID(chainID.Uint64())
 	if err != nil {
 		t.Fatalf("Failed to get rollup config: %v", err)

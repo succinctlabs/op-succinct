@@ -97,22 +97,9 @@ async fn get_span_batch_ranges_from_server(
         env::var("SPAN_BATCH_SERVER_URL").unwrap_or("http://localhost:8089".to_string());
     let query_url = format!("{}/span-batch-ranges", span_batch_server_url);
 
-    let response = match client.post(&query_url).json(&request).send().await {
-        Ok(result) => {
-            let text = result.text().await.unwrap();
-            match serde_json::from_str::<SpanBatchResponse>(&text) {
-                Ok(json) => json,
-                Err(e) => {
-                    eprintln!("Error parsing JSON: {}. Response: {}", e, text);
-                    return Err(e.into());
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("Error sending request: {}", e);
-            return Err(e.into());
-        }
-    };
+    // Send the request to the span batch server. If the request fails, return the corresponding error.
+    let response: SpanBatchResponse =
+        client.post(&query_url).json(&request).send().await?.json().await?;
 
     // If the response is empty, return one range with the start and end blocks.
     if response.ranges.is_none() {

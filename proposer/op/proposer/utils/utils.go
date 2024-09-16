@@ -56,19 +56,20 @@ type BatchDecoderConfig struct {
 // full-length and minimal hex strings.
 type CustomBytes32 eth.Bytes32
 
+// Unmarshal some data into a CustomBytes32.
 func (b *CustomBytes32) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
 
-	// Remove "0x" prefix if present
+	// Remove "0x" prefix if present.
 	s = strings.TrimPrefix(s, "0x")
 
-	// Pad the string to 64 characters (32 bytes) with leading zeros
+	// Pad the string to 64 characters (32 bytes) with leading zeros.
 	s = fmt.Sprintf("%064s", s)
 
-	// Add back the "0x" prefix
+	// Add back the "0x" prefix.
 	s = "0x" + s
 
 	bytes, err := common.ParseHexOrString(s)
@@ -86,19 +87,18 @@ func (b *CustomBytes32) UnmarshalJSON(data []byte) error {
 
 // LoadOPStackRollupConfigFromChainID loads and parses the rollup config for the given L2 chain ID.
 func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error) {
-	// Determine the path to the rollup config file
+	// Determine the path to the rollup config file.
 	_, currentFile, _, _ := runtime.Caller(0)
 	currentDir := filepath.Dir(currentFile)
 	path := filepath.Join(currentDir, "..", "..", "..", "..", "rollup-configs", fmt.Sprintf("%d.json", l2ChainId))
-	fmt.Printf("Path: %v\n", path)
 
-	// Read the rollup config file
+	// Read the rollup config file.
 	rollupCfg, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read rollup config: %w", err)
 	}
 
-	// Parse the JSON config
+	// Parse the JSON config.
 	var rawConfig map[string]interface{}
 	if err := json.Unmarshal(rollupCfg, &rawConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal rollup config: %w", err)
@@ -110,13 +110,13 @@ func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error
 		return nil, fmt.Errorf("failed to convert config types: %w", err)
 	}
 
-	// Marshal the converted config back to JSON
+	// Marshal the converted config back to JSON.
 	modifiedConfig, err := json.Marshal(convertedConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to re-marshal modified config: %w", err)
 	}
 
-	// Unmarshal into the actual rollup.Config struct
+	// Unmarshal into the actual rollup.Config struct.
 	var config rollup.Config
 	if err := json.Unmarshal(modifiedConfig, &config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal modified rollup config: %w", err)
@@ -128,14 +128,14 @@ func LoadOPStackRollupConfigFromChainID(l2ChainId uint64) (*rollup.Config, error
 // The JSON serialization of the Rust superchain-primitives types differ from the Go types (ex. U256 instead of Bytes32, U64 instead of uint64, etc.)
 // This function converts the Rust types in the rollup config JSON to the Go types.
 func convertConfigTypes(rawConfig map[string]interface{}) (map[string]interface{}, error) {
-	// Convert genesis block numbers
+	// Convert genesis block numbers.
 	if genesis, ok := rawConfig["genesis"].(map[string]interface{}); ok {
 		convertBlockNumber(genesis, "l1")
 		convertBlockNumber(genesis, "l2")
 		convertSystemConfig(genesis)
 	}
 
-	// Convert base fee parameters
+	// Convert base fee parameters.
 	convertBaseFeeParams(rawConfig, "base_fee_params")
 	convertBaseFeeParams(rawConfig, "canyon_base_fee_params")
 
@@ -245,7 +245,7 @@ func GetSpanBatchRanges(config reassemble.Config, rollupCfg *rollup.Config, star
 			batchStartBlock := TimestampToBlock(rollupCfg, b.GetTimestamp())
 			spanBatch, success := b.AsSpanBatch()
 			if !success {
-				// If AsSpanBatch fails, return the entire range
+				// If AsSpanBatch fails, return the entire range.
 				log.Printf("couldn't convert batch %v to span batch\n", idx)
 				ranges = append(ranges, SpanBatchRange{Start: startBlock, End: endBlock})
 				return ranges, nil

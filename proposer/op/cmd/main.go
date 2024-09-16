@@ -61,7 +61,7 @@ func main() {
 			},
 		},
 		Action: func(cliCtx *cli.Context) error {
-			// Get the chain ID from the L2 RPC
+			// Get the chain ID from the L2 RPC.
 			l2Client, err := ethclient.Dial(cliCtx.String("l2"))
 			if err != nil {
 				log.Fatal(err)
@@ -71,7 +71,7 @@ func main() {
 				log.Fatal(err)
 			}
 
-			// Load the rollup config for the given L2 chain ID
+			// Load the rollup config for the given L2 chain ID.
 			rollupCfg, err := utils.LoadOPStackRollupConfigFromChainID(chainID.Uint64())
 			if err != nil {
 				log.Fatal(err)
