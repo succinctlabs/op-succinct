@@ -140,6 +140,12 @@ impl InMemoryOracle {
         }
 
         println!("cycle-tracker-report-start: blob-verification");
+        // If there are no blobs, throw an error. Indicates that the blobs were not passed in, this occurs if the block is too recent.
+        // TODO: Look into why blobs are not being fetched for recent blocks.
+        if blobs.is_empty() {
+            return Err(anyhow!("No blobs found in oracle. This may be because the block is too recent."));
+        }
+
         let commitments: Vec<Bytes48> =
             blobs.keys().cloned().map(|blob| Bytes48::from_slice(&blob.0).unwrap()).collect_vec();
         let kzg_proofs: Vec<Bytes48> = blobs
