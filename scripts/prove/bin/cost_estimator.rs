@@ -117,7 +117,8 @@ struct BatchHostCli {
 }
 
 fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
-    const DEFAULT_SIZE: u64 = 50;
+    // TODO: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
+    const DEFAULT_SIZE: u64 = 1000;
     match chain_id {
         8453 => 5,      // Base
         11155111 => 20, // OP Sepolia
