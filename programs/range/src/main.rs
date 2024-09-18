@@ -31,8 +31,10 @@ use op_succinct_client_utils::{
 cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
+        // TODO: Remove this once SP1 Rust toolchain supports 1.81
+        #![feature(error_in_core)]
 
-        use kona_primitives::RollupConfig;
+        use op_alloy_genesis::RollupConfig;
         use op_succinct_client_utils::{
             BootInfoWithBytesConfig, boot::BootInfoStruct,
             InMemoryOracle

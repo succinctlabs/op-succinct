@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
 use kona_host::HostCli;
-use kona_primitives::RollupConfig;
 use log::info;
+use op_alloy_genesis::RollupConfig;
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RPCMode},
     get_proof_stdin,

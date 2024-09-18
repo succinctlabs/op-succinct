@@ -6,6 +6,9 @@ edition.workspace = true
 
 [dependencies]
 
+# op-alloy
+op-alloy-genesis.workspace = true
+
 # workspace
 alloy.workspace = true
 alloy-primitives.workspace = true

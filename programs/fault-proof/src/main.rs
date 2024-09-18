@@ -20,14 +20,16 @@ use kona_client::{
     BootInfo,
 };
 use kona_executor::StatelessL2BlockExecutor;
-use kona_primitives::L2AttributesWithParent;
+use op_alloy_rpc_types_engine::OptimismAttributesWithParent;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 
 cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
+        // TODO: Remove this once SP1 Rust toolchain supports 1.81
+        #![feature(error_in_core)]
         use op_succinct_client_utils::{InMemoryOracle, boot::BootInfoStruct, BootInfoWithBytesConfig};
-        use kona_primitives::RollupConfig;
+        use op_alloy_genesis::RollupConfig;
         use alloc::vec::Vec;
         use serde_json;
     } else {
@@ -104,7 +106,7 @@ fn main() {
         println!("cycle-tracker-end: derivation-instantiation");
 
         println!("cycle-tracker-start: payload-derivation");
-        let L2AttributesWithParent { attributes, .. } =
+        let OptimismAttributesWithParent { attributes, .. } =
             driver.produce_disputed_payload().await.unwrap();
         println!("cycle-tracker-end: payload-derivation");
 

@@ -48,6 +48,7 @@ fn build_zkvm_program(program: &str) {
         &format!("../../programs/{}", program),
         BuildArgs {
             elf_name: format!("{}-elf", program),
+            ignore_rust_version: true,
             // docker: true,
             ..Default::default()
         },
@@ -61,7 +62,7 @@ fn main() {
         // Note: Don't comment this out, because the Docker program depends on the native program
         // for range being built.
         build_native_program(program);
-        // build_zkvm_program(program);
+        build_zkvm_program(program);
     }
 
     // build_zkvm_program("aggregation");
