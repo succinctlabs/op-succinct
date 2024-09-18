@@ -111,6 +111,8 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the provider for the given RPC mode. Note: Will panic if the RPC mode is not L1 or L2.
+    /// Note: The provider can be dropped by the Tokio runtime if it is not used for a long time. Be
+    /// careful when using this function.
     pub fn get_provider(&self, rpc_mode: RPCMode) -> Arc<RootProvider<Http<Client>>> {
         match rpc_mode {
             RPCMode::L1 => self.l1_provider.clone(),
