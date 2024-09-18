@@ -13,6 +13,8 @@ L1_RPC=
 L1_BEACON_RPC=
 # L2 Archive Node (OP-Geth)
 L2_RPC=
+# L2 Node RPC
+L2_NODE_RPC=
 ```
 
 It is required that the L2 RPC is an archival node for your OP stack rollup, with the "debug_dbGet" endpoint enabled.
