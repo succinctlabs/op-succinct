@@ -266,6 +266,8 @@ async fn execute_blocks_parallel(
         exec_stats.add_aggregate_data();
     });
 
+    info!("Execution is complete.");
+
     let execution_stats = execution_stats_map.lock().await.clone().into_values().collect();
     drop(execution_stats_map);
     execution_stats
