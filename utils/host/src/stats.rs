@@ -70,7 +70,12 @@ impl fmt::Display for ExecutionStats {
 
 impl ExecutionStats {
     /// Add the on-chain data for the given block range to the stats.
-    pub async fn add_block_data(&mut self, data_fetcher: &OPSuccinctDataFetcher, start: u64, end: u64) {
+    pub async fn add_block_data(
+        &mut self,
+        data_fetcher: &OPSuccinctDataFetcher,
+        start: u64,
+        end: u64,
+    ) {
         let block_data = data_fetcher
             .get_block_data_range(RPCMode::L2, start, end)
             .await
