@@ -7,10 +7,10 @@
   "owner": "0x0000000000000000000000000000000000000000",
   "proposer": "0x0000000000000000000000000000000000000000",
   "rollupConfigHash": "0x25c30030889fc3619b7da5ac7937c0d3c34f27d69a9afb053e2e73f344593af8",
-  "startingBlockNumber": 1339701,
-  "startingOutputRoot": "0xb966e2f5672253db3a49e17cf88173715b018ec7d6424719643b858966b23176",
-  "startingTimestamp": 1726166754,
-  "submissionInterval": 150,
+  "startingBlockNumber": 1615011,
+  "startingOutputRoot": "0xdcd8bcd28562224f9c874d556c364b320da8301151da0675c0b0205f81616d80",
+  "startingTimestamp": 1726717374,
+  "submissionInterval": 1000,
   "verifierGateway": "0x3B6041173B80E77f038f3F2C0f9744f04837185e",
   "vkey": "0x003ed12d1c9d67fd4f92dfe4e00badc5c38a886f0d233971132515e0c4ee13ec"
 }

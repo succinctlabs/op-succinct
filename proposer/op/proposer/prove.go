@@ -173,6 +173,7 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 	}
 	from := latest.Uint64() + 1
 
+	// This fetches the next block number, which is the currentBlock + submissionInterval.
 	minTo, err := l.l2ooContract.NextBlockNumber(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get next L2OO output: %w", err)

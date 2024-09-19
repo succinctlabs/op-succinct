@@ -3,11 +3,9 @@ package proposer
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
-	"github.com/succinctlabs/op-succinct-go/proposer/utils"
 )
 
 func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
@@ -43,54 +41,15 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 	// Note: Originally, this used the L1 finalized block. However, to satisfy the new API, we now use the L2 finalized block.
 	newL2EndBlock := status.FinalizedL2.Number
 
-	l1BeaconClient, err := utils.SetupBeacon(l.Cfg.BeaconRpc)
-	if err != nil {
-		l.Log.Error("failed to setup beacon", "err", err)
-		return err
-	}
-
-	// Get the rollup config for the chain to fetch the batcher address.
-	rollupCfg, err := utils.LoadOPStackRollupConfigFromChainID(l.Cfg.L2ChainID)
-	if err != nil {
-		return fmt.Errorf("failed to load rollup config: %w", err)
-	}
-
-	config := utils.BatchDecoderConfig{
-		L2ChainID:    new(big.Int).SetUint64(l.Cfg.L2ChainID),
-		L2Node:       rollupClient,
-		L1RPC:        *l.L1Client,
-		L1Beacon:     l1BeaconClient,
-		BatchSender:  rollupCfg.Genesis.SystemConfig.BatcherAddr,
-		L2StartBlock: newL2StartBlock,
-		L2EndBlock:   newL2EndBlock,
-		DataDir:      fmt.Sprintf("/tmp/batch_decoder/%d/transactions_cache", l.Cfg.L2ChainID),
-	}
-	// Pull all of the batches from the l1Start to l1End from chain to disk.
-	ranges, err := utils.GetAllSpanBatchesInL2BlockRange(config)
-	fmt.Println("Found", len(ranges), "valid span batches.")
-	if err != nil {
-		l.Log.Error("failed to get span batch ranges", "err", err)
-		return err
-	}
-
-	// Loop over the ranges and insert them into the DB. If the width of the span batch is greater than
-	// maxBlockRangePerSpanProof, we need to split the ranges into smaller ones and insert them into the DB.
-	for _, r := range ranges {
-		start := r.Start
-		for start <= r.End {
-			end := start + l.DriverSetup.Cfg.MaxBlockRangePerSpanProof - 1
-			if end > r.End {
-				end = r.End
-			}
-
+	if newL2EndBlock-l.Cfg.MaxBlockRangePerSpanProof < newL2StartBlock {
+		// Add a SPAN proof for every modulo MaxBlockRangePerSpanProof block.
+		for start := newL2StartBlock; start <= newL2EndBlock; start += l.Cfg.MaxBlockRangePerSpanProof {
+			end := min(start+l.Cfg.MaxBlockRangePerSpanProof, newL2EndBlock)
 			err := l.db.NewEntry("SPAN", start, end)
 			if err != nil {
 				l.Log.Error("failed to insert proof request", "err", err, "start", start, "end", end)
 				return err
 			}
-
-			l.Log.Info("inserted span proof request", "start", start, "end", end)
-			start = end + 1
 		}
 	}
 
