@@ -41,11 +41,14 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 	// Note: Originally, this used the L1 finalized block. However, to satisfy the new API, we now use the L2 finalized block.
 	newL2EndBlock := status.FinalizedL2.Number
 
-	if newL2EndBlock-l.Cfg.MaxBlockRangePerSpanProof < newL2StartBlock {
+	// Once enough blocks have been produced, we can start adding SPAN proofs.
+	if newL2EndBlock-l.Cfg.MaxBlockRangePerSpanProof > newL2StartBlock {
+		l.Log.Info("Enough blocks have been produced, starting to add SPAN proofs", "start", newL2StartBlock, "end", newL2EndBlock)
 		// Add a SPAN proof for every modulo MaxBlockRangePerSpanProof block.
 		for start := newL2StartBlock; start <= newL2EndBlock; start += l.Cfg.MaxBlockRangePerSpanProof {
 			end := min(start+l.Cfg.MaxBlockRangePerSpanProof, newL2EndBlock)
 			err := l.db.NewEntry("SPAN", start, end)
+			l.Log.Info("new span proof request", "start", start, "end", end)
 			if err != nil {
 				l.Log.Error("failed to insert proof request", "err", err, "start", start, "end", end)
 				return err
