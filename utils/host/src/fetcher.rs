@@ -430,7 +430,7 @@ impl OPSuccinctDataFetcher {
             exec: Some(exec_directory),
             server: false,
             rollup_config_path: Some(rollup_config_path.into()),
-            v: 0,
+            v: std::env::var("VERBOSITY").unwrap_or("0".to_string()).parse().unwrap(),
         })
     }
 }
