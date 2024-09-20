@@ -8,8 +8,24 @@ import (
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
 )
 
+type Span struct {
+	Start uint64
+	End   uint64
+}
+
+func (l *L2OutputSubmitter) CreateSpans(start, end uint64) []Span {
+	spans := []Span{}
+	// Create spans of size MaxBlockRangePerSpanProof from start to end.
+	// Each span starts where the previous one ended + 1.
+	// Continue until we can't fit another full span before reaching end.
+	for i := start; i+l.Cfg.MaxBlockRangePerSpanProof <= end; i += l.Cfg.MaxBlockRangePerSpanProof + 1 {
+		spans = append(spans, Span{Start: i, End: i + l.Cfg.MaxBlockRangePerSpanProof})
+	}
+	return spans
+}
+
 func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
-	// nextBlock is equal to the highest value in the `EndBlock` column of the db, plus 1.
+	// nextBlock is equal to the highest value in the `EndBlock` column of the DB, plus 1.
 	latestL2EndBlock, err := l.db.GetLatestEndBlock()
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -32,7 +48,7 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 		return fmt.Errorf("failed to get rollup client: %w", err)
 	}
 
-	// Get the latest finalized L1 block.
+	// Get the latest finalized L2 block.
 	status, err := rollupClient.SyncStatus(ctx)
 	if err != nil {
 		l.Log.Error("proposer unable to get sync status", "err", err)
@@ -41,23 +57,15 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 	// Note: Originally, this used the L1 finalized block. However, to satisfy the new API, we now use the L2 finalized block.
 	newL2EndBlock := status.FinalizedL2.Number
 
-	// Once enough blocks have been produced, we can start adding SPAN proofs.
-	// TODO: Add a test to confirm that this correctly adds SPAN proofs.
-	l.Log.Info("newL2EndBlock", "newL2EndBlock", newL2EndBlock)
-	if newL2EndBlock-l.Cfg.MaxBlockRangePerSpanProof > newL2StartBlock {
-		l.Log.Info("Enough blocks have been produced, starting to add SPAN proofs", "start", newL2StartBlock, "end", newL2EndBlock)
-		// Add a SPAN proof for every modulo MaxBlockRangePerSpanProof block.
-		start := newL2StartBlock
-		for start < newL2EndBlock {
-			end := min(start+l.Cfg.MaxBlockRangePerSpanProof, newL2EndBlock)
-			err := l.db.NewEntry("SPAN", start, end)
-			l.Log.Info("new span proof request", "start", start, "end", end)
-			if err != nil {
-				l.Log.Error("failed to insert proof request", "err", err, "start", start, "end", end)
-				return err
-			}
-			// The new start is the end + 1.
-			start = end + 1
+	// Create spans of size MaxBlockRangePerSpanProof from newL2StartBlock to newL2EndBlock.
+	spans := l.CreateSpans(newL2StartBlock, newL2EndBlock)
+	// Add each span to the DB. If there are no spans, we will not create any proofs.
+	for _, span := range spans {
+		err := l.db.NewEntry("SPAN", span.Start, span.End)
+		l.Log.Info("New SPAN proof request", "start", span.Start, "end", span.End)
+		if err != nil {
+			l.Log.Error("failed to add span to db", "err", err)
+			return err
 		}
 	}
 

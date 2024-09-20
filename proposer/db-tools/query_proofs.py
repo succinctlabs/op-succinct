@@ -66,6 +66,21 @@ def query_agg_proofs(db_path):
     
     return results
 
+def get_earliest_span_start_block(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    query = """
+    SELECT MIN(start_block) FROM proof_requests
+    WHERE type = 'SPAN'
+    """
+    cursor.execute(query)
+    
+    result = cursor.fetchone()[0]
+    conn.close()
+    
+    return result
+
 
 if __name__ == "__main__":
     # Load environment variables from .env file
@@ -78,11 +93,13 @@ if __name__ == "__main__":
 
     print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
     print("\nQuerying span proofs")
-    db_path = "../db/proofs.db"
+    db_path = "../../db/proofs.db"
 
-    start_block = 1655239  # Replace with the desired start block
+    earliest_start_block = get_earliest_span_start_block(db_path)
+    print(f"\nEarliest span proof start block: {earliest_start_block}")
+
+    start_block = earliest_start_block
     for i in range(4000):
-    
         proofs = query_span_proofs(db_path, start_block)
     
         for proof in proofs:
