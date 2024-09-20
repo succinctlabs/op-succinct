@@ -42,11 +42,13 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 	newL2EndBlock := status.FinalizedL2.Number
 
 	// Once enough blocks have been produced, we can start adding SPAN proofs.
+	// TODO: Add a test to confirm that this correctly adds SPAN proofs.
 	l.Log.Info("newL2EndBlock", "newL2EndBlock", newL2EndBlock)
 	if newL2EndBlock-l.Cfg.MaxBlockRangePerSpanProof > newL2StartBlock {
 		l.Log.Info("Enough blocks have been produced, starting to add SPAN proofs", "start", newL2StartBlock, "end", newL2EndBlock)
 		// Add a SPAN proof for every modulo MaxBlockRangePerSpanProof block.
-		for start := newL2StartBlock; start < (newL2EndBlock % l.Cfg.MaxBlockRangePerSpanProof); start += l.Cfg.MaxBlockRangePerSpanProof {
+		start := newL2StartBlock
+		for start < newL2EndBlock {
 			end := min(start+l.Cfg.MaxBlockRangePerSpanProof, newL2EndBlock)
 			err := l.db.NewEntry("SPAN", start, end)
 			l.Log.Info("new span proof request", "start", start, "end", end)
@@ -54,6 +56,8 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 				l.Log.Error("failed to insert proof request", "err", err, "start", start, "end", end)
 				return err
 			}
+			// The new start is the end + 1.
+			start = end + 1
 		}
 	}
 
