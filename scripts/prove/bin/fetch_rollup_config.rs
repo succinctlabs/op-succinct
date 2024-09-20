@@ -1,3 +1,4 @@
+use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::B256;
 use anyhow::{bail, Result};
 use op_succinct_client_utils::boot::hash_rollup_config;
@@ -43,6 +44,7 @@ struct L2OOConfig {
 /// - starting_timestamp: Set to the timestamp of the starting block number.
 /// - chain_id: Get the chain id from the rollup config.
 /// - vkey: Get the vkey from the aggregation program ELF.
+/// - owner: Set to the address associated with the private key.
 async fn update_l2oo_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::default();
 
@@ -91,6 +93,14 @@ async fn update_l2oo_config() -> Result<()> {
 
     // Set the chain id.
     l2oo_config.chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
+
+    // Get the account associated with the private key.
+    let private_key = env::var("PRIVATE_KEY").unwrap();
+    let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
+    let address = signer.address();
+
+    // Set the owner.
+    l2oo_config.owner = address.to_string();
 
     // Set the vkey.
     let prover = ProverClient::new();

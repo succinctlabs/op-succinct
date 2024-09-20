@@ -4,7 +4,7 @@
   "finalizationPeriod": 0,
   "l2BlockTime": 2,
   "l2OutputOracleProxy": "0x863508f057c09f7b94e582d74404859ecd36a306",
-  "owner": "0x0000000000000000000000000000000000000000",
+  "owner": "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e",
   "proposer": "0x0000000000000000000000000000000000000000",
   "rollupConfigHash": "0x25c30030889fc3619b7da5ac7937c0d3c34f27d69a9afb053e2e73f344593af8",
   "startingBlockNumber": 1687300,
@@ -12,5 +12,5 @@
   "startingTimestamp": 1726861952,
   "submissionInterval": 1000,
   "verifierGateway": "0x3B6041173B80E77f038f3F2C0f9744f04837185e",
-  "vkey": "0x0042bdc03512a44072931a4deb10fca589756d6d445735a5f2111938d067abfa"
+  "vkey": "0x0094d1c38cbfb85720d9414371a3d32148d535c3f2b00ab476b00ea963676d89"
 }

@@ -48,8 +48,8 @@ pub fn main() {
     agg_inputs.boot_infos.iter().for_each(|boot_info| {
         // In the multi-block program, the public values digest is just the hash of the ABI encoded
         // boot info.
-        let abi_encoded_boot_info = boot_info.abi_encode();
-        let pv_digest = Sha256::digest(abi_encoded_boot_info);
+        let serialized_boot_info = bincode::serialize(&boot_info).unwrap();
+        let pv_digest = Sha256::digest(serialized_boot_info);
 
         if cfg!(target_os = "zkvm") {
             sp1_lib::verify::verify_sp1_proof(&MULTI_BLOCK_PROGRAM_VKEY_DIGEST, &pv_digest.into());

@@ -137,7 +137,11 @@ async fn request_agg_proof(
     let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
 
     let stdin = get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, l1_head.into()).unwrap();
+
+    // Set simulation to true on aggregation proofs as they're relatively small.
+    env::set_var("SKIP_SIMULATION", "false");
     let proof_id = prover.request_proof(AGG_ELF, stdin, ProofMode::Plonk).await?;
+    env::set_var("SKIP_SIMULATION", "true");
 
     println!("Proof ID: {}", proof_id);
 
