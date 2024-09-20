@@ -282,13 +282,14 @@ func (l *L2OutputSubmitter) RequestProofFromServer(urlPath string, jsonBody []by
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	/// The witness generation for larger proofs can take up to 20 minutes.
 	client := &http.Client{
-		Timeout: 3 * time.Minute,
+		Timeout: 20 * time.Minute,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			return "", fmt.Errorf("request timed out after 3 minutes: %w", err)
+			return "", fmt.Errorf("request timed out after 10 minutes: %w", err)
 		}
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}

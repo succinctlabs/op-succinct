@@ -89,10 +89,25 @@ async fn request_span_proof(
     witnessgen_executor.spawn_witnessgen(&host_cli).await?;
     witnessgen_executor.flush().await?;
 
+    println!("Witnessgen flushed");
+
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
+    println!("Got the SP1 stdin");
+
     let prover = NetworkProver::new();
-    let proof_id = prover.request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed).await?;
+    let res = prover.request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed).await;
+
+    // Check if error, otherwise get proof ID.
+    let proof_id = match res {
+        Ok(proof_id) => proof_id,
+        Err(e) => {
+            println!("Failed to request proof: {}", e);
+            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
+        }
+    };
+
+    println!("Proof ID: {}", proof_id);
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
@@ -123,6 +138,8 @@ async fn request_agg_proof(
 
     let stdin = get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, l1_head.into()).unwrap();
     let proof_id = prover.request_proof(AGG_ELF, stdin, ProofMode::Plonk).await?;
+
+    println!("Proof ID: {}", proof_id);
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
