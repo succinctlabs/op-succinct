@@ -87,7 +87,7 @@ async fn main() -> Result<()> {
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
-        prover.prove(&agg_pk, stdin).plonk().run().expect("proving failed");
+        prover.prove(&agg_pk, stdin).groth16().run().expect("proving failed");
     } else {
         let (_, report) = prover.execute(AGG_ELF, stdin).run().unwrap();
         println!("report: {:?}", report);

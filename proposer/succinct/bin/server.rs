@@ -140,7 +140,7 @@ async fn request_agg_proof(
 
     // Set simulation to true on aggregation proofs as they're relatively small.
     env::set_var("SKIP_SIMULATION", "false");
-    let proof_id = prover.request_proof(AGG_ELF, stdin, ProofMode::Plonk).await?;
+    let proof_id = prover.request_proof(AGG_ELF, stdin, ProofMode::Groth16).await?;
     env::set_var("SKIP_SIMULATION", "true");
 
     println!("Proof ID: {}", proof_id);
@@ -169,7 +169,7 @@ async fn get_proof_status(
     if status == SP1ProofStatus::ProofFulfilled {
         let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
-        match proof.proof.clone() {
+        match proof.proof {
             SP1Proof::Compressed(_) => {
                 // If it's a compressed proof, we need to serialize the entire struct with bincode.
                 // Note: We're re-serializing the entire struct with bincode here, but this is fine
@@ -183,8 +183,19 @@ async fn get_proof_status(
                     }),
                 ));
             }
+            SP1Proof::Groth16(_) => {
+                // If it's a groth16 proof, we need to get the proof bytes that we put on-chain.
+                let proof_bytes = proof.bytes();
+                return Ok((
+                    StatusCode::OK,
+                    Json(ProofStatus {
+                        status: status.as_str_name().to_string(),
+                        proof: proof_bytes,
+                    }),
+                ));
+            }
             SP1Proof::Plonk(_) => {
-                // If it's a PLONK proof, we need to get the proof bytes that we put on-chain.
+                // If it's a plonk proof, we need to get the proof bytes that we put on-chain.
                 let proof_bytes = proof.bytes();
                 return Ok((
                     StatusCode::OK,
