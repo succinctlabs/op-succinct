@@ -23,7 +23,20 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	if err != nil {
 		return fmt.Errorf("failed to get proofs failed on server: %w", err)
 	}
-	for _, req := range failedReqs {
+
+	// Get all proofs that failed to reach the prover network with a timeout.
+	l.Log.Info("Getting all proofs that failed to reach the prover network with a timeout.")
+	timedOutReqs, err := l.db.GetWitnessGenerationTimeoutProofsOnServer()
+	if err != nil {
+		return fmt.Errorf("failed to get witness generation timeout proofs on server: %w", err)
+	}
+
+	// Combine the two lists of proofs.
+	reqsToRetry := append(failedReqs, timedOutReqs...)
+
+	l.Log.Info("Retrying all proofs that failed to reach the prover network with a timeout.", "failed", len(failedReqs), "timedOut", len(timedOutReqs))
+
+	for _, req := range reqsToRetry {
 		err = l.RetryRequest(req)
 		if err != nil {
 			return fmt.Errorf("failed to retry request: %w", err)
@@ -78,18 +91,25 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
 	// If an AGG proof failed, something went deeply wrong. Simply try again.
 	if req.Type == proofrequest.TypeAGG {
-		l.Log.Error("agg proof failed, adding to db to retry", "req", req)
+		l.Log.Error("Agg proof failed. Adding to DB to retry.", "req", req)
 
-		err := l.db.NewEntryWithReqAddedTimestamp("AGG", req.StartBlock, req.EndBlock, 0)
+		err := l.db.NewEntry("AGG", req.StartBlock, req.EndBlock)
 		if err != nil {
 			l.Log.Error("failed to add new proof request", "err")
 			return err
 		}
 	} else {
+		// Set the existing request to FAILED.
+		err := l.db.UpdateProofStatus(req.ID, "FAILED")
+		if err != nil {
+			l.Log.Error("failed to update proof status", "err", err)
+			return err
+		}
+
 		// Always just retry SPAN proofs to avoid spamming the cluster with requests.
 		// TODO: We may need to split the SPAN proof in half to avoid OOMing the SP1 runtime.
 		l.Log.Info("Span proof failed. Adding to DB to retry.", "req", req)
-		err := l.db.NewEntryWithReqAddedTimestamp("SPAN", req.StartBlock, req.EndBlock, 0)
+		err = l.db.NewEntry("SPAN", req.StartBlock, req.EndBlock)
 		if err != nil {
 			l.Log.Error("failed to add new proof request", "err", err)
 			return err
@@ -284,6 +304,7 @@ func (l *L2OutputSubmitter) RequestProofFromServer(urlPath string, jsonBody []by
 	req.Header.Set("Content-Type", "application/json")
 
 	/// The witness generation for larger proofs can take up to 20 minutes.
+	// TODO: Given that the timeout will take a while, we should have a mechanism for querying the status of the witness generation.
 	client := &http.Client{
 		Timeout: 20 * time.Minute,
 	}
