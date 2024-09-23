@@ -56,6 +56,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.0",
  "alloy-sol-types 0.8.0",
+ "bincode",
  "op-succinct-client-utils",
  "serde_cbor",
  "sha2",
