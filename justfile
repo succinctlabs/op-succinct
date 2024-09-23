@@ -1,4 +1,3 @@
-set fallback := true
 set dotenv-load
 
 default:
