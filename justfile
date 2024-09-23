@@ -43,7 +43,7 @@ run-client-native l2_block_num l1_rpc='${L1_RPC}' l1_beacon_rpc='${L1_BEACON_RPC
   echo "L1 Beacon Address: $L1_BEACON_ADDRESS"
   echo "L2 Node Address: $L2_NODE_ADDRESS"
   HOST_BIN_PATH="./kona-host"
-  CLIENT_BIN_PATH="/home/ubuntu/op-succinct/target/release-client-lto/fault-proof"
+  CLIENT_BIN_PATH="$(pwd)/target/release-client-lto/fault-proof"
   L2_BLOCK_NUMBER="{{l2_block_num}}"
   L2_BLOCK_SAFE_HEAD=$((L2_BLOCK_NUMBER - 1))
   L2_OUTPUT_STATE_ROOT=$(cast block --rpc-url $L2_NODE_ADDRESS --field stateRoot $L2_BLOCK_SAFE_HEAD)

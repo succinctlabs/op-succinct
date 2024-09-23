@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 ///
 /// Whenever the multi-block program changes, you will need to update this.
 const MULTI_BLOCK_PROGRAM_VKEY_DIGEST: [u32; 8] =
-    [1311302823, 699379952, 1950953796, 976666662, 1653558045, 1631904232, 42084045, 285455949];
+    [1039893330, 1594505873, 415997013, 1198691665, 71280582, 651429912, 87063347, 1840814573];
 
 pub fn main() {
     // Read in the public values corresponding to each multi-block proof.
