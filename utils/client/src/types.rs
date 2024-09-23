@@ -24,7 +24,7 @@ sol! {
     }
 }
 
-/// Convert a u32 array to a u8 array. Useful for converting the multi-block vkey to a B256.
+/// Convert a u32 array to a u8 array. Useful for converting the range vkey to a B256.
 pub fn u32_to_u8(input: [u32; 8]) -> [u8; 32] {
     let mut output = [0u8; 32];
     for (i, &value) in input.iter().enumerate() {

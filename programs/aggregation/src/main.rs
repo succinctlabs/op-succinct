@@ -1,4 +1,4 @@
-//! A program that aggregates the proofs of the multi-block program.
+//! A program that aggregates the proofs of the range program.
 
 #![cfg_attr(target_os = "zkvm", no_main)]
 #[cfg(target_os = "zkvm")]
@@ -16,7 +16,7 @@ use op_succinct_client_utils::{
 use sha2::{Digest, Sha256};
 
 pub fn main() {
-    // Read in the public values corresponding to each multi-block proof.
+    // Read in the public values corresponding to each range proof.
     let agg_inputs = sp1_zkvm::io::read::<AggregationInputs>();
     // Note: The headers are in order from start to end. We use serde_cbor as bincode serialization
     // causes issues with the zkVM.
@@ -41,9 +41,9 @@ pub fn main() {
         assert_eq!(prev_boot_info.rollupConfigHash, boot_info.rollupConfigHash);
     });
 
-    // Verify each multi-block program proof.
+    // Verify each range program proof.
     agg_inputs.boot_infos.iter().for_each(|boot_info| {
-        // In the multi-block program, the public values digest is just the hash of the ABI encoded
+        // In the range program, the public values digest is just the hash of the ABI encoded
         // boot info.
         let serialized_boot_info = bincode::serialize(&boot_info).unwrap();
         let pv_digest = Sha256::digest(serialized_boot_info);
@@ -89,7 +89,7 @@ pub fn main() {
         rollupConfigHash: last_boot_info.rollupConfigHash,
     };
 
-    // Convert the multi-block vkey to a B256.
+    // Convert the range vkey to a B256.
     let multi_block_vkey_b256 = B256::from(u32_to_u8(agg_inputs.multi_block_vkey));
 
     let agg_outputs = AggregationOutputs {

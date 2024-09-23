@@ -44,12 +44,12 @@ async fn main() -> Result<()> {
     info!("Program Hash [view on Explorer]:");
     info!("0x{}", hex::encode(program_hash));
 
-    println!("Multi-block ELF Verification Key U32 Hash: {:?}", vkey.vk.hash_u32());
+    println!("Range ELF Verification Key U32 Hash: {:?}", vkey.vk.hash_u32());
 
     // Get the 32 byte commitment to the vkey from vkey.vk.hash_u32()
     let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
     let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
-    println!("Multi-block ELF Verification Key B256: {}", multi_block_vkey_b256);
+    println!("Range ELF Verification Key B256: {}", multi_block_vkey_b256);
 
     let (_, agg_vk) = prover.setup(AGG_ELF);
     info!("Aggregation ELF Verification Key: {}", agg_vk.bytes32());
