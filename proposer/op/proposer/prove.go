@@ -25,7 +25,6 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	}
 
 	// Get all proofs that failed to reach the prover network with a timeout.
-	l.Log.Info("Getting all proofs that failed to reach the prover network with a timeout.")
 	timedOutReqs, err := l.db.GetWitnessGenerationTimeoutProofsOnServer()
 	if err != nil {
 		return fmt.Errorf("failed to get witness generation timeout proofs on server: %w", err)

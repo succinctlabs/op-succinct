@@ -7,9 +7,9 @@
   "owner": "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e",
   "proposer": "0x0000000000000000000000000000000000000000",
   "rollupConfigHash": "0x25c30030889fc3619b7da5ac7937c0d3c34f27d69a9afb053e2e73f344593af8",
-  "startingBlockNumber": 1693500,
-  "startingOutputRoot": "0x407e5f92b2905d6b23df99af539cfa820a2ed743d0a42fa65192ec242486e81e",
-  "startingTimestamp": 1726874352,
+  "startingBlockNumber": 1787878,
+  "startingOutputRoot": "0x065271d0c00a8d519a84806da2d749d8659e25b71681e212da86c434ef7a1f45",
+  "startingTimestamp": 1727063108,
   "submissionInterval": 1000,
   "verifierGateway": "0x3B6041173B80E77f038f3F2C0f9744f04837185e",
   "vkey": "0x0094d1c38cbfb85720d9414371a3d32148d535c3f2b00ab476b00ea963676d89"
