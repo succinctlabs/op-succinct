@@ -107,8 +107,6 @@ async fn request_span_proof(
         }
     };
 
-    println!("Proof ID: {}", proof_id);
-
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
@@ -142,8 +140,6 @@ async fn request_agg_proof(
     env::set_var("SKIP_SIMULATION", "false");
     let proof_id = prover.request_proof(AGG_ELF, stdin, ProofMode::Groth16).await?;
     env::set_var("SKIP_SIMULATION", "true");
-
-    println!("Proof ID: {}", proof_id);
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
