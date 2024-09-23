@@ -4,16 +4,19 @@ import os
 from dotenv import load_dotenv
 import time
 
+# Types of proofs
 class ProofType(Enum):
     SPAN = "SPAN"
     AGG = "AGG"
 
+# Possible statuses for a proof request
 class ProofStatus(Enum):
     UNREQ = "UNREQ"
     REQ = "REQ"
     COMPLETE = "COMPLETE"
     FAILED = "FAILED"
 
+# Represents a proof request with all its attributes
 class ProofRequest:
     id: int
     type: ProofType
@@ -42,73 +45,45 @@ class ProofRequest:
         self.l1_block_hash = l1_block_hash
         self.proof = proof
 
-def query_span_proofs(db_path, start_block):
+# Converts a database result to a ProofRequest object
+def convert_to_proof_request(result):
+    return ProofRequest(
+        id=result[0],
+        type=ProofType(result[1]),
+        start_block=result[2],
+        end_block=result[3],
+        status=ProofStatus(result[4]),
+        request_added_time=result[5],
+        prover_request_id=result[6],
+        proof_request_time=result[7],
+        l1_block_number=result[8],
+        l1_block_hash=result[9],
+        proof=result[10]
+    )
+
+# Queries proofs of a specific type from the database
+def query_proofs(db_path, proof_type) -> [ProofRequest]:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # query = """
-    # SELECT * FROM proof_requests
-    # WHERE type = ? AND status = ? AND start_block = ?
-    # """
-    # cursor.execute(query, (ProofType.SPAN.value, ProofStatus.COMPLETE.value, start_block))
-
-    query = """
+    query = f"""
     SELECT * FROM proof_requests
-    WHERE type = 'SPAN' AND start_block = ?
-    """
-    cursor.execute(query, (start_block,))
-    
-    results = cursor.fetchall()
-    proof_requests = []
-    if results:
-        for result in results:
-            proof_request = ProofRequest(
-                id=result[0],
-                type=ProofType(result[1]),
-                start_block=result[2],
-                end_block=result[3],
-                status=ProofStatus(result[4]),
-                request_added_time=result[5],
-                prover_request_id=result[6],
-                proof_request_time=result[7],
-                l1_block_number=result[8],
-                l1_block_hash=result[9],
-                proof=result[10]
-            )
-            proof_requests.append(proof_request)
-    conn.close()
-    
-    return proof_requests
-
-def query_agg_proofs(db_path):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    query = """
-    SELECT * FROM proof_requests
-    WHERE type = 'AGG'
+    WHERE type = '{proof_type}'
     """
     cursor.execute(query)
     
     results = cursor.fetchall()
     conn.close()
-    
-    return results
 
-def get_earliest_span_start_block(db_path):
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
+    return [convert_to_proof_request(result) for result in results] if results else []
 
-    query = """
-    SELECT MIN(start_block) FROM proof_requests
-    WHERE type = 'SPAN'
-    """
-    cursor.execute(query)
-    
-    result = cursor.fetchone()[0]
-    conn.close()
-    
-    return result
+# Queries span proofs from the database
+def query_span_proofs(db_path) -> [ProofRequest]:
+    return query_proofs(db_path, 'SPAN')
+
+# Queries aggregation proofs from the database
+def query_agg_proofs(db_path) -> [ProofRequest]:
+    return query_proofs(db_path, 'AGG')
 
 
 if __name__ == "__main__":
@@ -121,44 +96,17 @@ if __name__ == "__main__":
         raise ValueError("L2OO_ADDRESS not found in .env file")
 
     print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
-    print("\nQuerying span proofs")
     db_path = "../../db/proofs.db"
 
-    earliest_start_block = get_earliest_span_start_block(db_path)
-    print(f"\nEarliest span proof start block: {earliest_start_block}")
-
-    start_block = earliest_start_block
-    # Get all SPAN proofs
-    for i in range(20000):
-        requests = query_span_proofs(db_path, start_block)
+    # Get all span proofs
+    print("\nSpan Proofs:")
+    span_proofs = query_span_proofs(db_path)
     
-        for request in requests:
-            print(f"Request ID: {request.id}, Type: {request.type}, Start Block: {request.start_block}, End Block: {request.end_block}, Status: {request.status}, Prover Request ID: {request.prover_request_id}, Time: {request.request_added_time}")
-        start_block += 1
+    for proof in span_proofs:
+        print(f"Request ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}, Time: {proof.request_added_time}")
     
-    # Query for AGG proofs
+    # Query for aggregation proofs
+    print("\nAggregation Proofs:")
     agg_proofs = query_agg_proofs(db_path)
-    print("\nAGG Proofs:")
     for proof in agg_proofs:
-        print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Start Block: {proof[2]}, End Block: {proof[3]}, Status: {proof[4]}, Prover Request ID: {proof[6]}")
-    
-    # Query for witness generation timeout proofs
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    twenty_minutes_ago = int(time.time()) - 20 * 60
-    print(f"\nTwenty minutes ago: {twenty_minutes_ago}")
-    query = """
-    SELECT * FROM proof_requests
-    WHERE prover_request_id IS NULL
-    AND status = 'REQ'
-    AND request_added_time < ?
-    """
-    cursor.execute(query, (twenty_minutes_ago,))
-    
-    timeout_proofs = cursor.fetchall()
-    conn.close()
-
-    print("\nWitness Generation Timeout Proofs:")
-    for proof in timeout_proofs:
-        print(f"Proof ID: {proof[0]}, Type: {proof[1]}, Prover Request ID: {proof[6]}, Status: {proof[4]}, Request Added Time: {proof[5]}")
+        print(f"Proof ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}")
