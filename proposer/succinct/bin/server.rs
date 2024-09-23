@@ -89,11 +89,7 @@ async fn request_span_proof(
     witnessgen_executor.spawn_witnessgen(&host_cli).await?;
     witnessgen_executor.flush().await?;
 
-    println!("Witnessgen flushed");
-
     let sp1_stdin = get_proof_stdin(&host_cli)?;
-
-    println!("Got the SP1 stdin");
 
     let prover = NetworkProver::new();
     let res = prover.request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed).await;
