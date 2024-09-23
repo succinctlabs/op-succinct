@@ -2,7 +2,6 @@ use std::env;
 
 use anyhow::Result;
 use clap::Parser;
-use num_format::{Locale, ToFormattedString};
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher},
     get_proof_stdin,
