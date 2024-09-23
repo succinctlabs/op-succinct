@@ -10,13 +10,11 @@ use op_succinct_host_utils::{
     ProgramType,
 };
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
 use std::{
     cmp::{max, min},
     collections::HashMap,
-    env,
     fs::{self},
     future::Future,
     path::PathBuf,
@@ -47,65 +45,10 @@ struct HostArgs {
     report_path: PathBuf,
 }
 
-#[derive(Serialize)]
-#[allow(non_snake_case)]
-struct SpanBatchRequest {
-    startBlock: u64,
-    endBlock: u64,
-    l2ChainId: u64,
-    l2Node: String,
-    l1Rpc: String,
-    l1Beacon: String,
-    batchSender: String,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct SpanBatchResponse {
-    ranges: Option<Vec<SpanBatchRange>>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SpanBatchRange {
     start: u64,
     end: u64,
-}
-
-/// Get the span batches posted between the start and end blocks. Sends a request to a Go server
-/// that runs a Span Batch Decoder.
-async fn get_span_batch_ranges_from_server(
-    data_fetcher: &OPSuccinctDataFetcher,
-    start: u64,
-    end: u64,
-    l2_chain_id: u64,
-    batch_sender: &str,
-) -> Result<Vec<SpanBatchRange>> {
-    let client = Client::new();
-    let request = SpanBatchRequest {
-        startBlock: start,
-        endBlock: end,
-        l2ChainId: l2_chain_id,
-        l2Node: data_fetcher.l2_node_rpc.clone(),
-        l1Rpc: data_fetcher.l1_rpc.clone(),
-        l1Beacon: data_fetcher.l1_beacon_rpc.clone(),
-        batchSender: batch_sender.to_string(),
-    };
-
-    // Get the span batch server URL from the environment.
-    let span_batch_server_url =
-        env::var("SPAN_BATCH_SERVER_URL").unwrap_or("http://localhost:8089".to_string());
-    let query_url = format!("{}/span-batch-ranges", span_batch_server_url);
-
-    // Send the request to the span batch server. If the request fails, return the corresponding error.
-    let response: SpanBatchResponse =
-        client.post(&query_url).json(&request).send().await?.json().await?;
-
-    // If the response is empty, return one range with the start and end blocks.
-    if response.ranges.is_none() {
-        return Ok(vec![SpanBatchRange { start, end }]);
-    }
-
-    // Return the ranges.
-    Ok(response.ranges.unwrap())
 }
 
 struct BatchHostCli {
@@ -114,12 +57,12 @@ struct BatchHostCli {
     end: u64,
 }
 
-fn get_max_span_batch_range_size(chain_id: u64) -> u64 {
+fn get_max_span_batch_range_size(l2_chain_id: u64) -> u64 {
     // TODO: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
     const DEFAULT_SIZE: u64 = 1000;
-    match chain_id {
+    match l2_chain_id {
         8453 => 5,      // Base
-        11155111 => 40, // OP Sepolia
+        11155420 => 40, // OP Sepolia
         10 => 10,       // OP Mainnet
         _ => DEFAULT_SIZE,
     }
@@ -145,7 +88,7 @@ async fn run_native_data_generation(
     data_fetcher: &OPSuccinctDataFetcher,
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
-    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 1;
+    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
 
     // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
     // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
