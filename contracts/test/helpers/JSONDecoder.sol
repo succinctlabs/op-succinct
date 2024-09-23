@@ -16,7 +16,8 @@ contract JSONDecoder {
         uint256 startingTimestamp;
         uint256 submissionInterval;
         address verifierGateway;
-        bytes32 vkey;
+        bytes32 aggregationVkey;
+        bytes32 rangeVkeyCommitment;
     }
 
     struct OutputAtBlock {

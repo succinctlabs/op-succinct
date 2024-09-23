@@ -10,7 +10,8 @@ contract ZKL2OutputOracleTest is Test, Utils {
     uint256 STARTING_TIMESTAMP = 1723717092;
     uint256 STARTING_BLOCK_NUM = 15954957;
 
-    bytes32 VK = 0x0092df62aaa9095510bc567d8e3f4c43fe3f4b1884e1a7610c1a892666089519;
+    bytes32 AGGREGATION_VKEY = 0x0092df62aaa9095510bc567d8e3f4c43fe3f4b1884e1a7610c1a892666089519;
+    bytes32 RANGE_VKEY_COMMITMENT = 0x0092df62aaa9095510bc567d8e3f4c43fe3f4b1884e1a7610c1a892666089519;
     uint256 OP_SEPOLIA_CHAIN_ID = 11155420;
 
     uint256 constant L1_BLOCK_NUM = 6504359;
@@ -29,7 +30,8 @@ contract ZKL2OutputOracleTest is Test, Utils {
         config = readJson("zkl2ooconfig.json");
 
         // set default params for testing
-        config.vkey = VK;
+        config.aggregationVkey = AGGREGATION_VKEY;
+        config.rangeVkeyCommitment = RANGE_VKEY_COMMITMENT;
         config.startingBlockNumber = STARTING_BLOCK_NUM;
         config.verifierGateway = 0x9AB9824A1529bd745470EDb237E0326dD421e20B;
         config.chainId = OP_SEPOLIA_CHAIN_ID;
