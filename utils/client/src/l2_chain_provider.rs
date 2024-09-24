@@ -156,7 +156,7 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
             withdrawals: self.boot_info.rollup_config.is_canyon_active(timestamp).then(Vec::new),
             ..Default::default()
         };
-        Ok(optimism_block.into())
+        Ok(optimism_block)
     }
 
     async fn system_config_by_number(
@@ -166,7 +166,7 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
     ) -> Result<SystemConfig> {
         // First, check if it's already in the cache.
         if let Some(system_config) = self.system_config_by_number.lock().unwrap().get(&number) {
-            return Ok(system_config.clone());
+            return Ok(system_config);
         }
 
         // Get the payload at the given block number.
