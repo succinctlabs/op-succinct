@@ -1,10 +1,10 @@
 # Deploy OP Succinct L2 Output Oracle
 
-The first step in deploying OP Succinct is to deploy a Solidity smart contract that will verify ZKPs of OP derivation (OP's name for their state transition function) and contain the latest state root of your rollup.
+The first step in deploying OP Succinct is to deploy the `OPSuccinctL2OutputOracle` smart contract that will verify SP1 proofs of the Optimism state transition function which verify the latest state root for the OP Stack rollup.
 
 ## Deployment
 
-### 1) Clone the `op-succinct` repo:
+### 1) Clone `op-succinct` repo:
 
 ```bash
 git clone https://github.com/succinctlabs/op-succinct.git
@@ -13,20 +13,18 @@ cd op-succinct
 
 ### 2) Set environment variables:
 
-```bash
-cp .env.example .env
-```
+In the root directory, create a file called `.env` (mirroring `.env.example`) and set the following environment variables:
 
-Set the following environment variables:
-
-```bash
-L1_RPC=...
-L2_RPC=...
-L2_NODE_RPC=...
-L2_BEACON_RPC=...
-PRIVATE_KEY=...
-ETHERSCAN_API_KEY=...
-```
+| Parameter | Description |
+|-----------|-------------|
+| `L1_RPC` | L1 Archive Node. |
+| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
+| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
+| `PROVER_NETWORK_RPC` | Default: `rpc.succinct.xyz`. |
+| `SP1_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/generating-proofs/prover-network). |
+| `SP1_PROVER` | Default: `network`. Set to `network` to use the Succinct Prover Network. |
+| `PRIVATE_KEY` | Private key for the account that will be deploying the contract and posting output roots to L1. |
 
 ### 3) Navigate to the contracts directory:
 
@@ -36,28 +34,21 @@ cd contracts
 
 ### 4) Set Deployment Parameters
 
-Inside the `contracts` folder there is a file called `opsuccinctl2ooconfig.json` that contains the parameters for the deployment. The parameters are automatically set based on your environment variables.
+Inside the `contracts` folder there is a file called `opsuccinctl2ooconfig.json` that contains the parameters for the deployment. The parameters are automatically set based on your RPC's and the owner of your contract is determined by the private key you set in the `.env` file.
 
-Advanced users can set parameters manually, but the defaults are recommended.
+Advanced users can set parameters manually in `opsuccinctl2ooconfig.json`, but the defaults are recommended.
 
-The following parameters need to be manually set:
+#### Advanced Parameters
 
 | Parameter | Description |
 |-----------|-------------|
-| `proposer` | Ethereum address authorized to submit proofs. Set to `address(0)` to allow anyone to submit. |
-| `challenger` | Ethereum address authorized to dispute proofs. Set to `address(0)` to disable disputes. |
-| `finalizationPeriod` | The time period (in seconds) after which a proposed output becomes finalized. This is the time period after which you can withdraw your funds against the proposed output. |
-
-All other parameters (`startingBlockNumber`, `submissionInterval`, `l2BlockTime`, `chainId`, `owner`, `vkey`, `rollupConfigHash`, `verifierGateway`, and `l2OutputOracleProxy`) are automatically set by the deployment scripts.
-
-Note: For advanced users, there are additional flags available:
-- Set `USE_CACHED_DB` to `true` for custom database configurations.
-
-These advanced options should only be used if you fully understand their implications.
+| `proposer` | Ethereum address authorized to submit proofs. Default: `address(0)`, anyone can submit proofs. |
+| `challenger` | Ethereum address authorized to dispute proofs. Default: `address(0)`, no disputes. |
+| `finalizationPeriod` | The time period (in seconds) after which a proposed output becomes finalized and withdrawals can be processed. Default: `0`. |
 
 ### 5) Deploy the `OPSuccinctL2OutputOracle` contract:
 
-This foundry script will deploy the `OPSuccinctL2OutputOracle` contract to the specified L1 RPC and use the provided private key to sign the transaction:
+Run the following command to deploy the `OPSuccinctL2OutputOracle` contract to the L1 chain:
 
 ```bash
 forge script script/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
@@ -78,43 +69,7 @@ Script ran successfully.
 == Return ==
 0: address 0x9b520F7d8031d45Eb8A1D9fE911038576931ab95
 
-## Setting up 1 EVM.
-
-==========================
-
-Chain 11155111
-
-Estimated gas price: 11.826818849 gwei
-
-Estimated total gas used for script: 3012823
-
-Estimated amount required: 0.035632111845100727 ETH
-
-==========================
-
-##### sepolia
-✅  [Success]Hash: 0xc57d97ac588563406183969e8ea15bc06496915547114b1df4e024c142df07b4
-Contract Address: 0x2e4a7Dc6F19BdE1edF1040f855909afF7CcBeDeC
-Block: 6633852
-Paid: 0.00858210364707003 ETH (1503205 gas * 5.709203766 gwei)
-
-
-##### sepolia
-✅  [Success]Hash: 0x1343094b0be4e89594aedb57fb795d920e7cc1a76288485e8cf248fa206321ed
-Block: 6633852
-Paid: 0.001907479233443196 ETH (334106 gas * 5.709203766 gwei)
-
-
-##### sepolia
-✅  [Success]Hash: 0x708ce24c69c2637cadd6cffc654cbe2114e9ea4ec1e69838cd45c1fa27981713
-Contract Address: 0x9b520F7d8031d45Eb8A1D9fE911038576931ab95
-Block: 6633852
-Paid: 0.00250654027540581 ETH (439035 gas * 5.709203766 gwei)
-
-✅ Sequence #1 on sepolia | Total Paid: 0.012996123155919036 ETH (2276346 gas * avg 5.709203766 gwei)
-                                                                                                          
-
-==========================
+...
 
 ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 ##
@@ -122,10 +77,14 @@ Start verification for (2) contracts
 Start verifying contract `0x9b520F7d8031d45Eb8A1D9fE911038576931ab95` deployed on sepolia
 
 Submitting verification for [lib/optimism/packages/contracts-bedrock/src/universal/Proxy.sol:Proxy] 0x9b520F7d8031d45Eb8A1D9fE911038576931ab95.
-
-...
 ```
 
-Keep note of the address of the `Proxy` contract that was deployed, which in this case is `0x9b520F7d8031d45Eb8A1D9fE911038576931ab95`. 
+The address `0x9b520F7d8031d45Eb8A1D9fE911038576931ab95` is the Proxy contract for the `OPSuccinctL2OutputOracle`. This deployed Proxy contract will keep track of the state roots of the OP Stack chain.
 
-It is also returned by the script as `0: address 0x9b520F7d8031d45Eb8A1D9fE911038576931ab95`. 
+### 6) Add Proxy Address to `.env`
+
+Add the address for the `OPSuccinctL2OutputOracle` proxy contract to the `.env` file.
+
+| Parameter | Description |
+|-----------|-------------|
+| `L2OO_ADDRESS` | The address of the Proxy contract for the `OPSuccinctL2OutputOracle`. |
