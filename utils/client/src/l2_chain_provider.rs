@@ -166,7 +166,7 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
     ) -> Result<SystemConfig> {
         // First, check if it's already in the cache.
         if let Some(system_config) = self.system_config_by_number.lock().unwrap().get(&number) {
-            return Ok(system_config);
+            return Ok(*system_config);
         }
 
         // Get the payload at the given block number.
