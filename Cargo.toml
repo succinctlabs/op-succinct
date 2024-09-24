@@ -50,6 +50,18 @@ kona-executor = { git = "https://github.com/anton-rs/kona", rev = "5d0e211ca1c27
 kona-client = { git = "https://github.com/anton-rs/kona", rev = "5d0e211ca1c271377fe184729761bcb217f1f60a" }
 kona-host = { git = "https://github.com/anton-rs/kona", rev = "5d0e211ca1c271377fe184729761bcb217f1f60a" }
 
+# kona-common = { path = "../kona/crates/common" }
+# kona-common-proc = { path = "../kona/crates/common-proc" }
+# kona-preimage = { path = "../kona/crates/preimage", features = [
+#     "rkyv",
+# ] }
+# kona-primitives = { path = "../kona/crates/primitives" }
+# kona-mpt = { path = "../kona/crates/mpt" }
+# kona-derive = { path = "../kona/crates/derive", default-features = false }
+# kona-executor = { path = "../kona/crates/executor" }
+# kona-client = { path = "../kona/bin/client" }
+# kona-host = { path = "../kona/bin/host" }
+
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
 op-succinct-witnessgen = { path = "scripts/witnessgen" }
