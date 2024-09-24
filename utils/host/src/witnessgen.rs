@@ -104,7 +104,10 @@ impl WitnessGenExecutor {
 
         if let Some(err) = self.wait_for_processes().await.err() {
             self.kill_all(binary_name).await?;
-            Err(anyhow::anyhow!("Killed all witness generation processes because one failed. Error: {}", err))
+            Err(anyhow::anyhow!(
+                "Killed all witness generation processes because one failed. Error: {}",
+                err
+            ))
         } else {
             Ok(())
         }
