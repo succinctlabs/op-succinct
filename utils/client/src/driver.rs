@@ -7,7 +7,6 @@ use crate::l2_chain_provider::MultiblockOracleL2ChainProvider;
 use alloc::sync::Arc;
 use alloy_consensus::{Header, Sealed};
 use anyhow::{anyhow, Result};
-use kona_mpt::TrieProvider;
 use core::fmt::Debug;
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
@@ -22,6 +21,7 @@ use kona_derive::{
     },
     traits::{ChainProvider, L2ChainProvider},
 };
+use kona_mpt::TrieProvider;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
 use op_alloy_protocol::{BlockInfo, L2BlockInfo};
 use op_alloy_rpc_types_engine::OptimismAttributesWithParent;
