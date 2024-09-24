@@ -23,7 +23,6 @@ struct L2OOConfig {
     challenger: String,
     finalization_period: u64,
     l2_block_time: u64,
-    l2_output_oracle_proxy: String,
     owner: String,
     proposer: String,
     rollup_config_hash: String,
