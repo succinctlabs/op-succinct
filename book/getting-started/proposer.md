@@ -27,7 +27,7 @@ Before starting the proposer, the following environment variables should be in y
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract and posting output roots to L1. |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
 
-## 1) Build the Proposer Service
+## 2) Build the Proposer Service
 
 Build the docker images for the `op-succinct-proposer` service.
 
@@ -35,7 +35,7 @@ Build the docker images for the `op-succinct-proposer` service.
 docker compose build
 ```
 
-## 2) Run the Proposer
+## 3) Run the Proposer
 
 This command launches the `op-succinct-proposer` service in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original `op-proposer` service.
 
