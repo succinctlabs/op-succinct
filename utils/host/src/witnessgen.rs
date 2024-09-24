@@ -1,6 +1,5 @@
 use anyhow::Result;
 use std::time::Duration;
-use tokio::time::timeout;
 
 use kona_host::HostCli;
 
@@ -117,19 +116,23 @@ impl WitnessGenExecutor {
     /// an error.
     async fn wait_for_processes(&mut self) -> Result<()> {
         for child in &mut self.ongoing_processes {
-            match timeout(self.timeout, child.child.wait()).await {
-                Ok(Ok(status)) if !status.success() => {
-                    return Err(anyhow::anyhow!("Child process exited with non-zero status"));
+            println!("Waiting for process to finish");
+            tokio::select! {
+                result = child.child.wait() => {
+                    match result {
+                        Ok(status) if !status.success() => {
+                            return Err(anyhow::anyhow!("Child process exited with non-zero status"));
+                        }
+                        Err(e) => {
+                            return Err(anyhow::anyhow!("Child process error"));
+                        }
+                        _ => {}
+                    }
                 }
-                Ok(Err(e)) => {
-                    eprintln!("Child process error: {}", e);
-                    return Err(anyhow::anyhow!("Child process error"));
-                }
-                Err(_) => {
+                _ = tokio::time::sleep(self.timeout) => {
                     eprintln!("Child process timed out");
                     return Err(anyhow::anyhow!("Child process timed out"));
                 }
-                _ => {}
             }
         }
         Ok(())
