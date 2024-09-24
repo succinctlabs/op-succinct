@@ -3,7 +3,8 @@ use std::fs;
 use alloy::eips::eip1559::BaseFeeParams;
 use alloy_primitives::Address;
 use anyhow::Result;
-use kona_primitives::{ChainGenesis, RollupConfig};
+use op_alloy_genesis::ChainGenesis;
+use op_alloy_genesis::RollupConfig;
 use serde::{Deserialize, Serialize};
 
 /// Matches the output of the optimism_rollupConfig RPC call.
