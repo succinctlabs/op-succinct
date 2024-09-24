@@ -36,9 +36,9 @@ cd contracts
 
 Inside the `contracts` folder there is a file called `opsuccinctl2ooconfig.json` that contains the parameters for the deployment. The parameters are automatically set based on your RPC's and the owner of your contract is determined by the private key you set in the `.env` file.
 
-Advanced users can set parameters manually in `opsuccinctl2ooconfig.json`, but the defaults are recommended.
+#### Optional Advanced Parameters
 
-#### Advanced Parameters
+Advanced users can set parameters manually in `opsuccinctl2ooconfig.json`, but the defaults are recommended. Skip this section if you want to use the defaults.
 
 | Parameter | Description |
 |-----------|-------------|
@@ -79,11 +79,11 @@ Start verifying contract `0x9b520F7d8031d45Eb8A1D9fE911038576931ab95` deployed o
 Submitting verification for [lib/optimism/packages/contracts-bedrock/src/universal/Proxy.sol:Proxy] 0x9b520F7d8031d45Eb8A1D9fE911038576931ab95.
 ```
 
-The address `0x9b520F7d8031d45Eb8A1D9fE911038576931ab95` is the Proxy contract for the `OPSuccinctL2OutputOracle`. This deployed Proxy contract will keep track of the state roots of the OP Stack chain.
+In these deployment logs, `0x9b520F7d8031d45Eb8A1D9fE911038576931ab95` is the address of the Proxy contract for the `OPSuccinctL2OutputOracle`. This deployed Proxy contract will keep track of the state roots of the OP Stack chain.
 
 ### 6) Add Proxy Address to `.env`
 
-Add the address for the `OPSuccinctL2OutputOracle` proxy contract to the `.env` file.
+Add the address for the `OPSuccinctL2OutputOracle` proxy contract to the `.env` file in the root directory.
 
 | Parameter | Description |
 |-----------|-------------|
