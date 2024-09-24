@@ -12,10 +12,12 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         Config memory config = readJson("opsuccinctl2ooconfig.json");
 
+        address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
+
         vm.startBroadcast(vm.envUint("ADMIN_PK"));
 
         address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, config, address(0));
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, config, l2OutputOracleProxy, address(0));
 
         vm.stopBroadcast();
     }

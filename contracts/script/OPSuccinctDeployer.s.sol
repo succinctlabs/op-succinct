@@ -16,14 +16,16 @@ contract OPSuccinctDeployer is Script, Utils {
         Config memory config = readJson("opsuccinctl2ooconfig.json");
 
         // This initializes the proxy.
-        config.l2OutputOracleProxy = address(new Proxy(msg.sender));
+        address l2OutputOracleProxy = address(new Proxy(msg.sender));
 
-        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        address OPSuccinctL2OutputOracleImpl = address(
+            new OPSuccinctL2OutputOracle()
+        );
 
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, config, address(0));
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, config, l2OutputOracleProxy, address(0));
 
         vm.stopBroadcast();
 
-        return config.l2OutputOracleProxy;
+        return l2OutputOracleProxy;
     }
 }
