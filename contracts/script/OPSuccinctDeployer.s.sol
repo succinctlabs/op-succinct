@@ -18,9 +18,7 @@ contract OPSuccinctDeployer is Script, Utils {
         // This initializes the proxy.
         address l2OutputOracleProxy = address(new Proxy(msg.sender));
 
-        address OPSuccinctL2OutputOracleImpl = address(
-            new OPSuccinctL2OutputOracle()
-        );
+        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
 
         upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, config, l2OutputOracleProxy, address(0));
 
