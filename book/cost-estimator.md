@@ -24,38 +24,32 @@ This command will split the block range into smaller ranges as if the `op-succin
 
 ## Example
 
-On Optimism Sepolia, proving the block range 15840000 to 15840050 (50 blocks) takes 2 range proofs, ~1.8B cycles and
-~2 minutes to execute.
+On Optimism Sepolia, proving the block range 17664000 to 17664125 (125 blocks) takes 4 range proofs and ~11.1B cycles.
 
 ```bash
-RUST_LOG=info just cost-estimator 15840000 15840050
+RUST_LOG=info just cost-estimator 17664000 17664125
 
 ...Execution Logs...
 
-+--------------------------------+---------------------------+
+ +--------------------------------+---------------------------+
 | Metric                         | Value                     |
 +--------------------------------+---------------------------+
-| Batch Start                    |                16,240,000 |
-| Batch End                      |                16,240,050 |
-| Execution Duration (seconds)   |                       130 |
-| Total Instruction Count        |             1,776,092,063 |
-| Oracle Verify Cycles           |               237,150,812 |
-| Derivation Cycles              |               493,177,851 |
-| Block Execution Cycles         |               987,885,587 |
-| Blob Verification Cycles       |                84,995,660 |
-| Total SP1 Gas                  |             2,203,604,618 |
-| Number of Blocks               |                        51 |
-| Number of Transactions         |                       160 |
-| Ethereum Gas Used              |                43,859,242 |
-| Cycles per Block               |                74,736,691 |
-| Cycles per Transaction         |                23,422,603 |
-| Transactions per Block         |                        11 |
-| Gas Used per Block             |                 3,509,360 |
-| Gas Used per Transaction       |                 1,105,066 |
-| BN Pair Cycles                 |                         0 |
-| BN Add Cycles                  |                         0 |
-| BN Mul Cycles                  |                         0 |
-| KZG Eval Cycles                |                         0 |
-| EC Recover Cycles              |                 9,407,847 |
+| Batch Start                    |                17,664,125 |
+| Batch End                      |                17,664,250 |
+| Execution Duration (seconds)   |                       606 |
+| Total Instruction Count        |            11,055,051,645 |
+| Oracle Verify Cycles           |               832,566,844 |
+| Derivation Cycles              |             1,089,859,924 |
+| Block Execution Cycles         |             8,959,507,779 |
+| Blob Verification Cycles       |               338,156,173 |
+| Total SP1 Gas                  |            13,075,527,707 |
+| Number of Blocks               |                       126 |
+| Number of Transactions         |                       856 |
+| Ethereum Gas Used              |               416,711,464 |
+| Cycles per Block               |                87,738,505 |
+| Cycles per Transaction         |                12,914,779 |
+| Transactions per Block         |                         6 |
+| Gas Used per Block             |                 3,307,233 |
+| Gas Used per Transaction       |                   486,812 |
 +--------------------------------+---------------------------+
 ```
