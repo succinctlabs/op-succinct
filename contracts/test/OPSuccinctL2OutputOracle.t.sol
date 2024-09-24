@@ -26,7 +26,7 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     Config config;
 
     function setUp() public {
-        vm.createSelectFork("https://sepolia.gateway.tenderly.co", L1_BLOCK_NUM + 1);
+        vm.createSelectFork("https://ethereum-sepolia-rpc.publicnode.com", L1_BLOCK_NUM + 1);
         config = readJson("opsuccinctl2ooconfig.json");
 
         // set default params for testing
@@ -38,7 +38,7 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     }
 
     function testOPSuccinctL2OOFork() public {
-        vm.createSelectFork("https://sepolia.gateway.tenderly.co", L1_BLOCK_NUM + 1);
+        vm.createSelectFork("https://ethereum-sepolia-rpc.publicnode.com", L1_BLOCK_NUM + 1);
         l2oo = OPSuccinctL2OutputOracle(0xE8F5d09640Fe9Fc7C7A05c8ee9a49836b4862502);
         l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
         l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
