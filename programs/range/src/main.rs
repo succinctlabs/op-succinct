@@ -159,9 +159,7 @@ fn main() {
                     .is_canyon_active(new_block_header.timestamp)
                     .then(Vec::new),
                 ..Default::default()
-            }
-            .into();
-
+            };
             // Add all data from this block's execution to the cache.
             l2_block_info = l2_provider
                 .update_cache(new_block_header, optimism_block, &boot.rollup_config)

@@ -76,7 +76,7 @@ pub(crate) fn merge_rollup_config(
     chain: &ChainConfig,
 ) -> Result<RollupConfig> {
     let mut rollup_config = RollupConfig {
-        genesis: op_rollup_config_rpc.genesis.clone(),
+        genesis: op_rollup_config_rpc.genesis,
         block_time: op_rollup_config_rpc.block_time,
         max_sequencer_drift: op_rollup_config_rpc.max_sequencer_drift,
         seq_window_size: op_rollup_config_rpc.seq_window_size,
