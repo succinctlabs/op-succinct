@@ -84,7 +84,7 @@ func TestCheckpointBlockHash(t *testing.T) {
 		t.Fatalf("failed to create tx manager: %v", err)
 	}
 
-	l2ooABI, err := opsuccinctbindings.ZKL2OutputOracleMetaData.GetAbi()
+	l2ooABI, err := opsuccinctbindings.OPSuccinctL2OutputOracleMetaData.GetAbi()
 	if err != nil {
 		t.Fatalf("failed to get L2OutputOracle ABI: %v", err)
 	}

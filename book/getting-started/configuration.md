@@ -1,6 +1,6 @@
 # Configuration
 
-The last step is to update your OP Stack configuration to use the new `ZKL2OutputOracle` contract managed by the `op-succinct-proposer` service.
+The last step is to update your OP Stack configuration to use the new `OPSuccinctL2OutputOracle` contract managed by the `op-succinct-proposer` service.
 
 ## Self-Managed OP Stack Chains
 

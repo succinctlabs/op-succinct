@@ -65,9 +65,9 @@ type CLIConfig struct {
 	// Whether to wait for the sequencer to sync to a recent block at startup.
 	WaitNodeSync bool
 
-	// Additional fields required for ZK Proposer.
+	// Additional fields required for OP Succinct Proposer.
 
-	// Path to the database that tracks ZK proof generation.
+	// Path to the database that tracks proof generation.
 	DbPath string
 
 	// UseCachedDb is a flag to use a cached database instead of creating a new one.

@@ -97,7 +97,7 @@ var (
 	}
 	DbPathFlag = &cli.StringFlag{
 		Name:    "db-path",
-		Usage:   "Path to the database used to track ZK proof generation",
+		Usage:   "Path to the database used to track OP Succinct proof generation",
 		Value:   "./op-proposer/proofs.db",
 		EnvVars: prefixEnvVars("DB_PATH"),
 	}

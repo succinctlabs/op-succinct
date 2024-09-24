@@ -1,6 +1,6 @@
 # Proposer
 
-Now that you have deployed the `ZKL2OutputOracle` contract, you can start the `op-succinct-proposer` service which replaces the normal `op-proposer` service in the OP Stack.
+Now that you have deployed the `OPSuccinctL2OutputOracle` contract, you can start the `op-succinct-proposer` service which replaces the normal `op-proposer` service in the OP Stack.
 
 The `op-succinct-proposer` service will call to [Succinct's Prover Network](https://docs.succinct.xyz/generating-proofs/prover-network) to generate proofs of the execution and derivation of the L2 state transitions.
 
@@ -40,7 +40,7 @@ In the root directory, create a file called `.env` (mirroring `.env.example`) an
 Build the docker images for the `op-succinct-proposer` service.
 
 ```bash
-docker-compose build
+docker compose build
 ```
 
 ## 3) Run the Proposer
@@ -50,17 +50,17 @@ This command launches the `op-succinct-proposer` service in the background. It l
 After a few minutes, you should see the `op-succinct-proposer` service start to generate span proofs. Once enough span proofs have been generated, they will be verified in an aggregate proof and submitted to the L1.
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 To see the logs of the `op-succinct-proposer` service, run:
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 and to stop the `op-succinct-proposer` service, run:
 
 ```bash
-docker-compose down
+docker compose down
 ```

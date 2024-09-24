@@ -36,7 +36,9 @@ cd contracts
 
 ### 4) Set Deployment Parameters
 
-Inside the `contracts` folder there is a file called `zkl2ooconfig.json` that contains the parameters for the deployment. You will need to fill it with your chain's specific details.
+# TODO: This mostly auto-generates now, update this for users to only include what's necessary. Have an advanced features/flags section for `USE_CACHED_STARTING_BLOCK`, `USE_CACHED_DB`.
+
+Inside the `contracts` folder there is a file called `opsuccinctl2ooconfig.json` that contains the parameters for the deployment. You will need to fill it with your chain's specific details.
 
 The following parameters are required: `proposer`, `challenger`, `finalizationPeriod`, `owner`, `verifierGateway`. The rest of the fields (`startingBlockNumber`, `l2BlockTime`, `chainId` and `vkey`) are automatically fetched by the `fetch-rollup-config` script which is invoked by the `ZKDeployer` forge script. To use a manually set `startingBlockNumber`, set `USE_CACHED_STARTING_BLOCK` to `true`.
 
@@ -50,18 +52,19 @@ The following parameters are required: `proposer`, `challenger`, `finalizationPe
 | `challenger` | The Ethereum address of the challenger account. If `address(0)`, no one can dispute proofs. |
 | `finalizationPeriod` | The time period (in seconds) after which a proposed output becomes finalized. Specifically, the time period after which you can withdraw your funds against the proposed output. |
 | `chainId` | The chain ID of the L2 network. |
-| `owner` | The Ethereum address of the `ZKL2OutputOracle` owner, who can update the verification key and verifier address. |
+| `owner` | The Ethereum address of the `OPSuccinctL2OutputOracle` owner, who can update the verification key and verifier address. |
 | `vkey` | The verification key for the aggregate program. Run `cargo run --bin vkey --release` to generate this. |
 | `rollupConfigHash` | The hash of the rollup config. This is used for non-superchain OP stack configurations. |
 | `verifierGateway` | The address of the verifier gateway contract. The canonical Succinct verifiers can be found [here](https://docs.succinct.xyz/onchain-verification/contract-addresses.html). |
 | `l2OutputOracleProxy` | The address of your OP Stack chain's L2 Output Oracle proxy contract which will be upgraded. Only used in `ZKUpgrader`. |
 
-### 5) Deploy the `ZKL2OutputOracle` contract:
+# TODO: Rename this to `OPSuccinctL2OutputOracle`
+### 5) Deploy the `OPSuccinctL2OutputOracle` contract:
 
-This foundry script will deploy the `ZKL2OutputOracle` contract to the specified L1 RPC and use the provided private key to sign the transaction:
+This foundry script will deploy the `OPSuccinctL2OutputOracle` contract to the specified L1 RPC and use the provided private key to sign the transaction:
 
 ```bash
-forge script script/ZKDeployer.s.sol:ZKDeployer \
+forge script script/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
     --rpc-url $L1_RPC \
     --private-key $PRIVATE_KEY \
     --ffi \
