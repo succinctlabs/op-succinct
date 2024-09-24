@@ -105,7 +105,7 @@ pub fn get_agg_proof_stdin(
     stdin.write(&AggregationInputs {
         boot_infos,
         latest_l1_checkpoint_head: latest_checkpoint_head,
-        multi_block_vkey: multi_block_vkey.hash_u32().clone(),
+        multi_block_vkey: multi_block_vkey.hash_u32(),
     });
     // The headers have issues serializing with bincode, so use serde_json instead.
     let headers_bytes = serde_cbor::to_vec(&headers).unwrap();
