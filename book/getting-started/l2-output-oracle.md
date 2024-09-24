@@ -1,7 +1,6 @@
-# Deploy L2 Output Oracle
+# Deploy OP Succinct L2 Output Oracle
 
 The first step in deploying OP Succinct is to deploy a Solidity smart contract that will verify ZKPs of OP derivation (OP's name for their state transition function) and contain the latest state root of your rollup.
-
 
 ## Deployment
 
@@ -24,6 +23,7 @@ Set the following environment variables:
 L1_RPC=...
 L2_RPC=...
 L2_NODE_RPC=...
+L2_BEACON_RPC=...
 PRIVATE_KEY=...
 ETHERSCAN_API_KEY=...
 ```
@@ -36,29 +36,25 @@ cd contracts
 
 ### 4) Set Deployment Parameters
 
-# TODO: This mostly auto-generates now, update this for users to only include what's necessary. Have an advanced features/flags section for `USE_CACHED_STARTING_BLOCK`, `USE_CACHED_DB`.
+Inside the `contracts` folder there is a file called `opsuccinctl2ooconfig.json` that contains the parameters for the deployment. The parameters are automatically set based on your environment variables.
 
-Inside the `contracts` folder there is a file called `opsuccinctl2ooconfig.json` that contains the parameters for the deployment. You will need to fill it with your chain's specific details.
+Advanced users can set parameters manually, but the defaults are recommended.
 
-The following parameters are required: `proposer`, `challenger`, `finalizationPeriod`, `owner`, `verifierGateway`. The rest of the fields (`startingBlockNumber`, `l2BlockTime`, `chainId` and `vkey`) are automatically fetched by the `fetch-rollup-config` script which is invoked by the `ZKDeployer` forge script. To use a manually set `startingBlockNumber`, set `USE_CACHED_STARTING_BLOCK` to `true`.
-
+The following parameters need to be manually set:
 
 | Parameter | Description |
 |-----------|-------------|
-| `startingBlockNumber` | The L2 block number at which to start generating validity proofs. This should be set to the current L2 block number. You can fetch this with `cast bn --rpc-url <L2_RPC>`. |
-| `submissionInterval` | The number of L2 blocks between each L1 output submission. |
-| `l2BlockTime` | The time in seconds between each L2 block. |
-| `proposer` | The Ethereum address of the proposer account. If `address(0)`, anyone can submit proofs. |
-| `challenger` | The Ethereum address of the challenger account. If `address(0)`, no one can dispute proofs. |
-| `finalizationPeriod` | The time period (in seconds) after which a proposed output becomes finalized. Specifically, the time period after which you can withdraw your funds against the proposed output. |
-| `chainId` | The chain ID of the L2 network. |
-| `owner` | The Ethereum address of the `OPSuccinctL2OutputOracle` owner, who can update the verification key and verifier address. |
-| `vkey` | The verification key for the aggregate program. Run `cargo run --bin vkey --release` to generate this. |
-| `rollupConfigHash` | The hash of the rollup config. This is used for non-superchain OP stack configurations. |
-| `verifierGateway` | The address of the verifier gateway contract. The canonical Succinct verifiers can be found [here](https://docs.succinct.xyz/onchain-verification/contract-addresses.html). |
-| `l2OutputOracleProxy` | The address of your OP Stack chain's L2 Output Oracle proxy contract which will be upgraded. Only used in `ZKUpgrader`. |
+| `proposer` | Ethereum address authorized to submit proofs. Set to `address(0)` to allow anyone to submit. |
+| `challenger` | Ethereum address authorized to dispute proofs. Set to `address(0)` to disable disputes. |
+| `finalizationPeriod` | The time period (in seconds) after which a proposed output becomes finalized. This is the time period after which you can withdraw your funds against the proposed output. |
 
-# TODO: Rename this to `OPSuccinctL2OutputOracle`
+All other parameters (`startingBlockNumber`, `submissionInterval`, `l2BlockTime`, `chainId`, `owner`, `vkey`, `rollupConfigHash`, `verifierGateway`, and `l2OutputOracleProxy`) are automatically set by the deployment scripts.
+
+Note: For advanced users, there are additional flags available:
+- Set `USE_CACHED_DB` to `true` for custom database configurations.
+
+These advanced options should only be used if you fully understand their implications.
+
 ### 5) Deploy the `OPSuccinctL2OutputOracle` contract:
 
 This foundry script will deploy the `OPSuccinctL2OutputOracle` contract to the specified L1 RPC and use the provided private key to sign the transaction:

@@ -91,7 +91,7 @@ async fn update_l2oo_config() -> Result<()> {
 
     // Set the submission interval.
     l2oo_config.submission_interval =
-        env::var("SUBMISSION_INTERVAL").unwrap_or("150".to_string()).parse()?;
+        env::var("SUBMISSION_INTERVAL").unwrap_or("1000".to_string()).parse()?;
 
     // Set the chain id.
     l2oo_config.chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
