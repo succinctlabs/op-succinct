@@ -24,17 +24,9 @@ contract UpgradeTest is Test, Utils {
         config.verifierGateway = address(new Proxy(address(this)));
         config.startingOutputRoot = exampleOutputRoot;
         config.startingTimestamp = exampleTimestamp;
-        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(
-            deployWithConfig(config)
-        );
+        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(deployWithConfig(config));
 
-        assertEq(
-            l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot,
-            exampleOutputRoot
-        );
-        assertEq(
-            l2oo.getL2Output(l2oo.latestOutputIndex()).timestamp,
-            exampleTimestamp
-        );
+        assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, exampleOutputRoot);
+        assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).timestamp, exampleTimestamp);
     }
 }

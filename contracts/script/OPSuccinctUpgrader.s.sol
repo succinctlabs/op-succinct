@@ -14,9 +14,7 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         vm.startBroadcast(vm.envUint("ADMIN_PK"));
 
-        address OPSuccinctL2OutputOracleImpl = address(
-            new OPSuccinctL2OutputOracle()
-        );
+        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, config, address(0));
 
         vm.stopBroadcast();
