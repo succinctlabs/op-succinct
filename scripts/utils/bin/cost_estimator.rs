@@ -295,7 +295,7 @@ async fn main() -> Result<()> {
     );
 
     let prover = ProverClient::new();
-    
+
     let start_time = Instant::now();
     let host_clis = run_native_data_generation(&data_fetcher, &split_ranges).await;
     let witness_generation_time_sec = start_time.elapsed().as_secs();
