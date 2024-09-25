@@ -131,7 +131,6 @@ impl WitnessGenExecutor {
     /// an error.
     async fn wait_for_processes(&mut self) -> Result<()> {
         for child in &mut self.ongoing_processes {
-            println!("Waiting for process to finish");
             tokio::select! {
                 result = child.child.wait() => {
                     match result {
