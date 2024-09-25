@@ -12,16 +12,16 @@ use op_succinct_host_utils::{
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
+use std::sync::{Arc, Mutex};
 use std::{
     cmp::{max, min},
     collections::HashMap,
     fs::{self},
     future::Future,
     path::PathBuf,
-    sync::Arc,
     time::Instant,
 };
-use tokio::{sync::Mutex, task::block_in_place};
+use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
@@ -164,7 +164,7 @@ async fn execute_blocks_parallel(
             let data_fetcher = OPSuccinctDataFetcher::new().await;
             let mut exec_stats = ExecutionStats::default();
             exec_stats.add_block_data(&data_fetcher, start, end).await;
-            let mut execution_stats_map = execution_stats_map.lock().await;
+            let mut execution_stats_map = execution_stats_map.lock().unwrap();
             execution_stats_map.insert((start, end), exec_stats);
         });
         handles.push(handle);
@@ -174,13 +174,36 @@ async fn execute_blocks_parallel(
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
     host_clis.par_iter().for_each(|r| {
         let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
+        let prover = Mutex::new(ProverClient::new());
 
         let start_time = Instant::now();
-        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+        let (_, report) = std::panic::catch_unwind(|| {
+            prover
+                .lock()
+                .unwrap()
+                .execute(MULTI_BLOCK_ELF, sp1_stdin)
+                .run()
+        })
+        .map_err(|e| {
+            eprintln!(
+                "Thread panicked while executing blocks {:?}-{:?}: {:?}",
+                r.start, r.end, e
+            );
+        })
+        .and_then(|res| {
+            res.map_err(|e| {
+                eprintln!(
+                    "Failed to execute blocks {:?}-{:?}: {:?}",
+                    r.start, r.end, e
+                );
+            })
+        })
+        .ok()
+        .unwrap();
         let execution_duration = start_time.elapsed();
 
         // Get the existing execution stats and modify it in place.
-        let mut execution_stats_map = block_on(execution_stats_map.lock());
+        let mut execution_stats_map = execution_stats_map.lock().unwrap();
         let exec_stats = execution_stats_map.get_mut(&(r.start, r.end)).unwrap();
         exec_stats.add_report_data(&report, execution_duration);
         exec_stats.add_aggregate_data();
@@ -190,7 +213,7 @@ async fn execute_blocks_parallel(
 
     let execution_stats = execution_stats_map
         .lock()
-        .await
+        .unwrap()
         .clone()
         .into_values()
         .collect();
