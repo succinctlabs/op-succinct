@@ -39,7 +39,11 @@ async fn main() -> Result<()> {
 
     let l2_safe_head = args.l2_block - 1;
 
-    let cache_mode = if args.use_cache { CacheMode::KeepCache } else { CacheMode::DeleteCache };
+    let cache_mode = if args.use_cache {
+        CacheMode::KeepCache
+    } else {
+        CacheMode::DeleteCache
+    };
 
     let host_cli = data_fetcher
         .get_host_cli_args(l2_safe_head, args.l2_block, ProgramType::Single, cache_mode)
@@ -62,7 +66,9 @@ async fn main() -> Result<()> {
     println!(
         "Block {} cycle count: {}",
         args.l2_block,
-        report.total_instruction_count().to_formatted_string(&Locale::en)
+        report
+            .total_instruction_count()
+            .to_formatted_string(&Locale::en)
     );
 
     Ok(())
