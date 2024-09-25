@@ -51,7 +51,7 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
 pub const WITNESSGEN_TIMEOUT: Duration = Duration::from_secs(1200);
 
 struct WitnessGenProcess {
-    child: tokio::process::Child,
+    child: std::process::Child,
     exec: String,
 }
 
@@ -84,7 +84,8 @@ impl WitnessGenExecutor {
 
         // Run the native host runner.
         let child =
-            tokio::process::Command::new(target_dir).args(&args).env("RUST_LOG", "info").spawn()?;
+            std::process::Command::new(target_dir).args(&args).env("RUST_LOG", "info").spawn()?;
+        println!("Spawned witness generation process with PID: {}", child.id());
         self.ongoing_processes
             .push(WitnessGenProcess { child, exec: host_cli.exec.clone().unwrap() });
         Ok(())
@@ -118,21 +119,19 @@ impl WitnessGenExecutor {
     async fn wait_for_processes(&mut self) -> Result<()> {
         for child in &mut self.ongoing_processes {
             println!("Waiting for process to finish");
-            tokio::select! {
-                result = child.child.wait() => {
-                    match result {
-                        Ok(status) if !status.success() => {
-                            return Err(anyhow::anyhow!("Witness generation process exited because it failed."));
-                        }
-                        Err(e) => {
-                            return Err(anyhow::anyhow!("Failed to get witness generation process status: {}", e));
-                        }
-                        _ => {}
-                    }
+            match child.child.wait() {
+                Ok(status) if !status.success() => {
+                    return Err(anyhow::anyhow!(
+                        "Witness generation process exited because it failed."
+                    ));
                 }
-                _ = tokio::time::sleep(self.timeout) => {
-                    return Err(anyhow::anyhow!("Witness generation process timed out."));
+                Err(e) => {
+                    return Err(anyhow::anyhow!(
+                        "Failed to get witness generation process status: {}",
+                        e
+                    ));
                 }
+                _ => {}
             }
         }
         Ok(())
@@ -147,7 +146,7 @@ impl WitnessGenExecutor {
         // Kill the "native client" processes.
         for mut child in self.ongoing_processes.drain(..) {
             if let Ok(None) = child.child.try_wait() {
-                child.child.kill().await?;
+                child.child.kill()?;
             }
         }
 

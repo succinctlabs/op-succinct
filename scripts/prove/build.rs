@@ -38,7 +38,7 @@ fn build_native_host_runner() {
         panic!("Failed to build native_host_runner");
     }
 
-    println!("cargo:warning=native_host_runner built with release profile",);
+    println!("cargo:warning=native_host_runner built with release profile",); 
 }
 
 /// Build a program for the zkVM.
@@ -67,5 +67,5 @@ fn main() {
     // build_zkvm_program("aggregation");
     // Note: Don't comment this out, because the Docker program depends on the native host runner
     // being built.
-    build_native_host_runner();
+    build_native_host_runner(); 
 }
