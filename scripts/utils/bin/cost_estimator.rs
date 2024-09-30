@@ -62,7 +62,7 @@ fn get_max_span_batch_range_size(l2_chain_id: u64) -> u64 {
     const DEFAULT_SIZE: u64 = 1000;
     match l2_chain_id {
         8453 => 5,      // Base
-        11155420 => 40, // OP Sepolia
+        11155420 => 30, // OP Sepolia
         10 => 10,       // OP Mainnet
         _ => DEFAULT_SIZE,
     }
@@ -175,7 +175,11 @@ async fn execute_blocks_parallel(
     host_clis.par_iter().for_each(|r| {
         let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
 
-        let (_, report) = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+        // TODO: Implement retries with a smaller block range if this fails.
+        let (_, report) = prover
+            .execute(MULTI_BLOCK_ELF, sp1_stdin)
+            .run()
+            .expect(format!("Failed to execute blocks {:?} - {:?}", r.start, r.end,).as_str());
 
         // Get the existing execution stats and modify it in place.
         let mut execution_stats_map = execution_stats_map.lock().unwrap();
