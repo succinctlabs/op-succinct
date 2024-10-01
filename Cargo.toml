@@ -49,18 +49,6 @@ kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "ratan/
 kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/native-client-command-bugged" }
 kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/native-client-command-bugged" }
 kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/native-client-command-bugged" }
-# kona-common = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-# kona-common-proc = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-# kona-preimage = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3", features = [
-#     "rkyv",
-# ] }
-# kona-primitives = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-# kona-mpt = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-# kona-derive = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3", default-features = false }
-# kona-executor = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-# kona-client = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-# kona-host = { git = "https://github.com/anton-rs/kona", rev = "b4c79fcf3e95124c1b6a54632ea5748c74e9f9b3" }
-
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
