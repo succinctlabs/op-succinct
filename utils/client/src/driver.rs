@@ -14,9 +14,8 @@ use kona_client::{
 };
 use kona_derive::{
     attributes::StatefulAttributesBuilder,
-    pipeline::{
-        ChainProvider, DerivationPipeline, L2ChainProvider, Pipeline, PipelineBuilder, StepResult,
-    },
+    pipeline::{DerivationPipeline, Pipeline, PipelineBuilder, StepResult},
+    prelude::{ChainProvider, L2ChainProvider},
     sources::EthereumDataSource,
     stages::{
         AttributesQueue, BatchQueue, BatchStream, ChannelBank, ChannelReader, FrameQueue,
