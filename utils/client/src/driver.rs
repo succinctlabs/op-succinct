@@ -13,13 +13,15 @@ use kona_client::{
     BootInfo, HintType,
 };
 use kona_derive::{
-    pipeline::{DerivationPipeline, Pipeline, PipelineBuilder, StepResult},
+    attributes::StatefulAttributesBuilder,
+    pipeline::{
+        ChainProvider, DerivationPipeline, L2ChainProvider, Pipeline, PipelineBuilder, StepResult,
+    },
     sources::EthereumDataSource,
     stages::{
-        AttributesQueue, BatchQueue, ChannelBank, ChannelReader, FrameQueue, L1Retrieval,
-        L1Traversal, StatefulAttributesBuilder,
+        AttributesQueue, BatchQueue, BatchStream, ChannelBank, ChannelReader, FrameQueue,
+        L1Retrieval, L1Traversal,
     },
-    traits::{ChainProvider, L2ChainProvider},
 };
 use kona_mpt::TrieProvider;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
@@ -30,7 +32,7 @@ use log::{debug, error};
 
 /// An oracle-backed derivation pipeline.
 pub type OraclePipeline<O> = DerivationPipeline<
-    OracleAttributesQueue<OracleDataProvider<O>, O>,
+    MultiblockOracleAttributesQueue<OracleDataProvider<O>, O>,
     MultiblockOracleL2ChainProvider<O>,
 >;
 
@@ -44,10 +46,13 @@ pub type OracleAttributesBuilder<O> =
     StatefulAttributesBuilder<OracleL1ChainProvider<O>, MultiblockOracleL2ChainProvider<O>>;
 
 /// An oracle-backed attributes queue for the derivation pipeline.
-pub type OracleAttributesQueue<DAP, O> = AttributesQueue<
+pub type MultiblockOracleAttributesQueue<DAP, O> = AttributesQueue<
     BatchQueue<
-        ChannelReader<
-            ChannelBank<FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>>,
+        BatchStream<
+            ChannelReader<
+                ChannelBank<FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>>,
+            >,
+            MultiblockOracleL2ChainProvider<O>,
         >,
         MultiblockOracleL2ChainProvider<O>,
     >,
