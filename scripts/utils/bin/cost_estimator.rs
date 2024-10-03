@@ -12,13 +12,13 @@ use op_succinct_host_utils::{
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
-use std::sync::{Arc, Mutex};
 use std::{
     cmp::{max, min},
     collections::HashMap,
     fs::{self},
     future::Future,
     path::PathBuf,
+    sync::{Arc, Mutex},
     time::Instant,
 };
 use tokio::task::block_in_place;
@@ -91,7 +91,7 @@ async fn run_native_data_generation(
     data_fetcher: &OPSuccinctDataFetcher,
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
-    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 15;
+    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 20;
 
     // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
     // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
