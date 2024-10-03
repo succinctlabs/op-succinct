@@ -60,7 +60,7 @@ op-succinct-proposer = { path = "proposer/succinct" }
 # ethereum / op
 alloy = { version = "0.3", default-features = false, features = ["full"] }
 # sha3-keccak is enabled in 0.8.4
-alloy-primitives = { version = "0.8", default-features = false, features = ["sha3-keccak"] }
+alloy-primitives = { version = "0.8.4", default-features = false, features = ["sha3-keccak"] }
 alloy-rlp = { version = "0.3.8", default-features = false }
 alloy-eips = { version = "0.3", default-features = false }
 revm = { version = "14.0", default-features = false, features = ["kzg-rs"] }
