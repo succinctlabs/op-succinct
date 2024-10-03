@@ -179,7 +179,12 @@ async fn execute_blocks_parallel(
         let (_, report) = prover
             .execute(MULTI_BLOCK_ELF, sp1_stdin)
             .run()
-            .expect(format!("Failed to execute blocks {:?} - {:?}", r.start, r.end,).as_str());
+            .unwrap_or_else(|e| {
+                panic!(
+                    "Failed to execute blocks {:?} - {:?}: {:?}",
+                    r.start, r.end, e
+                )
+            });
 
         // Get the existing execution stats and modify it in place.
         let mut execution_stats_map = execution_stats_map.lock().unwrap();
