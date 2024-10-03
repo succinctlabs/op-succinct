@@ -19,6 +19,10 @@ forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
     --ffi
 ```
 
+### Finality on Upgrade
+
+When upgrading from an `op-proposer` proposing optimistic output roots with a non-zero `finalizationPeriod`, all proposed output roots will be automatically finalized after the upgrade (by default the `finalizationPeriod` is set to 0 in `op-succinct`). For security, we recommend ensuring that all old proposer output roots are correct before upgrading.
+
 ## RaaS Providers
 
 More information for how to configure an OP Stack RaaS provider deployment will be available soon.
