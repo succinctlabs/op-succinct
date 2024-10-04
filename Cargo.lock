@@ -4281,7 +4281,6 @@ dependencies = [
  "serde_json",
  "sp1-sdk",
  "tokio",
- "toml",
 ]
 
 [[package]]

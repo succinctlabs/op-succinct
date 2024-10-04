@@ -8,51 +8,6 @@ use op_alloy_genesis::ChainGenesis;
 use op_alloy_genesis::RollupConfig;
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
-use toml::Value;
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ProposerConfig {
-    pub l1_chain_id: u64,
-    pub l2_chain_id: u64,
-    pub l2oo_address: String,
-    pub max_concurrent_proof_requests: u64,
-    pub max_block_range_per_span_proof: u64,
-    pub submission_interval: u64,
-}
-
-/// Parse the proposer config from the workspace root.
-pub fn get_proposer_config(l2_chain_id: u64) -> Option<ProposerConfig> {
-    let workspace_root = cargo_metadata::MetadataCommand::new()
-        .exec()
-        .expect("Failed to get workspace root")
-        .workspace_root;
-    let config_path = workspace_root.join("proposer.toml");
-    let content = fs::read_to_string(config_path).ok()?;
-    let value = content.parse::<Value>().ok()?;
-
-    let mut config_map = HashMap::new();
-
-    for (key, value) in value.as_table().unwrap() {
-        let config = ProposerConfig {
-            l1_chain_id: value["L1_CHAIN_ID"].as_integer().unwrap() as u64,
-            l2_chain_id: value["L2_CHAIN_ID"].as_integer().unwrap() as u64,
-            l2oo_address: value["L2OO_ADDRESS"].as_str().unwrap().to_string(),
-            max_concurrent_proof_requests: value["MAX_CONCURRENT_PROOF_REQUESTS"]
-                .as_integer()
-                .unwrap() as u64,
-            max_block_range_per_span_proof: value["MAX_BLOCK_RANGE_PER_SPAN_PROOF"]
-                .as_integer()
-                .unwrap() as u64,
-            submission_interval: value["SUBMISSION_INTERVAL"].as_integer().unwrap() as u64,
-        };
-        let l2_chain_id = key.parse::<u64>().expect("Failed to parse L2 chain ID");
-        config_map.insert(l2_chain_id, config);
-    }
-
-    config_map.get(&l2_chain_id).cloned()
-}
-
 /// Matches the output of the optimism_rollupConfig RPC call.
 #[derive(Debug, Deserialize, Serialize)]
 pub(crate) struct OptimismRollupConfigRPC {
