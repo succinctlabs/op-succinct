@@ -77,6 +77,7 @@ func (db *ProofDB) newEntryWithReqAddedTimestamp(proofType string, start, end, n
 		SetEndBlock(end).
 		SetStatus(proofrequest.StatusUNREQ).
 		SetRequestAddedTime(now).
+		SetLastUpdatedTime(now).
 		Save(context.Background())
 
 	if err != nil {
@@ -105,6 +106,7 @@ func (db *ProofDB) UpdateProofStatus(id int, newStatus string) error {
 	_, err := db.client.ProofRequest.Update().
 		Where(proofrequest.ID(id)).
 		SetStatus(pStatus).
+		SetLastUpdatedTime(uint64(time.Now().Unix())).
 		Save(context.Background())
 
 	return err
@@ -115,6 +117,7 @@ func (db *ProofDB) SetProverRequestID(id int, proverRequestID string) error {
 		Where(proofrequest.ID(id)).
 		SetProverRequestID(proverRequestID).
 		SetProofRequestTime(uint64(time.Now().Unix())).
+		SetLastUpdatedTime(uint64(time.Now().Unix())).
 		Save(context.Background())
 
 	if err != nil {
@@ -157,6 +160,7 @@ func (db *ProofDB) AddProof(id int, proof []byte) error {
 		UpdateOne(existingProof).
 		SetProof(proof).
 		SetStatus(proofrequest.StatusCOMPLETE).
+		SetLastUpdatedTime(uint64(time.Now().Unix())).
 		Save(context.Background())
 
 	if err != nil {
@@ -182,6 +186,7 @@ func (db *ProofDB) AddL1BlockInfoToAggRequest(startBlock, endBlock, l1BlockNumbe
 		).
 		SetL1BlockNumber(l1BlockNumber).
 		SetL1BlockHash(l1BlockHash).
+		SetLastUpdatedTime(uint64(time.Now().Unix())).
 		Save(context.Background())
 
 	if err != nil {
@@ -235,6 +240,7 @@ func (db *ProofDB) GetWitnessGenerationTimeoutProofsOnServer() ([]*ent.ProofRequ
 		Where(
 			proofrequest.StatusEQ(proofrequest.StatusREQ),
 			proofrequest.ProverRequestIDIsNil(),
+			// TODO: This should query the time that the proof was last updated.
 			proofrequest.RequestAddedTimeLT(uint64(twentyMinutesAgo)),
 		).
 		All(context.Background())
