@@ -73,6 +73,12 @@ contract Utils is Test, JSONDecoder {
 
     // This script updates the rollup config hash and the block number in the config.
     function updateRollupConfig() public {
+        // If L2_CHAIN_ID is set, pass it to the fetch-rollup-config binary.
+        uint256 l2ChainId;
+        if (vm.envOr("L2_CHAIN_ID", "")) {
+            l2ChainId = vm.envUint("L2_CHAIN_ID");
+        }
+
         // Build the fetch-rollup-config binary. Use the quiet flag to suppress build output.
         string[] memory inputs = new string[](6);
         inputs[0] = "cargo";
@@ -85,13 +91,16 @@ contract Utils is Test, JSONDecoder {
 
         // Run the fetch-rollup-config binary which updates the rollup config hash and the block number in the config.
         // Use the quiet flag to suppress build output.
-        string[] memory inputs2 = new string[](6);
+        string[] memory inputs2 = new string[](9);
         inputs2[0] = "cargo";
         inputs2[1] = "run";
         inputs2[2] = "--bin";
         inputs2[3] = "fetch-rollup-config";
         inputs2[4] = "--release";
-        inputs2[5] = "--quiet";
+        inputs2[5] = "--";
+        inputs2[6] = "--l2-chain-id";
+        inputs2[7] = vm.toString(l2ChainId);
+        inputs2[8] = "--quiet";
 
         vm.ffi(inputs2);
     }

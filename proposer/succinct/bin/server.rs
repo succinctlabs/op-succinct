@@ -78,7 +78,7 @@ async fn request_span_proof(
     dotenv::dotenv().ok();
     // TODO: Save data fetcher, NetworkProver, and NetworkClient globally
     // and access via Store.
-    let data_fetcher = OPSuccinctDataFetcher::new().await;
+    let data_fetcher = OPSuccinctDataFetcher::default();
 
     let host_cli = data_fetcher
         .get_host_cli_args(
@@ -144,7 +144,7 @@ async fn request_agg_proof(
     )?;
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
-    let fetcher = OPSuccinctDataFetcher::new().await;
+    let fetcher = OPSuccinctDataFetcher::default();
     let headers = fetcher
         .get_header_preimages(&boot_infos, l1_head.into())
         .await?;

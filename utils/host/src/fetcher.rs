@@ -19,7 +19,10 @@ use tokio::time::sleep;
 use alloy_primitives::keccak256;
 
 use crate::{
-    rollup_config::{get_rollup_config_path, merge_rollup_config, save_rollup_config},
+    rollup_config::{
+        get_proposer_config, get_rollup_config_path, merge_rollup_config, save_rollup_config,
+        ProposerConfig,
+    },
     L2Output, ProgramType,
 };
 
@@ -28,19 +31,25 @@ use crate::{
 /// given block number. It is used to generate the boot info for the native host program.
 /// TODO: Add retries for all requests (3 retries).
 pub struct OPSuccinctDataFetcher {
-    pub l1_rpc: String,
+    pub rpc_config: RPCConfig,
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
-    pub l1_beacon_rpc: String,
-    pub l2_rpc: String,
-    pub l2_node_rpc: String,
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
     pub rollup_config: RollupConfig,
+    pub proposer_config: Option<ProposerConfig>,
 }
 
 impl Default for OPSuccinctDataFetcher {
     fn default() -> Self {
-        block_on(OPSuccinctDataFetcher::new())
+        block_on(OPSuccinctDataFetcher::new(None))
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct RPCConfig {
+    l1_rpc: String,
+    l1_beacon_rpc: String,
+    l2_rpc: String,
+    l2_node_rpc: String,
 }
 
 /// The mode corresponding to the chain we are fetching data for.
@@ -59,6 +68,49 @@ pub enum CacheMode {
     DeleteCache,
 }
 
+fn get_rpcs(l2_chain_id: Option<u64>) -> RPCConfig {
+    if let Some(l2_chain_id) = l2_chain_id {
+        let proposer_config = get_proposer_config(l2_chain_id).unwrap_or_else(|| {
+            panic!(
+                "Failed to get proposer config for chain id: {}",
+                l2_chain_id
+            )
+        });
+
+        let l1_chain_id = proposer_config.l1_chain_id;
+
+        let l1_rpc = env::var(format!("L1_RPC_{}", l1_chain_id))
+            .unwrap_or_else(|_| "http://localhost:8545".to_string());
+        let l1_beacon_rpc = env::var(format!("L1_BEACON_RPC_{}", l1_chain_id))
+            .unwrap_or_else(|_| "http://localhost:5052".to_string());
+        let l2_rpc = env::var(format!("L2_RPC_{}", l2_chain_id))
+            .unwrap_or_else(|_| "http://localhost:9545".to_string());
+        let l2_node_rpc = env::var(format!("L2_NODE_RPC_{}", l2_chain_id))
+            .unwrap_or_else(|_| "http://localhost:5058".to_string());
+
+        return RPCConfig {
+            l1_rpc,
+            l1_beacon_rpc,
+            l2_rpc,
+            l2_node_rpc,
+        };
+    } else {
+        let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
+        let l1_beacon_rpc =
+            env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
+        let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
+        let l2_node_rpc =
+            env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
+
+        return RPCConfig {
+            l1_rpc,
+            l1_beacon_rpc,
+            l2_rpc,
+            l2_node_rpc,
+        };
+    }
+}
+
 /// The info to fetch for a block.
 pub struct BlockInfo {
     pub block_number: u64,
@@ -68,27 +120,30 @@ pub struct BlockInfo {
 
 impl OPSuccinctDataFetcher {
     /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
-    pub async fn new() -> Self {
+    pub async fn new(l2_chain_id: Option<u64>) -> Self {
         dotenv::dotenv().ok();
-        let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
-        let l1_provider =
-            Arc::new(ProviderBuilder::default().on_http(Url::from_str(&l1_rpc).unwrap()));
-        let l1_beacon_rpc =
-            env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
-        let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
-        let l2_node_rpc =
-            env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
-        let l2_provider =
-            Arc::new(ProviderBuilder::default().on_http(Url::from_str(&l2_rpc).unwrap()));
+
+        let rpc_config = get_rpcs(l2_chain_id);
+
+        let l1_provider = Arc::new(
+            ProviderBuilder::default().on_http(Url::from_str(&rpc_config.l1_rpc).unwrap()),
+        );
+        let l2_provider = Arc::new(
+            ProviderBuilder::default().on_http(Url::from_str(&rpc_config.l2_rpc).unwrap()),
+        );
+
+        let proposer_config: Option<ProposerConfig> = if let Some(l2_chain_id) = l2_chain_id {
+            Some(get_proposer_config(l2_chain_id).unwrap())
+        } else {
+            None
+        };
 
         let mut fetcher = OPSuccinctDataFetcher {
-            l1_rpc,
+            rpc_config,
             l1_provider,
-            l1_beacon_rpc,
-            l2_rpc,
             l2_provider,
-            l2_node_rpc,
             rollup_config: RollupConfig::default(),
+            proposer_config,
         };
 
         // Load and save the rollup config.
@@ -105,10 +160,10 @@ impl OPSuccinctDataFetcher {
     /// Get the RPC URL for the given RPC mode.
     pub fn get_rpc_url(&self, rpc_mode: RPCMode) -> String {
         match rpc_mode {
-            RPCMode::L1 => self.l1_rpc.clone(),
-            RPCMode::L2 => self.l2_rpc.clone(),
-            RPCMode::L1Beacon => self.l1_beacon_rpc.clone(),
-            RPCMode::L2Node => self.l2_node_rpc.clone(),
+            RPCMode::L1 => self.rpc_config.l1_rpc.clone(),
+            RPCMode::L2 => self.rpc_config.l2_rpc.clone(),
+            RPCMode::L1Beacon => self.rpc_config.l1_beacon_rpc.clone(),
+            RPCMode::L2Node => self.rpc_config.l2_node_rpc.clone(),
         }
     }
 
@@ -466,9 +521,9 @@ impl OPSuccinctDataFetcher {
             l2_block_number: l2_end_block,
             l2_chain_id: Some(l2_chain_id),
             l2_head: l2_head.0.into(),
-            l2_node_address: Some(self.l2_rpc.clone()),
-            l1_node_address: Some(self.l1_rpc.clone()),
-            l1_beacon_address: Some(self.l1_beacon_rpc.clone()),
+            l2_node_address: Some(self.rpc_config.l2_node_rpc.clone()),
+            l1_node_address: Some(self.rpc_config.l1_rpc.clone()),
+            l1_beacon_address: Some(self.rpc_config.l1_beacon_rpc.clone()),
             data_dir: Some(data_directory.into()),
             exec: Some(exec_directory),
             server: false,

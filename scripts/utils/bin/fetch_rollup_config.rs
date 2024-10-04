@@ -46,8 +46,8 @@ struct L2OOConfig {
 /// - chain_id: Get the chain id from the rollup config.
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
-async fn update_l2oo_config() -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::default();
+async fn update_l2oo_config(l2_chain_id: Option<u64>) -> Result<()> {
+    let data_fetcher = OPSuccinctDataFetcher::new(l2_chain_id).await;
 
     // Get the workspace root with cargo metadata to make the paths.
     let workspace_root = PathBuf::from(
@@ -95,9 +95,20 @@ async fn update_l2oo_config() -> Result<()> {
         .unwrap();
 
     // Set the submission interval.
-    l2oo_config.submission_interval = env::var("SUBMISSION_INTERVAL")
-        .unwrap_or("1000".to_string())
+    // The order of precedence is:
+    // 1. SUBMISSION_INTERVAL environment variable
+    // 2. proposer.toml
+    // 3. 1000 (default)
+    let submission_interval: u64 = env::var("SUBMISSION_INTERVAL")
+        .unwrap_or_else(|_| {
+            if let Some(proposer_config) = &data_fetcher.proposer_config {
+                proposer_config.submission_interval.to_string()
+            } else {
+                "1000".to_string()
+            }
+        })
         .parse()?;
+    l2oo_config.submission_interval = submission_interval;
 
     // Set the chain id.
     l2oo_config.chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
@@ -164,6 +175,16 @@ fn find_project_root() -> Option<PathBuf> {
     Some(path)
 }
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// L2 chain ID
+    #[arg(long)]
+    l2_chain_id: u64,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // This fetches the .env file from the project root. If the command is invoked in the contracts/ directory,
@@ -173,5 +194,13 @@ async fn main() -> Result<()> {
     } else {
         eprintln!("Warning: Could not find project root. .env file not loaded.");
     }
-    update_l2oo_config().await
+
+    let args = Args::parse();
+
+    // In the contracts, we set L2 chain ID to 0 if there's no L2_CHAIN_ID supplied.
+    if args.l2_chain_id != 0 {
+        update_l2oo_config(Some(args.l2_chain_id)).await
+    } else {
+        update_l2oo_config(None).await
+    }
 }

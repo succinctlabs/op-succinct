@@ -11,11 +11,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use toml::Value;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ProposerConfig {
     pub l1_chain_id: u64,
     pub l2_chain_id: u64,
-    pub poll_interval: String,
     pub l2oo_address: String,
     pub max_concurrent_proof_requests: u64,
     pub max_block_range_per_span_proof: u64,
@@ -23,14 +22,14 @@ pub struct ProposerConfig {
 }
 
 /// Parse the proposer config from the workspace root.
-pub fn parse_proposer_config() -> Result<HashMap<u64, ProposerConfig>> {
+pub fn get_proposer_config(l2_chain_id: u64) -> Option<ProposerConfig> {
     let workspace_root = cargo_metadata::MetadataCommand::new()
         .exec()
         .expect("Failed to get workspace root")
         .workspace_root;
     let config_path = workspace_root.join("proposer.toml");
-    let content = fs::read_to_string(config_path)?;
-    let value = content.parse::<Value>()?;
+    let content = fs::read_to_string(config_path).ok()?;
+    let value = content.parse::<Value>().ok()?;
 
     let mut config_map = HashMap::new();
 
@@ -38,7 +37,6 @@ pub fn parse_proposer_config() -> Result<HashMap<u64, ProposerConfig>> {
         let config = ProposerConfig {
             l1_chain_id: value["L1_CHAIN_ID"].as_integer().unwrap() as u64,
             l2_chain_id: value["L2_CHAIN_ID"].as_integer().unwrap() as u64,
-            poll_interval: value["POLL_INTERVAL"].as_str().unwrap().to_string(),
             l2oo_address: value["L2OO_ADDRESS"].as_str().unwrap().to_string(),
             max_concurrent_proof_requests: value["MAX_CONCURRENT_PROOF_REQUESTS"]
                 .as_integer()
@@ -52,7 +50,7 @@ pub fn parse_proposer_config() -> Result<HashMap<u64, ProposerConfig>> {
         config_map.insert(l2_chain_id, config);
     }
 
-    Ok(config_map)
+    config_map.get(&l2_chain_id).cloned()
 }
 
 /// Matches the output of the optimism_rollupConfig RPC call.
