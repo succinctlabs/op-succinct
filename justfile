@@ -14,7 +14,7 @@ run-single l2_block_num use-cache="false" prove="false":
   if [ "{{prove}}" = "true" ]; then
     PROVE_FLAG="--prove"
   fi
-  cargo run --bin single --release -- --l2-block {{l2_block_num}} $CACHE_FLAG $PROVE_FLAG
+  SP1_DUMP=1 cargo run --bin single --release -- --l2-block {{l2_block_num}} $CACHE_FLAG $PROVE_FLAG
 
 # Runs the op-succinct program for multiple blocks.
 run-multi start end use-cache="false" prove="false":
