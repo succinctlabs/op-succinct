@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
@@ -317,7 +316,7 @@ func (l *L2OutputSubmitter) RequestProofFromServer(urlPath string, jsonBody []by
 	defer resp.Body.Close()
 
 	// Read the response body.
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("error reading the response body: %v", err)
 	}
