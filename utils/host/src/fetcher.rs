@@ -65,19 +65,12 @@ pub enum CacheMode {
 }
 
 fn get_rpcs() -> RPCConfig {
-    let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
-    let l1_beacon_rpc =
-        env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
-    let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
-    let l2_node_rpc =
-        env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
-
-    return RPCConfig {
-        l1_rpc,
-        l1_beacon_rpc,
-        l2_rpc,
-        l2_node_rpc,
-    };
+    RPCConfig {
+        l1_rpc: env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string()),
+        l1_beacon_rpc: env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string()),
+        l2_rpc: env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string()),
+        l2_node_rpc: env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string()),
+    }
 }
 
 /// The info to fetch for a block.
