@@ -168,7 +168,7 @@ pub fn save_rollup_config(rollup_config: &RollupConfig) -> Result<()> {
     // Create the directory for the rollup config if it doesn't exist.
     let rollup_configs_dir = rollup_config_path.parent().unwrap();
     if !rollup_configs_dir.exists() {
-        fs::create_dir_all(&rollup_configs_dir)?;
+        fs::create_dir_all(rollup_configs_dir)?;
     }
 
     // Write the rollup config to the file.
