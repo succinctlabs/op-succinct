@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
@@ -23,6 +24,13 @@ func InitDB(dbPath string, useCachedDb bool) (*ProofDB, error) {
 	} else {
 		fmt.Printf("Using cached DB at %s\n", dbPath)
 	}
+
+	// Create the intermediate directories if they don't exist
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create directories for DB: %w", err)
+	}
+
 	connectionString := fmt.Sprintf("file:%s?_fk=1", dbPath)
 	client, err := ent.Open("sqlite3", connectionString)
 	if err != nil {

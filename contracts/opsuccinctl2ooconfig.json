@@ -1,16 +1,16 @@
 {
-  "chainId": 10,
+  "chainId": 11155420,
   "challenger": "0x0000000000000000000000000000000000000000",
   "finalizationPeriod": 0,
   "l2BlockTime": 2,
   "owner": "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e",
   "proposer": "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e",
-  "rollupConfigHash": "0xaaa6ae5735fc2cd9d94d361a8208946371cc689e4c03e45be9dd7a3ea866ab2f",
-  "startingBlockNumber": 126147850,
-  "startingOutputRoot": "0xc6722f65202d9971ff736f449973d72ade2268e29945a5753c5a3be8d6b15a97",
-  "startingTimestamp": 1727894477,
-  "submissionInterval": 1000,
+  "rollupConfigHash": "0x74c744d9deb7fbf6e51f84bad9f351c54b091c96b9430827657c4baa85b7e269",
+  "startingBlockNumber": 18089697,
+  "startingOutputRoot": "0x9e578973cc046e52e9f8ac185e409c918a7b4e0d80bf832d4b0db1d573710eb7",
+  "startingTimestamp": 1727981934,
+  "submissionInterval": 10000,
   "verifierGateway": "0x3B6041173B80E77f038f3F2C0f9744f04837185e",
-  "aggregationVkey": "0x004c04e3eab8ea57cd1f9076cf1b3b87e1e7155776a64ae101e0a39d9098c676",
-  "rangeVkeyCommitment": "0x50b251451a821c18594f0ae7267b5ac2072e308a03c540552c1d754f2103b460"
+  "aggregationVkey": "0x00d67c48cdba8a397942cdb6c8ffc88023f86a7ae7a3e7c51f7c145198eea09e",
+  "rangeVkeyCommitment": "0x58660c1a1ab2cc77620b051a4d9006883dcb81fa5a856f654bbc5f8739d83868"
 }
