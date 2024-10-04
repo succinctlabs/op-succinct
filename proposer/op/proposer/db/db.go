@@ -240,8 +240,7 @@ func (db *ProofDB) GetWitnessGenerationTimeoutProofsOnServer() ([]*ent.ProofRequ
 		Where(
 			proofrequest.StatusEQ(proofrequest.StatusREQ),
 			proofrequest.ProverRequestIDIsNil(),
-			// TODO: This should query the time that the proof was last updated.
-			proofrequest.RequestAddedTimeLT(uint64(twentyMinutesAgo)),
+			proofrequest.LastUpdatedTimeLT(uint64(twentyMinutesAgo)),
 		).
 		All(context.Background())
 
