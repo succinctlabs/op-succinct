@@ -19,7 +19,7 @@ use tokio::time::sleep;
 use alloy_primitives::keccak256;
 
 use crate::{
-    rollup_config::{merge_rollup_config, save_rollup_config},
+    rollup_config::{get_rollup_config_path, merge_rollup_config, save_rollup_config},
     L2Output, ProgramType,
 };
 
@@ -67,7 +67,7 @@ pub struct BlockInfo {
 }
 
 impl OPSuccinctDataFetcher {
-    /// Gets the RPC URL's and saves the rollup config for the chain to `rollup-configs/{l2_chain_id}.json`.
+    /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
     pub async fn new() -> Self {
         dotenv::dotenv().ok();
         let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
@@ -453,7 +453,7 @@ impl OPSuccinctDataFetcher {
         }
 
         // Create the path to the rollup config file.
-        let rollup_config_path = format!("{}/rollup-configs/{}.json", workspace_root, l2_chain_id);
+        let rollup_config_path = get_rollup_config_path(l2_chain_id)?;
 
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.

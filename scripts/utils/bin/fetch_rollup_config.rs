@@ -38,7 +38,7 @@ struct L2OOConfig {
 /// Update the L2OO config with the rollup config hash and other relevant data before the contract is deployed.
 ///
 /// Specifically, updates the following fields in `opsuccinctl2ooconfig.json`:
-/// - rollup_config_hash: Get the hash of the rollup config in rollup-configs/{l2_chain_id}.json.
+/// - rollup_config_hash: Get the hash of the rollup config from the rollup config file.
 /// - l2_block_time: Get the block time from the rollup config.
 /// - starting_block_number: If `USE_CACHED_STARTING_BLOCK` is `false`, set starting_block_number to 10 blocks before the latest block on L2.
 /// - starting_output_root: Set to the output root of the starting block number.

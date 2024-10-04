@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 
 use alloy::eips::eip1559::BaseFeeParams;
 use alloy_primitives::Address;
@@ -6,6 +7,53 @@ use anyhow::Result;
 use op_alloy_genesis::ChainGenesis;
 use op_alloy_genesis::RollupConfig;
 use serde::{Deserialize, Serialize};
+
+use std::collections::HashMap;
+use toml::Value;
+
+#[derive(Debug, Deserialize)]
+pub struct ProposerConfig {
+    pub l1_chain_id: u64,
+    pub l2_chain_id: u64,
+    pub poll_interval: String,
+    pub l2oo_address: String,
+    pub max_concurrent_proof_requests: u64,
+    pub max_block_range_per_span_proof: u64,
+    pub submission_interval: u64,
+}
+
+/// Parse the proposer config from the workspace root.
+pub fn parse_proposer_config() -> Result<HashMap<u64, ProposerConfig>> {
+    let workspace_root = cargo_metadata::MetadataCommand::new()
+        .exec()
+        .expect("Failed to get workspace root")
+        .workspace_root;
+    let config_path = workspace_root.join("proposer.toml");
+    let content = fs::read_to_string(config_path)?;
+    let value = content.parse::<Value>()?;
+
+    let mut config_map = HashMap::new();
+
+    for (key, value) in value.as_table().unwrap() {
+        let config = ProposerConfig {
+            l1_chain_id: value["L1_CHAIN_ID"].as_integer().unwrap() as u64,
+            l2_chain_id: value["L2_CHAIN_ID"].as_integer().unwrap() as u64,
+            poll_interval: value["POLL_INTERVAL"].as_str().unwrap().to_string(),
+            l2oo_address: value["L2OO_ADDRESS"].as_str().unwrap().to_string(),
+            max_concurrent_proof_requests: value["MAX_CONCURRENT_PROOF_REQUESTS"]
+                .as_integer()
+                .unwrap() as u64,
+            max_block_range_per_span_proof: value["MAX_BLOCK_RANGE_PER_SPAN_PROOF"]
+                .as_integer()
+                .unwrap() as u64,
+            submission_interval: value["SUBMISSION_INTERVAL"].as_integer().unwrap() as u64,
+        };
+        let l2_chain_id = key.parse::<u64>().expect("Failed to parse L2 chain ID");
+        config_map.insert(l2_chain_id, config);
+    }
+
+    Ok(config_map)
+}
 
 /// Matches the output of the optimism_rollupConfig RPC call.
 #[derive(Debug, Deserialize, Serialize)]
@@ -113,30 +161,35 @@ pub(crate) fn merge_rollup_config(
     Ok(rollup_config)
 }
 
-/// Save rollup config to rollup-configs/{l2_chain_id}.json in the workspace root.
+/// Save rollup config to the rollup config file.
 pub fn save_rollup_config(rollup_config: &RollupConfig) -> Result<()> {
-    let workspace_root = cargo_metadata::MetadataCommand::new()
-        .exec()?
-        .workspace_root;
-    // Create rollup-configs directory if it doesn't exist.
-    let rollup_configs_dir = workspace_root.join("rollup-configs");
+    let rollup_config_path = get_rollup_config_path(rollup_config.l2_chain_id)?;
+
+    // Create the directory for the rollup config if it doesn't exist.
+    let rollup_configs_dir = rollup_config_path.parent().unwrap();
     if !rollup_configs_dir.exists() {
         fs::create_dir_all(&rollup_configs_dir)?;
     }
-    let rollup_config_path =
-        workspace_root.join(format!("rollup-configs/{}.json", rollup_config.l2_chain_id));
 
+    // Write the rollup config to the file.
     let rollup_config_str = serde_json::to_string_pretty(rollup_config)?;
     fs::write(rollup_config_path, rollup_config_str)?;
     Ok(())
 }
 
-/// Read rollup config from rollup-configs/{l2_chain_id}.json in the workspace root.
-pub fn read_rollup_config(l2_chain_id: u64) -> Result<RollupConfig> {
+/// Get the path to the rollup config file for the given chain id.
+pub fn get_rollup_config_path(l2_chain_id: u64) -> Result<PathBuf> {
     let workspace_root = cargo_metadata::MetadataCommand::new()
-        .exec()?
+        .exec()
+        .expect("Failed to get workspace root")
         .workspace_root;
-    let rollup_config_path = workspace_root.join(format!("rollup-configs/{}.json", l2_chain_id));
+    let rollup_config_path = workspace_root.join(format!("configs/{}/rollup.json", l2_chain_id));
+    Ok(rollup_config_path.into())
+}
+
+/// Read rollup config from the rollup config file.
+pub fn read_rollup_config(l2_chain_id: u64) -> Result<RollupConfig> {
+    let rollup_config_path = get_rollup_config_path(l2_chain_id)?;
     let rollup_config_str = fs::read_to_string(rollup_config_path)?;
     let rollup_config: RollupConfig = serde_json::from_str(&rollup_config_str)?;
     Ok(rollup_config)

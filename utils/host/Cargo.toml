@@ -35,3 +35,4 @@ op-alloy-genesis.workspace = true
 # kona
 kona-host.workspace = true
 kona-primitives.workspace = true
+toml = "0.8.19"
