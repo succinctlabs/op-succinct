@@ -46,8 +46,8 @@ struct L2OOConfig {
 /// - chain_id: Get the chain id from the rollup config.
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
-async fn update_l2oo_config(l2_chain_id: Option<u64>) -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new(l2_chain_id).await;
+async fn update_l2oo_config() -> Result<()> {
+    let data_fetcher = OPSuccinctDataFetcher::default();
 
     // Get the workspace root with cargo metadata to make the paths.
     let workspace_root = PathBuf::from(
@@ -97,16 +97,9 @@ async fn update_l2oo_config(l2_chain_id: Option<u64>) -> Result<()> {
     // Set the submission interval.
     // The order of precedence is:
     // 1. SUBMISSION_INTERVAL environment variable
-    // 2. proposer.toml
-    // 3. 1000 (default)
+    // 2. 1000 (default)
     let submission_interval: u64 = env::var("SUBMISSION_INTERVAL")
-        .unwrap_or_else(|_| {
-            if let Some(proposer_config) = &data_fetcher.proposer_config {
-                proposer_config.submission_interval.to_string()
-            } else {
-                "1000".to_string()
-            }
-        })
+        .unwrap_or("1000".to_string())
         .parse()?;
     l2oo_config.submission_interval = submission_interval;
 
@@ -181,26 +174,26 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// L2 chain ID
-    #[arg(long)]
-    l2_chain_id: u64,
+    #[arg(long, default_value = ".env")]
+    env_file: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args = Args::parse();
+
     // This fetches the .env file from the project root. If the command is invoked in the contracts/ directory,
     // the .env file in the root of the repo is used.
     if let Some(root) = find_project_root() {
-        dotenv::from_path(root.join(".env")).ok();
+        dotenv::from_path(root.join(args.env_file)).ok();
     } else {
-        eprintln!("Warning: Could not find project root. .env file not loaded.");
+        eprintln!(
+            "Warning: Could not find project root. {} file not loaded.",
+            args.env_file
+        );
     }
 
-    let args = Args::parse();
+    update_l2oo_config().await?;
 
-    // In the contracts, we set L2 chain ID to 0 if there's no L2_CHAIN_ID supplied.
-    if args.l2_chain_id != 0 {
-        update_l2oo_config(Some(args.l2_chain_id)).await
-    } else {
-        update_l2oo_config(None).await
-    }
+    Ok(())
 }

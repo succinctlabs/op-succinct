@@ -19,10 +19,7 @@ use tokio::time::sleep;
 use alloy_primitives::keccak256;
 
 use crate::{
-    rollup_config::{
-        get_proposer_config, get_rollup_config_path, merge_rollup_config, save_rollup_config,
-        ProposerConfig,
-    },
+    rollup_config::{get_rollup_config_path, merge_rollup_config, save_rollup_config},
     L2Output, ProgramType,
 };
 
@@ -35,12 +32,11 @@ pub struct OPSuccinctDataFetcher {
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
     pub rollup_config: RollupConfig,
-    pub proposer_config: Option<ProposerConfig>,
 }
 
 impl Default for OPSuccinctDataFetcher {
     fn default() -> Self {
-        block_on(OPSuccinctDataFetcher::new(None))
+        block_on(OPSuccinctDataFetcher::new())
     }
 }
 
@@ -68,47 +64,20 @@ pub enum CacheMode {
     DeleteCache,
 }
 
-fn get_rpcs(l2_chain_id: Option<u64>) -> RPCConfig {
-    if let Some(l2_chain_id) = l2_chain_id {
-        let proposer_config = get_proposer_config(l2_chain_id).unwrap_or_else(|| {
-            panic!(
-                "Failed to get proposer config for chain id: {}",
-                l2_chain_id
-            )
-        });
+fn get_rpcs() -> RPCConfig {
+    let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
+    let l1_beacon_rpc =
+        env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
+    let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
+    let l2_node_rpc =
+        env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
 
-        let l1_chain_id = proposer_config.l1_chain_id;
-
-        let l1_rpc = env::var(format!("L1_RPC_{}", l1_chain_id))
-            .unwrap_or_else(|_| "http://localhost:8545".to_string());
-        let l1_beacon_rpc = env::var(format!("L1_BEACON_RPC_{}", l1_chain_id))
-            .unwrap_or_else(|_| "http://localhost:5052".to_string());
-        let l2_rpc = env::var(format!("L2_RPC_{}", l2_chain_id))
-            .unwrap_or_else(|_| "http://localhost:9545".to_string());
-        let l2_node_rpc = env::var(format!("L2_NODE_RPC_{}", l2_chain_id))
-            .unwrap_or_else(|_| "http://localhost:5058".to_string());
-
-        return RPCConfig {
-            l1_rpc,
-            l1_beacon_rpc,
-            l2_rpc,
-            l2_node_rpc,
-        };
-    } else {
-        let l1_rpc = env::var("L1_RPC").unwrap_or_else(|_| "http://localhost:8545".to_string());
-        let l1_beacon_rpc =
-            env::var("L1_BEACON_RPC").unwrap_or_else(|_| "http://localhost:5052".to_string());
-        let l2_rpc = env::var("L2_RPC").unwrap_or_else(|_| "http://localhost:9545".to_string());
-        let l2_node_rpc =
-            env::var("L2_NODE_RPC").unwrap_or_else(|_| "http://localhost:5058".to_string());
-
-        return RPCConfig {
-            l1_rpc,
-            l1_beacon_rpc,
-            l2_rpc,
-            l2_node_rpc,
-        };
-    }
+    return RPCConfig {
+        l1_rpc,
+        l1_beacon_rpc,
+        l2_rpc,
+        l2_node_rpc,
+    };
 }
 
 /// The info to fetch for a block.
@@ -120,10 +89,8 @@ pub struct BlockInfo {
 
 impl OPSuccinctDataFetcher {
     /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
-    pub async fn new(l2_chain_id: Option<u64>) -> Self {
-        dotenv::dotenv().ok();
-
-        let rpc_config = get_rpcs(l2_chain_id);
+    pub async fn new() -> Self {
+        let rpc_config = get_rpcs();
 
         let l1_provider = Arc::new(
             ProviderBuilder::default().on_http(Url::from_str(&rpc_config.l1_rpc).unwrap()),
@@ -132,18 +99,11 @@ impl OPSuccinctDataFetcher {
             ProviderBuilder::default().on_http(Url::from_str(&rpc_config.l2_rpc).unwrap()),
         );
 
-        let proposer_config: Option<ProposerConfig> = if let Some(l2_chain_id) = l2_chain_id {
-            Some(get_proposer_config(l2_chain_id).unwrap())
-        } else {
-            None
-        };
-
         let mut fetcher = OPSuccinctDataFetcher {
             rpc_config,
             l1_provider,
             l2_provider,
             rollup_config: RollupConfig::default(),
-            proposer_config,
         };
 
         // Load and save the rollup config.
