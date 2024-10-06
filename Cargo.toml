@@ -49,6 +49,15 @@ kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "ratan/
 kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "ratan/native-client-command-bugged" }
 kona-client = { git = "https://github.com/moongate-forks/kona", branch = "ratan/native-client-command-bugged" }
 kona-host = { git = "https://github.com/moongate-forks/kona", branch = "ratan/native-client-command-bugged" }
+# kona-common = { path = "../../kona-all/kona/crates/common" }
+# kona-common-proc = { path = "../../kona-all/kona/crates/common-proc" }
+# kona-preimage = { path = "../../kona-all/kona/crates/preimage", features = ["rkyv"] }
+# kona-primitives = { path = "../../kona-all/kona/crates/primitives" }
+# kona-mpt = { path = "../../kona-all/kona/crates/mpt" }
+# kona-derive = { path = "../../kona-all/kona/crates/derive", default-features = false }
+# kona-executor = { path = "../../kona-all/kona/crates/executor" }
+# kona-client = { path = "../../kona-all/kona/bin/client" }
+# kona-host = { path = "../../kona-all/kona/bin/host" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
