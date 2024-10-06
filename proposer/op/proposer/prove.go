@@ -70,8 +70,12 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 
 		timeout := uint64(time.Now().Unix()) > req.ProofRequestTime+l.DriverSetup.Cfg.ProofTimeout
 		if timeout || status == "PROOF_UNCLAIMED" {
+			if timeout {
+				l.Log.Info("proof timed out", "id", req.ProverRequestID)
+			} else {
+				l.Log.Info("proof unclaimed", "id", req.ProverRequestID)
+			}
 			// update status in db to "FAILED"
-			l.Log.Info("proof timed out", "id", req.ProverRequestID)
 			err = l.db.UpdateProofStatus(req.ID, "FAILED")
 			if err != nil {
 				l.Log.Error("failed to update failed proof status", "err", err)
