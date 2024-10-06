@@ -78,7 +78,7 @@ contract Utils is Test, JSONDecoder {
     // This script updates the rollup config hash and the block number in the config.
     function updateRollupConfig() public {
         // If ENV_FILE is set, pass it to the fetch-rollup-config binary.
-        string memory envFile = vm.envOr("ENV_FILE", string(".env.conduit"));
+        string memory envFile = vm.envOr("ENV_FILE", string(".env"));
 
         // Build the fetch-rollup-config binary. Use the quiet flag to suppress build output.
         string[] memory inputs = new string[](6);

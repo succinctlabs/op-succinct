@@ -476,7 +476,7 @@ impl OPSuccinctDataFetcher {
             l2_block_number: l2_end_block,
             l2_chain_id: Some(l2_chain_id),
             l2_head: l2_head.0.into(),
-            l2_node_address: Some(self.rpc_config.l2_node_rpc.clone()),
+            l2_node_address: Some(self.rpc_config.l2_rpc.clone()),
             l1_node_address: Some(self.rpc_config.l1_rpc.clone()),
             l1_beacon_address: Some(self.rpc_config.l1_beacon_rpc.clone()),
             data_dir: Some(data_directory.into()),
