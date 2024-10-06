@@ -415,8 +415,10 @@ impl OPSuccinctDataFetcher {
         // Get L1 head.
         let l2_block_timestamp = l2_claim_block.header.timestamp;
         // Note: This limit is set so that the l1 head is always ahead of the l2 claim block.
-        // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.)
-        let target_timestamp = l2_block_timestamp + 600;
+        // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
+        // On Conduit, the l1Head needs to be at least 1 hour ahead of the l2 claim block.
+        // TODO: Surface the l1Head issue earlier.
+        let target_timestamp = l2_block_timestamp + 3600;
         let l1_head = self
             .find_block_by_timestamp(RPCMode::L1, target_timestamp)
             .await?;
@@ -474,7 +476,7 @@ impl OPSuccinctDataFetcher {
             l2_output_root: l2_output_root.0.into(),
             l2_claim: l2_claim.0.into(),
             l2_block_number: l2_end_block,
-            l2_chain_id: Some(l2_chain_id),
+            l2_chain_id: None, 
             l2_head: l2_head.0.into(),
             l2_node_address: Some(self.rpc_config.l2_rpc.clone()),
             l1_node_address: Some(self.rpc_config.l1_rpc.clone()),
