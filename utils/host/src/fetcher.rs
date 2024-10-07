@@ -11,7 +11,9 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
+use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse};
 use op_succinct_client_utils::boot::BootInfoStruct;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sp1_sdk::block_on;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
@@ -172,6 +174,12 @@ impl OPSuccinctDataFetcher {
             .json::<serde_json::Value>()
             .await?;
 
+        // Check for RPC error from the JSON RPC response.
+        if let Some(error) = response.get("error") {
+            let error_message = error["message"].as_str().unwrap_or("Unknown error");
+            return Err(anyhow::anyhow!("RPC error: {}", error_message));
+        }
+
         serde_json::from_value(response["result"].clone()).map_err(Into::into)
     }
 
@@ -316,7 +324,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Find the block with the closest timestamp to the target timestamp.
-    async fn find_block_by_timestamp(
+    async fn find_block_hash_by_timestamp(
         &self,
         rpc_mode: RPCMode,
         target_timestamp: u64,
@@ -372,8 +380,6 @@ impl OPSuccinctDataFetcher {
 
         let l2_provider = self.l2_provider.clone();
 
-        let l2_chain_id = l2_provider.get_chain_id().await?;
-
         // Get L2 output data.
         let l2_output_block = l2_provider
             .get_block_by_number(l2_start_block.into(), false)
@@ -424,30 +430,7 @@ impl OPSuccinctDataFetcher {
         };
         let l2_claim = keccak256(l2_claim_encoded.abi_encode());
 
-        // Get L1 head.
-        let l2_block_timestamp = l2_claim_block.header.timestamp;
-        // Note:
-
-        // For OP Sepolia, OP Mainnet and Base, the batcher posts at least every 10 minutes. Otherwise,
-        // the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
-        // relevant L2 block data can be derived.
-        // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
-        // TODO: Find the L1 block from which the L2 claim block can be derived. Use an RPC method similar optimism_outputAtBlock
-        // which surfaces this. For now, just use 1 hour as the default, and 10 minutes for the other chains.
-        let nb_minutes = match l2_chain_id {
-            11155420 => 10,
-            10 => 10,
-            8453 => 10,
-            _ => 60,
-        };
-
-        let target_timestamp = l2_block_timestamp + (nb_minutes * 60);
-        let l1_head = self
-            .find_block_by_timestamp(RPCMode::L1, target_timestamp)
-            .await?;
-
-        // Get the chain id.
-        let l2_chain_id = l2_provider.get_chain_id().await?;
+        let l1_head = self.get_l1_head(l2_end_block).await?;
 
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
@@ -456,14 +439,14 @@ impl OPSuccinctDataFetcher {
             ProgramType::Single => {
                 let proof_dir = format!(
                     "{}/data/{}/single/{}",
-                    workspace_root, l2_chain_id, l2_end_block
+                    workspace_root, self.rollup_config.l2_chain_id, l2_end_block
                 );
                 proof_dir
             }
             ProgramType::Multi => {
                 let proof_dir = format!(
                     "{}/data/{}/multi/{}-{}",
-                    workspace_root, l2_chain_id, l2_start_block, l2_end_block
+                    workspace_root, self.rollup_config.l2_chain_id, l2_start_block, l2_end_block
                 );
                 proof_dir
             }
@@ -488,7 +471,7 @@ impl OPSuccinctDataFetcher {
         }
 
         // Create the path to the rollup config file.
-        let rollup_config_path = get_rollup_config_path(l2_chain_id)?;
+        let rollup_config_path = get_rollup_config_path(self.rollup_config.l2_chain_id)?;
 
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
@@ -513,5 +496,95 @@ impl OPSuccinctDataFetcher {
                 .parse()
                 .unwrap(),
         })
+    }
+
+    // TODO: Use op-alloy types.
+    async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<B256> {
+        // Get the l1 origin of the l2 end block.
+        let l2_end_block_hex = format!("0x{:x}", l2_end_block);
+        let optimism_output_data: OutputResponse = self
+            .fetch_rpc_data(
+                RPCMode::L2Node,
+                "optimism_outputAtBlock",
+                vec![l2_end_block_hex.into()],
+            )
+            .await?;
+
+        let l1_origin = optimism_output_data.block_ref.l1_origin;
+
+        // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
+        let mut current_l1_block_number = l1_origin.number;
+        loop {
+            // TODO: If the l1_block_number is greater than the latest_l1_header.number, then return Err(anyhow::anyhow!("L1 block number is greater than the latest L1 header number."))
+            let l1_block_number_hex = format!("0x{:x}", current_l1_block_number);
+            println!("got here");
+            let result: SafeHeadResponse = self
+                .fetch_rpc_data(
+                    RPCMode::L2Node,
+                    "optimism_safeHeadAtL1Block",
+                    vec![l1_block_number_hex.into()],
+                )
+                .await?;
+            println!("got here 2");
+            let l2_safe_head = result.safe_head.as_u64().unwrap();
+            if l2_safe_head > l2_end_block {
+                return Ok(result.l1_block.as_block_hash().unwrap());
+            }
+            // 12 is the L1 block time in seconds.
+            current_l1_block_number += 5 * (60 / 12);
+        }
+    }
+
+    /// For OP Sepolia, OP Mainnet and Base, the batcher posts at least every 10 minutes. Otherwise,
+    /// the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
+    /// relevant L2 block data can be derived.
+    /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
+    /// TODO: Find the L1 block from which the L2 claim block can be derived. Use an RPC method similar optimism_outputAtBlock
+    /// which surfaces this. For now, just use 1 hour as the default, and 10 minutes for the other chains.
+    async fn get_l1_head(&self, l2_end_block: u64) -> Result<B256> {
+        // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
+        let result = self.get_l1_head_with_safe_head(l2_end_block).await;
+
+        if let Ok(safe_head_at_l1_block) = result {
+            return Ok(safe_head_at_l1_block);
+        } else {
+            println!("result error: {}", result.err().unwrap());
+            // Estimate the L1 block necessary based on the chain config. This is based on the maximum
+            // delay between batches being posted on the L2 chain.
+            let max_batch_post_delay_minutes = match self.rollup_config.l2_chain_id {
+                11155420 => 10,
+                10 => 10,
+                8453 => 10,
+                _ => 60,
+            };
+
+            // Get L1 head.
+            let l2_block_timestamp = self
+                .get_header_by_number(RPCMode::L2, l2_end_block)
+                .await?
+                .timestamp;
+
+            let target_timestamp = l2_block_timestamp + (max_batch_post_delay_minutes * 60);
+            return Ok(self
+                .find_block_hash_by_timestamp(RPCMode::L1, target_timestamp)
+                .await?);
+        }
+    }
+}
+
+mod tests {
+    use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
+
+    #[tokio::test]
+    async fn test_get_l1_head() {
+        dotenv::dotenv().ok();
+        let fetcher = OPSuccinctDataFetcher::new().await;
+        let latest_l2_block = fetcher.get_head(RPCMode::L2).await.unwrap();
+
+        // Get the L2 block number from 1 hour ago.
+        let l2_end_block = latest_l2_block.number - ((60 * 60) / fetcher.rollup_config.block_time);
+
+        let l1_head = fetcher.get_l1_head(l2_end_block).await.unwrap();
+        println!("L1 head: {}", l1_head);
     }
 }
