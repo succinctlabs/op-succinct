@@ -438,7 +438,7 @@ impl OPSuccinctDataFetcher {
             11155420 => 10,
             10 => 10,
             8453 => 10,
-            _ => 60,
+            _ => 60, // 1 hour
         };
 
         let target_timestamp = l2_block_timestamp + (nb_minutes * 60);
