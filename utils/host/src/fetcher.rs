@@ -426,13 +426,12 @@ impl OPSuccinctDataFetcher {
 
         // Get L1 head.
         let l2_block_timestamp = l2_claim_block.header.timestamp;
-        // Note: This limit is set so that the l1 head is always ahead of the l2 claim block.
-        // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
-        // On Conduit, the l1Head needs to be at least 1 hour ahead of the l2 claim block.
-        // TODO: Surface the l1Head issue earlier.
+        // Note:
 
         // For OP Sepolia, OP Mainnet and Base, the batcher posts at least every 10 minutes. Otherwise,
-        // the batcher may post as infrequently as every couple hours.
+        // the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
+        // relevant L2 block data can be derived.
+        // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
         // TODO: Find the L1 block from which the L2 claim block can be derived. Use an RPC method similar optimism_outputAtBlock
         // which surfaces this. For now, just use 1 hour as the default, and 10 minutes for the other chains.
         let nb_minutes = match l2_chain_id {
