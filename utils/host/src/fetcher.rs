@@ -306,7 +306,7 @@ impl OPSuccinctDataFetcher {
         Ok(block_data)
     }
 
-    async fn get_block_by_number(&self, rpc_mode: RPCMode, block_number: u64) -> Result<Block> {
+    pub async fn get_block_by_number(&self, rpc_mode: RPCMode, block_number: u64) -> Result<Block> {
         let provider = self.get_provider(rpc_mode);
         let block = provider
             .get_block_by_number(block_number.into(), false)
