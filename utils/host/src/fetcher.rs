@@ -507,6 +507,7 @@ impl OPSuccinctDataFetcher {
         })
     }
 
+    /// Get the L1 block time in seconds.
     async fn get_l1_block_time(&self) -> Result<u64> {
         let l1_provider = self.l1_provider.clone();
         let l1_head = self.get_head(RPCMode::L1).await?;
@@ -520,6 +521,7 @@ impl OPSuccinctDataFetcher {
     }
 
     // TODO: Use op-alloy types.
+    /// Get the L1 block from which the `l2_end_block` can be derived.
     async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<B256> {
         let latest_l1_header = self.get_head(RPCMode::L1).await?;
 
@@ -559,8 +561,7 @@ impl OPSuccinctDataFetcher {
                 return Ok(B256::from_str(result["l1Block"]["hash"].as_str().unwrap()).unwrap());
             }
 
-            // TODO: Currently the l1 block time is hardcoded to 12s, modify this to fetch the l1 block time from the chain config. All
-            // of the L1 chains use a block time of 12s, so it's not a big deal to hardcode it for now, but will be a problem for L3's.
+            // Move forward in 5 minute increments.
             const SKIP_MINS: u64 = 5;
             current_l1_block_number += SKIP_MINS * (60 / self.l1_block_time_secs);
         }
@@ -570,8 +571,6 @@ impl OPSuccinctDataFetcher {
     /// the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
     /// relevant L2 block data can be derived.
     /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
-    /// TODO: Find the L1 block from which the L2 claim block can be derived. Use an RPC method similar optimism_outputAtBlock
-    /// which surfaces this. For now, just use 1 hour as the default, and 10 minutes for the other chains.
     async fn get_l1_head(&self, l2_end_block: u64) -> Result<B256> {
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
@@ -579,7 +578,6 @@ impl OPSuccinctDataFetcher {
         if let Ok(safe_head_at_l1_block) = result {
             return Ok(safe_head_at_l1_block);
         } else {
-            println!("result error: {}", result.err().unwrap());
             // Estimate the L1 block necessary based on the chain config. This is based on the maximum
             // delay between batches being posted on the L2 chain.
             let max_batch_post_delay_minutes = match self.rollup_config.l2_chain_id {
@@ -615,7 +613,6 @@ mod tests {
         // Get the L2 block number from 1 hour ago.
         let l2_end_block = latest_l2_block.number - ((60 * 60) / fetcher.rollup_config.block_time);
 
-        let l1_head = fetcher.get_l1_head(l2_end_block).await.unwrap();
-        println!("L1 head: {}", l1_head);
+        let _ = fetcher.get_l1_head(l2_end_block).await.unwrap();
     }
 }
