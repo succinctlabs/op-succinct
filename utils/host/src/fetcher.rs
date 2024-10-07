@@ -34,6 +34,7 @@ pub struct OPSuccinctDataFetcher {
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
     pub l2_provider: Arc<RootProvider<Http<Client>>>,
     pub rollup_config: RollupConfig,
+    pub l1_block_time_secs: u64,
 }
 
 impl Default for OPSuccinctDataFetcher {
@@ -101,7 +102,16 @@ impl OPSuccinctDataFetcher {
             l1_provider,
             l2_provider,
             rollup_config: RollupConfig::default(),
+            // Default L1 block time for most Ethereum chains.
+            l1_block_time_secs: 12,
         };
+
+        // Get the L1 block time.
+        let l1_block_time_secs = fetcher
+            .get_l1_block_time()
+            .await
+            .expect("Failed to get L1 block time. Make sure that the L1 RPC is active.");
+        fetcher.l1_block_time_secs = l1_block_time_secs;
 
         // Load and save the rollup config.
         let rollup_config = fetcher
@@ -497,8 +507,22 @@ impl OPSuccinctDataFetcher {
         })
     }
 
+    async fn get_l1_block_time(&self) -> Result<u64> {
+        let l1_provider = self.l1_provider.clone();
+        let l1_head = self.get_head(RPCMode::L1).await?;
+
+        let l1_head_minus_1 = l1_head.number - 1;
+        let l1_block_minus_1 = l1_provider
+            .get_block_by_number(l1_head_minus_1.into(), false)
+            .await?
+            .unwrap();
+        Ok(l1_head.timestamp - l1_block_minus_1.header.timestamp)
+    }
+
     // TODO: Use op-alloy types.
     async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<B256> {
+        let latest_l1_header = self.get_head(RPCMode::L1).await?;
+
         // Get the l1 origin of the l2 end block.
         let l2_end_block_hex = format!("0x{:x}", l2_end_block);
         let optimism_output_data: OutputResponse = self
@@ -514,7 +538,13 @@ impl OPSuccinctDataFetcher {
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;
         loop {
-            // TODO: If the l1_block_number is greater than the latest_l1_header.number, then return Err(anyhow::anyhow!("L1 block number is greater than the latest L1 header number."))
+            // If the current L1 block number is greater than the latest L1 header number, then return an error.
+            if current_l1_block_number > latest_l1_header.number {
+                return Err(anyhow::anyhow!(
+                    "Could not find an L1 block with an L2 safe head greater than the L2 end block."
+                ));
+            }
+
             let l1_block_number_hex = format!("0x{:x}", current_l1_block_number);
             // TODO: Use op-alloy types once the bug for safeHeadResponse is fixed: https://github.com/alloy-rs/op-alloy/issues/155
             let result: Value = self
@@ -528,9 +558,11 @@ impl OPSuccinctDataFetcher {
             if l2_safe_head > l2_end_block {
                 return Ok(B256::from_str(result["l1Block"]["hash"].as_str().unwrap()).unwrap());
             }
+
             // TODO: Currently the l1 block time is hardcoded to 12s, modify this to fetch the l1 block time from the chain config. All
             // of the L1 chains use a block time of 12s, so it's not a big deal to hardcode it for now, but will be a problem for L3's.
-            current_l1_block_number += 5 * (60 / 12);
+            const SKIP_MINS: u64 = 5;
+            current_l1_block_number += SKIP_MINS * (60 / self.l1_block_time_secs);
         }
     }
 
