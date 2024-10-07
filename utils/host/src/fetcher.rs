@@ -11,9 +11,8 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
-use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse};
+use op_alloy_rpc_types::output::OutputResponse;
 use op_succinct_client_utils::boot::BootInfoStruct;
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sp1_sdk::block_on;
 use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
@@ -517,20 +516,20 @@ impl OPSuccinctDataFetcher {
         loop {
             // TODO: If the l1_block_number is greater than the latest_l1_header.number, then return Err(anyhow::anyhow!("L1 block number is greater than the latest L1 header number."))
             let l1_block_number_hex = format!("0x{:x}", current_l1_block_number);
-            println!("got here");
-            let result: SafeHeadResponse = self
+            // TODO: Use op-alloy types once the bug for safeHeadResponse is fixed: https://github.com/alloy-rs/op-alloy/issues/155
+            let result: Value = self
                 .fetch_rpc_data(
                     RPCMode::L2Node,
                     "optimism_safeHeadAtL1Block",
                     vec![l1_block_number_hex.into()],
                 )
                 .await?;
-            println!("got here 2");
-            let l2_safe_head = result.safe_head.as_u64().unwrap();
+            let l2_safe_head = result["safeHead"]["number"].as_u64().unwrap();
             if l2_safe_head > l2_end_block {
-                return Ok(result.l1_block.as_block_hash().unwrap());
+                return Ok(B256::from_str(result["l1Block"]["hash"].as_str().unwrap()).unwrap());
             }
-            // 12 is the L1 block time in seconds.
+            // TODO: Currently the l1 block time is hardcoded to 12s, modify this to fetch the l1 block time from the chain config. All
+            // of the L1 chains use a block time of 12s, so it's not a big deal to hardcode it for now, but will be a problem for L3's.
             current_l1_block_number += 5 * (60 / 12);
         }
     }
