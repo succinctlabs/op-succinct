@@ -2,6 +2,7 @@ use alloy::{
     eips::BlockNumberOrTag,
     primitives::{Address, B256},
     providers::{Provider, ProviderBuilder, RootProvider},
+    rpc::types::Block,
     transports::http::{reqwest::Url, Client, Http},
 };
 use alloy_consensus::Header;
@@ -305,6 +306,15 @@ impl OPSuccinctDataFetcher {
         Ok(block_data)
     }
 
+    async fn get_block_by_number(&self, rpc_mode: RPCMode, block_number: u64) -> Result<Block> {
+        let provider = self.get_provider(rpc_mode);
+        let block = provider
+            .get_block_by_number(block_number.into(), false)
+            .await?
+            .unwrap();
+        Ok(block)
+    }
+
     /// Find the block with the closest timestamp to the target timestamp.
     async fn find_block_by_timestamp(
         &self,
@@ -362,6 +372,8 @@ impl OPSuccinctDataFetcher {
 
         let l2_provider = self.l2_provider.clone();
 
+        let l2_chain_id = l2_provider.get_chain_id().await?;
+
         // Get L2 output data.
         let l2_output_block = l2_provider
             .get_block_by_number(l2_start_block.into(), false)
@@ -418,7 +430,19 @@ impl OPSuccinctDataFetcher {
         // E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
         // On Conduit, the l1Head needs to be at least 1 hour ahead of the l2 claim block.
         // TODO: Surface the l1Head issue earlier.
-        let target_timestamp = l2_block_timestamp + 3600;
+
+        // For OP Sepolia, OP Mainnet and Base, the batcher posts at least every 10 minutes. Otherwise,
+        // the batcher may post as infrequently as every couple hours.
+        // TODO: Find the L1 block from which the L2 claim block can be derived. Use an RPC method similar optimism_outputAtBlock
+        // which surfaces this. For now, just use 1 hour as the default, and 10 minutes for the other chains.
+        let nb_minutes = match l2_chain_id {
+            11155420 => 10,
+            10 => 10,
+            8453 => 10,
+            _ => 60,
+        };
+
+        let target_timestamp = l2_block_timestamp + (nb_minutes * 60);
         let l1_head = self
             .find_block_by_timestamp(RPCMode::L1, target_timestamp)
             .await?;
@@ -472,12 +496,12 @@ impl OPSuccinctDataFetcher {
         fs::create_dir_all(&data_directory)?;
 
         Ok(HostCli {
-            l1_head: l1_head.0.into(),
-            l2_output_root: l2_output_root.0.into(),
-            l2_claim: l2_claim.0.into(),
+            l1_head,
+            l2_output_root,
+            l2_claim,
             l2_block_number: l2_end_block,
-            l2_chain_id: None, 
-            l2_head: l2_head.0.into(),
+            l2_chain_id: None,
+            l2_head,
             l2_node_address: Some(self.rpc_config.l2_rpc.clone()),
             l1_node_address: Some(self.rpc_config.l1_rpc.clone()),
             l1_beacon_address: Some(self.rpc_config.l1_beacon_rpc.clone()),
