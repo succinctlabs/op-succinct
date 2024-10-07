@@ -576,7 +576,7 @@ impl OPSuccinctDataFetcher {
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
 
         if let Ok(safe_head_at_l1_block) = result {
-            return Ok(safe_head_at_l1_block);
+            Ok(safe_head_at_l1_block)
         } else {
             // Estimate the L1 block necessary based on the chain config. This is based on the maximum
             // delay between batches being posted on the L2 chain.
@@ -594,17 +594,19 @@ impl OPSuccinctDataFetcher {
                 .timestamp;
 
             let target_timestamp = l2_block_timestamp + (max_batch_post_delay_minutes * 60);
-            return Ok(self
+            Ok(self
                 .find_block_hash_by_timestamp(RPCMode::L1, target_timestamp)
-                .await?);
+                .await?)
         }
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
 
     #[tokio::test]
+    #[cfg(test)]
     async fn test_get_l1_head() {
         dotenv::dotenv().ok();
         let fetcher = OPSuccinctDataFetcher::new().await;
