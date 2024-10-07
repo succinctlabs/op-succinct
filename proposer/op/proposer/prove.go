@@ -217,6 +217,8 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 
 // Request a proof from the OP Succinct server.
 func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
+	// TODO: Subtract 1 from the start block to get the previous confirmed block. The start block of the new span proof
+	// should be the same as the end block of the previous span proof.
 	prevConfirmedBlock := p.StartBlock - 1
 	var proofId string
 	var err error
