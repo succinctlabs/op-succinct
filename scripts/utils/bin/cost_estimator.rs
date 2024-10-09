@@ -62,7 +62,7 @@ fn get_max_span_batch_range_size(l2_chain_id: u64) -> u64 {
     const DEFAULT_SIZE: u64 = 1000;
     match l2_chain_id {
         8453 => 5,      // Base
-        11155420 => 30, // OP Sepolia
+        11155420 => 40, // OP Sepolia
         10 => 10,       // OP Mainnet
         _ => DEFAULT_SIZE,
     }
@@ -91,7 +91,7 @@ async fn run_native_data_generation(
     data_fetcher: &OPSuccinctDataFetcher,
     split_ranges: &[SpanBatchRange],
 ) -> Vec<BatchHostCli> {
-    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 20;
+    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 10;
 
     // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
     // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
@@ -174,6 +174,11 @@ async fn execute_blocks_parallel(
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
     host_clis.par_iter().for_each(|r| {
         let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
+
+        // Write stdin to a file.
+        let file_name = format!("stdins/stdin-{}-{}.bin", r.start, r.end);
+        let serialized = bincode::serialize(&sp1_stdin).unwrap();
+        fs::write(file_name, serialized).unwrap();
 
         // TODO: Implement retries with a smaller block range if this fails.
         let (_, report) = prover

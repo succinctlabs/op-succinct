@@ -32,6 +32,7 @@ tokio = { workspace = true }
 clap = { workspace = true }
 cargo_metadata = { workspace = true }
 anyhow.workspace = true
+bincode.workspace = true
 dotenv.workspace = true
 log.workspace = true
 csv.workspace = true
