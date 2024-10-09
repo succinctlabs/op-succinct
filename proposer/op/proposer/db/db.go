@@ -54,25 +54,14 @@ func (db *ProofDB) CloseDB() error {
 	return nil
 }
 
-func (db *ProofDB) NewEntry(proofType string, start, end uint64) error {
+func (db *ProofDB) NewEntry(proofType proofrequest.Type, start, end uint64) error {
 	return db.newEntryWithReqAddedTimestamp(proofType, start, end, uint64(time.Now().Unix()))
 }
 
-func (db *ProofDB) newEntryWithReqAddedTimestamp(proofType string, start, end, now uint64) error {
-	// Convert string to proofrequest.Type
-	var pType proofrequest.Type
-	switch proofType {
-	case "SPAN":
-		pType = proofrequest.TypeSPAN
-	case "AGG":
-		pType = proofrequest.TypeAGG
-	default:
-		return fmt.Errorf("invalid proof type: %s", proofType)
-	}
-
+func (db *ProofDB) newEntryWithReqAddedTimestamp(proofType proofrequest.Type, start, end, now uint64) error {
 	_, err := db.client.ProofRequest.
 		Create().
-		SetType(pType).
+		SetType(proofType).
 		SetStartBlock(start).
 		SetEndBlock(end).
 		SetStatus(proofrequest.StatusUNREQ).

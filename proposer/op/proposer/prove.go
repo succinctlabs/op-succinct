@@ -93,31 +93,18 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 }
 
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
-	// If an AGG proof failed, something went deeply wrong. Simply try again.
-	if req.Type == proofrequest.TypeAGG {
-		l.Log.Error("Agg proof failed. Adding to DB to retry.", "req", req)
+	err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
+	if err != nil {
+		l.Log.Error("failed to update proof status", "err", err)
+		return err
+	}
 
-		err := l.db.NewEntry("AGG", req.StartBlock, req.EndBlock)
-		if err != nil {
-			l.Log.Error("failed to add new proof request", "err")
-			return err
-		}
-	} else {
-		// Set the existing request to FAILED.
-		err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
-		if err != nil {
-			l.Log.Error("failed to update proof status", "err", err)
-			return err
-		}
-
-		// Always just retry SPAN proofs to avoid spamming the cluster with requests.
-		// TODO: We may need to split the SPAN proof in half to avoid OOMing the SP1 runtime.
-		l.Log.Info("Span proof failed. Adding to DB to retry.", "req", req)
-		err = l.db.NewEntry("SPAN", req.StartBlock, req.EndBlock)
-		if err != nil {
-			l.Log.Error("failed to add new proof request", "err", err)
-			return err
-		}
+	l.Log.Info("Retrying proof", "id", req.ID, "type", req.Type, "start", req.StartBlock, "end", req.EndBlock)
+	// TODO: For range proofs, add custom logic to split the proof into two if the error is an execution error.
+	err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+	if err != nil {
+		l.Log.Error("failed to add new proof request", "err", err)
+		return err
 	}
 
 	return nil
@@ -217,8 +204,6 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 
 // Request a proof from the OP Succinct server.
 func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
-	// TODO: The server will start generating the witness for the proof from the previous confirmed block. Subtract 1 from the start block to get the previous confirmed block. The start block of the new span proof
-	// should be the same as the end block of the previous span proof.
 	var proofId string
 	var err error
 
