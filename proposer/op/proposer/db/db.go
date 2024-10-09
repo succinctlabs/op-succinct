@@ -87,25 +87,10 @@ func (db *ProofDB) newEntryWithReqAddedTimestamp(proofType string, start, end, n
 	return nil
 }
 
-func (db *ProofDB) UpdateProofStatus(id int, newStatus string) error {
-	// Convert string to proofrequest.Type
-	var pStatus proofrequest.Status
-	switch newStatus {
-	case "UNREQ":
-		pStatus = proofrequest.StatusUNREQ
-	case "REQ":
-		pStatus = proofrequest.StatusREQ
-	case "COMPLETE":
-		pStatus = proofrequest.StatusCOMPLETE
-	case "FAILED":
-		pStatus = proofrequest.StatusFAILED
-	default:
-		return fmt.Errorf("invalid proof status: %s", newStatus)
-	}
-
+func (db *ProofDB) UpdateProofStatus(id int, proofStatus proofrequest.Status) error {
 	_, err := db.client.ProofRequest.Update().
 		Where(proofrequest.ID(id)).
-		SetStatus(pStatus).
+		SetStatus(proofStatus).
 		SetLastUpdatedTime(uint64(time.Now().Unix())).
 		Save(context.Background())
 
@@ -238,7 +223,7 @@ func (db *ProofDB) GetWitnessGenerationTimeoutProofsOnServer() ([]*ent.ProofRequ
 
 	proofs, err := db.client.ProofRequest.Query().
 		Where(
-			proofrequest.StatusEQ(proofrequest.StatusREQ),
+			proofrequest.StatusEQ(proofrequest.StatusWITNESSGEN),
 			proofrequest.ProverRequestIDIsNil(),
 			proofrequest.LastUpdatedTimeLT(uint64(twentyMinutesAgo)),
 		).
@@ -441,10 +426,10 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 		if span.StartBlock != currentBlock {
 			break
 		}
-		currentBlock = span.EndBlock + 1
+		currentBlock = span.EndBlock
 	}
 
-	return max(start, currentBlock-1), nil
+	return max(start, currentBlock), nil
 }
 
 // Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
@@ -478,7 +463,7 @@ func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error)
 			return nil, fmt.Errorf("gap in proof chain: expected start block %d, got %d", currentBlock, span.StartBlock)
 		}
 		result = append(result, span.Proof)
-		currentBlock = span.EndBlock + 1
+		currentBlock = span.EndBlock
 	}
 
 	if currentBlock-1 != end {

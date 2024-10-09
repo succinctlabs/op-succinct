@@ -18,7 +18,7 @@ func (l *L2OutputSubmitter) CreateSpans(start, end uint64) []Span {
 	// Create spans of size MaxBlockRangePerSpanProof from start to end.
 	// Each span starts where the previous one ended + 1.
 	// Continue until we can't fit another full span before reaching end.
-	for i := start; i+l.Cfg.MaxBlockRangePerSpanProof <= end; i += l.Cfg.MaxBlockRangePerSpanProof + 1 {
+	for i := start; i+l.Cfg.MaxBlockRangePerSpanProof <= end; i += l.Cfg.MaxBlockRangePerSpanProof {
 		spans = append(spans, Span{Start: i, End: i + l.Cfg.MaxBlockRangePerSpanProof})
 	}
 	return spans
@@ -40,7 +40,7 @@ func (l *L2OutputSubmitter) DeriveNewSpanBatches(ctx context.Context) error {
 			return err
 		}
 	}
-	newL2StartBlock := latestL2EndBlock + 1
+	newL2StartBlock := latestL2EndBlock
 
 	rollupClient, err := l.RollupProvider.RollupClient(ctx)
 	if err != nil {
