@@ -112,7 +112,8 @@ func (db *ProofDB) SetProverRequestID(id int, proverRequestID string) error {
 	return nil
 }
 
-func (db *ProofDB) AddProof(id int, proof []byte) error {
+// Update the existing proof request with the proof and set the status to COMPLETE.
+func (db *ProofDB) AddFulfilledProof(id int, proof []byte) error {
 	// Start a transaction
 	tx, err := db.client.Tx(context.Background())
 	if err != nil {
@@ -125,17 +126,16 @@ func (db *ProofDB) AddProof(id int, proof []byte) error {
 		Query().
 		Where(proofrequest.ID(id)).
 		Only(context.Background())
-
 	if err != nil {
 		return fmt.Errorf("failed to find existing proof: %w", err)
 	}
 
-	// Check if the status is REQ
-	if existingProof.Status != proofrequest.StatusREQ {
-		return fmt.Errorf("proof request status is not REQ: %v", id)
+	// Check if the status is PROVING.
+	if existingProof.Status != proofrequest.StatusPROVING {
+		return fmt.Errorf("proof request status is not PROVING: %v", id)
 	}
 
-	// Check if the proof is already set
+	// Check if the proof is already set.
 	if existingProof.Proof != nil {
 		return fmt.Errorf("proof is already set: %v", id)
 	}
@@ -160,6 +160,22 @@ func (db *ProofDB) AddProof(id int, proof []byte) error {
 	return nil
 }
 
+// Return the number of proofs with the given status(es).
+func (db *ProofDB) GetNumberOfProofsWithStatuses(statuses ...proofrequest.Status) (int, error) {
+	count, err := db.client.ProofRequest.Query().
+		Where(
+			proofrequest.StatusIn(statuses...),
+		).
+		Count(context.Background())
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to count proofs with statuses %v: %w", statuses, err)
+	}
+
+	return count, nil
+}
+
+// AddL1BlockInfoToAggRequest adds the L1 block info to the existing AGG proof request.
 func (db *ProofDB) AddL1BlockInfoToAggRequest(startBlock, endBlock, l1BlockNumber uint64, l1BlockHash string) (*ent.ProofRequest, error) {
 	// Perform the update
 	rowsAffected, err := db.client.ProofRequest.Update().
@@ -260,8 +276,7 @@ func (db *ProofDB) GetProofsFailedOnServer() ([]*ent.ProofRequest, error) {
 func (db *ProofDB) GetAllPendingProofs() ([]*ent.ProofRequest, error) {
 	proofs, err := db.client.ProofRequest.Query().
 		Where(
-			proofrequest.StatusEQ(proofrequest.StatusREQ),
-			proofrequest.ProverRequestIDNEQ(""),
+			proofrequest.StatusEQ(proofrequest.StatusPROVING),
 		).
 		All(context.Background())
 
@@ -287,21 +302,6 @@ func (db *ProofDB) GetAllProofsWithStatus(status proofrequest.Status) ([]*ent.Pr
 	}
 
 	return proofs, nil
-}
-
-// Return the number of proofs with the given status.
-func (db *ProofDB) GetNumberOfProofsWithStatus(status proofrequest.Status) (int, error) {
-	count, err := db.client.ProofRequest.Query().
-		Where(
-			proofrequest.StatusEQ(status),
-		).
-		Count(context.Background())
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to count proofs with status %s: %w", status, err)
-	}
-
-	return count, nil
 }
 
 func (db *ProofDB) GetNextUnrequestedProof() (*ent.ProofRequest, error) {

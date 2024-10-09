@@ -60,7 +60,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		if status == "PROOF_FULFILLED" {
 			// Update the proof in the DB and update status to COMPLETE.
 			l.Log.Info("Fulfilled Proof", "id", req.ProverRequestID)
-			err = l.db.AddProof(req.ID, proof)
+			err = l.db.AddFulfilledProof(req.ID, proof)
 			if err != nil {
 				l.Log.Error("failed to update completed proof status", "err", err)
 				return err
@@ -150,7 +150,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 			l.Log.Info("found agg proof with already checkpointed l1 block info")
 		}
 	} else {
-		currentRequestedProofs, err := l.db.GetNumberOfProofsWithStatus(proofrequest.StatusREQ)
+		currentRequestedProofs, err := l.db.GetNumberOfProofsWithStatuses(proofrequest.StatusPROVING, proofrequest.StatusWITNESSGEN)
 		if err != nil {
 			return fmt.Errorf("failed to count requested proofs: %w", err)
 		}
@@ -236,7 +236,7 @@ func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 		return fmt.Errorf("unknown proof type: %s", p.Type)
 	}
 
-	// Set the proof status to PROVING. Only proofs with status PROVING, SUCCESS or FAILED have a prover request ID.
+	// Set the proof status to PROVING once the prover ID has been retrieved. Only proofs with status PROVING, SUCCESS or FAILED have a prover request ID.
 	err = l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING)
 	if err != nil {
 		return fmt.Errorf("failed to set proof status to PROVING: %w", err)
