@@ -161,6 +161,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 	}
 	go func(p ent.ProofRequest) {
 		l.Log.Info("requesting proof from server", "type", p.Type, "start", p.StartBlock, "end", p.EndBlock, "id", p.ID)
+		// Set the proof status to WITNESSGEN.
 		err = l.db.UpdateProofStatus(nextProofToRequest.ID, proofrequest.StatusWITNESSGEN)
 		if err != nil {
 			l.Log.Error("failed to update proof status", "err", err)
