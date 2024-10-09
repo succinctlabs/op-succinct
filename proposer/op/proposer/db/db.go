@@ -305,13 +305,13 @@ func (db *ProofDB) GetAllProofsWithStatus(status proofrequest.Status) ([]*ent.Pr
 }
 
 func (db *ProofDB) GetNextUnrequestedProof() (*ent.ProofRequest, error) {
-	// First, try to get an AGG type proof
+	// Get the unrequested AGG proof with the lowest start block.
 	aggProof, err := db.client.ProofRequest.Query().
 		Where(
 			proofrequest.StatusEQ(proofrequest.StatusUNREQ),
 			proofrequest.TypeEQ(proofrequest.TypeAGG),
 		).
-		Order(ent.Asc(proofrequest.FieldRequestAddedTime)).
+		Order(ent.Asc(proofrequest.FieldStartBlock)).
 		First(context.Background())
 
 	if err == nil {
@@ -322,13 +322,13 @@ func (db *ProofDB) GetNextUnrequestedProof() (*ent.ProofRequest, error) {
 		return nil, fmt.Errorf("failed to query AGG unrequested proof: %w", err)
 	}
 
-	// If we're here, it means no AGG proof was found. Let's try SPAN proof.
+	// If there's no AGG proof available, get the unrequested SPAN proof with the lowest start block.
 	spanProof, err := db.client.ProofRequest.Query().
 		Where(
 			proofrequest.StatusEQ(proofrequest.StatusUNREQ),
 			proofrequest.TypeEQ(proofrequest.TypeSPAN),
 		).
-		Order(ent.Asc(proofrequest.FieldRequestAddedTime)).
+		Order(ent.Asc(proofrequest.FieldStartBlock)).
 		First(context.Background())
 
 	if err != nil {
@@ -339,7 +339,7 @@ func (db *ProofDB) GetNextUnrequestedProof() (*ent.ProofRequest, error) {
 		return nil, fmt.Errorf("failed to query SPAN unrequested proof: %w", err)
 	}
 
-	// We found a SPAN proof
+	// Return the SPAN proof
 	return spanProof, nil
 }
 
