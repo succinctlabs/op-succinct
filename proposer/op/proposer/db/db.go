@@ -17,7 +17,8 @@ type ProofDB struct {
 	client *ent.Client
 }
 
-// Initialize the database and return a handle to it. If useCachedDb is false, the existing DB at the path will be deleted (if it exists).
+// InitDB initializes the database and returns a handle to it.
+// If useCachedDb is false, the existing DB at the path will be deleted (if it exists).
 func InitDB(dbPath string, useCachedDb bool) (*ProofDB, error) {
 	if !useCachedDb {
 		os.Remove(dbPath)
@@ -45,6 +46,7 @@ func InitDB(dbPath string, useCachedDb bool) (*ProofDB, error) {
 	return &ProofDB{client: client}, nil
 }
 
+// CloseDB closes the connection to the database.
 func (db *ProofDB) CloseDB() error {
 	if db.client != nil {
 		if err := db.client.Close(); err != nil {
@@ -54,11 +56,9 @@ func (db *ProofDB) CloseDB() error {
 	return nil
 }
 
+// NewEntry creates a new proof request entry in the database.
 func (db *ProofDB) NewEntry(proofType proofrequest.Type, start, end uint64) error {
-	return db.newEntryWithReqAddedTimestamp(proofType, start, end, uint64(time.Now().Unix()))
-}
-
-func (db *ProofDB) newEntryWithReqAddedTimestamp(proofType proofrequest.Type, start, end, now uint64) error {
+	now := uint64(time.Now().Unix())
 	_, err := db.client.ProofRequest.
 		Create().
 		SetType(proofType).
@@ -76,6 +76,7 @@ func (db *ProofDB) newEntryWithReqAddedTimestamp(proofType proofrequest.Type, st
 	return nil
 }
 
+// UpdateProofStatus updates the status of a proof request in the database.
 func (db *ProofDB) UpdateProofStatus(id int, proofStatus proofrequest.Status) error {
 	_, err := db.client.ProofRequest.Update().
 		Where(proofrequest.ID(id)).
@@ -86,6 +87,7 @@ func (db *ProofDB) UpdateProofStatus(id int, proofStatus proofrequest.Status) er
 	return err
 }
 
+// SetProverRequestID sets the prover request ID for a proof request in the database.
 func (db *ProofDB) SetProverRequestID(id int, proverRequestID string) error {
 	_, err := db.client.ProofRequest.Update().
 		Where(proofrequest.ID(id)).
@@ -101,7 +103,7 @@ func (db *ProofDB) SetProverRequestID(id int, proverRequestID string) error {
 	return nil
 }
 
-// Update the existing proof request with the proof and set the status to COMPLETE.
+// AddFulfilledProof adds a proof to a proof request in the database and sets the status to COMPLETE.
 func (db *ProofDB) AddFulfilledProof(id int, proof []byte) error {
 	// Start a transaction
 	tx, err := db.client.Tx(context.Background())
@@ -149,7 +151,7 @@ func (db *ProofDB) AddFulfilledProof(id int, proof []byte) error {
 	return nil
 }
 
-// Return the number of proofs with the given status(es).
+// GetNumberOfProofsWithStatuses returns the number of proofs with the given status(es).
 func (db *ProofDB) GetNumberOfProofsWithStatuses(statuses ...proofrequest.Status) (int, error) {
 	count, err := db.client.ProofRequest.Query().
 		Where(
@@ -206,6 +208,7 @@ func (db *ProofDB) AddL1BlockInfoToAggRequest(startBlock, endBlock, l1BlockNumbe
 	return updatedProof, nil
 }
 
+// GetLatestEndBlock returns the latest end block of a proof request in the database.
 func (db *ProofDB) GetLatestEndBlock() (uint64, error) {
 	maxEnd, err := db.client.ProofRequest.Query().
 		Order(ent.Desc(proofrequest.FieldEndBlock)).
@@ -293,6 +296,7 @@ func (db *ProofDB) GetAllProofsWithStatus(status proofrequest.Status) ([]*ent.Pr
 	return proofs, nil
 }
 
+// GetNextUnrequestedProof returns the next unrequested proof in the database.
 func (db *ProofDB) GetNextUnrequestedProof() (*ent.ProofRequest, error) {
 	// Get the unrequested AGG proof with the lowest start block.
 	aggProof, err := db.client.ProofRequest.Query().
@@ -332,6 +336,7 @@ func (db *ProofDB) GetNextUnrequestedProof() (*ent.ProofRequest, error) {
 	return spanProof, nil
 }
 
+// GetAllCompletedAggProofs returns all completed AGG proofs for a given start block.
 func (db *ProofDB) GetAllCompletedAggProofs(startBlock uint64) ([]*ent.ProofRequest, error) {
 	proofs, err := db.client.ProofRequest.Query().
 		Where(
@@ -351,7 +356,7 @@ func (db *ProofDB) GetAllCompletedAggProofs(startBlock uint64) ([]*ent.ProofRequ
 	return proofs, nil
 }
 
-// Try to create an AGG proof from the span proofs that cover the range [from, minTo).
+// TryCreateAggProofFromSpanProofs tries to create an AGG proof from the span proofs that cover the range [from, minTo).
 // Returns true if a new AGG proof was created, false otherwise.
 func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, uint64, error) {
 	// If there's already an AGG proof in progress/completed with the same start block, return.
@@ -390,7 +395,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 	return true, maxContigousEnd, nil
 }
 
-// Returns the start and end of the contiguous span proof chain. Use this to determine when to create an AGG proof.
+// GetMaxContiguousSpanProofRange returns the start and end of the contiguous span proof chain.
 func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) {
 	ctx := context.Background()
 	client := db.client
@@ -421,8 +426,8 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 	return max(start, currentBlock), nil
 }
 
-// Get the span proofs that cover the range [start, end]. If there's a gap in the proofs, or the proofs
-// don't fully cover the range, return an error.
+// GetConsecutiveSpanProofs returns the span proofs that cover the range [start, end].
+// If there's a gap in the proofs, or the proofs don't fully cover the range, return an error.
 func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error) {
 	ctx := context.Background()
 	client := db.client
