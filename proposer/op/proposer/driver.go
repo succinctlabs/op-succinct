@@ -602,7 +602,7 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				l.Log.Error("failed to get metrics", "err", err)
 				continue
 			}
-			l.Log.Info("Proposer ProposerMetrics", "metrics", metrics)
+			l.Log.Info("Proposer status", "metrics", metrics)
 
 			// 1) Queue up any span batches that are ready to prove.
 			// This is done by checking the chain for completed channels and pulling span batches out.
