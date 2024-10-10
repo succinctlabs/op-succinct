@@ -34,7 +34,7 @@ func TestCreateSpans(t *testing.T) {
 			maxBlockRange:      500,
 			expectedSpansCount: 3,
 			expectedFirstSpan:  Span{Start: 1000, End: 1500},
-			expectedLastSpan:   Span{Start: 2002, End: 2502},
+			expectedLastSpan:   Span{Start: 2000, End: 2500},
 		},
 		{
 			name:               "Partial last span excluded",
@@ -43,7 +43,7 @@ func TestCreateSpans(t *testing.T) {
 			maxBlockRange:      100,
 			expectedSpansCount: 2,
 			expectedFirstSpan:  Span{Start: 100, End: 200},
-			expectedLastSpan:   Span{Start: 201, End: 301},
+			expectedLastSpan:   Span{Start: 200, End: 300},
 		},
 		{
 			name:               "No spans possible",
@@ -69,7 +69,7 @@ func TestCreateSpans(t *testing.T) {
 			}
 
 			for i := 0; i < len(spans)-1; i++ {
-				assert.Equal(t, spans[i].End+1, spans[i+1].Start, "Spans should be contiguous")
+				assert.Equal(t, spans[i].End, spans[i+1].Start, "Spans should be contiguous")
 				assert.Equal(t, tt.maxBlockRange, spans[i].End-spans[i].Start, "Span range should match maxBlockRange")
 			}
 		})
