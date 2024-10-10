@@ -424,9 +424,8 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 // GetMaxContiguousSpanProofRange returns the start and end of the contiguous span proof chain.
 func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) {
 	ctx := context.Background()
-	client := db.readClient
 
-	query := client.ProofRequest.Query().
+	query := db.readClient.ProofRequest.Query().
 		Where(
 			proofrequest.TypeEQ(proofrequest.TypeSPAN),
 			proofrequest.StatusEQ(proofrequest.StatusCOMPLETE),
@@ -456,10 +455,9 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 // If there's a gap in the proofs, or the proofs don't fully cover the range, return an error.
 func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error) {
 	ctx := context.Background()
-	client := db.readClient
 
 	// Query the DB for the span proofs that cover the range [start, end].
-	query := client.ProofRequest.Query().
+	query := db.readClient.ProofRequest.Query().
 		Where(
 			proofrequest.TypeEQ(proofrequest.TypeSPAN),
 			proofrequest.StatusEQ(proofrequest.StatusCOMPLETE),
