@@ -244,14 +244,14 @@ type Metrics struct {
 	L2UnsafeHeadBlock              uint64
 	LatestContractL2Block          uint64
 	HighestProvenContiguousL2Block uint64
-	NumProving               uint64
-	NumWitnessgen            uint64
-	NumUnrequested           uint64
+	NumProving                     uint64
+	NumWitnessgen                  uint64
+	NumUnrequested                 uint64
 }
 
 // GetMetrics gets the performance metrics for the proposer.
+// TODO: Add a metric for the latest proven transaction.
 func (l *L2OutputSubmitter) GetMetrics(ctx context.Context) (Metrics, error) {
-	// TODO: Add a metric for the latest proven transaction.
 	rollupClient, err := l.RollupProvider.RollupClient(ctx)
 	if err != nil {
 		return Metrics{}, fmt.Errorf("getting rollup client: %w", err)
@@ -293,9 +293,9 @@ func (l *L2OutputSubmitter) GetMetrics(ctx context.Context) (Metrics, error) {
 		L2UnsafeHeadBlock:              l2UnsafeHeadBlock,
 		LatestContractL2Block:          latestContractL2Block.Uint64(),
 		HighestProvenContiguousL2Block: highestProvenContiguousL2Block,
-		NumProving:               uint64(numProving),
-		NumWitnessgen:            uint64(numWitnessgen),
-		NumUnrequested:           uint64(numUnrequested),
+		NumProving:                     uint64(numProving),
+		NumWitnessgen:                  uint64(numWitnessgen),
+		NumUnrequested:                 uint64(numUnrequested),
 	}, nil
 }
 
