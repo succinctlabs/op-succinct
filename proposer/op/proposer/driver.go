@@ -604,10 +604,8 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 			}
 			l.Log.Info("Proposer status", "metrics", metrics)
 
-			// 1) Queue up any span batches that are ready to prove.
-			// This is done by checking the chain for completed channels and pulling span batches out.
-			// We break apart span batches if they exceed the max size, and gracefully handle bugs in span batch decoding.
-			// We add ranges to be proven to the DB as "UNREQ" so they are queued up to request later.
+			// 1) Queue up the span proofs that are ready to prove. Determine these range proofs based on the latest L2 finalized block,
+			// and the current L2 unsafe head.
 			l.Log.Info("Stage 1: Deriving Span Batches...")
 			err = l.DeriveNewSpanBatches(ctx)
 			if err != nil {
