@@ -623,9 +623,8 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				continue
 			}
 
-			// 3) Determine if any agg proofs are ready to be submitted and queue them up.
-			// This is done by checking if we have contiguous span proofs from the last on chain
-			// output root through at least the submission interval.
+			// 3) Determine if there is a continguous chain of span proofs starting from the latest block on the L2OO contract.
+			// If there is, queue an aggregate proof for all of the span proofs.
 			l.Log.Info("Stage 3: Deriving Agg Proofs...")
 			err = l.DeriveAggProofs(ctx)
 			if err != nil {
