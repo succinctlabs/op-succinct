@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/succinctlabs/op-succinct-go/proposer/db"
+	"github.com/succinctlabs/op-succinct-go/proposer/db/ent/proofrequest"
 )
 
 var (
@@ -237,6 +238,65 @@ func (l *L2OutputSubmitter) StopL2OutputSubmitting() error {
 
 	l.Log.Info("Proposer stopped")
 	return nil
+}
+
+type Metrics struct {
+	L2UnsafeHeadBlock              uint64
+	LatestContractL2Block          uint64
+	HighestProvenContiguousL2Block uint64
+	NumProving               uint64
+	NumWitnessgen            uint64
+	NumUnrequested           uint64
+}
+
+// GetMetrics gets the performance metrics for the proposer.
+func (l *L2OutputSubmitter) GetMetrics(ctx context.Context) (Metrics, error) {
+	// TODO: Add a metric for the latest proven transaction.
+	rollupClient, err := l.RollupProvider.RollupClient(ctx)
+	if err != nil {
+		return Metrics{}, fmt.Errorf("getting rollup client: %w", err)
+	}
+
+	status, err := rollupClient.SyncStatus(ctx)
+	if err != nil {
+		return Metrics{}, fmt.Errorf("getting sync status: %w", err)
+	}
+
+	l2UnsafeHeadBlock := status.UnsafeL2.Number
+	latestContractL2Block, err := l.l2ooContract.LatestBlockNumber(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to get latest output index: %w", err)
+	}
+
+	// Get the longest contiguous span proof chain so far.
+	highestProvenContiguousL2Block, err := l.db.GetMaxContiguousSpanProofRange(latestContractL2Block.Uint64())
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
+	}
+
+	numProving, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusPROVING)
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to get number of proofs proving: %w", err)
+	}
+
+	numWitnessgen, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusWITNESSGEN)
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to get number of proofs witnessgen: %w", err)
+	}
+
+	numUnrequested, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusUNREQ)
+	if err != nil {
+		return Metrics{}, fmt.Errorf("failed to get number of unrequested proofs: %w", err)
+	}
+
+	return Metrics{
+		L2UnsafeHeadBlock:              l2UnsafeHeadBlock,
+		LatestContractL2Block:          latestContractL2Block.Uint64(),
+		HighestProvenContiguousL2Block: highestProvenContiguousL2Block,
+		NumProving:               uint64(numProving),
+		NumWitnessgen:            uint64(numWitnessgen),
+		NumUnrequested:           uint64(numUnrequested),
+	}, nil
 }
 
 func (l *L2OutputSubmitter) SubmitAggProofs(ctx context.Context) error {
@@ -532,12 +592,20 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
+			// Get the current metrics for the proposer.
+			metrics, err := l.GetMetrics(ctx)
+			if err != nil {
+				l.Log.Error("failed to get metrics", "err", err)
+				continue
+			}
+			l.Log.Info("Proposer Metrics", "metrics", metrics)
+
 			// 1) Queue up any span batches that are ready to prove.
 			// This is done by checking the chain for completed channels and pulling span batches out.
 			// We break apart span batches if they exceed the max size, and gracefully handle bugs in span batch decoding.
 			// We add ranges to be proven to the DB as "UNREQ" so they are queued up to request later.
 			l.Log.Info("Stage 1: Deriving Span Batches...")
-			err := l.DeriveNewSpanBatches(ctx)
+			err = l.DeriveNewSpanBatches(ctx)
 			if err != nil {
 				l.Log.Error("failed to add next span batches to db", "err", err)
 				continue
