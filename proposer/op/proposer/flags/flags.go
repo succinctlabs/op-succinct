@@ -86,6 +86,12 @@ var (
 		Value:   50,
 		EnvVars: prefixEnvVars("MAX_BLOCK_RANGE_PER_SPAN_PROOF"),
 	}
+	ProofTimeoutFlag = &cli.Uint64Flag{
+		Name:    "proof-timeout",
+		Usage:   "Maximum time in seconds to spend generating a proof before giving up",
+		Value:   14400,
+		EnvVars: prefixEnvVars("MAX_PROOF_TIME"),
+	}
 	OPSuccinctServerUrlFlag = &cli.StringFlag{
 		Name:    "op-succinct-server-url",
 		Usage:   "URL of the OP Succinct server to request proofs from",
