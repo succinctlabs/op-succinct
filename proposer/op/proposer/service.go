@@ -53,10 +53,10 @@ type ProposerConfig struct {
 	// Additional fields required for OP Succinct Proposer
 	DbPath                     string
 	UseCachedDb                bool
+	SlackToken                 string
 	BeaconRpc                  string
 	TxCacheOutDir              string
 	BatchDecoderConcurrentReqs uint64
-	MaxSpanBatchDeviation      uint64
 	MaxBlockRangePerSpanProof  uint64
 	L2ChainID                  uint64
 	ProofTimeout               uint64
@@ -115,10 +115,10 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 	// Additional fields required for OP Succinct Proposer
 	ps.DbPath = cfg.DbPath
 	ps.UseCachedDb = cfg.UseCachedDb
+	ps.SlackToken = cfg.SlackToken
 	ps.BeaconRpc = cfg.BeaconRpc
 	ps.TxCacheOutDir = cfg.TxCacheOutDir
 	ps.BatchDecoderConcurrentReqs = cfg.BatchDecoderConcurrentReqs
-	ps.MaxSpanBatchDeviation = cfg.MaxSpanBatchDeviation
 	ps.MaxBlockRangePerSpanProof = cfg.MaxBlockRangePerSpanProof
 	ps.OPSuccinctServerUrl = cfg.OPSuccinctServerUrl
 	ps.ProofTimeout = cfg.ProofTimeout
@@ -128,7 +128,6 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 	ps.BatcherAddress = common.HexToAddress(cfg.BatcherAddress)
 
 	ps.initL2ooAddress(cfg)
-	ps.initDGF(cfg)
 
 	if err := ps.initRPCClients(ctx, cfg); err != nil {
 		return err
@@ -244,17 +243,6 @@ func (ps *ProposerService) initL2ooAddress(cfg *CLIConfig) {
 		return
 	}
 	ps.L2OutputOracleAddr = &l2ooAddress
-}
-
-func (ps *ProposerService) initDGF(cfg *CLIConfig) {
-	dgfAddress, err := opservice.ParseAddress(cfg.DGFAddress)
-	if err != nil {
-		// Return no error & set no DGF related configuration fields.
-		return
-	}
-	ps.DisputeGameFactoryAddr = &dgfAddress
-	ps.ProposalInterval = cfg.ProposalInterval
-	ps.DisputeGameType = cfg.DisputeGameType
 }
 
 func (ps *ProposerService) initDriver() error {
