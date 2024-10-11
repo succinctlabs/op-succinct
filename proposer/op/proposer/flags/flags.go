@@ -55,28 +55,6 @@ var (
 		Usage:   "Allow the proposer to submit proposals for L2 blocks derived from non-finalized L1 blocks.",
 		EnvVars: prefixEnvVars("ALLOW_NON_FINALIZED"),
 	}
-	DisputeGameFactoryAddressFlag = &cli.StringFlag{
-		Name:    "game-factory-address",
-		Usage:   "Address of the DisputeGameFactory contract",
-		EnvVars: prefixEnvVars("GAME_FACTORY_ADDRESS"),
-	}
-	ProposalIntervalFlag = &cli.DurationFlag{
-		Name:    "proposal-interval",
-		Usage:   "Interval between submitting L2 output proposals when the dispute game factory address is set",
-		EnvVars: prefixEnvVars("PROPOSAL_INTERVAL"),
-	}
-	OutputRetryIntervalFlag = &cli.DurationFlag{
-		Name:    "output-retry-interval",
-		Usage:   "Interval between retrying output fetching (DGF)",
-		Value:   12 * time.Second,
-		EnvVars: prefixEnvVars("OUTPUT_RETRY_INTERVAL"),
-	}
-	DisputeGameTypeFlag = &cli.UintFlag{
-		Name:    "game-type",
-		Usage:   "Dispute game type to create via the configured DisputeGameFactory",
-		Value:   0,
-		EnvVars: prefixEnvVars("GAME_TYPE"),
-	}
 	ActiveSequencerCheckDurationFlag = &cli.DurationFlag{
 		Name:    "active-sequencer-check-duration",
 		Usage:   "The duration between checks to determine the active sequencer endpoint.",
@@ -102,23 +80,11 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("USE_CACHED_DB"),
 	}
-	MaxSpanBatchDeviationFlag = &cli.Uint64Flag{
-		Name:    "max-span-batch-deviation",
-		Usage:   "If we find a span batch this far ahead of our target, we assume an error and fill in the gap",
-		Value:   600,
-		EnvVars: prefixEnvVars("MAX_SPAN_BATCH_DEVIATION"),
-	}
 	MaxBlockRangePerSpanProofFlag = &cli.Uint64Flag{
 		Name:    "max-block-range-per-span-proof",
 		Usage:   "Maximum number of blocks to include in a single span proof",
 		Value:   50,
 		EnvVars: prefixEnvVars("MAX_BLOCK_RANGE_PER_SPAN_PROOF"),
-	}
-	ProofTimeoutFlag = &cli.Uint64Flag{
-		Name:    "proof-timeout",
-		Usage:   "Maximum time in seconds to spend generating a proof before giving up",
-		Value:   14400,
-		EnvVars: prefixEnvVars("MAX_PROOF_TIME"),
 	}
 	OPSuccinctServerUrlFlag = &cli.StringFlag{
 		Name:    "op-succinct-server-url",
@@ -170,17 +136,11 @@ var optionalFlags = []cli.Flag{
 	PollIntervalFlag,
 	AllowNonFinalizedFlag,
 	L2OutputHDPathFlag,
-	DisputeGameFactoryAddressFlag,
-	ProposalIntervalFlag,
-	OutputRetryIntervalFlag,
-	DisputeGameTypeFlag,
 	ActiveSequencerCheckDurationFlag,
 	WaitNodeSyncFlag,
 	DbPathFlag,
 	UseCachedDbFlag,
-	MaxSpanBatchDeviationFlag,
 	MaxBlockRangePerSpanProofFlag,
-	ProofTimeoutFlag,
 	TxCacheOutDirFlag,
 	BatchDecoderConcurrentReqsFlag,
 	OPSuccinctServerUrlFlag,
