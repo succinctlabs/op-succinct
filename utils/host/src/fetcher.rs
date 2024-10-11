@@ -11,7 +11,7 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
-use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse};
+use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse, Transaction};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use serde_json::{json, Value};
 use sp1_sdk::block_on;
@@ -321,6 +321,24 @@ impl OPSuccinctDataFetcher {
             });
         }
         Ok(block_data)
+    }
+
+    /// Get the L2 transaction data for a given block number.
+    pub async fn get_transactions_by_block_number(
+        &self,
+        block_number: u64,
+    ) -> Result<Vec<Transaction>> {
+        let provider = self.get_provider(RPCMode::L2);
+        let block = provider
+            .get_block_by_number(block_number.into(), false)
+            .await?
+            .unwrap();
+        let transactions = block
+            .transactions
+            .into_transactions()
+            .map(|tx| tx.try_into().unwrap())
+            .collect();
+        Ok(transactions)
     }
 
     pub async fn get_block_by_number(&self, rpc_mode: RPCMode, block_number: u64) -> Result<Block> {
