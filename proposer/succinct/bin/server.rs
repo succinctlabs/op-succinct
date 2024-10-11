@@ -79,8 +79,6 @@ async fn request_span_proof(
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
-    // TODO: Save data fetcher, NetworkProver, and NetworkClient globally
-    // and access via Store.
     let data_fetcher = OPSuccinctDataFetcher::default();
 
     let host_cli = data_fetcher
