@@ -23,30 +23,19 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		return fmt.Errorf("failed to get proofs failed on server: %w", err)
 	}
 
-	// Get all proofs that failed to reach the prover network with a timeout.
-	timedOutReqs, err := l.db.GetWitnessGenerationTimeoutProofsOnServer()
-	if err != nil {
-		return fmt.Errorf("failed to get witness generation timeout proofs on server: %w", err)
+	if len(failedReqs) > 0 {
+		l.Log.Info("Retrying failed proofs.", "failed", len(failedReqs))
 	}
 
-	// Combine the two lists of proofs.
-	reqsToRetry := append(failedReqs, timedOutReqs...)
-
-	if len(reqsToRetry) > 0 {
-		l.Log.Info("Retrying failed and timed out proofs.", "failed", len(failedReqs), "timedOut", len(timedOutReqs))
-	}
-
-	for _, req := range reqsToRetry {
+	for _, req := range failedReqs {
 		err = l.RetryRequest(req)
 		if err != nil {
 			return fmt.Errorf("failed to retry request: %w", err)
 		}
 	}
 
-	// Get all pending proofs with a status of requested and a prover ID that is not empty.
-	// TODO: There should be a separate proofrequest status for proofs that failed before reaching the prover network,
-	// and those that failed after reaching the prover network.
-	reqs, err := l.db.GetAllPendingProofs()
+	// Get all proof requests that are currently in the PROVING state.
+	reqs, err := l.db.GetAllRequestsProving()
 	if err != nil {
 		return err
 	}
