@@ -144,7 +144,7 @@ fn main() {
             assert_eq!(new_block_number, payload.parent.block_info.number + 1);
 
             // Increment last_block_num and check if we have reached the claim block.
-            if new_block_number == boot.l2_claim_block {
+            if new_block_number == boot.claimed_l2_block_number {
                 break 'step;
             }
 
@@ -194,7 +194,7 @@ fn main() {
 
         // Note: We don't need the last_block_num == claim_block check, because it's the only way to
         // exit the above loop
-        assert_eq!(output_root, boot.l2_claim);
+        assert_eq!(output_root, boot.claimed_l2_output_root);
 
         println!("Validated derivation and STF. Output Root: {}", output_root);
     });

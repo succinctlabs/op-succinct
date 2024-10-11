@@ -116,8 +116,8 @@ fn main() {
         //                          EPILOGUE                          //
         ////////////////////////////////////////////////////////////////
 
-        assert_eq!(number, boot.l2_claim_block);
-        assert_eq!(output_root, boot.l2_claim);
+        assert_eq!(number, boot.claimed_l2_block_number);
+        assert_eq!(output_root, boot.claimed_l2_output_root);
 
         println!("Validated derivation and STF. Output Root: {}", output_root);
     });
