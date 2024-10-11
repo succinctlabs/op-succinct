@@ -32,8 +32,9 @@ import (
 )
 
 var (
-	supportedL2OutputVersion = eth.Bytes32{}
-	ErrProposerNotRunning    = errors.New("proposer is not running")
+	slackMetricsTickerInterval = 30 * time.Minute
+	supportedL2OutputVersion   = eth.Bytes32{}
+	ErrProposerNotRunning      = errors.New("proposer is not running")
 )
 
 type L1Client interface {
@@ -588,9 +589,9 @@ func (l *L2OutputSubmitter) waitNodeSync() error {
 // proposes it.
 func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 	ticker := time.NewTicker(l.Cfg.PollInterval)
-	slackTicker := time.NewTicker(30 * time.Minute)
+	slackMetricsTicker := time.NewTicker(slackMetricsTickerInterval)
 	defer ticker.Stop()
-	defer slackTicker.Stop()
+	defer slackMetricsTicker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -648,7 +649,7 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 			if err != nil {
 				l.Log.Error("failed to submit agg proofs", "err", err)
 			}
-		case <-slackTicker.C:
+		case <-slackMetricsTicker.C:
 			metrics, err := l.GetProposerMetrics(ctx)
 			if err != nil {
 				l.Log.Error("failed to get metrics for Slack notification", "err", err)
