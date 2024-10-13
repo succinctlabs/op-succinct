@@ -1,6 +1,6 @@
 # Deploy OP Succinct L2 Output Oracle
 
-The first step in deploying OP Succinct is to deploy the `OPSuccinctL2OutputOracle` smart contract that will verify SP1 proofs of the Optimism state transition function which verify the latest state root for the OP Stack rollup.
+The first step in deploying OP Succinct is to deploy the `OPSuccinctL2OutputOracle` smart contract that will verify SP1 proofs of the Optimism state transition function which verifies the latest state root for the OP Stack rollup.
 
 ## Deployment
 
