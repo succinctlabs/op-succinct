@@ -23,4 +23,4 @@ forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
 
 ## RaaS Providers
 
-More information for how to configure an OP Stack RaaS provider deployment will be available soon.
+More information on how to configure an OP Stack RaaS provider deployment will be available soon.
