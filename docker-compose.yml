@@ -1,69 +1,24 @@
 services:
-  # BoB
-  op-succinct-server-bob:
+  # OP Succinct Server
+  op-succinct-server:
     build:
       context: .
       dockerfile: ./proposer/succinct/Dockerfile
     env_file:
-      - .env.bob
+      - ${ENV_FILE:-.env}
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "3000:3000"
 
-  op-succinct-proposer-bob:
+  # OP Succinct Proposer
+  op-succinct-proposer:
     build:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
     env_file:
-      - .env.bob
+      - ${ENV_FILE:-.env}
     restart: unless-stopped
     depends_on:
-      - op-succinct-server-bob
-    volumes:
-      - ./db:/usr/local/bin/dbdata
-  
-  # Phala
-  op-succinct-server-phala:
-    build:
-      context: .
-      dockerfile: ./proposer/succinct/Dockerfile
-    env_file:
-      - .env.phala
-    restart: unless-stopped
-    ports:
-      - "3002:3002"
-
-  op-succinct-proposer-phala:
-    build:
-      context: .
-      dockerfile: ./proposer/op/Dockerfile.op_proposer
-    env_file:
-      - .env.phala
-    restart: unless-stopped
-    depends_on:
-      - op-succinct-server-phala
-    volumes:
-      - ./db:/usr/local/bin/dbdata
-  
-  # Conduit 10s
-  op-succinct-server-conduit-10s:
-    build:
-      context: .
-      dockerfile: ./proposer/succinct/Dockerfile
-    env_file:
-      - .env.conduit10s
-    restart: unless-stopped
-    ports:
-      - "3003:3003"
-
-  op-succinct-proposer-conduit-10s:
-    build:
-      context: .
-      dockerfile: ./proposer/op/Dockerfile.op_proposer
-    env_file:
-      - .env.conduit10s
-    restart: unless-stopped
-    depends_on:
-      - op-succinct-server-conduit-10s
+      - op-succinct-server
     volumes:
       - ./db:/usr/local/bin/dbdata
