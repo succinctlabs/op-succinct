@@ -73,10 +73,10 @@ fn main() {
         // Note: Don't comment this out, because the Docker program depends on the native program
         // for range being built.
         build_native_program(program);
-        build_zkvm_program(program);
+        // build_zkvm_program(program);
     }
 
-    build_zkvm_program("aggregation");
+    // build_zkvm_program("aggregation");
     // Note: Don't comment this out, because the Docker program depends on the native host runner
     // being built.
     build_native_host_runner();
