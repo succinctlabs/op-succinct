@@ -21,6 +21,7 @@ const WITNESS_GEN_TIMEOUT = 20 * time.Minute
 // Process all of the pending proofs.
 func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	// Retrieve all proofs that failed without reaching the prover network (specifically, proofs that failed with no proof ID).
+	// These are proofs that failed in the witness generation state.
 	failedReqs, err := l.db.GetProofsFailedOnServer()
 	if err != nil {
 		return fmt.Errorf("failed to get proofs failed on server: %w", err)
@@ -38,7 +39,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	}
 
 	// Get all proof requests that are currently in the PROVING state.
-	reqs, err := l.db.GetAllRequestsProving()
+	reqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusPROVING)
 	if err != nil {
 		return err
 	}
@@ -128,11 +129,27 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 			l.Log.Info("found agg proof with already checkpointed l1 block info")
 		}
 	} else {
-		currentRequestedProofs, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusPROVING, proofrequest.StatusWITNESSGEN)
+		witnessGenProofs, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusWITNESSGEN)
 		if err != nil {
-			return fmt.Errorf("failed to count requested proofs: %w", err)
+			return fmt.Errorf("failed to count witnessgen proofs: %w", err)
 		}
-		if currentRequestedProofs >= int(l.Cfg.MaxConcurrentProofRequests) {
+		provingProofs, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusPROVING)
+		if err != nil {
+			return fmt.Errorf("failed to count proving proofs: %w", err)
+		}
+
+		// This limit is set to prevent overloading the witness generation server. Until Kona improves their native I/O API,
+		// the maximum number of concurrent witness generation requests is roughly num_cpu / 2.
+		const MAX_WITNESS_GEN_PROOF_REQUESTS = 5
+
+		// The number of witness generation requests is capped at MAX_WITNESS_GEN_PROOF_REQUESTS.
+		if witnessGenProofs >= MAX_WITNESS_GEN_PROOF_REQUESTS {
+			l.Log.Info("max witness generation reached, waiting for next cycle")
+			return nil
+		}
+
+		// The total number of concurrent proofs is capped at MAX_CONCURRENT_PROOF_REQUESTS.
+		if (witnessGenProofs+provingProofs) >= int(l.Cfg.MaxConcurrentProofRequests) {
 			l.Log.Info("max concurrent proof requests reached, waiting for next cycle")
 			return nil
 		}
