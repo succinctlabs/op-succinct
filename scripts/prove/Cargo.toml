@@ -27,15 +27,11 @@ clap = { workspace = true }
 cargo_metadata = { workspace = true }
 anyhow.workspace = true
 dotenv.workspace = true
-num-format.workspace = true
 csv.workspace = true
 
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
-
-# op-alloy
-op-alloy-genesis.workspace = true
 
 # sp1
 sp1-sdk = { workspace = true }

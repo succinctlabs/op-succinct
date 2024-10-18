@@ -11,15 +11,10 @@ homepage.workspace = true
 cfg-if.workspace = true
 serde_json.workspace = true
 
-# workspace (ethereum)
-alloy-consensus.workspace = true
-
 # sp1
 sp1-zkvm = { workspace = true }
 
 # kona
-kona-primitives.workspace = true
-kona-executor.workspace = true
 kona-client.workspace = true
 
 # op-succinct

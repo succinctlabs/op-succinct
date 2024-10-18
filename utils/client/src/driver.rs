@@ -14,15 +14,15 @@ use kona_client::{
 };
 use kona_derive::{
     attributes::StatefulAttributesBuilder,
-    errors::PipelineErrorKind,
+    errors::{PipelineErrorKind, ResetError},
     pipeline::{DerivationPipeline, Pipeline, PipelineBuilder, StepResult},
     prelude::{ChainProvider, L2ChainProvider},
     sources::EthereumDataSource,
     stages::{
-        AttributesQueue, BatchQueue, BatchStream, ChannelBank, ChannelReader, FrameQueue,
+        AttributesQueue, BatchQueue, BatchStream, ChannelProvider, ChannelReader, FrameQueue,
         L1Retrieval, L1Traversal,
     },
-    traits::{OriginProvider, Signal},
+    traits::{ActivationSignal, OriginProvider, ResetSignal, SignalReceiver},
 };
 use kona_mpt::TrieProvider;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
@@ -51,7 +51,9 @@ pub type MultiblockOracleAttributesQueue<DAP, O> = AttributesQueue<
     BatchQueue<
         BatchStream<
             ChannelReader<
-                ChannelBank<FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>>,
+                ChannelProvider<
+                    FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>,
+                >,
             >,
             MultiblockOracleL2ChainProvider<O>,
         >,
@@ -169,18 +171,38 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                     // stages can make progress.
                     match e {
                         PipelineErrorKind::Temporary(_) => { /* continue */ }
-                        PipelineErrorKind::Reset(_) => {
-                            // Reset the pipeline to the initial L2 safe head and L1 origin,
-                            // and try again.
-                            self.pipeline
-                                .signal(Signal::Reset {
-                                    l2_safe_head: self.l2_safe_head,
-                                    l1_origin: self
-                                        .pipeline
-                                        .origin()
-                                        .ok_or_else(|| anyhow!("Missing L1 origin"))?,
-                                })
-                                .await?;
+                        PipelineErrorKind::Reset(e) => {
+                            if matches!(e, ResetError::HoloceneActivation) {
+                                self.pipeline
+                                    .signal(
+                                        ActivationSignal {
+                                            l2_safe_head: self.l2_safe_head,
+                                            l1_origin: self
+                                                .pipeline
+                                                .origin()
+                                                .ok_or_else(|| anyhow!("Missing L1 origin"))?,
+                                            system_config: None,
+                                        }
+                                        .signal(),
+                                    )
+                                    .await?;
+                            } else {
+                                // Reset the pipeline to the initial L2 safe head and L1 origin,
+                                // and try again.
+                                self.pipeline
+                                    .signal(
+                                        ResetSignal {
+                                            l2_safe_head: self.l2_safe_head,
+                                            l1_origin: self
+                                                .pipeline
+                                                .origin()
+                                                .ok_or_else(|| anyhow!("Missing L1 origin"))?,
+                                            system_config: None,
+                                        }
+                                        .signal(),
+                                    )
+                                    .await?;
+                            }
                         }
                         PipelineErrorKind::Critical(_) => return Err(e.into()),
                     }
