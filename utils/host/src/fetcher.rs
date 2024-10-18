@@ -556,7 +556,23 @@ impl OPSuccinctDataFetcher {
                 .await?;
             let l2_safe_head = result.safe_head.number;
             if l2_safe_head > l2_end_block {
-                return Ok(result.l1_block.hash);
+                println!(
+                    "l2_safe_head: {:?}, l2_end_block: {:?}",
+                    l2_safe_head, l2_end_block
+                );
+                println!("l1_block_number: {:?}", result.l1_block.number);
+
+                let l1_block_hash_increment = 0;
+
+                // Move this forward by 5 minutes.
+                let l1_block_hash = self
+                    .get_block_by_number(
+                        RPCMode::L1,
+                        result.l1_block.number + l1_block_hash_increment,
+                    )
+                    .await?;
+
+                return Ok(l1_block_hash.header.hash);
             }
 
             // Move forward in 5 minute increments.
@@ -572,6 +588,8 @@ impl OPSuccinctDataFetcher {
     async fn get_l1_head(&self, l2_end_block: u64) -> Result<B256> {
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
+
+        println!("L1 safe head result: {:?}", result);
 
         if let Ok(safe_head_at_l1_block) = result {
             Ok(safe_head_at_l1_block)
@@ -592,6 +610,8 @@ impl OPSuccinctDataFetcher {
                 .timestamp;
 
             let target_timestamp = l2_block_timestamp + (max_batch_post_delay_minutes * 60);
+
+            println!("target_timestamp: {:?}", target_timestamp);
             Ok(self
                 .find_block_hash_by_timestamp(RPCMode::L1, target_timestamp)
                 .await?)

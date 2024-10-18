@@ -49,6 +49,8 @@ async fn main() -> Result<()> {
         .get_host_cli_args(l2_safe_head, args.l2_block, ProgramType::Single, cache_mode)
         .await?;
 
+    println!("host_cli: {:?}", host_cli);
+
     // By default, re-run the native execution unless the user passes `--use-cache`.
     let start_time = Instant::now();
     if !args.use_cache {
