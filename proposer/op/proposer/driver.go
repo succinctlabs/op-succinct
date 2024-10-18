@@ -304,11 +304,11 @@ func (l *L2OutputSubmitter) SendSlackNotification(proposerMetrics ProposerMetric
 	}
 	l2BlockTime := cfg.BlockTime
 
-	// Get the number of minutes behind the L2 finalized block the contract is.
+	// Calculate the time difference in minutes between the L2 finalized block and the contract's latest block.
 	minutesBehind := (proposerMetrics.L2FinalizedBlock - proposerMetrics.LatestContractL2Block) * l2BlockTime / 60
 
 	message := fmt.Sprintf("*Chain %d Proposer Metrics*:\n"+
-		"Minutes Behind L2 Finalized: %d\n"+
+		"Contract minutes Behind L2 Finalized: %d\n"+
 		"| L2 Unsafe | L2 Finalized | Contract L2 | Proven L2 |\n"+
 		"| %-9d | %-12d | %-11d | %-9d |\n"+
 		"| Proving   | Witness Gen | Unrequested |\n"+
