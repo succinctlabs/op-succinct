@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RPCMode},
-    get_proof_stdin,
+    find_project_root, get_proof_stdin,
     stats::ExecutionStats,
     witnessgen::WitnessGenExecutor,
     ProgramType,
@@ -34,14 +34,27 @@ struct Args {
     /// Generate proof.
     #[arg(short, long)]
     prove: bool,
+
+    /// Env file path.
+    #[arg(short, long, default_value = ".env")]
+    env_file: String,
 }
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv::dotenv().ok();
-    utils::setup_logger();
     let args = Args::parse();
+
+    if let Some(root) = find_project_root() {
+        dotenv::from_path(root.join(args.env_file)).ok();
+    } else {
+        eprintln!(
+            "Warning: Could not find project root. {} file not loaded.",
+            args.env_file
+        );
+    }
+
+    utils::setup_logger();
 
     let data_fetcher = OPSuccinctDataFetcher::default();
 

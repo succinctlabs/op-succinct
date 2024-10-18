@@ -2,7 +2,7 @@ use alloy::{hex, signers::local::PrivateKeySigner};
 use alloy_primitives::B256;
 use anyhow::{bail, Result};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
+use op_succinct_host_utils::{fetcher::{OPSuccinctDataFetcher, RPCMode}, find_project_root};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sp1_sdk::{HashableKey, ProverClient};
@@ -156,16 +156,6 @@ fn write_l2oo_config(config: L2OOConfig, workspace_root: &Path) -> Result<()> {
         serde_json::to_string_pretty(&config)?,
     )?;
     Ok(())
-}
-
-fn find_project_root() -> Option<PathBuf> {
-    let mut path = std::env::current_dir().ok()?;
-    while !path.join(".git").exists() {
-        if !path.pop() {
-            return None;
-        }
-    }
-    Some(path)
 }
 
 use clap::Parser;

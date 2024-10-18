@@ -15,7 +15,7 @@ use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, InMemoryOracle,
 };
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, path::PathBuf};
 
 use anyhow::Result;
 
@@ -41,6 +41,17 @@ sol! {
         bytes32 l2_storage_hash;
         bytes32 l2_claim_hash;
     }
+}
+
+/// Get the project root.
+pub fn find_project_root() -> Option<PathBuf> {
+    let mut path = std::env::current_dir().ok()?;
+    while !path.join(".git").exists() {
+        if !path.pop() {
+            return None;
+        }
+    }
+    Some(path)
 }
 
 /// Get the stdin to generate a proof for the given L2 claim.
