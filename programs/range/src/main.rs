@@ -19,7 +19,6 @@ use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
-use kona_executor::StatelessL2BlockExecutor;
 use log::info;
 use op_alloy_consensus::{OpBlock, OpTxEnvelope};
 use op_succinct_client_utils::{
@@ -117,14 +116,13 @@ fn main() {
         println!("cycle-tracker-report-end: payload-derivation");
 
         println!("cycle-tracker-start: execution-instantiation");
-        let mut executor = StatelessL2BlockExecutor::builder(
+        let mut executor = driver.new_executor(
             &boot.rollup_config,
-            l2_provider.clone(),
-            l2_provider.clone(),
-        )
-        .with_parent_header(driver.clone_l2_safe_head_header())
-        .with_handle_register(zkvm_handle_register)
-        .build();
+            &l2_provider,
+            &l2_provider,
+            zkvm_handle_register,
+        );
+
         println!("cycle-tracker-end: execution-instantiation");
 
         let mut l2_block_info;

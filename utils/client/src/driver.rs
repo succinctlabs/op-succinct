@@ -24,8 +24,10 @@ use kona_derive::{
     },
     traits::{ActivationSignal, OriginProvider, ResetSignal, SignalReceiver},
 };
-use kona_mpt::TrieProvider;
+use kona_executor::{KonaHandleRegister, StatelessL2BlockExecutor};
+use kona_mpt::{TrieHinter, TrieProvider};
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
+use op_alloy_genesis::RollupConfig;
 use op_alloy_protocol::{BlockInfo, L2BlockInfo};
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
 
@@ -69,6 +71,11 @@ pub type MultiblockOracleAttributesQueue<DAP, O> = AttributesQueue<
 /// oracle-based data sources.
 ///
 /// [L2PayloadAttributes]: kona_derive::types::L2PayloadAttributes
+///
+/// Note: Closely mirrors the implementation of:
+/// https://github.com/anton-rs/kona/blob/main/bin/client/src/l1/driver.rs. The only difference is
+/// the addition of the `l2_claim_block` field, which is used to determine the final L2 block that
+/// the driver should produce payloads for.
 #[derive(Debug)]
 pub struct MultiBlockDerivationDriver<O: CommsClient + Send + Sync + Debug> {
     /// The current L2 safe head.
@@ -82,9 +89,19 @@ pub struct MultiBlockDerivationDriver<O: CommsClient + Send + Sync + Debug> {
 }
 
 impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
+    /// Returns the current L2 safe head [L2BlockInfo].
+    pub fn l2_safe_head(&self) -> &L2BlockInfo {
+        &self.l2_safe_head
+    }
+
+    /// Returns the [Header] of the current L2 safe head.
+    pub fn l2_safe_head_header(&self) -> &Sealed<Header> {
+        &self.l2_safe_head_header
+    }
+
     /// Consumes self and returns the owned [Header] of the current L2 safe head.
-    pub fn clone_l2_safe_head_header(&self) -> Sealed<Header> {
-        self.l2_safe_head_header.clone()
+    pub fn take_l2_safe_head_header(self) -> Sealed<Header> {
+        self.l2_safe_head_header
     }
 
     /// Creates a new [MultiBlockDerivationDriver] with the given configuration, blob provider, and
@@ -123,6 +140,20 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
             chain_provider.clone(),
         );
         let dap = EthereumDataSource::new(chain_provider.clone(), blob_provider, &cfg);
+
+        // Walk back the starting L1 block by `channel_timeout` to ensure that the full channel is
+        // captured.
+        let channel_timeout = boot_info
+            .rollup_config
+            .channel_timeout(l2_safe_head.block_info.timestamp);
+        let mut l1_origin_number = l1_origin.number.saturating_sub(channel_timeout);
+        if l1_origin_number < boot_info.rollup_config.genesis.l1.number {
+            l1_origin_number = boot_info.rollup_config.genesis.l1.number;
+        }
+        let l1_origin = chain_provider
+            .block_info_by_number(l1_origin_number)
+            .await?;
+
         let pipeline = PipelineBuilder::new()
             .rollup_config(cfg)
             .dap_source(dap)
@@ -241,15 +272,12 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
         let mut output_preimage = [0u8; 128];
         caching_oracle
             .get_exact(
-                PreimageKey::new(
-                    boot_info.agreed_l2_output_root.0,
-                    PreimageKeyType::Keccak256,
-                ),
+                PreimageKey::new(*boot_info.agreed_l2_output_root, PreimageKeyType::Keccak256),
                 &mut output_preimage,
             )
             .await?;
 
-        let safe_hash: alloy_primitives::FixedBytes<32> = output_preimage[96..128]
+        let safe_hash = output_preimage[96..128]
             .try_into()
             .map_err(|_| anyhow!("Invalid L2 output root"))?;
         let safe_header = l2_chain_provider.header_by_hash(safe_hash)?;
@@ -266,5 +294,29 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
             safe_head_info,
             Sealed::new_unchecked(safe_header, safe_hash),
         ))
+    }
+
+    /// Returns a new [StatelessL2BlockExecutor] instance.
+    ///
+    /// ## Takes
+    /// - `cfg`: The rollup configuration.
+    /// - `provider`: The trie provider.
+    /// - `hinter`: The trie hinter.
+    /// - `handle_register`: The handle register for the EVM.
+    pub fn new_executor<'a, P, H>(
+        &mut self,
+        cfg: &'a RollupConfig,
+        provider: &P,
+        hinter: &H,
+        handle_register: KonaHandleRegister<P, H>,
+    ) -> StatelessL2BlockExecutor<'a, P, H>
+    where
+        P: TrieProvider + Send + Sync + Clone,
+        H: TrieHinter + Send + Sync + Clone,
+    {
+        StatelessL2BlockExecutor::builder(cfg, provider.clone(), hinter.clone())
+            .with_parent_header(self.l2_safe_head_header().clone())
+            .with_handle_register(handle_register)
+            .build()
     }
 }

@@ -4210,6 +4210,7 @@ dependencies = [
  "kona-client",
  "kona-common",
  "kona-derive",
+ "kona-executor",
  "kona-mpt",
  "kona-preimage",
  "kzg-rs",
