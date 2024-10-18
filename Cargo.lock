@@ -4306,6 +4306,7 @@ dependencies = [
  "op-succinct-client-utils",
  "op-succinct-host-utils",
  "rayon",
+ "reqwest 0.12.8",
  "serde",
  "serde_json",
  "sp1-build",
