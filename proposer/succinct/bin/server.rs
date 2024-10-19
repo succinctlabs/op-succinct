@@ -21,7 +21,7 @@ use sp1_sdk::{
         client::NetworkClient,
         proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     },
-    utils, NetworkProverV1, Prover, SP1Proof, SP1ProofWithPublicValues,
+    utils, MockProver, NetworkProverV1, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -75,6 +75,46 @@ async fn main() {
 
     info!("Server listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
+}
+
+/// Request a mock span proof for a span of blocks.
+async fn get_mock_span_proof(
+    Json(payload): Json<SpanProofRequest>,
+) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
+    info!("Received mock span proof request: {:?}", payload);
+    let data_fetcher = OPSuccinctDataFetcher::default();
+
+    let host_cli = data_fetcher
+        .get_host_cli_args(
+            payload.start,
+            payload.end,
+            ProgramType::Multi,
+            CacheMode::DeleteCache,
+        )
+        .await?;
+
+    // Start the server and native client.
+    let mut witnessgen_executor = WitnessGenExecutor::default();
+    witnessgen_executor.spawn_witnessgen(&host_cli).await?;
+    witnessgen_executor.flush().await?;
+
+    // Get the stdin for the block.
+    let sp1_stdin = get_proof_stdin(&host_cli)?;
+
+    let prover = ProverClient::new();
+
+    // If the prove flag is set, generate a proof.
+    let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
+
+    // Generate proofs in compressed mode for aggregation verification.
+    let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
+
+    Ok((
+        StatusCode::OK,
+        Json(ProofResponse {
+            proof_id: "mock".to_string(),
+        }),
+    ))
 }
 
 /// Request a proof for a span of blocks.
