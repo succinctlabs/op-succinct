@@ -1,4 +1,3 @@
-use alloy::sol;
 use alloy_primitives::{hex, Address, B256};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
@@ -7,7 +6,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use base64::{engine::general_purpose, Engine as _};
 use log::info;
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
@@ -19,75 +17,22 @@ use op_succinct_host_utils::{
     witnessgen::WitnessGenExecutor,
     ProgramType,
 };
-use serde::{Deserialize, Deserializer, Serialize};
+use op_succinct_proposer::{
+    AggProofRequest, ContractConfig, L2OutputOracle, ProofResponse, ProofStatus, SpanProofRequest,
+    ValidateConfigRequest, ValidateConfigResponse,
+};
 use sp1_sdk::{
     network::{
         client::NetworkClient,
         proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     },
     utils, HashableKey, NetworkProverV1, ProverClient, SP1Proof, SP1ProofWithPublicValues,
-    SP1VerifyingKey,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ValidateConfigRequest {
-    address: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ValidateConfigResponse {
-    rollup_config_hash_valid: bool,
-    agg_vkey_valid: bool,
-    range_vkey_valid: bool,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-struct SpanProofRequest {
-    start: u64,
-    end: u64,
-}
-
-#[derive(Deserialize, Serialize, Debug)]
-struct AggProofRequest {
-    #[serde(deserialize_with = "deserialize_base64_vec")]
-    subproofs: Vec<Vec<u8>>,
-    head: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct ProofResponse {
-    proof_id: String,
-}
-
-#[derive(Serialize)]
-struct ProofStatus {
-    status: String,
-    proof: Vec<u8>,
-}
-
-// Global memory for storing hashes
-#[derive(Clone)]
-struct GlobalHashes {
-    range_vk: SP1VerifyingKey,
-    agg_vkey_hash: B256,
-    range_vkey_commitment: B256,
-    rollup_config_hash: B256,
-}
-
-sol! {
-    #[allow(missing_docs)]
-    #[sol(rpc)]
-    contract L2OutputOracle {
-        bytes32 public aggregationVkey;
-        bytes32 public rangeVkeyCommitment;
-        bytes32 public rollupConfigHash;
-    }
-}
 
 #[tokio::main]
 async fn main() {
@@ -105,10 +50,13 @@ async fn main() {
     let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
 
     let fetcher = OPSuccinctDataFetcher::default();
+    // Note: The rollup config hash never changes for a given chain, so we can just hash it once at
+    // server start-up. The only time a rollup config changes is typically when a new version of the
+    // [`RollupConfig`] is released from `op-alloy`.
     let rollup_config_hash = hash_rollup_config(&fetcher.rollup_config);
 
-    // Initialize global hashes
-    let global_hashes = GlobalHashes {
+    // Initialize global hashes.
+    let global_hashes = ContractConfig {
         agg_vkey_hash,
         range_vkey_commitment,
         rollup_config_hash,
@@ -135,7 +83,7 @@ async fn main() {
 
 /// Validate the configuration of the L2 Output Oracle.
 async fn validate_config(
-    State(state): State<GlobalHashes>,
+    State(state): State<ContractConfig>,
     Json(payload): Json<ValidateConfigRequest>,
 ) -> Result<(StatusCode, Json<ValidateConfigResponse>), AppError> {
     let fetcher = OPSuccinctDataFetcher::default();
@@ -213,7 +161,7 @@ async fn request_span_proof(
 
 /// Request an aggregation proof for a set of subproofs.
 async fn request_agg_proof(
-    State(state): State<GlobalHashes>,
+    State(state): State<ContractConfig>,
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received agg proof request");
@@ -344,20 +292,4 @@ where
     fn from(err: E) -> Self {
         Self(err.into())
     }
-}
-
-/// Deserialize a vector of base64 strings into a vector of vectors of bytes. Go serializes
-/// the subproofs as base64 strings.
-fn deserialize_base64_vec<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let s: Vec<String> = Deserialize::deserialize(deserializer)?;
-    s.into_iter()
-        .map(|base64_str| {
-            general_purpose::STANDARD
-                .decode(base64_str)
-                .map_err(serde::de::Error::custom)
-        })
-        .collect()
 }
