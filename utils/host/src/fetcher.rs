@@ -324,6 +324,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the L2 transaction data for a given block number.
+    /// TODO: Modify this to call the op-alloy RPC method directly.
     pub async fn get_transactions_by_block_number(
         &self,
         block_number: u64,
