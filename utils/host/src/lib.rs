@@ -4,6 +4,7 @@ pub mod rollup_config;
 pub mod stats;
 pub mod witnessgen;
 
+use alloy::sol;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use kona_host::{
@@ -18,8 +19,6 @@ use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 
 use anyhow::Result;
-
-use alloy_sol_types::sol;
 
 use rkyv::{
     ser::{

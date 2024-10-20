@@ -1,4 +1,3 @@
-use alloy::sol;
 use alloy_primitives::B256;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Deserializer, Serialize};
