@@ -5,7 +5,6 @@ use std::time::Duration;
 use alloy::network::EthereumWallet;
 use alloy::providers::ProviderBuilder;
 use alloy::signers::local::PrivateKeySigner;
-use alloy::sol;
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use op_succinct_client_utils::types::u32_to_u8;
