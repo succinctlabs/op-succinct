@@ -29,6 +29,20 @@ use rkyv::{
     AlignedVec,
 };
 
+sol! {
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    contract L2OutputOracle {
+        bytes32 public aggregationVkey;
+        bytes32 public rangeVkeyCommitment;
+        bytes32 public rollupConfigHash;
+
+        function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner;
+
+        function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner;
+    }
+}
+
 pub enum ProgramType {
     Single,
     Multi,

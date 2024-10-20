@@ -50,16 +50,6 @@ pub struct ContractConfig {
     pub rollup_config_hash: B256,
 }
 
-sol! {
-    #[allow(missing_docs)]
-    #[sol(rpc)]
-    contract L2OutputOracle {
-        bytes32 public aggregationVkey;
-        bytes32 public rangeVkeyCommitment;
-        bytes32 public rollupConfigHash;
-    }
-}
-
 /// Deserialize a vector of base64 strings into a vector of vectors of bytes. Go serializes
 /// the subproofs as base64 strings.
 fn deserialize_base64_vec<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>

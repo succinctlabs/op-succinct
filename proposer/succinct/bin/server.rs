@@ -15,10 +15,10 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher},
     get_agg_proof_stdin, get_proof_stdin,
     witnessgen::WitnessGenExecutor,
-    ProgramType,
+    L2OutputOracle, ProgramType,
 };
 use op_succinct_proposer::{
-    AggProofRequest, ContractConfig, L2OutputOracle, ProofResponse, ProofStatus, SpanProofRequest,
+    AggProofRequest, ContractConfig, ProofResponse, ProofStatus, SpanProofRequest,
     ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{

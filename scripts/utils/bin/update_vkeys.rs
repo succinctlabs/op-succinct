@@ -9,7 +9,7 @@ use alloy::sol;
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use op_succinct_client_utils::types::u32_to_u8;
-use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
+use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, L2OutputOracle};
 use reqwest::Url;
 use sp1_sdk::{utils, HashableKey, ProverClient};
 
@@ -24,19 +24,6 @@ struct Args {
     /// Contract address to check the vkey against.
     #[arg(short, long, required = false, value_delimiter = ',')]
     contract_addresses: Vec<String>,
-}
-
-sol! {
-    #[allow(missing_docs)]
-    #[sol(rpc)]
-    contract L2OutputOracle {
-        bytes32 public aggregationVkey;
-        bytes32 public rangeVkeyCommitment;
-
-        function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner;
-
-        function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner;
-    }
 }
 
 // Get the verification keys for the ELFs and check them against the contract.
