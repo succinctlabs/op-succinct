@@ -3417,7 +3417,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3450,7 +3450,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "cfg-if",
  "linked_list_allocator",
@@ -3460,7 +3460,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3473,7 +3473,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3499,7 +3499,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3516,7 +3516,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3553,7 +3553,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.8",
@@ -3568,7 +3568,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-primitives 0.8.8",
  "async-trait",
@@ -3581,7 +3581,7 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.8",
@@ -3597,7 +3597,7 @@ dependencies = [
 [[package]]
 name = "kona-providers"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.8",
@@ -3610,7 +3610,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=ratan/native-client-command-bugged#4be3cb46d530b1637465167c6a6a661ff0b9466c"
+source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
