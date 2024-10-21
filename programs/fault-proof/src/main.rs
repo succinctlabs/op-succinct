@@ -18,6 +18,8 @@ use kona_client::{
     l2::OracleL2ChainProvider,
     BootInfo,
 };
+use kona_executor::StatelessL2BlockExecutor;
+use kona_primitives::{Header, L2AttributesWithParent};
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 
 cfg_if! {
@@ -100,24 +102,35 @@ fn main() {
         .unwrap();
         println!("cycle-tracker-end: derivation-instantiation");
 
-        println!("cycle-tracker-start: produce-output");
-        let (number, output_root) = driver
-            .produce_output(
-                &boot.rollup_config,
-                &l2_provider.clone(),
-                &l2_provider.clone(),
-                zkvm_handle_register,
-            )
-            .await
+        println!("cycle-tracker-start: payload-derivation");
+        let L2AttributesWithParent { attributes, .. } =
+            driver.produce_disputed_payload().await.unwrap();
+        println!("cycle-tracker-end: payload-derivation");
+
+        println!("cycle-tracker-start: execution-instantiation");
+        let mut executor = StatelessL2BlockExecutor::builder(&boot.rollup_config)
+            .with_parent_header(driver.take_l2_safe_head_header())
+            .with_fetcher(l2_provider.clone())
+            .with_hinter(l2_provider)
+            .with_handle_register(zkvm_handle_register)
+            .build()
             .unwrap();
-        println!("cycle-tracker-end: produce-output");
+        println!("cycle-tracker-end: execution-instantiation");
+
+        println!("cycle-tracker-start: execution");
+        let Header { number, .. } = *executor.execute_payload(attributes).unwrap();
+        println!("cycle-tracker-end: execution");
+
+        println!("cycle-tracker-start: output-root");
+        let output_root = executor.compute_output_root().unwrap();
+        println!("cycle-tracker-end: output-root");
 
         ////////////////////////////////////////////////////////////////
         //                          EPILOGUE                          //
         ////////////////////////////////////////////////////////////////
 
-        assert_eq!(number, boot.claimed_l2_block_number);
-        assert_eq!(output_root, boot.claimed_l2_output_root);
+        assert_eq!(number, boot.l2_claim_block);
+        assert_eq!(output_root, boot.l2_output_root);
 
         println!("Validated derivation and STF. Output Root: {}", output_root);
     });

@@ -1,14 +1,12 @@
 //! Contains the host <-> client communication utilities.
 
 use crate::BytesHasherBuilder;
-use alloy_primitives::{keccak256, FixedBytes, B256};
+use alloy_primitives::{hex, keccak256, FixedBytes, B256};
+use anyhow::Result;
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
 use itertools::Itertools;
-use kona_preimage::{
-    errors::PreimageOracleError, HintWriterClient, PreimageKey, PreimageKeyType,
-    PreimageOracleClient,
-};
+use kona_preimage::{HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient};
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{Archive, Deserialize, Infallible, Serialize};
 use sha2::{Digest, Sha256};
@@ -49,20 +47,20 @@ impl InMemoryOracle {
 
 #[async_trait]
 impl PreimageOracleClient for InMemoryOracle {
-    async fn get(&self, key: PreimageKey) -> Result<Vec<u8>, PreimageOracleError> {
+    async fn get(&self, key: PreimageKey) -> Result<Vec<u8>> {
         let lookup_key: [u8; 32] = key.into();
         self.cache
             .get(&lookup_key)
             .cloned()
-            .ok_or_else(|| PreimageOracleError::KeyNotFound)
+            .ok_or_else(|| anyhow!("Key not found in cache: {}", hex::encode(lookup_key)))
     }
 
-    async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
+    async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<()> {
         let lookup_key: [u8; 32] = key.into();
         let value = self
             .cache
             .get(&lookup_key)
-            .ok_or_else(|| PreimageOracleError::KeyNotFound)?;
+            .ok_or_else(|| anyhow!("Key not found in cache: {}", hex::encode(lookup_key)))?;
         buf.copy_from_slice(value.as_slice());
         Ok(())
     }
@@ -70,7 +68,7 @@ impl PreimageOracleClient for InMemoryOracle {
 
 #[async_trait]
 impl HintWriterClient for InMemoryOracle {
-    async fn write(&self, _hint: &str) -> Result<(), PreimageOracleError> {
+    async fn write(&self, _hint: &str) -> Result<()> {
         Ok(())
     }
 }

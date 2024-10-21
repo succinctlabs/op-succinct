@@ -1,19 +1,20 @@
 //! Contains the concrete implementation of the [L2ChainProvider] trait for the client program.
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use alloy_consensus::{BlockBody, Header};
+use alloy_consensus::Header;
 use alloy_eips::eip2718::Decodable2718;
 use alloy_primitives::{Address, Bytes, B256};
 use alloy_rlp::Decodable;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kona_client::{BootInfo, HintType};
-use kona_derive::pipeline::L2ChainProvider;
-use kona_mpt::{OrderedListWalker, TrieHinter, TrieProvider};
+use kona_derive::traits::L2ChainProvider;
+use kona_mpt::{OrderedListWalker, TrieDBFetcher, TrieDBHinter};
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
-use op_alloy_consensus::{OpBlock, OpTxEnvelope};
-use op_alloy_genesis::{RollupConfig, SystemConfig};
-use op_alloy_protocol::{to_system_config, L2BlockInfo};
+use kona_primitives::{
+    L2BlockInfo, L2ExecutionPayloadEnvelope, OpBlock, RollupConfig, SystemConfig,
+};
+use op_alloy_consensus::OpTxEnvelope;
 use std::{collections::HashMap, sync::Mutex};
 
 use crate::block_on;
@@ -30,7 +31,7 @@ pub struct MultiblockOracleL2ChainProvider<T: CommsClient> {
     /// Cached L2 block info by block number.
     l2_block_info_by_number: Arc<Mutex<HashMap<u64, L2BlockInfo>>>,
     /// Cached payloads by block number.
-    block_by_number: Arc<Mutex<HashMap<u64, OpBlock>>>,
+    payload_by_number: Arc<Mutex<HashMap<u64, L2ExecutionPayloadEnvelope>>>,
     /// Cached system configs by block number.
     system_config_by_number: Arc<Mutex<HashMap<u64, SystemConfig>>>,
 }
@@ -44,7 +45,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
             oracle,
             header_by_number: Arc::new(Mutex::new(HashMap::new())),
             l2_block_info_by_number: Arc::new(Mutex::new(HashMap::new())),
-            block_by_number: Arc::new(Mutex::new(HashMap::new())),
+            payload_by_number: Arc::new(Mutex::new(HashMap::new())),
             system_config_by_number: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -55,23 +56,23 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
     pub fn update_cache(
         &mut self,
         header: &Header,
-        block: OpBlock,
+        payload: L2ExecutionPayloadEnvelope,
         config: &RollupConfig,
     ) -> Result<L2BlockInfo> {
         self.header_by_number
             .lock()
             .unwrap()
             .insert(header.number, header.clone());
-        self.block_by_number
+        self.payload_by_number
             .lock()
             .unwrap()
-            .insert(header.number, block.clone());
+            .insert(header.number, payload.clone());
         self.system_config_by_number
             .lock()
             .unwrap()
-            .insert(header.number, to_system_config(&block, config)?);
+            .insert(header.number, payload.to_system_config(config).unwrap());
 
-        let l2_block_info = L2BlockInfo::from_block_and_genesis(&block, &config.genesis)?;
+        let l2_block_info = payload.to_l2_block_ref(config)?;
         self.l2_block_info_by_number
             .lock()
             .unwrap()
@@ -90,17 +91,13 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
         // Fetch the starting L2 output preimage.
         self.oracle
             .write(
-                &HintType::StartingL2Output.encode_with(&[self
-                    .boot_info
-                    .agreed_l2_output_root
-                    .0
-                    .as_ref()]),
+                &HintType::StartingL2Output.encode_with(&[self.boot_info.l2_output_root.as_ref()]),
             )
             .await?;
         let output_preimage = self
             .oracle
             .get(PreimageKey::new(
-                self.boot_info.agreed_l2_output_root.0,
+                *self.boot_info.l2_output_root,
                 PreimageKeyType::Keccak256,
             ))
             .await?;
@@ -127,8 +124,6 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
 
 #[async_trait]
 impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainProvider<T> {
-    type Error = anyhow::Error;
-
     async fn l2_block_info_by_number(&mut self, number: u64) -> Result<L2BlockInfo> {
         // First, check if it's already in the cache.
         if let Some(l2_block_info) = self.l2_block_info_by_number.lock().unwrap().get(&number) {
@@ -136,17 +131,16 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
         }
 
         // Get the payload at the given block number.
-        let block = self.block_by_number(number).await?;
+        let payload = self.payload_by_number(number).await?;
 
         // Construct the system config from the payload.
-        L2BlockInfo::from_block_and_genesis(&block, &self.boot_info.rollup_config.genesis)
-            .map_err(Into::into)
+        payload.to_l2_block_ref(&self.boot_info.rollup_config)
     }
 
-    async fn block_by_number(&mut self, number: u64) -> Result<OpBlock> {
+    async fn payload_by_number(&mut self, number: u64) -> Result<L2ExecutionPayloadEnvelope> {
         // First, check if it's already in the cache.
-        if let Some(block) = self.block_by_number.lock().unwrap().get(&number) {
-            return Ok(block.clone());
+        if let Some(payload) = self.payload_by_number.lock().unwrap().get(&number) {
+            return Ok(payload.clone());
         }
 
         // Fetch the header for the given block number.
@@ -174,18 +168,15 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
 
         let optimism_block = OpBlock {
             header,
-            body: BlockBody {
-                transactions,
-                ommers: Vec::new(),
-                withdrawals: self
-                    .boot_info
-                    .rollup_config
-                    .is_canyon_active(timestamp)
-                    .then(Vec::new),
-                requests: None,
-            },
+            body: transactions,
+            withdrawals: self
+                .boot_info
+                .rollup_config
+                .is_canyon_active(timestamp)
+                .then(Vec::new),
+            ..Default::default()
         };
-        Ok(optimism_block)
+        Ok(optimism_block.into())
     }
 
     async fn system_config_by_number(
@@ -195,29 +186,26 @@ impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainPr
     ) -> Result<SystemConfig> {
         // First, check if it's already in the cache.
         if let Some(system_config) = self.system_config_by_number.lock().unwrap().get(&number) {
-            return Ok(*system_config);
+            return Ok(system_config.clone());
         }
 
         // Get the payload at the given block number.
-        let block = self.block_by_number(number).await?;
+        let payload = self.payload_by_number(number).await?;
 
         // Construct the system config from the payload.
-        to_system_config(&block, rollup_config.as_ref()).map_err(Into::into)
+        payload.to_system_config(rollup_config.as_ref())
     }
 }
 
-impl<T: CommsClient> TrieProvider for MultiblockOracleL2ChainProvider<T> {
-    type Error = anyhow::Error;
-
+impl<T: CommsClient> TrieDBFetcher for MultiblockOracleL2ChainProvider<T> {
     fn trie_node_preimage(&self, key: B256) -> Result<Bytes> {
         // On L2, trie node preimages are stored as keccak preimage types in the oracle. We assume
         // that a hint for these preimages has already been sent, prior to this call.
         block_on(async move {
-            Ok(self
-                .oracle
+            self.oracle
                 .get(PreimageKey::new(*key, PreimageKeyType::Keccak256))
-                .await?
-                .into())
+                .await
+                .map(Into::into)
         })
     }
 
@@ -228,11 +216,10 @@ impl<T: CommsClient> TrieProvider for MultiblockOracleL2ChainProvider<T> {
                 .write(&HintType::L2Code.encode_with(&[hash.as_ref()]))
                 .await?;
 
-            Ok(self
-                .oracle
+            self.oracle
                 .get(PreimageKey::new(*hash, PreimageKeyType::Keccak256))
-                .await?
-                .into())
+                .await
+                .map(Into::into)
         })
     }
 
@@ -253,27 +240,23 @@ impl<T: CommsClient> TrieProvider for MultiblockOracleL2ChainProvider<T> {
     }
 }
 
-impl<T: CommsClient> TrieHinter for MultiblockOracleL2ChainProvider<T> {
-    type Error = anyhow::Error;
-
+impl<T: CommsClient> TrieDBHinter for MultiblockOracleL2ChainProvider<T> {
     fn hint_trie_node(&self, hash: B256) -> Result<()> {
         block_on(async move {
-            Ok(self
-                .oracle
+            self.oracle
                 .write(&HintType::L2StateNode.encode_with(&[hash.as_slice()]))
-                .await?)
+                .await
         })
     }
 
     fn hint_account_proof(&self, address: Address, block_number: u64) -> Result<()> {
         block_on(async move {
-            Ok(self
-                .oracle
+            self.oracle
                 .write(
                     &HintType::L2AccountProof
                         .encode_with(&[block_number.to_be_bytes().as_ref(), address.as_slice()]),
                 )
-                .await?)
+                .await
         })
     }
 
@@ -284,14 +267,13 @@ impl<T: CommsClient> TrieHinter for MultiblockOracleL2ChainProvider<T> {
         block_number: u64,
     ) -> Result<()> {
         block_on(async move {
-            Ok(self
-                .oracle
+            self.oracle
                 .write(&HintType::L2AccountStorageProof.encode_with(&[
                     block_number.to_be_bytes().as_ref(),
                     address.as_slice(),
                     slot.to_be_bytes::<32>().as_ref(),
                 ]))
-                .await?)
+                .await
         })
     }
 }

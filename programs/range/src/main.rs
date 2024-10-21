@@ -12,15 +12,17 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use alloy_consensus::{BlockBody, Sealed};
+use alloy_consensus::Sealed;
 use alloy_eips::eip2718::Decodable2718;
 use cfg_if::cfg_if;
 use kona_client::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo,
 };
+use kona_executor::StatelessL2BlockExecutor;
+use kona_primitives::{L2ExecutionPayloadEnvelope, OpBlock};
 use log::info;
-use op_alloy_consensus::{OpBlock, OpTxEnvelope};
+use op_alloy_consensus::OpTxEnvelope;
 use op_succinct_client_utils::{
     driver::MultiBlockDerivationDriver, l2_chain_provider::MultiblockOracleL2ChainProvider,
     precompiles::zkvm_handle_register,
@@ -116,12 +118,13 @@ fn main() {
         println!("cycle-tracker-report-end: payload-derivation");
 
         println!("cycle-tracker-start: execution-instantiation");
-        let mut executor = driver.new_executor(
-            &boot.rollup_config,
-            &l2_provider,
-            &l2_provider,
-            zkvm_handle_register,
-        );
+        let mut executor = StatelessL2BlockExecutor::builder(&boot.rollup_config)
+            .with_parent_header(driver.l2_safe_head_header().clone())
+            .with_fetcher(l2_provider.clone())
+            .with_hinter(l2_provider.clone())
+            .with_handle_register(zkvm_handle_register)
+            .build()
+            .unwrap();
 
         println!("cycle-tracker-end: execution-instantiation");
 
@@ -142,32 +145,30 @@ fn main() {
             assert_eq!(new_block_number, payload.parent.block_info.number + 1);
 
             // Increment last_block_num and check if we have reached the claim block.
-            if new_block_number == boot.claimed_l2_block_number {
+            if new_block_number == boot.l2_claim_block {
                 break 'step;
             }
 
             // Generate the Payload Envelope, which can be used to derive cached data.
-            let optimism_block = OpBlock {
+            let l2_payload_envelope: L2ExecutionPayloadEnvelope = OpBlock {
                 header: new_block_header.clone(),
-                body: BlockBody {
-                    transactions: payload
-                        .attributes
-                        .transactions
-                        .unwrap()
-                        .iter()
-                        .map(|raw_tx| OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap())
-                        .collect::<Vec<OpTxEnvelope>>(),
-                    ommers: Vec::new(),
-                    withdrawals: boot
-                        .rollup_config
-                        .is_canyon_active(new_block_header.timestamp)
-                        .then(Vec::new),
-                    requests: None,
-                },
-            };
+                body: payload
+                    .attributes
+                    .transactions
+                    .iter()
+                    .map(|raw_tx| OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap())
+                    .collect::<Vec<OpTxEnvelope>>(),
+                withdrawals: boot
+                    .rollup_config
+                    .is_canyon_active(new_block_header.timestamp)
+                    .then(Vec::new),
+                ..Default::default()
+            }
+            .into();
+
             // Add all data from this block's execution to the cache.
             l2_block_info = l2_provider
-                .update_cache(new_block_header, optimism_block, &boot.rollup_config)
+                .update_cache(new_block_header, l2_payload_envelope, &boot.rollup_config)
                 .unwrap();
 
             // Update data for the next iteration.
@@ -192,7 +193,7 @@ fn main() {
 
         // Note: We don't need the last_block_num == claim_block check, because it's the only way to
         // exit the above loop
-        assert_eq!(output_root, boot.claimed_l2_output_root);
+        assert_eq!(output_root, boot.l2_output_root);
 
         println!("Validated derivation and STF. Output Root: {}", output_root);
     });

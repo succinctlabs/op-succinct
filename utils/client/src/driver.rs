@@ -13,23 +13,19 @@ use kona_client::{
     BootInfo, HintType,
 };
 use kona_derive::{
-    attributes::StatefulAttributesBuilder,
-    errors::{PipelineErrorKind, ResetError},
-    pipeline::{DerivationPipeline, Pipeline, PipelineBuilder, StepResult},
-    prelude::{ChainProvider, L2ChainProvider},
+    errors::StageError,
+    pipeline::{ChainProvider, DerivationPipeline, Pipeline, PipelineBuilder, StepResult},
     sources::EthereumDataSource,
     stages::{
-        AttributesQueue, BatchQueue, BatchStream, ChannelProvider, ChannelReader, FrameQueue,
-        L1Retrieval, L1Traversal,
+        AttributesQueue, BatchQueue, ChannelBank, ChannelReader, FrameQueue, L1Retrieval,
+        L1Traversal, StatefulAttributesBuilder,
     },
-    traits::{ActivationSignal, OriginProvider, ResetSignal, SignalReceiver},
+    traits::L2ChainProvider,
 };
-use kona_executor::{KonaHandleRegister, StatelessL2BlockExecutor};
-use kona_mpt::{TrieHinter, TrieProvider};
+use kona_mpt::TrieDBFetcher;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
-use op_alloy_genesis::RollupConfig;
+use kona_primitives::L2AttributesWithParent;
 use op_alloy_protocol::{BlockInfo, L2BlockInfo};
-use op_alloy_rpc_types_engine::OpAttributesWithParent;
 
 use log::{info, warn};
 
@@ -51,13 +47,8 @@ pub type OracleAttributesBuilder<O> =
 /// An oracle-backed attributes queue for the derivation pipeline.
 pub type MultiblockOracleAttributesQueue<DAP, O> = AttributesQueue<
     BatchQueue<
-        BatchStream<
-            ChannelReader<
-                ChannelProvider<
-                    FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>,
-                >,
-            >,
-            MultiblockOracleL2ChainProvider<O>,
+        ChannelReader<
+            ChannelBank<FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>>,
         >,
         MultiblockOracleL2ChainProvider<O>,
     >,
@@ -163,7 +154,7 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
             .origin(l1_origin)
             .build();
 
-        let l2_claim_block = boot_info.claimed_l2_block_number;
+        let l2_claim_block = boot_info.l2_claim_block;
         Ok(Self {
             l2_safe_head,
             l2_safe_head_header,
@@ -181,12 +172,13 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
         self.l2_safe_head_header = new_safe_head_header;
     }
 
-    /// Produces the disputed [OpAttributesWithParent] payload, directly from the pipeline.
-    pub async fn produce_payload(&mut self) -> Result<OpAttributesWithParent> {
+    /// Produces the disputed [L2AttributesWithParent] payload, directly from the pipeline.
+    pub async fn produce_payload(&mut self) -> Result<L2AttributesWithParent> {
         // As we start the safe head at the disputed block's parent, we step the pipeline until the
         // first attributes are produced. All batches at and before the safe head will be
         // dropped, so the first payload will always be the disputed one.
-        loop {
+        let mut attributes = None;
+        while attributes.is_none() {
             match self.pipeline.step(self.l2_safe_head).await {
                 StepResult::PreparedAttributes => {
                     info!(target: "client_derivation_driver", "Stepped derivation pipeline")
@@ -200,50 +192,16 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                     // Break the loop unless the error signifies that there is not enough data to
                     // complete the current step. In this case, we retry the step to see if other
                     // stages can make progress.
-                    match e {
-                        PipelineErrorKind::Temporary(_) => { /* continue */ }
-                        PipelineErrorKind::Reset(e) => {
-                            if matches!(e, ResetError::HoloceneActivation) {
-                                self.pipeline
-                                    .signal(
-                                        ActivationSignal {
-                                            l2_safe_head: self.l2_safe_head,
-                                            l1_origin: self
-                                                .pipeline
-                                                .origin()
-                                                .ok_or_else(|| anyhow!("Missing L1 origin"))?,
-                                            system_config: None,
-                                        }
-                                        .signal(),
-                                    )
-                                    .await?;
-                            } else {
-                                // Reset the pipeline to the initial L2 safe head and L1 origin,
-                                // and try again.
-                                self.pipeline
-                                    .signal(
-                                        ResetSignal {
-                                            l2_safe_head: self.l2_safe_head,
-                                            l1_origin: self
-                                                .pipeline
-                                                .origin()
-                                                .ok_or_else(|| anyhow!("Missing L1 origin"))?,
-                                            system_config: None,
-                                        }
-                                        .signal(),
-                                    )
-                                    .await?;
-                            }
-                        }
-                        PipelineErrorKind::Critical(_) => return Err(e.into()),
+                    if !matches!(e, StageError::NotEnoughData) {
+                        break;
                     }
                 }
             }
 
-            if let Some(attrs) = self.pipeline.next() {
-                return Ok(attrs);
-            }
+            attributes = self.pipeline.next();
         }
+
+        Ok(attributes.expect("Failed to derive payload attributes"))
     }
 
     /// Finds the startup information for the derivation pipeline.
@@ -264,15 +222,12 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
     ) -> Result<(BlockInfo, L2BlockInfo, Sealed<Header>)> {
         // Find the initial safe head, based off of the starting L2 block number in the boot info.
         caching_oracle
-            .write(
-                &HintType::StartingL2Output
-                    .encode_with(&[boot_info.agreed_l2_output_root.as_ref()]),
-            )
+            .write(&HintType::StartingL2Output.encode_with(&[boot_info.l2_output_root.as_ref()]))
             .await?;
         let mut output_preimage = [0u8; 128];
         caching_oracle
             .get_exact(
-                PreimageKey::new(*boot_info.agreed_l2_output_root, PreimageKeyType::Keccak256),
+                PreimageKey::new(*boot_info.l2_output_root, PreimageKeyType::Keccak256),
                 &mut output_preimage,
             )
             .await?;
@@ -294,29 +249,5 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
             safe_head_info,
             Sealed::new_unchecked(safe_header, safe_hash),
         ))
-    }
-
-    /// Returns a new [StatelessL2BlockExecutor] instance.
-    ///
-    /// ## Takes
-    /// - `cfg`: The rollup configuration.
-    /// - `provider`: The trie provider.
-    /// - `hinter`: The trie hinter.
-    /// - `handle_register`: The handle register for the EVM.
-    pub fn new_executor<'a, P, H>(
-        &mut self,
-        cfg: &'a RollupConfig,
-        provider: &P,
-        hinter: &H,
-        handle_register: KonaHandleRegister<P, H>,
-    ) -> StatelessL2BlockExecutor<'a, P, H>
-    where
-        P: TrieProvider + Send + Sync + Clone,
-        H: TrieHinter + Send + Sync + Clone,
-    {
-        StatelessL2BlockExecutor::builder(cfg, provider.clone(), hinter.clone())
-            .with_parent_header(self.l2_safe_head_header().clone())
-            .with_handle_register(handle_register)
-            .build()
     }
 }
