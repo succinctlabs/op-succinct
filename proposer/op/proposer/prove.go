@@ -261,7 +261,7 @@ func (l *L2OutputSubmitter) RequestSpanProof(l2Start, l2End uint64) (string, err
 		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	return l.RequestProofFromServer("request_span_proof", jsonBody)
+	return l.RequestProofFromServer(proofrequest.TypeSPAN, jsonBody)
 }
 
 // Request an aggregate proof for the range [start, end]. If there is not a consecutive set of span proofs,
@@ -284,12 +284,18 @@ func (l *L2OutputSubmitter) RequestAggProof(start, end uint64, l1BlockHash strin
 	}
 
 	// Request the agg proof from the server.
-	return l.RequestProofFromServer("request_agg_proof", jsonBody)
+	return l.RequestProofFromServer(proofrequest.TypeAGG, jsonBody)
 }
 
 // Request a proof from the OP Succinct server, given the path and the body of the request. Returns
 // the proof ID on a successful request.
-func (l *L2OutputSubmitter) RequestProofFromServer(urlPath string, jsonBody []byte) (string, error) {
+func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, jsonBody []byte) (string, error) {
+	var urlPath string
+	if proofType == proofrequest.TypeAGG {
+		urlPath = "request_agg_proof"
+	} else if proofType == proofrequest.TypeSPAN {
+		urlPath = "request_span_proof"
+	}
 	req, err := http.NewRequest("POST", l.Cfg.OPSuccinctServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
