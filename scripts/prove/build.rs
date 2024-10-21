@@ -60,7 +60,6 @@ fn build_zkvm_program(program: &str) {
         BuildArgs {
             elf_name: format!("{}-elf", program),
             docker: true,
-            tag: "v3.0.0-rc4".to_string(),
             ..Default::default()
         },
     );
