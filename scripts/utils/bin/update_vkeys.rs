@@ -8,7 +8,7 @@ use alloy::signers::local::PrivateKeySigner;
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use op_succinct_client_utils::types::u32_to_u8;
-use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, L2OutputOracle};
+use op_succinct_host_utils::L2OutputOracle;
 use reqwest::Url;
 use sp1_sdk::{utils, HashableKey, ProverClient};
 
@@ -33,8 +33,6 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let fetcher = OPSuccinctDataFetcher::default();
-
     let prover = ProverClient::new();
 
     let (_, range_vk) = prover.setup(MULTI_BLOCK_ELF);
@@ -55,7 +53,7 @@ async fn main() -> Result<()> {
     let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
     let wallet = EthereumWallet::from(signer);
 
-    let rpc_url = fetcher.rpc_config.l1_rpc;
+    let l1_rpc = env::var("L1_RPC").unwrap();
 
     // Wait for 3 required confirmations with a timeout of 60 seconds.
     const NUM_CONFIRMATIONS: u64 = 3;
@@ -65,7 +63,7 @@ async fn main() -> Result<()> {
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(wallet.clone())
-            .on_http(Url::parse(&rpc_url).unwrap());
+            .on_http(Url::parse(&l1_rpc).unwrap());
 
         let contract_address = Address::from_str(&contract_address).unwrap();
         let contract = L2OutputOracle::new(contract_address, provider);

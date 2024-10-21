@@ -2086,7 +2086,7 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 [[package]]
 name = "ecdsa"
 version = "0.16.8"
-source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.8#aad9626d51e830729969220eee44de082ff97d53"
+source = "git+https://github.com/sp1-patches/signatures?branch=ratan/secp256k1-add-fixes-v0.16.8#cdeab4f0ed0d715ceae3fc6d09d16ec3ae41ead7"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -2096,7 +2096,7 @@ dependencies = [
  "hex-literal",
  "rfc6979",
  "signature",
- "sp1-lib 3.0.0",
+ "sp1-lib 3.0.0-rc3",
  "spki",
 ]
 
@@ -5547,7 +5547,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "git+https://github.com/sp1-patches/signatures?branch=patch-ecdsa-v0.16.8#aad9626d51e830729969220eee44de082ff97d53"
+source = "git+https://github.com/sp1-patches/signatures?branch=ratan/secp256k1-add-fixes-v0.16.8#cdeab4f0ed0d715ceae3fc6d09d16ec3ae41ead7"
 dependencies = [
  "hmac",
  "subtle",
@@ -6432,6 +6432,15 @@ dependencies = [
  "hex",
  "serde",
  "snowbridge-amcl",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "3.0.0-rc3"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=tamir/v1.3.0-rc2#d900b661e552c4cb87cd6dee56bee73d809fb426"
+dependencies = [
+ "bincode",
+ "serde",
 ]
 
 [[package]]
