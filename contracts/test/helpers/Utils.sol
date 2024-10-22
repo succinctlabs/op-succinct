@@ -47,11 +47,8 @@ contract Utils is Test, JSONDecoder {
         // If we are spoofing the admin (used in testing), start prank.
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
 
-        console.log("Address of the proxy:", l2OutputOracleProxy);
         if (executeUpgradeCall) {
-            console.log("Executing upgrade call...");
             Proxy(payable(l2OutputOracleProxy)).upgradeTo(impl);
-            console.log("Upgrade call executed successfully.");
         } else {
             // Raw calldata for an upgrade call by a multisig.
             bytes memory multisigCalldata = abi.encodeWithSelector(

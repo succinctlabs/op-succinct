@@ -13,8 +13,6 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
 
-        console.log("L2OO_ADDRESS:", l2OutputOracleProxy);
-
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
         address OPSuccinctL2OutputOracleImpl = address(
@@ -30,8 +28,6 @@ contract OPSuccinctUpgrader is Script, Utils {
                 Proxy.upgradeTo.selector,
                 OPSuccinctL2OutputOracleImpl
             );
-            console.log("Raw calldata for the upgrade call:");
-            console.logBytes(multisigCalldata);
         }
 
         vm.stopBroadcast();
