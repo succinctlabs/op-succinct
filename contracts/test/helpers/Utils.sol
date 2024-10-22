@@ -9,20 +9,12 @@ import {OPSuccinctL2OutputOracle} from "src/OPSuccinctL2OutputOracle.sol";
 
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
-        address OPSuccinctL2OutputOracleImpl = address(
-            new OPSuccinctL2OutputOracle()
-        );
+        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         address l2OutputOracleProxy = address(new Proxy(address(this)));
 
         // Upgrade the proxy to point to the implementation and call initialize().
         // Override the starting output root and timestmp with the passed values.
-        upgradeAndInitialize(
-            OPSuccinctL2OutputOracleImpl,
-            cfg,
-            l2OutputOracleProxy,
-            address(0),
-            false
-        );
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, address(0), false);
 
         // Transfer ownership of proxy to owner specified in the config.
         Proxy(payable(l2OutputOracleProxy)).changeAdmin(cfg.owner);
@@ -51,19 +43,14 @@ contract Utils is Test, JSONDecoder {
             Proxy(payable(l2OutputOracleProxy)).upgradeTo(impl);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata = abi.encodeWithSelector(
-                Proxy.upgradeTo.selector,
-                impl
-            );
+            bytes memory multisigCalldata = abi.encodeWithSelector(Proxy.upgradeTo.selector, impl);
             console.log("Raw calldata for the upgrade call:");
             console.logBytes(multisigCalldata);
         }
     }
 
     // Read the config from the json file.
-    function readJson(
-        string memory filepath
-    ) public view returns (Config memory) {
+    function readJson(string memory filepath) public view returns (Config memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", filepath);
         string memory json = vm.readFile(path);

@@ -23,20 +23,17 @@ contract OPSuccinctDeployer is Script, Utils {
         // Upgrade the proxy to the implementation.
         proxy.upgradeTo(address(oracleImpl));
 
-        OPSuccinctL2OutputOracle oracle = OPSuccinctL2OutputOracle(
-            address(proxy)
-        );
+        OPSuccinctL2OutputOracle oracle = OPSuccinctL2OutputOracle(address(proxy));
 
-        OPSuccinctL2OutputOracle.InitParams
-            memory initParams = OPSuccinctL2OutputOracle.InitParams({
-                chainId: config.chainId,
-                verifierGateway: config.verifierGateway,
-                aggregationVkey: config.aggregationVkey,
-                rangeVkeyCommitment: config.rangeVkeyCommitment,
-                owner: config.owner,
-                startingOutputRoot: config.startingOutputRoot,
-                rollupConfigHash: config.rollupConfigHash
-            });
+        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
+            chainId: config.chainId,
+            verifierGateway: config.verifierGateway,
+            aggregationVkey: config.aggregationVkey,
+            rangeVkeyCommitment: config.rangeVkeyCommitment,
+            owner: config.owner,
+            startingOutputRoot: config.startingOutputRoot,
+            rollupConfigHash: config.rollupConfigHash
+        });
 
         oracle.initialize(
             config.submissionInterval,
