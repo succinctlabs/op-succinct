@@ -43,8 +43,7 @@ contract Utils is Test, JSONDecoder {
             Proxy(payable(l2OutputOracleProxy)).upgradeTo(impl);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata =
-                abi.encodeWithSelector(Proxy.upgradeTo.selector, impl);
+            bytes memory multisigCalldata = abi.encodeWithSelector(Proxy.upgradeTo.selector, impl);
             console.log("Upgrade calldata:");
             console.logBytes(multisigCalldata);
 
