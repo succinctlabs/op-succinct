@@ -10,7 +10,7 @@ If you are using a self-managed OP Stack chain, you will need to use your `ADMIN
 
 ### EOA `ADMIN` key
 
-To update the `L2OutputOracle` implementation, run the following command in `/contracts`. If the owner of the `L2OutputOracle` is NOT an EOA corresponding to `PRIVATE_KEY`, set `EXECUTE_UPGRADE_CALL` to `true`. 
+To update the `L2OutputOracle` implementation with an EOA `ADMIN` key, run the following command in `/contracts`.
 
 ```bash
 forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
