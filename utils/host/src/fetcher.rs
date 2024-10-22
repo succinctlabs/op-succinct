@@ -11,6 +11,7 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
+use op_alloy_network::Optimism;
 use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use serde_json::{json, Value};
@@ -32,7 +33,7 @@ use crate::{
 pub struct OPSuccinctDataFetcher {
     pub rpc_config: RPCConfig,
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
-    pub l2_provider: Arc<RootProvider<Http<Client>>>,
+    pub l2_provider: Arc<RootProvider<Http<Client>, Optimism>>,
     pub rollup_config: RollupConfig,
     pub l1_block_time_secs: u64,
 }
@@ -267,7 +268,7 @@ impl OPSuccinctDataFetcher {
             .await?
             .unwrap()
             .header;
-        Ok(header.try_into().unwrap())
+        Ok(header)
     }
 
     pub async fn get_chain_id(&self, rpc_mode: RPCMode) -> Result<u64> {
