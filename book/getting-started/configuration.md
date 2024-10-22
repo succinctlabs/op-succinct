@@ -23,7 +23,9 @@ forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
     --ffi
 ```
 
-### `ADMIN` key is not an EOA (e.g. a multisig, contract, etc.)
+### `ADMIN` key is not an EOA
+
+If the owner of the `L2OutputOracle` is not an EOA (e.g. multisig, contract), set `EXECUTE_UPGRADE_CALL` to `false`. This will output the raw calldata for the upgrade call, which can be executed by the owner.
 
 ```bash
 EXECUTE_UPGRADE_CALL=false forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
