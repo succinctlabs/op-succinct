@@ -14,7 +14,7 @@ contract Utils is Test, JSONDecoder {
 
         // Upgrade the proxy to point to the implementation and call initialize().
         // Override the starting output root and timestmp with the passed values.
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, address(0), false);
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, address(0), true);
 
         // Transfer ownership of proxy to owner specified in the config.
         Proxy(payable(l2OutputOracleProxy)).changeAdmin(cfg.owner);
