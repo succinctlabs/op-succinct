@@ -11,6 +11,8 @@ contract OPSuccinctUpgrader is Script, Utils {
     function run() public {
         vm.startBroadcast();
 
+        Config memory config = readJson("opsuccinctl2ooconfig.json");
+
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
 
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
@@ -28,6 +30,21 @@ contract OPSuccinctUpgrader is Script, Utils {
                 Proxy.upgradeTo.selector,
                 OPSuccinctL2OutputOracleImpl
             );
+            console.log("Upgrade calldata:");
+            console.logBytes(multisigCalldata);
+
+            // Raw calldata for an upgrade call with initialization parameters.
+            bytes memory initializationParams = abi.encodeWithSelector(
+                OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
+                config.chainId,
+                config.aggregationVkey,
+                config.rangeVkeyCommitment,
+                config.verifierGateway,
+                config.rollupConfigHash
+            );
+
+            console.log("Update contract parameter calldata:");
+            console.logBytes(initializationParams);
         }
 
         vm.stopBroadcast();
