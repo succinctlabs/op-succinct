@@ -9,24 +9,20 @@ import {OPSuccinctL2OutputOracle} from "src/OPSuccinctL2OutputOracle.sol";
 
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
-        address OPSuccinctL2OutputOracleImpl = address(
-            new OPSuccinctL2OutputOracle()
-        );
-        Proxy l2OutputOracleProxy = new Proxy(payable(msg.sender));
+        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        Proxy l2OutputOracleProxy = new Proxy(msg.sender);
         l2OutputOracleProxy.upgradeTo(OPSuccinctL2OutputOracleImpl);
-        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(
-            address(l2OutputOracleProxy)
-        );
-        OPSuccinctL2OutputOracle.InitParams
-            memory initParams = OPSuccinctL2OutputOracle.InitParams({
-                chainId: cfg.chainId,
-                verifierGateway: cfg.verifierGateway,
-                aggregationVkey: cfg.aggregationVkey,
-                rangeVkeyCommitment: cfg.rangeVkeyCommitment,
-                owner: cfg.owner,
-                startingOutputRoot: cfg.startingOutputRoot,
-                rollupConfigHash: cfg.rollupConfigHash
-            });
+
+        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
+        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
+            chainId: cfg.chainId,
+            verifierGateway: cfg.verifierGateway,
+            aggregationVkey: cfg.aggregationVkey,
+            rangeVkeyCommitment: cfg.rangeVkeyCommitment,
+            owner: cfg.owner,
+            startingOutputRoot: cfg.startingOutputRoot,
+            rollupConfigHash: cfg.rollupConfigHash
+        });
 
         l2oo.initialize(
             cfg.submissionInterval,
@@ -76,10 +72,7 @@ contract Utils is Test, JSONDecoder {
             existingProxy.upgradeToAndCall(impl, initializationParams);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata = abi.encodeWithSelector(
-                Proxy.upgradeTo.selector,
-                impl
-            );
+            bytes memory multisigCalldata = abi.encodeWithSelector(Proxy.upgradeTo.selector, impl);
             console.log("Upgrade calldata:");
             console.logBytes(multisigCalldata);
 
@@ -89,9 +82,7 @@ contract Utils is Test, JSONDecoder {
     }
 
     // Read the config from the json file.
-    function readJson(
-        string memory filepath
-    ) public view returns (Config memory) {
+    function readJson(string memory filepath) public view returns (Config memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", filepath);
         string memory json = vm.readFile(path);

@@ -17,9 +17,7 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
-        address OPSuccinctL2OutputOracleImpl = address(
-            new OPSuccinctL2OutputOracle()
-        );
+        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
 
         bytes memory initializationParams = abi.encodeWithSelector(
             OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
@@ -35,10 +33,8 @@ contract OPSuccinctUpgrader is Script, Utils {
             existingProxy.upgradeToAndCall(OPSuccinctL2OutputOracleImpl, initializationParams);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata = abi.encodeWithSelector(
-                Proxy.upgradeTo.selector,
-                OPSuccinctL2OutputOracleImpl
-            );
+            bytes memory multisigCalldata =
+                abi.encodeWithSelector(Proxy.upgradeTo.selector, OPSuccinctL2OutputOracleImpl);
             console.log("Upgrade calldata:");
             console.logBytes(multisigCalldata);
 
