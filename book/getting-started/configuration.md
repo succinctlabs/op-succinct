@@ -8,10 +8,12 @@ The last step is to update your OP Stack configuration to use the new `OPSuccinc
 
 If you are using a self-managed OP Stack chain, you will need to use your `ADMIN` key to update the existing `L2OutputOracle` implementation. Recall that the `L2OutputOracle` is a proxy contract that is upgradeable using the `ADMIN` key.
 
-To update the `L2OutputOracle` implementation, run the following command in `/contracts`:
+### `ADMIN` key is an EOA
+
+To update the `L2OutputOracle` implementation, run the following command in `/contracts`. If the owner of the `L2OutputOracle` is NOT an EOA corresponding to `PRIVATE_KEY`, set `SKIP_UPGRADE_CALL` to `true`. 
 
 ```bash
-forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
+forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader false \
     --rpc-url $L1_RPC \
     --private-key $PRIVATE_KEY \
     --verify \
@@ -19,6 +21,21 @@ forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
     --etherscan-api-key $ETHERSCAN_API_KEY \
     --broadcast \
     --ffi
+```
+
+### `ADMIN` key is not an EOA
+
+```bash
+```bash
+forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader true \
+    --rpc-url $L1_RPC \
+    --private-key $PRIVATE_KEY \
+    --verify \
+    --verifier etherscan \
+    --etherscan-api-key $ETHERSCAN_API_KEY \
+    --broadcast \
+    --ffi
+```
 ```
 
 ## RaaS Providers
