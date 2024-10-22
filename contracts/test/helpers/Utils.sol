@@ -43,9 +43,23 @@ contract Utils is Test, JSONDecoder {
             Proxy(payable(l2OutputOracleProxy)).upgradeTo(impl);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata = abi.encodeWithSelector(Proxy.upgradeTo.selector, impl);
-            console.log("Raw calldata for the upgrade call:");
+            bytes memory multisigCalldata =
+                abi.encodeWithSelector(Proxy.upgradeTo.selector, OPSuccinctL2OutputOracleImpl);
+            console.log("Upgrade calldata:");
             console.logBytes(multisigCalldata);
+
+            // Raw calldata for an upgrade call with initialization parameters.
+            bytes memory initializationParams = abi.encodeWithSelector(
+                OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
+                config.chainId,
+                config.aggregationVkey,
+                config.rangeVkeyCommitment,
+                config.verifierGateway,
+                config.rollupConfigHash
+            );
+
+            console.log("Update contract parameter calldata:");
+            console.logBytes(initializationParams);
         }
     }
 
