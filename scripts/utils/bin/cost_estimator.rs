@@ -163,6 +163,7 @@ async fn execute_blocks_parallel(
             // Create a new data fetcher. This avoids the runtime dropping the provider dispatch task.
             let data_fetcher = OPSuccinctDataFetcher::default();
             let mut exec_stats = ExecutionStats::default();
+            exec_stats.chain_id = data_fetcher.get_chain_id(RPCMode::L2).await.unwrap();
             exec_stats.add_block_data(&data_fetcher, start, end).await;
             let mut execution_stats_map = execution_stats_map.lock().unwrap();
             execution_stats_map.insert((start, end), exec_stats);
@@ -238,6 +239,7 @@ fn aggregate_execution_stats(
     witness_generation_time_sec: u64,
 ) -> ExecutionStats {
     let mut aggregate_stats = ExecutionStats::default();
+    aggregate_stats.chain_id = execution_stats[0].chain_id;
     let mut batch_start = u64::MAX;
     let mut batch_end = u64::MIN;
     for stats in execution_stats {

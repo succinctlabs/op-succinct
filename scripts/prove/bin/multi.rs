@@ -121,6 +121,7 @@ async fn main() -> Result<()> {
         }
 
         let mut stats = ExecutionStats::default();
+        stats.chain_id = l2_chain_id;
         stats
             .add_block_data(&data_fetcher, args.start, args.end)
             .await;
