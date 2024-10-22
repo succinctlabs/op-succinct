@@ -9,17 +9,40 @@ import {OPSuccinctL2OutputOracle} from "src/OPSuccinctL2OutputOracle.sol";
 
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
-        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
-        address l2OutputOracleProxy = address(new Proxy(address(this)));
+        address OPSuccinctL2OutputOracleImpl = address(
+            new OPSuccinctL2OutputOracle()
+        );
+        Proxy l2OutputOracleProxy = new Proxy(payable(msg.sender));
+        l2OutputOracleProxy.upgradeTo(OPSuccinctL2OutputOracleImpl);
+        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(
+            address(l2OutputOracleProxy)
+        );
+        OPSuccinctL2OutputOracle.InitParams
+            memory initParams = OPSuccinctL2OutputOracle.InitParams({
+                chainId: cfg.chainId,
+                verifierGateway: cfg.verifierGateway,
+                aggregationVkey: cfg.aggregationVkey,
+                rangeVkeyCommitment: cfg.rangeVkeyCommitment,
+                owner: cfg.owner,
+                startingOutputRoot: cfg.startingOutputRoot,
+                rollupConfigHash: cfg.rollupConfigHash
+            });
 
-        // Upgrade the proxy to point to the implementation and call initialize().
-        // Override the starting output root and timestmp with the passed values.
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, address(0), true);
+        l2oo.initialize(
+            cfg.submissionInterval,
+            cfg.l2BlockTime,
+            cfg.startingBlockNumber,
+            cfg.startingTimestamp,
+            cfg.proposer,
+            cfg.challenger,
+            cfg.finalizationPeriod,
+            initParams
+        );
 
         // Transfer ownership of proxy to owner specified in the config.
         Proxy(payable(l2OutputOracleProxy)).changeAdmin(cfg.owner);
 
-        return l2OutputOracleProxy;
+        return address(l2OutputOracleProxy);
     }
 
     // If `executeUpgradeCall` is false, the upgrade call will not be executed.
@@ -39,23 +62,26 @@ contract Utils is Test, JSONDecoder {
         // If we are spoofing the admin (used in testing), start prank.
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
 
+        bytes memory initializationParams = abi.encodeWithSelector(
+            OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
+            cfg.chainId,
+            cfg.aggregationVkey,
+            cfg.rangeVkeyCommitment,
+            cfg.verifierGateway,
+            cfg.rollupConfigHash
+        );
+
         if (executeUpgradeCall) {
-            Proxy(payable(l2OutputOracleProxy)).upgradeTo(impl);
+            Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));
+            existingProxy.upgradeToAndCall(impl, initializationParams);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata = abi.encodeWithSelector(Proxy.upgradeTo.selector, impl);
+            bytes memory multisigCalldata = abi.encodeWithSelector(
+                Proxy.upgradeTo.selector,
+                impl
+            );
             console.log("Upgrade calldata:");
             console.logBytes(multisigCalldata);
-
-            // Raw calldata for an upgrade call with initialization parameters.
-            bytes memory initializationParams = abi.encodeWithSelector(
-                OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
-                cfg.chainId,
-                cfg.aggregationVkey,
-                cfg.rangeVkeyCommitment,
-                cfg.verifierGateway,
-                cfg.rollupConfigHash
-            );
 
             console.log("Update contract parameter calldata:");
             console.logBytes(initializationParams);
@@ -63,7 +89,9 @@ contract Utils is Test, JSONDecoder {
     }
 
     // Read the config from the json file.
-    function readJson(string memory filepath) public view returns (Config memory) {
+    function readJson(
+        string memory filepath
+    ) public view returns (Config memory) {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", filepath);
         string memory json = vm.readFile(path);

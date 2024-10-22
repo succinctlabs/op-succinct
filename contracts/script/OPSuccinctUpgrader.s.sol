@@ -11,34 +11,38 @@ contract OPSuccinctUpgrader is Script, Utils {
     function run() public {
         vm.startBroadcast();
 
-        Config memory config = readJson("opsuccinctl2ooconfig.json");
+        Config memory cfg = readJson("opsuccinctl2ooconfig.json");
 
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
 
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
-        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        address OPSuccinctL2OutputOracleImpl = address(
+            new OPSuccinctL2OutputOracle()
+        );
+
+        bytes memory initializationParams = abi.encodeWithSelector(
+            OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
+            cfg.chainId,
+            cfg.aggregationVkey,
+            cfg.rangeVkeyCommitment,
+            cfg.verifierGateway,
+            cfg.rollupConfigHash
+        );
 
         if (executeUpgradeCall) {
             Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));
-            existingProxy.upgradeTo(OPSuccinctL2OutputOracleImpl);
+            existingProxy.upgradeToAndCall(OPSuccinctL2OutputOracleImpl, initializationParams);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata =
-                abi.encodeWithSelector(Proxy.upgradeTo.selector, OPSuccinctL2OutputOracleImpl);
+            bytes memory multisigCalldata = abi.encodeWithSelector(
+                Proxy.upgradeTo.selector,
+                OPSuccinctL2OutputOracleImpl
+            );
             console.log("Upgrade calldata:");
             console.logBytes(multisigCalldata);
 
             // Raw calldata for an upgrade call with initialization parameters.
-            bytes memory initializationParams = abi.encodeWithSelector(
-                OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
-                config.chainId,
-                config.aggregationVkey,
-                config.rangeVkeyCommitment,
-                config.verifierGateway,
-                config.rollupConfigHash
-            );
-
             console.log("Update contract parameter calldata:");
             console.logBytes(initializationParams);
         }
