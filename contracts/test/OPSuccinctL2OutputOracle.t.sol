@@ -13,7 +13,6 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     uint256 OP_STACK_CHAIN_ID = 808813;
 
     uint256 constant L1_BLOCK_NUM = 6919874;
-    bytes32 L1_HEAD = 0x734703707095dd98640db082c0735a9de3a27b815acb9f3e4cd53648df2b830f;
 
     bytes32 claimedOutputRoot = 0x918d98ae75c4aa89ac9098a85dc18e0777bf073d1943d991e1f1f54a1f92450c;
     uint256 claimedL2BlockNum = 3381733;
@@ -35,8 +34,10 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         config.chainId = OP_STACK_CHAIN_ID;
     }
 
+    // TODO: Once we have a new contract deployed with the new L2OO interface, we should use that here.
     function testOPSuccinctL2OOFork() public {
-        vm.createSelectFork(vm.envString("L1_RPC"), L1_BLOCK_NUM + 1);
+        vm.createSelectFork(vm.envString("L1_RPC"), L1_BLOCK_NUM + 2);
+        console.log(block.number);
         l2oo = OPSuccinctL2OutputOracle(0xd9979DD3cbE74C46fdD8bDB122775Fc7D0DF0BCE);
         l2oo.checkpointBlockHash(L1_BLOCK_NUM);
         vm.prank(config.owner);
