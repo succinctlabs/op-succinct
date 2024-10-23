@@ -460,13 +460,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Upgrades the OPSuccinctL2OutputOracle contract with the given initialization parameters.
     function upgradeWithInitParams(
-        uint256 _chainId,
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
         address _verifierGateway,
         bytes32 _rollupConfigHash
     ) external onlyOwner {
-        chainId = _chainId;
         _updateAggregationVKey(_aggregationVkey);
         _updateRangeVkeyCommitment(_rangeVkeyCommitment);
         _updateVerifierGateway(_verifierGateway);
