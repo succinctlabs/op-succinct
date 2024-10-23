@@ -17,7 +17,6 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     address OWNER = 0xDEd0000E32f8F40414d3ab3a830f735a3553E18e;
 
     OPSuccinctL2OutputOracle l2oo;
-    Config config;
 
     function setUp() public {
         // Note: L1_RPC should be a valid Sepolia RPC.
