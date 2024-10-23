@@ -24,9 +24,8 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         vm.createSelectFork(vm.envString("L1_RPC"), checkpointedL1BlockNum + 1);
     }
 
-    // TODO: Once we have a new contract deployed with the new L2OO interface, we should use that here.
+    // Test the L2OO contract.
     function testOPSuccinctL2OOFork() public {
-        console.log(block.number);
         l2oo = OPSuccinctL2OutputOracle(0x83EBf366f868784c91d49fBEe67651F7a3de74C5);
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
         vm.prank(OWNER);
