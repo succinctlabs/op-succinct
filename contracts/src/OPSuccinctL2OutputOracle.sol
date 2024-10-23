@@ -137,6 +137,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The L1 block hash is not checkpointed.
     error L1BlockHashNotCheckpointed();
 
+    /// @notice Caller is not the owner.
+    error CallerIsNotOwner();
+
+    /// @notice Invalid parameter error.
+    error InvalidParameter(string paramName);
+
+    /// @notice Caller is not authorized.
+    error CallerNotAuthorized();
+
+    /// @notice Cannot delete finalized outputs.
+    error CannotDeleteFinalizedOutputs();
+
     /// @notice Semantic version.
     /// @custom:semver 2.0.0
     string public constant version = "2.0.0";
@@ -146,7 +158,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ////////////////////////////////////////////////////////////
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "L2OutputOracle: caller is not the owner");
+        if (msg.sender != owner) {
+            revert CallerIsNotOwner();
+        }
         _;
     }
 
@@ -180,12 +194,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         uint256 _finalizationPeriodSeconds,
         InitParams memory _initParams
     ) public reinitializer(2) {
-        require(_submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
-        require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
-        require(
-            _startingTimestamp <= block.timestamp,
-            "L2OutputOracle: starting L2 timestamp must be less than current time"
-        );
+        if (_submissionInterval == 0) {
+            revert InvalidParameter("submissionInterval");
+        }
+        if (_l2BlockTime == 0) {
+            revert InvalidParameter("l2BlockTime");
+        }
+        if (_startingTimestamp > block.timestamp) {
+            revert InvalidParameter("startingTimestamp");
+        }
 
         submissionInterval = _submissionInterval;
         l2BlockTime = _l2BlockTime;
@@ -259,18 +276,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2OutputIndex Index of the first L2 output to be deleted.
     ///                       All outputs after this output will also be deleted.
     function deleteL2Outputs(uint256 _l2OutputIndex) external {
-        require(msg.sender == challenger, "L2OutputOracle: only the challenger address can delete outputs");
+        if (msg.sender != challenger) {
+            revert CallerNotAuthorized();
+        }
 
-        // Make sure we're not *increasing* the length of the array.
-        require(
-            _l2OutputIndex < l2Outputs.length, "L2OutputOracle: cannot delete outputs after the latest output index"
-        );
+        if (_l2OutputIndex >= l2Outputs.length) {
+            revert L2OutputIndexOutOfBounds();
+        }
 
-        // Do not allow deleting any outputs that have already been finalized.
-        require(
-            block.timestamp - l2Outputs[_l2OutputIndex].timestamp < finalizationPeriodSeconds,
-            "L2OutputOracle: cannot delete outputs that have already been finalized"
-        );
+        if (block.timestamp - l2Outputs[_l2OutputIndex].timestamp >= finalizationPeriodSeconds) {
+            revert CannotDeleteFinalizedOutputs();
+        }
 
         uint256 prevNextL2OutputIndex = nextOutputIndex();
 
@@ -292,30 +308,29 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         external
         payable
     {
-        require(
-            msg.sender == proposer || proposer == address(0),
-            "L2OutputOracle: only the proposer address can propose new outputs"
-        );
+        if (msg.sender != proposer && proposer != address(0)) {
+            revert CallerNotAuthorized();
+        }
 
-        require(
-            _l2BlockNumber >= nextBlockNumber(),
-            "L2OutputOracle: block number must be greater than or equal to next expected block number"
-        );
+        if (_l2BlockNumber < nextBlockNumber()) {
+            revert L2BlockNumberTooLow();
+        }
 
-        require(
-            computeL2Timestamp(_l2BlockNumber) < block.timestamp,
-            "L2OutputOracle: cannot propose L2 output in the future"
-        );
+        if (computeL2Timestamp(_l2BlockNumber) >= block.timestamp) {
+            revert L2BlockProposedInFuture();
+        }
 
-        require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
+        if (_outputRoot == bytes32(0)) {
+            revert InvalidOutputRoot();
+        }
 
-        require(
-            aggregationVkey != bytes32(0), "L2OutputOracle: aggregation vkey must be set before proposing an output"
-        );
-        require(
-            rangeVkeyCommitment != bytes32(0),
-            "L2OutputOracle: range vkey commitment must be set before proposing an output"
-        );
+        if (aggregationVkey == bytes32(0)) {
+            revert InvalidAggregationVKey();
+        }
+
+        if (rangeVkeyCommitment == bytes32(0)) {
+            revert InvalidRangeVKeyCommitment();
+        }
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         if (l1BlockHash == bytes32(0)) {
@@ -369,14 +384,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2BlockNumber L2 block number to find a checkpoint for.
     /// @return Index of the first checkpoint that commits to the given L2 block number.
     function getL2OutputIndexAfter(uint256 _l2BlockNumber) public view returns (uint256) {
-        // Make sure an output for this block number has actually been proposed.
-        require(
-            _l2BlockNumber <= latestBlockNumber(),
-            "L2OutputOracle: cannot get output for a block that has not been proposed"
-        );
+        if (_l2BlockNumber > latestBlockNumber()) {
+            revert InvalidParameter("l2BlockNumber");
+        }
 
-        // Make sure there's at least one output proposed.
-        require(l2Outputs.length > 0, "L2OutputOracle: cannot get output as no outputs have been proposed yet");
+        if (l2Outputs.length == 0) {
+            revert InvalidParameter("l2Outputs");
+        }
 
         // Find the output via binary search, guaranteed to exist.
         uint256 lo = 0;
@@ -404,99 +418,4 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Returns the number of outputs that have been proposed.
     ///         Will revert if no outputs have been proposed yet.
-    /// @return The number of outputs that have been proposed.
-    function latestOutputIndex() public view returns (uint256) {
-        return l2Outputs.length - 1;
-    }
-
-    /// @notice Returns the index of the next output to be proposed.
-    /// @return The index of the next output to be proposed.
-    function nextOutputIndex() public view returns (uint256) {
-        return l2Outputs.length;
-    }
-
-    /// @notice Returns the block number of the latest submitted L2 output proposal.
-    ///         If no proposals been submitted yet then this function will return the starting
-    ///         block number.
-    /// @return Latest submitted L2 block number.
-    function latestBlockNumber() public view returns (uint256) {
-        return l2Outputs.length == 0 ? startingBlockNumber : l2Outputs[l2Outputs.length - 1].l2BlockNumber;
-    }
-
-    /// @notice Computes the block number of the next L2 block that needs to be checkpointed.
-    /// @return Next L2 block number.
-    function nextBlockNumber() public view returns (uint256) {
-        return latestBlockNumber() + submissionInterval;
-    }
-
-    /// @notice Returns the L2 timestamp corresponding to a given L2 block number.
-    /// @param _l2BlockNumber The L2 block number of the target block.
-    /// @return L2 timestamp of the given block.
-    function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
-        return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
-    }
-
-    ////////////////////////////////////////////////////////////
-    //                         Admin                          //
-    ////////////////////////////////////////////////////////////
-
-    /// @notice Upgrades the OPSuccinctL2OutputOracle contract with the given initialization parameters.
-    function upgradeWithInitParams(
-        uint256 _chainId,
-        bytes32 _aggregationVkey,
-        bytes32 _rangeVkeyCommitment,
-        address _verifierGateway,
-        bytes32 _rollupConfigHash
-    ) external onlyOwner {
-        chainId = _chainId;
-        _updateAggregationVKey(_aggregationVkey);
-        _updateRangeVkeyCommitment(_rangeVkeyCommitment);
-        _updateVerifierGateway(_verifierGateway);
-        _updateRollupConfigHash(_rollupConfigHash);
-    }
-
-    function transferOwnership(address _newOwner) external onlyOwner {
-        _transferOwnership(_newOwner);
-    }
-
-    function _transferOwnership(address _newOwner) internal {
-        emit OwnershipTransferred(owner, _newOwner);
-        owner = _newOwner;
-    }
-
-    function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner {
-        _updateAggregationVKey(_aggregationVKey);
-    }
-
-    function _updateAggregationVKey(bytes32 _aggregationVKey) internal {
-        emit UpdatedAggregationVKey(aggregationVkey, _aggregationVKey);
-        aggregationVkey = _aggregationVKey;
-    }
-
-    function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner {
-        _updateRangeVkeyCommitment(_rangeVkeyCommitment);
-    }
-
-    function _updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) internal {
-        emit UpdatedRangeVkeyCommitment(rangeVkeyCommitment, _rangeVkeyCommitment);
-        rangeVkeyCommitment = _rangeVkeyCommitment;
-    }
-
-    function updateVerifierGateway(address _verifierGateway) external onlyOwner {
-        _updateVerifierGateway(_verifierGateway);
-    }
-
-    function _updateVerifierGateway(address _verifierGateway) internal {
-        emit UpdatedVerifierGateway(address(verifierGateway), _verifierGateway);
-        verifierGateway = SP1VerifierGateway(_verifierGateway);
-    }
-
-    function updateRollupConfigHash(bytes32 _rollupConfigHash) external onlyOwner {
-        _updateRollupConfigHash(_rollupConfigHash);
-    }
-
-    function _updateRollupConfigHash(bytes32 _rollupConfigHash) internal {
-        emit UpdatedRollupConfigHash(rollupConfigHash, _rollupConfigHash);
-        rollupConfigHash = _rollupConfigHash;
-    }
 }
