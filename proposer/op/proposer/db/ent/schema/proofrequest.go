@@ -22,7 +22,7 @@ func (ProofRequest) Annotations() []schema.Annotation {
 // Fields of the ProofRequest.
 func (ProofRequest) Fields() []ent.Field {
 	return []ent.Field{
-		field.Enum("type").Values("SPAN", "AGG"),
+		field.Enum("type").Values("RANGE", "AGG"),
 		field.Uint64("start_block"),
 		field.Uint64("end_block"),
 		field.Enum("status").Values("UNREQ", "WITNESSGEN", "PROVING", "FAILED", "COMPLETE"),
