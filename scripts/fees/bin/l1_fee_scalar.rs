@@ -22,8 +22,8 @@ async fn main() -> Result<()> {
 
     for data in fee_data {
         println!(
-            "Block: {}, Tx Index: {}, L1 Gas Cost: {}",
-            data.block_number, data.tx_index, data.l1_gas_cost
+            "Block: {}, Tx Index: {}, Tx Hash: {}, L1 Gas Cost: {}",
+            data.block_number, data.tx_index, data.tx_hash, data.l1_gas_cost
         );
     }
 

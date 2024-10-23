@@ -14,7 +14,7 @@ use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind},
     Optimism,
 };
-use op_alloy_protocol::calculate_tx_l1_cost_fjord;
+use op_alloy_protocol::{calculate_tx_l1_cost_ecotone, calculate_tx_l1_cost_fjord};
 use op_alloy_rpc_types::{
     output::OutputResponse, receipt::L1BlockInfo, safe_head::SafeHeadResponse,
 };
@@ -96,6 +96,7 @@ pub struct BlockInfo {
 pub struct FeeData {
     pub block_number: u64,
     pub tx_index: u64,
+    pub tx_hash: B256,
     pub l1_gas_cost: U256,
     pub l1_block_info: L1BlockInfo,
 }
@@ -168,64 +169,76 @@ impl OPSuccinctDataFetcher {
     /// Get the fee data for a range of blocks.
     pub async fn get_l2_fee_data_range(&self, start: u64, end: u64) -> Result<Vec<FeeData>> {
         let mut fee_data = Vec::new();
+        let mut tasks = Vec::new();
         for block_number in start..=end {
-            // Fetch the block transactions. TODO: While there is not a nice way to convert
-            // the op-alloy-rpc-types-eth::Transaction type into the op-alloy-consensus::TxEnvelope
-            // type, we can just fetch the raw transactions.
-            // Related: https://github.com/alloy-rs/op-alloy/issues/181
-            let block = self
-                .l2_provider
-                .get_block(block_number.into(), BlockTransactionsKind::Hashes)
-                .await?
-                .unwrap();
+            let l2_provider = self.l2_provider.clone();
 
-            // Fetch the encoded transactions using debug_getRawTransaction.
-            let encoded_transactions = match block.transactions {
-                BlockTransactions::Hashes(transactions) => {
-                    let mut encoded_transactions = Vec::with_capacity(transactions.len());
-                    for tx_hash in transactions {
-                        let tx = self
-                            .l2_provider
-                            .client()
-                            .request::<&[B256; 1], Bytes>("debug_getRawTransaction", &[tx_hash])
-                            .await
-                            .map_err(|e| anyhow!("Error fetching transaction: {e}"))?;
-                        encoded_transactions.push(tx);
-                    }
-                    encoded_transactions
-                }
-                _ => {
-                    return Err(anyhow::anyhow!(
-                        "Unsupported transaction type: {:?}",
-                        block.transactions
-                    ));
-                }
-            };
+            // Parallelize the fetching of each block.
+            tasks.push(tokio::spawn(async move {
+                let block = l2_provider
+                    .get_block(block_number.into(), BlockTransactionsKind::Hashes)
+                    .await?
+                    .unwrap();
 
-            // Fetch the receipts which include the L1 gas cost.
-            let receipts = self
-                .l2_provider
-                .get_block_receipts(BlockId::Number(block_number.into()))
-                .await?
-                .unwrap();
+                let transactions = match block.transactions {
+                    BlockTransactions::Hashes(transactions) => transactions,
+                    _ => return Err(anyhow::anyhow!("Unsupported transaction type")),
+                };
 
-            for (transaction, receipt) in encoded_transactions.iter().zip(receipts) {
-                // Get the Fjord L1 cost of the transaction.
-                let l1_gas_cost = calculate_tx_l1_cost_fjord(
-                    transaction.as_ref(),
-                    U256::from(receipt.l1_block_info.l1_fee.unwrap_or(0)),
-                    U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0)),
-                    U256::from(receipt.l1_block_info.l1_blob_base_fee.unwrap_or(0)),
-                    U256::from(receipt.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0)),
-                );
+                // Parallelize the fetching of each transaction.
+                let encoded_transactions_future =
+                    futures::future::join_all(transactions.iter().map(|tx_hash| {
+                        let l2_provider = l2_provider.clone();
+                        async move {
+                            l2_provider
+                                .client()
+                                .request::<&[B256; 1], Bytes>(
+                                    "debug_getRawTransaction",
+                                    &[*tx_hash],
+                                )
+                                .await
+                                .map_err(|e| anyhow::anyhow!("Error fetching transaction: {}", e))
+                        }
+                    }));
 
-                fee_data.push(FeeData {
-                    block_number,
-                    tx_index: receipt.inner.transaction_index.unwrap(),
-                    l1_gas_cost,
-                    l1_block_info: receipt.l1_block_info,
-                });
-            }
+                let receipts_future =
+                    l2_provider.get_block_receipts(BlockId::Number(block_number.into()));
+
+                let (encoded_transactions, receipts) =
+                    tokio::join!(encoded_transactions_future, receipts_future);
+                let encoded_transactions = encoded_transactions
+                    .into_iter()
+                    .collect::<Result<Vec<_>, _>>()?;
+                let receipts = receipts?.unwrap();
+
+                let block_fee_data = encoded_transactions
+                    .iter()
+                    .zip(receipts)
+                    .map(|(transaction, receipt)| {
+                        let l1_gas_cost = calculate_tx_l1_cost_fjord(
+                            transaction.as_ref(),
+                            U256::from(receipt.l1_block_info.l1_fee.unwrap_or(0)),
+                            U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0)),
+                            U256::from(receipt.l1_block_info.l1_blob_base_fee.unwrap_or(0)),
+                            U256::from(receipt.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0)),
+                        );
+
+                        FeeData {
+                            block_number,
+                            tx_index: receipt.inner.transaction_index.unwrap(),
+                            tx_hash: receipt.inner.transaction_hash,
+                            l1_gas_cost,
+                            l1_block_info: receipt.l1_block_info,
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                Ok::<_, anyhow::Error>(block_fee_data)
+            }));
+        }
+
+        for task in futures::future::join_all(tasks).await {
+            fee_data.extend(task??);
         }
         Ok(fee_data)
     }
