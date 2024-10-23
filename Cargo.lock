@@ -2503,17 +2503,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fees"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "dotenv",
- "op-succinct-host-utils",
- "tokio",
-]
-
-[[package]]
 name = "ff"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4251,6 +4240,17 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "op-succinct-fees"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dotenv",
+ "op-succinct-host-utils",
+ "tokio",
 ]
 
 [[package]]
