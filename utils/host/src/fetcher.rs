@@ -6,18 +6,17 @@ use alloy::{
 };
 use alloy_consensus::Header;
 use alloy_sol_types::SolValue;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use cargo_metadata::MetadataCommand;
+use futures::future::join_all;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind},
     Optimism,
 };
-use op_alloy_protocol::{calculate_tx_l1_cost_ecotone, calculate_tx_l1_cost_fjord};
-use op_alloy_rpc_types::{
-    output::OutputResponse, receipt::L1BlockInfo, safe_head::SafeHeadResponse,
-};
+use op_alloy_protocol::calculate_tx_l1_cost_fjord;
+use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use serde_json::{json, Value};
 use sp1_sdk::block_on;
@@ -171,50 +170,72 @@ impl OPSuccinctDataFetcher {
         let batch_size = 300;
 
         for batch_start in (start..=end).step_by(batch_size) {
-            println!(
-                "Fetching batch from {} to {}",
-                batch_start,
-                batch_start + batch_size as u64 - 1
-            );
             let batch_end = (batch_start + batch_size as u64 - 1).min(end);
             let l2_provider = self.l2_provider.clone();
 
             let batch_fee_data = tokio::spawn(async move {
                 let mut batch_fee_data = Vec::new();
 
-                for block_number in batch_start..=batch_end {
-                    let block = l2_provider
-                        .get_block(block_number.into(), BlockTransactionsKind::Hashes)
-                        .await?
-                        .unwrap();
+                // Fetch all blocks in parallel
+                let block_futures: Vec<_> = (batch_start..=batch_end)
+                    .map(|block_number| {
+                        let l2_provider = l2_provider.clone();
+                        async move {
+                            l2_provider
+                                .get_block(block_number.into(), BlockTransactionsKind::Hashes)
+                                .await
+                        }
+                    })
+                    .collect();
+                let blocks = join_all(block_futures).await;
 
-                    let transactions = match block.transactions {
-                        BlockTransactions::Hashes(transactions) => transactions,
-                        _ => return Err(anyhow::anyhow!("Unsupported transaction type")),
-                    };
+                // Fetch all block results in parallel
+                let block_results_futures: Vec<_> = blocks
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, block_result)| {
+                        let l2_provider = l2_provider.clone();
+                        let block_number = batch_start + i as u64;
+                        async move {
+                            let block = block_result?.unwrap();
+                            let transactions = match block.transactions {
+                                BlockTransactions::Hashes(transactions) => transactions,
+                                _ => return Err(anyhow::anyhow!("Unsupported transaction type")),
+                            };
 
-                    let encoded_transactions_future =
-                        futures::future::join_all(transactions.iter().map(|tx_hash| {
-                            let l2_provider = l2_provider.clone();
-                            async move {
-                                l2_provider
-                                    .client()
-                                    .request::<&[B256; 1], Bytes>(
-                                        "debug_getRawTransaction",
-                                        &[*tx_hash],
-                                    )
-                                    .await
-                                    .map_err(|e| {
-                                        anyhow::anyhow!("Error fetching transaction: {}", e)
-                                    })
-                            }
-                        }));
+                            let encoded_transactions_future =
+                                futures::future::join_all(transactions.iter().map(|tx_hash| {
+                                    let l2_provider = l2_provider.clone();
+                                    async move {
+                                        l2_provider
+                                            .client()
+                                            .request::<&[B256; 1], Bytes>(
+                                                "debug_getRawTransaction",
+                                                &[*tx_hash],
+                                            )
+                                            .await
+                                            .map_err(|e| {
+                                                anyhow::anyhow!("Error fetching transaction: {}", e)
+                                            })
+                                    }
+                                }));
 
-                    let receipts_future =
-                        l2_provider.get_block_receipts(BlockId::Number(block_number.into()));
+                            let receipts_future = l2_provider
+                                .get_block_receipts(BlockId::Number(block_number.into()));
 
-                    let (encoded_transactions, receipts) =
-                        tokio::join!(encoded_transactions_future, receipts_future);
+                            let (encoded_transactions, receipts) =
+                                tokio::join!(encoded_transactions_future, receipts_future);
+
+                            Ok::<_, anyhow::Error>((block_number, encoded_transactions, receipts))
+                        }
+                    })
+                    .collect();
+
+                let block_results = futures::future::join_all(block_results_futures).await;
+
+                for block_result in block_results {
+                    let (block_number, encoded_transactions, receipts) = block_result?;
+
                     let encoded_transactions = encoded_transactions
                         .into_iter()
                         .collect::<Result<Vec<_>, _>>()?;
