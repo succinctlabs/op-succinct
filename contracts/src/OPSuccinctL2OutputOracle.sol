@@ -130,11 +130,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param newRollupConfigHash The new rollup config hash.
     event UpdatedRollupConfigHash(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
 
-    /// @notice The block hash is too far in the past.
-    error BlockHashTooFarInPast();
+    /// @notice The L1 block hash is not available. If the block hash requested is not in the last 256 blocks,
+    ///         it is not available.
+    error L1BlockHashNotAvailable();
 
-    /// @notice The block hash which is attempted to be checkpointed is not the same as the one that exists.
-    error BlockHashMismatch();
+    /// @notice The L1 block hash is not checkpointed.
+    error L1BlockHashNotCheckpointed();
 
     /// @notice Semantic version.
     /// @custom:semver 2.0.0
@@ -317,7 +318,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         );
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
-        require(l1BlockHash != bytes32(0), "L2OutputOracle: l1 block hash is not checkpointed");
+        if (l1BlockHash == bytes32(0)) {
+            revert L1BlockHashNotCheckpointed();
+        }
 
         AggregationOutputs memory publicValues = AggregationOutputs({
             l1Head: l1BlockHash,
@@ -348,7 +351,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function checkpointBlockHash(uint256 _blockNumber) external {
         bytes32 blockHash = blockhash(_blockNumber);
         if (blockHash == bytes32(0)) {
-            revert("L2OutputOracle: block hash too far in the past");
+            revert L1BlockHashNotAvailable();
         }
         historicBlockHashes[_blockNumber] = blockHash;
     }
