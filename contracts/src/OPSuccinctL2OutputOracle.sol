@@ -419,4 +419,102 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function getL2OutputAfter(uint256 _l2BlockNumber) external view returns (Types.OutputProposal memory) {
         return l2Outputs[getL2OutputIndexAfter(_l2BlockNumber)];
     }
+
+    /// @notice Returns the number of outputs that have been proposed.
+    ///         Will revert if no outputs have been proposed yet.
+    /// @return The number of outputs that have been proposed.
+    function latestOutputIndex() public view returns (uint256) {
+        return l2Outputs.length - 1;
+    }
+
+    /// @notice Returns the index of the next output to be proposed.
+    /// @return The index of the next output to be proposed.
+    function nextOutputIndex() public view returns (uint256) {
+        return l2Outputs.length;
+    }
+
+    /// @notice Returns the block number of the latest submitted L2 output proposal.
+    ///         If no proposals been submitted yet then this function will return the starting
+    ///         block number.
+    /// @return Latest submitted L2 block number.
+    function latestBlockNumber() public view returns (uint256) {
+        return l2Outputs.length == 0 ? startingBlockNumber : l2Outputs[l2Outputs.length - 1].l2BlockNumber;
+    }
+
+    /// @notice Computes the block number of the next L2 block that needs to be checkpointed.
+    /// @return Next L2 block number.
+    function nextBlockNumber() public view returns (uint256) {
+        return latestBlockNumber() + submissionInterval;
+    }
+
+    /// @notice Returns the L2 timestamp corresponding to a given L2 block number.
+    /// @param _l2BlockNumber The L2 block number of the target block.
+    /// @return L2 timestamp of the given block.
+    function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
+        return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
+    }
+
+    ////////////////////////////////////////////////////////////
+    //                         Admin                          //
+    ////////////////////////////////////////////////////////////
+
+    /// @notice Upgrades the OPSuccinctL2OutputOracle contract with the given initialization parameters.
+    function upgradeWithInitParams(
+        uint256 _chainId,
+        bytes32 _aggregationVkey,
+        bytes32 _rangeVkeyCommitment,
+        address _verifierGateway,
+        bytes32 _rollupConfigHash
+    ) external onlyOwner {
+        chainId = _chainId;
+        _updateAggregationVKey(_aggregationVkey);
+        _updateRangeVkeyCommitment(_rangeVkeyCommitment);
+        _updateVerifierGateway(_verifierGateway);
+        _updateRollupConfigHash(_rollupConfigHash);
+    }
+
+    function transferOwnership(address _newOwner) external onlyOwner {
+        _transferOwnership(_newOwner);
+    }
+
+    function _transferOwnership(address _newOwner) internal {
+        emit OwnershipTransferred(owner, _newOwner);
+        owner = _newOwner;
+    }
+
+    function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner {
+        _updateAggregationVKey(_aggregationVKey);
+    }
+
+    function _updateAggregationVKey(bytes32 _aggregationVKey) internal {
+        emit UpdatedAggregationVKey(aggregationVkey, _aggregationVKey);
+        aggregationVkey = _aggregationVKey;
+    }
+
+    function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner {
+        _updateRangeVkeyCommitment(_rangeVkeyCommitment);
+    }
+
+    function _updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) internal {
+        emit UpdatedRangeVkeyCommitment(rangeVkeyCommitment, _rangeVkeyCommitment);
+        rangeVkeyCommitment = _rangeVkeyCommitment;
+    }
+
+    function updateVerifierGateway(address _verifierGateway) external onlyOwner {
+        _updateVerifierGateway(_verifierGateway);
+    }
+
+    function _updateVerifierGateway(address _verifierGateway) internal {
+        emit UpdatedVerifierGateway(address(verifierGateway), _verifierGateway);
+        verifierGateway = SP1VerifierGateway(_verifierGateway);
+    }
+
+    function updateRollupConfigHash(bytes32 _rollupConfigHash) external onlyOwner {
+        _updateRollupConfigHash(_rollupConfigHash);
+    }
+
+    function _updateRollupConfigHash(bytes32 _rollupConfigHash) internal {
+        emit UpdatedRollupConfigHash(rollupConfigHash, _rollupConfigHash);
+        rollupConfigHash = _rollupConfigHash;
+    }
 }
