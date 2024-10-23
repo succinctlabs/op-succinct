@@ -321,7 +321,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         require(
             l1BlockHash != bytes32(0),
-            "L2OutputOracle: proposed block hash and number are not checkpointed"
+            "L2OutputOracle: l1 block hash is not checkpointed"
         );
 
         AggregationOutputs memory publicValues = AggregationOutputs({
