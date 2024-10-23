@@ -2503,6 +2503,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fees"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "dotenv",
+ "op-succinct-host-utils",
+ "tokio",
+]
+
+[[package]]
 name = "ff"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4249,6 +4260,7 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-primitives 0.8.8",
+ "alloy-rlp",
  "alloy-sol-types 0.8.8",
  "anyhow",
  "cargo_metadata",
@@ -4258,8 +4270,10 @@ dependencies = [
  "kona-primitives",
  "log",
  "num-format",
+ "op-alloy-consensus",
  "op-alloy-genesis",
  "op-alloy-network",
+ "op-alloy-protocol",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
  "reqwest 0.12.8",
