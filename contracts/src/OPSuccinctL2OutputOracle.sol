@@ -149,6 +149,24 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Cannot delete finalized outputs.
     error CannotDeleteFinalizedOutputs();
 
+    /// @notice L2 output index is out of bounds.
+    error L2OutputIndexOutOfBounds();
+
+    /// @notice L2 block number is too low.
+    error L2BlockNumberTooLow();
+
+    /// @notice L2 block proposed in future.
+    error L2BlockProposedInFuture();
+
+    /// @notice Invalid output root.
+    error InvalidOutputRoot();
+
+    /// @notice L2 block number is too high.
+    error L2BlockNumberTooHigh();
+
+    /// @notice No outputs have been proposed.
+    error NoOutputsProposed();
+
     /// @notice Semantic version.
     /// @custom:semver 2.0.0
     string public constant version = "2.0.0";
@@ -320,16 +338,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             revert L2BlockProposedInFuture();
         }
 
+        // Note: This check is likely unnecessary as it is impossible to generate a proof with an output root of 0 for a valid chain.
         if (_outputRoot == bytes32(0)) {
             revert InvalidOutputRoot();
-        }
-
-        if (aggregationVkey == bytes32(0)) {
-            revert InvalidAggregationVKey();
-        }
-
-        if (rangeVkeyCommitment == bytes32(0)) {
-            revert InvalidRangeVKeyCommitment();
         }
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
@@ -385,11 +396,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @return Index of the first checkpoint that commits to the given L2 block number.
     function getL2OutputIndexAfter(uint256 _l2BlockNumber) public view returns (uint256) {
         if (_l2BlockNumber > latestBlockNumber()) {
-            revert InvalidParameter("l2BlockNumber");
+            revert L2BlockNumberTooHigh();
         }
 
         if (l2Outputs.length == 0) {
-            revert InvalidParameter("l2Outputs");
+            revert NoOutputsProposed();
         }
 
         // Find the output via binary search, guaranteed to exist.
@@ -415,7 +426,4 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function getL2OutputAfter(uint256 _l2BlockNumber) external view returns (Types.OutputProposal memory) {
         return l2Outputs[getL2OutputIndexAfter(_l2BlockNumber)];
     }
-
-    /// @notice Returns the number of outputs that have been proposed.
-    ///         Will revert if no outputs have been proposed yet.
 }
