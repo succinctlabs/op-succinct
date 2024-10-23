@@ -540,7 +540,7 @@ func (l *L2OutputSubmitter) sendTransaction(ctx context.Context, output *eth.Out
 	return nil
 }
 
-// sendCheckpointTransaction creates & sends transaction to checkpoint blockhash on L2OO contract.
+// sendCheckpointTransaction sends a transaction to checkpoint the blockhash corresponding to `blockNumber` on the L2OO contract.
 func (l *L2OutputSubmitter) sendCheckpointTransaction(ctx context.Context, blockNumber *big.Int) error {
 	var receipt *types.Receipt
 	data, err := l.CheckpointBlockHashTxData(blockNumber)
