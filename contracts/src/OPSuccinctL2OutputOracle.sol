@@ -130,6 +130,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param newRollupConfigHash The new rollup config hash.
     event UpdatedRollupConfigHash(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
 
+    /// @notice The block hash is too far in the past.
+    error BlockHashTooFarInPast();
+
+    /// @notice The block hash which is attempted to be checkpointed is not the same as the one that exists.
+    error BlockHashMismatch();
+
     /// @notice Semantic version.
     /// @custom:semver 2.0.0
     string public constant version = "2.0.0";
@@ -280,12 +286,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         order to be accepted. This function may only be called by the Proposer.
     /// @param _outputRoot    The L2 output of the checkpoint block.
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
-    /// @param _l1BlockHash   A block hash which must be included in the current chain.
     /// @param _l1BlockNumber The block number with the specified block hash.
     function proposeL2Output(
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
-        bytes32 _l1BlockHash,
         uint256 _l1BlockNumber,
         bytes memory _proof
     ) external payable {
@@ -314,13 +318,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: range vkey commitment must be set before proposing an output"
         );
 
+        bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         require(
-            historicBlockHashes[_l1BlockNumber] == _l1BlockHash,
+            l1BlockHash != bytes32(0),
             "L2OutputOracle: proposed block hash and number are not checkpointed"
         );
 
         AggregationOutputs memory publicValues = AggregationOutputs({
-            l1Head: _l1BlockHash,
+            l1Head: l1BlockHash,
             l2PreRoot: l2Outputs[latestOutputIndex()].outputRoot,
             claimRoot: _outputRoot,
             claimBlockNum: _l2BlockNumber,
@@ -344,12 +349,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Checkpoints a block hash at a given block number.
     /// @param _blockNumber Block number to checkpoint the hash at.
-    /// @param _blockHash   Hash of the block at the given block number.
-    /// @dev Block number must be in the past 256 blocks or this will revert.
-    /// @dev Passing both inputs as zero will automatically checkpoint the most recent blockhash.
-    function checkpointBlockHash(uint256 _blockNumber, bytes32 _blockHash) external {
-        require(blockhash(_blockNumber) == _blockHash, "L2OutputOracle: block hash and number cannot be checkpointed");
-        historicBlockHashes[_blockNumber] = _blockHash;
+    /// @dev If the block hash is not available, this will revert.
+    function checkpointBlockHash(uint256 _blockNumber) external {
+        bytes32 blockHash = blockhash(_blockNumber);
+        if (blockHash == bytes32(0)) {
+            revert("L2OutputOracle: block hash too far in the past");
+        }
+        historicBlockHashes[_blockNumber] = blockHash;
     }
 
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.

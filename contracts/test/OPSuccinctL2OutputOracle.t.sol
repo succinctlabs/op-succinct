@@ -38,8 +38,8 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     function testOPSuccinctL2OOFork() public {
         vm.createSelectFork(vm.envString("L1_RPC"), L1_BLOCK_NUM + 1);
         l2oo = OPSuccinctL2OutputOracle(0xd9979DD3cbE74C46fdD8bDB122775Fc7D0DF0BCE);
-        l2oo.checkpointBlockHash(L1_BLOCK_NUM, L1_HEAD);
+        l2oo.checkpointBlockHash(L1_BLOCK_NUM);
         vm.prank(config.owner);
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_HEAD, L1_BLOCK_NUM, proof);
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, L1_BLOCK_NUM, proof);
     }
 }
