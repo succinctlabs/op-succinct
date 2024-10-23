@@ -287,12 +287,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _outputRoot    The L2 output of the checkpoint block.
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockNumber The block number with the specified block hash.
-    function proposeL2Output(
-        bytes32 _outputRoot,
-        uint256 _l2BlockNumber,
-        uint256 _l1BlockNumber,
-        bytes memory _proof
-    ) external payable {
+    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
+        external
+        payable
+    {
         require(
             msg.sender == proposer || proposer == address(0),
             "L2OutputOracle: only the proposer address can propose new outputs"
@@ -319,10 +317,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         );
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
-        require(
-            l1BlockHash != bytes32(0),
-            "L2OutputOracle: l1 block hash is not checkpointed"
-        );
+        require(l1BlockHash != bytes32(0), "L2OutputOracle: l1 block hash is not checkpointed");
 
         AggregationOutputs memory publicValues = AggregationOutputs({
             l1Head: l1BlockHash,
