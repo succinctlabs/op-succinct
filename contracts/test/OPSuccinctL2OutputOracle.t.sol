@@ -6,7 +6,7 @@ import {Utils} from "./helpers/Utils.sol";
 import {OPSuccinctL2OutputOracle} from "../src/OPSuccinctL2OutputOracle.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
-    // The checkpointed block number for the proof.
+    // Example proof data for the BoB testnet. Tx: https://sepolia.etherscan.io/tx/0x3910121f57c2e81ac98f5154eba7a2845f7ed27caf57a73e516ca606ad9d9aab
     uint256 checkpointedL1BlockNum = 6931062;
     bytes32 claimedOutputRoot = 0xf5ef905ba2c0e598c2f5274177700f3dfe37f66db15e8957e63d0732b0e611b8;
     uint256 claimedL2BlockNum = 3677705;
