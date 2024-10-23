@@ -21,7 +21,6 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         bytes memory initializationParams = abi.encodeWithSelector(
             OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
-            cfg.chainId,
             cfg.aggregationVkey,
             cfg.rangeVkeyCommitment,
             cfg.verifierGateway,

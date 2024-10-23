@@ -43,9 +43,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
 
-    /// @notice The chain ID of the L2 chain.
-    uint256 public chainId;
-
     /// @notice The verification key of the aggregation SP1 program.
     bytes32 public aggregationVkey;
 
@@ -67,7 +64,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Parameters to initialize the contract.
     struct InitParams {
-        uint256 chainId;
         bytes32 aggregationVkey;
         bytes32 rangeVkeyCommitment;
         address verifierGateway;
@@ -82,7 +78,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         bytes32 l2PreRoot;
         bytes32 claimRoot;
         uint256 claimBlockNum;
-        uint256 chainId;
         bytes32 rollupConfigHash;
         bytes32 rangeVkeyCommitment;
     }
@@ -241,7 +236,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             startingTimestamp = _startingTimestamp;
         }
 
-        chainId = _initParams.chainId;
         _transferOwnership(_initParams.owner);
         _updateAggregationVKey(_initParams.aggregationVkey);
         _updateRangeVkeyCommitment(_initParams.rangeVkeyCommitment);
@@ -353,7 +347,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             l2PreRoot: l2Outputs[latestOutputIndex()].outputRoot,
             claimRoot: _outputRoot,
             claimBlockNum: _l2BlockNumber,
-            chainId: chainId,
             rollupConfigHash: rollupConfigHash,
             rangeVkeyCommitment: rangeVkeyCommitment
         });

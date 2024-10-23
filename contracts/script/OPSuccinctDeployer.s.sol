@@ -26,7 +26,6 @@ contract OPSuccinctDeployer is Script, Utils {
         OPSuccinctL2OutputOracle oracle = OPSuccinctL2OutputOracle(address(proxy));
 
         OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
-            chainId: config.chainId,
             verifierGateway: config.verifierGateway,
             aggregationVkey: config.aggregationVkey,
             rangeVkeyCommitment: config.rangeVkeyCommitment,

@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 contract JSONDecoder {
     struct Config {
         bytes32 aggregationVkey;
-        uint256 chainId;
         address challenger;
         uint256 finalizationPeriod;
         uint256 l2BlockTime;

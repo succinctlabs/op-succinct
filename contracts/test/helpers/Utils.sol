@@ -15,7 +15,6 @@ contract Utils is Test, JSONDecoder {
 
         OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
         OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
-            chainId: cfg.chainId,
             verifierGateway: cfg.verifierGateway,
             aggregationVkey: cfg.aggregationVkey,
             rangeVkeyCommitment: cfg.rangeVkeyCommitment,
@@ -60,7 +59,6 @@ contract Utils is Test, JSONDecoder {
 
         bytes memory initializationParams = abi.encodeWithSelector(
             OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
-            cfg.chainId,
             cfg.aggregationVkey,
             cfg.rangeVkeyCommitment,
             cfg.verifierGateway,
