@@ -4246,6 +4246,7 @@ dependencies = [
 name = "op-succinct-fees"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives 0.8.8",
  "anyhow",
  "clap",
  "dotenv",
