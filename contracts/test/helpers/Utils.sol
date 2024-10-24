@@ -18,7 +18,6 @@ contract Utils is Test, JSONDecoder {
             verifierGateway: cfg.verifierGateway,
             aggregationVkey: cfg.aggregationVkey,
             rangeVkeyCommitment: cfg.rangeVkeyCommitment,
-            owner: cfg.owner,
             startingOutputRoot: cfg.startingOutputRoot,
             rollupConfigHash: cfg.rollupConfigHash
         });
@@ -58,7 +57,7 @@ contract Utils is Test, JSONDecoder {
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
 
         bytes memory initializationParams = abi.encodeWithSelector(
-            OPSuccinctL2OutputOracle.updateParams.selector,
+            OPSuccinctL2OutputOracle.initialize.selector,
             cfg.aggregationVkey,
             cfg.rangeVkeyCommitment,
             cfg.verifierGateway,

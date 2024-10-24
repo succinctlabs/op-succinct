@@ -29,7 +29,6 @@ contract OPSuccinctDeployer is Script, Utils {
             verifierGateway: config.verifierGateway,
             aggregationVkey: config.aggregationVkey,
             rangeVkeyCommitment: config.rangeVkeyCommitment,
-            owner: config.owner,
             startingOutputRoot: config.startingOutputRoot,
             rollupConfigHash: config.rollupConfigHash
         });

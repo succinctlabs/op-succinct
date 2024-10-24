@@ -65,7 +65,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         bytes32 rangeVkeyCommitment;
         address verifierGateway;
         bytes32 startingOutputRoot;
-        address owner;
         bytes32 rollupConfigHash;
     }
 
@@ -97,58 +96,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param newNextOutputIndex  Next L2 output index after the deletion.
     event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
 
-    /// @notice Emitted when the aggregation vkey is updated.
-    /// @param oldVkey The old aggregation vkey.
-    /// @param newVkey The new aggregation vkey.
-    event UpdatedAggregationVKey(bytes32 indexed oldVkey, bytes32 indexed newVkey);
-
-    /// @notice Emitted when the range vkey commitment is updated.
-    /// @param oldRangeVkeyCommitment The old range vkey commitment.
-    /// @param newRangeVkeyCommitment The new range vkey commitment.
-    event UpdatedRangeVkeyCommitment(bytes32 indexed oldRangeVkeyCommitment, bytes32 indexed newRangeVkeyCommitment);
-
-    /// @notice Emitted when the verifier gateway is updated.
-    /// @param oldVerifierGateway The old verifier gateway.
-    /// @param newVerifierGateway The new verifier gateway.
-    event UpdatedVerifierGateway(address indexed oldVerifierGateway, address indexed newVerifierGateway);
-
-    /// @notice Emitted when ownership is transferred.
-    /// @param previousOwner The previous owner.
-    /// @param newOwner      The new owner.
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    /// @notice Emitted when the rollup config hash is updated.
-    /// @param oldRollupConfigHash The old rollup config hash.
-    /// @param newRollupConfigHash The new rollup config hash.
-    event UpdatedRollupConfigHash(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
-
     /// @notice The L1 block hash is not available. If the block hash requested is not in the last 256 blocks,
     ///         it is not available.
     error L1BlockHashNotAvailable();
 
     /// @notice The L1 block hash is not checkpointed.
     error L1BlockHashNotCheckpointed();
-
-    /// @notice Cannot delete finalized outputs.
-    error CannotDeleteFinalizedOutputs();
-
-    /// @notice L2 output index is out of bounds.
-    error L2OutputIndexOutOfBounds();
-
-    /// @notice L2 block number is too low.
-    error L2BlockNumberTooLow();
-
-    /// @notice L2 block proposed in future.
-    error L2BlockProposedInFuture();
-
-    /// @notice Invalid output root.
-    error InvalidOutputRoot();
-
-    /// @notice L2 block number is too high.
-    error L2BlockNumberTooHigh();
-
-    /// @notice No outputs have been proposed.
-    error NoOutputsProposed();
 
     /// @notice Semantic version.
     /// @custom:semver 0.1.0
@@ -216,7 +169,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // OP Succinct initialization parameters.
         aggregationVkey = _initParams.aggregationVkey;
         rangeVkeyCommitment = _initParams.rangeVkeyCommitment;
-        verifierGateway = _initParams.verifierGateway;
+        verifierGateway = SP1VerifierGateway(_initParams.verifierGateway);
         rollupConfigHash = _initParams.rollupConfigHash;
     }
 
@@ -300,11 +253,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         external
         payable
     {
-        require(msg.sender == proposer, "L2OutputOracle: only the proposer address can propose new outputs");
+        require(
+            msg.sender == proposer || proposer == address(0),
+            "L2OutputOracle: only the proposer address can propose new outputs"
+        );
 
         require(
-            _l2BlockNumber == nextBlockNumber(),
-            "L2OutputOracle: block number must be equal to next expected block number"
+            _l2BlockNumber >= nextBlockNumber(),
+            "L2OutputOracle: block number must be greater than or equal to next expected block number"
         );
 
         require(
@@ -365,13 +321,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2BlockNumber L2 block number to find a checkpoint for.
     /// @return Index of the first checkpoint that commits to the given L2 block number.
     function getL2OutputIndexAfter(uint256 _l2BlockNumber) public view returns (uint256) {
-        if (_l2BlockNumber > latestBlockNumber()) {
-            revert L2BlockNumberTooHigh();
-        }
+        // Make sure an output for this block number has actually been proposed.
+        require(
+            _l2BlockNumber <= latestBlockNumber(),
+            "L2OutputOracle: cannot get output for a block that has not been proposed"
+        );
 
-        if (l2Outputs.length == 0) {
-            revert NoOutputsProposed();
-        }
+        // Make sure there's at least one output proposed.
+        require(l2Outputs.length > 0, "L2OutputOracle: cannot get output as no outputs have been proposed yet");
 
         // Find the output via binary search, guaranteed to exist.
         uint256 lo = 0;
