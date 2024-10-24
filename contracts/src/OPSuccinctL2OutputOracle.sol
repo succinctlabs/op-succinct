@@ -53,9 +53,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The deployed SP1VerifierGateway contract to request proofs from.
     SP1VerifierGateway public verifierGateway;
 
-    /// @notice The owner of the contract, who has admin permissions.
-    address public owner;
-
     /// @notice The hash of the chain's rollup config, which ensures the proofs submitted are for the correct chain.
     bytes32 public rollupConfigHash;
 
@@ -132,15 +129,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The L1 block hash is not checkpointed.
     error L1BlockHashNotCheckpointed();
 
-    /// @notice Caller is not the owner.
-    error CallerIsNotOwner();
-
-    /// @notice Invalid parameter error.
-    error InvalidParameter(string paramName);
-
-    /// @notice Caller is not authorized.
-    error CallerNotAuthorized();
-
     /// @notice Cannot delete finalized outputs.
     error CannotDeleteFinalizedOutputs();
 
@@ -165,17 +153,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Semantic version.
     /// @custom:semver 0.1.0
     string public constant version = "0.1.0";
-
-    ////////////////////////////////////////////////////////////
-    //                        Modifiers                       //
-    ////////////////////////////////////////////////////////////
-
-    modifier onlyOwner() {
-        if (msg.sender != owner) {
-            revert CallerIsNotOwner();
-        }
-        _;
-    }
 
     ////////////////////////////////////////////////////////////
     //                        Functions                       //
@@ -206,23 +183,19 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         address _challenger,
         uint256 _finalizationPeriodSeconds,
         InitParams memory _initParams
-    ) public reinitializer(2) {
-        if (_submissionInterval == 0) {
-            revert InvalidParameter("submissionInterval");
-        }
-        if (_l2BlockTime == 0) {
-            revert InvalidParameter("l2BlockTime");
-        }
-        if (_startingTimestamp > block.timestamp) {
-            revert InvalidParameter("startingTimestamp");
-        }
+    ) public initializer {
+        require(_submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
+        require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
+        require(
+            _startingTimestamp <= block.timestamp,
+            "L2OutputOracle: starting L2 timestamp must be less than current time"
+        );
 
         submissionInterval = _submissionInterval;
         l2BlockTime = _l2BlockTime;
-        proposer = _proposer;
-        challenger = _challenger;
-        finalizationPeriodSeconds = _finalizationPeriodSeconds;
 
+        // For proof verification to work, there must be an initial output.
+        // Disregard the _startingBlockNumber and _startingTimestamp parameters for upgrades.
         if (l2Outputs.length == 0) {
             l2Outputs.push(
                 Types.OutputProposal({
@@ -236,11 +209,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             startingTimestamp = _startingTimestamp;
         }
 
-        _transferOwnership(_initParams.owner);
-        _updateAggregationVKey(_initParams.aggregationVkey);
-        _updateRangeVkeyCommitment(_initParams.rangeVkeyCommitment);
-        _updateVerifierGateway(_initParams.verifierGateway);
-        _updateRollupConfigHash(_initParams.rollupConfigHash);
+        proposer = _proposer;
+        challenger = _challenger;
+        finalizationPeriodSeconds = _finalizationPeriodSeconds;
+
+        // OP Succinct initialization parameters.
+        aggregationVkey = _initParams.aggregationVkey;
+        rangeVkeyCommitment = _initParams.rangeVkeyCommitment;
+        verifierGateway = _initParams.verifierGateway;
+        rollupConfigHash = _initParams.rollupConfigHash;
     }
 
     /// @notice Getter for the submissionInterval.
@@ -288,17 +265,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2OutputIndex Index of the first L2 output to be deleted.
     ///                       All outputs after this output will also be deleted.
     function deleteL2Outputs(uint256 _l2OutputIndex) external {
-        if (msg.sender != challenger) {
-            revert CallerNotAuthorized();
-        }
+        require(msg.sender == challenger, "L2OutputOracle: only the challenger address can delete outputs");
 
-        if (_l2OutputIndex >= l2Outputs.length) {
-            revert L2OutputIndexOutOfBounds();
-        }
+        // Make sure we're not *increasing* the length of the array.
+        require(
+            _l2OutputIndex < l2Outputs.length, "L2OutputOracle: cannot delete outputs after the latest output index"
+        );
 
-        if (block.timestamp - l2Outputs[_l2OutputIndex].timestamp >= finalizationPeriodSeconds) {
-            revert CannotDeleteFinalizedOutputs();
-        }
+        // Do not allow deleting any outputs that have already been finalized.
+        require(
+            block.timestamp - l2Outputs[_l2OutputIndex].timestamp < finalizationPeriodSeconds,
+            "L2OutputOracle: cannot delete outputs that have already been finalized"
+        );
 
         uint256 prevNextL2OutputIndex = nextOutputIndex();
 
@@ -316,25 +294,25 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _outputRoot    The L2 output of the checkpoint block.
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockNumber The block number with the specified block hash.
+    /// @dev Modified the function signature to exclude the `_l1BlockHash` parameter, as it's redundant
+    /// for OP Succinct given the `_l1BlockNumber` parameter.
     function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
         external
         payable
     {
-        if (msg.sender != proposer && proposer != address(0)) {
-            revert CallerNotAuthorized();
-        }
+        require(msg.sender == proposer, "L2OutputOracle: only the proposer address can propose new outputs");
 
-        if (_l2BlockNumber < nextBlockNumber()) {
-            revert L2BlockNumberTooLow();
-        }
+        require(
+            _l2BlockNumber == nextBlockNumber(),
+            "L2OutputOracle: block number must be equal to next expected block number"
+        );
 
-        if (computeL2Timestamp(_l2BlockNumber) >= block.timestamp) {
-            revert L2BlockProposedInFuture();
-        }
+        require(
+            computeL2Timestamp(_l2BlockNumber) < block.timestamp,
+            "L2OutputOracle: cannot propose L2 output in the future"
+        );
 
-        if (_outputRoot == bytes32(0)) {
-            revert InvalidOutputRoot();
-        }
+        require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         if (l1BlockHash == bytes32(0)) {
@@ -361,6 +339,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
                 l2BlockNumber: uint128(_l2BlockNumber)
             })
         );
+    }
+
+    /// @notice Checkpoints a block hash at a given block number.
+    /// @param _blockNumber Block number to checkpoint the hash at.
+    /// @dev If the block hash is not available, this will revert.
+    function checkpointBlockHash(uint256 _blockNumber) external {
+        bytes32 blockHash = blockhash(_blockNumber);
+        if (blockHash == bytes32(0)) {
+            revert L1BlockHashNotAvailable();
+        }
+        historicBlockHashes[_blockNumber] = blockHash;
     }
 
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.
@@ -440,90 +429,5 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @return L2 timestamp of the given block.
     function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
         return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
-    }
-
-    /// @notice Checkpoints a block hash at a given block number.
-    /// @param _blockNumber Block number to checkpoint the hash at.
-    /// @dev If the block hash is not available, this will revert.
-    function checkpointBlockHash(uint256 _blockNumber) external {
-        bytes32 blockHash = blockhash(_blockNumber);
-        if (blockHash == bytes32(0)) {
-            revert L1BlockHashNotAvailable();
-        }
-        historicBlockHashes[_blockNumber] = blockHash;
-    }
-
-    ////////////////////////////////////////////////////////////
-    //                         Admin                          //
-    ////////////////////////////////////////////////////////////
-
-    /// @notice Upgrades the OPSuccinctL2OutputOracle contract with the given parameters.
-    function updateParams(
-        bytes32 _aggregationVkey,
-        bytes32 _rangeVkeyCommitment,
-        address _verifierGateway,
-        bytes32 _rollupConfigHash
-    ) external onlyOwner {
-        _updateAggregationVKey(_aggregationVkey);
-        _updateRangeVkeyCommitment(_rangeVkeyCommitment);
-        _updateVerifierGateway(_verifierGateway);
-        _updateRollupConfigHash(_rollupConfigHash);
-    }
-
-    function transferOwnership(address _newOwner) external onlyOwner {
-        _transferOwnership(_newOwner);
-    }
-
-    function _transferOwnership(address _newOwner) internal {
-        emit OwnershipTransferred(owner, _newOwner);
-        owner = _newOwner;
-    }
-
-    function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner {
-        _updateAggregationVKey(_aggregationVKey);
-    }
-
-    function _updateAggregationVKey(bytes32 _aggregationVKey) internal {
-        emit UpdatedAggregationVKey(aggregationVkey, _aggregationVKey);
-        aggregationVkey = _aggregationVKey;
-    }
-
-    function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner {
-        _updateRangeVkeyCommitment(_rangeVkeyCommitment);
-    }
-
-    function _updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) internal {
-        emit UpdatedRangeVkeyCommitment(rangeVkeyCommitment, _rangeVkeyCommitment);
-        rangeVkeyCommitment = _rangeVkeyCommitment;
-    }
-
-    function updateVerifierGateway(address _verifierGateway) external onlyOwner {
-        _updateVerifierGateway(_verifierGateway);
-    }
-
-    function _updateVerifierGateway(address _verifierGateway) internal {
-        emit UpdatedVerifierGateway(address(verifierGateway), _verifierGateway);
-        verifierGateway = SP1VerifierGateway(_verifierGateway);
-    }
-
-    function updateRollupConfigHash(bytes32 _rollupConfigHash) external onlyOwner {
-        _updateRollupConfigHash(_rollupConfigHash);
-    }
-
-    function _updateRollupConfigHash(bytes32 _rollupConfigHash) internal {
-        emit UpdatedRollupConfigHash(rollupConfigHash, _rollupConfigHash);
-        rollupConfigHash = _rollupConfigHash;
-    }
-
-    function updateSubmissionInterval(uint256 _submissionInterval) external onlyOwner {
-        submissionInterval = _submissionInterval;
-    }
-
-    function updateL2BlockTime(uint256 _l2BlockTime) external onlyOwner {
-        l2BlockTime = _l2BlockTime;
-    }
-
-    function updateFinalizationPeriodSeconds(uint256 _finalizationPeriodSeconds) external onlyOwner {
-        finalizationPeriodSeconds = _finalizationPeriodSeconds;
     }
 }
