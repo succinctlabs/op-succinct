@@ -163,8 +163,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     error NoOutputsProposed();
 
     /// @notice Semantic version.
-    /// @custom:semver 2.0.0
-    string public constant version = "2.0.0";
+    /// @custom:semver 0.1.0
+    string public constant version = "0.1.0";
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
@@ -332,7 +332,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             revert L2BlockProposedInFuture();
         }
 
-        // Note: This check is likely unnecessary as it is impossible to generate a proof with an output root of 0 for a valid chain.
         if (_outputRoot == bytes32(0)) {
             revert InvalidOutputRoot();
         }
@@ -362,17 +361,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
                 l2BlockNumber: uint128(_l2BlockNumber)
             })
         );
-    }
-
-    /// @notice Checkpoints a block hash at a given block number.
-    /// @param _blockNumber Block number to checkpoint the hash at.
-    /// @dev If the block hash is not available, this will revert.
-    function checkpointBlockHash(uint256 _blockNumber) external {
-        bytes32 blockHash = blockhash(_blockNumber);
-        if (blockHash == bytes32(0)) {
-            revert L1BlockHashNotAvailable();
-        }
-        historicBlockHashes[_blockNumber] = blockHash;
     }
 
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.
@@ -454,12 +442,23 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
     }
 
+    /// @notice Checkpoints a block hash at a given block number.
+    /// @param _blockNumber Block number to checkpoint the hash at.
+    /// @dev If the block hash is not available, this will revert.
+    function checkpointBlockHash(uint256 _blockNumber) external {
+        bytes32 blockHash = blockhash(_blockNumber);
+        if (blockHash == bytes32(0)) {
+            revert L1BlockHashNotAvailable();
+        }
+        historicBlockHashes[_blockNumber] = blockHash;
+    }
+
     ////////////////////////////////////////////////////////////
     //                         Admin                          //
     ////////////////////////////////////////////////////////////
 
-    /// @notice Upgrades the OPSuccinctL2OutputOracle contract with the given initialization parameters.
-    function upgradeWithInitParams(
+    /// @notice Upgrades the OPSuccinctL2OutputOracle contract with the given parameters.
+    function updateParams(
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
         address _verifierGateway,
@@ -514,5 +513,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function _updateRollupConfigHash(bytes32 _rollupConfigHash) internal {
         emit UpdatedRollupConfigHash(rollupConfigHash, _rollupConfigHash);
         rollupConfigHash = _rollupConfigHash;
+    }
+
+    function updateSubmissionInterval(uint256 _submissionInterval) external onlyOwner {
+        submissionInterval = _submissionInterval;
+    }
+
+    function updateL2BlockTime(uint256 _l2BlockTime) external onlyOwner {
+        l2BlockTime = _l2BlockTime;
+    }
+
+    function updateFinalizationPeriodSeconds(uint256 _finalizationPeriodSeconds) external onlyOwner {
+        finalizationPeriodSeconds = _finalizationPeriodSeconds;
     }
 }

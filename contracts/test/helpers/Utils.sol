@@ -58,7 +58,7 @@ contract Utils is Test, JSONDecoder {
         if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
 
         bytes memory initializationParams = abi.encodeWithSelector(
-            OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
+            OPSuccinctL2OutputOracle.updateParams.selector,
             cfg.aggregationVkey,
             cfg.rangeVkeyCommitment,
             cfg.verifierGateway,

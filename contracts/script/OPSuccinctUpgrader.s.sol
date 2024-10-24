@@ -20,7 +20,7 @@ contract OPSuccinctUpgrader is Script, Utils {
         address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
 
         bytes memory initializationParams = abi.encodeWithSelector(
-            OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
+            OPSuccinctL2OutputOracle.updateParams.selector,
             cfg.aggregationVkey,
             cfg.rangeVkeyCommitment,
             cfg.verifierGateway,
