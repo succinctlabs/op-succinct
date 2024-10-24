@@ -10,3 +10,4 @@
 - [Cost Estimator CLI Tool](./cost-estimator.md)
 - [L2 Node Setup](./node-setup.md)
 - [Appendix](./advanced/intro.md)
+- [FAQ](./faq.md)
