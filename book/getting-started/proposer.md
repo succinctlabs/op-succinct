@@ -29,7 +29,7 @@ Running as separate containers:
 
 For advanced configurations, depending on the number of concurrent requests you expect, you may need to increase the number of vCPUs and memory allocated to the `op-succinct-server` container.
 
-## 1) Environment Setup
+## Environment Setup
 
 Before starting the proposer, the following environment variables should be in your `.env` file. You should have already set up your environment when you deployed the L2 Output Oracle. If you have not done so, follow the steps in the [L2 Output Oracle](./l2-output-oracle.md) section.
 
@@ -45,7 +45,7 @@ Before starting the proposer, the following environment variables should be in y
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract and posting output roots to L1. |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
 
-## 2) Build the Proposer Service
+## Build the Proposer Service
 
 Build the docker images for the `op-succinct-proposer` service.
 
@@ -53,7 +53,7 @@ Build the docker images for the `op-succinct-proposer` service.
 docker compose build
 ```
 
-## 3) Run the Proposer
+## Run the Proposer
 
 This command launches the `op-succinct-proposer` service in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original `op-proposer` service.
 
@@ -72,5 +72,5 @@ docker compose logs -f
 and to stop the `op-succinct-proposer` service, run:
 
 ```bash
-docker compose down
+docker compose stop
 ```
