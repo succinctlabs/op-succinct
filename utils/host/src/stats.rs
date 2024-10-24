@@ -8,6 +8,7 @@ use sp1_sdk::{CostEstimator, ExecutionReport};
 /// Statistics for the range execution.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExecutionStats {
+    pub chain_id: u64,
     pub batch_start: u64,
     pub batch_end: u64,
     /// The wall clock time to generate the witness.
