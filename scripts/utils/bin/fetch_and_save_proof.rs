@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
         let _boot_info: BootInfoStruct = proof.public_values.read();
 
         // Create the proofs directory if it doesn't exist
-        let proof_path = format!("data/fetched_proofs");
+        let proof_path = "data/fetched_proofs".to_string();
         let proof_dir = Path::new(&proof_path);
         fs::create_dir_all(proof_dir)?;
 
