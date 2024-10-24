@@ -22,7 +22,7 @@ The following RPC endpoints must be accessible:
 - L2 Optimism Node (`op-node`)
   - `optimism_outputAtBlock`, `optimism_rollupConfig`, `optimism_syncStatus`, `optimism_safeHeadAtL1Block`.
 
-If you do not have access to an L2 OP Geth node + rollup node for your OP Stack chain, you can follow the [L2 node setup instructions](../node-setup.md) to spin them up.
+If you do not have access to an L2 OP Geth node + rollup node for your OP Stack chain, you can follow the [L2 node setup instructions](../advanced/node-setup.md) to spin them up.
 
 ## OP Stack Chain
 

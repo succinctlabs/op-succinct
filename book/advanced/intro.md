@@ -1,16 +1,14 @@
-# Advanced
+# Verify the OP Succinct binaries
 
 When deploying OP Succinct in production, it's important to ensure that the SP1 programs used when generating proofs are reproducible.
 
-## Verify the OP Succinct binaries
+## Introduction
 
-### Introduction
-
-There are two programs used in OP Succinct:
+Recall there are two programs used in OP Succinct:
 - `range`: Proves the correctness of an OP Stack derivation + STF for a range of blocks.
 - `aggregation`: Aggregates multiple range proofs into a single proof. This is the proof that lands on-chain. The aggregation proof ensures that all `range` proofs in a given block range are linked and use the `rangeVkeyCommitment` from the `L2OutputOracleProxy` as the verification key.
 
-### Prerequisites
+## Prerequisites
 
 To reproduce the OP Succinct program binaries, you first need to install the [cargo prove](https://docs.succinct.xyz/getting-started/install.html#option-1-prebuilt-binaries-recommended) toolchain.
 
