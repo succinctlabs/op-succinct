@@ -6,9 +6,9 @@ use alloy::{
 };
 use alloy_consensus::Header;
 use alloy_sol_types::SolValue;
+use anyhow::anyhow;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-use futures::future::join_all;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
@@ -164,45 +164,118 @@ impl OPSuccinctDataFetcher {
             .unwrap()
     }
 
-    /// Get the fee data for a range of blocks.
-    pub async fn get_l2_fee_data_range(&self, start: u64, end: u64) -> Result<Vec<FeeData>> {
-        let mut fee_data = Vec::new();
-        let batch_size = 1000;
+    pub async fn get_l2_fee_data_with_modified_l1_fee_scalar(
+        &self,
+        start: u64,
+        end: u64,
+        l1_fee_scalar: U256,
+    ) -> Result<Vec<FeeData>> {
         let start_time = std::time::Instant::now();
 
-        for batch_start in (start..=end).step_by(batch_size) {
-            let batch_end = (batch_start + batch_size as u64 - 1).min(end);
-            let l2_provider = self.l2_provider.clone();
+        let mut fee_data = Vec::new();
+        for block_number in start..=end {
+            // Fetch the block transactions. TODO: While there is not a nice way to convert
+            // the op-alloy-rpc-types-eth::Transaction type into the op-alloy-consensus::TxEnvelope
+            // type, we can just fetch the raw transactions.
+            // Related: https://github.com/alloy-rs/op-alloy/issues/181
+            let block = self
+                .l2_provider
+                .get_block(block_number.into(), BlockTransactionsKind::Hashes)
+                .await?
+                .unwrap();
 
-            let batch_fee_data = tokio::spawn(async move {
-                let mut batch_fee_data = Vec::new();
+            // Fetch the encoded transactions using debug_getRawTransaction.
+            let encoded_transactions = match block.transactions {
+                BlockTransactions::Hashes(transactions) => {
+                    let mut encoded_transactions = Vec::with_capacity(transactions.len());
+                    for tx_hash in transactions {
+                        let tx = self
+                            .l2_provider
+                            .client()
+                            .request::<&[B256; 1], Bytes>("debug_getRawTransaction", &[tx_hash])
+                            .await
+                            .map_err(|e| anyhow!("Error fetching transaction: {e}"))?;
+                        encoded_transactions.push(tx);
+                    }
+                    encoded_transactions
+                }
+                _ => {
+                    return Err(anyhow::anyhow!(
+                        "Unsupported transaction type: {:?}",
+                        block.transactions
+                    ));
+                }
+            };
 
-                let receipts_futures: Vec<_> = (batch_start..=batch_end)
-                    .map(|block_number| {
-                        let l2_provider = l2_provider.clone();
-                        async move { l2_provider.get_block_receipts(block_number.into()).await }
-                    })
-                    .collect();
-                let receipts = join_all(receipts_futures).await;
+            // Fetch the receipts which include the L1 gas cost.
+            let receipts = self
+                .l2_provider
+                .get_block_receipts(BlockId::Number(block_number.into()))
+                .await?
+                .unwrap();
 
-                for (block_number, receipt) in (batch_start..=batch_end).zip(receipts) {
-                    let transactions = receipt?.unwrap();
-                    for (tx_index, tx) in transactions.iter().enumerate() {
-                        batch_fee_data.push(FeeData {
+            for (transaction, receipt) in encoded_transactions.iter().zip(receipts) {
+                // Get the Fjord L1 cost of the transaction.
+                let l1_gas_cost = calculate_tx_l1_cost_fjord(
+                    transaction.as_ref(),
+                    U256::from(receipt.l1_block_info.l1_gas_price.unwrap_or(0)),
+                    U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0)),
+                    U256::from(receipt.l1_block_info.l1_blob_base_fee.unwrap_or(0)),
+                    U256::from(receipt.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0)),
+                );
+
+                fee_data.push(FeeData {
+                    block_number,
+                    tx_index: receipt.inner.transaction_index.unwrap(),
+                    tx_hash: receipt.inner.transaction_hash,
+                    l1_gas_cost,
+                });
+            }
+        }
+
+        let duration = start_time.elapsed();
+        println!("Time taken to fetch fee data: {:?}", duration);
+
+        Ok(fee_data)
+    }
+
+    /// Get the fee data for a range of blocks. Extracts the l1 fee data from the receipts.
+    pub async fn get_l2_fee_data_range(&self, start: u64, end: u64) -> Result<Vec<FeeData>> {
+        let start_time = std::time::Instant::now();
+
+        let l2_provider = self.l2_provider.clone();
+
+        use futures::stream::{self, StreamExt};
+
+        // Only fetch 100 receipts at a time to better use system resources. Increases stability.
+        let fee_data = stream::iter(start..=end)
+            .map(|block_number| {
+                let l2_provider = l2_provider.clone();
+                async move {
+                    let receipt = l2_provider
+                        .get_block_receipts(block_number.into())
+                        .await
+                        .unwrap();
+                    let transactions = receipt.unwrap();
+                    let block_fee_data: Vec<FeeData> = transactions
+                        .iter()
+                        .enumerate()
+                        .map(|(tx_index, tx)| FeeData {
                             block_number,
                             tx_index: tx_index as u64,
                             tx_hash: tx.inner.transaction_hash,
                             l1_gas_cost: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
-                        });
-                    }
+                        })
+                        .collect();
+                    block_fee_data
                 }
-
-                Ok::<_, anyhow::Error>(batch_fee_data)
             })
-            .await??;
-
-            fee_data.extend(batch_fee_data);
-        }
+            .buffer_unordered(100)
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect();
 
         let duration = start_time.elapsed();
         println!("Time taken to fetch fee data: {:?}", duration);

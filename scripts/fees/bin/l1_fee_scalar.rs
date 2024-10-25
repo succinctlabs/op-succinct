@@ -44,6 +44,10 @@ async fn main() -> Result<()> {
 
     let fee_data = fetcher.get_l2_fee_data_range(args.start, args.end).await?;
 
+    let modified_fee_data = fetcher
+        .get_l2_fee_data_with_modified_l1_fee_scalar(args.start, args.end, U256::from(1000000000))
+        .await?;
+
     // for data in fee_data {
     //     println!(
     //         "Block: {}, Tx Index: {}, Tx Hash: {}, L1 Gas Cost: {}, L1 Fee: {}, L1 Base Fee Scalar: {}, L1 Blob Base Fee: {}, L1 Blob Base Fee Scalar: {}",
@@ -58,11 +62,22 @@ async fn main() -> Result<()> {
     //     );
     // }
 
-    let aggregate_fee_data = aggregate_fee_data(fee_data)?;
+    // let aggregate_fee_data = aggregate_fee_data(fee_data)?;
+    // println!(
+    //     "Start: {}, End: {}, Aggregate: {} transactions, {:.18} GWei L1 fee",
+    //     aggregate_fee_data.start,
+    //     aggregate_fee_data.end,
+    //     aggregate_fee_data.num_transactions,
+    //     (aggregate_fee_data.total_l1_fee) / U256::from(10).pow(U256::from(9))
+    // );
+
+    let modified_aggregate_fee_data = aggregate_fee_data(modified_fee_data)?;
     println!(
-        "Aggregate: {} transactions, {:.18} GWei L1 fee",
-        aggregate_fee_data.num_transactions,
-        (aggregate_fee_data.total_l1_fee) / U256::from(10).pow(U256::from(9))
+        "Start: {}, End: {}, Aggregate: {} transactions, {:.18} GWei L1 fee",
+        modified_aggregate_fee_data.start,
+        modified_aggregate_fee_data.end,
+        modified_aggregate_fee_data.num_transactions,
+        (modified_aggregate_fee_data.total_l1_fee) / U256::from(10).pow(U256::from(9))
     );
 
     Ok(())
