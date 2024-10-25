@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{env, fmt};
 
 use alloy_primitives::U256;
 use anyhow::Result;
@@ -40,51 +40,23 @@ pub fn aggregate_fee_data(fee_data: Vec<FeeData>) -> Result<AggregateFeeData> {
     Ok(aggregate_fee_data)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn test_l1_fee_scalar() -> Result<()> {
-    let fetcher = OPSuccinctDataFetcher {
-        rpc_config: RPCConfig {
-            l2_rpc: "https://mainnet.optimism.io".to_string(),
-            ..Default::default()
-        },
-        ..Default::default()
-    };
+    env::set_var("L1_RPC", "https://ethereum-rpc.publicnode.com");
+    env::set_var("L2_RPC", "https://mainnet.optimism.io");
+
+    let fetcher = OPSuccinctDataFetcher::default();
 
     let (fee_data, modified_fee_data) = tokio::join!(
-        fetcher.get_l2_fee_data_range(17423924, 17423925),
-        fetcher.get_l2_fee_data_with_modified_l1_fee_scalar(17423924, 17423925, None)
+        fetcher.get_l2_fee_data_range(17423924, 17423928),
+        fetcher.get_l2_fee_data_with_modified_l1_fee_scalar(17423924, 17423928, None)
     );
 
     let fee_data = fee_data?;
     let modified_fee_data = modified_fee_data?;
 
-    // for data in fee_data {
-    //     println!(
-    //         "Block: {}, Tx Index: {}, Tx Hash: {}, L1 Gas Cost: {}, L1 Fee: {}, L1 Base Fee Scalar: {}, L1 Blob Base Fee: {}, L1 Blob Base Fee Scalar: {}",
-    //         data.block_number,
-    //         data.tx_index,
-    //         data.tx_hash,
-    //         data.l1_gas_cost,
-    //         data.l1_block_info.l1_fee.unwrap_or(0),
-    //         data.l1_block_info.l1_base_fee_scalar.unwrap_or(0),
-    //         data.l1_block_info.l1_blob_base_fee.unwrap_or(0),
-    //         data.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0),
-    //     );
-    // }
-
     let total_aggregate_fee_data = aggregate_fee_data(fee_data)?;
-    // println!(
-    //     "Start: {}, End: {}, Aggregate: {} transactions, {:.18} GWei L1 fee",
-    //     aggregate_fee_data.start,
-    //     aggregate_fee_data.end,
-    //     aggregate_fee_data.num_transactions,
-    //     (aggregate_fee_data.total_l1_fee) / U256::from(10).pow(U256::from(9))
-    // );
-
     let modified_total_aggregate_fee_data = aggregate_fee_data(modified_fee_data)?;
-
-    println!("{modified_total_aggregate_fee_data}");
-    println!("{total_aggregate_fee_data}");
 
     assert_eq!(
         total_aggregate_fee_data.total_l1_fee,
