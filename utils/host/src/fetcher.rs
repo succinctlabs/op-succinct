@@ -94,6 +94,7 @@ pub struct BlockInfo {
     pub block_number: u64,
     pub transaction_count: u64,
     pub gas_used: u64,
+    pub l1_gas_cost: U256,
 }
 
 /// The fee data for a block.
@@ -310,7 +311,7 @@ impl OPSuccinctDataFetcher {
                     block_fee_data
                 }
             })
-            .buffer_unordered(100)
+            .buffered(100)
             .collect::<Vec<_>>()
             .await
             .into_iter()
@@ -321,20 +322,38 @@ impl OPSuccinctDataFetcher {
 
     /// Get the aggregate block statistics for a range of blocks.
     pub async fn get_l2_block_data_range(&self, start: u64, end: u64) -> Result<Vec<BlockInfo>> {
-        let mut block_data = Vec::new();
-        for block_number in start..=end {
-            let block = self
-                .l2_provider
-                .get_block_by_number(block_number.into(), false)
-                .await?
-                .unwrap();
-            block_data.push(BlockInfo {
-                block_number,
-                transaction_count: block.transactions.len() as u64,
-                gas_used: block.header.gas_used,
-            });
-        }
-        Ok(block_data)
+        use futures::stream::{self, StreamExt};
+
+        let l2_provider = self.l2_provider.clone();
+        let block_data = stream::iter(start..=end)
+            .map(|block_number| {
+                let l2_provider = l2_provider.clone();
+                async move {
+                    let block = l2_provider
+                        .get_block_by_number(block_number.into(), false)
+                        .await?
+                        .unwrap();
+                    let receipts = l2_provider
+                        .get_block_receipts(block_number.into())
+                        .await?
+                        .unwrap();
+                    let l1_gas_cost: U256 = receipts
+                        .iter()
+                        .map(|tx| U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)))
+                        .sum();
+                    Ok(BlockInfo {
+                        block_number,
+                        transaction_count: block.transactions.len() as u64,
+                        gas_used: block.header.gas_used,
+                        l1_gas_cost,
+                    })
+                }
+            })
+            .buffered(100)
+            .collect::<Vec<Result<BlockInfo>>>()
+            .await;
+
+        block_data.into_iter().collect()
     }
 
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
