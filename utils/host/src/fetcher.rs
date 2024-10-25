@@ -167,7 +167,8 @@ impl OPSuccinctDataFetcher {
     /// Get the fee data for a range of blocks.
     pub async fn get_l2_fee_data_range(&self, start: u64, end: u64) -> Result<Vec<FeeData>> {
         let mut fee_data = Vec::new();
-        let batch_size = 300;
+        let batch_size = 1000;
+        let start_time = std::time::Instant::now();
 
         for batch_start in (start..=end).step_by(batch_size) {
             let batch_end = (batch_start + batch_size as u64 - 1).min(end);
@@ -176,95 +177,24 @@ impl OPSuccinctDataFetcher {
             let batch_fee_data = tokio::spawn(async move {
                 let mut batch_fee_data = Vec::new();
 
-                // Fetch all blocks in parallel
-                let block_futures: Vec<_> = (batch_start..=batch_end)
+                let receipts_futures: Vec<_> = (batch_start..=batch_end)
                     .map(|block_number| {
                         let l2_provider = l2_provider.clone();
-                        async move {
-                            l2_provider
-                                .get_block(block_number.into(), BlockTransactionsKind::Hashes)
-                                .await
-                        }
+                        async move { l2_provider.get_block_receipts(block_number.into()).await }
                     })
                     .collect();
-                let blocks = join_all(block_futures).await;
+                let receipts = join_all(receipts_futures).await;
 
-                // Fetch all block results in parallel
-                let block_results_futures: Vec<_> = blocks
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, block_result)| {
-                        let l2_provider = l2_provider.clone();
-                        let block_number = batch_start + i as u64;
-                        async move {
-                            let block = block_result?.unwrap();
-                            let transactions = match block.transactions {
-                                BlockTransactions::Hashes(transactions) => transactions,
-                                _ => return Err(anyhow::anyhow!("Unsupported transaction type")),
-                            };
-
-                            let encoded_transactions_future =
-                                futures::future::join_all(transactions.iter().map(|tx_hash| {
-                                    let l2_provider = l2_provider.clone();
-                                    async move {
-                                        l2_provider
-                                            .client()
-                                            .request::<&[B256; 1], Bytes>(
-                                                "debug_getRawTransaction",
-                                                &[*tx_hash],
-                                            )
-                                            .await
-                                            .map_err(|e| {
-                                                anyhow::anyhow!("Error fetching transaction: {}", e)
-                                            })
-                                    }
-                                }));
-
-                            let receipts_future = l2_provider
-                                .get_block_receipts(BlockId::Number(block_number.into()));
-
-                            let (encoded_transactions, receipts) =
-                                tokio::join!(encoded_transactions_future, receipts_future);
-
-                            Ok::<_, anyhow::Error>((block_number, encoded_transactions, receipts))
-                        }
-                    })
-                    .collect();
-
-                let block_results = futures::future::join_all(block_results_futures).await;
-
-                for block_result in block_results {
-                    let (block_number, encoded_transactions, receipts) = block_result?;
-
-                    let encoded_transactions = encoded_transactions
-                        .into_iter()
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let receipts = receipts?.unwrap();
-
-                    let block_fee_data = encoded_transactions
-                        .iter()
-                        .zip(receipts)
-                        .map(|(transaction, receipt)| {
-                            let l1_gas_cost = calculate_tx_l1_cost_fjord(
-                                transaction.as_ref(),
-                                U256::from(receipt.l1_block_info.l1_fee.unwrap_or(0)),
-                                U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0)),
-                                U256::from(receipt.l1_block_info.l1_blob_base_fee.unwrap_or(0)),
-                                U256::from(
-                                    receipt.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0),
-                                ),
-                            );
-
-                            FeeData {
-                                block_number,
-                                tx_index: receipt.inner.transaction_index.unwrap(),
-                                tx_hash: receipt.inner.transaction_hash,
-                                l1_gas_cost,
-                            }
-                        })
-                        .collect::<Vec<_>>();
-
-                    batch_fee_data.extend(block_fee_data);
+                for (block_number, receipt) in (batch_start..=batch_end).zip(receipts) {
+                    let transactions = receipt?.unwrap();
+                    for (tx_index, tx) in transactions.iter().enumerate() {
+                        batch_fee_data.push(FeeData {
+                            block_number,
+                            tx_index: tx_index as u64,
+                            tx_hash: tx.inner.transaction_hash,
+                            l1_gas_cost: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
+                        });
+                    }
                 }
 
                 Ok::<_, anyhow::Error>(batch_fee_data)
@@ -273,6 +203,9 @@ impl OPSuccinctDataFetcher {
 
             fee_data.extend(batch_fee_data);
         }
+
+        let duration = start_time.elapsed();
+        println!("Time taken to fetch fee data: {:?}", duration);
 
         Ok(fee_data)
     }
