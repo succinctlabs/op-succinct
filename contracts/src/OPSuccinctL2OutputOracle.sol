@@ -5,7 +5,7 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {ISemver} from "@optimism/src/universal/ISemver.sol";
 import {Types} from "@optimism/src/libraries/Types.sol";
 import {Constants} from "@optimism/src/libraries/Constants.sol";
-import {SP1VerifierGateway} from "@sp1-contracts/src/SP1VerifierGateway.sol";
+import {ISP1VerifierGateway} from "@sp1-contracts/src/ISP1VerifierGateway.sol";
 
 /// @custom:proxied
 /// @title OPSuccinctL2OutputOracle
@@ -14,6 +14,25 @@ import {SP1VerifierGateway} from "@sp1-contracts/src/SP1VerifierGateway.sol";
 ///         these outputs to verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
 contract OPSuccinctL2OutputOracle is Initializable, ISemver {
+    /// @notice Parameters to initialize the contract.
+    struct InitParams {
+        bytes32 aggregationVkey;
+        bytes32 rangeVkeyCommitment;
+        address verifierGateway;
+        bytes32 startingOutputRoot;
+        bytes32 rollupConfigHash;
+    }
+
+    /// @notice The public values committed to for an OP Succinct aggregation program.
+    struct AggregationOutputs {
+        bytes32 l1Head;
+        bytes32 l2PreRoot;
+        bytes32 claimRoot;
+        uint256 claimBlockNum;
+        bytes32 rollupConfigHash;
+        bytes32 rangeVkeyCommitment;
+    }
+
     /// @notice The number of the first L2 block recorded in this contract.
     uint256 public startingBlockNumber;
 
@@ -51,32 +70,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     bytes32 public rangeVkeyCommitment;
 
     /// @notice The deployed SP1VerifierGateway contract to request proofs from.
-    SP1VerifierGateway public verifierGateway;
+    address public verifierGateway;
 
     /// @notice The hash of the chain's rollup config, which ensures the proofs submitted are for the correct chain.
     bytes32 public rollupConfigHash;
 
     /// @notice A trusted mapping of block numbers to block hashes.
     mapping(uint256 => bytes32) public historicBlockHashes;
-
-    /// @notice Parameters to initialize the contract.
-    struct InitParams {
-        bytes32 aggregationVkey;
-        bytes32 rangeVkeyCommitment;
-        address verifierGateway;
-        bytes32 startingOutputRoot;
-        bytes32 rollupConfigHash;
-    }
-
-    /// @notice The public values committed to for an OP Succinct aggregation program.
-    struct AggregationOutputs {
-        bytes32 l1Head;
-        bytes32 l2PreRoot;
-        bytes32 claimRoot;
-        uint256 claimBlockNum;
-        bytes32 rollupConfigHash;
-        bytes32 rangeVkeyCommitment;
-    }
 
     ////////////////////////////////////////////////////////////
     //                         Events                         //
@@ -95,6 +95,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param prevNextOutputIndex Next L2 output index before the deletion.
     /// @param newNextOutputIndex  Next L2 output index after the deletion.
     event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
+
+    ////////////////////////////////////////////////////////////
+    //                         Errors                         //
+    ////////////////////////////////////////////////////////////
 
     /// @notice The L1 block hash is not available. If the block hash requested is not in the last 256 blocks,
     ///         it is not available.
@@ -169,7 +173,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // OP Succinct initialization parameters.
         aggregationVkey = _initParams.aggregationVkey;
         rangeVkeyCommitment = _initParams.rangeVkeyCommitment;
-        verifierGateway = SP1VerifierGateway(_initParams.verifierGateway);
+        verifierGateway = _initParams.verifierGateway;
         rollupConfigHash = _initParams.rollupConfigHash;
     }
 
@@ -284,7 +288,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             rangeVkeyCommitment: rangeVkeyCommitment
         });
 
-        verifierGateway.verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
+        ISP1VerifierGateway(verifierGateway).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
 
         emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
 

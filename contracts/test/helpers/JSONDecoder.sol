@@ -7,7 +7,6 @@ contract JSONDecoder {
         address challenger;
         uint256 finalizationPeriod;
         uint256 l2BlockTime;
-        address owner;
         address proposer;
         bytes32 rangeVkeyCommitment;
         bytes32 rollupConfigHash;

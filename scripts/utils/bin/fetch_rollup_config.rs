@@ -19,11 +19,9 @@ pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 /// The config for deploying the OPSuccinctL2OutputOracle.
 /// Note: The fields should be in alphabetical order for Solidity to parse it correctly.
 struct L2OOConfig {
-    chain_id: u64,
     challenger: String,
     finalization_period: u64,
     l2_block_time: u64,
-    owner: String,
     proposer: String,
     rollup_config_hash: String,
     starting_block_number: u64,

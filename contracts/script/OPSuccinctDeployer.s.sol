@@ -12,7 +12,7 @@ contract OPSuccinctDeployer is Script, Utils {
         vm.startBroadcast();
 
         // Update the rollup config to match the current chain. If the starting block number is 0, the latest block number and starting output root will be fetched.
-        updateRollupConfig();
+        // updateRollupConfig();
 
         Config memory config = readJson("opsuccinctl2ooconfig.json");
 

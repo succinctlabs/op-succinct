@@ -33,9 +33,6 @@ contract Utils is Test, JSONDecoder {
             initParams
         );
 
-        // Transfer ownership of proxy to owner specified in the config.
-        Proxy(payable(l2OutputOracleProxy)).changeAdmin(cfg.owner);
-
         return address(l2OutputOracleProxy);
     }
 
