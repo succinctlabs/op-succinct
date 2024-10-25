@@ -19,12 +19,24 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
 
+        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
+            aggregationVkey: cfg.aggregationVkey,
+            rangeVkeyCommitment: cfg.rangeVkeyCommitment,
+            verifierGateway: cfg.verifierGateway,
+            startingOutputRoot: cfg.startingOutputRoot,
+            rollupConfigHash: cfg.rollupConfigHash
+        });
+
         bytes memory initializationParams = abi.encodeWithSelector(
             OPSuccinctL2OutputOracle.initialize.selector,
-            cfg.aggregationVkey,
-            cfg.rangeVkeyCommitment,
-            cfg.verifierGateway,
-            cfg.rollupConfigHash
+            cfg.submissionInterval,
+            cfg.l2BlockTime,
+            cfg.startingBlockNumber,
+            cfg.startingTimestamp,
+            cfg.proposer,
+            cfg.challenger,
+            cfg.finalizationPeriod,
+            initParams
         );
 
         if (executeUpgradeCall) {
