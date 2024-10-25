@@ -9,6 +9,7 @@ use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
+use futures::TryStreamExt;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
@@ -16,11 +17,16 @@ use op_alloy_network::{
     Optimism,
 };
 use op_alloy_protocol::calculate_tx_l1_cost_fjord;
-use op_alloy_rpc_types::{output::OutputResponse, safe_head::SafeHeadResponse};
+use op_alloy_rpc_types::{
+    output::OutputResponse, safe_head::SafeHeadResponse, OpTransactionReceipt,
+};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use serde_json::{json, Value};
 use sp1_sdk::block_on;
-use std::{cmp::Ordering, env, fs, path::Path, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    cmp::Ordering, collections::HashMap, env, fs, path::Path, str::FromStr, sync::Arc,
+    time::Duration,
+};
 use tokio::time::sleep;
 
 use alloy_primitives::{keccak256, Bytes, U256};
@@ -49,7 +55,7 @@ impl Default for OPSuccinctDataFetcher {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RPCConfig {
     pub l1_rpc: String,
     pub l1_beacon_rpc: String,
@@ -164,57 +170,93 @@ impl OPSuccinctDataFetcher {
             .unwrap()
     }
 
+    /// Manually calculate the L1 fee data for a range of blocks. Allows for modifying the L1 fee scalar.
     pub async fn get_l2_fee_data_with_modified_l1_fee_scalar(
         &self,
         start: u64,
         end: u64,
         l1_fee_scalar: U256,
     ) -> Result<Vec<FeeData>> {
-        let start_time = std::time::Instant::now();
+        use futures::stream::{self, StreamExt};
 
-        let mut fee_data = Vec::new();
-        for block_number in start..=end {
-            // Fetch the block transactions. TODO: While there is not a nice way to convert
-            // the op-alloy-rpc-types-eth::Transaction type into the op-alloy-consensus::TxEnvelope
-            // type, we can just fetch the raw transactions.
-            // Related: https://github.com/alloy-rs/op-alloy/issues/181
-            let block = self
-                .l2_provider
-                .get_block(block_number.into(), BlockTransactionsKind::Hashes)
-                .await?
-                .unwrap();
+        // Fetch all tranasctions in parallel.
+        // Return a tuple of the block number and the transactions.
+        let transactions: Vec<(u64, Vec<B256>)> = stream::iter(start..=end)
+            .map(|block_number| async move {
+                let block = self
+                    .l2_provider
+                    .get_block(block_number.into(), BlockTransactionsKind::Hashes)
+                    .await?
+                    .unwrap();
+                match block.transactions {
+                    BlockTransactions::Hashes(txs) => Ok((block_number, txs)),
+                    _ => Err(anyhow::anyhow!("Unsupported transaction type")),
+                }
+            })
+            .buffered(100)
+            .collect::<Vec<Result<(u64, Vec<B256>)>>>()
+            .await
+            .into_iter()
+            .filter_map(Result::ok)
+            .collect();
 
-            // Fetch the encoded transactions using debug_getRawTransaction.
-            let encoded_transactions = match block.transactions {
-                BlockTransactions::Hashes(transactions) => {
-                    let mut encoded_transactions = Vec::with_capacity(transactions.len());
-                    for tx_hash in transactions {
-                        let tx = self
-                            .l2_provider
+        // Create a map of the block number to the transactions.
+        let block_number_to_transactions: HashMap<u64, Vec<B256>> =
+            transactions.into_iter().collect();
+
+        // Fetch all of the L1 block receipts in parallel.
+        let block_receipts: Vec<(u64, Vec<OpTransactionReceipt>)> = stream::iter(start..=end)
+            .map(|block_number| async move {
+                (
+                    block_number,
+                    self.l2_provider
+                        .get_block_receipts(block_number.into())
+                        .await
+                        .unwrap()
+                        .unwrap(),
+                )
+            })
+            .buffered(100)
+            .collect::<Vec<(u64, Vec<OpTransactionReceipt>)>>()
+            .await;
+
+        // Get all the encoded transactions for each block number in parallel.
+        let block_number_to_encoded_transactions = stream::iter(block_number_to_transactions)
+            .map(|(block_number, transactions)| async move {
+                let encoded_transactions = stream::iter(transactions)
+                    .map(|tx_hash| async move {
+                        self.l2_provider
                             .client()
                             .request::<&[B256; 1], Bytes>("debug_getRawTransaction", &[tx_hash])
                             .await
-                            .map_err(|e| anyhow!("Error fetching transaction: {e}"))?;
-                        encoded_transactions.push(tx);
-                    }
-                    encoded_transactions
-                }
-                _ => {
-                    return Err(anyhow::anyhow!(
-                        "Unsupported transaction type: {:?}",
-                        block.transactions
-                    ));
-                }
-            };
+                            .map_err(|e| anyhow!("Error fetching transaction: {e}"))
+                            .unwrap()
+                    })
+                    .buffered(100)
+                    .collect::<Vec<Bytes>>()
+                    .await;
+                (block_number, encoded_transactions)
+            })
+            .buffered(100)
+            .collect::<HashMap<u64, Vec<Bytes>>>()
+            .await;
 
-            // Fetch the receipts which include the L1 gas cost.
-            let receipts = self
-                .l2_provider
-                .get_block_receipts(BlockId::Number(block_number.into()))
-                .await?
-                .unwrap();
+        // Zip the block number to encoded transactions with the block number to receipts.
+        let block_number_to_receipts_and_transactions: HashMap<
+            u64,
+            (Vec<OpTransactionReceipt>, Vec<Bytes>),
+        > = block_receipts
+            .into_iter()
+            .filter_map(|(block_number, receipts)| {
+                block_number_to_encoded_transactions
+                    .get(&block_number)
+                    .map(|transactions| (block_number, (receipts, transactions.clone())))
+            })
+            .collect();
 
-            for (transaction, receipt) in encoded_transactions.iter().zip(receipts) {
+        let mut fee_data = Vec::new();
+        for (block_number, (receipts, transactions)) in block_number_to_receipts_and_transactions {
+            for (transaction, receipt) in transactions.iter().zip(receipts) {
                 // Get the Fjord L1 cost of the transaction.
                 let l1_gas_cost = calculate_tx_l1_cost_fjord(
                     transaction.as_ref(),
@@ -232,17 +274,11 @@ impl OPSuccinctDataFetcher {
                 });
             }
         }
-
-        let duration = start_time.elapsed();
-        println!("Time taken to fetch fee data: {:?}", duration);
-
         Ok(fee_data)
     }
 
     /// Get the fee data for a range of blocks. Extracts the l1 fee data from the receipts.
     pub async fn get_l2_fee_data_range(&self, start: u64, end: u64) -> Result<Vec<FeeData>> {
-        let start_time = std::time::Instant::now();
-
         let l2_provider = self.l2_provider.clone();
 
         use futures::stream::{self, StreamExt};
@@ -276,10 +312,6 @@ impl OPSuccinctDataFetcher {
             .into_iter()
             .flatten()
             .collect();
-
-        let duration = start_time.elapsed();
-        println!("Time taken to fetch fee data: {:?}", duration);
-
         Ok(fee_data)
     }
 
