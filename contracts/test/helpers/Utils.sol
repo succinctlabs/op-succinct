@@ -11,32 +11,7 @@ contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
         address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         Proxy l2OutputOracleProxy = new Proxy(msg.sender);
-        l2OutputOracleProxy.upgradeTo(OPSuccinctL2OutputOracleImpl);
-
-        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
-        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
-            chainId: cfg.chainId,
-            verifierGateway: cfg.verifierGateway,
-            aggregationVkey: cfg.aggregationVkey,
-            rangeVkeyCommitment: cfg.rangeVkeyCommitment,
-            owner: cfg.owner,
-            startingOutputRoot: cfg.startingOutputRoot,
-            rollupConfigHash: cfg.rollupConfigHash
-        });
-
-        l2oo.initialize(
-            cfg.submissionInterval,
-            cfg.l2BlockTime,
-            cfg.startingBlockNumber,
-            cfg.startingTimestamp,
-            cfg.proposer,
-            cfg.challenger,
-            cfg.finalizationPeriod,
-            initParams
-        );
-
-        // Transfer ownership of proxy to owner specified in the config.
-        Proxy(payable(l2OutputOracleProxy)).changeAdmin(cfg.owner);
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, address(l2OutputOracleProxy), true);
 
         return address(l2OutputOracleProxy);
     }
@@ -46,25 +21,33 @@ contract Utils is Test, JSONDecoder {
         address impl,
         Config memory cfg,
         address l2OutputOracleProxy,
-        address _spoofedAdmin,
         bool executeUpgradeCall
     ) public {
-        // require that the verifier gateway is deployed
+        // Require that the verifier gateway is deployed
         require(
             address(cfg.verifierGateway).code.length > 0,
             "OPSuccinctL2OutputOracleUpgrader: verifier gateway not deployed"
         );
 
-        // If we are spoofing the admin (used in testing), start prank.
-        if (_spoofedAdmin != address(0)) vm.startPrank(_spoofedAdmin);
+        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
+            verifierGateway: cfg.verifierGateway,
+            aggregationVkey: cfg.aggregationVkey,
+            rangeVkeyCommitment: cfg.rangeVkeyCommitment,
+            startingOutputRoot: cfg.startingOutputRoot,
+            rollupConfigHash: cfg.rollupConfigHash
+        });
+
 
         bytes memory initializationParams = abi.encodeWithSelector(
-            OPSuccinctL2OutputOracle.upgradeWithInitParams.selector,
-            cfg.chainId,
-            cfg.aggregationVkey,
-            cfg.rangeVkeyCommitment,
-            cfg.verifierGateway,
-            cfg.rollupConfigHash
+            OPSuccinctL2OutputOracle.initialize.selector,
+            cfg.submissionInterval,
+            cfg.l2BlockTime,
+            cfg.startingBlockNumber,
+            cfg.startingTimestamp,
+            cfg.proposer,
+            cfg.challenger,
+            cfg.finalizationPeriod,
+            initParams
         );
 
         if (executeUpgradeCall) {
