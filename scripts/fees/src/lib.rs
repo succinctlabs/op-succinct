@@ -1,8 +1,8 @@
-use std::{env, fmt};
+use std::fmt;
 
 use alloy_primitives::U256;
 use anyhow::Result;
-use op_succinct_host_utils::fetcher::{FeeData, OPSuccinctDataFetcher, RPCConfig};
+use op_succinct_host_utils::fetcher::FeeData;
 
 pub struct AggregateFeeData {
     pub start: u64,
