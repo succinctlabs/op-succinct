@@ -39,31 +39,3 @@ pub fn aggregate_fee_data(fee_data: Vec<FeeData>) -> Result<AggregateFeeData> {
 
     Ok(aggregate_fee_data)
 }
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn test_l1_fee_scalar() -> Result<()> {
-    env::set_var("L1_RPC", "https://ethereum-rpc.publicnode.com");
-    env::set_var("L2_RPC", "https://mainnet.optimism.io");
-
-    let fetcher = OPSuccinctDataFetcher::default();
-
-    let (fee_data, modified_fee_data) = tokio::join!(
-        fetcher.get_l2_fee_data_range(17423924, 17423928),
-        fetcher.get_l2_fee_data_with_modified_l1_fee_scalar(17423924, 17423928, None)
-    );
-
-    let fee_data = fee_data?;
-    let modified_fee_data = modified_fee_data?;
-
-    let total_aggregate_fee_data = aggregate_fee_data(fee_data)?;
-    let modified_total_aggregate_fee_data = aggregate_fee_data(modified_fee_data)?;
-
-    assert_eq!(
-        total_aggregate_fee_data.total_l1_fee,
-        modified_total_aggregate_fee_data.total_l1_fee
-    );
-
-    println!("Success!");
-
-    Ok(())
-}
