@@ -17,12 +17,9 @@ contract Utils is Test, JSONDecoder {
     }
 
     // If `executeUpgradeCall` is false, the upgrade call will not be executed.
-    function upgradeAndInitialize(
-        address impl,
-        Config memory cfg,
-        address l2OutputOracleProxy,
-        bool executeUpgradeCall
-    ) public {
+    function upgradeAndInitialize(address impl, Config memory cfg, address l2OutputOracleProxy, bool executeUpgradeCall)
+        public
+    {
         // Require that the verifier gateway is deployed
         require(
             address(cfg.verifierGateway).code.length > 0,
@@ -36,7 +33,6 @@ contract Utils is Test, JSONDecoder {
             startingOutputRoot: cfg.startingOutputRoot,
             rollupConfigHash: cfg.rollupConfigHash
         });
-
 
         bytes memory initializationParams = abi.encodeWithSelector(
             OPSuccinctL2OutputOracle.initialize.selector,
