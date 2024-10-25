@@ -19,40 +19,7 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
 
-        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
-            aggregationVkey: cfg.aggregationVkey,
-            rangeVkeyCommitment: cfg.rangeVkeyCommitment,
-            verifierGateway: cfg.verifierGateway,
-            startingOutputRoot: cfg.startingOutputRoot,
-            rollupConfigHash: cfg.rollupConfigHash
-        });
-
-        bytes memory initializationParams = abi.encodeWithSelector(
-            OPSuccinctL2OutputOracle.initialize.selector,
-            cfg.submissionInterval,
-            cfg.l2BlockTime,
-            cfg.startingBlockNumber,
-            cfg.startingTimestamp,
-            cfg.proposer,
-            cfg.challenger,
-            cfg.finalizationPeriod,
-            initParams
-        );
-
-        if (executeUpgradeCall) {
-            Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));
-            existingProxy.upgradeToAndCall(OPSuccinctL2OutputOracleImpl, initializationParams);
-        } else {
-            // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata =
-                abi.encodeWithSelector(Proxy.upgradeTo.selector, OPSuccinctL2OutputOracleImpl);
-            console.log("Upgrade calldata:");
-            console.logBytes(multisigCalldata);
-
-            // Raw calldata for an upgrade call with initialization parameters.
-            console.log("Update contract parameter calldata:");
-            console.logBytes(initializationParams);
-        }
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, executeUpgradeCall);
 
         vm.stopBroadcast();
     }

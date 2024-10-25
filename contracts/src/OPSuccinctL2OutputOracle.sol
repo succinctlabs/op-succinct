@@ -129,8 +129,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _challenger          The address of the challenger.
     /// @param _finalizationPeriodSeconds The minimum time (in seconds) that must elapse before a withdrawal
     ///                                   can be finalized.
-    /// @param _initParams          The chain ID, aggregation vkey, range vkey commitment, verifier gateway, owner, and starting output root for the contract.
-    /// @dev Starting block number, timestamp and output root are ignored for upgrades where these values already exist.
+    /// @param _initParams          The aggregation vkey, range vkey commitment, verifier gateway, rollup config hash, and starting output root for the contract.
+    /// @dev Starting block number, timestamp and output root are ignored for upgrades, because these values already exist.
     function initialize(
         uint256 _submissionInterval,
         uint256 _l2BlockTime,
@@ -140,7 +140,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         address _challenger,
         uint256 _finalizationPeriodSeconds,
         InitParams memory _initParams
-    ) public initializer {
+    ) public reinitializer(2) {
         require(_submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
         require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
         require(
@@ -152,7 +152,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         l2BlockTime = _l2BlockTime;
 
         // For proof verification to work, there must be an initial output.
-        // Disregard the _startingBlockNumber and _startingTimestamp parameters for upgrades.
+        // Disregard the _startingBlockNumber and _startingTimestamp parameters during upgrades, as they're already set.
         if (l2Outputs.length == 0) {
             l2Outputs.push(
                 Types.OutputProposal({
