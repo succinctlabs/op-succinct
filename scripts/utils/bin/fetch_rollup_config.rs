@@ -1,4 +1,4 @@
-use alloy::{hex, signers::local::PrivateKeySigner};
+use alloy::{eips::BlockId, hex, signers::local::PrivateKeySigner};
 use alloy_primitives::B256;
 use anyhow::{bail, Result};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
@@ -62,7 +62,7 @@ async fn update_l2oo_config() -> Result<()> {
     // If we are not using a cached starting block number, set it to 10 blocks before the latest block on L2.
     if env::var("USE_CACHED_STARTING_BLOCK").unwrap_or("false".to_string()) != "true" {
         // Set the starting block number to 10 blocks before the latest block on L2.
-        let latest_block = data_fetcher.get_head(RPCMode::L2).await?;
+        let latest_block = data_fetcher.get_l2_header(BlockId::latest()).await?;
         l2oo_config.starting_block_number = latest_block.number - 20;
     }
 
@@ -104,7 +104,7 @@ async fn update_l2oo_config() -> Result<()> {
     l2oo_config.submission_interval = submission_interval;
 
     // Set the chain id.
-    l2oo_config.chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
+    l2oo_config.chain_id = data_fetcher.get_l2_chain_id().await?;
 
     // Get the account associated with the private key.
     let private_key = env::var("PRIVATE_KEY").unwrap();

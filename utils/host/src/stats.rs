@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
+use crate::fetcher::OPSuccinctDataFetcher;
 use num_format::{Locale, ToFormattedString};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{CostEstimator, ExecutionReport};
@@ -115,7 +115,7 @@ impl ExecutionStats {
         end: u64,
     ) {
         let block_data = data_fetcher
-            .get_block_data_range(RPCMode::L2, start, end)
+            .get_l2_block_data_range(start, end)
             .await
             .expect("Failed to fetch block data range.");
 
