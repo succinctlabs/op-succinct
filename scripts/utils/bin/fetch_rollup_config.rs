@@ -101,16 +101,12 @@ async fn update_l2oo_config() -> Result<()> {
         .parse()?;
     l2oo_config.submission_interval = submission_interval;
 
-    // Set the chain id.
-    l2oo_config.chain_id = data_fetcher.get_chain_id(RPCMode::L2).await?;
-
     // Get the account associated with the private key.
     let private_key = env::var("PRIVATE_KEY").unwrap();
     let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
     let address = signer.address();
 
     // Set the owner and proposer to the account associated with the private key.
-    l2oo_config.owner = address.to_string();
     l2oo_config.proposer = address.to_string();
 
     // Set the vkey.
