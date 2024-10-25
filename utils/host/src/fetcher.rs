@@ -9,7 +9,6 @@ use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
-use futures::TryStreamExt;
 use kona_host::HostCli;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
@@ -175,7 +174,7 @@ impl OPSuccinctDataFetcher {
         &self,
         start: u64,
         end: u64,
-        l1_fee_scalar: U256,
+        custom_l1_fee_scalar: Option<U256>,
     ) -> Result<Vec<FeeData>> {
         use futures::stream::{self, StreamExt};
 
@@ -257,11 +256,16 @@ impl OPSuccinctDataFetcher {
         let mut fee_data = Vec::new();
         for (block_number, (receipts, transactions)) in block_number_to_receipts_and_transactions {
             for (transaction, receipt) in transactions.iter().zip(receipts) {
+                let l1_fee_scalar = if let Some(custom_l1_fee_scalar) = custom_l1_fee_scalar {
+                    custom_l1_fee_scalar
+                } else {
+                    U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0))
+                };
                 // Get the Fjord L1 cost of the transaction.
                 let l1_gas_cost = calculate_tx_l1_cost_fjord(
                     transaction.as_ref(),
                     U256::from(receipt.l1_block_info.l1_gas_price.unwrap_or(0)),
-                    U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0)),
+                    l1_fee_scalar,
                     U256::from(receipt.l1_block_info.l1_blob_base_fee.unwrap_or(0)),
                     U256::from(receipt.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0)),
                 );

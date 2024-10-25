@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use alloy_primitives::U256;
 use anyhow::Result;
 use clap::Parser;
@@ -10,6 +12,8 @@ struct Args {
     start: u64,
     #[clap(long)]
     end: u64,
+    #[clap(long, default_value = None)]
+    l1_fee_scalar: Option<U256>,
     #[clap(long, default_value = ".env")]
     env_file: String,
 }
@@ -20,21 +24,22 @@ async fn main() -> Result<()> {
     dotenv::from_filename(args.env_file).ok();
     let fetcher = OPSuccinctDataFetcher::default();
 
-    let fee_data = fetcher.get_l2_fee_data_range(args.start, args.end).await?;
+    let start_time = Instant::now();
+    let (fee_data, modified_fee_data) = tokio::join!(
+        fetcher.get_l2_fee_data_range(args.start, args.end),
+        fetcher.get_l2_fee_data_with_modified_l1_fee_scalar(
+            args.start,
+            args.end,
+            args.l1_fee_scalar
+        )
+    );
+    let duration = start_time.elapsed();
+    println!("Done getting fee data. Time taken: {:?}", duration);
 
-    let modified_fee_data = fetcher
-        .get_l2_fee_data_with_modified_l1_fee_scalar(args.start, args.end, U256::from(1000000000))
-        .await?;
+    let fee_data = fee_data?;
+    let modified_fee_data = modified_fee_data?;
 
     let total_aggregate_fee_data = aggregate_fee_data(fee_data)?;
-    // println!(
-    //     "Start: {}, End: {}, Aggregate: {} transactions, {:.18} GWei L1 fee",
-    //     aggregate_fee_data.start,
-    //     aggregate_fee_data.end,
-    //     aggregate_fee_data.num_transactions,
-    //     (aggregate_fee_data.total_l1_fee) / U256::from(10).pow(U256::from(9))
-    // );
-
     let modified_total_aggregate_fee_data = aggregate_fee_data(modified_fee_data)?;
 
     println!("{modified_total_aggregate_fee_data}");

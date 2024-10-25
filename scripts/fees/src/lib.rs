@@ -50,11 +50,13 @@ async fn test_l1_fee_scalar() -> Result<()> {
         ..Default::default()
     };
 
-    let fee_data = fetcher.get_l2_fee_data_range(17423924, 17423925).await?;
+    let (fee_data, modified_fee_data) = tokio::join!(
+        fetcher.get_l2_fee_data_range(17423924, 17423925),
+        fetcher.get_l2_fee_data_with_modified_l1_fee_scalar(17423924, 17423925, None)
+    );
 
-    let modified_fee_data = fetcher
-        .get_l2_fee_data_with_modified_l1_fee_scalar(17423924, 17423925, U256::from(1000000000))
-        .await?;
+    let fee_data = fee_data?;
+    let modified_fee_data = modified_fee_data?;
 
     // for data in fee_data {
     //     println!(
