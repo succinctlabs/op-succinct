@@ -122,7 +122,7 @@ async fn main() -> Result<()> {
 
         let mut stats = ExecutionStats::default();
         stats
-            .add_block_data(&data_fetcher, args.start, args.end)
+            .add_block_data(&data_fetcher, args.start + 1, args.end)
             .await;
         stats.add_report_data(&report);
         stats.add_aggregate_data();
