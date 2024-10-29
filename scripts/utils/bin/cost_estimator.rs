@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use futures::StreamExt;
 use kona_host::HostCli;
 use log::info;
 use op_succinct_host_utils::{
@@ -9,7 +10,7 @@ use op_succinct_host_utils::{
     witnessgen::WitnessGenExecutor,
     ProgramType,
 };
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
 use std::{
@@ -43,6 +44,9 @@ struct HostArgs {
     /// The path to the CSV file containing the execution data.
     #[clap(long, default_value = "report.csv")]
     report_path: PathBuf,
+    /// Use cached witness generation.
+    #[clap(long)]
+    use_cache: bool,
     /// The environment file to use.
     #[clap(long, default_value = ".env")]
     env_file: PathBuf,
@@ -50,12 +54,6 @@ struct HostArgs {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SpanBatchRange {
-    start: u64,
-    end: u64,
-}
-
-struct BatchHostCli {
-    host_cli: HostCli,
     start: u64,
     end: u64,
 }
@@ -90,49 +88,23 @@ fn split_range(start: u64, end: u64, l2_chain_id: u64) -> Vec<SpanBatchRange> {
 }
 
 /// Concurrently run the native data generation process for each split range.
-async fn run_native_data_generation(
-    data_fetcher: &OPSuccinctDataFetcher,
-    split_ranges: &[SpanBatchRange],
-) -> Vec<BatchHostCli> {
+async fn run_native_data_generation(host_clis: &[HostCli]) {
     const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
 
     // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
     // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
     // being overloaded with too many concurrent requests, while also improving witness generation
     // throughput.
-    let batch_host_clis = split_ranges
-        .chunks(CONCURRENT_NATIVE_HOST_RUNNERS)
-        .map(|chunk| {
-            let mut witnessgen_executor = WitnessGenExecutor::default();
+    for chunk in host_clis.chunks(CONCURRENT_NATIVE_HOST_RUNNERS) {
+        let mut witnessgen_executor = WitnessGenExecutor::default();
 
-            let mut batch_host_clis = Vec::new();
-            for range in chunk.iter() {
-                let host_cli = block_on(data_fetcher.get_host_cli_args(
-                    range.start,
-                    range.end,
-                    ProgramType::Multi,
-                    CacheMode::DeleteCache,
-                ))
-                .expect("Failed to get host CLI args");
+        for host_cli in chunk {
+            block_on(witnessgen_executor.spawn_witnessgen(host_cli))
+                .expect("Failed to spawn witness generation process");
+        }
 
-                batch_host_clis.push(BatchHostCli {
-                    host_cli: host_cli.clone(),
-                    start: range.start,
-                    end: range.end,
-                });
-                block_on(witnessgen_executor.spawn_witnessgen(&host_cli))
-                    .expect("Failed to spawn witness generation process.");
-            }
-
-            let res = block_on(witnessgen_executor.flush());
-            if res.is_err() {
-                panic!("Failed to generate witnesses: {:?}", res.err().unwrap());
-            }
-
-            batch_host_clis
-        });
-
-    batch_host_clis.into_iter().flatten().collect()
+        block_on(witnessgen_executor.flush()).expect("Failed to generate witnesses");
+    }
 }
 
 /// Utility method for blocking on an async function.
@@ -152,7 +124,8 @@ pub fn block_on<T>(fut: impl Future<Output = T>) -> T {
 
 /// Run the zkVM execution process for each split range in parallel.
 async fn execute_blocks_parallel(
-    host_clis: Vec<BatchHostCli>,
+    host_clis: &[HostCli],
+    ranges: Vec<SpanBatchRange>,
     prover: &ProverClient,
 ) -> Vec<ExecutionStats> {
     // Create a new execution stats map between the start and end block and the default ExecutionStats.
@@ -160,41 +133,53 @@ async fn execute_blocks_parallel(
 
     // Fetch all of the execution stats block ranges in parallel.
     let mut handles = Vec::new();
-    for (start, end) in host_clis.iter().map(|r| (r.start, r.end)) {
+    for range in ranges.clone() {
         let execution_stats_map = Arc::clone(&execution_stats_map);
         let handle = tokio::spawn(async move {
             // Create a new data fetcher. This avoids the runtime dropping the provider dispatch task.
             let data_fetcher = OPSuccinctDataFetcher::default();
             let mut exec_stats = ExecutionStats::default();
-            exec_stats.add_block_data(&data_fetcher, start, end).await;
+            exec_stats
+                .add_block_data(&data_fetcher, range.start, range.end)
+                .await;
             let mut execution_stats_map = execution_stats_map.lock().unwrap();
-            execution_stats_map.insert((start, end), exec_stats);
+            execution_stats_map.insert((range.start, range.end), exec_stats);
         });
         handles.push(handle);
     }
     futures::future::join_all(handles).await;
 
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
-    host_clis.par_iter().for_each(|r| {
-        let sp1_stdin = get_proof_stdin(&r.host_cli).unwrap();
+    host_clis
+        .chunks(5)
+        .zip(ranges.chunks(5))
+        .for_each(|(cli_batch, range_batch)| {
+            cli_batch
+                .par_iter()
+                .zip(range_batch.par_iter())
+                .for_each(|(host_cli, range)| {
+                    let sp1_stdin = get_proof_stdin(&host_cli).unwrap();
 
-        // TODO: Implement retries with a smaller block range if this fails.
-        let (_, report) = prover
-            .execute(MULTI_BLOCK_ELF, sp1_stdin)
-            .run()
-            .unwrap_or_else(|e| {
-                panic!(
-                    "Failed to execute blocks {:?} - {:?}: {:?}",
-                    r.start, r.end, e
-                )
-            });
+                    // TODO: Implement retries with a smaller block range if this fails.
+                    let (_, report) = prover
+                        .execute(MULTI_BLOCK_ELF, sp1_stdin)
+                        .run()
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Failed to execute blocks {:?} - {:?}: {:?}",
+                                range.start, range.end, e
+                            )
+                        });
 
-        // Get the existing execution stats and modify it in place.
-        let mut execution_stats_map = execution_stats_map.lock().unwrap();
-        let exec_stats = execution_stats_map.get_mut(&(r.start, r.end)).unwrap();
-        exec_stats.add_report_data(&report);
-        exec_stats.add_aggregate_data();
-    });
+                    // Get the existing execution stats and modify it in place.
+                    let mut execution_stats_map = execution_stats_map.lock().unwrap();
+                    let exec_stats = execution_stats_map
+                        .get_mut(&(range.start, range.end))
+                        .unwrap();
+                    exec_stats.add_report_data(&report);
+                    exec_stats.add_aggregate_data();
+                });
+        });
 
     info!("Execution is complete.");
 
@@ -309,12 +294,38 @@ async fn main() -> Result<()> {
 
     let prover = ProverClient::new();
 
+    let cache_mode = if args.use_cache {
+        CacheMode::KeepCache
+    } else {
+        CacheMode::DeleteCache
+    };
+
+    // Get the host CLIs in order, in parallel.
+    let host_clis = futures::stream::iter(split_ranges.iter())
+        .map(|range| async {
+            data_fetcher
+                .get_host_cli_args(
+                    range.start,
+                    range.end,
+                    ProgramType::Multi,
+                    cache_mode,
+                )
+                .await
+                .expect("Failed to get host CLI args")
+        })
+        .buffered(15)
+        .collect::<Vec<_>>()
+        .await;
+
     let start_time = Instant::now();
-    let host_clis = run_native_data_generation(&data_fetcher, &split_ranges).await;
+    if !args.use_cache {
+        // Get the host CLI args
+        run_native_data_generation(&host_clis).await;
+    }
     let witness_generation_time_sec = start_time.elapsed().as_secs();
 
     let start_time = Instant::now();
-    let execution_stats = execute_blocks_parallel(host_clis, &prover).await;
+    let execution_stats = execute_blocks_parallel(&host_clis, split_ranges, &prover).await;
     let total_execution_time_sec = start_time.elapsed().as_secs();
 
     // Sort the execution stats by batch start block.

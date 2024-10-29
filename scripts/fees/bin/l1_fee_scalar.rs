@@ -46,8 +46,8 @@ async fn main() -> Result<()> {
     println!("{total_aggregate_fee_data}");
 
     assert_eq!(
-        total_aggregate_fee_data.total_l1_fee,
-        modified_total_aggregate_fee_data.total_l1_fee
+        total_aggregate_fee_data.total_l1_fees,
+        modified_total_aggregate_fee_data.total_l1_fees
     );
 
     println!("Success!");

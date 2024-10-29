@@ -102,7 +102,8 @@ pub struct FeeData {
     pub block_number: u64,
     pub tx_index: u64,
     pub tx_hash: B256,
-    pub l1_gas_cost: U256,
+    pub l1_fee: U256,
+    pub total_fee: u128,
 }
 
 impl OPSuccinctDataFetcher {
@@ -263,7 +264,7 @@ impl OPSuccinctDataFetcher {
                     U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0))
                 };
                 // Get the Fjord L1 cost of the transaction.
-                let l1_gas_cost = calculate_tx_l1_cost_fjord(
+                let l1_fee = calculate_tx_l1_cost_fjord(
                     transaction.as_ref(),
                     U256::from(receipt.l1_block_info.l1_gas_price.unwrap_or(0)),
                     l1_fee_scalar,
@@ -275,7 +276,8 @@ impl OPSuccinctDataFetcher {
                     block_number,
                     tx_index: receipt.inner.transaction_index.unwrap(),
                     tx_hash: receipt.inner.transaction_hash,
-                    l1_gas_cost,
+                    l1_fee,
+                    total_fee: receipt.inner.effective_gas_price,
                 });
             }
         }
@@ -305,7 +307,8 @@ impl OPSuccinctDataFetcher {
                             block_number,
                             tx_index: tx_index as u64,
                             tx_hash: tx.inner.transaction_hash,
-                            l1_gas_cost: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
+                            l1_fee: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
+                            total_fee: tx.inner.effective_gas_price,
                         })
                         .collect();
                     block_fee_data
