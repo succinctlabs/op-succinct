@@ -43,6 +43,9 @@ struct HostArgs {
     /// The path to the CSV file containing the execution data.
     #[clap(long, default_value = "report.csv")]
     report_path: PathBuf,
+    /// The environment file to use.
+    #[clap(long, default_value = ".env")]
+    env_file: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,7 +62,7 @@ struct BatchHostCli {
 
 fn get_max_span_batch_range_size(l2_chain_id: u64) -> u64 {
     // TODO: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
-    const DEFAULT_SIZE: u64 = 1000;
+    const DEFAULT_SIZE: u64 = 300;
     match l2_chain_id {
         8453 => 5,      // Base
         11155420 => 30, // OP Sepolia
@@ -288,10 +291,11 @@ fn aggregate_execution_stats(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv::dotenv().ok();
+    let args = HostArgs::parse();
+
+    dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let args = HostArgs::parse();
     let data_fetcher = OPSuccinctDataFetcher::default();
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
