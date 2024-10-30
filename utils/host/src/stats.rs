@@ -25,6 +25,7 @@ pub struct ExecutionStats {
     pub nb_transactions: u64,
     pub eth_gas_used: u64,
     pub l1_fees: U256,
+    pub total_tx_fees: u128,
     pub cycles_per_block: u64,
     pub cycles_per_transaction: u64,
     pub transactions_per_block: u64,
@@ -125,7 +126,8 @@ impl ExecutionStats {
         self.batch_end = end;
         self.nb_transactions = block_data.iter().map(|b| b.transaction_count).sum();
         self.eth_gas_used = block_data.iter().map(|b| b.gas_used).sum();
-        self.l1_fees = block_data.iter().map(|b| b.l1_gas_cost).sum();
+        self.l1_fees = block_data.iter().map(|b| b.total_l1_fees).sum();
+        self.total_tx_fees = block_data.iter().map(|b| b.total_tx_fees).sum();
         self.nb_blocks = end - start + 1;
     }
 

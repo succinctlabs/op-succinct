@@ -94,7 +94,8 @@ pub struct BlockInfo {
     pub block_number: u64,
     pub transaction_count: u64,
     pub gas_used: u64,
-    pub l1_gas_cost: U256,
+    pub total_l1_fees: U256,
+    pub total_tx_fees: u128,
 }
 
 /// The fee data for a block.
@@ -103,6 +104,7 @@ pub struct FeeData {
     pub tx_index: u64,
     pub tx_hash: B256,
     pub l1_gas_cost: U256,
+    pub tx_fee: u128,
 }
 
 impl OPSuccinctDataFetcher {
@@ -276,6 +278,7 @@ impl OPSuccinctDataFetcher {
                     tx_index: receipt.inner.transaction_index.unwrap(),
                     tx_hash: receipt.inner.transaction_hash,
                     l1_gas_cost,
+                    tx_fee: receipt.inner.effective_gas_price,
                 });
             }
         }
@@ -306,6 +309,7 @@ impl OPSuccinctDataFetcher {
                             tx_index: tx_index as u64,
                             tx_hash: tx.inner.transaction_hash,
                             l1_gas_cost: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
+                            tx_fee: tx.inner.effective_gas_price,
                         })
                         .collect();
                     block_fee_data
@@ -337,15 +341,18 @@ impl OPSuccinctDataFetcher {
                         .get_block_receipts(block_number.into())
                         .await?
                         .unwrap();
-                    let l1_gas_cost: U256 = receipts
+                    let total_l1_fees: U256 = receipts
                         .iter()
                         .map(|tx| U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)))
                         .sum();
+                    let total_tx_fees: u128 =
+                        receipts.iter().map(|tx| tx.inner.effective_gas_price).sum();
                     Ok(BlockInfo {
                         block_number,
                         transaction_count: block.transactions.len() as u64,
                         gas_used: block.header.gas_used,
-                        l1_gas_cost,
+                        total_l1_fees,
+                        total_tx_fees,
                     })
                 }
             })
