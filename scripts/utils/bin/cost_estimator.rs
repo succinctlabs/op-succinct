@@ -158,6 +158,14 @@ async fn execute_blocks_parallel(
     }
     futures::future::join_all(handles).await;
 
+    let report_path = PathBuf::from(format!(
+        "execution-reports/{}/{}-{}-report.csv",
+        l2_chain_id, args.start, args.end
+    ));
+    if let Some(parent) = report_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
     host_clis
         .chunks(5)
@@ -187,6 +195,12 @@ async fn execute_blocks_parallel(
                         .unwrap();
                     exec_stats.add_report_data(&report);
                     exec_stats.add_aggregate_data();
+
+                    let mut csv_writer = csv::Writer::from_path(report_path).unwrap();
+                    csv_writer
+                        .serialize(exec_stats)
+                        .expect("Failed to write execution stats to CSV.");
+                    csv_writer.flush().expect("Failed to flush CSV writer.");
                 });
         });
 

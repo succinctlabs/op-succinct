@@ -10,6 +10,7 @@ use anyhow::anyhow;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
+use log::{debug, info};
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind},
@@ -335,6 +336,9 @@ impl OPSuccinctDataFetcher {
             .map(|block_number| {
                 let l2_provider = l2_provider.clone();
                 async move {
+                    if block_number % 1000 == 0 {
+                        info!("Fetching block: {}", block_number);
+                    }
                     let block = l2_provider
                         .get_block_by_number(block_number.into(), false)
                         .await?
@@ -366,7 +370,7 @@ impl OPSuccinctDataFetcher {
                     })
                 }
             })
-            .buffered(100)
+            .buffered(300)
             .collect::<Vec<Result<BlockInfo>>>()
             .await;
 
