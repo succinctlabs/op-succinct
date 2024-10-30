@@ -397,18 +397,24 @@ impl OPSuccinctDataFetcher {
             let block_timestamp = block.header.timestamp;
 
             match block_timestamp.cmp(&target_timestamp) {
-                Ordering::Equal => return Ok(block.header.hash.0.into()),
+                Ordering::Equal => {
+                    println!("L1 Head from Timestamp: {:?}", block.header.number);
+                    return Ok(block.header.hash.0.into());
+                }
                 Ordering::Less => low = mid + 1,
                 Ordering::Greater => high = mid - 1,
             }
         }
 
+        println!("Low: {:?}", low);
+
         // Return the block hash of the closest block after the target timestamp
         let block = self
             .l1_provider
-            .get_block(low.into(), BlockTransactionsKind::Hashes)
+            .get_block((low - 10).into(), BlockTransactionsKind::Hashes)
             .await?
             .unwrap();
+        println!("L1 Head from Timestamp: {:?}", block.header.number);
         Ok(block.header.hash.0.into())
     }
 
@@ -600,7 +606,7 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        let l1_head = self.get_l1_head(l2_end_block).await?;
+        let l1_head = self.get_l1_head(l2_start_block, l2_end_block).await?;
 
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
@@ -678,7 +684,24 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the L1 block from which the `l2_end_block` can be derived.
-    async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<B256> {
+    async fn get_l1_head_with_safe_head(
+        &self,
+        l2_start_block: u64,
+        l2_end_block: u64,
+    ) -> Result<B256> {
+        let l2_start_block_hex = format!("0x{:x}", l2_start_block);
+        let optimism_output_data: OutputResponse = self
+            .fetch_rpc_data(
+                RPCMode::L2Node,
+                "optimism_outputAtBlock",
+                vec![l2_start_block_hex.into()],
+            )
+            .await?;
+        println!(
+            "L1 Origin of L2 Start Block: {:?}",
+            optimism_output_data.block_ref.l1_origin.number
+        );
+
         let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
 
         // Get the l1 origin of the l2 end block.
@@ -692,12 +715,17 @@ impl OPSuccinctDataFetcher {
             .await?;
 
         let l1_origin = optimism_output_data.block_ref.l1_origin;
+        println!("L1 Origin of L2 End Block: {:?}", l1_origin.number);
 
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;
         loop {
+            println!("loop");
             // If the current L1 block number is greater than the latest L1 header number, then return an error.
             if current_l1_block_number > latest_l1_header.number {
+                println!(
+                    "Could not find an L1 block with an L2 safe head greater than the L2 end block."
+                );
                 return Err(anyhow::anyhow!(
                     "Could not find an L1 block with an L2 safe head greater than the L2 end block."
                 ));
@@ -713,6 +741,7 @@ impl OPSuccinctDataFetcher {
                 .await?;
             let l2_safe_head = result.safe_head.number;
             if l2_safe_head > l2_end_block {
+                println!("The L1 Head chosen is {:?}", result.l1_block.number);
                 return Ok(result.l1_block.hash);
             }
 
@@ -726,9 +755,11 @@ impl OPSuccinctDataFetcher {
     /// the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
     /// relevant L2 block data can be derived.
     /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
-    async fn get_l1_head(&self, l2_end_block: u64) -> Result<B256> {
+    async fn get_l1_head(&self, l2_start_block: u64, l2_end_block: u64) -> Result<B256> {
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
-        let result = self.get_l1_head_with_safe_head(l2_end_block).await;
+        let result = self
+            .get_l1_head_with_safe_head(l2_start_block, l2_end_block)
+            .await;
 
         if let Ok(safe_head_at_l1_block) = result {
             Ok(safe_head_at_l1_block)
@@ -769,6 +800,9 @@ mod tests {
         // Get the L2 block number from 1 hour ago.
         let l2_end_block = latest_l2_block.number - ((60 * 60) / fetcher.rollup_config.block_time);
 
-        let _ = fetcher.get_l1_head(l2_end_block).await.unwrap();
+        let _ = fetcher
+            .get_l1_head(latest_l2_block.number, l2_end_block)
+            .await
+            .unwrap();
     }
 }

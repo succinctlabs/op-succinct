@@ -35,8 +35,8 @@ struct HostArgs {
     #[clap(long)]
     end: u64,
     /// The number of blocks to execute in a single batch.
-    #[clap(long, default_value = "5")]
-    batch_size: usize,
+    #[clap(long)]
+    batch_size: Option<u64>,
     /// Whether to generate a proof or just execute the block.
     #[clap(long)]
     prove: bool,
@@ -57,22 +57,28 @@ struct BatchHostCli {
     end: u64,
 }
 
-fn get_max_span_batch_range_size(l2_chain_id: u64) -> u64 {
+fn get_max_span_batch_range_size(l2_chain_id: u64, supplied_range_size: Option<u64>) -> u64 {
     // TODO: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
     const DEFAULT_SIZE: u64 = 1000;
+    let default_size = supplied_range_size.unwrap_or(DEFAULT_SIZE);
     match l2_chain_id {
         8453 => 5,      // Base
         11155420 => 30, // OP Sepolia
         10 => 10,       // OP Mainnet
-        _ => DEFAULT_SIZE,
+        _ => default_size,
     }
 }
 
 /// Split a range of blocks into a list of span batch ranges.
-fn split_range(start: u64, end: u64, l2_chain_id: u64) -> Vec<SpanBatchRange> {
+fn split_range(
+    start: u64,
+    end: u64,
+    l2_chain_id: u64,
+    supplied_range_size: Option<u64>,
+) -> Vec<SpanBatchRange> {
     let mut ranges = Vec::new();
     let mut current_start = start;
-    let max_size = get_max_span_batch_range_size(l2_chain_id);
+    let max_size = get_max_span_batch_range_size(l2_chain_id, supplied_range_size);
 
     while current_start < end {
         let current_end = min(current_start + max_size, end);
@@ -296,7 +302,7 @@ async fn main() -> Result<()> {
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-    let split_ranges = split_range(args.start, args.end, l2_chain_id);
+    let split_ranges = split_range(args.start, args.end, l2_chain_id, args.batch_size);
 
     info!(
         "The span batch ranges which will be executed: {:?}",

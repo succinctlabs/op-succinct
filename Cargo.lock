@@ -4332,6 +4332,7 @@ dependencies = [
  "clap",
  "csv",
  "dotenv",
+ "kona-host",
  "num-format",
  "op-alloy-genesis",
  "op-succinct-build-utils",
