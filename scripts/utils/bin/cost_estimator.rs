@@ -16,8 +16,9 @@ use sp1_sdk::{utils, ProverClient};
 use std::{
     cmp::{max, min},
     collections::HashMap,
-    fs::{self},
+    fs::{self, OpenOptions},
     future::Future,
+    io::Seek,
     path::PathBuf,
     sync::{Arc, Mutex},
     time::Instant,
@@ -194,7 +195,20 @@ async fn execute_blocks_parallel(
             exec_stats.add_report_data(&report);
             exec_stats.add_aggregate_data();
 
-            let mut csv_writer = csv::Writer::from_path(&report_path).unwrap();
+            let mut file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .append(true)
+                .open(&report_path)
+                .unwrap();
+
+            // Writes the headers only if the file is empty.
+            let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+
+            let mut csv_writer = csv::WriterBuilder::new()
+                .has_headers(needs_header)
+                .from_writer(file);
+
             csv_writer
                 .serialize(exec_stats)
                 .expect("Failed to write execution stats to CSV.");
