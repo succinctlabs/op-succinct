@@ -20,6 +20,7 @@ use op_alloy_rpc_types::{
     output::OutputResponse, safe_head::SafeHeadResponse, OpTransactionReceipt,
 };
 use op_succinct_client_utils::boot::BootInfoStruct;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sp1_sdk::block_on;
 use std::{
@@ -90,6 +91,7 @@ fn get_rpcs() -> RPCConfig {
 }
 
 /// The info to fetch for a block.
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BlockInfo {
     pub block_number: u64,
     pub transaction_count: u64,
@@ -278,7 +280,7 @@ impl OPSuccinctDataFetcher {
                     tx_index: receipt.inner.transaction_index.unwrap(),
                     tx_hash: receipt.inner.transaction_hash,
                     l1_gas_cost,
-                    tx_fee: receipt.inner.effective_gas_price,
+                    tx_fee: receipt.inner.effective_gas_price * receipt.inner.gas_used,
                 });
             }
         }
@@ -309,7 +311,7 @@ impl OPSuccinctDataFetcher {
                             tx_index: tx_index as u64,
                             tx_hash: tx.inner.transaction_hash,
                             l1_gas_cost: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
-                            tx_fee: tx.inner.effective_gas_price,
+                            tx_fee: tx.inner.effective_gas_price * tx.inner.gas_used,
                         })
                         .collect();
                     block_fee_data
@@ -345,8 +347,10 @@ impl OPSuccinctDataFetcher {
                         .iter()
                         .map(|tx| U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)))
                         .sum();
-                    let total_tx_fees: u128 =
-                        receipts.iter().map(|tx| tx.inner.effective_gas_price).sum();
+                    let total_tx_fees: u128 = receipts
+                        .iter()
+                        .map(|tx| tx.inner.effective_gas_price * tx.inner.gas_used)
+                        .sum();
                     Ok(BlockInfo {
                         block_number,
                         transaction_count: block.transactions.len() as u64,

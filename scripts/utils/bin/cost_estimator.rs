@@ -4,7 +4,7 @@ use futures::StreamExt;
 use kona_host::HostCli;
 use log::info;
 use op_succinct_host_utils::{
-    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    fetcher::{BlockInfo, CacheMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::ExecutionStats,
     witnessgen::WitnessGenExecutor,
@@ -50,6 +50,9 @@ struct HostArgs {
     /// The environment file to use.
     #[clap(long, default_value = ".env")]
     env_file: PathBuf,
+    /// Configuration flag for whether to just grab the block data and not execute the blocks.
+    #[clap(long)]
+    fast: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,6 +202,32 @@ async fn execute_blocks_parallel(
     execution_stats
 }
 
+/// Write the block data to a CSV file.
+fn write_block_data_to_csv(
+    block_data: &[BlockInfo],
+    l2_chain_id: u64,
+    args: &HostArgs,
+) -> Result<()> {
+    let report_path = PathBuf::from(format!(
+        "block-data/{}/{}-{}-block-data.csv",
+        l2_chain_id, args.start, args.end
+    ));
+    if let Some(parent) = report_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    let mut csv_writer = csv::Writer::from_path(report_path)?;
+
+    for block in block_data {
+        csv_writer
+            .serialize(block)
+            .expect("Failed to write execution stats to CSV.");
+    }
+    csv_writer.flush().expect("Failed to flush CSV writer.");
+
+    Ok(())
+}
+
 /// Write the execution stats to a CSV file.
 fn write_execution_stats_to_csv(
     execution_stats: &[ExecutionStats],
@@ -290,6 +319,15 @@ async fn main() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::default();
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
+
+    // If we want to execute fast, just get the block data and return.
+    if args.fast {
+        let l2_block_data = data_fetcher
+            .get_l2_block_data_range(args.start, args.end)
+            .await?;
+        write_block_data_to_csv(&l2_block_data, l2_chain_id, &args)?;
+        return Ok(());
+    }
 
     let split_ranges = split_range(args.start, args.end, l2_chain_id, args.batch_size);
 
