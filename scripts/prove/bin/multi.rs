@@ -36,7 +36,7 @@ struct Args {
     prove: bool,
 
     /// Env file.
-    #[arg(short, long, default_value = ".env")]
+    #[arg(long, default_value = ".env")]
     env_file: Option<String>,
 }
 
@@ -106,6 +106,11 @@ async fn main() -> Result<()> {
             .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
             .run()
             .unwrap();
+        println!(
+            "Load Batch Cycles: {:?}",
+            report.cycle_tracker.get("load-batch").unwrap_or(&0)
+        );
+
         let execution_duration = start_time.elapsed();
 
         let l2_chain_id = data_fetcher.get_l2_chain_id().await.unwrap();

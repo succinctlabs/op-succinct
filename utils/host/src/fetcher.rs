@@ -400,7 +400,10 @@ impl OPSuccinctDataFetcher {
             let block_timestamp = block.header.timestamp;
 
             match block_timestamp.cmp(&target_timestamp) {
-                Ordering::Equal => return Ok(block.header.hash.0.into()),
+                Ordering::Equal => {
+                    println!("L1 Head selected is: {:?}", block.header.number);
+                    return Ok(block.header.hash.0.into());
+                }
                 Ordering::Less => low = mid + 1,
                 Ordering::Greater => high = mid - 1,
             }
@@ -412,6 +415,11 @@ impl OPSuccinctDataFetcher {
             .get_block(low.into(), BlockTransactionsKind::Hashes)
             .await?
             .unwrap();
+
+        println!(
+            "The block number of the found block is: {:?}",
+            block.header.number
+        );
         Ok(block.header.hash.0.into())
     }
 
@@ -685,6 +693,19 @@ impl OPSuccinctDataFetcher {
         let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
 
         // Get the l1 origin of the l2 end block.
+        let l2_end_block_hex = format!("0x{:x}", l2_end_block - 300);
+        let optimism_output_data: OutputResponse = self
+            .fetch_rpc_data(
+                RPCMode::L2Node,
+                "optimism_outputAtBlock",
+                vec![l2_end_block_hex.into()],
+            )
+            .await?;
+
+        let l1_origin = optimism_output_data.block_ref.l1_origin;
+
+        println!("The L1 origin of the start block is: {:?}", l1_origin.number);
+
         let l2_end_block_hex = format!("0x{:x}", l2_end_block);
         let optimism_output_data: OutputResponse = self
             .fetch_rpc_data(
@@ -695,6 +716,8 @@ impl OPSuccinctDataFetcher {
             .await?;
 
         let l1_origin = optimism_output_data.block_ref.l1_origin;
+
+        println!("The L1 origin of the end block is: {:?}", l1_origin.number);
 
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;
@@ -716,6 +739,8 @@ impl OPSuccinctDataFetcher {
                 .await?;
             let l2_safe_head = result.safe_head.number;
             if l2_safe_head > l2_end_block {
+                println!("The L2 safe head at L1 block is: {:?}", l2_safe_head);
+
                 return Ok(result.l1_block.hash);
             }
 
@@ -733,6 +758,8 @@ impl OPSuccinctDataFetcher {
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
 
+        println!("The result is: {:?}", result);
+
         if let Ok(safe_head_at_l1_block) = result {
             Ok(safe_head_at_l1_block)
         } else {
@@ -748,7 +775,11 @@ impl OPSuccinctDataFetcher {
             // Get L1 head.
             let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
 
+            println!("The L2 block timestamp is: {:?}", l2_block_timestamp);
+
             let target_timestamp = l2_block_timestamp + (max_batch_post_delay_minutes * 60);
+
+            println!("The target timestamp is: {:?}", target_timestamp);
             Ok(self
                 .find_l1_block_hash_by_timestamp(target_timestamp)
                 .await?)

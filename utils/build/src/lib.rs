@@ -62,8 +62,8 @@ fn build_zkvm_program(program: &str) {
         &format!("{}/{}", metadata.workspace_root.join("programs"), program),
         BuildArgs {
             elf_name: format!("{}-elf", program),
-            docker: true,
-            tag: "v3.0.0".to_string(),
+            // docker: true,
+            // tag: "v3.0.0".to_string(),
             ..Default::default()
         },
     );
@@ -72,13 +72,14 @@ fn build_zkvm_program(program: &str) {
 /// Build all the native programs and the native host runner. Optional flag to build the zkVM
 /// programs.
 pub fn build_all() {
-    let programs = vec!["fault-proof", "range"];
+    // let programs = vec!["fault-proof", "range"];
+    let programs = vec!["range"];
 
     for program in programs {
         // Note: Don't comment this out, because the Docker program depends on the native program
         // for range being built.
         build_native_program(program);
-        // build_zkvm_program(program);
+        build_zkvm_program(program);
     }
 
     // build_zkvm_program("aggregation");

@@ -3425,7 +3425,6 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3458,7 +3457,6 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "cfg-if",
  "linked_list_allocator",
@@ -3468,7 +3466,6 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3481,7 +3478,6 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3507,7 +3503,6 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3524,7 +3519,6 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3561,7 +3555,6 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.8",
@@ -3576,7 +3569,6 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.0.3"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-primitives 0.8.8",
  "async-trait",
@@ -3589,7 +3581,6 @@ dependencies = [
 [[package]]
 name = "kona-primitives"
 version = "0.0.2"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-eips",
  "alloy-primitives 0.8.8",
@@ -3605,7 +3596,6 @@ dependencies = [
 [[package]]
 name = "kona-providers"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.8",
@@ -3618,7 +3608,6 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.0.1"
-source = "git+https://github.com/moongate-forks/kona?branch=patch-10-17-kona#5a88fcfc5608a35855a74afa2af509da86d97ba8"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6333,8 +6322,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ff9718f87f207404aee3f447c4438e2a35791092dc24ce65ff95db699ed49c1"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6353,7 +6341,7 @@ dependencies = [
  "rrs-succinct",
  "serde",
  "sp1-curves",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-stark",
  "strum",
  "strum_macros",
@@ -6367,8 +6355,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ac8b5f2cecb7b2174495fc7a3e004bdb78e1c7ea44577ac0acc0d1e90b817ea"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -6398,7 +6385,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-curves",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-stark",
  "static_assertions",
  "strum",
@@ -6415,8 +6402,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1af9ff15e524ebe58286d7ee9bc345657b45b13091b5dc58fdce61542b65a47"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "cfg-if",
  "curve25519-dalek",
@@ -6429,7 +6415,7 @@ dependencies = [
  "p3-field",
  "serde",
  "snowbridge-amcl",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-stark",
  "typenum",
 ]
@@ -6437,8 +6423,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f1490c07bd283f59169eae6e67df355b5de8ba10cc75bf6dbfc05a28fdccfc6"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6500,10 +6485,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "3.0.0"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
+dependencies = [
+ "bincode",
+ "hex",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "sp1-prover"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bd16530cb12f1cecb1b6902142d8d0d87507f88de84bc714f10c29a7fd3769c"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6528,7 +6529,7 @@ dependencies = [
  "serial_test",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-recursion-circuit",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
@@ -6544,8 +6545,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98d0a8ceee12600bd14d2e2d31b54db00b7985e30acedbfe8e1c1a9e41d7992f"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6567,7 +6567,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
  "sp1-recursion-gnark-ffi",
@@ -6578,8 +6578,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "591d60768948dcef34a1fc16c3c6cf457e32fdee83d55ec14dbb94cd4447c030"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6589,7 +6588,7 @@ dependencies = [
  "p3-symmetric",
  "serde",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-recursion-core",
  "sp1-recursion-derive",
  "sp1-stark",
@@ -6600,8 +6599,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c15a51b675accb41608f7bf7ef5f95c23b47ceac38a9a87833a2b12c3bc190"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "backtrace",
  "ff 0.13.0",
@@ -6624,7 +6622,7 @@ dependencies = [
  "serde",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-stark",
  "static_assertions",
  "thiserror 1.0.64 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6636,8 +6634,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5b2aaa03093afb2b0f58379bb4f0d7898344ef1bb8dd326ec02db7125c1a590"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6646,8 +6643,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a12889c662cf64870e72bb3ba8096f3465bf442f5f179c07b50c86f5c47ce80"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6672,8 +6668,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39bab15e962d1218e8ad021b2e9904597d5506d12847ef8be182385d5f3d3a6c"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "alloy-sol-types 0.7.7",
  "anyhow",
@@ -6697,7 +6692,7 @@ dependencies = [
  "serde",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "sp1-prover",
  "sp1-stark",
  "strum",
@@ -6713,8 +6708,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec27b60e797a52eed7af54e032498edcaf8f1ab0649077cbaa6f146a740380dd"
+source = "git+https://github.com/nhtyy/sp1?branch=n/profiling#58305547ae4a32d2dbb35be0ece9c62ca509d8b5"
 dependencies = [
  "arrayref",
  "getrandom",
@@ -6738,7 +6732,7 @@ dependencies = [
  "rayon-scan",
  "serde",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/nhtyy/sp1?branch=n/profiling)",
  "strum",
  "strum_macros",
  "sysinfo",
@@ -6761,7 +6755,7 @@ dependencies = [
  "rand",
  "sha2",
  "sp1-lib 3.0.0",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

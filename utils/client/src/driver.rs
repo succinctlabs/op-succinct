@@ -153,15 +153,20 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
         // As we start the safe head at the disputed block's parent, we step the pipeline until the
         // first attributes are produced. All batches at and before the safe head will be
         // dropped, so the first payload will always be the disputed one.
+        let mut i = 0;
         loop {
+            println!("cycle-tracker-report-start: produce-payload-step");
             match self.pipeline.step(self.l2_safe_head).await {
                 StepResult::PreparedAttributes => {
+                    println!("Prepared attributes at iteration: {:?}", i);
                     info!(target: "client_derivation_driver", "Stepped derivation pipeline")
                 }
                 StepResult::AdvancedOrigin => {
+                    println!("Advanced origin at iteration: {:?}", i);
                     info!(target: "client_derivation_driver", "Advanced origin")
                 }
                 StepResult::OriginAdvanceErr(e) | StepResult::StepFailed(e) => {
+                    println!("Failed to step derivation pipeline at iteration: {:?}", i);
                     warn!(target: "client_derivation_driver", "Failed to step derivation pipeline: {:?}", e);
 
                     // Break the loop unless the error signifies that there is not enough data to
@@ -186,8 +191,11 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                     }
                 }
             }
+            println!("cycle-tracker-report-end: produce-payload-step");
+            i += 1;
 
             if let Some(attrs) = self.pipeline.next() {
+                println!("Produced attributes at iteration: {:?}", i);
                 return Ok(attrs);
             }
         }
