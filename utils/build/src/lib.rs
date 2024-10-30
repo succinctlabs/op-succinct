@@ -12,6 +12,8 @@ fn build_native_program(program: &str) {
             program,
             "--profile",
             "release-client-lto",
+            "--features",
+            "tracing-subscriber",
         ])
         .status()
         .expect("Failed to execute cargo build command");

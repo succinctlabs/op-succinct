@@ -5372,6 +5372,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
+ "anyhow",
  "cfg-if",
  "kona-client",
  "kona-derive",
@@ -5383,6 +5384,8 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_json",
  "sp1-zkvm",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

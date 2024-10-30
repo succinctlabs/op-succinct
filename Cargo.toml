@@ -36,6 +36,10 @@ base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
 kzg-rs = { version = "0.2.2" }
 
+# program tracing
+tracing = { version = "0.1.40", default-features = false }
+tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
+
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 kona-common = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }

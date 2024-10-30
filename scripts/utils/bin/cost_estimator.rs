@@ -166,7 +166,9 @@ async fn execute_blocks_parallel(
         l2_chain_id, args.start, args.end
     ));
     if let Some(parent) = report_path.parent() {
-        fs::create_dir_all(parent).unwrap();
+        if !parent.exists() {
+            fs::create_dir_all(parent).unwrap();
+        }
     }
 
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
