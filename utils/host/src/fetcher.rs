@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
-use log::{debug, info};
+use log::info;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind},

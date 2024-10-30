@@ -136,6 +136,8 @@ async fn execute_blocks_parallel(
     host_clis: &[HostCli],
     ranges: Vec<SpanBatchRange>,
     prover: &ProverClient,
+    l2_chain_id: u64,
+    args: &HostArgs,
 ) -> Vec<ExecutionStats> {
     // Create a new execution stats map between the start and end block and the default ExecutionStats.
     let execution_stats_map = Arc::new(Mutex::new(HashMap::new()));
@@ -163,45 +165,40 @@ async fn execute_blocks_parallel(
         l2_chain_id, args.start, args.end
     ));
     if let Some(parent) = report_path.parent() {
-        fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent).unwrap();
     }
 
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
     host_clis
-        .chunks(5)
-        .zip(ranges.chunks(5))
-        .for_each(|(cli_batch, range_batch)| {
-            cli_batch
-                .par_iter()
-                .zip(range_batch.par_iter())
-                .for_each(|(host_cli, range)| {
-                    let sp1_stdin = get_proof_stdin(&host_cli).unwrap();
+        .par_iter()
+        .zip(ranges.par_iter())
+        .for_each(|(host_cli, range)| {
+            let sp1_stdin = get_proof_stdin(&host_cli).unwrap();
 
-                    // TODO: Implement retries with a smaller block range if this fails.
-                    let (_, report) = prover
-                        .execute(MULTI_BLOCK_ELF, sp1_stdin)
-                        .run()
-                        .unwrap_or_else(|e| {
-                            panic!(
-                                "Failed to execute blocks {:?} - {:?}: {:?}",
-                                range.start, range.end, e
-                            )
-                        });
-
-                    // Get the existing execution stats and modify it in place.
-                    let mut execution_stats_map = execution_stats_map.lock().unwrap();
-                    let exec_stats = execution_stats_map
-                        .get_mut(&(range.start, range.end))
-                        .unwrap();
-                    exec_stats.add_report_data(&report);
-                    exec_stats.add_aggregate_data();
-
-                    let mut csv_writer = csv::Writer::from_path(report_path).unwrap();
-                    csv_writer
-                        .serialize(exec_stats)
-                        .expect("Failed to write execution stats to CSV.");
-                    csv_writer.flush().expect("Failed to flush CSV writer.");
+            // TODO: Implement retries with a smaller block range if this fails.
+            let (_, report) = prover
+                .execute(MULTI_BLOCK_ELF, sp1_stdin)
+                .run()
+                .unwrap_or_else(|e| {
+                    panic!(
+                        "Failed to execute blocks {:?} - {:?}: {:?}",
+                        range.start, range.end, e
+                    )
                 });
+
+            // Get the existing execution stats and modify it in place.
+            let mut execution_stats_map = execution_stats_map.lock().unwrap();
+            let exec_stats = execution_stats_map
+                .get_mut(&(range.start, range.end))
+                .unwrap();
+            exec_stats.add_report_data(&report);
+            exec_stats.add_aggregate_data();
+
+            let mut csv_writer = csv::Writer::from_path(&report_path).unwrap();
+            csv_writer
+                .serialize(exec_stats)
+                .expect("Failed to write execution stats to CSV.");
+            csv_writer.flush().expect("Failed to flush CSV writer.");
         });
 
     info!("Execution is complete.");
@@ -378,16 +375,12 @@ async fn main() -> Result<()> {
     let witness_generation_time_sec = start_time.elapsed().as_secs();
 
     let start_time = Instant::now();
-    let execution_stats = execute_blocks_parallel(&host_clis, split_ranges, &prover).await;
+    let execution_stats =
+        execute_blocks_parallel(&host_clis, split_ranges, &prover, l2_chain_id, &args).await;
     let total_execution_time_sec = start_time.elapsed().as_secs();
 
-    // Sort the execution stats by batch start block.
-    let mut sorted_execution_stats = execution_stats.clone();
-    sorted_execution_stats.sort_by_key(|stats| stats.batch_start);
-    write_execution_stats_to_csv(&sorted_execution_stats, l2_chain_id, &args)?;
-
     let aggregate_execution_stats = aggregate_execution_stats(
-        &sorted_execution_stats,
+        &execution_stats,
         total_execution_time_sec,
         witness_generation_time_sec,
     );
