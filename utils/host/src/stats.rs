@@ -35,6 +35,7 @@ pub struct ExecutionStats {
     pub bn_mul_cycles: u64,
     pub kzg_eval_cycles: u64,
     pub ec_recover_cycles: u64,
+    pub secp256r1_verify_cycles: u64,
 }
 
 /// Write a statistic to the formatter.
@@ -101,6 +102,7 @@ impl fmt::Display for ExecutionStats {
         write_stat(f, "BN Mul Cycles", self.bn_mul_cycles)?;
         write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
         write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
+        write_stat(f, "Secp256r1 Verify Cycles", self.secp256r1_verify_cycles)?;
         writeln!(
             f,
             "+--------------------------------+---------------------------+"
@@ -144,6 +146,7 @@ impl ExecutionStats {
         self.bn_pair_cycles = get_cycles("precompile-bn-pair");
         self.kzg_eval_cycles = get_cycles("precompile-kzg-eval");
         self.ec_recover_cycles = get_cycles("precompile-ec-recover");
+        self.secp256r1_verify_cycles = get_cycles("precompile-secp256r1-verify");
         self.total_sp1_gas = report.estimate_gas();
     }
 
@@ -188,6 +191,7 @@ pub struct SpanBatchStats {
     pub bn_pair_cycles: u64,
     pub kzg_eval_cycles: u64,
     pub ec_recover_cycles: u64,
+    pub secp256r1_verify_cycles: u64,
 }
 
 impl fmt::Display for SpanBatchStats {
@@ -224,6 +228,7 @@ impl fmt::Display for SpanBatchStats {
         write_stat(f, "BN Pair Cycles", self.bn_pair_cycles)?;
         write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
         write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
+        write_stat(f, "Secp256r1 Verify Cycles", self.secp256r1_verify_cycles)?;
         writeln!(
             f,
             "+-------------------------------+---------------------------+"
