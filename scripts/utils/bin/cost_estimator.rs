@@ -20,7 +20,6 @@ use std::{
     future::Future,
     io::Seek,
     path::PathBuf,
-    sync::{Arc, Mutex},
     time::Instant,
 };
 use tokio::task::block_in_place;
@@ -64,13 +63,16 @@ struct SpanBatchRange {
 
 fn get_max_span_batch_range_size(l2_chain_id: u64, supplied_range_size: Option<u64>) -> u64 {
     // TODO: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
+    if let Some(supplied_range_size) = supplied_range_size {
+        return supplied_range_size;
+    }
+
     const DEFAULT_SIZE: u64 = 300;
-    let default_size = supplied_range_size.unwrap_or(DEFAULT_SIZE);
     match l2_chain_id {
         8453 => 5,      // Base
         11155420 => 30, // OP Sepolia
         10 => 10,       // OP Mainnet
-        _ => default_size,
+        _ => DEFAULT_SIZE,
     }
 }
 
@@ -141,35 +143,43 @@ async fn execute_blocks_parallel(
     args: &HostArgs,
 ) -> Vec<ExecutionStats> {
     // Create a new execution stats map between the start and end block and the default ExecutionStats.
-    let execution_stats_map = Arc::new(Mutex::new(HashMap::new()));
+    let mut execution_stats_map = HashMap::new();
 
     // Fetch all of the execution stats block ranges in parallel.
-    let mut handles = Vec::new();
-    for range in ranges.clone() {
-        let execution_stats_map = Arc::clone(&execution_stats_map);
-        let handle = tokio::spawn(async move {
+    let exec_stats = futures::stream::iter(ranges.clone())
+        .map(|range| async move {
             // Create a new data fetcher. This avoids the runtime dropping the provider dispatch task.
             let data_fetcher = OPSuccinctDataFetcher::default();
             let mut exec_stats = ExecutionStats::default();
             exec_stats
                 .add_block_data(&data_fetcher, range.start, range.end)
                 .await;
-            let mut execution_stats_map = execution_stats_map.lock().unwrap();
-            execution_stats_map.insert((range.start, range.end), exec_stats);
-        });
-        handles.push(handle);
-    }
-    futures::future::join_all(handles).await;
+            ((range.start, range.end), exec_stats)
+        })
+        .buffered(15)
+        .collect::<Vec<_>>()
+        .await;
 
-    let report_path = PathBuf::from(format!(
+    for (range, stats) in exec_stats {
+        execution_stats_map.insert(range, stats);
+    }
+
+    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
+    let root_dir = PathBuf::from(cargo_metadata.workspace_root);
+    let report_path = root_dir.join(format!(
         "execution-reports/{}/{}-{}-report.csv",
         l2_chain_id, args.start, args.end
     ));
+    // Create the parent directory if it doesn't exist
     if let Some(parent) = report_path.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent).unwrap();
         }
     }
+
+    // Create an empty file since canonicalize requires the path to exist
+    fs::File::create(&report_path).unwrap();
+    let report_path = report_path.canonicalize().unwrap();
 
     // Run the zkVM execution process for each split range in parallel and fill in the execution stats.
     host_clis
@@ -190,10 +200,10 @@ async fn execute_blocks_parallel(
                 });
 
             // Get the existing execution stats and modify it in place.
-            let mut execution_stats_map = execution_stats_map.lock().unwrap();
-            let exec_stats = execution_stats_map
-                .get_mut(&(range.start, range.end))
-                .unwrap();
+            let mut exec_stats = execution_stats_map
+                .get(&(range.start, range.end))
+                .unwrap()
+                .clone();
             exec_stats.add_report_data(&report);
             exec_stats.add_aggregate_data();
 
@@ -212,19 +222,14 @@ async fn execute_blocks_parallel(
                 .from_writer(file);
 
             csv_writer
-                .serialize(exec_stats)
+                .serialize(exec_stats.clone())
                 .expect("Failed to write execution stats to CSV.");
             csv_writer.flush().expect("Failed to flush CSV writer.");
         });
 
     info!("Execution is complete.");
 
-    let execution_stats = execution_stats_map
-        .lock()
-        .unwrap()
-        .clone()
-        .into_values()
-        .collect();
+    let execution_stats = execution_stats_map.iter().map(|(_, v)| v.clone()).collect();
     drop(execution_stats_map);
     execution_stats
 }
@@ -401,8 +406,8 @@ async fn main() -> Result<()> {
         witness_generation_time_sec,
     );
     println!(
-        "Aggregate Execution Stats: \n {}",
-        aggregate_execution_stats
+        "Aggregate Execution Stats for Chain {}: \n {}",
+        l2_chain_id, aggregate_execution_stats
     );
 
     Ok(())

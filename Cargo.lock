@@ -1860,6 +1860,7 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
+ "rayon",
 ]
 
 [[package]]
@@ -4341,6 +4342,7 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "csv",
+ "dashmap",
  "dotenv",
  "futures",
  "kona-host",
