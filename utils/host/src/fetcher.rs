@@ -741,7 +741,6 @@ impl OPSuccinctDataFetcher {
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;
         loop {
-            println!("loop");
             // If the current L1 block number is greater than the latest L1 header number, then return an error.
             if current_l1_block_number > latest_l1_header.number {
                 println!(

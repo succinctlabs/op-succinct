@@ -98,8 +98,6 @@ impl WitnessGenExecutor {
         let child = tokio::process::Command::new(target_dir)
             .args(&args)
             .env("RUST_LOG", "info")
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
             .spawn()?;
         self.ongoing_processes.push(WitnessGenProcess {
             child,
