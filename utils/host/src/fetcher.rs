@@ -96,7 +96,7 @@ pub struct BlockInfo {
     pub block_number: u64,
     pub transaction_count: u64,
     pub gas_used: u64,
-    pub total_l1_fees: U256,
+    pub total_l1_fees: u128,
     pub total_tx_fees: u128,
 }
 
@@ -343,14 +343,20 @@ impl OPSuccinctDataFetcher {
                         .get_block_receipts(block_number.into())
                         .await?
                         .unwrap();
-                    let total_l1_fees: U256 = receipts
+                    let total_l1_fees: u128 = receipts
                         .iter()
-                        .map(|tx| U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)))
+                        .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
                         .sum();
                     let total_tx_fees: u128 = receipts
                         .iter()
-                        .map(|tx| tx.inner.effective_gas_price * tx.inner.gas_used)
+                        .map(|tx| {
+                            // tx.inner.effective_gas_price * tx.inner.gas_used + tx.l1_block_info.l1_fee is the total fee for the transaction.
+                            // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
+                            tx.inner.effective_gas_price * tx.inner.gas_used
+                                + tx.l1_block_info.l1_fee.unwrap_or(0)
+                        })
                         .sum();
+
                     Ok(BlockInfo {
                         block_number,
                         transaction_count: block.transactions.len() as u64,
