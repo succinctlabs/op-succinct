@@ -42,28 +42,28 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
-# kona-common = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-# kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-# kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona", features = [
-#     "rkyv",
-# ] }
-# kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-# kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-# kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona", default-features = false }
-# kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-# kona-client = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-# kona-host = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
-kona-common = { path = "../kona/crates/common" }
-kona-common-proc = { path = "../kona/crates/common-proc" }
-kona-preimage = { path = "../kona/crates/preimage", features = [
+kona-common = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+kona-common-proc = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+kona-preimage = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona", features = [
     "rkyv",
 ] }
-kona-primitives = { path = "../kona/crates/primitives" }
-kona-mpt = { path = "../kona/crates/mpt" }
-kona-derive = { path = "../kona/crates/derive", default-features = false }
-kona-executor = { path = "../kona/crates/executor" }
-kona-client = { path = "../kona/bin/client" }
-kona-host = { path = "../kona/bin/host" }
+kona-primitives = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+kona-mpt = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+kona-derive = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona", default-features = false }
+kona-executor = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+kona-client = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+kona-host = { git = "https://github.com/moongate-forks/kona", branch = "patch-10-17-kona" }
+# kona-common = { path = "../kona/crates/common" }
+# kona-common-proc = { path = "../kona/crates/common-proc" }
+# kona-preimage = { path = "../kona/crates/preimage", features = [
+#     "rkyv",
+# ] }
+# kona-primitives = { path = "../kona/crates/primitives" }
+# kona-mpt = { path = "../kona/crates/mpt" }
+# kona-derive = { path = "../kona/crates/derive", default-features = false }
+# kona-executor = { path = "../kona/crates/executor" }
+# kona-client = { path = "../kona/bin/client" }
+# kona-host = { path = "../kona/bin/host" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }

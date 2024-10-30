@@ -405,6 +405,22 @@ async fn main() -> Result<()> {
         total_execution_time_sec,
         witness_generation_time_sec,
     );
+
+    // Read the execution stats from the CSV file.
+    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
+    let root_dir = PathBuf::from(cargo_metadata.workspace_root);
+    let report_path = root_dir.join(format!(
+        "execution-reports/{}/{}-{}-report.csv",
+        l2_chain_id, args.start, args.end
+    ));
+
+    let mut final_execution_stats = Vec::new();
+    let mut csv_reader = csv::Reader::from_path(report_path)?;
+    for result in csv_reader.deserialize() {
+        let stats: ExecutionStats = result?;
+        final_execution_stats.push(stats);
+    }
+
     println!(
         "Aggregate Execution Stats for Chain {}: \n {}",
         l2_chain_id, aggregate_execution_stats
