@@ -419,7 +419,6 @@ impl OPSuccinctDataFetcher {
 
             match block_timestamp.cmp(&target_timestamp) {
                 Ordering::Equal => {
-                    println!("L1 Head from Timestamp: {:?}", block.header.number);
                     return Ok((block.header.hash.0.into(), block.header.number));
                 }
                 Ordering::Less => low = mid + 1,
@@ -427,15 +426,12 @@ impl OPSuccinctDataFetcher {
             }
         }
 
-        println!("Low: {:?}", low);
-
         // Return the block hash of the closest block after the target timestamp
         let block = self
             .l1_provider
             .get_block((low - 10).into(), BlockTransactionsKind::Hashes)
             .await?
             .unwrap();
-        println!("L1 Head from Timestamp: {:?}", block.header.number);
         Ok((block.header.hash.0.into(), block.header.number))
     }
 
@@ -740,7 +736,6 @@ impl OPSuccinctDataFetcher {
             .await?;
 
         let l1_origin = optimism_output_data.block_ref.l1_origin;
-        println!("L1 Origin of L2 End Block: {:?}", l1_origin.number);
 
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;
@@ -839,12 +834,21 @@ mod tests {
 
         dotenv::dotenv().ok();
         let fetcher = OPSuccinctDataFetcher::new().await;
-        let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
-        let l2_start_block = latest_l2_block.number - 3000;
-
         let mut l2_safe_heads = Vec::new();
 
-        let safe_heads = futures::stream::iter(l2_start_block..=latest_l2_block.number)
+        let latest_l1_block = fetcher.get_l1_header(BlockId::latest()).await.unwrap();
+        let latest_l1_block_number = latest_l1_block.number;
+        let l1_block_number_hex = format!("0x{:x}", latest_l1_block_number);
+        let result = fetcher
+            .fetch_rpc_data::<SafeHeadResponse>(
+                RPCMode::L2Node,
+                "optimism_safeHeadAtL1Block",
+                vec![l1_block_number_hex.into()],
+            )
+            .await
+            .unwrap();
+
+        let safe_heads = futures::stream::iter(latest_l1_block_number - 500..=latest_l1_block_number)
             .map(|block_num| {
                 let l1_block_number_hex = format!("0x{:x}", block_num);
                 fetcher.fetch_rpc_data::<SafeHeadResponse>(
@@ -858,12 +862,10 @@ mod tests {
             .await;
 
         for result in safe_heads {
-            println!("Result: {:?}", result);
             if let Ok(response) = result {
                 l2_safe_heads.push(response.safe_head.number);
             }
         }
 
-        println!("L2 Safe Heads: {:?}", l2_safe_heads);
     }
 }
