@@ -833,31 +833,28 @@ impl OPSuccinctDataFetcher {
         l2_start_block: u64,
         ideal_block_interval: u64,
     ) -> Result<u64> {
+        let ideal_l2_block_end = l2_start_block + ideal_block_interval;
         let l2_start_block_info = self.l2_block_info_by_number(l2_start_block).await?;
         let l2_end_block_info = self
-            .l2_block_info_by_number(l2_start_block + ideal_block_interval)
+            .l2_block_info_by_number(ideal_l2_block_end)
             .await?;
-        println!(
-            "L1 Origin Start: {}, L1 Origin End: {}",
-            l2_start_block_info.l1_origin.number, l2_end_block_info.l1_origin.number
-        );
 
         // Get the l2SafeHead for both L1 origins.
-        let l2_safe_head_start = self
+        let l2_derivable_block_start = self
             .get_l2_safe_head_from_l1_block_number(l2_start_block_info.l1_origin.number)
             .await?;
-        let l2_safe_head_end = self
+        let l2_derivable_block_end = self
             .get_l2_safe_head_from_l1_block_number(l2_end_block_info.l1_origin.number)
             .await?;
 
-        println!("L2 Safe Head Start: {}, L2 Safe Head End: {}", l2_safe_head_start, l2_safe_head_end);
 
-        // Use the safe head of the L1 origin of the l2_start_block to determine the l2_end_block.
         // TODO: Move this code into the proposer.
-        if l2_safe_head_end < l2_start_block || l2_safe_head_end > (l2_start_block + ideal_block_interval) {
-            Ok(l2_start_block + ideal_block_interval)
+        // If blocks are in same batch or if derivable end is past ideal end, use ideal end block, as it will just pull in one batch.
+        if l2_derivable_block_end < l2_start_block || l2_derivable_block_end > ideal_l2_block_end {
+            Ok(ideal_l2_block_end)
         } else {
-            Ok(l2_safe_head_end)
+            // Otherwise use derivable end to avoid pulling in multiple batches.
+            Ok(l2_derivable_block_end)
         }
     }
 }
