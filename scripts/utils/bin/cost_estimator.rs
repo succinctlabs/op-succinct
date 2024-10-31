@@ -70,7 +70,7 @@ fn get_max_span_batch_range_size(l2_chain_id: u64, supplied_range_size: Option<u
     const DEFAULT_SIZE: u64 = 300;
     match l2_chain_id {
         8453 => 5,      // Base
-        11155420 => 30, // OP Sepolia
+        11155420 => 75, // OP Sepolia
         10 => 10,       // OP Mainnet
         _ => DEFAULT_SIZE,
     }
