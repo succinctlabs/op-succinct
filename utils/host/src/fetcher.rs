@@ -823,7 +823,7 @@ impl OPSuccinctDataFetcher {
             .get_l2_safe_head_from_l1_block_number(l2_end_block_info.l1_origin.number)
             .await?;
 
-        // TODO: Move this code into the proposer.
+        // TODO: This code will need to be replicated in the proposer to fetch the block range.
         // If blocks are in same batch or if derivable end is past ideal end, use ideal end block, as it will just pull in one batch.
         if l2_derivable_block_end < l2_start_block || l2_derivable_block_end > ideal_l2_block_end {
             Ok(ideal_l2_block_end)
