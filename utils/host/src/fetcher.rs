@@ -399,7 +399,7 @@ impl OPSuccinctDataFetcher {
             .unwrap())
     }
 
-    pub async fn find_l1_block_hash_by_timestamp(&self, target_timestamp: u64) -> Result<B256> {
+    pub async fn find_l1_block_by_timestamp(&self, target_timestamp: u64) -> Result<(B256, u64)> {
         let latest_block = self
             .l1_provider
             .get_block(BlockId::latest(), BlockTransactionsKind::Hashes)
@@ -420,7 +420,7 @@ impl OPSuccinctDataFetcher {
             match block_timestamp.cmp(&target_timestamp) {
                 Ordering::Equal => {
                     println!("L1 Head from Timestamp: {:?}", block.header.number);
-                    return Ok(block.header.hash.0.into());
+                    return Ok((block.header.hash.0.into(), block.header.number));
                 }
                 Ordering::Less => low = mid + 1,
                 Ordering::Greater => high = mid - 1,
@@ -436,7 +436,7 @@ impl OPSuccinctDataFetcher {
             .await?
             .unwrap();
         println!("L1 Head from Timestamp: {:?}", block.header.number);
-        Ok(block.header.hash.0.into())
+        Ok((block.header.hash.0.into(), block.header.number))
     }
 
     /// Get the RPC URL for the given RPC mode.
@@ -627,7 +627,11 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        let l1_head = self.get_l1_head(l2_start_block, l2_end_block).await?;
+        // TODO: Get the L1 origin of the L2 start block. Now, we can determine the number of L1 blocks being traversed.
+        // May need to walk back from the most recently posted batch to the L1 origin of the L2 start block.
+        // Use optimism_safeHeadAtL1Block to get the L1 origin of the L2 start block.
+        let (l1_head_hash, _l1_head_number) =
+            self.get_l1_head(l2_start_block, l2_end_block).await?;
 
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
@@ -675,7 +679,7 @@ impl OPSuccinctDataFetcher {
         fs::create_dir_all(&data_directory)?;
 
         Ok(HostCli {
-            l1_head,
+            l1_head: l1_head_hash,
             agreed_l2_output_root,
             agreed_l2_head_hash,
             claimed_l2_output_root,
@@ -709,7 +713,7 @@ impl OPSuccinctDataFetcher {
         &self,
         l2_start_block: u64,
         l2_end_block: u64,
-    ) -> Result<B256> {
+    ) -> Result<(B256, u64)> {
         let l2_start_block_hex = format!("0x{:x}", l2_start_block);
         let optimism_output_data: OutputResponse = self
             .fetch_rpc_data(
@@ -762,7 +766,7 @@ impl OPSuccinctDataFetcher {
             let l2_safe_head = result.safe_head.number;
             if l2_safe_head > l2_end_block {
                 println!("The L1 Head chosen is {:?}", result.l1_block.number);
-                return Ok(result.l1_block.hash);
+                return Ok((result.l1_block.hash, result.l1_block.number));
             }
 
             // Move forward in 5 minute increments.
@@ -775,7 +779,7 @@ impl OPSuccinctDataFetcher {
     /// the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
     /// relevant L2 block data can be derived.
     /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
-    async fn get_l1_head(&self, l2_start_block: u64, l2_end_block: u64) -> Result<B256> {
+    async fn get_l1_head(&self, l2_start_block: u64, l2_end_block: u64) -> Result<(B256, u64)> {
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self
             .get_l1_head_with_safe_head(l2_start_block, l2_end_block)
@@ -797,9 +801,7 @@ impl OPSuccinctDataFetcher {
             let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
 
             let target_timestamp = l2_block_timestamp + (max_batch_post_delay_minutes * 60);
-            Ok(self
-                .find_l1_block_hash_by_timestamp(target_timestamp)
-                .await?)
+            Ok(self.find_l1_block_by_timestamp(target_timestamp).await?)
         }
     }
 }
@@ -824,5 +826,44 @@ mod tests {
             .get_l1_head(latest_l2_block.number, l2_end_block)
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(test)]
+    async fn test_l2_safe_head_progression() {
+        use alloy::eips::BlockId;
+        use futures::StreamExt;
+        use op_alloy_rpc_types::safe_head::SafeHeadResponse;
+
+        use crate::fetcher::RPCMode;
+
+        dotenv::dotenv().ok();
+        let fetcher = OPSuccinctDataFetcher::new().await;
+        let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
+        let l2_start_block = latest_l2_block.number - 3000;
+
+        let mut l2_safe_heads = Vec::new();
+
+        let safe_heads = futures::stream::iter(l2_start_block..=latest_l2_block.number)
+            .map(|block_num| {
+                let l1_block_number_hex = format!("0x{:x}", block_num);
+                fetcher.fetch_rpc_data::<SafeHeadResponse>(
+                    RPCMode::L2Node,
+                    "optimism_safeHeadAtL1Block",
+                    vec![l1_block_number_hex.into()],
+                )
+            })
+            .buffered(300)
+            .collect::<Vec<_>>()
+            .await;
+
+        for result in safe_heads {
+            println!("Result: {:?}", result);
+            if let Ok(response) = result {
+                l2_safe_heads.push(response.safe_head.number);
+            }
+        }
+
+        println!("L2 Safe Heads: {:?}", l2_safe_heads);
     }
 }
