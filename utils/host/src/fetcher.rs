@@ -718,10 +718,6 @@ impl OPSuccinctDataFetcher {
                 vec![l2_start_block_hex.into()],
             )
             .await?;
-        println!(
-            "L1 Origin of L2 Start Block: {:?}",
-            optimism_output_data.block_ref.l1_origin.number
-        );
 
         let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
 
@@ -742,9 +738,6 @@ impl OPSuccinctDataFetcher {
         loop {
             // If the current L1 block number is greater than the latest L1 header number, then return an error.
             if current_l1_block_number > latest_l1_header.number {
-                println!(
-                    "Could not find an L1 block with an L2 safe head greater than the L2 end block."
-                );
                 return Err(anyhow::anyhow!(
                     "Could not find an L1 block with an L2 safe head greater than the L2 end block."
                 ));
@@ -760,7 +753,6 @@ impl OPSuccinctDataFetcher {
                 .await?;
             let l2_safe_head = result.safe_head.number;
             if l2_safe_head > l2_end_block {
-                println!("The L1 Head chosen is {:?}", result.l1_block.number);
                 return Ok((result.l1_block.hash, result.l1_block.number));
             }
 
