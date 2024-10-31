@@ -5,18 +5,21 @@ use alloy::{
     transports::http::{reqwest::Url, Client, Http},
 };
 use alloy_consensus::Header;
+use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use kona_host::HostCli;
 use log::info;
+use op_alloy_consensus::OpBlock;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind},
     Optimism,
 };
 use op_alloy_protocol::calculate_tx_l1_cost_fjord;
+use op_alloy_protocol::L2BlockInfo;
 use op_alloy_rpc_types::{
     output::OutputResponse, safe_head::SafeHeadResponse, OpTransactionReceipt,
 };
@@ -30,7 +33,7 @@ use std::{
 };
 use tokio::time::sleep;
 
-use alloy_primitives::{keccak256, Bytes, U256};
+use alloy_primitives::{keccak256, Bytes, U256, U64};
 
 use crate::{
     rollup_config::{get_rollup_config_path, merge_rollup_config, save_rollup_config},
@@ -791,6 +794,72 @@ impl OPSuccinctDataFetcher {
             Ok(self.find_l1_block_by_timestamp(target_timestamp).await?)
         }
     }
+
+    // Source from: https://github.com/anton-rs/kona/blob/85b1c88b44e5f54edfc92c781a313717bad5dfc7/crates/derive-alloy/src/alloy_providers.rs#L225.
+    async fn get_l2_block_by_number(&self, block_number: u64) -> Result<OpBlock> {
+        let raw_block: Bytes = self
+            .l2_provider
+            .raw_request("debug_getRawBlock".into(), [U64::from(block_number)])
+            .await?;
+        let block = OpBlock::decode(&mut raw_block.as_ref()).map_err(|e| anyhow::anyhow!(e))?;
+        Ok(block)
+    }
+
+    async fn l2_block_info_by_number(&self, block_number: u64) -> Result<L2BlockInfo> {
+        let block = self.get_l2_block_by_number(block_number).await?;
+        Ok(L2BlockInfo::from_block_and_genesis(
+            &block,
+            &self.rollup_config.genesis,
+        )?)
+    }
+
+    /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtBlock.
+    async fn get_l2_safe_head_from_l1_block_number(&self, l1_block_number: u64) -> Result<u64> {
+        let l1_block_number_hex = format!("0x{:x}", l1_block_number);
+        let result: SafeHeadResponse = self
+            .fetch_rpc_data(
+                RPCMode::L2Node,
+                "optimism_safeHeadAtL1Block",
+                vec![l1_block_number_hex.into()],
+            )
+            .await?;
+        Ok(result.safe_head.number)
+    }
+
+    /// Get the l2_end_block number given the l2_start_block number and the ideal block interval.
+    /// Picks the l2 end block that minimizes the derivation cost by picking the l2 block that can be derived from the same batch as the l2_start_block.
+    async fn get_l2_end_block(
+        &self,
+        l2_start_block: u64,
+        ideal_block_interval: u64,
+    ) -> Result<u64> {
+        let l2_start_block_info = self.l2_block_info_by_number(l2_start_block).await?;
+        let l2_end_block_info = self
+            .l2_block_info_by_number(l2_start_block + ideal_block_interval)
+            .await?;
+        println!(
+            "L1 Origin Start: {}, L1 Origin End: {}",
+            l2_start_block_info.l1_origin.number, l2_end_block_info.l1_origin.number
+        );
+
+        // Get the l2SafeHead for both L1 origins.
+        let l2_safe_head_start = self
+            .get_l2_safe_head_from_l1_block_number(l2_start_block_info.l1_origin.number)
+            .await?;
+        let l2_safe_head_end = self
+            .get_l2_safe_head_from_l1_block_number(l2_end_block_info.l1_origin.number)
+            .await?;
+
+        println!("L2 Safe Head Start: {}, L2 Safe Head End: {}", l2_safe_head_start, l2_safe_head_end);
+
+        // Use the safe head of the L1 origin of the l2_start_block to determine the l2_end_block.
+        // TODO: Move this code into the proposer.
+        if l2_safe_head_end < l2_start_block || l2_safe_head_end > (l2_start_block + ideal_block_interval) {
+            Ok(l2_start_block + ideal_block_interval)
+        } else {
+            Ok(l2_safe_head_end)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -861,5 +930,21 @@ mod tests {
                 l2_safe_heads.push(response.safe_head.number);
             }
         }
+    }
+
+    #[tokio::test]
+    #[cfg(test)]
+    async fn test_get_l2_end_block() {
+        use alloy::eips::BlockId;
+
+        dotenv::dotenv().ok();
+        let fetcher = OPSuccinctDataFetcher::new().await;
+        let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
+        let l2_end_block = fetcher
+            .get_l2_end_block(latest_l2_block.number - 1000, 500)
+            .await
+            .unwrap();
+
+        println!("L2 Start Block: {}, L2 End Block: {}", latest_l2_block.number - 1000, l2_end_block);
     }
 }
