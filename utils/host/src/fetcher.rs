@@ -831,7 +831,7 @@ mod tests {
         let latest_l1_block = fetcher.get_l1_header(BlockId::latest()).await.unwrap();
         let latest_l1_block_number = latest_l1_block.number;
         let l1_block_number_hex = format!("0x{:x}", latest_l1_block_number);
-        let result = fetcher
+        let _ = fetcher
             .fetch_rpc_data::<SafeHeadResponse>(
                 RPCMode::L2Node,
                 "optimism_safeHeadAtL1Block",
@@ -840,24 +840,26 @@ mod tests {
             .await
             .unwrap();
 
-        let safe_heads = futures::stream::iter(latest_l1_block_number - 500..=latest_l1_block_number)
-            .map(|block_num| {
-                let l1_block_number_hex = format!("0x{:x}", block_num);
-                fetcher.fetch_rpc_data::<SafeHeadResponse>(
-                    RPCMode::L2Node,
-                    "optimism_safeHeadAtL1Block",
-                    vec![l1_block_number_hex.into()],
-                )
-            })
-            .buffered(300)
-            .collect::<Vec<_>>()
-            .await;
+        let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
+
+        let safe_heads =
+            futures::stream::iter(latest_l2_block.number - 500..=latest_l2_block.number)
+                .map(|block_num| {
+                    let l1_block_number_hex = format!("0x{:x}", block_num);
+                    fetcher.fetch_rpc_data::<SafeHeadResponse>(
+                        RPCMode::L2Node,
+                        "optimism_safeHeadAtL1Block",
+                        vec![l1_block_number_hex.into()],
+                    )
+                })
+                .buffered(300)
+                .collect::<Vec<_>>()
+                .await;
 
         for result in safe_heads {
             if let Ok(response) = result {
                 l2_safe_heads.push(response.safe_head.number);
             }
         }
-
     }
 }
