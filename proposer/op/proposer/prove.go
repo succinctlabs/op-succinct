@@ -37,7 +37,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	}
 
 	for _, req := range failedReqs {
-		err = l.RetryRequest(req)
+		err = l.RetryRequest(req, ProofStatusResponse{})
 		if err != nil {
 			return fmt.Errorf("failed to retry request: %w", err)
 		}
@@ -49,15 +49,15 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		return err
 	}
 	for _, req := range reqs {
-		status, proof, err := l.GetProofStatus(req.ProverRequestID)
+		proofStatus, err := l.GetProofStatus(req.ProverRequestID)
 		if err != nil {
 			l.Log.Error("failed to get proof status for ID", "id", req.ProverRequestID, "err", err)
 			return err
 		}
-		if status == "PROOF_FULFILLED" {
+		if proofStatus.Status == "PROOF_FULFILLED" {
 			// Update the proof in the DB and update status to COMPLETE.
 			l.Log.Info("Fulfilled Proof", "id", req.ProverRequestID)
-			err = l.db.AddFulfilledProof(req.ID, proof)
+			err = l.db.AddFulfilledProof(req.ID, proofStatus.Proof)
 			if err != nil {
 				l.Log.Error("failed to update completed proof status", "err", err)
 				return err
@@ -65,8 +65,9 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			continue
 		}
 
+		// TODO: Is this proof timeout logic necessary? Users should be able to count on the proof being fulfilled or unclaimed.
 		timeout := uint64(time.Now().Unix()) > req.ProofRequestTime+l.DriverSetup.Cfg.ProofTimeout
-		if timeout || status == "PROOF_UNCLAIMED" {
+		if timeout || proofStatus.Status == "PROOF_UNCLAIMED" {
 			if timeout {
 				l.Log.Info("proof timed out", "id", req.ProverRequestID)
 			} else {
@@ -79,7 +80,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 				return err
 			}
 
-			err = l.RetryRequest(req)
+			err = l.RetryRequest(req, proofStatus)
 			if err != nil {
 				return fmt.Errorf("failed to retry request: %w", err)
 			}
@@ -89,7 +90,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	return nil
 }
 
-func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
+func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStatusResponse) error {
 	err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
 	if err != nil {
 		l.Log.Error("failed to update proof status", "err", err)
@@ -97,11 +98,29 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest) error {
 	}
 
 	l.Log.Info("Retrying proof", "id", req.ID, "type", req.Type, "start", req.StartBlock, "end", req.EndBlock)
-	// TODO: For range proofs, add custom logic to split the proof into two if the error is an execution error.
-	err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
-	if err != nil {
-		l.Log.Error("failed to add new proof request", "err", err)
-		return err
+
+	// If the proof was unclaimed due to a program execution error, we should split the proof into two.
+	if status.UnclaimDescription == ProgramExecutionError {
+		mid := (req.StartBlock + req.EndBlock) / 2
+		// Create two new proof requests, one from [start, mid] and one from [mid, end]. The requests
+		// are consecutive and overlapping.
+		err = l.db.NewEntry(req.Type, req.StartBlock, mid)
+		if err != nil {
+			l.Log.Error("failed to add first proof request", "err", err)
+			return err
+		}
+		err = l.db.NewEntry(req.Type, mid, req.EndBlock)
+		if err != nil {
+			l.Log.Error("failed to add second proof request", "err", err)
+			return err
+		}
+	} else {
+		// If the proof was unclaimed for any other reason, retry with the same range.
+		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+		if err != nil {
+			l.Log.Error("failed to add proof request", "err", err)
+			return err
+		}
 	}
 
 	return nil
@@ -173,7 +192,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 			}
 
 			// If the proof fails to be requested, we should add it to the queue to be retried.
-			err = l.RetryRequest(nextProofToRequest)
+			err = l.RetryRequest(nextProofToRequest, ProofStatusResponse{})
 			if err != nil {
 				l.Log.Error("failed to retry request", "err", err)
 			}
@@ -336,10 +355,10 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 }
 
 // Get the status of a proof given its ID.
-func (l *L2OutputSubmitter) GetProofStatus(proofId string) (string, []byte, error) {
+func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse, error) {
 	req, err := http.NewRequest("GET", l.Cfg.OPSuccinctServerUrl+"/status/"+proofId, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create request: %w", err)
+		return ProofStatusResponse{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	client := &http.Client{
@@ -348,28 +367,33 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (string, []byte, erro
 	resp, err := client.Do(req)
 	if err != nil {
 		if err, ok := err.(net.Error); ok && err.Timeout() {
-			return "", nil, fmt.Errorf("request timed out after %s: %w", PROOF_STATUS_TIMEOUT, err)
+			return ProofStatusResponse{}, fmt.Errorf("request timed out after %s: %w", PROOF_STATUS_TIMEOUT, err)
 		}
-		return "", nil, fmt.Errorf("failed to send request: %w", err)
+		return ProofStatusResponse{}, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", nil, fmt.Errorf("error reading the response body: %v", err)
+		return ProofStatusResponse{}, fmt.Errorf("error reading the response body: %v", err)
+	}
+
+	// If the response status code is not 200, return an error.
+	if resp.StatusCode != http.StatusOK {
+		return ProofStatusResponse{}, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
 
 	// Create a variable of the Response type
-	var response ProofStatus
+	var proofStatus ProofStatusResponse
 
 	// Unmarshal the JSON into the response variable
-	err = json.Unmarshal(body, &response)
+	err = json.Unmarshal(body, &proofStatus)
 	if err != nil {
-		return "", nil, fmt.Errorf("error decoding JSON response: %v", err)
+		return ProofStatusResponse{}, fmt.Errorf("error decoding JSON response: %v", err)
 	}
 
-	return response.Status, response.Proof, nil
+	return proofStatus, nil
 }
 
 // Validate the contract's configuration of the aggregation and range verification keys as well

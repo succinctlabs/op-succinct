@@ -169,7 +169,7 @@ func (l *L2OutputSubmitter) StartL2OutputSubmitting() error {
 		return fmt.Errorf("failed to get witness generation pending proofs: %w", err)
 	}
 	for _, req := range witnessGenReqs {
-		err = l.RetryRequest(req)
+		err = l.RetryRequest(req, ProofStatusResponse{})
 		if err != nil {
 			return fmt.Errorf("failed to retry request: %w", err)
 		}

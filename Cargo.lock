@@ -4320,6 +4320,7 @@ dependencies = [
  "op-succinct-client-utils",
  "op-succinct-host-utils",
  "serde",
+ "serde_json",
  "sp1-sdk",
  "tokio",
  "tower-http",

@@ -34,9 +34,12 @@ pub struct ProofResponse {
 }
 
 #[derive(Serialize)]
+/// The status of a proof request.
 pub struct ProofStatus {
+    // TODO: Modify this to return an i32 matching `SP1ProofStatus`
     pub status: String,
     pub proof: Vec<u8>,
+    pub unclaim_description: Option<i32>,
 }
 
 /// Configuration of the L2 Output Oracle contract. Created once at server start-up, monitors if there are any changes

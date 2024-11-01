@@ -24,7 +24,18 @@ type ProofResponse struct {
 	ProofID string `json:"proof_id"`
 }
 
-type ProofStatus struct {
-	Status string `json:"status"`
-	Proof  []byte `json:"proof"`
+type UnclaimDescription int
+
+const (
+	UnexpectedProverError UnclaimDescription = iota
+	ProgramExecutionError
+	CycleLimitExceeded
+	Other
+)
+
+// ProofStatusResponse is the response type for the `GetProofStatus` RPC from the op-succinct-server.
+type ProofStatusResponse struct {
+	Status             string             `json:"status"`
+	Proof              []byte             `json:"proof"`
+	UnclaimDescription UnclaimDescription `json:"unclaim_description,omitempty"`
 }
