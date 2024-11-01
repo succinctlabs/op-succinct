@@ -20,7 +20,9 @@ type ValidateConfigResponse struct {
 	RangeVkeyValid        bool `json:"range_vkey_valid"`
 }
 
-type ProofResponse struct {
+// WitnessGenerationResponse is the response type for the `request_span_proof` and `request_agg_proof`
+// RPCs from the op-succinct-server.
+type WitnessGenerationResponse struct {
 	ProofID string `json:"proof_id"`
 }
 

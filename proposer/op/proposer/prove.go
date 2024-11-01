@@ -331,6 +331,11 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 	}
 	defer resp.Body.Close()
 
+	// If there's an error, return it.
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
+	}
+
 	// Read the response body.
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -338,7 +343,7 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 	}
 
 	// Create a variable of the Response type.
-	var response ProofResponse
+	var response WitnessGenerationResponse
 
 	// Unmarshal the JSON into the response variable.
 	err = json.Unmarshal(body, &response)
@@ -369,15 +374,15 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 	}
 	defer resp.Body.Close()
 
+	// If the response status code is not 200, return an error.
+	if resp.StatusCode != http.StatusOK {
+		return ProofStatusResponse{}, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
+	}
+
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return ProofStatusResponse{}, fmt.Errorf("error reading the response body: %v", err)
-	}
-
-	// If the response status code is not 200, return an error.
-	if resp.StatusCode != http.StatusOK {
-		return ProofStatusResponse{}, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
 
 	// Create a variable of the Response type
