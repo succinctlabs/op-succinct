@@ -228,7 +228,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: SP1ProofStatus::ProofUnspecifiedStatus,
+                        status: SP1ProofStatus::ProofUnspecifiedStatus.into(),
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -238,7 +238,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: SP1ProofStatus::ProofUnspecifiedStatus,
+                        status: SP1ProofStatus::ProofUnspecifiedStatus.into(),
                         proof: vec![],
                         unclaim_description: None,
                     }),

@@ -692,6 +692,8 @@ func (l *L2OutputSubmitter) proposeOutput(ctx context.Context, output *eth.Outpu
 	l.Metr.RecordL2BlocksProposed(output.BlockRef)
 }
 
+// checkpointBlockHash gets the current L1 head, and then sends a transaction to checkpoint the blockhash on
+// the L2OO contract for the aggregation proof.
 func (l *L2OutputSubmitter) checkpointBlockHash(ctx context.Context) (uint64, common.Hash, error) {
 	cCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()

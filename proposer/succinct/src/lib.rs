@@ -1,7 +1,8 @@
 use alloy_primitives::B256;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Deserializer, Serialize};
-use sp1_sdk::{network::proto::network::ProofStatus as SP1ProofStatus, SP1VerifyingKey};
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use sp1_sdk::SP1VerifyingKey;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ValidateConfigRequest {
@@ -33,7 +34,7 @@ pub struct ProofResponse {
     pub proof_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize_repr, Deserialize_repr)]
 #[repr(i32)]
 /// The type of error that occurred when unclaiming a proof. Based off of the `unclaim_description`
 /// field in the `ProofStatus` struct.
@@ -57,10 +58,12 @@ impl From<String> for UnclaimDescription {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 /// The status of a proof request.
 pub struct ProofStatus {
-    pub status: SP1ProofStatus,
+    // Note: Can't use `SP1ProofStatus` directly because `Serialize_repr` and `Deserialize_repr` aren't derived on it.
+    // serde_repr::Serialize_repr and Deserialize_repr are necessary to use `SP1ProofStatus` in this struct.
+    pub status: i32,
     pub proof: Vec<u8>,
     pub unclaim_description: Option<UnclaimDescription>,
 }
