@@ -92,12 +92,12 @@ func NewMetrics(procName string) *OPSuccinctMetrics {
 		NumProving: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "num_proving",
-			Help:      "Number of proofs currently being generated",
+			Help:      "Number of proofs currently being proven",
 		}),
 		NumWitnessGen: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
 			Name:      "num_witness_gen",
-			Help:      "Number of witness generations in progress",
+			Help:      "Number of witnesses currently being generated",
 		}),
 		NumUnrequested: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: ns,
