@@ -175,7 +175,6 @@ func (ps *ProposerService) initRPCClients(ctx context.Context, cfg *CLIConfig) e
 }
 
 func (ps *ProposerService) initMetrics(cfg *CLIConfig) {
-	fmt.Println("Init Metrics MetricsConfig", cfg.MetricsConfig)
 	if cfg.MetricsConfig.Enabled {
 		procName := "default"
 		ps.Metrics = opsuccinctmetrics.NewMetrics(procName)
