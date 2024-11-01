@@ -92,6 +92,9 @@ type CLIConfig struct {
 	BatchInbox string
 	// The batcher address to include transactions from. Note that this is ignored if L2 Chain ID is in rollup config.
 	BatcherAddress string
+
+	// Whether to enable the metrics server.
+	MetricsEnabled bool
 }
 
 func (c *CLIConfig) Check() error {
@@ -131,6 +134,9 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 	dbPath := ctx.String(flags.DbPathFlag.Name)
 	dbPath = filepath.Join(dbPath, fmt.Sprintf("%d", rollupConfig.L2ChainID.Uint64()), "proofs.db")
 
+	metricsEnabled := ctx.Bool(flags.MetricsEnabledFlag.Name)
+	fmt.Println("Metrics enabled in proposer config:", metricsEnabled)
+
 	return &CLIConfig{
 		// Required Flags
 		L1EthRpc:     ctx.String(flags.L1EthRpcFlag.Name),
@@ -146,6 +152,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		RPCConfig:                    oprpc.ReadCLIConfig(ctx),
 		LogConfig:                    oplog.ReadCLIConfig(ctx),
 		MetricsConfig:                opmetrics.ReadCLIConfig(ctx),
+		MetricsEnabled:               ctx.Bool(flags.MetricsEnabledFlag.Name),
 		PprofConfig:                  oppprof.ReadCLIConfig(ctx),
 		ActiveSequencerCheckDuration: ctx.Duration(flags.ActiveSequencerCheckDurationFlag.Name),
 		WaitNodeSync:                 ctx.Bool(flags.WaitNodeSyncFlag.Name),

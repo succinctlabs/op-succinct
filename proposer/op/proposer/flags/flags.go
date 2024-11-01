@@ -125,6 +125,12 @@ var (
 		Usage:   "Batch Sender Address",
 		EnvVars: prefixEnvVars("BATCHER_ADDRESS"),
 	}
+	MetricsEnabledFlag = &cli.BoolFlag{
+		Name:    "metrics-enabled",
+		Usage:   "Enable the metrics server",
+		Value:   false,
+		EnvVars: prefixEnvVars("METRICS_ENABLED"),
+	}
 
 	// Legacy Flags
 	L2OutputHDPathFlag = txmgr.L2OutputHDPathFlag
@@ -153,6 +159,7 @@ var optionalFlags = []cli.Flag{
 	MaxConcurrentProofRequestsFlag,
 	BatchInboxFlag,
 	BatcherAddressFlag,
+	MetricsEnabledFlag,
 }
 
 func init() {

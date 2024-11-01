@@ -20,6 +20,8 @@ import (
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 
+	opsuccinctmetrics "github.com/succinctlabs/op-succinct-go/proposer/metrics"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
@@ -231,6 +233,15 @@ func (ps *ProposerService) initMetricsServer(cfg *CLIConfig) error {
 	}
 	ps.Log.Info("Started metrics server", "addr", metricsSrv.Addr())
 	ps.metricsSrv = metricsSrv
+
+
+	// Start Prometheus server in a goroutine
+	go func() {
+		if err := opsuccinctmetrics.StartPrometheusServer(fmt.Sprintf("%d", cfg.MetricsConfig.ListenPort)); err != nil {
+			ps.Log.Error("Failed to start Prometheus server", "err", err)
+		}
+	}()
+
 	return nil
 }
 

@@ -23,12 +23,14 @@ import (
 	// OP Succinct Contract Bindings
 	opsuccinctbindings "github.com/succinctlabs/op-succinct-go/bindings"
 
-	"github.com/ethereum-optimism/optimism/op-proposer/metrics"
+	opmetrics "github.com/ethereum-optimism/optimism/op-proposer/metrics"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+
 	"github.com/succinctlabs/op-succinct-go/proposer/db"
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent/proofrequest"
+	opsuccinctmetrics "github.com/succinctlabs/op-succinct-go/proposer/metrics"
 )
 
 var (
@@ -65,7 +67,7 @@ type RollupClient interface {
 
 type DriverSetup struct {
 	Log      log.Logger
-	Metr     metrics.Metricer
+	Metr     opmetrics.Metricer
 	Cfg      ProposerConfig
 	Txmgr    txmgr.TxManager
 	L1Client *ethclient.Client
@@ -611,12 +613,19 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 		select {
 		case <-ticker.C:
 			// Get the current metrics for the proposer.
-			metrics, err := l.GetProposerMetrics(ctx)
+			proposerMetrics, err := l.GetProposerMetrics(ctx)
 			if err != nil {
 				l.Log.Error("failed to get metrics", "err", err)
+				opsuccinctmetrics.NumErrors.Inc()
 				continue
 			}
-			l.Log.Info("Proposer status", "metrics", metrics)
+			l.Log.Info("Proposer status", "metrics", proposerMetrics)
+
+			// Update Prometheus metrics
+			opsuccinctmetrics.LatestContractL2Block.Add(float64(proposerMetrics.LatestContractL2Block))
+			opsuccinctmetrics.LatestL2FinalizedBlock.Add(float64(proposerMetrics.L2FinalizedBlock))
+			opsuccinctmetrics.NumProving.Set(float64(proposerMetrics.NumProving))
+			opsuccinctmetrics.NumWitnessgen.Set(float64(proposerMetrics.NumWitnessgen))
 
 			// 1) Queue up the span proofs that are ready to prove. Determine these range proofs based on the latest L2 finalized block,
 			// and the current L2 unsafe head.

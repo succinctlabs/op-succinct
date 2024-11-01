@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'op-succinct-proposer'
+    static_configs:
+      - targets: ['op-succinct-proposer:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'op-succinct-server'
+    static_configs:
+      - targets: ['op-succinct-server:9090']
+    metrics_path: '/metrics'
