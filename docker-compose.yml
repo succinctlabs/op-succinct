@@ -1,4 +1,13 @@
 services:
+  prometheus:
+    image: prom/prometheus:katest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - proposer_network
+
   # OP Succinct Server
   op-succinct-server:
     build:
@@ -9,6 +18,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    networks:
+      - proposer_network
 
   # OP Succinct Proposer
   op-succinct-proposer:
@@ -22,3 +33,5 @@ services:
       - op-succinct-server
     volumes:
       - ./db:/usr/local/bin/dbdata
+    networks:
+      - proposer_network
