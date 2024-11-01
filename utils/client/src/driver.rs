@@ -5,7 +5,9 @@
 
 use crate::l2_chain_provider::MultiblockOracleL2ChainProvider;
 use alloc::sync::Arc;
-use alloy_consensus::{Header, Sealed};
+use alloy_consensus::{BlockBody, Header, Sealed};
+use alloy_eips::eip2718::Decodable2718;
+use alloy_primitives::B256;
 use anyhow::{anyhow, Result};
 use core::fmt::Debug;
 use kona_client::{
@@ -24,8 +26,11 @@ use kona_derive::{
     },
     traits::{OriginProvider, Signal},
 };
-use kona_mpt::TrieProvider;
+use kona_executor::StatelessL2BlockExecutor;
+use kona_mpt::{TrieHinter, TrieProvider};
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
+use op_alloy_consensus::{OpBlock, OpTxEnvelope};
+use op_alloy_genesis::RollupConfig;
 use op_alloy_protocol::{BlockInfo, L2BlockInfo};
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
 
@@ -146,6 +151,81 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
     ) {
         self.l2_safe_head = new_safe_head;
         self.l2_safe_head_header = new_safe_head_header;
+    }
+
+    pub async fn produce_output<P, H>(
+        &mut self,
+        rollup_config: &RollupConfig,
+        executor: &mut StatelessL2BlockExecutor<'_, P, H>,
+        l2_provider: &mut MultiblockOracleL2ChainProvider<O>,
+    ) -> Result<B256>
+    where
+        P: TrieProvider + Send + Sync,
+        H: TrieHinter + Send + Sync,
+    {
+        // The initial payload requires block derivation.
+        let mut payload = self.produce_payload().await.unwrap();
+
+        let mut l2_block_info;
+        let mut new_block_header;
+        let mut new_block_number;
+        'step: loop {
+            // Execute the payload to generate a new block header.
+            println!(
+                "Executing Payload for L2 Block: {}",
+                payload.parent.block_info.number + 1
+            );
+            println!("cycle-tracker-report-start: block-execution");
+            new_block_header = executor
+                .execute_payload(payload.attributes.clone())
+                .unwrap();
+            println!("cycle-tracker-report-end: block-execution");
+            new_block_number = new_block_header.number;
+            assert_eq!(new_block_number, payload.parent.block_info.number + 1);
+
+            // Check if we have reached the claim block.
+            if new_block_number == self.l2_claim_block {
+                break 'step;
+            }
+
+            // Generate the Payload Envelope, which can be used to derive cached data.
+            let optimism_block = OpBlock {
+                header: new_block_header.clone(),
+                body: BlockBody {
+                    transactions: payload
+                        .attributes
+                        .transactions
+                        .unwrap()
+                        .iter()
+                        .map(|raw_tx| OpTxEnvelope::decode_2718(&mut raw_tx.as_ref()).unwrap())
+                        .collect::<Vec<OpTxEnvelope>>(),
+                    ommers: Vec::new(),
+                    withdrawals: rollup_config
+                        .is_canyon_active(new_block_header.timestamp)
+                        .then(Vec::new),
+                    requests: None,
+                },
+            };
+            // Add all data from this block's execution to the cache.
+            l2_block_info = l2_provider
+                .update_cache(new_block_header, optimism_block, rollup_config)
+                .unwrap();
+
+            // Update data for the next iteration.
+            self.update_safe_head(
+                l2_block_info,
+                Sealed::new_unchecked(new_block_header.clone(), new_block_header.hash_slow()),
+            );
+
+            println!("cycle-tracker-report-start: payload-derivation");
+            // Produce the next payload. If a span batch boundary is passed, the driver will step until the next batch.
+            payload = self.produce_payload().await.unwrap();
+            println!("cycle-tracker-report-end: payload-derivation");
+        }
+
+        let output_root = executor.compute_output_root().unwrap();
+
+        Ok(output_root)
     }
 
     /// Produces the disputed [OpAttributesWithParent] payload, directly from the pipeline.

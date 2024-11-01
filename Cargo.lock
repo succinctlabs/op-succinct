@@ -4243,6 +4243,7 @@ dependencies = [
  "kona-client",
  "kona-common",
  "kona-derive",
+ "kona-executor",
  "kona-mpt",
  "kona-preimage",
  "kona-primitives",
@@ -5282,15 +5283,12 @@ dependencies = [
 name = "range"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus",
- "alloy-eips",
  "anyhow",
  "cfg-if",
  "kona-client",
  "kona-derive",
  "kona-executor",
  "kona-primitives",
- "log",
  "op-alloy-consensus",
  "op-alloy-genesis",
  "op-succinct-client-utils",
