@@ -34,6 +34,8 @@ type OPSuccinctMetricer interface {
 	StartBalanceMetrics(l log.Logger, client *ethclient.Client, account common.Address) io.Closer
 
 	RecordL2BlocksProposed(l2ref eth.L2BlockRef)
+
+	RecordProposerStatus(metrics ProposerMetrics)
 }
 
 type OPSuccinctMetrics struct {
@@ -153,4 +155,24 @@ func (m *OPSuccinctMetrics) RecordL2BlocksProposed(l2ref eth.L2BlockRef) {
 
 func (m *OPSuccinctMetrics) Document() []opmetrics.DocumentedMetric {
 	return m.factory.Document()
+}
+
+// RecordProposerStatus sets the proposer Prometheus metrics to the given values.
+func (m *OPSuccinctMetrics) RecordProposerStatus(metrics ProposerMetrics) {
+	m.NumProving.Set(float64(metrics.NumProving))
+	m.NumWitnessGen.Set(float64(metrics.NumWitnessgen))
+	m.NumUnrequested.Set(float64(metrics.NumUnrequested))
+	m.L2FinalizedBlock.Set(float64(metrics.L2FinalizedBlock))
+	m.LatestContractL2Block.Set(float64(metrics.LatestContractL2Block))
+	m.HighestProvenContiguousL2Block.Set(float64(metrics.HighestProvenContiguousL2Block))
+}
+
+type ProposerMetrics struct {
+	L2UnsafeHeadBlock              uint64
+	L2FinalizedBlock               uint64
+	LatestContractL2Block          uint64
+	HighestProvenContiguousL2Block uint64
+	NumProving                     uint64
+	NumWitnessgen                  uint64
+	NumUnrequested                 uint64
 }

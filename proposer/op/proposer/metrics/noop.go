@@ -20,6 +20,8 @@ type noopMetrics struct {
 
 var NoopMetrics OPSuccinctMetricer = new(noopMetrics)
 
+func (*noopMetrics) RecordProposerStatus(metrics ProposerMetrics) {}
+
 func (*noopMetrics) RecordInfo(version string) {}
 func (*noopMetrics) RecordUp()                 {}
 
