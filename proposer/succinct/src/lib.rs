@@ -1,7 +1,7 @@
 use alloy_primitives::B256;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Deserializer, Serialize};
-use sp1_sdk::SP1VerifyingKey;
+use sp1_sdk::{network::proto::network::ProofStatus as SP1ProofStatus, SP1VerifyingKey};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ValidateConfigRequest {
@@ -33,13 +33,37 @@ pub struct ProofResponse {
     pub proof_id: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[repr(i32)]
+/// The type of error that occurred when unclaiming a proof. Based off of the `unclaim_description`
+/// field in the `ProofStatus` struct.
+pub enum UnclaimDescription {
+    UnexpectedProverError = 0,
+    ProgramExecutionError = 1,
+    CycleLimitExceeded = 2,
+    Other = 3,
+}
+
+/// Convert a string to an `UnclaimDescription`. These cover the common reasons why a proof might
+/// be unclaimed.
+impl From<String> for UnclaimDescription {
+    fn from(description: String) -> Self {
+        match description.as_str().to_lowercase().as_str() {
+            "unexpected prover error" => UnclaimDescription::UnexpectedProverError,
+            "program execution error" => UnclaimDescription::ProgramExecutionError,
+            "cycle limit exceeded" => UnclaimDescription::CycleLimitExceeded,
+            _ => UnclaimDescription::Other,
+        }
+    }
+}
+
 #[derive(Serialize)]
 /// The status of a proof request.
 pub struct ProofStatus {
     // TODO: Modify this to return an i32 matching `SP1ProofStatus`
-    pub status: String,
+    pub status: SP1ProofStatus,
     pub proof: Vec<u8>,
-    pub unclaim_description: Option<i32>,
+    pub unclaim_description: Option<UnclaimDescription>,
 }
 
 /// Configuration of the L2 Output Oracle contract. Created once at server start-up, monitors if there are any changes

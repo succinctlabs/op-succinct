@@ -19,9 +19,8 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proposer::{
     AggProofRequest, ContractConfig, ProofResponse, ProofStatus, SpanProofRequest,
-    ValidateConfigRequest, ValidateConfigResponse,
+    UnclaimDescription, ValidateConfigRequest, ValidateConfigResponse,
 };
-use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     network::{
         client::NetworkClient,
@@ -211,31 +210,6 @@ async fn request_agg_proof(
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-#[repr(i32)]
-/// The type of error that occurred when unclaiming a proof. Based off of the `unclaim_description`
-/// field in the `ProofStatus` struct.
-enum UnclaimErrorType {
-    UnexpectedProverError = 0,
-    ProgramExecutionError = 1,
-    CycleLimitExceeded = 2,
-    Other = 3,
-}
-
-/// Convert a string to an `UnclaimErrorType`. These cover the common reasons why a proof might
-/// be unclaimed.
-impl From<String> for UnclaimErrorType {
-    fn from(description: String) -> Self {
-        match description.as_str().to_lowercase().as_str() {
-            "unexpected prover error" => UnclaimErrorType::UnexpectedProverError,
-            "program execution error" => UnclaimErrorType::ProgramExecutionError,
-            "cycle limit exceeded" => UnclaimErrorType::CycleLimitExceeded,
-            _ => UnclaimErrorType::Other,
-        }
-    }
-}
-
 /// Get the status of a proof.
 async fn get_proof_status(
     Path(proof_id): Path<String>,
@@ -254,7 +228,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: "failed".to_string(),
+                        status: SP1ProofStatus::ProofUnspecifiedStatus,
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -264,7 +238,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: "failed".to_string(),
+                        status: SP1ProofStatus::ProofUnspecifiedStatus,
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -274,7 +248,7 @@ async fn get_proof_status(
 
     let unclaim_description = status.unclaim_description.unwrap_or_default();
 
-    let unclaim_description_enum: UnclaimErrorType = unclaim_description.into();
+    let unclaim_description_enum: UnclaimDescription = unclaim_description.into();
 
     let status: SP1ProofStatus = SP1ProofStatus::try_from(status.status)?;
     if status == SP1ProofStatus::ProofFulfilled {
@@ -289,7 +263,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        status: status.as_str_name().to_string(),
+                        status: status.into(),
                         proof: proof_bytes,
                         unclaim_description: None,
                     }),
@@ -301,7 +275,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        status: status.as_str_name().to_string(),
+                        status: status.into(),
                         proof: proof_bytes,
                         unclaim_description: None,
                     }),
@@ -313,7 +287,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        status: status.as_str_name().to_string(),
+                        status: status.into(),
                         proof: proof_bytes,
                         unclaim_description: None,
                     }),
@@ -325,16 +299,16 @@ async fn get_proof_status(
         return Ok((
             StatusCode::OK,
             Json(ProofStatus {
-                status: status.as_str_name().to_string(),
+                status: status.into(),
                 proof: vec![],
-                unclaim_description: Some(unclaim_description_enum as i32),
+                unclaim_description: Some(unclaim_description_enum),
             }),
         ));
     }
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
-            status: status.as_str_name().to_string(),
+            status: status.into(),
             proof: vec![],
             unclaim_description: None,
         }),

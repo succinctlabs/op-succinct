@@ -24,6 +24,7 @@ type ProofResponse struct {
 	ProofID string `json:"proof_id"`
 }
 
+// UnclaimDescription is the description of why a proof was unclaimed.
 type UnclaimDescription int
 
 const (
@@ -33,9 +34,21 @@ const (
 	Other
 )
 
+// SP1ProofStatus represents the status of a proof in the SP1 network.
+type SP1ProofStatus int
+
+const (
+	SP1ProofStatusUnknown SP1ProofStatus = iota
+	SP1ProofStatusPending
+	SP1ProofStatusInProgress
+	SP1ProofStatusFulfilled
+	SP1ProofStatusUnclaimed
+	SP1ProofStatusInvalid
+)
+
 // ProofStatusResponse is the response type for the `GetProofStatus` RPC from the op-succinct-server.
 type ProofStatusResponse struct {
-	Status             string             `json:"status"`
+	Status             SP1ProofStatus     `json:"status"`
 	Proof              []byte             `json:"proof"`
 	UnclaimDescription UnclaimDescription `json:"unclaim_description,omitempty"`
 }
