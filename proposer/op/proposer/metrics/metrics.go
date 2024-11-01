@@ -5,15 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opproposermetrics "github.com/ethereum-optimism/optimism/op-proposer/metrics"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/prometheus/client_golang/prometheus"
-
-	
 )
 
 const Namespace = "op_succinct_proposer"
@@ -46,6 +44,8 @@ type OPSuccinctMetrics struct {
 	L2FinalizedBlock               prometheus.Gauge
 	LatestContractL2Block          prometheus.Gauge
 	HighestProvenContiguousL2Block prometheus.Gauge
+
+	ErrorCount *prometheus.CounterVec
 }
 
 var _ OPSuccinctMetricer = (*OPSuccinctMetrics)(nil)
@@ -109,6 +109,16 @@ func NewMetrics(procName string) *OPSuccinctMetrics {
 			Namespace: ns,
 			Name:      "highest_proven_contiguous_l2_block",
 			Help:      "Highest proven L2 block contiguous with contract's latest block",
+		}),
+		ErrorCount: factory.NewCounterVec(prometheus.CounterOpts{
+			Namespace: ns,
+			Name:      "error_count",
+			Help:      "Number of errors encountered",
+		}, []string{
+			"witnessgen",
+			"prove",
+			"get_proof_status",
+			"validate_config",
 		}),
 	}
 }

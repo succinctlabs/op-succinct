@@ -388,6 +388,8 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 	// Create a variable of the Response type
 	var proofStatus ProofStatusResponse
 
+	fmt.Println(string(body))
+
 	// Unmarshal the JSON into the response variable
 	err = json.Unmarshal(body, &proofStatus)
 	if err != nil {

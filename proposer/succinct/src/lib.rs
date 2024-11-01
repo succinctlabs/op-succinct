@@ -60,7 +60,6 @@ impl From<String> for UnclaimDescription {
 #[derive(Serialize)]
 /// The status of a proof request.
 pub struct ProofStatus {
-    // TODO: Modify this to return an i32 matching `SP1ProofStatus`
     pub status: SP1ProofStatus,
     pub proof: Vec<u8>,
     pub unclaim_description: Option<UnclaimDescription>,
