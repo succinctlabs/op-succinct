@@ -6,11 +6,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	opproposermetrics "github.com/ethereum-optimism/optimism/op-proposer/metrics"
 	opmetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
 	txmetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/prometheus/client_golang/prometheus"
+
+	
 )
 
 const Namespace = "op_succinct_proposer"
@@ -19,21 +22,7 @@ const Namespace = "op_succinct_proposer"
 var _ opmetrics.RegistryMetricer = (*OPSuccinctMetrics)(nil)
 
 type OPSuccinctMetricer interface {
-	RecordInfo(version string)
-	RecordUp()
-
-	// Records all L1 and L2 block events
-	opmetrics.RefMetricer
-
-	// Record Tx metrics
-	txmetrics.TxMetricer
-
-	// Record RPC metrics
-	opmetrics.RPCMetricer
-
-	StartBalanceMetrics(l log.Logger, client *ethclient.Client, account common.Address) io.Closer
-
-	RecordL2BlocksProposed(l2ref eth.L2BlockRef)
+	opproposermetrics.Metricer
 
 	RecordProposerStatus(metrics ProposerMetrics)
 }
