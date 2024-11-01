@@ -52,15 +52,14 @@ async fn main() -> Result<()> {
         let proof_dir = Path::new(&proof_path);
         fs::create_dir_all(proof_dir)?;
 
-        let filename: String;
-        if args.start.is_some() && args.end.is_some() {
+        let filename: String = if args.start.is_some() && args.end.is_some() {
             let start = args.start.unwrap();
             let end = args.end.unwrap();
-            filename = format!("{}_{}.bin", start, end);
+            format!("{}_{}.bin", start, end)
         } else {
             // Generate the filename
-            filename = format!("{}.bin", args.request_id);
-        }
+            format!("{}.bin", args.request_id)
+        };
         let file_path = proof_dir.join(filename);
 
         // Save the proof

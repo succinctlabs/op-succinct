@@ -912,10 +912,8 @@ mod tests {
                 .collect::<Vec<_>>()
                 .await;
 
-        for result in safe_heads {
-            if let Ok(response) = result {
-                l2_safe_heads.push(response.safe_head.number);
-            }
+        for result in safe_heads.into_iter().flatten() {
+            l2_safe_heads.push(result.safe_head.number);
         }
     }
 }
