@@ -20,15 +20,15 @@ import (
 
 	// Original Optimism Bindings
 
-	// OP Succinct Contract Bindings
-	opsuccinctbindings "github.com/succinctlabs/op-succinct-go/bindings"
-
-	"github.com/ethereum-optimism/optimism/op-proposer/metrics"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+
+	// OP Succinct
+	opsuccinctbindings "github.com/succinctlabs/op-succinct-go/bindings"
 	"github.com/succinctlabs/op-succinct-go/proposer/db"
 	"github.com/succinctlabs/op-succinct-go/proposer/db/ent/proofrequest"
+	opsuccinctmetrics "github.com/succinctlabs/op-succinct-go/proposer/metrics"
 )
 
 var (
@@ -65,7 +65,7 @@ type RollupClient interface {
 
 type DriverSetup struct {
 	Log      log.Logger
-	Metr     metrics.Metricer
+	Metr     opsuccinctmetrics.OPSuccinctMetricer
 	Cfg      ProposerConfig
 	Txmgr    txmgr.TxManager
 	L1Client *ethclient.Client
@@ -275,6 +275,16 @@ func (l *L2OutputSubmitter) GetProposerMetrics(ctx context.Context) (ProposerMet
 	numUnrequested, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusUNREQ)
 	if err != nil {
 		return ProposerMetrics{}, fmt.Errorf("failed to get number of unrequested proofs: %w", err)
+	}
+
+	// Record the metrics to Prometheus gauges.
+	if m, ok := l.Metr.(*opsuccinctmetrics.OPSuccinctMetrics); ok {
+		m.NumProving.Set(float64(numProving))
+		m.NumWitnessGen.Set(float64(numWitnessgen))
+		m.NumUnrequested.Set(float64(numUnrequested))
+		m.L2FinalizedBlock.Set(float64(l2FinalizedBlock))
+		m.LatestContractL2Block.Set(float64(latestContractL2Block.Uint64()))
+		m.HighestProvenContiguousL2Block.Set(float64(highestProvenContiguousL2Block))
 	}
 
 	return ProposerMetrics{
