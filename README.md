@@ -10,6 +10,10 @@ Today, you can already use OP Succinct to upgrade any existing OP Stack rollup t
 
 ## Repository Overview
 
+> [!CAUTION]
+> `main` is the development branch and may contain unstable code.
+> For production use, please use the [latest release](https://github.com/succinctlabs/op-succinct/releases).
+
 The repository is organized into the following directories:
 
 - `book`: The documentation for OP Succinct users and developers.
@@ -24,9 +28,3 @@ This repo could not exist without:
 * [OP Stack](https://docs.optimism.io/stack/getting-started): Modular software components for building L2 blockchains.
 * [Kona](https://github.com/anton-rs/kona/tree/main): A portable implementation of the OP Stack rollup state transition, namely the derivation pipeline and the block execution logic.
 * [SP1](https://github.com/succinctlabs/sp1): A fast, feature-complete zkVM for developers that can prove the execution of arbitrary Rust (or any LLVM-compiled) program.
-
-## Notice
-
-> [!CAUTION]
-> `main` is the development branch and may contain unstable code.
-> For production use, please use the [latest release](https://github.com/succinctlabs/op-succinct/releases).
