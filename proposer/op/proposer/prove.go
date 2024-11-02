@@ -25,24 +25,6 @@ const MAX_CONCURRENT_WITNESS_GEN = 5
 
 // Process all of the pending proofs.
 func (l *L2OutputSubmitter) ProcessPendingProofs() error {
-	// Retrieve all proofs that failed without reaching the prover network (specifically, proofs that failed with no proof ID).
-	// These are proofs that failed in the witness generation state.
-	failedReqs, err := l.db.GetProofsFailedOnServer()
-	if err != nil {
-		return fmt.Errorf("failed to get proofs failed on server: %w", err)
-	}
-
-	if len(failedReqs) > 0 {
-		l.Log.Info("Retrying failed proofs.", "failed", len(failedReqs))
-	}
-
-	for _, req := range failedReqs {
-		err = l.RetryRequest(req, ProofStatusResponse{})
-		if err != nil {
-			return fmt.Errorf("failed to retry request: %w", err)
-		}
-	}
-
 	// Get all proof requests that are currently in the PROVING state.
 	reqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusPROVING)
 	if err != nil {
@@ -52,6 +34,9 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		proofStatus, err := l.GetProofStatus(req.ProverRequestID)
 		if err != nil {
 			l.Log.Error("failed to get proof status for ID", "id", req.ProverRequestID, "err", err)
+
+			// Record the error for the get proof status call.
+			l.Metr.RecordError("get_proof_status", 1)
 			return err
 		}
 		if proofStatus.Status == SP1ProofStatusFulfilled {
@@ -73,6 +58,9 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			} else {
 				l.Log.Info("proof unclaimed", "id", req.ProverRequestID)
 			}
+
+			// Record the error for the proof unclaimed or timed out.
+			l.Metr.RecordError("prove", 1)
 
 			err = l.RetryRequest(req, proofStatus)
 			if err != nil {
@@ -181,11 +169,10 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 
 		err = l.RequestOPSuccinctProof(p)
 		if err != nil {
-			l.Log.Error("failed to request proof from the OP Succinct server", "err", err, "proof", p)
-			err = l.db.UpdateProofStatus(nextProofToRequest.ID, proofrequest.StatusFAILED)
-			if err != nil {
-				l.Log.Error("failed to set proof status to failed", "err", err, "proverRequestID", nextProofToRequest.ID)
-			}
+			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
+
+			// Record the error for the witness generation request.
+			l.Metr.RecordError("witnessgen", 1)
 
 			// If the proof fails to be requested, we should add it to the queue to be retried.
 			err = l.RetryRequest(nextProofToRequest, ProofStatusResponse{})
@@ -232,6 +219,7 @@ func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 	var err error
 
 	// TODO: This process should poll the server to get the witness generation status.
+	// Request a proof from the OP Succinct server. This process can take up to WITNESS_GEN_TIMEOUT minutes.
 	if p.Type == proofrequest.TypeAGG {
 		proofId, err = l.RequestAggProof(p.StartBlock, p.EndBlock, p.L1BlockHash)
 		if err != nil {
@@ -388,8 +376,6 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 	// Create a variable of the Response type
 	var proofStatus ProofStatusResponse
 
-	fmt.Println(string(body))
-
 	// Unmarshal the JSON into the response variable
 	err = json.Unmarshal(body, &proofStatus)
 	if err != nil {
@@ -420,12 +406,30 @@ func (l *L2OutputSubmitter) ValidateConfig(address string) error {
 	client := &http.Client{
 		Timeout: PROOF_STATUS_TIMEOUT,
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		if err, ok := err.(net.Error); ok && err.Timeout() {
-			return fmt.Errorf("request timed out after %s: %w", PROOF_STATUS_TIMEOUT, err)
+
+	// Attempt to validate the config up to 5 times with exponential backoff.
+	maxRetries := 5
+	backoff := 1 * time.Second
+	var resp *http.Response
+
+	for i := 0; i < maxRetries; i++ {
+		resp, err = client.Do(req)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			break
 		}
-		return fmt.Errorf("failed to send request: %w", err)
+		if i == maxRetries-1 {
+			if err != nil {
+				if err, ok := err.(net.Error); ok && err.Timeout() {
+					return fmt.Errorf("request timed out after %s: %w", PROOF_STATUS_TIMEOUT, err)
+				}
+				return fmt.Errorf("failed to send request: %w", err)
+			}
+			return fmt.Errorf("server not healthy after %d retries", maxRetries)
+		}
+
+		l.Log.Info("server not ready, retrying", "attempt", i+1, "backoff", backoff)
+		time.Sleep(backoff)
+		backoff *= 2
 	}
 	defer resp.Body.Close()
 

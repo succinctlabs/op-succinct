@@ -40,15 +40,15 @@ const (
 type SP1ProofStatus int
 
 const (
-	SP1ProofStatusUnknown SP1ProofStatus = iota
-	SP1ProofStatusPending
-	SP1ProofStatusInProgress
-	SP1ProofStatusFulfilled
+	SP1ProofStatusUnspecified SP1ProofStatus = iota
+	SP1ProofStatusPreparing
+	SP1ProofStatusRequested
+	SP1ProofStatusClaimed
 	SP1ProofStatusUnclaimed
-	SP1ProofStatusInvalid
+	SP1ProofStatusFulfilled
 )
 
-// ProofStatusResponse is the response type for the `GetProofStatus` RPC from the op-succinct-server.
+// ProofStatusResponse is the response type for the `/status/:proof_id` RPC from the op-succinct-server.
 type ProofStatusResponse struct {
 	Status             SP1ProofStatus     `json:"status"`
 	Proof              []byte             `json:"proof"`

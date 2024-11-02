@@ -23,6 +23,7 @@ type OPSuccinctMetricer interface {
 	opproposermetrics.Metricer
 
 	RecordProposerStatus(metrics ProposerMetrics)
+	RecordError(label string, num uint64)
 }
 
 type OPSuccinctMetrics struct {
@@ -154,6 +155,20 @@ func (m *OPSuccinctMetrics) RecordL2BlocksProposed(l2ref eth.L2BlockRef) {
 
 func (m *OPSuccinctMetrics) Document() []opmetrics.DocumentedMetric {
 	return m.factory.Document()
+}
+
+// RecordError increments the error counter for the given label
+func (m *OPSuccinctMetrics) RecordError(label string, num uint64) {
+	switch label {
+	case "witnessgen":
+		m.ErrorCount.WithLabelValues("witnessgen", "", "", "").Add(float64(num))
+	case "prove":
+		m.ErrorCount.WithLabelValues("", "prove", "", "").Add(float64(num))
+	case "get_proof_status":
+		m.ErrorCount.WithLabelValues("", "", "get_proof_status", "").Add(float64(num))
+	case "validate_config":
+		m.ErrorCount.WithLabelValues("", "", "", "validate_config").Add(float64(num))
+	}
 }
 
 // RecordProposerStatus sets the proposer Prometheus metrics to the given values.
