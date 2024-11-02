@@ -355,7 +355,7 @@ async fn main() -> Result<()> {
     execute_blocks_parallel(&host_clis, split_ranges, &prover, l2_chain_id, &args).await;
     let total_execution_time_sec = start_time.elapsed().as_secs();
 
-    // Read the execution stats from the CSV file.
+    // Get the path to the execution report CSV file.
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
     let report_path = root_dir.join(format!(
@@ -363,6 +363,7 @@ async fn main() -> Result<()> {
         l2_chain_id, args.start, args.end
     ));
 
+    // Read the execution stats from the CSV file and aggregate them to output to the user.
     let mut final_execution_stats = Vec::new();
     let mut csv_reader = csv::Reader::from_path(report_path)?;
     for result in csv_reader.deserialize() {
@@ -370,6 +371,7 @@ async fn main() -> Result<()> {
         final_execution_stats.push(stats);
     }
 
+    // Aggregate the execution stats and print them to the user.
     println!(
         "Aggregate Execution Stats for Chain {}: \n {}",
         l2_chain_id,
