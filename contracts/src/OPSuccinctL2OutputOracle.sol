@@ -62,21 +62,21 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
 
+    /// @notice A trusted mapping of block numbers to block hashes.
+    mapping(uint256 => bytes32) public historicBlockHashes;
+
     /// @notice The verification key of the aggregation SP1 program.
-    bytes32 public aggregationVkey;
+    bytes32 public immutable aggregationVkey;
 
     /// @notice The 32 byte commitment to the BabyBear representation of the verification key of the range SP1 program. Specifically,
     /// this verification is the output of converting the [u32; 8] range BabyBear verification key to a [u8; 32] array.
-    bytes32 public rangeVkeyCommitment;
+    bytes32 public immutable rangeVkeyCommitment;
 
     /// @notice The deployed SP1VerifierGateway contract to request proofs from.
-    address public verifierGateway;
+    address public immutable verifierGateway;
 
     /// @notice The hash of the chain's rollup config, which ensures the proofs submitted are for the correct chain.
-    bytes32 public rollupConfigHash;
-
-    /// @notice A trusted mapping of block numbers to block hashes.
-    mapping(uint256 => bytes32) public historicBlockHashes;
+    bytes32 public immutable rollupConfigHash;
 
     ////////////////////////////////////////////////////////////
     //                         Events                         //
