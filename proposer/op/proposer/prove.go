@@ -53,14 +53,14 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 		// TODO: Is this proof timeout logic necessary? Users should be able to count on the proof being fulfilled or unclaimed.
 		timeout := uint64(time.Now().Unix()) > req.ProofRequestTime+l.DriverSetup.Cfg.ProofTimeout
 		if timeout || proofStatus.Status == SP1ProofStatusUnclaimed {
+			// Record the failure reason.
 			if timeout {
-				l.Log.Info("proof timed out", "id", req.ProverRequestID)
+				l.Log.Info("Proof timed out", "id", req.ProverRequestID)
+				l.Metr.RecordProveFailure("Timeout")
 			} else {
-				l.Log.Info("proof unclaimed", "id", req.ProverRequestID)
+				l.Log.Info("Proof unclaimed", "id", req.ProverRequestID, "reason", proofStatus.UnclaimDescription.String())
+				l.Metr.RecordProveFailure(proofStatus.UnclaimDescription.String())
 			}
-
-			// Record the error for the proof unclaimed or timed out.
-			l.Metr.RecordError("prove", 1)
 
 			err = l.RetryRequest(req, proofStatus)
 			if err != nil {
@@ -81,10 +81,9 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 		return err
 	}
 
-	l.Log.Info("Retrying proof", "id", req.ID, "type", req.Type, "start", req.StartBlock, "end", req.EndBlock)
-
 	// If the proof was unclaimed due to a program execution error, we should split the proof into two.
 	if status.UnclaimDescription == ProgramExecutionError {
+		l.Log.Info("proof unclaimed due to program execution error, splitting into two", "id", req.ID, "type", req.Type, "start", req.StartBlock, "end", req.EndBlock)
 		mid := (req.StartBlock + req.EndBlock) / 2
 		// Create two new proof requests, one from [start, mid] and one from [mid, end]. The requests
 		// are consecutive and overlapping.
@@ -99,6 +98,7 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
+		l.Log.Info("proof unclaimed, retrying with same range", "id", req.ID, "type", req.Type, "start", req.StartBlock, "end", req.EndBlock)
 		// If the proof was unclaimed for any other reason, retry with the same range.
 		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
 		if err != nil {
@@ -313,6 +313,8 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 	resp, err := client.Do(req)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// Record the failure reason as timeout.
+			l.Metr.RecordWitnessGenFailure("Timeout")
 			return "", fmt.Errorf("request timed out after %s: %w", WITNESS_GEN_TIMEOUT, err)
 		}
 		return "", fmt.Errorf("failed to send request: %w", err)
@@ -321,6 +323,8 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 
 	// If there's an error, return it.
 	if resp.StatusCode != http.StatusOK {
+		// Record the failure reason as failed.
+		l.Metr.RecordWitnessGenFailure("Failed")
 		return "", fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
 

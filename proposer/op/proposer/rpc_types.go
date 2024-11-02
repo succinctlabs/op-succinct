@@ -33,8 +33,25 @@ const (
 	UnexpectedProverError UnclaimDescription = iota
 	ProgramExecutionError
 	CycleLimitExceeded
+	// Other is a catch-all for any other unclaim description that doesn't fit into the above categories.
+	// Typically, this is used for proofs that are forcibly unclaimed by the cluster.
 	Other
 )
+
+func (d UnclaimDescription) String() string {
+	switch d {
+	case UnexpectedProverError:
+		return "UnexpectedProverError"
+	case ProgramExecutionError:
+		return "ProgramExecutionError" 
+	case CycleLimitExceeded:
+		return "CycleLimitExceeded"
+	case Other:
+		return "Other"
+	default:
+		return "Unknown"
+	}
+}
 
 // SP1ProofStatus represents the status of a proof in the SP1 network.
 type SP1ProofStatus int

@@ -24,6 +24,8 @@ type OPSuccinctMetricer interface {
 
 	RecordProposerStatus(metrics ProposerMetrics)
 	RecordError(label string, num uint64)
+	RecordProveFailure(reason string)
+	RecordWitnessGenFailure(reason string)
 }
 
 type OPSuccinctMetrics struct {
@@ -47,6 +49,8 @@ type OPSuccinctMetrics struct {
 	HighestProvenContiguousL2Block prometheus.Gauge
 
 	ErrorCount *prometheus.CounterVec
+	ProveFailures *prometheus.CounterVec
+	WitnessGenFailures *prometheus.CounterVec
 }
 
 var _ OPSuccinctMetricer = (*OPSuccinctMetrics)(nil)
@@ -62,65 +66,70 @@ func NewMetrics(procName string) *OPSuccinctMetrics {
 
 	return &OPSuccinctMetrics{
 		ns:       ns,
-		registry: registry,
-		factory:  factory,
+			registry: registry,
+			factory:  factory,
 
-		RefMetrics: opmetrics.MakeRefMetrics(ns, factory),
-		TxMetrics:  txmetrics.MakeTxMetrics(ns, factory),
-		RPCMetrics: opmetrics.MakeRPCMetrics(ns, factory),
+			RefMetrics: opmetrics.MakeRefMetrics(ns, factory),
+			TxMetrics:  txmetrics.MakeTxMetrics(ns, factory),
+			RPCMetrics: opmetrics.MakeRPCMetrics(ns, factory),
 
-		info: *factory.NewGaugeVec(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "info",
-			Help:      "Pseudo-metric tracking version and config info",
-		}, []string{
-			"version",
-		}),
-		up: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "up",
-			Help:      "1 if the op-proposer has finished starting up",
-		}),
-		NumProving: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "num_proving",
-			Help:      "Number of proofs currently being proven",
-		}),
-		NumWitnessGen: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "num_witness_gen",
-			Help:      "Number of witnesses currently being generated",
-		}),
-		NumUnrequested: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "num_unrequested",
-			Help:      "Number of unrequested proofs",
-		}),
-		L2FinalizedBlock: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "l2_finalized_block",
-			Help:      "Latest finalized L2 block number",
-		}),
-		LatestContractL2Block: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "latest_contract_l2_block",
-			Help:      "Latest L2 block number on the L2OO contract",
-		}),
-		HighestProvenContiguousL2Block: factory.NewGauge(prometheus.GaugeOpts{
-			Namespace: ns,
-			Name:      "highest_proven_contiguous_l2_block",
-			Help:      "Highest proven L2 block contiguous with contract's latest block",
-		}),
-		ErrorCount: factory.NewCounterVec(prometheus.CounterOpts{
-			Namespace: ns,
-			Name:      "error_count",
-			Help:      "Number of errors encountered",
-		}, []string{
-			"witnessgen",
-			"prove",
-			"get_proof_status",
-			"validate_config",
-		}),
+			info: *factory.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "info",
+				Help:      "Pseudo-metric tracking version and config info",
+			}, []string{
+				"version",
+			}),
+			up: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "up",
+				Help:      "1 if the op-proposer has finished starting up",
+			}),
+			NumProving: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "num_proving",
+				Help:      "Number of proofs currently being proven",
+			}),
+			NumWitnessGen: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "num_witness_gen",
+				Help:      "Number of witnesses currently being generated",
+			}),
+			NumUnrequested: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "num_unrequested",
+				Help:      "Number of unrequested proofs",
+			}),
+			L2FinalizedBlock: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "l2_finalized_block",
+				Help:      "Latest finalized L2 block number",
+			}),
+			LatestContractL2Block: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "latest_contract_l2_block",
+				Help:      "Latest L2 block number on the L2OO contract",
+			}),
+			HighestProvenContiguousL2Block: factory.NewGauge(prometheus.GaugeOpts{
+				Namespace: ns,
+				Name:      "highest_proven_contiguous_l2_block",
+				Help:      "Highest proven L2 block contiguous with contract's latest block",
+			}),
+			ErrorCount: factory.NewCounterVec(prometheus.CounterOpts{
+				Namespace: ns,
+				Name:      "error_count",
+				Help:      "Number of errors encountered",
+			}, []string{"type"}),
+			ProveFailures: factory.NewCounterVec(prometheus.CounterOpts{
+				Namespace: ns,
+				Name:      "prove_failures",
+				Help:      "Number of prove failures by type",
+			}, []string{"reason"}),
+			WitnessGenFailures: factory.NewCounterVec(prometheus.CounterOpts{
+				Namespace: ns,
+				Name:      "witness_gen_failures",
+				Help:      "Number of witness generation failures by type",
+			}, []string{"reason"}),
 	}
 }
 
@@ -157,18 +166,19 @@ func (m *OPSuccinctMetrics) Document() []opmetrics.DocumentedMetric {
 	return m.factory.Document()
 }
 
-// RecordError increments the error counter for the given label
-func (m *OPSuccinctMetrics) RecordError(label string, num uint64) {
-	switch label {
-	case "witnessgen":
-		m.ErrorCount.WithLabelValues("witnessgen", "", "", "").Add(float64(num))
-	case "prove":
-		m.ErrorCount.WithLabelValues("", "prove", "", "").Add(float64(num))
-	case "get_proof_status":
-		m.ErrorCount.WithLabelValues("", "", "get_proof_status", "").Add(float64(num))
-	case "validate_config":
-		m.ErrorCount.WithLabelValues("", "", "", "validate_config").Add(float64(num))
-	}
+// RecordError records different types of errors
+func (m *OPSuccinctMetrics) RecordError(errorType string, num uint64) {
+	m.ErrorCount.WithLabelValues(errorType).Add(float64(num))
+}
+
+// RecordProveFailure records specific prove failure types
+func (m *OPSuccinctMetrics) RecordProveFailure(reason string) {
+	m.ProveFailures.WithLabelValues(reason).Inc()
+}
+
+// RecordWitnessGenFailure records specific witness generation failure types
+func (m *OPSuccinctMetrics) RecordWitnessGenFailure(reason string) {
+	m.WitnessGenFailures.WithLabelValues(reason).Inc()
 }
 
 // RecordProposerStatus sets the proposer Prometheus metrics to the given values.
