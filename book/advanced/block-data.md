@@ -26,6 +26,11 @@ RUST_LOG=info cargo run --bin block-data --release -- --start <start_l2_block> -
 |-----------|-------------|
 | `--env-file` | The path to the environment file to use. (Ex. `.env.opmainnet`) |
 
+## Useful Commands
+
+- `cast block finalized -f number --rpc-url <L2_RPC>`: Get the latest finalized block number on the L2.
+- `cast bn --rpc-url <L2_RPC>`: Get the latest block number on the L2.
+
 ## Sample Output
 
 ### `stdout`
