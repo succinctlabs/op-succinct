@@ -31,7 +31,7 @@ RUST_LOG=info just cost-estimator <start_l2_block> <end_l2_block>
 
 This command will split the block range into smaller ranges to model the workload run by `op-succinct`. It will then fetch the required data for generating the ZKP for each of these ranges, and execute the SP1 `range` program. Once each program finishes, it will collect the statistics and output the aggregate statistics.
 
-Once the execution of the range is complete, the cost estimator will output the aggregate statistics and write them to a CSV file in `execution-reports/{chain_id}/{start_block}-{end_block}.csv`.
+Once the execution of the range is complete, the cost estimator will output the aggregate statistics and write them to a CSV file at `execution-reports/{chain_id}/{start_block}-{end_block}.csv`.
 
 > The execution of the cost estimator can be quite slow, especially for large block ranges. We recommend first running the cost estimator over a small block range to get a sense of how long it takes.
 
@@ -106,67 +106,4 @@ batch_start,batch_end,witness_generation_time_sec,total_execution_time_sec,total
 5484163,5484183,0,0,4005997705,311171459,435265918,3206173584,134844448,4570091686,21,365,110883055,690170871678571,779801718014140,190761795,10975336,17,5280145,303789,1676711949,66155955,346844998,0,17337504
 5484121,5484141,0,0,4152572226,316652487,486166806,3293854188,134779302,4746305028,21,440,117222955,767310117504021,846733606470274,197741534,9437664,20,5582045,266415,1584230563,62520537,329178548,0,25124445
 5484142,5484162,0,0,4917437300,330082112,583155497,3943346637,134844448,5612150377,21,506,129405605,935016666707488,1031433531465147,234163680,9718255,24,6162171,255742,2035223088,80312269,423736971,0,27867373
-```
-
-## Fetch Block Data
-
-To perform analysis on the fees collected on L2, you can use the `block-data` script. This script will fetch the block & fee data for each block in the range from the L2 and output a CSV file with the columns: `block_number`, `transaction_count`, `gas_used`, `total_l1_fees`, `total_tx_fees`.
-
-Compared to the cost estimator, the block data script is much faster and requires less resources, so it's recommended to use this script if you only need the block data and want to calculate data quantities like average txns per block, avg gas per block, etc.
-
-### Run the Block Data Script
-
-```shell
-RUST_LOG=info cargo run --bin block-data --release -- --start <start_l2_block> --end <end_l2_block>
-```
-
-### Optional flags
-
-| Flag | Description |
-|-----------|-------------|
-| `--env-file` | The path to the environment file to use. (Ex. `.env.opmainnet`) |
-
-### Sample Output
-
-#### `stdout`
-
-Fetching block data for blocks 5,484,100 to 5,484,200 on World Chain Mainnet:
-
-```shell
-Wrote block data to block-data/480/5484100-5484200-block-data.csv
-
-Aggregate Block Data for blocks 5484100 to 5484200:
-Total Blocks: 101
-Total Transactions: 1977
-Total Gas Used: 546370916
-Total L1 Fees: 0.003644 ETH
-Total TX Fees: 0.004038 ETH
-Avg Txns/Block: 19.57
-Avg Gas/Block: 5409613.03
-Avg L1 Fees/Block: 0.000036 ETH
-Avg TX Fees/Block: 0.000040 ETH
-```
-
-#### csv
-
-```csv
-block_number,transaction_count,gas_used,total_l1_fees,total_tx_fees
-5710000,13,5920560,8004099318905,9272809586600
-5710001,10,3000975,4810655220218,5353583855906
-5710002,16,7269303,10842878782866,12174517937838
-5710003,10,4521953,6142429255728,6967734553050
-5710004,10,5558505,6534408691877,7550749486247
-5710005,14,6670097,10210757953683,11431964042061
-5710006,7,4725805,5863003171921,6725878188991
-5710007,10,4798495,7011790976814,8252141668373
-5710008,7,3805639,4428577556414,5121866899850
-5710009,9,4348521,6732491769192,7697076627632
-5710010,17,8728999,12317431205317,14022097163617
-5710011,9,5882229,6229718004537,7411261930653
-5710012,8,2053460,3062348125908,3938363190799
-5710013,11,4829936,7756633163332,8721805365111
-5710014,5,798837,1684650453190,2292476216082
-5710015,10,4123290,7122749550608,7874581655693
-5710016,8,1416529,3110958598569,3414612717107
-...
 ```
