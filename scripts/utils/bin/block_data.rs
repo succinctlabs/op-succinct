@@ -8,15 +8,7 @@ use std::{
 };
 
 /// Write the block data to a CSV file.
-fn write_block_data_to_csv(
-    block_data: &[BlockInfo],
-    l2_chain_id: u64,
-    args: &BlockDataArgs,
-) -> Result<()> {
-    let report_path = PathBuf::from(format!(
-        "block-data/{}/{}-{}-block-data.csv",
-        l2_chain_id, args.start, args.end
-    ));
+fn write_block_data_to_csv(report_path: &PathBuf, block_data: &[BlockInfo]) -> Result<()> {
     if let Some(parent) = report_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -61,6 +53,43 @@ async fn main() -> Result<()> {
     let l2_block_data = data_fetcher
         .get_l2_block_data_range(args.start, args.end)
         .await?;
-    write_block_data_to_csv(&l2_block_data, l2_chain_id, &args)?;
+
+    // Calculate aggregates
+    let total_txns: u64 = l2_block_data.iter().map(|b| b.transaction_count).sum();
+    let total_gas: u64 = l2_block_data.iter().map(|b| b.gas_used).sum();
+    let total_l1_fees: u128 = l2_block_data.iter().map(|b| b.total_l1_fees).sum();
+    let total_tx_fees: u128 = l2_block_data.iter().map(|b| b.total_tx_fees).sum();
+    let num_blocks = l2_block_data.len() as u64;
+
+    let report_path = PathBuf::from(format!(
+        "block-data/{}/{}-{}-block-data.csv",
+        l2_chain_id, args.start, args.end
+    ));
+
+    write_block_data_to_csv(&report_path, &l2_block_data)?;
+    println!("Wrote block data to {}", report_path.display());
+
+    println!(
+        "\nAggregate Block Data for blocks {} to {}:",
+        args.start, args.end
+    );
+    println!("Total Blocks: {}", num_blocks);
+    println!("Total Transactions: {}", total_txns);
+    println!("Total Gas Used: {}", total_gas);
+    println!("Total L1 Fees: {:.6} ETH", total_l1_fees as f64 / 1e18);
+    println!("Total TX Fees: {:.6} ETH", total_tx_fees as f64 / 1e18);
+    println!(
+        "Avg Txns/Block: {:.2}",
+        total_txns as f64 / num_blocks as f64
+    );
+    println!("Avg Gas/Block: {:.2}", total_gas as f64 / num_blocks as f64);
+    println!(
+        "Avg L1 Fees/Block: {:.6} ETH",
+        (total_l1_fees as f64 / num_blocks as f64) / 1e18
+    );
+    println!(
+        "Avg TX Fees/Block: {:.6} ETH",
+        (total_tx_fees as f64 / num_blocks as f64) / 1e18
+    );
     Ok(())
 }

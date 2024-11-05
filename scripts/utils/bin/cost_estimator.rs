@@ -178,7 +178,7 @@ async fn execute_blocks_parallel(
             // If the execution fails, skip this block range and log the error.
             if let Some(err) = result.as_ref().err() {
                 log::warn!(
-                    "Failed to execute blocks {:?} - {:?} because of {:?}",
+                    "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
                     range.start,
                     range.end,
                     err
@@ -326,11 +326,13 @@ async fn main() -> Result<()> {
 
     // Read the execution stats from the CSV file and aggregate them to output to the user.
     let mut final_execution_stats = Vec::new();
-    let mut csv_reader = csv::Reader::from_path(report_path)?;
+    let mut csv_reader = csv::Reader::from_path(&report_path)?;
     for result in csv_reader.deserialize() {
         let stats: ExecutionStats = result?;
         final_execution_stats.push(stats);
     }
+
+    println!("Wrote execution stats to {}", report_path.display());
 
     // Aggregate the execution stats and print them to the user.
     println!(
