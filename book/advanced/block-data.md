@@ -1,4 +1,4 @@
-# Block Data Analysis
+# Block Data
 
 The `block-data` script is a convenient CLI tool to fetch the block & fee data for a given range of blocks on a rollup.
 
