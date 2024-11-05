@@ -10,7 +10,7 @@ The `OPSuccinctL2OutputOracle` contract is a modification of the `L2OutputOracle
 
 The original `L2OutputOracle` contract can be found [here](https://github.com/ethereum-optimism/optimism/blob/3e68cf018d8b9b474e918def32a56d1dbf028d83/packages/contracts-bedrock/src/L1/L2OutputOracle.sol#L199-L202).
 
-The minimal changes introduced in the `OPSuccinctL2OutputOracle` contract are:
+The changes introduced in the `OPSuccinctL2OutputOracle` contract are:
 
 1. The `submissionInterval` parameter is now the minimum interval in L2 blocks at which checkpoints must be submitted. An aggregation proof can be posted after this interval has passed.
 2. The addition of the `aggregationVkey`, `rangeVkeyCommitment`, `verifierGateway`, `startingOutputRoot`, and `rollupConfigHash` parameters. `startingOutputRoot` is used for initalizing the contract, because `op-succinct` requires a starting state root to be posted to the contract. The other parameters are used for verifying the proofs posted to the contract.
