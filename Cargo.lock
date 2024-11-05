@@ -1419,6 +1419,20 @@ name = "bytemuck"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.79",
+]
 
 [[package]]
 name = "byteorder"
@@ -6456,19 +6470,6 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "1.1.1"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=experimental#232d0fb2913f86e31383c8116379c51798ef7d78"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "hex",
- "serde",
- "snowbridge-amcl",
-]
-
-[[package]]
-name = "sp1-lib"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bea7811abd2d3a991007fcb284f41152840b8388c171288d0c52c6793956609c"
@@ -6860,7 +6861,7 @@ dependencies = [
 [[package]]
 name = "substrate-bn"
 version = "0.6.0"
-source = "git+https://github.com/0xWOLAND/bn.git#4970e22d001de8fcc46b07d93308c5f6cd9b1e26"
+source = "git+https://github.com/sp1-patches/bn?tag=substrate_bn-v0.6.0-patch-v1#9b0e986d32ea128a08cebfe90767072beccdb45f"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -6869,7 +6870,7 @@ dependencies = [
  "lazy_static",
  "rand",
  "rustc-hex",
- "sp1-lib 1.1.1",
+ "sp1-lib 3.0.0",
 ]
 
 [[package]]
