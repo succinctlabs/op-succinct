@@ -173,15 +173,21 @@ async fn execute_blocks_parallel(
             let sp1_stdin = get_proof_stdin(host_cli).unwrap();
 
             // TODO: Implement retries with a smaller block range if this fails.
-            let (_, report) = prover
-                .execute(MULTI_BLOCK_ELF, sp1_stdin)
-                .run()
-                .unwrap_or_else(|e| {
-                    panic!(
-                        "Failed to execute blocks {:?} - {:?}: {:?}",
-                        range.start, range.end, e
-                    )
-                });
+            let result = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run();
+
+            // If the execution fails, skip this block range and log the error.
+            if let Some(err) = result.as_ref().err() {
+                log::warn!(
+                    "Failed to execute blocks {:?} - {:?} because of {:?}",
+                    range.start,
+                    range.end,
+                    err
+                );
+                return;
+            }
+
+            let (_, report) = result.unwrap();
+
             // Get the existing execution stats and modify it in place.
             let execution_stats = ExecutionStats::new(block_data, &report, 0, 0);
 

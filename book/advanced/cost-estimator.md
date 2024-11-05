@@ -17,6 +17,18 @@ More details on the RPC requirements can be found in the [prerequisites](../gett
 
 ## Running the Cost Estimator
 
+```shell
+RUST_LOG=info just cost-estimator <start_l2_block> <end_l2_block>
+```
+
+**Example Arguments:**
+- `start_l2_block`: Subtract 100 from the latest finalized block. `cast block finalized -f number --rpc-url <L2_RPC>`
+- `end_l2_block`: The latest finalized block.
+
+> Note: You can execute unfinalized blocks as long as they're included in an L1 block.
+
+### Run the Cost Estimator
+
 To run the cost estimator over a block range using your local `.env` file for environment variables, run the following command:
 
 ```shell
