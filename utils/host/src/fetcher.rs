@@ -633,7 +633,10 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        let (l1_head_hash, _l1_head_number) = self.get_l1_head(l2_end_block).await?;
+        let (l1_head_hash, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+
+        println!("L1 Head Number: {}", l1_head_number);
+        println!("L2 End Block: {}", l2_end_block);
 
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
@@ -725,6 +728,7 @@ impl OPSuccinctDataFetcher {
             .await?;
 
         let l1_origin = optimism_output_data.block_ref.l1_origin;
+        println!("L1 origin of L2 end block: {}", l1_origin.number);
 
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;

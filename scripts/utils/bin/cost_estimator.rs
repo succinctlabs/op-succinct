@@ -278,6 +278,8 @@ async fn main() -> Result<()> {
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
+    println!("L2 Chain ID: {}", l2_chain_id);
+
     let split_ranges = split_range(args.start, args.end, l2_chain_id, args.batch_size);
 
     info!(
