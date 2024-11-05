@@ -4,7 +4,7 @@ use futures::StreamExt;
 use kona_host::HostCli;
 use log::info;
 use op_succinct_host_utils::{
-    fetcher::{BlockInfo, CacheMode, OPSuccinctDataFetcher},
+    fetcher::{CacheMode, OPSuccinctDataFetcher},
     get_proof_stdin,
     stats::ExecutionStats,
     witnessgen::WitnessGenExecutor,
@@ -27,7 +27,7 @@ pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 /// The arguments for the host executable.
 #[derive(Debug, Clone, Parser)]
-struct HostArgs {
+struct CostEstimatorArgs {
     /// The start block of the range to execute.
     #[clap(long)]
     start: u64,
@@ -37,21 +37,12 @@ struct HostArgs {
     /// The number of blocks to execute in a single batch.
     #[clap(long)]
     batch_size: Option<u64>,
-    /// Whether to generate a proof or just execute the block.
-    #[clap(long)]
-    prove: bool,
-    /// The path to the CSV file containing the execution data.
-    #[clap(long, default_value = "report.csv")]
-    report_path: PathBuf,
     /// Use cached witness generation.
     #[clap(long)]
     use_cache: bool,
     /// The environment file to use.
     #[clap(long, default_value = ".env")]
     env_file: PathBuf,
-    /// Configuration flag for whether to just grab the block data and not execute the blocks.
-    #[clap(long)]
-    fast: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,7 +131,7 @@ async fn execute_blocks_parallel(
     ranges: Vec<SpanBatchRange>,
     prover: &ProverClient,
     l2_chain_id: u64,
-    args: &HostArgs,
+    args: &CostEstimatorArgs,
 ) {
     // Fetch all of the execution stats block ranges in parallel.
     let block_data = futures::stream::iter(ranges.clone())
@@ -215,33 +206,6 @@ async fn execute_blocks_parallel(
 
     info!("Execution is complete.");
 }
-
-/// Write the block data to a CSV file.
-fn write_block_data_to_csv(
-    block_data: &[BlockInfo],
-    l2_chain_id: u64,
-    args: &HostArgs,
-) -> Result<()> {
-    let report_path = PathBuf::from(format!(
-        "block-data/{}/{}-{}-block-data.csv",
-        l2_chain_id, args.start, args.end
-    ));
-    if let Some(parent) = report_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    let mut csv_writer = csv::Writer::from_path(report_path)?;
-
-    for block in block_data {
-        csv_writer
-            .serialize(block)
-            .expect("Failed to write execution stats to CSV.");
-    }
-    csv_writer.flush().expect("Failed to flush CSV writer.");
-
-    Ok(())
-}
-
 /// Aggregate the execution statistics for an array of execution stats objects.
 fn aggregate_execution_stats(
     execution_stats: &[ExecutionStats],
@@ -299,7 +263,7 @@ fn aggregate_execution_stats(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = HostArgs::parse();
+    let args = CostEstimatorArgs::parse();
 
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
@@ -307,15 +271,6 @@ async fn main() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::default();
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
-
-    // If we want to execute fast, just get the block data and return.
-    if args.fast {
-        let l2_block_data = data_fetcher
-            .get_l2_block_data_range(args.start, args.end)
-            .await?;
-        write_block_data_to_csv(&l2_block_data, l2_chain_id, &args)?;
-        return Ok(());
-    }
 
     let split_ranges = split_range(args.start, args.end, l2_chain_id, args.batch_size);
 

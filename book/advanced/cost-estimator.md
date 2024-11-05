@@ -1,6 +1,6 @@
 # Cost Estimator
 
-We provide a convenient CLI tool to fetch the RISC-V instruction counts for generating ZKPs for a range of blocks for a given rollup. We recommend running the cost estimator on a remote machine with fast network connectivity because witness generation fetches a significant amount of data.
+We provide a convenient CLI tool to fetch the RISC-V instruction counts for generating ZKPs for a range of blocks for a given rollup. We recommend running the cost estimator on a remote machine (500+ Mbps) with fast network connectivity because witness generation is bandwidth-intensive.
 
 ## Overview
 
@@ -15,12 +15,31 @@ In the root directory, add the following RPCs to your `.env` file for your rollu
 
 More details on the RPC requirements can be found in the [prerequisites](../getting-started/prerequisites.md) section.
 
-Then run the following command:
+## Running the Cost Estimator
+
+To run the cost estimator over a block range using your local `.env` file for environment variables, run the following command:
+
 ```shell
-just cost-estimator <start_l2_block> <end_l2_block>
+RUST_LOG=info just cost-estimator <start_l2_block> <end_l2_block>
 ```
 
-This command will split the block range into smaller ranges as if the `op-succinct-proposer` service was running. It will then fetch the required data for generating the ZKP for each of these ranges, and execute the SP1 `range` program. Once each program finishes, it will collect the statistics and output the aggregate statistics.
+This command will split the block range into smaller ranges to model the workload run by `op-succinct`. It will then fetch the required data for generating the ZKP for each of these ranges, and execute the SP1 `range` program. Once each program finishes, it will collect the statistics and output the aggregate statistics.
+
+Once the execution of the range is complete, the cost estimator will output the aggregate statistics and write them to a CSV file in `execution-reports/{chain_id}/{start_block}-{end_block}.csv`.
+
+### Advanced Usage
+
+There are a few optional flags that can be used to customize the cost estimator:
+
+| Flag | Description |
+|-----------|-------------|
+| `--batch-size` | The number of blocks to execute in a single batch. |
+| `--use-cache` | Use cached witness generation. |
+| `--env-file` | The path to the environment file to use. (Ex. `.env.opmainnet`) |
+
+```shell
+RUST_LOG=info cargo run --bin cost-estimator --release <start_l2_block> <end_l2_block> --env-file <path_to_env_file>
+```
 
 > Running the cost estimator for a large block range may be slow on machines with limited network bandwidth to the L2 node. For optimal performance, we recommend using a remote machine with high-speed connectivity to avoid slow witness generation.
 
