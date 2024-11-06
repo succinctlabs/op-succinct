@@ -76,7 +76,7 @@ async fn update_l2oo_config() -> Result<()> {
         .await?;
 
     // Hash the rollup config.
-    let hash: B256 = hash_rollup_config(&data_fetcher.rollup_config.as_ref().unwrap());
+    let hash: B256 = hash_rollup_config(data_fetcher.rollup_config.as_ref().unwrap());
     // Set the rollup config hash.
     let hash_str = format!("0x{:x}", hash);
     l2oo_config.rollup_config_hash = hash_str;
