@@ -8,9 +8,9 @@ The `block-data` script is a convenient CLI tool to fetch the block & fee data f
 
 In the root directory, add the following RPC to your `.env` file for your rollup:
 
-| Parameter | Description |
-|-----------|-------------|
-| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| Parameter | Description                    |
+| --------- | ------------------------------ |
+| `L2_RPC`  | L2 Execution Node (`op-geth`). |
 
 To perform analysis on the fees collected on L2, you can use the `block-data` script. This script will fetch the block & fee data for each block in the range from the L2 and output a CSV file with the columns: `block_number`, `transaction_count`, `gas_used`, `total_l1_fees`, `total_tx_fees`.
 
@@ -28,14 +28,24 @@ RUST_LOG=info cargo run --bin block-data --release -- --start <start_l2_block> -
 
 ## Optional flags
 
-| Flag | Description |
-|-----------|-------------|
+| Flag         | Description                                                     |
+| ------------ | --------------------------------------------------------------- |
 | `--env-file` | The path to the environment file to use. (Ex. `.env.opmainnet`) |
 
 ## Useful Commands
 
 - `cast block finalized -f number --rpc-url <L2_RPC>`: Get the latest finalized block number on the L2.
 - `cast bn --rpc-url <L2_RPC>`: Get the latest block number on the L2.
+
+## Data Analysis
+
+To run data analysis on the block data CSV, you can use the following command in the `analysis` directory that runs a Python script:
+
+```shell
+uv run data_analysis.py <path_to_csv>
+```
+
+We use `uv` for python package management, follow the instructions [here](https://github.com/astral-sh/uv) to install it.
 
 ## Sample Output
 

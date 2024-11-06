@@ -37,3 +37,6 @@ stdins
 **/bin/op-proposer
 
 artifact_*
+
+# Python virtual environments
+.venv
