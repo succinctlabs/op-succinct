@@ -55,7 +55,7 @@ async fn main() {
     // Note: The rollup config hash never changes for a given chain, so we can just hash it once at
     // server start-up. The only time a rollup config changes is typically when a new version of the
     // [`RollupConfig`] is released from `op-alloy`.
-    let rollup_config_hash = hash_rollup_config(&fetcher.rollup_config.as_ref().unwrap());
+    let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
 
     // Initialize global hashes.
     let global_hashes = ContractConfig {
