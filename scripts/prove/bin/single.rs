@@ -35,8 +35,9 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     utils::setup_logger();
 
-    let mut data_fetcher = OPSuccinctDataFetcher::default();
-    data_fetcher.fetch_and_save_rollup_config().await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        .await
+        .unwrap();
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 

@@ -45,8 +45,9 @@ struct L2OOConfig {
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
 async fn update_l2oo_config() -> Result<()> {
-    let mut data_fetcher = OPSuccinctDataFetcher::default();
-    data_fetcher.fetch_and_save_rollup_config().await.unwrap();
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        .await
+        .unwrap();
     // Get the workspace root with cargo metadata to make the paths.
     let workspace_root = PathBuf::from(
         cargo_metadata::MetadataCommand::new()
@@ -67,7 +68,7 @@ async fn update_l2oo_config() -> Result<()> {
     // Convert the starting block number to a hex string for the optimism_outputAtBlock RPC call.
     let starting_block_number_hex = format!("0x{:x}", l2oo_config.starting_block_number);
     let optimism_output_data: Value = data_fetcher
-        .fetch_rpc_data(
+        .fetch_rpc_data_with_mode(
             RPCMode::L2Node,
             "optimism_outputAtBlock",
             vec![starting_block_number_hex.into()],

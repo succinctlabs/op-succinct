@@ -128,7 +128,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Initialize the fetcher with a rollup config.
-    pub fn new_with_rollup_config(rollup_config: RollupConfig) -> Self {
+    pub async fn new_with_rollup_config() -> Result<Self> {
         let rpc_config = get_rpcs();
 
         let l1_provider = Arc::new(
@@ -138,12 +138,15 @@ impl OPSuccinctDataFetcher {
             ProviderBuilder::default().on_http(Url::from_str(&rpc_config.l2_rpc).unwrap()),
         );
 
-        OPSuccinctDataFetcher {
+        let rollup_config =
+            Self::fetch_and_save_rollup_config(&rpc_config.l2_node_rpc, &rpc_config.l2_rpc).await?;
+
+        Ok(OPSuccinctDataFetcher {
             rpc_config,
             l1_provider,
             l2_provider,
             rollup_config: Some(rollup_config),
-        }
+        })
     }
 
     pub async fn get_l2_chain_id(&self) -> Result<u64> {
@@ -440,13 +443,10 @@ impl OPSuccinctDataFetcher {
     /// Fetch the rollup config. Combines the rollup config from `optimism_rollupConfig` and the
     /// chain config from `debug_chainConfig`. Saves the rollup config to the rollup config file and
     /// in memory.
-    pub async fn fetch_and_save_rollup_config(&mut self) -> Result<()> {
-        let rollup_config = self
-            .fetch_rpc_data(RPCMode::L2Node, "optimism_rollupConfig", vec![])
-            .await?;
-        let chain_config = self
-            .fetch_rpc_data(RPCMode::L2, "debug_chainConfig", vec![])
-            .await?;
+    async fn fetch_and_save_rollup_config(l2_rpc: &str, l2_node_rpc: &str) -> Result<RollupConfig> {
+        let rollup_config =
+            Self::fetch_rpc_data(l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
+        let chain_config = Self::fetch_rpc_data(l2_rpc, "debug_chainConfig", vec![]).await?;
         let rollup_config = merge_rollup_config(&rollup_config, &chain_config)?;
 
         // Save rollup config to the rollup config file.
@@ -462,24 +462,16 @@ impl OPSuccinctDataFetcher {
         let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
         fs::write(rollup_config_path, rollup_config_str)?;
 
-        // Save the rollup config in memory.
-        self.rollup_config = Some(rollup_config);
-        Ok(())
+        Ok(rollup_config)
     }
 
-    /// Fetch arbitrary data from the RPC.
-    pub async fn fetch_rpc_data<T>(
-        &self,
-        rpc_mode: RPCMode,
-        method: &str,
-        params: Vec<Value>,
-    ) -> Result<T>
+    async fn fetch_rpc_data<T>(url: &str, method: &str, params: Vec<Value>) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
     {
         let client = reqwest::Client::new();
         let response = client
-            .post(self.get_rpc_url(rpc_mode))
+            .post(url)
             .json(&json!({
                 "jsonrpc": "2.0",
                 "method": method,
@@ -494,12 +486,24 @@ impl OPSuccinctDataFetcher {
         // Check for RPC error from the JSON RPC response.
         if let Some(error) = response.get("error") {
             let error_message = error["message"].as_str().unwrap_or("Unknown error");
-            return Err(anyhow::anyhow!(
-                "Error calling {method} on {rpc_mode:?}: {error_message}"
-            ));
+            return Err(anyhow::anyhow!("Error calling {method}: {error_message}"));
         }
 
         serde_json::from_value(response["result"].clone()).map_err(Into::into)
+    }
+
+    /// Fetch arbitrary data from the RPC.
+    pub async fn fetch_rpc_data_with_mode<T>(
+        &self,
+        rpc_mode: RPCMode,
+        method: &str,
+        params: Vec<Value>,
+    ) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let url = self.get_rpc_url(rpc_mode);
+        Self::fetch_rpc_data(&url, method, params).await
     }
 
     /// Get the earliest L1 header in a batch of boot infos.
@@ -735,7 +739,7 @@ impl OPSuccinctDataFetcher {
         // Get the l1 origin of the l2 end block.
         let l2_end_block_hex = format!("0x{:x}", l2_end_block);
         let optimism_output_data: OutputResponse = self
-            .fetch_rpc_data(
+            .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
                 "optimism_outputAtBlock",
                 vec![l2_end_block_hex.into()],
@@ -756,7 +760,7 @@ impl OPSuccinctDataFetcher {
 
             let l1_block_number_hex = format!("0x{:x}", current_l1_block_number);
             let result: SafeHeadResponse = self
-                .fetch_rpc_data(
+                .fetch_rpc_data_with_mode(
                     RPCMode::L2Node,
                     "optimism_safeHeadAtL1Block",
                     vec![l1_block_number_hex.into()],
@@ -831,7 +835,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l2_safe_head_from_l1_block_number(&self, l1_block_number: u64) -> Result<u64> {
         let l1_block_number_hex = format!("0x{:x}", l1_block_number);
         let result: SafeHeadResponse = self
-            .fetch_rpc_data(
+            .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
                 "optimism_safeHeadAtL1Block",
                 vec![l1_block_number_hex.into()],
@@ -875,8 +879,9 @@ mod tests {
         use alloy::eips::BlockId;
 
         dotenv::dotenv().ok();
-        let mut fetcher = OPSuccinctDataFetcher::new();
-        fetcher.fetch_and_save_rollup_config().await.unwrap();
+        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+            .await
+            .unwrap();
         let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
 
         // Get the L2 block number from 1 hour ago.
@@ -903,7 +908,7 @@ mod tests {
         let latest_l1_block_number = latest_l1_block.number;
         let l1_block_number_hex = format!("0x{:x}", latest_l1_block_number);
         let _ = fetcher
-            .fetch_rpc_data::<SafeHeadResponse>(
+            .fetch_rpc_data_with_mode::<SafeHeadResponse>(
                 RPCMode::L2Node,
                 "optimism_safeHeadAtL1Block",
                 vec![l1_block_number_hex.into()],
@@ -917,7 +922,7 @@ mod tests {
             futures::stream::iter(latest_l2_block.number - 500..=latest_l2_block.number)
                 .map(|block_num| {
                     let l1_block_number_hex = format!("0x{:x}", block_num);
-                    fetcher.fetch_rpc_data::<SafeHeadResponse>(
+                    fetcher.fetch_rpc_data_with_mode::<SafeHeadResponse>(
                         RPCMode::L2Node,
                         "optimism_safeHeadAtL1Block",
                         vec![l1_block_number_hex.into()],
