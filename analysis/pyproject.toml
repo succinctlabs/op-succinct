@@ -1,0 +1,11 @@
+[project]
+name = "op-succinct"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "argparse>=1.4.0",
+    "panadas>=0.2",
+    "pandas>=2.2.3",
+]
