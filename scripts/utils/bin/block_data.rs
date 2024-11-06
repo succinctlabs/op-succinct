@@ -1,20 +1,11 @@
-use alloy::{
-    providers::{Provider, ProviderBuilder, RootProvider},
-    transports::http::Http,
-};
 use anyhow::Result;
 use clap::Parser;
-use futures::{stream, StreamExt};
 use log::info;
-use op_alloy_network::Optimism;
-use op_succinct_host_utils::fetcher::BlockInfo;
-use reqwest::{Client, Url};
+use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
 use sp1_sdk::utils;
 use std::{
     fs::{self},
     path::PathBuf,
-    str::FromStr,
-    sync::Arc,
 };
 
 /// The arguments for the host executable.
@@ -107,8 +98,8 @@ impl std::fmt::Display for AggregatedBlockData {
 
 /// Write the block data to a CSV file. Returns the block data.
 async fn write_block_data_to_csv(
+    fetcher: &OPSuccinctDataFetcher,
     args: &BlockDataArgs,
-    l2_provider: Arc<RootProvider<Http<Client>, Optimism>>,
     report_path: PathBuf,
 ) -> Result<Vec<BlockInfo>> {
     // Create CSV writer with headers
@@ -122,59 +113,14 @@ async fn write_block_data_to_csv(
     while current_start <= args.end {
         let chunk_end = (current_start + CHUNK_SIZE - 1).min(args.end);
 
-        let chunk_data = stream::iter(current_start..=chunk_end)
-            .map(|block_number| {
-                let l2_provider = l2_provider.clone();
-                async move {
-                    let block = match l2_provider
-                        .get_block_by_number(block_number.into(), false)
-                        .await?
-                    {
-                        Some(block) => block,
-                        None => return Err(anyhow::anyhow!("Block {} not found", block_number)),
-                    };
-
-                    let receipts = match l2_provider.get_block_receipts(block_number.into()).await?
-                    {
-                        Some(receipts) => receipts,
-                        None => {
-                            return Err(anyhow::anyhow!(
-                                "Receipts for block {} not found",
-                                block_number
-                            ))
-                        }
-                    };
-                    let total_l1_fees: u128 = receipts
-                        .iter()
-                        .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
-                        .sum();
-                    let total_tx_fees: u128 = receipts
-                        .iter()
-                        .map(|tx| {
-                            tx.inner.effective_gas_price * tx.inner.gas_used
-                                + tx.l1_block_info.l1_fee.unwrap_or(0)
-                        })
-                        .sum();
-
-                    Ok(BlockInfo {
-                        block_number,
-                        transaction_count: block.transactions.len() as u64,
-                        gas_used: block.header.gas_used,
-                        total_l1_fees,
-                        total_tx_fees,
-                    })
-                }
-            })
-            .buffered(100)
-            .collect::<Vec<Result<BlockInfo>>>()
-            .await;
+        let chunk_data = fetcher
+            .get_l2_block_data_range(current_start, chunk_end)
+            .await?;
 
         // Write the data for each block in the chunk to the CSV file.
-        for block_result in chunk_data {
-            if let Ok(block) = block_result {
-                csv_writer.serialize(&block)?;
-                all_data.push(block);
-            }
+        for block in chunk_data {
+            csv_writer.serialize(&block)?;
+            all_data.push(block);
         }
         csv_writer.flush()?;
 
@@ -192,22 +138,12 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let l2_provider: Arc<RootProvider<Http<Client>, Optimism>> = Arc::new(
-        ProviderBuilder::default()
-            .on_http(Url::from_str(&std::env::var("L2_RPC").unwrap()).unwrap()),
-    );
-    let l2_chain_id = l2_provider.get_chain_id().await?;
+    let fetcher = OPSuccinctDataFetcher::default();
+    let l2_chain_id = fetcher.get_l2_chain_id().await?;
 
     // Confirm that the start and end blocks are valid.
-    let start_block = l2_provider
-        .get_block_by_number(args.start.into(), false)
-        .await?;
-    let end_block = l2_provider
-        .get_block_by_number(args.end.into(), false)
-        .await?;
-    if start_block.is_none() || end_block.is_none() {
-        return Err(anyhow::anyhow!("Invalid start or end block"));
-    }
+    let _ = fetcher.get_l2_block_by_number(args.start).await?;
+    let _ = fetcher.get_l2_block_by_number(args.end).await?;
 
     // Create the file at the report path.
     let report_path = PathBuf::from(format!(
@@ -218,7 +154,7 @@ async fn main() -> Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    let l2_block_data = write_block_data_to_csv(&args, l2_provider, report_path).await?;
+    let l2_block_data = write_block_data_to_csv(&fetcher, &args, report_path).await?;
 
     // Calculate aggregate statistics.
     let aggregated_data = AggregatedBlockData::new(&l2_block_data);
