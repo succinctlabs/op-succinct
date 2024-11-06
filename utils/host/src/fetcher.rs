@@ -584,7 +584,7 @@ impl OPSuccinctDataFetcher {
         cache_mode: CacheMode,
     ) -> Result<HostCli> {
         // If the rollup config is not already loaded, fetch and save it.
-        if let None = self.rollup_config {
+        if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
         let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
@@ -779,7 +779,7 @@ impl OPSuccinctDataFetcher {
     /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
     async fn get_l1_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
         // If the rollup config is not already loaded, fetch and save it.
-        if let None = self.rollup_config {
+        if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
         let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
@@ -819,7 +819,7 @@ impl OPSuccinctDataFetcher {
 
     pub async fn l2_block_info_by_number(&self, block_number: u64) -> Result<L2BlockInfo> {
         // If the rollup config is not already loaded, fetch and save it.
-        if let None = self.rollup_config {
+        if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
         let genesis = self.rollup_config.as_ref().unwrap().genesis;
