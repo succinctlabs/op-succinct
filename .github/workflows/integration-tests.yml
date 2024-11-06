@@ -1,0 +1,50 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  RUST_LOG: info
+  L1_RPC: ${{ secrets.L1_RPC }}
+  L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+  L2_RPC: ${{ secrets.L2_RPC }}
+  L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Get latest finalized block
+        id: get-block
+        run: |
+          FINALIZED_BLOCK=$(cast block finalized -f number --rpc-url $L2_RPC)
+          START_BLOCK=$((FINALIZED_BLOCK - 10))
+          echo "start_block=$START_BLOCK" >> $GITHUB_OUTPUT
+          echo "end_block=$FINALIZED_BLOCK" >> $GITHUB_OUTPUT
+
+      - name: Run cost estimator
+        run: |
+          RUST_LOG=info cargo run --bin cost-estimator --release \
+            --start-block ${{ steps.get-block.outputs.start_block }} \
+            --end-block ${{ steps.get-block.outputs.end_block }}
+
+      - name: Run multi script
+        run: |
+          cargo run --bin multi --release -- \
+            --start-block ${{ steps.get-block.outputs.start_block }} \
+            --end-block ${{ steps.get-block.outputs.end_block }} 
