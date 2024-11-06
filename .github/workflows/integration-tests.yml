@@ -7,13 +7,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  RUST_LOG: info
-  L1_RPC: ${{ secrets.L1_RPC }}
-  L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-  L2_RPC: ${{ secrets.L2_RPC }}
-  L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-
 jobs:
   integration-tests:
     runs-on:
@@ -48,6 +41,8 @@ jobs:
         id: get-latest-block
         run: |
           cast block latest -f number --rpc-url ${{ env.L2_RPC }}
+        env:
+          L2_RPC: ${{ secrets.L2_RPC }}
 
       - name: Get latest finalized block
         id: get-block
@@ -56,12 +51,20 @@ jobs:
           START_BLOCK=$((FINALIZED_BLOCK - 10))
           echo "start_block=$START_BLOCK" >> $GITHUB_OUTPUT
           echo "end_block=$FINALIZED_BLOCK" >> $GITHUB_OUTPUT
+        env:
+          L2_RPC: ${{ secrets.L2_RPC }}
 
       - name: Run cost estimator
         run: |
           RUST_LOG=info cargo run --bin cost-estimator --release \
             --start-block ${{ steps.get-block.outputs.start_block }} \
             --end-block ${{ steps.get-block.outputs.end_block }}
+        env:
+          RUST_LOG: info
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
 
       - name: Run multi script
         run: |
