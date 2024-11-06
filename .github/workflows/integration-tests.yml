@@ -34,31 +34,10 @@ jobs:
       - name: Show Cast version
         run: |
           cast --version
-          
-      - name: Get latest block
-        id: get-latest-block
-        run: |
-          cast block latest -f number --rpc-url https://mainnet.optimism.io
-          cast block latest -f number --rpc-url http://185.26.8.33:8549
-        env:
-          L2_RPC: ${{ secrets.L2_RPC }}
-
-      - name: Get latest finalized block
-        id: get-block
-        run: |
-          RPC="${{ secrets.L2_RPC }}"
-          FINALIZED_BLOCK=$(cast block finalized -f number --rpc-url $RPC)
-          START_BLOCK=$((FINALIZED_BLOCK - 10))
-          echo "start_block=$START_BLOCK" >> $GITHUB_OUTPUT
-          echo "end_block=$FINALIZED_BLOCK" >> $GITHUB_OUTPUT
-        env:
-          L2_RPC: ${{ secrets.L2_RPC }}
 
       - name: Run cost estimator
         run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release \
-            --start-block ${{ steps.get-block.outputs.start_block }} \
-            --end-block ${{ steps.get-block.outputs.end_block }}
+          RUST_LOG=info cargo run --bin cost-estimator --release
         env:
           RUST_LOG: info
           L1_RPC: ${{ secrets.L1_RPC }}
@@ -68,6 +47,4 @@ jobs:
 
       - name: Run multi script
         run: |
-          cargo run --bin multi --release -- \
-            --start-block ${{ steps.get-block.outputs.start_block }} \
-            --end-block ${{ steps.get-block.outputs.end_block }} 
+          cargo run --bin multi --release
