@@ -44,10 +44,15 @@ jobs:
           
       - uses: Swatinem/rust-cache@v2
 
+      - name: Get latest block
+        id: get-latest-block
+        run: |
+          cast block latest -f number --rpc-url ${{ env.L2_RPC }}
+
       - name: Get latest finalized block
         id: get-block
         run: |
-          FINALIZED_BLOCK=$(cast block finalized -f number --rpc-url $L2_RPC)
+          FINALIZED_BLOCK=$(cast block finalized -f number --rpc-url ${{ env.L2_RPC }})
           START_BLOCK=$((FINALIZED_BLOCK - 10))
           echo "start_block=$START_BLOCK" >> $GITHUB_OUTPUT
           echo "end_block=$FINALIZED_BLOCK" >> $GITHUB_OUTPUT
