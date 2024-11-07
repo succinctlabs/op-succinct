@@ -1,9 +1,9 @@
+pub mod block_range;
 pub mod fetcher;
 pub mod helpers;
 pub mod rollup_config;
 pub mod stats;
 pub mod witnessgen;
-pub mod block_range;
 
 use alloy::sol;
 use alloy_consensus::Header;

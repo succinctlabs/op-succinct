@@ -64,13 +64,8 @@ async fn main() -> Result<()> {
     const DEFAULT_RANGE: u64 = 5;
 
     // If the end block is provided, check that it is less than the latest finalized block. If the end block is not provided, use the latest finalized block.
-    let (l2_start_block, l2_end_block) = get_validated_block_range(
-        &data_fetcher,
-        args.start,
-        args.end,
-        DEFAULT_RANGE,
-    )
-    .await?;
+    let (l2_start_block, l2_end_block) =
+        get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?;
 
     let host_cli = data_fetcher
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)

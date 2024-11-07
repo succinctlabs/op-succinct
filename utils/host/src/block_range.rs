@@ -1,6 +1,6 @@
+use crate::fetcher::OPSuccinctDataFetcher;
 use alloy_eips::BlockId;
 use anyhow::{bail, Result};
-use crate::fetcher::OPSuccinctDataFetcher;
 
 /// Get the start and end block numbers for a range, with validation.
 pub async fn get_validated_block_range(
@@ -41,4 +41,4 @@ pub async fn get_validated_block_range(
     }
 
     Ok((l2_start_block, l2_end_block))
-} 
+}
