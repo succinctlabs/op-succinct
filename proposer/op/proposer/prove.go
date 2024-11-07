@@ -159,7 +159,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 	go func(p ent.ProofRequest) {
 		l.Log.Info("requesting proof from server", "type", p.Type, "start", p.StartBlock, "end", p.EndBlock, "id", p.ID)
 		// Set the proof status to WITNESSGEN.
-		err = l.db.UpdateProofStatus(nextProofToRequest.ID, proofrequest.StatusWITNESSGEN)
+		err = l.db.UpdateProofStatus(p.ID, proofrequest.StatusWITNESSGEN)
 		if err != nil {
 			l.Log.Error("failed to update proof status", "err", err)
 			return
@@ -167,11 +167,6 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 
 		err = l.RequestOPSuccinctProof(p)
 		if err != nil {
-			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
-
-			// Record the error for the witness generation request.
-			l.Metr.RecordError("witnessgen", 1)
-
 			// If the proof fails to be requested, we should add it to the queue to be retried.
 			err = l.RetryRequest(nextProofToRequest, ProofStatusResponse{})
 			if err != nil {
@@ -211,7 +206,12 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 	return nil
 }
 
-// Request a proof from the OP Succinct server.
+// Request a proof from the OP Succinct server. This function will call `request_agg_proof` or `request_span_proof`
+// depending on the proof type. After the witness generation is complete, the OP Succinct server will
+// request the proof from the prover network and return an ID for the proposer here. Within ProcessPendingProofs,
+// the proposer will take this ID and check the proof status until's it's fulfilled or unclaimed.
+//
+// This loop also sets the proof status to PROVING once the prover request ID has been retrieved.
 func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 	var proofId string
 	var err error
@@ -221,11 +221,21 @@ func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 	if p.Type == proofrequest.TypeAGG {
 		proofId, err = l.RequestAggProof(p.StartBlock, p.EndBlock, p.L1BlockHash)
 		if err != nil {
+			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
+
+			// Record the error for the witness generation request.
+			l.Metr.RecordError("witnessgen", 1)
+
 			return fmt.Errorf("failed to request AGG proof: %w", err)
 		}
 	} else if p.Type == proofrequest.TypeSPAN {
 		proofId, err = l.RequestSpanProof(p.StartBlock, p.EndBlock)
 		if err != nil {
+			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
+
+			// Record the error for the witness generation request.
+			l.Metr.RecordError("witnessgen", 1)
+			
 			return fmt.Errorf("failed to request SPAN proof: %w", err)
 		}
 	} else {

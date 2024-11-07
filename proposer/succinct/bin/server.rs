@@ -42,8 +42,8 @@ async fn main() {
     dotenv::dotenv().ok();
 
     let prover = ProverClient::new();
-    let (_, agg_vk) = prover.setup(AGG_ELF);
-    let (_, range_vk) = prover.setup(MULTI_BLOCK_ELF);
+    let (range_pk, range_vk) = prover.setup(MULTI_BLOCK_ELF);
+    let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
     let range_vkey_commitment = B256::from(multi_block_vkey_u8);
     let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
@@ -62,6 +62,8 @@ async fn main() {
         range_vkey_commitment,
         rollup_config_hash,
         range_vk,
+        range_pk,
+        agg_pk,
     };
 
     let app = Router::new()
@@ -146,7 +148,8 @@ async fn request_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = NetworkProverV1::new();
+    let mut prover = NetworkProverV1::new();
+    prover.set_skip_simulation(true);
     let res = prover
         .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
         .await;
@@ -165,8 +168,9 @@ async fn request_span_proof(
 
 /// Request a proof for a span of blocks.
 async fn request_mock_span_proof(
+    State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
-) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
+) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received mock span proof request: {:?}", payload);
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
         .await
@@ -198,19 +202,81 @@ async fn request_mock_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = MockProver::new();
-    let res = prover.prove(MULTI_BLOCK_ELF, sp1_stdin);
+    let prover = ProverClient::mock();
+    let proof = prover
+        .prove(&state.range_pk, sp1_stdin)
+        .set_skip_deferred_proof_verification(true)
+        .run()?;
 
-    // Check if error, otherwise get proof ID.
-    let proof_id = match res {
-        Ok(proof_id) => proof_id,
-        Err(e) => {
-            log::error!("Failed to request proof: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
-        }
-    };
+    let proof_bytes = bincode::serialize(&proof).unwrap();
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+    Ok((
+        StatusCode::OK,
+        Json(ProofStatus {
+            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
+            proof: proof_bytes,
+            unclaim_description: None,
+        }),
+    ))
+}
+
+/// Request mock aggregation proof.
+async fn request_mock_agg_proof(
+    State(state): State<ContractConfig>,
+    Json(payload): Json<AggProofRequest>,
+) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
+    info!("Received mock agg proof request: {:?}", payload);
+
+    let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
+        .subproofs
+        .iter()
+        .map(|sp| bincode::deserialize(sp).unwrap())
+        .collect();
+
+    let boot_infos: Vec<BootInfoStruct> = proofs_with_pv
+        .iter_mut()
+        .map(|proof| proof.public_values.read())
+        .collect();
+
+    let proofs: Vec<SP1Proof> = proofs_with_pv
+        .iter_mut()
+        .map(|proof| proof.proof.clone())
+        .collect();
+
+    let l1_head_bytes = hex::decode(
+        payload
+            .head
+            .strip_prefix("0x")
+            .expect("Invalid L1 head, no 0x prefix."),
+    )?;
+    let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
+
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        .await
+        .unwrap();
+    let headers = fetcher
+        .get_header_preimages(&boot_infos, l1_head.into())
+        .await?;
+
+    let prover = ProverClient::mock();
+
+    let stdin =
+        get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
+
+    // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
+    let proof = prover
+        .prove(&state.agg_pk, stdin)
+        .set_skip_deferred_proof_verification(true)
+        .run()?;
+
+    Ok((
+        StatusCode::OK,
+        Json(ProofStatus {
+            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
+            proof: proof.bytes(),
+            unclaim_description: None,
+        }),
+    ))
 }
 
 /// Request an aggregation proof for a set of subproofs.
