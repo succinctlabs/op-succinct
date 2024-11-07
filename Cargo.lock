@@ -6360,8 +6360,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ff9718f87f207404aee3f447c4438e2a35791092dc24ce65ff95db699ed49c1"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6380,7 +6379,7 @@ dependencies = [
  "rrs-succinct",
  "serde",
  "sp1-curves",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-stark",
  "strum",
  "strum_macros",
@@ -6394,8 +6393,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ac8b5f2cecb7b2174495fc7a3e004bdb78e1c7ea44577ac0acc0d1e90b817ea"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -6425,7 +6423,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-curves",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-stark",
  "static_assertions",
  "strum",
@@ -6442,8 +6440,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1af9ff15e524ebe58286d7ee9bc345657b45b13091b5dc58fdce61542b65a47"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "cfg-if",
  "curve25519-dalek",
@@ -6456,16 +6453,15 @@ dependencies = [
  "p3-field",
  "serde",
  "snowbridge-amcl",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-stark",
  "typenum",
 ]
 
 [[package]]
 name = "sp1-derive"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abc46a1a182a61be3cb3bb153368fe64f1c172ce439fe3ff03dda41573f8fa87"
+version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6514,10 +6510,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
+dependencies = [
+ "bincode",
+ "hex",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "sp1-prover"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bd16530cb12f1cecb1b6902142d8d0d87507f88de84bc714f10c29a7fd3769c"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6542,7 +6554,7 @@ dependencies = [
  "serial_test",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-recursion-circuit",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
@@ -6558,8 +6570,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98d0a8ceee12600bd14d2e2d31b54db00b7985e30acedbfe8e1c1a9e41d7992f"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6581,7 +6592,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
  "sp1-recursion-gnark-ffi",
@@ -6592,8 +6603,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "591d60768948dcef34a1fc16c3c6cf457e32fdee83d55ec14dbb94cd4447c030"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6603,7 +6613,7 @@ dependencies = [
  "p3-symmetric",
  "serde",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-recursion-core",
  "sp1-recursion-derive",
  "sp1-stark",
@@ -6614,8 +6624,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c15a51b675accb41608f7bf7ef5f95c23b47ceac38a9a87833a2b12c3bc190"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "backtrace",
  "ff 0.13.0",
@@ -6638,7 +6647,7 @@ dependencies = [
  "serde",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-stark",
  "static_assertions",
  "thiserror 1.0.64 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6649,9 +6658,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-derive"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "866117afb5938197584bae8880de18443931f36a268842ff8f74cb7a3059d36b"
+version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6660,8 +6668,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a12889c662cf64870e72bb3ba8096f3465bf442f5f179c07b50c86f5c47ce80"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6686,8 +6693,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39bab15e962d1218e8ad021b2e9904597d5506d12847ef8be182385d5f3d3a6c"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "alloy-sol-types 0.7.7",
  "anyhow",
@@ -6711,7 +6717,7 @@ dependencies = [
  "serde",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "sp1-prover",
  "sp1-stark",
  "strum",
@@ -6727,8 +6733,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec27b60e797a52eed7af54e032498edcaf8f1ab0649077cbaa6f146a740380dd"
+source = "git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags#4a86b58afb26175251806c2e0241f87cc2a504bd"
 dependencies = [
  "arrayref",
  "getrandom",
@@ -6752,7 +6757,7 @@ dependencies = [
  "rayon-scan",
  "serde",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1?branch=ratan/simulation-flags)",
  "strum",
  "strum_macros",
  "sysinfo 0.30.13",
@@ -6775,7 +6780,7 @@ dependencies = [
  "rand",
  "sha2",
  "sp1-lib 3.0.0",
- "sp1-primitives",
+ "sp1-primitives 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

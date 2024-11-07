@@ -26,7 +26,8 @@ use sp1_sdk::{
         client::NetworkClient,
         proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     },
-    utils, HashableKey, NetworkProverV1, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    utils, HashableKey, MockProver, NetworkProverV1, ProverClient, SP1Proof,
+    SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -39,8 +40,6 @@ async fn main() {
     utils::setup_logger();
 
     dotenv::dotenv().ok();
-
-    env::set_var("SKIP_SIMULATION", "true");
 
     let prover = ProverClient::new();
     let (_, agg_vk) = prover.setup(AGG_ELF);
@@ -151,6 +150,56 @@ async fn request_span_proof(
     let res = prover
         .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
         .await;
+
+    // Check if error, otherwise get proof ID.
+    let proof_id = match res {
+        Ok(proof_id) => proof_id,
+        Err(e) => {
+            log::error!("Failed to request proof: {}", e);
+            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
+        }
+    };
+
+    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+}
+
+/// Request a proof for a span of blocks.
+async fn request_mock_span_proof(
+    Json(payload): Json<SpanProofRequest>,
+) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
+    info!("Received mock span proof request: {:?}", payload);
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        .await
+        .unwrap();
+
+    let host_cli = fetcher
+        .get_host_cli_args(
+            payload.start,
+            payload.end,
+            ProgramType::Multi,
+            CacheMode::DeleteCache,
+        )
+        .await?;
+
+    // Start the server and native client with a timeout.
+    // Note: Ideally, the server should call out to a separate process that executes the native
+    // host, and return an ID that the client can poll on to check if the proof was submitted.
+    let mut witnessgen_executor = WitnessGenExecutor::default();
+    witnessgen_executor.spawn_witnessgen(&host_cli).await?;
+    // Log any errors from running the witness generation process.
+    let res = witnessgen_executor.flush().await;
+    if let Err(e) = res {
+        log::error!("Failed to generate witness: {}", e);
+        return Err(AppError(anyhow::anyhow!(
+            "Failed to generate witness: {}",
+            e
+        )));
+    }
+
+    let sp1_stdin = get_proof_stdin(&host_cli)?;
+
+    let prover = MockProver::new();
+    let res = prover.prove(MULTI_BLOCK_ELF, sp1_stdin);
 
     // Check if error, otherwise get proof ID.
     let proof_id = match res {
