@@ -26,8 +26,7 @@ use sp1_sdk::{
         client::NetworkClient,
         proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
     },
-    utils, HashableKey, MockProver, NetworkProverV1, ProverClient, SP1Proof,
-    SP1ProofWithPublicValues,
+    utils, HashableKey, NetworkProverV1, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -69,6 +68,8 @@ async fn main() {
     let app = Router::new()
         .route("/request_span_proof", post(request_span_proof))
         .route("/request_agg_proof", post(request_agg_proof))
+        .route("/request_mock_span_proof", post(request_mock_span_proof))
+        .route("/request_mock_agg_proof", post(request_mock_agg_proof))
         .route("/status/:proof_id", get(get_proof_status))
         .route("/validate_config", post(validate_config))
         .layer(DefaultBodyLimit::disable())

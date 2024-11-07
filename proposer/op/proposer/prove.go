@@ -235,7 +235,7 @@ func (l *L2OutputSubmitter) RequestOPSuccinctProof(p ent.ProofRequest) error {
 
 			// Record the error for the witness generation request.
 			l.Metr.RecordError("witnessgen", 1)
-			
+
 			return fmt.Errorf("failed to request SPAN proof: %w", err)
 		}
 	} else {
@@ -353,6 +353,150 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 	l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
 
 	return response.ProofID, nil
+}
+
+// Request a proof from the OP Succinct server. This function will call `request_agg_proof` or `request_span_proof`
+// depending on the proof type. After the witness generation is complete, the OP Succinct server will
+// request the proof from the prover network and return an ID for the proposer here. Within ProcessPendingProofs,
+// the proposer will take this ID and check the proof status until's it's fulfilled or unclaimed.
+//
+// This loop also sets the proof status to PROVING once the prover request ID has been retrieved.
+func (l *L2OutputSubmitter) RequestMockOPSuccinctProof(p ent.ProofRequest) error {
+	var proof []byte
+	var err error
+
+	// TODO: This process should poll the server to get the witness generation status.
+	// Request a proof from the OP Succinct server. This process can take up to WITNESS_GEN_TIMEOUT minutes.
+	if p.Type == proofrequest.TypeAGG {
+		proof, err = l.RequestMockAggProof(p.StartBlock, p.EndBlock, p.L1BlockHash)
+		if err != nil {
+			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
+
+			// Record the error for the witness generation request.
+			l.Metr.RecordError("witnessgen", 1)
+
+			return fmt.Errorf("failed to request AGG proof: %w", err)
+		}
+	} else if p.Type == proofrequest.TypeSPAN {
+		proof, err = l.RequestMockSpanProof(p.StartBlock, p.EndBlock)
+		if err != nil {
+			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
+
+			// Record the error for the witness generation request.
+			l.Metr.RecordError("witnessgen", 1)
+
+			return fmt.Errorf("failed to request SPAN proof: %w", err)
+		}
+	} else {
+		return fmt.Errorf("unknown proof type: %s", p.Type)
+	}
+
+	// Set the proof status to PROVING once the prover ID has been retrieved. Only proofs with status PROVING, SUCCESS or FAILED have a prover request ID.
+	err = l.db.AddFulfilledProof(p.ID, proof)
+	if err != nil {
+		return fmt.Errorf("failed to add fulfilled proof: %w", err)
+	}
+
+	return nil
+}
+
+// Request a span proof for the range [l2Start, l2End].
+func (l *L2OutputSubmitter) RequestMockSpanProof(l2Start, l2End uint64) ([]byte, error) {
+	if l2Start >= l2End {
+		return nil, fmt.Errorf("l2Start must be less than l2End")
+	}
+
+	l.Log.Info("requesting span proof", "start", l2Start, "end", l2End)
+	requestBody := SpanProofRequest{
+		Start: l2Start,
+		End:   l2End,
+	}
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	return l.RequestMockProofFromServer(proofrequest.TypeSPAN, jsonBody)
+}
+
+// Request an aggregate proof for the range [start, end]. If there is not a consecutive set of span proofs,
+// which cover the range, the request will error.
+func (l *L2OutputSubmitter) RequestMockAggProof(start, end uint64, l1BlockHash string) ([]byte, error) {
+	l.Log.Info("requesting agg proof", "start", start, "end", end)
+
+	// Query the DB for the consecutive span proofs that cover the range [start, end].
+	subproofs, err := l.db.GetConsecutiveSpanProofs(start, end)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get subproofs: %w", err)
+	}
+	requestBody := AggProofRequest{
+		Subproofs: subproofs,
+		L1Head:    l1BlockHash,
+	}
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	// Request the agg proof from the server.
+	return l.RequestMockProofFromServer(proofrequest.TypeAGG, jsonBody)
+}
+
+// Request a proof from the OP Succinct server, given the path and the body of the request. Returns
+// the proof ID on a successful request.
+func (l *L2OutputSubmitter) RequestMockProofFromServer(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
+	var urlPath string
+	if proofType == proofrequest.TypeAGG {
+		urlPath = "request_mock_agg_proof"
+	} else if proofType == proofrequest.TypeSPAN {
+		urlPath = "request_mock_span_proof"
+	}
+	req, err := http.NewRequest("POST", l.Cfg.OPSuccinctServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	/// The witness generation for larger proofs can take up to ~10 minutes for large ranges.
+	// TODO: In the future, we can poll the server for the witness generation status.
+	client := &http.Client{
+		Timeout: WITNESS_GEN_TIMEOUT,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// Record the failure reason as timeout.
+			l.Metr.RecordWitnessGenFailure("Timeout")
+			return nil, fmt.Errorf("request timed out after %s: %w", WITNESS_GEN_TIMEOUT, err)
+		}
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// If there's an error, return it.
+	if resp.StatusCode != http.StatusOK {
+		// Record the failure reason as failed.
+		l.Metr.RecordWitnessGenFailure("Failed")
+		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
+	}
+
+	// Read the response body.
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading the response body: %v", err)
+	}
+
+	// Create a variable of the ProofStatusResponse type.
+	var response ProofStatusResponse
+
+	// Unmarshal the JSON into the response variable.
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding JSON response: %v", err)
+	}
+	l.Log.Info("successfully produced mock proof", "proofID", response.Proof)
+
+	return response.Proof, nil
 }
 
 // Get the status of a proof given its ID.
