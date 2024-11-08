@@ -88,13 +88,19 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param l2BlockNumber The L2 block number of the output root.
     /// @param l1Timestamp   The L1 timestamp when proposed.
     event OutputProposed(
-        bytes32 indexed outputRoot, uint256 indexed l2OutputIndex, uint256 indexed l2BlockNumber, uint256 l1Timestamp
+        bytes32 indexed outputRoot,
+        uint256 indexed l2OutputIndex,
+        uint256 indexed l2BlockNumber,
+        uint256 l1Timestamp
     );
 
     /// @notice Emitted when outputs are deleted.
     /// @param prevNextOutputIndex Next L2 output index before the deletion.
     /// @param newNextOutputIndex  Next L2 output index after the deletion.
-    event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
+    event OutputsDeleted(
+        uint256 indexed prevNextOutputIndex,
+        uint256 indexed newNextOutputIndex
+    );
 
     ////////////////////////////////////////////////////////////
     //                         Errors                         //
@@ -140,9 +146,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         address _challenger,
         uint256 _finalizationPeriodSeconds,
         InitParams memory _initParams
-    ) public reinitializer(2) {
-        require(_submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
-        require(_l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
+    ) public initializer {
+        require(
+            _submissionInterval > 0,
+            "L2OutputOracle: submission interval must be greater than 0"
+        );
+        require(
+            _l2BlockTime > 0,
+            "L2OutputOracle: L2 block time must be greater than 0"
+        );
         require(
             _startingTimestamp <= block.timestamp,
             "L2OutputOracle: starting L2 timestamp must be less than current time"
@@ -222,16 +234,21 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2OutputIndex Index of the first L2 output to be deleted.
     ///                       All outputs after this output will also be deleted.
     function deleteL2Outputs(uint256 _l2OutputIndex) external {
-        require(msg.sender == challenger, "L2OutputOracle: only the challenger address can delete outputs");
+        require(
+            msg.sender == challenger,
+            "L2OutputOracle: only the challenger address can delete outputs"
+        );
 
         // Make sure we're not *increasing* the length of the array.
         require(
-            _l2OutputIndex < l2Outputs.length, "L2OutputOracle: cannot delete outputs after the latest output index"
+            _l2OutputIndex < l2Outputs.length,
+            "L2OutputOracle: cannot delete outputs after the latest output index"
         );
 
         // Do not allow deleting any outputs that have already been finalized.
         require(
-            block.timestamp - l2Outputs[_l2OutputIndex].timestamp < finalizationPeriodSeconds,
+            block.timestamp - l2Outputs[_l2OutputIndex].timestamp <
+                finalizationPeriodSeconds,
             "L2OutputOracle: cannot delete outputs that have already been finalized"
         );
 
@@ -253,10 +270,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l1BlockNumber The block number with the specified block hash.
     /// @dev Modified the function signature to exclude the `_l1BlockHash` parameter, as it's redundant
     /// for OP Succinct given the `_l1BlockNumber` parameter.
-    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
-        external
-        payable
-    {
+    function proposeL2Output(
+        bytes32 _outputRoot,
+        uint256 _l2BlockNumber,
+        uint256 _l1BlockNumber,
+        bytes memory _proof
+    ) external payable {
         require(
             msg.sender == proposer || proposer == address(0),
             "L2OutputOracle: only the proposer address can propose new outputs"
@@ -272,7 +291,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: cannot propose L2 output in the future"
         );
 
-        require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
+        require(
+            _outputRoot != bytes32(0),
+            "L2OutputOracle: L2 output proposal cannot be the zero hash"
+        );
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         if (l1BlockHash == bytes32(0)) {
@@ -288,9 +310,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             rangeVkeyCommitment: rangeVkeyCommitment
         });
 
-        ISP1VerifierGateway(verifierGateway).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
+        ISP1VerifierGateway(verifierGateway).verifyProof(
+            aggregationVkey,
+            abi.encode(publicValues),
+            _proof
+        );
 
-        emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
+        emit OutputProposed(
+            _outputRoot,
+            nextOutputIndex(),
+            _l2BlockNumber,
+            block.timestamp
+        );
 
         l2Outputs.push(
             Types.OutputProposal({
@@ -315,7 +346,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.
     /// @param _l2OutputIndex Index of the output to return.
     /// @return The output at the given index.
-    function getL2Output(uint256 _l2OutputIndex) external view returns (Types.OutputProposal memory) {
+    function getL2Output(
+        uint256 _l2OutputIndex
+    ) external view returns (Types.OutputProposal memory) {
         return l2Outputs[_l2OutputIndex];
     }
 
@@ -324,7 +357,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         block.
     /// @param _l2BlockNumber L2 block number to find a checkpoint for.
     /// @return Index of the first checkpoint that commits to the given L2 block number.
-    function getL2OutputIndexAfter(uint256 _l2BlockNumber) public view returns (uint256) {
+    function getL2OutputIndexAfter(
+        uint256 _l2BlockNumber
+    ) public view returns (uint256) {
         // Make sure an output for this block number has actually been proposed.
         require(
             _l2BlockNumber <= latestBlockNumber(),
@@ -332,7 +367,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         );
 
         // Make sure there's at least one output proposed.
-        require(l2Outputs.length > 0, "L2OutputOracle: cannot get output as no outputs have been proposed yet");
+        require(
+            l2Outputs.length > 0,
+            "L2OutputOracle: cannot get output as no outputs have been proposed yet"
+        );
 
         // Find the output via binary search, guaranteed to exist.
         uint256 lo = 0;
@@ -354,7 +392,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         block.
     /// @param _l2BlockNumber L2 block number to find a checkpoint for.
     /// @return First checkpoint that commits to the given L2 block number.
-    function getL2OutputAfter(uint256 _l2BlockNumber) external view returns (Types.OutputProposal memory) {
+    function getL2OutputAfter(
+        uint256 _l2BlockNumber
+    ) external view returns (Types.OutputProposal memory) {
         return l2Outputs[getL2OutputIndexAfter(_l2BlockNumber)];
     }
 
@@ -376,7 +416,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         block number.
     /// @return Latest submitted L2 block number.
     function latestBlockNumber() public view returns (uint256) {
-        return l2Outputs.length == 0 ? startingBlockNumber : l2Outputs[l2Outputs.length - 1].l2BlockNumber;
+        return
+            l2Outputs.length == 0
+                ? startingBlockNumber
+                : l2Outputs[l2Outputs.length - 1].l2BlockNumber;
     }
 
     /// @notice Computes the block number of the next L2 block that needs to be checkpointed.
@@ -388,7 +431,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Returns the L2 timestamp corresponding to a given L2 block number.
     /// @param _l2BlockNumber The L2 block number of the target block.
     /// @return L2 timestamp of the given block.
-    function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
-        return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
+    function computeL2Timestamp(
+        uint256 _l2BlockNumber
+    ) public view returns (uint256) {
+        return
+            startingTimestamp +
+            ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
     }
 }
