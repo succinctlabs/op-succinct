@@ -355,18 +355,15 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 	return response.ProofID, nil
 }
 
-// Request a proof from the OP Succinct server. This function will call `request_agg_proof` or `request_span_proof`
-// depending on the proof type. After the witness generation is complete, the OP Succinct server will
-// request the proof from the prover network and return an ID for the proposer here. Within ProcessPendingProofs,
-// the proposer will take this ID and check the proof status until's it's fulfilled or unclaimed.
+// Request a mock proof from the OP Succinct server. This function will call `request_mock_agg_proof` or `request_mock_span_proof`
+// depending on the proof type. After the mock witness generation is complete, the proof is added as fulfilled to the DB.
 //
 // This loop also sets the proof status to PROVING once the prover request ID has been retrieved.
 func (l *L2OutputSubmitter) RequestMockOPSuccinctProof(p ent.ProofRequest) error {
 	var proof []byte
 	var err error
 
-	// TODO: This process should poll the server to get the witness generation status.
-	// Request a proof from the OP Succinct server. This process can take up to WITNESS_GEN_TIMEOUT minutes.
+	// Request a mock proof from the OP Succinct server. This process can take up to WITNESS_GEN_TIMEOUT minutes.
 	if p.Type == proofrequest.TypeAGG {
 		proof, err = l.RequestMockAggProof(p.StartBlock, p.EndBlock, p.L1BlockHash)
 		if err != nil {
@@ -391,7 +388,7 @@ func (l *L2OutputSubmitter) RequestMockOPSuccinctProof(p ent.ProofRequest) error
 		return fmt.Errorf("unknown proof type: %s", p.Type)
 	}
 
-	// Set the proof status to PROVING once the prover ID has been retrieved. Only proofs with status PROVING, SUCCESS or FAILED have a prover request ID.
+	// Once the mock proof has been generated, add it as fulfilled to the DB.
 	err = l.db.AddFulfilledProof(p.ID, proof)
 	if err != nil {
 		return fmt.Errorf("failed to add fulfilled proof: %w", err)
@@ -442,8 +439,8 @@ func (l *L2OutputSubmitter) RequestMockAggProof(start, end uint64, l1BlockHash s
 	return l.RequestMockProofFromServer(proofrequest.TypeAGG, jsonBody)
 }
 
-// Request a proof from the OP Succinct server, given the path and the body of the request. Returns
-// the proof ID on a successful request.
+// Request a mock proof from the OP Succinct server, given the path and the body of the request. Returns the
+// proof bytes on a successful request.
 func (l *L2OutputSubmitter) RequestMockProofFromServer(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
 	var urlPath string
 	if proofType == proofrequest.TypeAGG {
