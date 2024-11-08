@@ -4,7 +4,7 @@
   "l2BlockTime": 2,
   "proposer": "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e",
   "rollupConfigHash": "0x8dad3aa88de72762859feb6781d937efa8f39c8b681a51443b0abfde108fbbcd",
-  "startingBlockNumber": 4037429,
+  "startingBlockNumber": 4339219,
   "startingOutputRoot": "0x669f6abbdcb73945c2eb71913121d761d48c85a47acf44535c4d7cc6db39c328",
   "startingTimestamp": 1730427346,
   "submissionInterval": 2,
