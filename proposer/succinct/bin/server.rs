@@ -167,119 +167,6 @@ async fn request_span_proof(
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
-/// Request a proof for a span of blocks.
-async fn request_mock_span_proof(
-    State(state): State<ContractConfig>,
-    Json(payload): Json<SpanProofRequest>,
-) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
-    info!("Received mock span proof request: {:?}", payload);
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
-        .await
-        .unwrap();
-
-    let host_cli = fetcher
-        .get_host_cli_args(
-            payload.start,
-            payload.end,
-            ProgramType::Multi,
-            CacheMode::DeleteCache,
-        )
-        .await?;
-
-    // Start the server and native client with a timeout.
-    // Note: Ideally, the server should call out to a separate process that executes the native
-    // host, and return an ID that the client can poll on to check if the proof was submitted.
-    let mut witnessgen_executor = WitnessGenExecutor::default();
-    witnessgen_executor.spawn_witnessgen(&host_cli).await?;
-    // Log any errors from running the witness generation process.
-    let res = witnessgen_executor.flush().await;
-    if let Err(e) = res {
-        log::error!("Failed to generate witness: {}", e);
-        return Err(AppError(anyhow::anyhow!(
-            "Failed to generate witness: {}",
-            e
-        )));
-    }
-
-    let sp1_stdin = get_proof_stdin(&host_cli)?;
-
-    let prover = ProverClient::mock();
-    let proof = prover
-        .prove(&state.range_pk, sp1_stdin)
-        .set_skip_deferred_proof_verification(true)
-        .run()?;
-
-    let proof_bytes = bincode::serialize(&proof).unwrap();
-
-    Ok((
-        StatusCode::OK,
-        Json(ProofStatus {
-            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
-            proof: proof_bytes,
-            unclaim_description: None,
-        }),
-    ))
-}
-
-/// Request mock aggregation proof.
-async fn request_mock_agg_proof(
-    State(state): State<ContractConfig>,
-    Json(payload): Json<AggProofRequest>,
-) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
-    info!("Received mock agg proof request: {:?}", payload);
-
-    let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
-        .subproofs
-        .iter()
-        .map(|sp| bincode::deserialize(sp).unwrap())
-        .collect();
-
-    let boot_infos: Vec<BootInfoStruct> = proofs_with_pv
-        .iter_mut()
-        .map(|proof| proof.public_values.read())
-        .collect();
-
-    let proofs: Vec<SP1Proof> = proofs_with_pv
-        .iter_mut()
-        .map(|proof| proof.proof.clone())
-        .collect();
-
-    let l1_head_bytes = hex::decode(
-        payload
-            .head
-            .strip_prefix("0x")
-            .expect("Invalid L1 head, no 0x prefix."),
-    )?;
-    let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
-
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
-        .await
-        .unwrap();
-    let headers = fetcher
-        .get_header_preimages(&boot_infos, l1_head.into())
-        .await?;
-
-    let prover = ProverClient::mock();
-
-    let stdin =
-        get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
-
-    // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
-    let proof = prover
-        .prove(&state.agg_pk, stdin)
-        .set_skip_deferred_proof_verification(true)
-        .run()?;
-
-    Ok((
-        StatusCode::OK,
-        Json(ProofStatus {
-            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
-            proof: proof.bytes(),
-            unclaim_description: None,
-        }),
-    ))
-}
-
 /// Request an aggregation proof for a set of subproofs.
 async fn request_agg_proof(
     State(state): State<ContractConfig>,
@@ -330,6 +217,121 @@ async fn request_agg_proof(
     env::set_var("SKIP_SIMULATION", "true");
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+}
+
+/// Request a proof for a span of blocks.
+async fn request_mock_span_proof(
+    State(state): State<ContractConfig>,
+    Json(payload): Json<SpanProofRequest>,
+) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
+    info!("Received mock span proof request: {:?}", payload);
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        .await
+        .unwrap();
+
+    let host_cli = fetcher
+        .get_host_cli_args(
+            payload.start,
+            payload.end,
+            ProgramType::Multi,
+            CacheMode::DeleteCache,
+        )
+        .await?;
+
+    // Start the server and native client with a timeout.
+    // Note: Ideally, the server should call out to a separate process that executes the native
+    // host, and return an ID that the client can poll on to check if the proof was submitted.
+    let mut witnessgen_executor = WitnessGenExecutor::default();
+    witnessgen_executor.spawn_witnessgen(&host_cli).await?;
+    // Log any errors from running the witness generation process.
+    let res = witnessgen_executor.flush().await;
+    if let Err(e) = res {
+        log::error!("Failed to generate witness: {}", e);
+        return Err(AppError(anyhow::anyhow!(
+            "Failed to generate witness: {}",
+            e
+        )));
+    }
+
+    let sp1_stdin = get_proof_stdin(&host_cli)?;
+
+    let prover = ProverClient::mock();
+    let proof = prover
+        .prove(&state.range_pk, sp1_stdin)
+        .set_skip_deferred_proof_verification(true)
+        .compressed()
+        .run()?;
+
+    let proof_bytes = bincode::serialize(&proof).unwrap();
+
+    Ok((
+        StatusCode::OK,
+        Json(ProofStatus {
+            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
+            proof: proof_bytes,
+            unclaim_description: None,
+        }),
+    ))
+}
+
+/// Request mock aggregation proof.
+async fn request_mock_agg_proof(
+    State(state): State<ContractConfig>,
+    Json(payload): Json<AggProofRequest>,
+) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
+    info!("Received mock agg proof request!");
+
+    let mut proofs_with_pv: Vec<SP1ProofWithPublicValues> = payload
+        .subproofs
+        .iter()
+        .map(|sp| bincode::deserialize(sp).unwrap())
+        .collect();
+
+    let boot_infos: Vec<BootInfoStruct> = proofs_with_pv
+        .iter_mut()
+        .map(|proof| proof.public_values.read())
+        .collect();
+
+    let proofs: Vec<SP1Proof> = proofs_with_pv
+        .iter_mut()
+        .map(|proof| proof.proof.clone())
+        .collect();
+
+    let l1_head_bytes = hex::decode(
+        payload
+            .head
+            .strip_prefix("0x")
+            .expect("Invalid L1 head, no 0x prefix."),
+    )?;
+    let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
+
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        .await
+        .unwrap();
+    let headers = fetcher
+        .get_header_preimages(&boot_infos, l1_head.into())
+        .await?;
+
+    let prover = ProverClient::mock();
+
+    let stdin =
+        get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
+
+    // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
+    let proof = prover
+        .prove(&state.agg_pk, stdin)
+        .set_skip_deferred_proof_verification(true)
+        .groth16()
+        .run()?;
+
+    Ok((
+        StatusCode::OK,
+        Json(ProofStatus {
+            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
+            proof: proof.bytes(),
+            unclaim_description: None,
+        }),
+    ))
 }
 
 /// Get the status of a proof.

@@ -3,6 +3,7 @@ from enum import Enum
 import os
 from dotenv import load_dotenv
 import time
+import sys
 
 # Types of proofs
 class ProofType(Enum):
@@ -12,7 +13,7 @@ class ProofType(Enum):
 # Possible statuses for a proof request
 class ProofStatus(Enum):
     UNREQ = "UNREQ"
-    WITNESSING = "WITNESSGEN"
+    WITNESSGEN = "WITNESSGEN"
     PROVING = "PROVING"
     COMPLETE = "COMPLETE"
     FAILED = "FAILED"
@@ -69,7 +70,6 @@ def query_proofs(db_path, proof_type) -> [ProofRequest]:
 
     query = f"""
     SELECT * FROM proof_requests
-    WHERE type = '{proof_type}'
     """
     cursor.execute(query)
     
@@ -105,18 +105,17 @@ if __name__ == "__main__":
     print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
     db_path = f"../../db/{chain_id}/proofs.db"
 
+    print(f"DB Path: {db_path}")
+
     # Get all span proofs
-    print("\nSpan Proofs:")
     span_proofs = query_span_proofs(db_path)
     
     for proof in span_proofs:
-        proof_time_difference = None
-        if proof.proof_request_time is not None:
-            proof_time_difference = proof.proof_request_time - proof.request_added_time
-            print(f"Request ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}, Request Added Time: {proof.request_added_time}, Proof Request Time: {proof.proof_request_time}, Proof Time Difference: {proof_time_difference}")
+        if proof.status is not ProofStatus.UNREQ:
+            print(f"Request ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}, Request Added Time: {proof.request_added_time}, Proof Request Time: {proof.proof_request_time}")
     
-    # Query for aggregation proofs
-    print("\nAggregation Proofs:")
-    agg_proofs = query_agg_proofs(db_path)
-    for proof in agg_proofs:
-        print(f"Proof ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}")
+    # # Query for aggregation proofs
+    # print("\nAggregation Proofs:")
+    # agg_proofs = query_agg_proofs(db_path)
+    # for proof in agg_proofs:
+    #     print(f"Proof ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}")

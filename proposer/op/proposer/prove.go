@@ -530,6 +530,15 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 		return fmt.Errorf("failed to request %s proof: %w", p.Type, err)
 	}
 
+	// Update the proof status to PROVING. For mock proofs, this is necessary because the AddFulfilledProof function
+	// checks that the proof status is PROVING to confirm that proofs always transition from UNREQ -> WITNESSGEN -> PROVING -> COMPLETE.
+	// For real proofs, this is necessary because the server needs to know that the proof is currently being generated so it can
+	// query the proof status.
+	// TODO: Alternatively, we could set the status to PROVING for mock proofs directly, and move this to after the isMock check.
+	if err := l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING); err != nil {
+		return fmt.Errorf("failed to set proof status to proving: %w", err)
+	}
+
 	if isMock {
 		// For mock proofs, result is []byte
 		return l.db.AddFulfilledProof(p.ID, result.([]byte))
@@ -537,9 +546,6 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 
 	// For real proofs, result is string (proofId)
 	proofId := result.(string)
-	if err := l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING); err != nil {
-		return fmt.Errorf("failed to set proof status to proving: %w", err)
-	}
 	return l.db.SetProverRequestID(p.ID, proofId)
 }
 
@@ -615,16 +621,16 @@ func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, 
 		if err := json.Unmarshal(body, &response); err != nil {
 			return nil, fmt.Errorf("error decoding JSON response: %w", err)
 		}
-		l.Log.Info("successfully produced mock proof", "proofID", response.Proof)
+		l.Log.Info("successfully produced mock proof")
 		return response.Proof, nil
+	} else {
+		var response WitnessGenerationResponse
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("error decoding JSON response: %w", err)
+		}
+		l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
+		return response.ProofID, nil
 	}
-
-	var response WitnessGenerationResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("error decoding JSON response: %w", err)
-	}
-	l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
-	return response.ProofID, nil
 }
 
 func (l *L2OutputSubmitter) getProofEndpoint(proofType proofrequest.Type, isMock bool) string {
