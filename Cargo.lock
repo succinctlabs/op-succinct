@@ -5715,6 +5715,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -5733,7 +5734,7 @@ dependencies = [
  "rrs-succinct",
  "serde",
  "sp1-curves",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-stark",
  "strum",
  "strum_macros",
@@ -5747,6 +5748,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "bincode",
  "cfg-if",
@@ -5776,7 +5778,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-curves",
  "sp1-derive",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-stark",
  "static_assertions",
  "strum",
@@ -5793,6 +5795,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "cfg-if",
  "curve25519-dalek",
@@ -5806,7 +5809,7 @@ dependencies = [
  "p3-field 0.1.0",
  "serde",
  "snowbridge-amcl",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-stark",
  "typenum",
 ]
@@ -5814,6 +5817,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -5846,22 +5850,6 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "3.0.0"
-dependencies = [
- "bincode",
- "hex",
- "lazy_static",
- "num-bigint 0.4.6",
- "p3-baby-bear 0.1.0",
- "p3-field 0.1.0",
- "p3-poseidon2 0.1.0",
- "p3-symmetric 0.1.0",
- "serde",
- "sha2",
-]
-
-[[package]]
-name = "sp1-primitives"
-version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "025f06b633588e246308ad5f67b32f0f7d1cbeab38f7a842314699270bc706f5"
 dependencies = [
@@ -5878,8 +5866,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
+dependencies = [
+ "bincode",
+ "hex",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "p3-baby-bear 0.1.0",
+ "p3-field 0.1.0",
+ "p3-poseidon2 0.1.0",
+ "p3-symmetric 0.1.0",
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "sp1-prover"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5901,7 +5907,7 @@ dependencies = [
  "serial_test",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-recursion-circuit",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
@@ -5915,6 +5921,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -5936,7 +5943,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
  "sp1-recursion-gnark-ffi",
@@ -5947,6 +5954,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -5956,7 +5964,7 @@ dependencies = [
  "p3-symmetric 0.1.0",
  "serde",
  "sp1-core-machine",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-recursion-core",
  "sp1-recursion-derive",
  "sp1-stark",
@@ -5967,6 +5975,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "backtrace",
  "ff 0.13.0",
@@ -5989,7 +5998,7 @@ dependencies = [
  "serde",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-stark",
  "static_assertions",
  "thiserror 1.0.64 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6001,6 +6010,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6009,6 +6019,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6033,6 +6044,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "alloy-signer 0.5.4",
  "alloy-signer-local 0.5.4",
@@ -6057,7 +6069,7 @@ dependencies = [
  "serde",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "sp1-prover",
  "sp1-stark",
  "strum",
@@ -6073,6 +6085,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "3.0.0"
+source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags#a9412b94631cdf1d260e7f3a7a6019330f1904ec"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",
@@ -6095,7 +6108,7 @@ dependencies = [
  "rayon-scan",
  "serde",
  "sp1-derive",
- "sp1-primitives 3.0.0",
+ "sp1-primitives 3.0.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan/simulation-flags)",
  "strum",
  "strum_macros",
  "sysinfo 0.30.13",
