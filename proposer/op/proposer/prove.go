@@ -367,7 +367,7 @@ func (l *L2OutputSubmitter) RequestMockOPSuccinctProof(p ent.ProofRequest) error
 		if err != nil {
 			l.Log.Error("witnessgen request failed", "err", err, "proof", p)
 
-			// Record the error for the witness generation request.
+			// Record the error for the mock witness generation request.
 			l.Metr.RecordError("witnessgen", 1)
 
 			return fmt.Errorf("failed to request AGG proof: %w", err)
@@ -414,7 +414,7 @@ func (l *L2OutputSubmitter) RequestMockSpanProof(l2Start, l2End uint64) ([]byte,
 	return l.RequestMockProofFromServer(proofrequest.TypeSPAN, jsonBody)
 }
 
-// Request an aggregate proof for the range [start, end]. If there is not a consecutive set of span proofs,
+// Request an mock aggregation proof for the range [start, end]. If there is not a consecutive set of span proofs,
 // which cover the range, the request will error.
 func (l *L2OutputSubmitter) RequestMockAggProof(start, end uint64, l1BlockHash string) ([]byte, error) {
 	l.Log.Info("requesting agg proof", "start", start, "end", end)
@@ -453,7 +453,6 @@ func (l *L2OutputSubmitter) RequestMockProofFromServer(proofType proofrequest.Ty
 	req.Header.Set("Content-Type", "application/json")
 
 	/// The witness generation for larger proofs can take up to ~10 minutes for large ranges.
-	// TODO: In the future, we can poll the server for the witness generation status.
 	client := &http.Client{
 		Timeout: WITNESS_GEN_TIMEOUT,
 	}
