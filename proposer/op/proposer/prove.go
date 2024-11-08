@@ -357,8 +357,6 @@ func (l *L2OutputSubmitter) RequestProofFromServer(proofType proofrequest.Type, 
 
 // Request a mock proof from the OP Succinct server. This function will call `request_mock_agg_proof` or `request_mock_span_proof`
 // depending on the proof type. After the mock witness generation is complete, the proof is added as fulfilled to the DB.
-//
-// This loop also sets the proof status to PROVING once the prover request ID has been retrieved.
 func (l *L2OutputSubmitter) RequestMockOPSuccinctProof(p ent.ProofRequest) error {
 	var proof []byte
 	var err error
