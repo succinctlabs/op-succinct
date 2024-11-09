@@ -622,7 +622,8 @@ func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, 
 			return nil, fmt.Errorf("error decoding JSON response: %w", err)
 		}
 		l.Log.Info("successfully produced mock proof")
-		return response.Proof, nil
+		fmt.Printf("Length of mock proof [requestProofFromServer]: %d\n", len(response.Proof))
+		return []byte{}, nil
 	} else {
 		var response WitnessGenerationResponse
 		if err := json.Unmarshal(body, &response); err != nil {

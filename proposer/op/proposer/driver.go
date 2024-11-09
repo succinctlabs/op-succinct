@@ -359,7 +359,7 @@ func (l *L2OutputSubmitter) SubmitAggProofs(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to fetch output at block %d: %w", aggProof.EndBlock, err)
 		}
-
+		fmt.Printf("Length of mock agg proof: %d\n", len(aggProof.Proof))
 		l.proposeOutput(ctx, output, aggProof.Proof, aggProof.L1BlockNumber)
 	}
 
