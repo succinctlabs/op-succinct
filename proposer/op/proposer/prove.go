@@ -623,7 +623,13 @@ func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, 
 		}
 		l.Log.Info("successfully produced mock proof")
 		fmt.Printf("Length of mock proof [requestProofFromServer]: %d\n", len(response.Proof))
-		return []byte{}, nil
+		// TODO: Determine why the length of the mock proof returned is 4 for the agg proofs. It should be 0.
+		// This code works though when we manually modify.
+		if proofType == proofrequest.TypeAGG {
+			return []byte{}, nil
+		} else {
+			return response.Proof, nil
+		}
 	} else {
 		var response WitnessGenerationResponse
 		if err := json.Unmarshal(body, &response); err != nil {
