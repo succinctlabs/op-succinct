@@ -150,7 +150,6 @@ async fn request_span_proof(
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let mut prover = NetworkProverV1::new();
-    prover.set_skip_simulation(true);
     let res = prover
         .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
         .await;
