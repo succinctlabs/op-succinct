@@ -37,7 +37,7 @@ struct Args {
     prove: bool,
 
     /// Env file.
-    #[arg(short, long, default_value = ".env")]
+    #[arg(long, default_value = ".env")]
     env_file: Option<String>,
 }
 
