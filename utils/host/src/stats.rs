@@ -49,14 +49,10 @@ fn write_stat(f: &mut fmt::Formatter<'_>, label: &str, value: u64) -> fmt::Resul
 
 impl fmt::Display for ExecutionStats {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            f,
-            "+--------------------------------+---------------------------+"
-        )?;
         writeln!(f, "| {:<30} | {:<25} |", "Metric", "Value")?;
         writeln!(
             f,
-            "+--------------------------------+---------------------------+"
+            "|--------------------------------|---------------------------|"
         )?;
         write_stat(f, "Batch Start", self.batch_start)?;
         write_stat(f, "Batch End", self.batch_end)?;
@@ -100,11 +96,7 @@ impl fmt::Display for ExecutionStats {
         write_stat(f, "BN Add Cycles", self.bn_add_cycles)?;
         write_stat(f, "BN Mul Cycles", self.bn_mul_cycles)?;
         write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
-        write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
-        writeln!(
-            f,
-            "+--------------------------------+---------------------------+"
-        )
+        write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)
     }
 }
 
