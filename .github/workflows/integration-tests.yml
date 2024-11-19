@@ -37,9 +37,9 @@ jobs:
           toolchain: stable
           override: true
 
-      - name: OP Sepolia Blocks 19000000 to 19000030
+      - name: OP Sepolia cost estimator om recent block range
         run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release -- --start 19000000 --end 19000030
+          RUST_LOG=info cargo run --bin cost-estimator --release
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}

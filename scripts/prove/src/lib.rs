@@ -20,7 +20,7 @@ pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
 
     // Start the server and native client.
     let mut witnessgen_executor = WitnessGenExecutor::default();
-    witnessgen_executor.spawn_witnessgen(&host_cli).await?;
+    witnessgen_executor.spawn_witnessgen(host_cli).await?;
     witnessgen_executor.flush().await?;
 
     let witness_generation_time_sec = start_time.elapsed();
