@@ -87,7 +87,7 @@ op-alloy-network = { version = "0.4.0", default-features = false }
 # sp1
 sp1-lib = { version = "3.0.0", features = ["verify"] }
 sp1-zkvm = { version = "3.0.0", features = ["verify"] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "ratan/simulation-flags" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "3ed04b2ecdaf1b49d27d7a5aa34d95fbddb991a5" }
 sp1-build = { version = "3.0.0" }
 
 [profile.release-client-lto]
