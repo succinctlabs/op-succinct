@@ -7,7 +7,7 @@ use op_succinct_host_utils::{
     stats::{ExecutionStats, MarkdownExecutionStats},
     ProgramType,
 };
-use op_succinct_prove::{execute_proof, generate_witness, DEFAULT_RANGE};
+use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE};
 use sp1_sdk::ProverClient;
 
 mod common;
@@ -40,7 +40,7 @@ async fn execute_batch() -> Result<()> {
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-    let (block_data, report, execution_duration) = execute_proof(
+    let (block_data, report, execution_duration) = execute_multi(
         &prover,
         &data_fetcher,
         sp1_stdin,

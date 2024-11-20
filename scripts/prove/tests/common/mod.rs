@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde_json::json;
 
+/// Posts the provided message on the provided PR on Github.
 pub async fn post_to_github_pr(
     owner: &str,
     repo: &str,

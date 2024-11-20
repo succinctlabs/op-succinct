@@ -32,7 +32,7 @@ pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
     Ok(witness_generation_time_sec)
 }
 
-pub async fn execute_proof(
+pub async fn execute_multi(
     prover: &ProverClient,
     data_fetcher: &OPSuccinctDataFetcher,
     sp1_stdin: SP1Stdin,

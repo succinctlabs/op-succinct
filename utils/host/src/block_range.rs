@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::fetcher::OPSuccinctDataFetcher;
 use alloy_eips::BlockId;
 use anyhow::{bail, Result};
@@ -43,16 +45,16 @@ pub async fn get_validated_block_range(
     Ok((l2_start_block, l2_end_block))
 }
 
-// Get a fixed recent (less than 2 weeks) block range.
+/// Get a fixed recent (less than 2 weeks) block range.
 pub async fn get_rolling_block_range(
     data_fetcher: &OPSuccinctDataFetcher,
     range: u64,
 ) -> Result<(u64, u64)> {
-    let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
-    let l2_block_time = data_fetcher.get_l2_block_time().await?;
-    let block_count_in_two_weeks = 14 * 24 * 60 * 60 / l2_block_time;
-    let l2_end_block = (header.number / block_count_in_two_weeks) * block_count_in_two_weeks;
-    let l2_start_block = l2_end_block.saturating_sub(range);
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let start_timestanp = now - (now % (14 * 24 * 60 * 60));
+    let (_, l2_start_block) = data_fetcher
+        .find_l2_block_by_timestamp(start_timestanp)
+        .await?;
 
-    Ok((l2_start_block, l2_end_block))
+    Ok((l2_start_block, l2_start_block + range))
 }
