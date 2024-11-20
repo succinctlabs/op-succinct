@@ -218,6 +218,38 @@ type ProofRequestConfig struct {
 	l1Hash string
 }
 
+func (l *L2OutputSubmitter) prepareProofRequest(p ent.ProofRequest) ([]byte, error) {
+	if p.Type == proofrequest.TypeSPAN {
+		if p.StartBlock >= p.EndBlock {
+			return nil, fmt.Errorf("l2Start must be less than l2End")
+		}
+
+		requestBody := SpanProofRequest{
+			Start: p.StartBlock,
+			End:   p.EndBlock,
+		}
+		jsonBody, err := json.Marshal(requestBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		return jsonBody, nil
+	} else {
+		subproofs, err := l.db.GetConsecutiveSpanProofs(p.StartBlock, p.EndBlock)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get subproofs: %w", err)
+		}
+		requestBody := AggProofRequest{
+			Subproofs: subproofs,
+			L1Head:    p.L1BlockHash,
+		}
+		jsonBody, err := json.Marshal(requestBody)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		return jsonBody, nil
+	}
+}
+
 // RequestProof handles both mock and real proof requests
 func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error {
 	jsonBody, err := l.prepareProofRequest(p)
