@@ -70,6 +70,7 @@ def query_proofs(db_path, proof_type) -> [ProofRequest]:
 
     query = f"""
     SELECT * FROM proof_requests
+    WHERE type='{proof_type}'
     """
     cursor.execute(query)
     
@@ -108,14 +109,18 @@ if __name__ == "__main__":
     print(f"DB Path: {db_path}")
 
     # Get all span proofs
+    print("\nSpan Proofs")
+    print("-" * 50)
     span_proofs = query_span_proofs(db_path)
-    
     for proof in span_proofs:
         if proof.status is not ProofStatus.UNREQ:
             print(f"Request ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}, Request Added Time: {proof.request_added_time}, Proof Request Time: {proof.proof_request_time}")
-    
-    # # Query for aggregation proofs
-    # print("\nAggregation Proofs:")
-    # agg_proofs = query_agg_proofs(db_path)
-    # for proof in agg_proofs:
-    #     print(f"Proof ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}")
+    print("-" * 50)
+
+    # Query for aggregation proofs
+    print("\nAggregation Proofs") 
+    print("-" * 50)
+    agg_proofs = query_agg_proofs(db_path)
+    for proof in agg_proofs:
+        print(f"Proof ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}")
+    print("-" * 50)
