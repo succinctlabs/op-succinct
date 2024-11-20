@@ -730,6 +730,15 @@ impl OPSuccinctDataFetcher {
         Ok(l1_head.timestamp - l1_block_minus_1.timestamp)
     }
 
+    /// Get the L2 block time in seconds.
+    pub async fn get_l2_block_time(&self) -> Result<u64> {
+        let l2_head = self.get_l2_header(BlockId::latest()).await?;
+
+        let l2_head_minus_1 = l2_head.number - 1;
+        let l2_block_minus_1 = self.get_l2_header(l2_head_minus_1.into()).await?;
+        Ok(l2_head.timestamp - l2_block_minus_1.timestamp)
+    }
+
     /// Get the L1 block from which the `l2_end_block` can be derived.
     async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
         let l1_block_time_secs = self.get_l1_block_time().await?;
