@@ -20,11 +20,13 @@ use std::{
     future::Future,
     io::Seek,
     path::PathBuf,
-    time::Instant,
+    time::{Duration, Instant},
 };
 use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
+
+const TWO_WEEKS: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 
 /// The arguments for the host executable.
 #[derive(Debug, Clone, Parser)]
@@ -286,7 +288,7 @@ async fn main() -> Result<()> {
 
     const DEFAULT_RANGE: u64 = 5;
     let (l2_start_block, l2_end_block) = if args.rolling {
-        get_rolling_block_range(&data_fetcher, DEFAULT_RANGE).await?
+        get_rolling_block_range(&data_fetcher, TWO_WEEKS, DEFAULT_RANGE).await?
     } else {
         get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?
     };
