@@ -215,93 +215,65 @@ type ProofRequestConfig struct {
 	start     uint64
 	end       uint64
 	// Optional, only used for agg proofs.
-	l1Hash    string
+	l1Hash string
 }
 
 // RequestProof handles both mock and real proof requests
 func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error {
-	config := ProofRequestConfig{
-		isMock:    isMock,
-		proofType: p.Type,
-		start:     p.StartBlock,
-		end:       p.EndBlock,
-		l1Hash:    p.L1BlockHash,
-	}
-
-	var result interface{}
-	var err error
-
-	if p.Type == proofrequest.TypeAGG {
-		result, err = l.requestAggProof(config)
-	} else if p.Type == proofrequest.TypeSPAN {
-		result, err = l.requestSpanProof(config)
-	} else {
-		return fmt.Errorf("unknown proof type: %s", p.Type)
-	}
-
+	jsonBody, err := l.prepareProofRequest(p)
 	if err != nil {
-		l.Log.Error("witnessgen request failed", "err", err, "proof", p)
-		l.Metr.RecordError("witnessgen", 1)
-		return fmt.Errorf("failed to request %s proof: %w", p.Type, err)
-	}
-
-	// Update the proof status to PROVING because AddFulfilledProof checks that the proof status is PROVING before adding the proof to the DB.
-	if err := l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING); err != nil {
-		return fmt.Errorf("failed to set proof status to proving: %w", err)
+		return err
 	}
 
 	if isMock {
-		// Add the mock proofs directly as fulfilled proofs to the DB. The proof field from `requestSpanProof` and `requestAggProof` is already bytes in mock mode.
-		return l.db.AddFulfilledProof(p.ID, result.([]byte))
+		proofData, err := l.requestMockProof(p.Type, jsonBody)
+		if err != nil {
+			return fmt.Errorf("mock proof request failed: %w", err)
+		}
+		return l.db.AddFulfilledProof(p.ID, proofData)
 	}
 
-	// For real proofs, the result is a string.
-	proofId := result.(string)
-	return l.db.SetProverRequestID(p.ID, proofId)
+	proofID, err := l.requestRealProof(p.Type, jsonBody)
+	if err != nil {
+		return fmt.Errorf("real proof request failed: %w", err)
+	}
+	return l.db.SetProverRequestID(p.ID, proofID)
 }
 
-func (l *L2OutputSubmitter) requestSpanProof(config ProofRequestConfig) (interface{}, error) {
-	if config.start >= config.end {
-		return nil, fmt.Errorf("start must be less than end")
-	}
-
-	l.Log.Info("requesting span proof", "start", config.start, "end", config.end)
-	requestBody := SpanProofRequest{
-		Start: config.start,
-		End:   config.end,
-	}
-	jsonBody, err := json.Marshal(requestBody)
+func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) (string, error) {
+	resp, err := l.makeProofRequest(proofType, jsonBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		return "", err
 	}
 
-	return l.requestProofFromServer(config.proofType, jsonBody, config.isMock)
+	var response WitnessGenerationResponse
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return "", fmt.Errorf("error decoding JSON response: %w", err)
+	}
+	l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
+	return response.ProofID, nil
 }
 
-// requestAggProof returns the proof ID from the server in real mode, and an empty string in mock mode.
-func (l *L2OutputSubmitter) requestAggProof(config ProofRequestConfig) (interface{}, error) {
-	l.Log.Info("requesting agg proof", "start", config.start, "end", config.end)
-
-	subproofs, err := l.db.GetConsecutiveSpanProofs(config.start, config.end)
+func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
+	resp, err := l.makeProofRequest(proofType, jsonBody)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get subproofs: %w", err)
-	}
-	requestBody := AggProofRequest{
-		Subproofs: subproofs,
-		L1Head:    config.l1Hash,
-	}
-	jsonBody, err := json.Marshal(requestBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		return nil, err
 	}
 
-	return l.requestProofFromServer(config.proofType, jsonBody, config.isMock)
+	var response ProofStatusResponse
+	if err := json.Unmarshal(resp, &response); err != nil {
+		return nil, fmt.Errorf("error decoding JSON response: %w", err)
+	}
+
+	if proofType == proofrequest.TypeAGG {
+		return []byte{}, nil // Special case for agg proofs
+	}
+	return response.Proof, nil
 }
 
-// requestProofFromServer returns the proof ID from the server in real mode, and the proof bytes in mock mode.
-func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, jsonBody []byte, isMock bool) (interface{}, error) {
-	urlPath := l.getProofEndpoint(proofType, isMock)
-
+// Shared HTTP request logic
+func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
+	urlPath := l.getProofEndpoint(proofType)
 	req, err := http.NewRequest("POST", l.Cfg.OPSuccinctServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -324,44 +296,10 @@ func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, 
 		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
-	}
-
-	if isMock {
-		var response ProofStatusResponse
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("error decoding JSON response: %w", err)
-		}
-		l.Log.Info("successfully produced mock proof")
-		fmt.Printf("Length of mock proof [requestProofFromServer]: %d\n", len(response.Proof))
-
-		// TODO: Due to a bug in sp1-sdk, the length of the proof returned from `.bytes()` is 4 for mock groth16 proofs. Until
-		// https://github.com/succinctlabs/sp1/pull/1802 is merged and included in a new release, we need to manually return
-		// an empty byte slice for agg proofs. Once it's merged we can just return response.Proof.
-		if proofType == proofrequest.TypeAGG {
-			return []byte{}, nil
-		} else {
-			return response.Proof, nil
-		}
-	} else {
-		var response WitnessGenerationResponse
-		if err := json.Unmarshal(body, &response); err != nil {
-			return nil, fmt.Errorf("error decoding JSON response: %w", err)
-		}
-		l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
-		return response.ProofID, nil
-	}
+	return io.ReadAll(resp.Body)
 }
 
-func (l *L2OutputSubmitter) getProofEndpoint(proofType proofrequest.Type, isMock bool) string {
-	if isMock {
-		if proofType == proofrequest.TypeAGG {
-			return "request_mock_agg_proof"
-		}
-		return "request_mock_span_proof"
-	}
+func (l *L2OutputSubmitter) getProofEndpoint(proofType proofrequest.Type) string {
 	if proofType == proofrequest.TypeAGG {
 		return "request_agg_proof"
 	}
