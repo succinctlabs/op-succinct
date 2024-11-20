@@ -4,7 +4,7 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::{CacheMode, OPSuccinctDataFetcher},
     get_proof_stdin,
-    stats::ExecutionStats,
+    stats::{ExecutionStats, MarkdownExecutionStats},
     ProgramType,
 };
 use op_succinct_prove::{execute_proof, generate_witness, DEFAULT_RANGE};
@@ -57,9 +57,7 @@ async fn execute_batch() -> Result<()> {
         execution_duration.as_secs(),
     );
 
-    let stats = stats.to_string();
-
-    println!("Execution Stats: \n{:?}", stats);
+    println!("Execution Stats: \n{:?}", stats.to_string());
 
     if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
         std::env::var("REPO_OWNER"),
@@ -67,9 +65,15 @@ async fn execute_batch() -> Result<()> {
         std::env::var("PR_NUMBER"),
         std::env::var("GITHUB_TOKEN"),
     ) {
-        post_to_github_pr(&owner, &repo, &pr_number, &token, &stats)
-            .await
-            .unwrap();
+        post_to_github_pr(
+            &owner,
+            &repo,
+            &pr_number,
+            &token,
+            &MarkdownExecutionStats::new(stats).to_string(),
+        )
+        .await
+        .unwrap();
     }
 
     Ok(())
