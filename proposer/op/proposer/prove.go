@@ -322,10 +322,16 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 }
 
 func (l *L2OutputSubmitter) getProofEndpoint(proofType proofrequest.Type) string {
-	if proofType == proofrequest.TypeAGG {
+	switch {
+	case proofType == proofrequest.TypeAGG && l.Cfg.Mock:
+		return "request_mock_agg_proof"
+	case proofType == proofrequest.TypeAGG:
 		return "request_agg_proof"
+	case l.Cfg.Mock:
+		return "request_mock_span_proof"
+	default:
+		return "request_span_proof"
 	}
-	return "request_span_proof"
 }
 
 // Get the status of a proof given its ID.
