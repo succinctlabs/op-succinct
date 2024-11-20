@@ -208,16 +208,6 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 	return nil
 }
 
-// ProofRequestConfig holds the configuration for a proof request
-type ProofRequestConfig struct {
-	isMock    bool
-	proofType proofrequest.Type
-	start     uint64
-	end       uint64
-	// Optional, only used for agg proofs.
-	l1Hash string
-}
-
 func (l *L2OutputSubmitter) prepareProofRequest(p ent.ProofRequest) ([]byte, error) {
 	if p.Type == proofrequest.TypeSPAN {
 		if p.StartBlock >= p.EndBlock {
