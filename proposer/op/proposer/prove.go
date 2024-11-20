@@ -144,7 +144,8 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 			return fmt.Errorf("failed to count proving proofs: %w", err)
 		}
 
-		// The number of witness generation requests is capped at MAX_CONCURRENT_WITNESS_GEN.
+		// The number of witness generation requests is capped at MAX_CONCURRENT_WITNESS_GEN. This prevents overloading the machine with processes spawned by the witness generation server.
+		// Once https://github.com/anton-rs/kona/issues/553 is fixed, we may be able to remove this check.
 		if witnessGenProofs >= MAX_CONCURRENT_WITNESS_GEN {
 			l.Log.Info("max witness generation reached, waiting for next cycle")
 			return nil
@@ -213,7 +214,8 @@ type ProofRequestConfig struct {
 	proofType proofrequest.Type
 	start     uint64
 	end       uint64
-	l1Hash    string // optional, only used for agg proofs
+	// Optional, only used for agg proofs.
+	l1Hash    string
 }
 
 // RequestProof handles both mock and real proof requests
@@ -243,21 +245,17 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 		return fmt.Errorf("failed to request %s proof: %w", p.Type, err)
 	}
 
-	// Update the proof status to PROVING. For mock proofs, this is necessary because the AddFulfilledProof function
-	// checks that the proof status is PROVING to confirm that proofs always transition from UNREQ -> WITNESSGEN -> PROVING -> COMPLETE.
-	// For real proofs, this is necessary because the server needs to know that the proof is currently being generated so it can
-	// query the proof status.
-	// TODO: Alternatively, we could set the status to PROVING for mock proofs directly, and move this to after the isMock check.
+	// Update the proof status to PROVING because AddFulfilledProof checks that the proof status is PROVING before adding the proof to the DB.
 	if err := l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING); err != nil {
 		return fmt.Errorf("failed to set proof status to proving: %w", err)
 	}
 
 	if isMock {
-		// For mock proofs, result is []byte
+		// Add the mock proofs directly as fulfilled proofs to the DB. The proof field from `requestSpanProof` and `requestAggProof` is already bytes in mock mode.
 		return l.db.AddFulfilledProof(p.ID, result.([]byte))
 	}
 
-	// For real proofs, result is string (proofId)
+	// For real proofs, the result is a string.
 	proofId := result.(string)
 	return l.db.SetProverRequestID(p.ID, proofId)
 }
@@ -280,6 +278,7 @@ func (l *L2OutputSubmitter) requestSpanProof(config ProofRequestConfig) (interfa
 	return l.requestProofFromServer(config.proofType, jsonBody, config.isMock)
 }
 
+// requestAggProof returns the proof ID from the server in real mode, and an empty string in mock mode.
 func (l *L2OutputSubmitter) requestAggProof(config ProofRequestConfig) (interface{}, error) {
 	l.Log.Info("requesting agg proof", "start", config.start, "end", config.end)
 
@@ -299,6 +298,7 @@ func (l *L2OutputSubmitter) requestAggProof(config ProofRequestConfig) (interfac
 	return l.requestProofFromServer(config.proofType, jsonBody, config.isMock)
 }
 
+// requestProofFromServer returns the proof ID from the server in real mode, and the proof bytes in mock mode.
 func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, jsonBody []byte, isMock bool) (interface{}, error) {
 	urlPath := l.getProofEndpoint(proofType, isMock)
 
@@ -336,8 +336,10 @@ func (l *L2OutputSubmitter) requestProofFromServer(proofType proofrequest.Type, 
 		}
 		l.Log.Info("successfully produced mock proof")
 		fmt.Printf("Length of mock proof [requestProofFromServer]: %d\n", len(response.Proof))
-		// TODO: Determine why the length of the mock proof returned is 4 for the agg proofs. It should be 0.
-		// This code works though when we manually modify.
+
+		// TODO: Due to a bug in sp1-sdk, the length of the proof returned from `.bytes()` is 4 for mock groth16 proofs. Until
+		// https://github.com/succinctlabs/sp1/pull/1802 is merged and included in a new release, we need to manually return
+		// an empty byte slice for agg proofs. Once it's merged we can just return response.Proof.
 		if proofType == proofrequest.TypeAGG {
 			return []byte{}, nil
 		} else {
