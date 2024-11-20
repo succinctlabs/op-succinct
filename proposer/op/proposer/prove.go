@@ -276,6 +276,7 @@ func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBo
 	return response.ProofID, nil
 }
 
+// Request a mock proof from the witness generation server.
 func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
 	resp, err := l.makeProofRequest(proofType, jsonBody)
 	if err != nil {
@@ -288,12 +289,13 @@ func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, jsonBo
 	}
 
 	if proofType == proofrequest.TypeAGG {
-		return []byte{}, nil // Special case for agg proofs
+		// Special case for agg proofs, until the SP1 bug is fixed for returning empty proofs.
+		return []byte{}, nil
 	}
 	return response.Proof, nil
 }
 
-// Shared HTTP request logic
+// Make a proof request to the witness generation server for the correct proof type.
 func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
 	urlPath := l.getProofEndpoint(proofType)
 	req, err := http.NewRequest("POST", l.Cfg.OPSuccinctServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
