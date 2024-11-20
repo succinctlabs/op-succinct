@@ -106,7 +106,6 @@ async fn main() -> Result<()> {
             &prover,
             &data_fetcher,
             sp1_stdin,
-            l2_chain_id,
             l2_start_block,
             l2_end_block,
         )
@@ -120,6 +119,12 @@ async fn main() -> Result<()> {
         );
 
         println!("Execution Stats: \n{:?}", stats);
+
+        // Create the report directory if it doesn't exist.
+        let report_dir = format!("execution-reports/multi/{}", l2_chain_id);
+        if !std::path::Path::new(&report_dir).exists() {
+            fs::create_dir_all(&report_dir)?;
+        }
 
         let report_path = format!(
             "execution-reports/multi/{}/{}-{}.csv",

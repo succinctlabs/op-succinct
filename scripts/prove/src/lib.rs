@@ -1,7 +1,4 @@
-use std::{
-    fs,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use anyhow::{Ok, Result};
 use kona_host::HostCli;
@@ -36,7 +33,6 @@ pub async fn execute_multi(
     prover: &ProverClient,
     data_fetcher: &OPSuccinctDataFetcher,
     sp1_stdin: SP1Stdin,
-    l2_chain_id: u64,
     l2_start_block: u64,
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
@@ -46,12 +42,6 @@ pub async fn execute_multi(
         .run()
         .unwrap();
     let execution_duration = start_time.elapsed();
-
-    // Create the report directory if it doesn't exist.
-    let report_dir = format!("execution-reports/multi/{}", l2_chain_id);
-    if !std::path::Path::new(&report_dir).exists() {
-        fs::create_dir_all(&report_dir)?;
-    }
 
     let block_data = data_fetcher
         .get_l2_block_data_range(l2_start_block, l2_end_block)
