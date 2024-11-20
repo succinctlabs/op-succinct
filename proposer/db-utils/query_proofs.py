@@ -70,7 +70,7 @@ def query_proofs(db_path, proof_type) -> [ProofRequest]:
 
     query = f"""
     SELECT * FROM proof_requests
-    WHERE type='{proof_type}'
+    WHERE type = '{proof_type}'
     """
     cursor.execute(query)
     
