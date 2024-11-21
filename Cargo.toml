@@ -49,6 +49,7 @@ kona-preimage = { git = "https://github.com/succinctlabs/kona", branch = "patch-
     "rkyv",
 ] }
 kona-mpt = { git = "https://github.com/succinctlabs/kona", branch = "patch-kona-proof-v0.1.0" }
+kona-driver = { git = "https://github.com/succinctlabs/kona", branch = "patch-kona-proof-v0.1.0" }
 kona-derive = { git = "https://github.com/succinctlabs/kona", branch = "patch-kona-proof-v0.1.0", default-features = false }
 kona-executor = { git = "https://github.com/succinctlabs/kona", branch = "patch-kona-proof-v0.1.0" }
 kona-client = { git = "https://github.com/succinctlabs/kona", branch = "patch-kona-proof-v0.1.0" }
