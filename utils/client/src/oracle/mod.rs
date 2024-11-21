@@ -12,7 +12,7 @@ use kona_preimage::{
 use kona_proof::FlushableCache;
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{
-    with::{ArchiveWith, DeserializeWith},
+    with::{ArchiveWith, DeserializeWith, SerializeWith},
     Archive, Archived, Deserialize, Fallible, Infallible, Resolver, Serialize,
 };
 use sha2::{Digest, Sha256};
@@ -208,6 +208,19 @@ impl<F: Archive> ArchiveWith<Arc<Mutex<F>>> for Lock {
         out: *mut Self::Archived,
     ) {
         field.lock().resolve(pos, resolver, out.cast());
+    }
+}
+
+impl<S, T> SerializeWith<Arc<Mutex<T>>, S> for Lock
+where
+    T: Serialize<S>,
+    S: Fallible + ?Sized,
+{
+    fn serialize_with(
+        field: &Arc<Mutex<T>>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+        field.lock().serialize(serializer)
     }
 }
 
