@@ -19,6 +19,8 @@ use sha2::{Digest, Sha256};
 use spin::mutex::Mutex;
 use std::{collections::HashMap, sync::Arc};
 
+type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
+
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
 /// Rather than relying on a trusted host for data, the data in this oracle
 /// is verified with the `verify()` function, and then is trusted for
@@ -26,7 +28,7 @@ use std::{collections::HashMap, sync::Arc};
 #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
 pub struct InMemoryOracle {
     #[with(Lock)]
-    cache: Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>,
+    cache: LockableMap,
 }
 
 impl InMemoryOracle {
@@ -71,7 +73,7 @@ impl PreimageOracleClient for InMemoryOracle {
         let cache = self.cache.lock();
         let value = cache
             .get(&lookup_key)
-            .ok_or_else(|| PreimageOracleError::KeyNotFound)?;
+            .ok_or(PreimageOracleError::KeyNotFound)?;
         buf.copy_from_slice(value.as_slice());
         Ok(())
     }
