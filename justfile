@@ -130,6 +130,8 @@ deploy-mock-verifier env_file=".env":
     if [ ! -z "$ETHERSCAN_API_KEY" ]; then
         VERIFY_FLAGS="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
+
+    cd contracts
     
     forge script script/DeployMockVerifier.s.sol:DeployMockVerifier \
     --rpc-url $L1_RPC \
