@@ -53,7 +53,7 @@ The following environment variables are optional:
 
 | Parameter | Description |
 |-----------|-------------|
-| `OP_SUCCINCT_MOCK` | Set to `mock` to run in mock proof mode. The `verifierGateway` set in the `OPSuccinctL2OutputOracle` contract must be an `SP1MockVerifier`. Mock proofs will be generated with SP1 and relayed to the contract. |
+| `OP_SUCCINCT_MOCK` | Set to `mock` to run in mock proof mode. The `verifierGateway` set in the `OPSuccinctL2OutputOracle` contract must be an `SP1MockVerifier`. Mock proofs will be generated with SP1 and relayed to the contract. You can deploy an `SP1MockVerifier` by running `just deploy-mock-verifier <env_file>`. |
 
 ## Build the Proposer Service
 
