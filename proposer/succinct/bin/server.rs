@@ -150,9 +150,13 @@ async fn request_span_proof(
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let prover = NetworkProverV1::new();
+
+    // Set simulation to false on range proofs as they're large.
+    env::set_var("SKIP_SIMULATION", "true");
     let res = prover
         .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
         .await;
+    env::set_var("SKIP_SIMULATION", "false");
 
     // Check if error, otherwise get proof ID.
     let proof_id = match res {
@@ -208,12 +212,9 @@ async fn request_agg_proof(
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
 
-    // Set simulation to true on aggregation proofs as they're relatively small.
-    env::set_var("SKIP_SIMULATION", "false");
     let proof_id = prover
         .request_proof(AGG_ELF, stdin, ProofMode::Groth16)
         .await?;
-    env::set_var("SKIP_SIMULATION", "true");
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
