@@ -248,15 +248,15 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	}
 
 	if isMock {
-		// For mock proofs, there's no prover request ID, set the status to PROVING immediately.
-		err = l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING)
-		if err != nil {
-			return fmt.Errorf("failed to set proof status to proving: %w", err)
-		}
-
 		proofData, err := l.requestMockProof(p.Type, jsonBody)
 		if err != nil {
 			return fmt.Errorf("mock proof request failed: %w", err)
+		}
+
+		// For mock proofs, once the "mock proof" has been generated, set the status to PROVING. AddFulfilledProof expects the proof to be in the PROVING status.
+		err = l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING)
+		if err != nil {
+			return fmt.Errorf("failed to set proof status to proving: %w", err)
 		}
 		return l.db.AddFulfilledProof(p.ID, proofData)
 	}
@@ -302,10 +302,6 @@ func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, jsonBo
 		return nil, fmt.Errorf("error decoding JSON response: %w", err)
 	}
 
-	if proofType == proofrequest.TypeAGG {
-		// Special case for agg proofs, until the SP1 bug is fixed for returning empty proofs.
-		return []byte{}, nil
-	}
 	return response.Proof, nil
 }
 
