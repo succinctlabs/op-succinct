@@ -248,6 +248,12 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	}
 
 	if isMock {
+		// For mock proofs, there's no prover request ID, set the status to PROVING immediately.
+		err = l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING)
+		if err != nil {
+			return fmt.Errorf("failed to set proof status to proving: %w", err)
+		}
+
 		proofData, err := l.requestMockProof(p.Type, jsonBody)
 		if err != nil {
 			return fmt.Errorf("mock proof request failed: %w", err)
@@ -255,10 +261,18 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 		return l.db.AddFulfilledProof(p.ID, proofData)
 	}
 
+	// Request a real proof from the witness generation server. Returns the proof ID from the network.
 	proofID, err := l.requestRealProof(p.Type, jsonBody)
 	if err != nil {
 		return fmt.Errorf("real proof request failed: %w", err)
 	}
+
+	// Set the proof status to PROVING once the prover ID has been retrieved. Only proofs with status PROVING, SUCCESS or FAILED have a prover request ID.
+	err = l.db.UpdateProofStatus(p.ID, proofrequest.StatusPROVING)
+	if err != nil {
+		return fmt.Errorf("failed to set proof status to proving: %w", err)
+	}
+
 	return l.db.SetProverRequestID(p.ID, proofID)
 }
 
