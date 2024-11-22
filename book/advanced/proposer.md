@@ -10,7 +10,7 @@ We've packaged the `op-succinct` service in a docker compose file to make it eas
 
 ### RPC Requirements
 
-Confirm that your RPC's have all of the required endpoints. More details can be found in the [prerequisites](./prerequisites.md#requirements) section.
+Confirm that your RPC's have all of the required endpoints. More details can be found in the [prerequisites](../quick-start/prerequisites.md#requirements) section.
 
 ### Hardware Requirements
 
