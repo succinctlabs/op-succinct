@@ -2,6 +2,8 @@
 
 - [Introduction](./introduction.md)
 - [Architecture](./architecture.md)
+- [Quick Start](./quick-start/intro.md)
+  - [Run the Cost Estimator](./quick-start/cost-estimator.md)
 - [Getting Started](./getting-started/intro.md)
   - [Prerequisites](./getting-started/prerequisites.md)
   - [L2 Output Oracle](./getting-started/l2-output-oracle.md)
@@ -10,6 +12,5 @@
 - [Advanced](./advanced/intro.md)
   - [Verify the OP Succinct binaries](./advanced/verify-binaries.md)
   - [L2 Node Setup](./advanced/node-setup.md)
-  - [Cost Estimator CLI Tool](./advanced/cost-estimator.md)
   - [Block Data CLI Tool](./advanced/block-data.md)
 - [FAQ](./faq.md)
