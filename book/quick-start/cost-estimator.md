@@ -42,17 +42,6 @@ The cost estimator:
 
 > ⚠️ First run with a small block range - execution can be slow for large ranges.
 
-### Block Number Helpers
-
-Get block numbers using these commands:
-```shell
-# Get latest finalized block
-cast block finalized -f number --rpc-url <L2_RPC>
-
-# Get latest block
-cast bn --rpc-url <L2_RPC>
-```
-
 ### Configuration Options
 
 | Flag | Default | Description |
@@ -61,7 +50,7 @@ cast bn --rpc-url <L2_RPC>
 | `env-file` | `.env` | Custom env file path (e.g. `.env.opmainnet`) |
 | `use-cache` | false | Reuse previously generated witness data |
 
-### Advanced Usage Example
+### Advanced Usage
 
 Full command with all options:
 ```shell
@@ -71,6 +60,19 @@ RUST_LOG=info cargo run --bin cost-estimator --release \
     --env-file <path_to_env_file> \
     --batch-size <batch_size> \
     --use-cache
+```
+
+### Block Number Helpers
+
+`cast` is a CLI tool installed with Foundry that can be used to fetch the latest/finalized block number of an OP Stack chain.
+
+
+```shell
+# Get latest finalized block
+cast block finalized -f number --rpc-url <L2_RPC>
+
+# Get latest block
+cast bn --rpc-url <L2_RPC>
 ```
 
 ### Sample Output
