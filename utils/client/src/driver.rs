@@ -175,6 +175,11 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                         PipelineErrorKind::Reset(_) => {
                             // Reset the pipeline to the initial L2 safe head and L1 origin,
                             // and try again.
+                            let system_config = self
+                                .pipeline
+                                .system_config_by_number(self.l2_safe_head.block_info.number)
+                                .await?;
+
                             self.pipeline
                                 .signal(Signal::Reset(ResetSignal {
                                     l2_safe_head: self.l2_safe_head,
@@ -182,7 +187,7 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                                         .pipeline
                                         .origin()
                                         .ok_or_else(|| anyhow!("Missing L1 origin"))?,
-                                    system_config: None,
+                                    system_config: Some(system_config),
                                 }))
                                 .await?;
                         }
