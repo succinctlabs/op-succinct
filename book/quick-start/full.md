@@ -12,7 +12,7 @@ To get access to the Succinct Prover Network for OP Succinct, fill out this [for
 
 ### 1) Contract deployment environment variables
 
-In the root directory, create a file called `.env` (mirroring `.env.example`) and set the following environment variables:
+In the root directory, create a file called `.env` and set the following environment variables:
 
 | Parameter | Description |
 |-----------|-------------|

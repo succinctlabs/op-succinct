@@ -6,7 +6,7 @@ Running OP Succinct in mock mode is useful for testing your configuration is cor
 
 ### 1) Set environment variables.
 
-In the root directory, create a file called `.env` (mirroring `.env.example`) and set the following environment variables:
+In the root directory, create a file called `.env` and set the following environment variables:
 
 | Parameter | Description |
 |-----------|-------------|
