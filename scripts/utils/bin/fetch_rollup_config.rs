@@ -128,7 +128,7 @@ async fn update_l2oo_config() -> Result<()> {
         range_vkey_commitment,
     };
 
-    write_l2oo_config(l2oo_config, &workspace_root.as_std_path())?;
+    write_l2oo_config(l2oo_config, workspace_root.as_std_path())?;
 
     Ok(())
 }
