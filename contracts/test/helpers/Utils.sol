@@ -51,10 +51,10 @@ contract Utils is Test, JSONDecoder {
             existingProxy.upgradeToAndCall(impl, initializationParams);
         } else {
             // Raw calldata for an upgrade call by a multisig.
-            bytes memory multisigCalldata = abi.encodeWithSelector(Proxy.upgradeToAndCall.selector, impl, initializationParams);
+            bytes memory multisigCalldata =
+                abi.encodeWithSelector(Proxy.upgradeToAndCall.selector, impl, initializationParams);
             console.log("The calldata for upgrading the contract with the new initialization parameters is:");
             console.logBytes(multisigCalldata);
-
         }
     }
 
