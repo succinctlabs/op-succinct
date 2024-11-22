@@ -87,7 +87,9 @@ impl HintWriterClient for InMemoryOracle {
 }
 
 impl FlushableCache for InMemoryOracle {
-    fn flush(&self) {}
+    fn flush(&self) {
+        self.cache.lock().clear();
+    }
 }
 
 /// A data structure representing a blob. This data is held in memory for future verification.
