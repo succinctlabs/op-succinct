@@ -1,12 +1,10 @@
-# Deploy OP Succinct L2 Output Oracle
-
-The first step in deploying OP Succinct is to deploy the `OPSuccinctL2OutputOracle` smart contract that will verify SP1 proofs of the Optimism state transition function which verify the latest state root for the OP Stack rollup.
+# OP Succinct L2 Output Oracle
 
 ## Overview
 
-The `OPSuccinctL2OutputOracle` contract is a modification of the `L2OutputOracle` contract that is used to verify the state roots of the OP Stack rollup.
+The `OPSuccinctL2OutputOracle` contract is a modification of the `L2OutputOracle` contract that will verify SP1 proofs of the Optimism state transition function to get fully validity-proven state roots for the OP Stack rollup.
 
-### Modifications to `L2OutputOracle`
+### Modifications to Original `L2OutputOracle`
 
 The original `L2OutputOracle` contract can be found [here](https://github.com/ethereum-optimism/optimism/blob/3e68cf018d8b9b474e918def32a56d1dbf028d83/packages/contracts-bedrock/src/L1/L2OutputOracle.sol#L199-L202).
 

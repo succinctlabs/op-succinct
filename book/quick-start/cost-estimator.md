@@ -15,7 +15,7 @@ In the root directory, add the following RPCs to your `.env` file for your rollu
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 
-More details on the RPC requirements can be found in the [prerequisites](../getting-started/prerequisites.md) section.
+More details on the RPC requirements can be found in the [prerequisites](../quick-start/prerequisites.md) section.
 
 By running the cost estimator, you can validate that your endpoints are configured correctly.
 

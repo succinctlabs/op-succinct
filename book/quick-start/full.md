@@ -4,10 +4,9 @@ Running OP Succinct in full mode will generate proofs of valid OP Stack L2 outpu
 
 ## Prerequisites
 
-In addition to the prerequisites listed for [Quick Start](./quick-start.md), you will need a whitelisted key on the Succinct Prover Network. Follow the instructions [here](https://docs.succinct.xyz/succinct-prover-network/getting-started#how-to-get-a-key-whitelisted) to get your key whitelisted.
+You will need a whitelisted key on the Succinct Prover Network. Follow the instructions [here](https://docs.succinct.xyz/generating-proofs/prover-network) to get your key whitelisted.
 
-To get access to the Succinct Prover Network for OP Succinct, fill out the [OP Succinct Form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
-
+To get access to the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
 
 ## Overview
 
@@ -77,7 +76,7 @@ To start the `op-succinct` service, add the following parameters to the `.env` f
 |-----------|-------------|
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `SP1_PRIVATE_KEY` | The private key for the account that will be submitting proofs to the L1. |
-| `PROVER_NETWORK_RPC` | Reach out to the Succinct team to get access [here](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The default endpoint (`https://rpc.succinct.xyz`) is not suitable for use in OP Succinct. |
+| `PROVER_NETWORK_RPC` | The RPC endpoint for the Succinct Prover Network. The default endpoint (`https://rpc.succinct.xyz`) is not suitable for use in OP Succinct. Reach out to the Succinct team to get access with OP Succinct. |
 
 Now, you should have the following in your `.env` file:
 
