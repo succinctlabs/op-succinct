@@ -45,36 +45,30 @@ struct L2OOConfig {
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
 async fn update_l2oo_config() -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
-        .await
-        .unwrap();
-    // Get the workspace root with cargo metadata to make the paths.
-    let workspace_root = PathBuf::from(
-        cargo_metadata::MetadataCommand::new()
-            .exec()?
-            .workspace_root,
-    );
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
-    // Set the verifier address.
-    let verifier_gateway = if env::var("VERIFIER_ADDRESS").is_ok() {
-        env::var("VERIFIER_ADDRESS").unwrap()
-    } else {
-        // Set the verifier gateway to the address of the Groth16 VerifierGateway contract.
+    let workspace_root = cargo_metadata::MetadataCommand::new()
+        .exec()?
+        .workspace_root;
+
+    // Set the verifier address
+    let verifier_gateway = env::var("VERIFIER_ADDRESS").unwrap_or_else(|_| {
+        // Default to Groth16 VerifierGateway contract address
         // Source: https://docs.succinct.xyz/verification/onchain/contract-addresses
         "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B".to_string()
+    });
+
+    let starting_block_number = match env::var("STARTING_BLOCK_NUMBER") {
+        Ok(n) => n.parse().unwrap(),
+        Err(_) => {
+            data_fetcher
+                .get_l2_header(BlockId::finalized())
+                .await
+                .unwrap()
+                .number
+        }
     };
 
-    let starting_block_number = if env::var("STARTING_BLOCK_NUMBER").is_ok() {
-        env::var("STARTING_BLOCK_NUMBER").unwrap().parse().unwrap()
-    } else {
-        // If we are not using a cached starting block number, set it to the finalized block number on L2.
-        data_fetcher
-            .get_l2_header(BlockId::finalized())
-            .await?
-            .number
-    };
-
-    // Convert the starting block number to a hex string for the optimism_outputAtBlock RPC call.
     let starting_block_number_hex = format!("0x{:x}", starting_block_number);
     let optimism_output_data: Value = data_fetcher
         .fetch_rpc_data_with_mode(
@@ -83,7 +77,7 @@ async fn update_l2oo_config() -> Result<()> {
             vec![starting_block_number_hex.into()],
         )
         .await?;
-    // Set the starting output root and starting timestamp.
+
     let starting_output_root = optimism_output_data["outputRoot"]
         .as_str()
         .unwrap()
@@ -92,47 +86,29 @@ async fn update_l2oo_config() -> Result<()> {
         .as_u64()
         .unwrap();
 
-    let rollup_config_hash = format!(
-        "0x{:x}",
-        hash_rollup_config(data_fetcher.rollup_config.as_ref().unwrap())
-    );
+    let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
+    let rollup_config_hash = format!("0x{:x}", hash_rollup_config(rollup_config));
+    let l2_block_time = rollup_config.block_time;
 
-    // Set the L2 block time from the rollup config.
-    let l2_block_time = data_fetcher.rollup_config.as_ref().unwrap().block_time;
+    let submission_interval = env::var("SUBMISSION_INTERVAL")
+        .map(|p| p.parse().unwrap())
+        .unwrap_or(1000);
 
-    // Set the submission interval.
-    // The order of precedence is:
-    // 1. SUBMISSION_INTERVAL environment variable
-    // 2. 1000 (default)
-    let submission_interval: u64 = env::var("SUBMISSION_INTERVAL")
-        .unwrap_or("1000".to_string())
-        .parse()?;
+    let finalization_period = env::var("FINALIZATION_PERIOD")
+        .map(|p| p.parse().unwrap())
+        .unwrap_or(0);
 
-    let finalization_period = if env::var("FINALIZATION_PERIOD").is_ok() {
-        env::var("FINALIZATION_PERIOD").unwrap().parse().unwrap()
-    } else {
-        0
-    };
-
-    let proposer = if let Ok(proposer) = env::var("PROPOSER") {
-        proposer
-    } else {
-        // Get the account associated with the private key.
+    let proposer = env::var("PROPOSER").unwrap_or_else(|_| {
         let private_key = env::var("PRIVATE_KEY").unwrap();
         let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
         signer.address().to_string()
-    };
+    });
 
-    let challenger = if let Ok(challenger) = env::var("CHALLENGER") {
-        challenger
-    } else {
-        Address::ZERO.to_string()
-    };
+    let challenger = env::var("CHALLENGER").unwrap_or_else(|_| Address::ZERO.to_string());
 
-    // Set the vkey.
     let prover = ProverClient::new();
-    let (_, vkey) = prover.setup(AGG_ELF);
-    let aggregation_vkey = vkey.vk.bytes32();
+    let (_, agg_vkey) = prover.setup(AGG_ELF);
+    let aggregation_vkey = agg_vkey.vk.bytes32();
 
     let (_, range_vkey) = prover.setup(RANGE_ELF);
     let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.vk.hash_u32())));
@@ -152,8 +128,7 @@ async fn update_l2oo_config() -> Result<()> {
         range_vkey_commitment,
     };
 
-    // Write the L2OO rollup config to the opsuccinctl2ooconfig.json file.
-    write_l2oo_config(l2oo_config, &workspace_root)?;
+    write_l2oo_config(l2oo_config, &workspace_root.as_std_path())?;
 
     Ok(())
 }
