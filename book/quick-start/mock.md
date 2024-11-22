@@ -79,3 +79,4 @@ Then, deploy the `OPSuccinctL2OutputOracle` contract.
 just deploy-oracle
 ```
 
+If successful, you should see the following output:
