@@ -17,12 +17,10 @@ use sp1_sdk::{utils, ProverClient};
 use std::{
     cmp::{max, min},
     fs::{self, OpenOptions},
-    future::Future,
     io::Seek,
     path::PathBuf,
     time::{Duration, Instant},
 };
-use tokio::task::block_in_place;
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
