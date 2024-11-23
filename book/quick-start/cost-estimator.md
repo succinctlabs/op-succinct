@@ -21,6 +21,15 @@ By running the cost estimator, you can validate that your endpoints are configur
 
 ## Running the Cost Estimator
 
+### Overview
+
+The cost estimator:
+1. Splits large block ranges into smaller batches
+2. Simulates proving each batch (similar to `op-succinct`)
+3. Outputs aggregate statistics to a CSV.
+
+> ⚠️ First run with a small block range - execution can be slow for large ranges.
+
 ### Basic Usage
 
 Run for the last 5 finalized blocks:
@@ -32,15 +41,6 @@ Run for a specific block range:
 ```shell
 RUST_LOG=info just cost-estimator <start_l2_block> <end_l2_block>
 ```
-
-### 
-
-The cost estimator:
-1. Splits large block ranges into smaller batches
-2. Simulates proving each batch (similar to `op-succinct`)
-3. Outputs aggregate statistics to `execution-reports/{chain_id}/{start_block}-{end_block}.csv`
-
-> ⚠️ First run with a small block range - execution can be slow for large ranges.
 
 ### Configuration Options
 
