@@ -1,0 +1,23 @@
+optimism_package:
+  chains:
+    - participants:
+        - el_type: op-geth
+          cl_type: op-node
+      network_params:
+        network: "kurtosis"
+        network_id: "2151908"
+        seconds_per_slot: 2
+        name: "op-kurtosis"
+        fjord_time_offset: 0
+        granite_time_offset: 0
+        holocene_time_offset: 0
+
+      additional_services:
+        - blockscout
+      op_contract_deployer_params:
+        image: ethpandaops/optimism-contract-deployer:develop
+ethereum_package:
+  network_params:
+    preset: minimal
+  additional_services:
+    - blockscout
