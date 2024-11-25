@@ -30,4 +30,4 @@ ethereum_package:
     - blockscout
 ```
 
-Run the testnet: `kurtosis run --enclave my-testnet github.com/ethpandaops/optimism-package --args-file op-network.yaml`
+Run the testnet: `kurtosis run --enclave my-testnet github.com/ethpandaops/optimism-package --args-file op-network.yaml --image-download always`
