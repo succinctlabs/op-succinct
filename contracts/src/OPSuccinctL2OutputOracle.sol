@@ -58,6 +58,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:network-specific
     address public proposer;
 
+    /// @notice Mapping of approved proposers
+    mapping(address => bool) public approvedProposers;
+
     /// @notice The minimum time (in seconds) that must elapse before a withdrawal can be finalized.
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
