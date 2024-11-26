@@ -40,4 +40,4 @@ To upgrade the contracts, check out the latest release of `op-succinct` and foll
 If you just need to update the `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` parameters and not upgrade the contract itself, follow these steps:
 
 1. Check out the latest release of `op-succinct` from [here](https://github.com/succinctlabs/op-succinct/releases).
-2. 
+2. Follow the instructions [here](./l2-output-oracle.md#upgrading-opsuccinctl2outputoracle) to update the parameters of the `OPSuccinctL2OutputOracle` contract.

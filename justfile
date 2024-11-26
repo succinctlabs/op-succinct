@@ -177,7 +177,7 @@ upgrade-oracle env_file=".env":
     cd contracts
     
     # Run the forge upgrade script
-    if [ "$EXECUTE_UPGRADE_CALL" = "false" ]; then
+    if [ "${EXECUTE_UPGRADE_CALL:-true}" = "false" ]; then
         forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
@@ -205,7 +205,7 @@ update-parameters env_file=".env":
     cd contracts
     
     # Run the forge upgrade script
-    if [ "$EXECUTE_UPGRADE_CALL" = "false" ]; then
+    if [ "${EXECUTE_UPGRADE_CALL:-true}" = "false" ]; then
         forge script script/OPSuccinctParameterUpdater.s.sol:OPSuccinctParameterUpdater \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
