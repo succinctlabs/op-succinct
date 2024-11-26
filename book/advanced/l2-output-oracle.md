@@ -45,7 +45,7 @@ You can configure additional parameters when deploying or upgrading the `OPSucci
 | `FINALIZATION_PERIOD` | Default: `0`. The time period (in seconds) after which a proposed output becomes finalized and withdrawals can be processed. |
 | `PROPOSER` | Default: The address of the account associated with `PRIVATE_KEY`. Ethereum address authorized to submit proofs. Set to `address(0)` to allow permissionless submissions. |
 | `CHALLENGER` | Default: `address(0)`, no one can dispute proofs. Ethereum address authorized to dispute proofs. |
-| `OWNER` | Default: The address of the account associated with `PRIVATE_KEY`. Ethereum address authorized to update the `aggregationVkey`, `rangeVkeyCommitment`, `verifier`, and `rollupConfigHash` parameters. In a production setting, set to the governance smart contract or multi-sig of the chain. |
+| `OWNER` | Default: The address of the account associated with `PRIVATE_KEY`. Ethereum address authorized to update the `aggregationVkey`, `rangeVkeyCommitment`, `verifier`, and `rollupConfigHash` parameters and transfer ownership of the contract. In a production setting, set to the governance smart contract or multi-sig of the chain. |
 
 ## Upgrading `OPSuccinctL2OutputOracle`
 

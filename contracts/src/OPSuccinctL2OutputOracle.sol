@@ -420,6 +420,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
     }
 
+    /// @notice Update the submission interval.
+    /// @param _submissionInterval The new submission interval.
+    function updateSubmissionInterval(uint256 _submissionInterval) external onlyOwner {
+        submissionInterval = _submissionInterval;
+    }
+
     /// @notice Updates the aggregation verification key.
     /// @param _aggregationVkey The new aggregation verification key.
     function updateAggregationVkey(bytes32 _aggregationVkey) external onlyOwner {
