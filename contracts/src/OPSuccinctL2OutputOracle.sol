@@ -108,14 +108,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
 
     /// @notice Emitted when the aggregation verification key is updated.
-    /// @param oldVkey The old aggregation verification key.
-    /// @param newVkey The new aggregation verification key.
-    event AggregationVkeyUpdated(bytes32 indexed oldVkey, bytes32 indexed newVkey);
+    /// @param oldAggregationVkey The old aggregation verification key.
+    /// @param newAggregationVkey The new aggregation verification key.
+    event AggregationVkeyUpdated(bytes32 indexed oldAggregationVkey, bytes32 indexed newAggregationVkey);
 
     /// @notice Emitted when the range verification key commitment is updated.
-    /// @param oldCommitment The old range verification key commitment.
-    /// @param newCommitment The new range verification key commitment.
-    event RangeVkeyCommitmentUpdated(bytes32 indexed oldCommitment, bytes32 indexed newCommitment);
+    /// @param oldRangeVkeyCommitment The old range verification key commitment.
+    /// @param newRangeVkeyCommitment The new range verification key commitment.
+    event RangeVkeyCommitmentUpdated(bytes32 indexed oldRangeVkeyCommitment, bytes32 indexed newRangeVkeyCommitment);
 
     /// @notice Emitted when the verifier address is updated.
     /// @param oldVerifier The old verifier address.
@@ -123,9 +123,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
 
     /// @notice Emitted when the rollup config hash is updated.
-    /// @param oldHash The old rollup config hash.
-    /// @param newHash The new rollup config hash.
-    event RollupConfigHashUpdated(bytes32 indexed oldHash, bytes32 indexed newHash);
+    /// @param oldRollupConfigHash The old rollup config hash.
+    /// @param newRollupConfigHash The new rollup config hash.
+    event RollupConfigHashUpdated(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
 
     /// @notice Emitted when the owner address is updated.
     /// @param previousOwner The previous owner address.
