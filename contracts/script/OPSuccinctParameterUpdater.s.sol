@@ -36,8 +36,9 @@ contract OPSuccinctParameterUpdater is Script, Utils {
             if (executeUpgradeCall) {
                 oracleImpl.updateRangeVkeyCommitment(cfg.rangeVkeyCommitment);
             } else {
-                bytes memory rangeVkeyCommitmentCalldata =
-                    abi.encodeWithSelector(OPSuccinctL2OutputOracle.updateRangeVkeyCommitment.selector, cfg.rangeVkeyCommitment);
+                bytes memory rangeVkeyCommitmentCalldata = abi.encodeWithSelector(
+                    OPSuccinctL2OutputOracle.updateRangeVkeyCommitment.selector, cfg.rangeVkeyCommitment
+                );
                 console.log("The calldata for upgrading the rangeVkeyCommitment is:");
                 console.logBytes(rangeVkeyCommitmentCalldata);
             }
@@ -47,8 +48,9 @@ contract OPSuccinctParameterUpdater is Script, Utils {
             if (executeUpgradeCall) {
                 oracleImpl.updateRollupConfigHash(cfg.rollupConfigHash);
             } else {
-                bytes memory rollupConfigHashCalldata =
-                    abi.encodeWithSelector(OPSuccinctL2OutputOracle.updateRollupConfigHash.selector, cfg.rollupConfigHash);
+                bytes memory rollupConfigHashCalldata = abi.encodeWithSelector(
+                    OPSuccinctL2OutputOracle.updateRollupConfigHash.selector, cfg.rollupConfigHash
+                );
                 console.log("The calldata for upgrading the rollupConfigHash is:");
                 console.logBytes(rollupConfigHashCalldata);
             }
