@@ -141,6 +141,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param added Whether the proposer was added or removed.
     event ProposerUpdated(address indexed proposer, bool added);
 
+    /// @notice Emitted when the submission interval is updated.
+    /// @param oldSubmissionInterval The old submission interval.
+    /// @param newSubmissionInterval The new submission interval.
+    event SubmissionIntervalUpdated(uint256 oldSubmissionInterval, uint256 newSubmissionInterval);
+
     ////////////////////////////////////////////////////////////
     //                         Errors                         //
     ////////////////////////////////////////////////////////////
@@ -435,6 +440,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Update the submission interval.
     /// @param _submissionInterval The new submission interval.
     function updateSubmissionInterval(uint256 _submissionInterval) external onlyOwner {
+        emit SubmissionIntervalUpdated(submissionInterval, _submissionInterval);
         submissionInterval = _submissionInterval;
     }
 
