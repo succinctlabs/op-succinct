@@ -31,3 +31,5 @@ ethereum_package:
 ```
 
 Run the testnet: `kurtosis run --enclave my-testnet github.com/ethpandaops/optimism-package --args-file op-network.yaml --image-download always`
+
+Remove the testnet: `kurtosis clean -a`
