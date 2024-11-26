@@ -103,9 +103,9 @@ async fn update_l2oo_config() -> Result<()> {
     let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
     let signer_address = signer.address().to_string();
 
-    let proposer = env::var("PROPOSER").unwrap_or_else(|_| signer_address.clone());
-    let owner = env::var("OWNER").unwrap_or_else(|_| signer_address);
-    let challenger = env::var("CHALLENGER").unwrap_or_else(|_| Address::ZERO.to_string());
+    let proposer = env::var("PROPOSER").unwrap_or(signer_address.clone());
+    let owner = env::var("OWNER").unwrap_or(signer_address);
+    let challenger = env::var("CHALLENGER").unwrap_or(Address::ZERO.to_string());
 
     let prover = ProverClient::new();
     let (_, agg_vkey) = prover.setup(AGG_ELF);
