@@ -22,8 +22,7 @@ contract Utils is Test, JSONDecoder {
     {
         // Require that the verifier gateway is deployed
         require(
-            address(cfg.verifier).code.length > 0,
-            "OPSuccinctL2OutputOracleUpgrader: verifier gateway not deployed"
+            address(cfg.verifier).code.length > 0, "OPSuccinctL2OutputOracleUpgrader: verifier gateway not deployed"
         );
 
         OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
@@ -42,10 +41,8 @@ contract Utils is Test, JSONDecoder {
             submissionInterval: cfg.submissionInterval
         });
 
-        bytes memory initializationParams = abi.encodeWithSelector(
-            OPSuccinctL2OutputOracle.initialize.selector,
-            initParams
-        );
+        bytes memory initializationParams =
+            abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
 
         if (executeUpgradeCall) {
             Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));

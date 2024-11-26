@@ -168,9 +168,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Initializer.
     /// @param _initParams          The aggregation vkey, range vkey commitment, verifier gateway, rollup config hash, and starting output root for the contract.
     /// @dev Starting block number, timestamp and output root are ignored for upgrades, because these values already exist.
-    function initialize(
-        InitParams memory _initParams
-    ) public initializer {
+    function initialize(InitParams memory _initParams) public initializer {
         require(_initParams.submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
         require(_initParams.l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
         require(
