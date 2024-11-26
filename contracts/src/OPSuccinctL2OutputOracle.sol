@@ -89,7 +89,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice The proposers that can propose new proofs.
     mapping(address => bool) public approvedProposers;
-    
+
     /// @notice A trusted mapping of block numbers to block hashes.
     mapping(uint256 => bytes32) public historicBlockHashes;
 
