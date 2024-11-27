@@ -4523,6 +4523,7 @@ dependencies = [
  "kona-client",
  "kona-common",
  "kona-derive",
+ "kona-driver",
  "kona-executor",
  "kona-mpt",
  "kona-preimage",

@@ -15,6 +15,7 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
 use kona_host::HostCli;
+use log::info;
 use op_alloy_consensus::OpBlock;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
@@ -663,7 +664,13 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        let (l1_head_hash, _l1_head_number) = self.get_l1_head(l2_end_block).await?;
+        let (l1_head_hash, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+        info!("L1 head number: {}", l1_head_number);
+
+        // TEMPORARY: Move L1 head forward to eliminate the issue where the span batch is not found.
+        let temp_header = self.get_l1_header((l1_head_number + 15).into()).await?;
+        let (l1_head_hash, l1_head_number) = (temp_header.hash_slow(), temp_header.number);
+        info!("New L1 head number: {}", l1_head_number);
 
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
@@ -869,7 +876,7 @@ impl OPSuccinctDataFetcher {
         Ok(L2BlockInfo::from_block_and_genesis(&block, &genesis)?)
     }
 
-    /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtBlock.
+    /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtL1Block.
     pub async fn get_l2_safe_head_from_l1_block_number(&self, l1_block_number: u64) -> Result<u64> {
         let l1_block_number_hex = format!("0x{:x}", l1_block_number);
         let result: SafeHeadResponse = self

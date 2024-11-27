@@ -10,7 +10,7 @@ use anyhow::{anyhow, Result};
 use core::fmt::Debug;
 use kona_derive::{
     attributes::StatefulAttributesBuilder,
-    errors::PipelineErrorKind,
+    errors::{PipelineError, PipelineErrorKind, ResetError},
     pipeline::{DerivationPipeline, PipelineBuilder},
     prelude::ChainProvider,
     sources::EthereumDataSource,
@@ -18,14 +18,15 @@ use kona_derive::{
         AttributesQueue, BatchProvider, BatchStream, ChannelProvider, ChannelReader, FrameQueue,
         L1Retrieval, L1Traversal,
     },
-    traits::{OriginProvider, Pipeline, SignalReceiver},
-    types::{ResetSignal, Signal, StepResult},
+    traits::{BlobProvider, OriginProvider, Pipeline, SignalReceiver},
+    types::{ActivationSignal, ResetSignal, Signal, StepResult},
 };
+use kona_driver::DriverPipeline;
 use kona_executor::TrieDBProvider;
 use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
 use kona_proof::{
-    l1::{OracleBlobProvider, OracleL1ChainProvider},
-    BootInfo, HintType,
+    l1::{OracleBlobProvider, OracleDataProvider, OracleDerivationPipeline, OracleL1ChainProvider},
+    BootInfo, FlushableCache, HintType,
 };
 use op_alloy_protocol::{BatchValidationProvider, BlockInfo, L2BlockInfo};
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
@@ -33,14 +34,10 @@ use op_alloy_rpc_types_engine::OpAttributesWithParent;
 use log::{info, warn};
 
 /// An oracle-backed derivation pipeline.
-pub type OraclePipeline<O> = DerivationPipeline<
-    MultiblockOracleAttributesQueue<OracleDataProvider<O>, O>,
+pub type MultiblockOracleDerivationPipeline<O, B> = DerivationPipeline<
+    MultiblockOracleAttributesQueue<OracleDataProvider<O, B>, O>,
     MultiblockOracleL2ChainProvider<O>,
 >;
-
-/// An oracle-backed Ethereum data source.
-pub type OracleDataProvider<O> =
-    EthereumDataSource<OracleL1ChainProvider<O>, OracleBlobProvider<O>>;
 
 /// An oracle-backed payload attributes builder for the `AttributesQueue` stage of the derivation
 /// pipeline.
@@ -77,9 +74,20 @@ pub struct MultiBlockDerivationDriver<O: CommsClient + Send + Sync + Debug> {
     /// The header of the L2 safe head.
     pub l2_safe_head_header: Sealed<Header>,
     /// The inner pipeline.
-    pub pipeline: OraclePipeline<O>,
+    pub pipeline: MultiblockOracleDerivationPipeline<O, OracleBlobProvider<O>>,
     /// The block number of the final L2 block being claimed.
     pub l2_claim_block: u64,
+}
+
+impl<O, B> DriverPipeline<OracleDerivationPipeline<O, B>> for MultiblockOracleDerivationPipeline<O, B>
+where
+    O: CommsClient + FlushableCache + Send + Sync + Debug,
+    B: BlobProvider + Send + Sync + Debug + Clone,
+{
+    /// Flushes the cache on re-org.
+    fn flush(&mut self) {
+        self.caching_oracle.flush();
+    }
 }
 
 impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
@@ -171,25 +179,51 @@ impl<O: CommsClient + Send + Sync + Debug> MultiBlockDerivationDriver<O> {
                     // complete the current step. In this case, we retry the step to see if other
                     // stages can make progress.
                     match e {
-                        PipelineErrorKind::Temporary(_) => { /* continue */ }
-                        PipelineErrorKind::Reset(_) => {
-                            // Reset the pipeline to the initial L2 safe head and L1 origin,
-                            // and try again.
+                        PipelineErrorKind::Temporary(_) => continue,
+                        PipelineErrorKind::Reset(e) => {
                             let system_config = self
                                 .pipeline
                                 .system_config_by_number(self.l2_safe_head.block_info.number)
                                 .await?;
 
-                            self.pipeline
-                                .signal(Signal::Reset(ResetSignal {
-                                    l2_safe_head: self.l2_safe_head,
-                                    l1_origin: self
-                                        .pipeline
-                                        .origin()
-                                        .ok_or_else(|| anyhow!("Missing L1 origin"))?,
-                                    system_config: Some(system_config),
-                                }))
-                                .await?;
+                            if matches!(e, ResetError::HoloceneActivation) {
+                                let l1_origin = self
+                                    .pipeline
+                                    .origin()
+                                    .ok_or(PipelineError::MissingOrigin.crit())?;
+                                self.pipeline
+                                    .signal(
+                                        ActivationSignal {
+                                            l2_safe_head: self.l2_safe_head,
+                                            l1_origin,
+                                            system_config: Some(system_config),
+                                        }
+                                        .signal(),
+                                    )
+                                    .await?;
+                            } else {
+                                // Flushes cache if a reorg is detected.
+                                if matches!(e, ResetError::ReorgDetected(_, _)) {
+                                    self.pipeline.flush();
+                                }
+
+                                // Reset the pipeline to the initial L2 safe head and L1 origin,
+                                // and try again.
+                                let l1_origin = self
+                                    .pipeline
+                                    .origin()
+                                    .ok_or(PipelineError::MissingOrigin.crit())?;
+                                self.pipeline
+                                    .signal(
+                                        ResetSignal {
+                                            l2_safe_head: self.l2_safe_head,
+                                            l1_origin,
+                                            system_config: Some(system_config),
+                                        }
+                                        .signal(),
+                                    )
+                                    .await?;
+                            }
                         }
                         PipelineErrorKind::Critical(_) => return Err(e.into()),
                     }
