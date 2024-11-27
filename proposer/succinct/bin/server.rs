@@ -269,7 +269,7 @@ async fn request_mock_span_proof(
     let prover = ProverClient::mock();
     let proof = prover
         .prove(&state.range_pk, sp1_stdin)
-        .set_skip_deferred_proof_verification(true)
+        // .set_skip_deferred_proof_verification(true)
         .compressed()
         .run()?;
 
@@ -329,7 +329,7 @@ async fn request_mock_agg_proof(
     // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
     let proof = prover
         .prove(&state.agg_pk, stdin)
-        .set_skip_deferred_proof_verification(true)
+        // .set_skip_deferred_proof_verification(true)
         .groth16()
         .run()?;
 
