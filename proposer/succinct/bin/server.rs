@@ -23,11 +23,21 @@ use op_succinct_proposer::{
     UnclaimDescription, ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
-    network::{
+    // network::{
+    //     client::NetworkClient,
+    //     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
+    // },
+    network_v2::{
         client::NetworkClient,
-        proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
+        proto::network::{FulfillmentStatus, ProofMode},
     },
-    utils, HashableKey, NetworkProverV1, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    utils,
+    HashableKey,
+    NetworkProverV1,
+    NetworkProverV2,
+    ProverClient,
+    SP1Proof,
+    SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -164,18 +174,19 @@ async fn request_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = NetworkProverV1::new();
+    // let prover = NetworkProverV1::new();
+    let prover = NetworkProverV2::new();
 
     // Set simulation to false on range proofs as they're large.
     env::set_var("SKIP_SIMULATION", "true");
     let res = prover
-        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
+        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed, None)
         .await;
     env::set_var("SKIP_SIMULATION", "false");
 
     // Check if error, otherwise get proof ID.
     let proof_id = match res {
-        Ok(proof_id) => proof_id,
+        Ok(proof_id) => String::from_utf8(proof_id).unwrap(),
         Err(e) => {
             log::error!("Failed to request proof: {}", e);
             return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
@@ -220,14 +231,25 @@ async fn request_agg_proof(
         .get_header_preimages(&boot_infos, l1_head.into())
         .await?;
 
-    let prover = NetworkProverV1::new();
+    let prover = NetworkProverV2::new();
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
 
     let proof_id = prover
-        .request_proof(AGG_ELF, stdin, ProofMode::Groth16)
+        .request_proof(AGG_ELF, stdin, ProofMode::Groth16, None)
         .await?;
+
+    let proof_id = String::from_utf8(proof_id).unwrap();
+
+    // // Check if error, otherwise get proof ID.
+    // let proof_id = match res {
+    //     Ok(proof_id) => String::from_utf8(proof_id).unwrap(),
+    //     Err(e) => {
+    //         log::error!("Failed to request proof: {}", e);
+    //         return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
+    //     }
+    // };
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
@@ -343,6 +365,14 @@ async fn request_mock_agg_proof(
     ))
 }
 
+pub fn string_to_bytes(s: &str) -> Vec<u8> {
+    // Convert string to Vec<u8>
+    s.as_bytes().to_vec()
+
+    // Alternatively, if you want to keep the original string:
+    // s.bytes().collect()
+}
+
 /// Get the status of a proof.
 async fn get_proof_status(
     Path(proof_id): Path<String>,
@@ -352,16 +382,19 @@ async fn get_proof_status(
 
     let client = NetworkClient::new(&private_key);
 
+    let proof_id_bytes = string_to_bytes(&proof_id);
+
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
     let (status, maybe_proof) =
-        match tokio::time::timeout(timeout, client.get_proof_status(&proof_id)).await {
+        match tokio::time::timeout(timeout, client.get_proof_request_status(&proof_id_bytes)).await
+        {
             Ok(Ok(result)) => result,
             Ok(Err(_)) => {
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: SP1ProofStatus::ProofUnspecifiedStatus.into(),
+                        status: 1,
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -371,7 +404,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: SP1ProofStatus::ProofUnspecifiedStatus.into(),
+                        status: 1,
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -379,12 +412,12 @@ async fn get_proof_status(
             }
         };
 
-    let unclaim_description = status.unclaim_description.unwrap_or_default();
+    // let unclaim_description = status.unclaim_description.unwrap_or_default();
+    // let unclaim_description_enum: UnclaimDescription = unclaim_description.into();
+    let unclaim_description_enum: UnclaimDescription = UnclaimDescription::Other;
 
-    let unclaim_description_enum: UnclaimDescription = unclaim_description.into();
-
-    let status: SP1ProofStatus = SP1ProofStatus::try_from(status.status)?;
-    if status == SP1ProofStatus::ProofFulfilled {
+    let status = status.fulfillment_status();
+    if status == FulfillmentStatus::Fulfilled {
         let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
         match proof.proof {
@@ -428,7 +461,7 @@ async fn get_proof_status(
             }
             _ => (),
         }
-    } else if status == SP1ProofStatus::ProofUnclaimed {
+    } else if status == FulfillmentStatus::Unfulfillable {
         return Ok((
             StatusCode::OK,
             Json(ProofStatus {
