@@ -7,7 +7,7 @@
   - [Run the Cost Estimator](./quick-start/cost-estimator.md)
   - [OP Succinct in Mock Mode](./quick-start/mock.md)
   - [OP Succinct in Full Mode](./quick-start/full.md)
-  - [Upgrade Existing OP Stack Deployment](./quick-start/upgrade-l2-output-oracle.md)
+  - [Migrate to OP Succinct](./quick-start/upgrade-l2-output-oracle.md)
 - [Advanced](./advanced/intro.md)
   - [Verify the OP Succinct binaries](./advanced/verify-binaries.md)
   - [L2 Node Setup](./advanced/node-setup.md)
