@@ -56,18 +56,6 @@ kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "574f5f567
 kona-client = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
 kona-host = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
 kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-common = { path = "../kona/crates/proof-sdk/common" }
-# kona-common-proc = { path = "../kona/crates/proof-sdk/common-proc" }
-# kona-preimage = { path = "../kona/crates/proof-sdk/preimage", features = [
-#     "rkyv",
-# ] }
-# kona-mpt = { path = "../kona/crates/mpt" }
-# kona-driver = { path = "../kona/crates/driver" }
-# kona-derive = { path = "../kona/crates/derive", default-features = false }
-# kona-executor = { path = "../kona/crates/executor" }
-# kona-client = { path = "../kona/bin/client" }
-# kona-host = { path = "../kona/bin/host" }
-# kona-proof = { path = "../kona/crates/proof-sdk/proof" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
