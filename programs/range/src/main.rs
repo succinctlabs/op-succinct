@@ -334,6 +334,7 @@ where
             .ok_or(PipelineError::MissingOrigin.crit())?;
         let l2_info =
             L2BlockInfo::from_block_and_genesis(&block, &pipeline.rollup_config().genesis)?;
+        println!("cycle-tracker-report-start: output-root");
         let tip_cursor = TipCursor::new(
             l2_info,
             header.clone().seal_slow(),
@@ -342,5 +343,6 @@ where
                 .map_err(DriverError::Executor)?,
         );
         cursor.advance(origin, tip_cursor);
+        println!("cycle-tracker-report-end: output-root");
     }
 }
