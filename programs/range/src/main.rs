@@ -317,6 +317,7 @@ where
             },
         };
 
+        // Add the block which has been successfully executed to the L2 provider's cache.
         let _ = l2_provider
             .update_cache(header, &block, &boot.rollup_config)
             .unwrap();
