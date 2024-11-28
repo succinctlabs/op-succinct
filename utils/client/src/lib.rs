@@ -18,5 +18,5 @@ pub mod pipes;
 
 extern crate alloc;
 
-pub mod pipeline;
 pub mod l2_chain_provider;
+pub mod pipeline;
