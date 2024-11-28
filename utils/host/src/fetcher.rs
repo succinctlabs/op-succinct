@@ -663,7 +663,12 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        let (l1_head_hash, _l1_head_number) = self.get_l1_head(l2_end_block).await?;
+        let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+
+        // TODO: Determine why the l1_head needs to be incrememted beyond the block where the batch was posted with a safe head > l2 end block.
+        let l1_head_number = l1_head_number + 7;
+        let header = self.get_l1_header(l1_head_number.into()).await?;
+        let l1_head_hash = header.hash_slow();
 
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();

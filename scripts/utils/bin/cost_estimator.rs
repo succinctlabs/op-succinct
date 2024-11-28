@@ -24,7 +24,7 @@ use std::{
 
 pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
-const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
+const TWELVE_HOURS: Duration = Duration::from_secs(60 * 60 * 12);
 
 /// The arguments for the host executable.
 #[derive(Debug, Clone, Parser)]
@@ -276,7 +276,7 @@ async fn main() -> Result<()> {
 
     const DEFAULT_RANGE: u64 = 5;
     let (l2_start_block, l2_end_block) = if args.rolling {
-        get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?
+        get_rolling_block_range(&data_fetcher, TWELVE_HOURS, DEFAULT_RANGE).await?
     } else {
         get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?
     };
