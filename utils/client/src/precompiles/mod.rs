@@ -47,8 +47,9 @@ pub(crate) const ANNOTATED_EC_RECOVER: PrecompileWithAddress =
     create_annotated_precompile!(revm::precompile::secp256k1::ECRECOVER, "ec-recover");
 
 // Source: https://github.com/anton-rs/kona/blob/main/bin/client/src/fault/handler/mod.rs#L20-L42
-pub fn zkvm_handle_register<F, H>(handler: &mut EvmHandler<'_, (), &mut State<&mut TrieDB<F, H>>>)
-where
+pub fn zkvm_handle_register<F, H>(
+    handler: &mut EvmHandler<'_, (), &mut State<&mut TrieDB<F, H>>>,
+) where
     F: TrieDBProvider,
     H: TrieHinter,
 {
