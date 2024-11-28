@@ -332,6 +332,8 @@ impl<T: CommsClient> TrieHinter for MultiblockOracleL2ChainProvider<T> {
 }
 
 /// Constructs a [`PipelineCursor`] from the caching oracle, boot info, and providers.
+/// Sourced from kona/crates/proof/src/sync.rs with a slight modification to use the MultiblockOracleL2ChainProvider's caching system.
+/// TODO: Modify upstream new_pipeline_cursor to use the generic ChainProvider trait with a mutable reference.
 pub async fn new_pipeline_cursor<O>(
     caching_oracle: Arc<O>,
     boot_info: &BootInfo,
