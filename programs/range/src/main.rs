@@ -12,31 +12,25 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use alloy_consensus::BlockBody;
-use alloy_consensus::Sealable;
+use alloy_consensus::{BlockBody, Sealable};
 use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
 use core::fmt::Debug;
-use kona_derive::errors::{PipelineError, PipelineErrorKind};
-use kona_derive::prelude::OriginProvider;
-use kona_derive::prelude::Pipeline;
-use kona_derive::prelude::SignalReceiver;
-use kona_derive::types::Signal;
-use kona_driver::DriverError;
-use kona_driver::DriverPipeline;
-use kona_driver::Executor;
-use kona_driver::ExecutorConstructor;
-use kona_driver::PipelineCursor;
-use kona_driver::TipCursor;
-use kona_driver::{Driver, DriverResult};
+use kona_derive::{
+    errors::{PipelineError, PipelineErrorKind},
+    prelude::{Pipeline, SignalReceiver},
+    types::Signal,
+};
+use kona_driver::{
+    DriverError, DriverPipeline, DriverResult, Executor, ExecutorConstructor, PipelineCursor,
+    TipCursor,
+};
 use kona_preimage::CommsClient;
-use kona_proof::FlushableCache;
 use kona_proof::{
     executor::KonaExecutorConstructor,
-    l1::{OracleBlobProvider, OracleL1ChainProvider, OraclePipeline},
-    l2::OracleL2ChainProvider,
-    BootInfo,
+    l1::{OracleBlobProvider, OracleL1ChainProvider},
+    BootInfo, FlushableCache,
 };
 use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
 use op_alloy_genesis::RollupConfig;
