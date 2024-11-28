@@ -75,8 +75,8 @@ fn build_zkvm_program(program: &str) {
         &format!("{}/{}", metadata.workspace_root.join("programs"), program),
         BuildArgs {
             elf_name: format!("{}-elf", program),
-            docker: true,
-            tag: "v3.0.0".to_string(),
+            // docker: true,
+            // tag: "v3.0.0".to_string(),
             ..Default::default()
         },
     );
@@ -91,7 +91,7 @@ pub fn build_all() {
         // Note: Don't comment this out, because the Docker program depends on the native program
         // for range being built.
         build_native_program(program);
-        // build_zkvm_program(program);
+        build_zkvm_program(program);
     }
 
     // build_zkvm_program("aggregation");

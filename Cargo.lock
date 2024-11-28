@@ -3692,6 +3692,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3724,6 +3725,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "cfg-if",
  "linked_list_allocator",
@@ -3733,6 +3735,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3745,6 +3748,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3763,6 +3767,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.12",
@@ -3780,6 +3785,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3797,6 +3803,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3835,6 +3842,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-primitives 0.8.12",
  "alloy-rlp",
@@ -3846,6 +3854,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-primitives 0.8.12",
  "async-trait",
@@ -3857,6 +3866,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.1.0"
+source = "git+https://github.com/succinctlabs/kona?rev=574f5f56793ac592b5b31ffdd2cf683ac8371226#574f5f56793ac592b5b31ffdd2cf683ac8371226"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -5574,15 +5584,20 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
+ "alloy-primitives 0.8.12",
+ "alloy-rlp",
  "anyhow",
  "cfg-if",
  "kona-derive",
  "kona-driver",
  "kona-executor",
+ "kona-preimage",
  "kona-proof",
  "log",
  "op-alloy-consensus",
  "op-alloy-genesis",
+ "op-alloy-protocol",
+ "op-alloy-rpc-types-engine",
  "op-succinct-client-utils",
  "serde_json",
  "sp1-zkvm",

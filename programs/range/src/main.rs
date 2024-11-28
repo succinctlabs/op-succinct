@@ -12,16 +12,40 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
+use alloy_consensus::BlockBody;
+use alloy_consensus::Sealable;
+use alloy_primitives::B256;
+use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
-use kona_driver::Driver;
+use core::fmt::Debug;
+use kona_derive::errors::{PipelineError, PipelineErrorKind};
+use kona_derive::prelude::OriginProvider;
+use kona_derive::prelude::Pipeline;
+use kona_derive::prelude::SignalReceiver;
+use kona_derive::types::Signal;
+use kona_driver::DriverError;
+use kona_driver::DriverPipeline;
+use kona_driver::Executor;
+use kona_driver::ExecutorConstructor;
+use kona_driver::PipelineCursor;
+use kona_driver::TipCursor;
+use kona_driver::{Driver, DriverResult};
+use kona_preimage::CommsClient;
+use kona_proof::FlushableCache;
 use kona_proof::{
     executor::KonaExecutorConstructor,
     l1::{OracleBlobProvider, OracleL1ChainProvider, OraclePipeline},
     l2::OracleL2ChainProvider,
     BootInfo,
 };
+use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
+use op_alloy_genesis::RollupConfig;
+use op_alloy_protocol::L2BlockInfo;
+use op_alloy_rpc_types_engine::OpAttributesWithParent;
 use op_succinct_client_utils::{
-    pipeline::MultiblockOraclePipeline, l2_chain_provider::{new_pipeline_cursor, MultiblockOracleL2ChainProvider}, precompiles::zkvm_handle_register
+    l2_chain_provider::{new_pipeline_cursor, MultiblockOracleL2ChainProvider},
+    pipeline::MultiblockOraclePipeline,
+    precompiles::zkvm_handle_register,
 };
 use tracing::{error, info, warn};
 
@@ -29,7 +53,6 @@ cfg_if! {
     if #[cfg(target_os = "zkvm")] {
         sp1_zkvm::entrypoint!(main);
 
-        use op_alloy_genesis::RollupConfig;
         use op_succinct_client_utils::{
             BootInfoWithBytesConfig, boot::BootInfoStruct,
             InMemoryOracle
@@ -103,7 +126,7 @@ fn main() {
         }
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
 
         // If the genesis block is claimed, we can exit early.
@@ -121,7 +144,7 @@ fn main() {
 
         // Create a new derivation driver with the given boot information and oracle.
 
-        let cursor = match new_pipeline_cursor(
+        let mut cursor = match new_pipeline_cursor(
             oracle.clone(),
             &boot,
             &mut l1_provider.clone(),
@@ -137,7 +160,7 @@ fn main() {
         };
 
         let cfg = Arc::new(boot.rollup_config.clone());
-        let pipeline = MultiblockOraclePipeline::new(
+        let mut pipeline = MultiblockOraclePipeline::new(
             cfg.clone(),
             cursor.clone(),
             oracle.clone(),
@@ -148,16 +171,24 @@ fn main() {
         let executor = KonaExecutorConstructor::new(
             &cfg,
             l2_provider.clone(),
-            l2_provider,
+            l2_provider.clone(),
             zkvm_handle_register,
         );
-        let mut driver = Driver::new(cursor, executor, pipeline);
 
         // Run the derivation pipeline until we are able to produce the output root of the claimed
         // L2 block.
-        let res = driver
-            .advance_to_target(&boot.rollup_config, boot.claimed_l2_block_number)
-            .await;
+        let target = boot.claimed_l2_block_number;
+
+        let res = advance_to_target(
+            &mut pipeline,
+            &executor,
+            &mut cursor,
+            &mut l2_provider,
+            &boot,
+            target,
+            &cfg,
+        )
+        .await;
 
         if let Err(e) = res {
             error!(target: "client", "Failed to advance to target L2 block: {:?}", e);
@@ -189,4 +220,131 @@ fn main() {
         );
         println!("Validated derivation and STF. Output Root: {}", output_root);
     });
+}
+
+// Sourced from https://github.com/anton-rs/kona/blob/9226600325c3bde341c5176897704164a57bd052/crates/driver/src/core.rs#L72, with the slight
+// modification that every time a block is executed the L2 provider's cache is updated with the header and block.
+// This allows the client program to safely fetch the header and block from the L2 provider when the header increments.
+pub async fn advance_to_target<E, EC, DP, P, O>(
+    pipeline: &mut DP,
+    executor: &EC,
+    cursor: &mut PipelineCursor,
+    l2_provider: &mut MultiblockOracleL2ChainProvider<O>,
+    boot: &BootInfo,
+    mut target: u64,
+    cfg: &RollupConfig,
+) -> DriverResult<(u64, B256), E::Error>
+where
+    E: Executor + Send + Sync + Debug,
+    EC: ExecutorConstructor<E> + Send + Sync + Debug,
+    DP: DriverPipeline<P> + Send + Sync + Debug,
+    P: Pipeline + SignalReceiver + Send + Sync + Debug,
+    O: CommsClient + FlushableCache + FlushableCache + Send + Sync + Debug,
+{
+    loop {
+        info!(target: "client", "Deriving L2 block #{} with current safe head #{}", target, cursor.l2_safe_head().block_info.number);
+        // Check if we have reached the target block number.
+        if cursor.l2_safe_head().block_info.number >= target {
+            info!(target: "client", "Derivation complete, reached L2 safe head.");
+            return Ok((
+                cursor.l2_safe_head().block_info.number,
+                *cursor.l2_safe_head_output_root(),
+            ));
+        }
+
+        let OpAttributesWithParent { mut attributes, .. } = match pipeline
+            .produce_payload(*cursor.l2_safe_head())
+            .await
+        {
+            Ok(attrs) => attrs,
+            Err(PipelineErrorKind::Critical(PipelineError::EndOfSource)) => {
+                warn!(target: "client", "Exhausted data source; Halting derivation and using current safe head.");
+
+                // Adjust the target block number to the current safe head, as no more blocks
+                // can be produced.
+                target = cursor.l2_safe_head().block_info.number;
+                continue;
+            }
+            Err(e) => {
+                error!(target: "client", "Failed to produce payload: {:?}", e);
+                return Err(DriverError::Pipeline(e));
+            }
+        };
+
+        let mut block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
+        let header = match block_executor.execute_payload(attributes.clone()) {
+            Ok(header) => header,
+            Err(e) => {
+                error!(target: "client", "Failed to execute L2 block: {}", e);
+
+                if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
+                    // Retry with a deposit-only block.
+                    warn!(target: "client", "Flushing current channel and retrying deposit only block");
+
+                    // Flush the current batch and channel - if a block was replaced with a
+                    // deposit-only block due to execution failure, the
+                    // batch and channel it is contained in is forwards
+                    // invalidated.
+                    pipeline.signal(Signal::FlushChannel).await?;
+
+                    // Strip out all transactions that are not deposits.
+                    attributes.transactions = attributes.transactions.map(|txs| {
+                        txs.into_iter()
+                            .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
+                            .collect::<Vec<_>>()
+                    });
+
+                    // Retry the execution.
+                    block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
+                    match block_executor.execute_payload(attributes.clone()) {
+                        Ok(header) => header,
+                        Err(e) => {
+                            error!(
+                                target: "client",
+                                "Critical - Failed to execute deposit-only block: {e}",
+                            );
+                            return Err(DriverError::Executor(e));
+                        }
+                    }
+                } else {
+                    // Pre-Holocene, discard the block if execution fails.
+                    continue;
+                }
+            }
+        };
+
+        // Construct the block.
+        let block = OpBlock {
+            header: header.clone(),
+            body: BlockBody {
+                transactions: attributes
+                    .transactions
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
+                    .collect::<DriverResult<Vec<OpTxEnvelope>, _>>()?,
+                ommers: Vec::new(),
+                withdrawals: None,
+            },
+        };
+
+        let _ = l2_provider
+            .update_cache(&header, &block, &boot.rollup_config)
+            .unwrap();
+
+        // Get the pipeline origin and update the cursor.
+        let origin = pipeline
+            .origin()
+            .ok_or(PipelineError::MissingOrigin.crit())?;
+        let l2_info =
+            L2BlockInfo::from_block_and_genesis(&block, &pipeline.rollup_config().genesis)?;
+        let tip_cursor = TipCursor::new(
+            l2_info,
+            header.clone().seal_slow(),
+            block_executor
+                .compute_output_root()
+                .map_err(DriverError::Executor)?,
+        );
+        cursor.advance(origin, tip_cursor);
+    }
 }

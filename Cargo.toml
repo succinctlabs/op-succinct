@@ -44,30 +44,30 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 # Branch: patch-kona-proof-v0.1.0
-# kona-common = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-common-proc = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", features = [
-#     "rkyv",
-# ] }
-# kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", default-features = false }
-# kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-client = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-host = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-# kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-common = { path = "../kona/crates/proof-sdk/common" }
-kona-common-proc = { path = "../kona/crates/proof-sdk/common-proc" }
-kona-preimage = { path = "../kona/crates/proof-sdk/preimage", features = [
+kona-common = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-common-proc = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", features = [
     "rkyv",
 ] }
-kona-mpt = { path = "../kona/crates/mpt" }
-kona-driver = { path = "../kona/crates/driver" }
-kona-derive = { path = "../kona/crates/derive", default-features = false }
-kona-executor = { path = "../kona/crates/executor" }
-kona-client = { path = "../kona/bin/client" }
-kona-host = { path = "../kona/bin/host" }
-kona-proof = { path = "../kona/crates/proof-sdk/proof" }
+kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", default-features = false }
+kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-client = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-host = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+# kona-common = { path = "../kona/crates/proof-sdk/common" }
+# kona-common-proc = { path = "../kona/crates/proof-sdk/common-proc" }
+# kona-preimage = { path = "../kona/crates/proof-sdk/preimage", features = [
+#     "rkyv",
+# ] }
+# kona-mpt = { path = "../kona/crates/mpt" }
+# kona-driver = { path = "../kona/crates/driver" }
+# kona-derive = { path = "../kona/crates/derive", default-features = false }
+# kona-executor = { path = "../kona/crates/executor" }
+# kona-client = { path = "../kona/bin/client" }
+# kona-host = { path = "../kona/bin/host" }
+# kona-proof = { path = "../kona/crates/proof-sdk/proof" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }

@@ -63,7 +63,7 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
     pub fn update_cache(
         &mut self,
         header: &Header,
-        block: OpBlock,
+        block: &OpBlock,
         config: &RollupConfig,
     ) -> Result<L2BlockInfo> {
         self.header_by_number
