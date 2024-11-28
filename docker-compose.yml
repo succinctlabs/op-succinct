@@ -4,6 +4,11 @@ services:
     build:
       context: .
       dockerfile: ./proposer/succinct/Dockerfile
+      ssh: ['default']
+      cache_from:
+        - type=gha,scope=succinct-server
+      cache_to:
+        - type=gha,mode=max,scope=succinct-server
     env_file:
       - ${ENV_FILE:-.env}
     restart: unless-stopped
@@ -15,6 +20,11 @@ services:
     build:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
+      ssh: ['default']
+      cache_from:
+        - type=gha,scope=succinct-proposer
+      cache_to:
+        - type=gha,mode=max,scope=succinct-proposer
     env_file:
       - ${ENV_FILE:-.env}
     restart: unless-stopped
