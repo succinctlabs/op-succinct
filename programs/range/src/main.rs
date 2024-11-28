@@ -206,9 +206,10 @@ fn main() {
     });
 }
 
-// Sourced from https://github.com/anton-rs/kona/blob/9226600325c3bde341c5176897704164a57bd052/crates/driver/src/core.rs#L72, with the slight
-// modification that every time a block is executed the L2 provider's cache is updated with the header and block.
-// This allows the client program to safely fetch the header and block from the L2 provider when the header increments.
+// Sourced from kona/crates/driver/src/core.rs with modifications to use the L2 provider's caching system.
+// After each block execution, we update the L2 provider's caches (header_by_number, block_by_number, 
+// system_config_by_number, l2_block_info_by_number) with the new block data. This ensures subsequent 
+// lookups for this block number can be served directly from cache rather than requiring oracle queries.
 pub async fn advance_to_target<E, EC, DP, P, O>(
     pipeline: &mut DP,
     executor: &EC,
