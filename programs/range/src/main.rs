@@ -136,8 +136,6 @@ fn main() {
         //                   DERIVATION & EXECUTION                   //
         ////////////////////////////////////////////////////////////////
 
-        // Create a new derivation driver with the given boot information and oracle.
-
         let mut cursor = match new_pipeline_cursor(
             oracle.clone(),
             &boot,
@@ -246,6 +244,7 @@ where
             ));
         }
 
+        println!("cycle-tracker-report-start: payload-derivation");
         let OpAttributesWithParent { mut attributes, .. } = match pipeline
             .produce_payload(*cursor.l2_safe_head())
             .await
@@ -264,7 +263,9 @@ where
                 return Err(DriverError::Pipeline(e));
             }
         };
+        println!("cycle-tracker-report-end: payload-derivation");
 
+        println!("cycle-tracker-report-start: block-execution");
         let mut block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
         let header = match block_executor.execute_payload(attributes.clone()) {
             Ok(header) => header,
@@ -306,6 +307,7 @@ where
                 }
             }
         };
+        println!("cycle-tracker-report-end: block-execution");
 
         // Construct the block.
         let block = OpBlock {
