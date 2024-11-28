@@ -323,7 +323,7 @@ where
         };
 
         let _ = l2_provider
-            .update_cache(&header, &block, &boot.rollup_config)
+            .update_cache(header, &block, &boot.rollup_config)
             .unwrap();
 
         // Get the pipeline origin and update the cursor.

@@ -77,9 +77,9 @@ impl<T: CommsClient> MultiblockOracleL2ChainProvider<T> {
         self.system_config_by_number
             .lock()
             .unwrap()
-            .insert(header.number, to_system_config(&block, config)?);
+            .insert(header.number, to_system_config(block, config)?);
 
-        let l2_block_info = L2BlockInfo::from_block_and_genesis(&block, &config.genesis)?;
+        let l2_block_info = L2BlockInfo::from_block_and_genesis(block, &config.genesis)?;
         self.l2_block_info_by_number
             .lock()
             .unwrap()
