@@ -40,6 +40,7 @@ serde.workspace = true
 rkyv.workspace = true
 sha2.workspace = true
 log.workspace = true
+tracing.workspace = true
 itertools.workspace = true
 spin.workspace = true
 

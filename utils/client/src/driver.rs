@@ -1,262 +1,186 @@
-//! Contains the [MultiBlockDerivationDriver] struct, which handles the [L2PayloadAttributes]
-//! derivation process.
-//!
-//! [L2PayloadAttributes]: kona_derive::types::L2PayloadAttributes
+//! The driver of the kona derivation pipeline.
 
-use crate::l2_chain_provider::MultiblockOracleL2ChainProvider;
-use alloc::sync::Arc;
-use alloy_consensus::{Header, Sealed};
-use anyhow::{anyhow, Result};
-use kona_driver::PipelineCursor;
-use op_alloy_genesis::RollupConfig;
+use alloc::vec::Vec;
+use alloy_consensus::{BlockBody, Sealable};
+use alloy_primitives::B256;
+use alloy_rlp::Decodable;
 use core::fmt::Debug;
 use kona_derive::{
-    attributes::StatefulAttributesBuilder,
-    errors::PipelineErrorKind,
-    pipeline::{DerivationPipeline, PipelineBuilder},
-    prelude::ChainProvider,
-    sources::EthereumDataSource,
-    stages::{
-        AttributesQueue, BatchProvider, BatchStream, ChannelProvider, ChannelReader, FrameQueue,
-        L1Retrieval, L1Traversal,
-    },
-    traits::{BlobProvider, OriginProvider, Pipeline, SignalReceiver},
-    types::{ResetSignal, Signal, StepResult},
+    errors::{PipelineError, PipelineErrorKind},
+    traits::{Pipeline, SignalReceiver},
+    types::Signal,
 };
-use kona_executor::TrieDBProvider;
-use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
-use kona_proof::{
-    l1::{OracleBlobProvider, OracleL1ChainProvider}, BootInfo, FlushableCache, HintType
-};
-use op_alloy_protocol::{BatchValidationProvider, BlockInfo, L2BlockInfo};
+use kona_driver::{DriverError, DriverResult, TipCursor};
+use kona_driver::{DriverPipeline, Executor, ExecutorConstructor, PipelineCursor};
+use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
+use op_alloy_genesis::RollupConfig;
+use op_alloy_protocol::L2BlockInfo;
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
+use tracing::{error, info, warn};
 
-use log::{info, warn};
-
-/// An oracle-backed derivation pipeline.
-pub type OraclePipeline<O, B> = DerivationPipeline<
-    MultiblockOracleAttributesQueue<OracleDataProvider<O, B>, O>,
-    MultiblockOracleL2ChainProvider<O>,
->;
-
-/// An oracle-backed Ethereum data source.
-pub type OracleDataProvider<O, B> =
-    EthereumDataSource<OracleL1ChainProvider<O>, B>;
-
-/// An oracle-backed payload attributes builder for the `AttributesQueue` stage of the derivation
-/// pipeline.
-pub type OracleAttributesBuilder<O> =
-    StatefulAttributesBuilder<OracleL1ChainProvider<O>, MultiblockOracleL2ChainProvider<O>>;
-
-/// An oracle-backed attributes queue for the derivation pipeline.
-pub type MultiblockOracleAttributesQueue<DAP, O> = AttributesQueue<
-    BatchProvider<
-        BatchStream<
-            ChannelReader<
-                ChannelProvider<
-                    FrameQueue<L1Retrieval<DAP, L1Traversal<OracleL1ChainProvider<O>>>>,
-                >,
-            >,
-            MultiblockOracleL2ChainProvider<O>,
-        >,
-        MultiblockOracleL2ChainProvider<O>,
-    >,
-    OracleAttributesBuilder<O>,
->;
-
-/// The [MultiBlockDerivationDriver] struct is responsible for handling the [L2PayloadAttributes]
-/// derivation process.
-///
-/// It contains an inner [OraclePipeline] that is used to derive the attributes, backed by
-/// oracle-based data sources.
-///
-/// [L2PayloadAttributes]: kona_derive::types::L2PayloadAttributes
+/// The Rollup Driver entrypoint.
 #[derive(Debug)]
-pub struct MultiBlockOraclePipeline<O, B>
+pub struct Driver<E, EC, DP, P>
 where
-    O: CommsClient + FlushableCache + Send + Sync + Debug,
-    B: BlobProvider + Send + Sync + Debug + Clone,
- {
-    /// The current L2 safe head.
-    pub l2_safe_head: L2BlockInfo,
-    /// The header of the L2 safe head.
-    pub l2_safe_head_header: Sealed<Header>,
-    /// The inner pipeline.
-    pub pipeline: OraclePipeline<O, B>,
-    /// The block number of the final L2 block being claimed.
-    pub l2_claim_block: u64,
-    /// The caching oracle.
-    pub caching_oracle: Arc<O>,
+    E: Executor + Send + Sync + Debug,
+    EC: ExecutorConstructor<E> + Send + Sync + Debug,
+    DP: DriverPipeline<P> + Send + Sync + Debug,
+    P: Pipeline + SignalReceiver + Send + Sync + Debug,
+{
+    /// Marker for the executor.
+    _marker: core::marker::PhantomData<E>,
+    /// Marker for the pipeline.
+    _marker2: core::marker::PhantomData<P>,
+    /// A pipeline abstraction.
+    pipeline: DP,
+    /// Cursor to keep track of the L2 tip
+    cursor: PipelineCursor,
+    /// Executor constructor.
+    executor: EC,
 }
 
-impl<O, B> MultiBlockOraclePipeline<O, B>
+impl<E, EC, DP, P> Driver<E, EC, DP, P>
 where
-    O: CommsClient + FlushableCache + Send + Sync + Debug,
-    B: BlobProvider + Send + Sync + Debug + Clone,
+    E: Executor + Send + Sync + Debug,
+    EC: ExecutorConstructor<E> + Send + Sync + Debug,
+    DP: DriverPipeline<P> + Send + Sync + Debug,
+    P: Pipeline + SignalReceiver + Send + Sync + Debug,
 {
-    /// Consumes self and returns the owned [Header] of the current L2 safe head.
-    pub fn clone_l2_safe_head_header(&self) -> Sealed<Header> {
-        self.l2_safe_head_header.clone()
-    }
-
-    /// Creates a new [MultiBlockDerivationDriver] with the given configuration, blob provider, and
-    /// chain providers.
-    ///
-    /// ## Takes
-    /// - `cfg`: The rollup configuration.
-    /// - `blob_provider`: The blob provider.
-    /// - `chain_provider`: The L1 chain provider.
-    /// - `l2_chain_provider`: The L2 chain provider.
-    ///
-    /// ## Returns
-    /// - A new [MultiBlockDerivationDriver] instance.
-    pub async fn new(
-        boot_info: Arc<BootInfo>,
-        cfg: Arc<RollupConfig>,
-        caching_oracle: Arc<O>,
-        blob_provider: B,
-        mut chain_provider: OracleL1ChainProvider<O>,
-        mut l2_chain_provider: MultiblockOracleL2ChainProvider<O>,
-    ) -> Result<Self> {
-        // Fetch the startup information.
-        let (l1_origin, l2_safe_head, l2_safe_head_header) = Self::find_startup_info(
-            &caching_oracle,
-            &boot_info,
-            &mut chain_provider,        
-            &mut l2_chain_provider,
-        )
-        .await?;
-
-        let attributes = StatefulAttributesBuilder::new(
-            cfg.clone(),
-            l2_chain_provider.clone(),
-            chain_provider.clone(),
-        );
-        let dap = EthereumDataSource::new_from_parts(chain_provider.clone(), blob_provider, &cfg);
-
-        let pipeline = PipelineBuilder::new()
-            .rollup_config(cfg)
-            .dap_source(dap)
-            .l2_chain_provider(l2_chain_provider)
-            .chain_provider(chain_provider)
-            .builder(attributes)
-            .origin(l1_origin)
-            .build();
-
-        let l2_claim_block = boot_info.claimed_l2_block_number;
-        Ok(Self { pipeline, l2_claim_block, l2_safe_head, l2_safe_head_header, caching_oracle })
-    }
-
-    pub fn update_safe_head(
-        &mut self,
-        new_safe_head: L2BlockInfo,
-        new_safe_head_header: Sealed<Header>,
-    ) {
-        self.l2_safe_head = new_safe_head;
-        self.l2_safe_head_header = new_safe_head_header;
-    }
-
-    /// Produces the disputed [OpAttributesWithParent] payload, directly from the pipeline.
-    pub async fn produce_payload(&mut self) -> Result<OpAttributesWithParent> {
-        // As we start the safe head at the disputed block's parent, we step the pipeline until the
-        // first attributes are produced. All batches at and before the safe head will be
-        // dropped, so the first payload will always be the disputed one.
-        loop {
-            match self.pipeline.step(self.l2_safe_head).await {
-                StepResult::PreparedAttributes => {
-                    info!(target: "client_derivation_driver", "Stepped derivation pipeline")
-                }
-                StepResult::AdvancedOrigin => {
-                    info!(target: "client_derivation_driver", "Advanced origin")
-                }
-                StepResult::OriginAdvanceErr(e) | StepResult::StepFailed(e) => {
-                    warn!(target: "client_derivation_driver", "Failed to step derivation pipeline: {:?}", e);
-
-                    // Break the loop unless the error signifies that there is not enough data to
-                    // complete the current step. In this case, we retry the step to see if other
-                    // stages can make progress.
-                    match e {
-                        PipelineErrorKind::Temporary(_) => { /* continue */ }
-                        PipelineErrorKind::Reset(_) => {
-                            // Reset the pipeline to the initial L2 safe head and L1 origin,
-                            // and try again.
-                            let system_config = self
-                                .pipeline
-                                .system_config_by_number(self.l2_safe_head.block_info.number)
-                                .await?;
-
-                            self.pipeline
-                                .signal(Signal::Reset(ResetSignal {
-                                    l2_safe_head: self.l2_safe_head,
-                                    l1_origin: self
-                                        .pipeline
-                                        .origin()
-                                        .ok_or_else(|| anyhow!("Missing L1 origin"))?,
-                                    system_config: Some(system_config),
-                                }))
-                                .await?;
-                        }
-                        PipelineErrorKind::Critical(_) => return Err(e.into()),
-                    }
-                }
-            }
-
-            if let Some(attrs) = self.pipeline.next() {
-                return Ok(attrs);
-            }
+    /// Creates a new [Driver].
+    pub const fn new(cursor: PipelineCursor, executor: EC, pipeline: DP) -> Self {
+        Self {
+            _marker: core::marker::PhantomData,
+            _marker2: core::marker::PhantomData,
+            pipeline,
+            cursor,
+            executor,
         }
     }
 
-    /// Finds the startup information for the derivation pipeline.
+    /// Advances the derivation pipeline to the target block number.
     ///
     /// ## Takes
-    /// - `caching_oracle`: The caching oracle.
-    /// - `boot_info`: The boot information.
-    /// - `chain_provider`: The L1 chain provider.
-    /// - `l2_chain_provider`: The L2 chain provider.
+    /// - `cfg`: The rollup configuration.
+    /// - `target`: The target block number.
     ///
     /// ## Returns
-    /// - A tuple containing the L1 origin block information and the L2 safe head information.
-    async fn find_startup_info(
-        caching_oracle: &O,
-        boot_info: &BootInfo,
-        chain_provider: &mut OracleL1ChainProvider<O>,
-        l2_chain_provider: &mut MultiblockOracleL2ChainProvider<O>,
-    ) -> Result<(BlockInfo, L2BlockInfo, Sealed<Header>)> {
-        // Find the initial safe head, based off of the starting L2 block number in the boot info.
-        caching_oracle
-            .write(
-                &HintType::StartingL2Output
-                    .encode_with(&[boot_info.agreed_l2_output_root.as_ref()]),
-            )
-            .await?;
-        let mut output_preimage = [0u8; 128];
-        caching_oracle
-            .get_exact(
-                PreimageKey::new(
-                    boot_info.agreed_l2_output_root.0,
-                    PreimageKeyType::Keccak256,
-                ),
-                &mut output_preimage,
-            )
-            .await?;
+    /// - `Ok((number, output_root))` - A tuple containing the number of the produced block and the
+    ///   output root.
+    /// - `Err(e)` - An error if the block could not be produced.
+    pub async fn advance_to_target(
+        &mut self,
+        cfg: &RollupConfig,
+        mut target: u64,
+    ) -> DriverResult<(u64, B256), E::Error> {
+        loop {
+            info!(target: "client", "Deriving L2 block #{} with current safe head #{}", target, self.cursor.l2_safe_head().block_info.number);
+            // Check if we have reached the target block number.
+            if self.cursor.l2_safe_head().block_info.number >= target {
+                info!(target: "client", "Derivation complete, reached L2 safe head.");
+                return Ok((
+                    self.cursor.l2_safe_head().block_info.number,
+                    *self.cursor.l2_safe_head_output_root(),
+                ));
+            }
 
-        let safe_hash: alloy_primitives::FixedBytes<32> = output_preimage[96..128]
-            .try_into()
-            .map_err(|_| anyhow!("Invalid L2 output root"))?;
-        let safe_header = l2_chain_provider.header_by_hash(safe_hash)?;
-        let safe_head_info = l2_chain_provider
-            .l2_block_info_by_number(safe_header.number)
-            .await?;
+            let OpAttributesWithParent { mut attributes, .. } = match self
+                .pipeline
+                .produce_payload(*self.cursor.l2_safe_head())
+                .await
+            {
+                Ok(attrs) => attrs,
+                Err(PipelineErrorKind::Critical(PipelineError::EndOfSource)) => {
+                    warn!(target: "client", "Exhausted data source; Halting derivation and using current safe head.");
 
-        let l1_origin = chain_provider
-            .block_info_by_number(safe_head_info.l1_origin.number)
-            .await?;
+                    // Adjust the target block number to the current safe head, as no more blocks
+                    // can be produced.
+                    target = self.cursor.l2_safe_head().block_info.number;
+                    continue;
+                }
+                Err(e) => {
+                    error!(target: "client", "Failed to produce payload: {:?}", e);
+                    return Err(DriverError::Pipeline(e));
+                }
+            };
 
-        Ok((
-            l1_origin,
-            safe_head_info,
-            Sealed::new_unchecked(safe_header, safe_hash),
-        ))
+            let mut executor = self
+                .executor
+                .new_executor(self.cursor.l2_safe_head_header().clone());
+            let header = match executor.execute_payload(attributes.clone()) {
+                Ok(header) => header,
+                Err(e) => {
+                    error!(target: "client", "Failed to execute L2 block: {}", e);
+
+                    if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
+                        // Retry with a deposit-only block.
+                        warn!(target: "client", "Flushing current channel and retrying deposit only block");
+
+                        // Flush the current batch and channel - if a block was replaced with a
+                        // deposit-only block due to execution failure, the
+                        // batch and channel it is contained in is forwards
+                        // invalidated.
+                        self.pipeline.signal(Signal::FlushChannel).await?;
+
+                        // Strip out all transactions that are not deposits.
+                        attributes.transactions = attributes.transactions.map(|txs| {
+                            txs.into_iter()
+                                .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
+                                .collect::<Vec<_>>()
+                        });
+
+                        // Retry the execution.
+                        executor = self
+                            .executor
+                            .new_executor(self.cursor.l2_safe_head_header().clone());
+                        match executor.execute_payload(attributes.clone()) {
+                            Ok(header) => header,
+                            Err(e) => {
+                                error!(
+                                    target: "client",
+                                    "Critical - Failed to execute deposit-only block: {e}",
+                                );
+                                return Err(DriverError::Executor(e));
+                            }
+                        }
+                    } else {
+                        // Pre-Holocene, discard the block if execution fails.
+                        continue;
+                    }
+                }
+            };
+
+            // Construct the block.
+            let block = OpBlock {
+                header: header.clone(),
+                body: BlockBody {
+                    transactions: attributes
+                        .transactions
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
+                        .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
+                    ommers: Vec::new(),
+                    withdrawals: None,
+                },
+            };
+
+            // Get the pipeline origin and update the cursor.
+            let origin = self
+                .pipeline
+                .origin()
+                .ok_or(PipelineError::MissingOrigin.crit())?;
+            let l2_info = L2BlockInfo::from_block_and_genesis(
+                &block,
+                &self.pipeline.rollup_config().genesis,
+            )?;
+            let cursor = TipCursor::new(
+                l2_info,
+                header.clone().seal_slow(),
+                executor
+                    .compute_output_root()
+                    .map_err(DriverError::Executor)?,
+            );
+            self.cursor.advance(origin, cursor);
+        }
     }
 }

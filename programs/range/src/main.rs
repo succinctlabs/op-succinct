@@ -18,10 +18,11 @@ use kona_proof::{
     executor::KonaExecutorConstructor,
     l1::{OracleBlobProvider, OracleL1ChainProvider, OraclePipeline},
     l2::OracleL2ChainProvider,
-    sync::new_pipeline_cursor,
     BootInfo,
 };
-use op_succinct_client_utils::precompiles::zkvm_handle_register;
+use op_succinct_client_utils::{
+    pipeline::MultiblockOraclePipeline, l2_chain_provider::{new_pipeline_cursor, MultiblockOracleL2ChainProvider}, precompiles::zkvm_handle_register
+};
 use tracing::{error, info, warn};
 
 cfg_if! {
@@ -102,7 +103,7 @@ fn main() {
         }
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        let l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
 
         // If the genesis block is claimed, we can exit early.
@@ -136,7 +137,7 @@ fn main() {
         };
 
         let cfg = Arc::new(boot.rollup_config.clone());
-        let pipeline = OraclePipeline::new(
+        let pipeline = MultiblockOraclePipeline::new(
             cfg.clone(),
             cursor.clone(),
             oracle.clone(),
