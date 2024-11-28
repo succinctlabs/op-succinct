@@ -171,7 +171,7 @@ fn main() {
         // L2 block.
         let target = boot.claimed_l2_block_number;
 
-        let res = advance_to_target(
+        let (number, output_root) = advance_to_target(
             &mut pipeline,
             &executor,
             &mut cursor,
@@ -180,15 +180,8 @@ fn main() {
             target,
             &cfg,
         )
-        .await;
-
-        if let Err(e) = res {
-            error!(target: "client", "Failed to advance to target L2 block: {:?}", e);
-            panic!("Failed to advance to target L2 block");
-        }
-        let (number, output_root) = res.unwrap();
-        info!(target: "client", "Advanced to target block number: {}", number);
-        info!(target: "client", "Claimed L2 block number: {}", boot.claimed_l2_block_number);
+        .await
+        .expect("Failed to advance to target L2 block");
 
         ////////////////////////////////////////////////////////////////
         //                          EPILOGUE                          //
@@ -201,7 +194,7 @@ fn main() {
                 number = number,
                 output_root = output_root
             );
-            panic!("Failed to validate L2 block");
+            panic!("Failed to validate L2 block #{number} with output root {output_root}");
         }
 
         info!(
@@ -210,7 +203,6 @@ fn main() {
             number = number,
             output_root = output_root
         );
-        println!("Validated derivation and STF. Output Root: {}", output_root);
     });
 }
 
