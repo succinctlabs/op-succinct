@@ -869,7 +869,7 @@ impl OPSuccinctDataFetcher {
         Ok(L2BlockInfo::from_block_and_genesis(&block, &genesis)?)
     }
 
-    /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtBlock.
+    /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtL1Block.
     pub async fn get_l2_safe_head_from_l1_block_number(&self, l1_block_number: u64) -> Result<u64> {
         let l1_block_number_hex = format!("0x{:x}", l1_block_number);
         let result: SafeHeadResponse = self
