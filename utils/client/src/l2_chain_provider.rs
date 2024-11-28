@@ -24,7 +24,7 @@ use std::{collections::HashMap, sync::Mutex};
 
 use crate::block_on;
 
-// TODO: The correct way to implement this is as a wrapper around the [OracleL2ChainProvider] struct from kona.
+// FIXME: The correct way to implement this is as a wrapper around the [OracleL2ChainProvider] struct from kona.
 
 /// The oracle-backed L2 chain provider for the client program.
 #[derive(Debug, Clone)]
@@ -333,7 +333,7 @@ impl<T: CommsClient> TrieHinter for MultiblockOracleL2ChainProvider<T> {
 
 /// Constructs a [`PipelineCursor`] from the caching oracle, boot info, and providers.
 /// Sourced from kona/crates/proof/src/sync.rs with a slight modification to use the MultiblockOracleL2ChainProvider's caching system.
-/// TODO: Modify upstream new_pipeline_cursor to use the generic ChainProvider trait with a mutable reference.
+/// FIXME: Modify upstream new_pipeline_cursor to use the generic ChainProvider trait with a mutable reference.
 pub async fn new_pipeline_cursor<O>(
     caching_oracle: Arc<O>,
     boot_info: &BootInfo,

@@ -56,7 +56,7 @@ struct SpanBatchRange {
 }
 
 fn get_max_span_batch_range_size(l2_chain_id: u64, supplied_range_size: Option<u64>) -> u64 {
-    // TODO: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
+    // FIXME: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
     if let Some(supplied_range_size) = supplied_range_size {
         return supplied_range_size;
     }
@@ -169,7 +169,7 @@ async fn execute_blocks_parallel(
         .for_each(|(host_cli, (range, block_data))| {
             let sp1_stdin = get_proof_stdin(host_cli).unwrap();
 
-            // TODO: Implement retries with a smaller block range if this fails.
+            // FIXME: Implement retries with a smaller block range if this fails.
             let result = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run();
 
             // If the execution fails, skip this block range and log the error.
