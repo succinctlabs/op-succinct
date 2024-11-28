@@ -15,7 +15,6 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
 use kona_host::HostCli;
-use log::info;
 use op_alloy_consensus::OpBlock;
 use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
@@ -665,7 +664,7 @@ impl OPSuccinctDataFetcher {
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
         let (l1_head_hash, _l1_head_number) = self.get_l1_head(l2_end_block).await?;
-        
+
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
