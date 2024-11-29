@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.4
+syntax=docker/dockerfile:1.4
 
 # Final stage
 FROM ubuntu:22.04
