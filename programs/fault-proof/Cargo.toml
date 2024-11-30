@@ -21,6 +21,7 @@ sp1-zkvm = { workspace = true }
 kona-executor.workspace = true
 kona-driver.workspace = true
 kona-proof.workspace = true
+kona-preimage.workspace = true
 
 # op-succinct
 op-succinct-client-utils.workspace = true

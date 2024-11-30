@@ -44,18 +44,18 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 # Branch: patch-kona-proof-v0.1.0
-kona-common = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-common-proc = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", features = [
+kona-std-fpvm = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-std-fpvm-proc = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29", features = [
     "rkyv",
 ] }
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", default-features = false }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-mpt = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-driver = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29", default-features = false }
+kona-executor = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-client = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-host = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", branch = "aurelien/patch-11-29" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }

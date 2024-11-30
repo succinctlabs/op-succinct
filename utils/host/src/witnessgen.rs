@@ -40,9 +40,8 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
         args.push("--data-dir".to_string());
         args.push(dir.to_string_lossy().into_owned());
     }
-    if let Some(exec) = &host_cli.exec {
-        args.push("--exec".to_string());
-        args.push(exec.to_string());
+    if host_cli.native {
+        args.push("--native".to_string());
     }
     if host_cli.server {
         args.push("--server".to_string());

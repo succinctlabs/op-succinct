@@ -22,13 +22,10 @@ use kona_derive::{
     prelude::{Pipeline, SignalReceiver},
     types::Signal,
 };
-use kona_driver::{
-    DriverError, DriverPipeline, DriverResult, Executor, ExecutorConstructor, PipelineCursor,
-    TipCursor,
-};
+use kona_driver::{DriverError, DriverPipeline, DriverResult, Executor, PipelineCursor, TipCursor};
 use kona_preimage::CommsClient;
 use kona_proof::{
-    executor::KonaExecutorConstructor,
+    executor::KonaExecutor,
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo, FlushableCache,
 };
@@ -160,11 +157,12 @@ fn main() {
             l1_provider.clone(),
             l2_provider.clone(),
         );
-        let executor = KonaExecutorConstructor::new(
+        let mut executor = KonaExecutor::new(
             &cfg,
             l2_provider.clone(),
             l2_provider.clone(),
-            zkvm_handle_register,
+            Some(zkvm_handle_register),
+            None,
         );
 
         // Run the derivation pipeline until we are able to produce the output root of the claimed
@@ -173,7 +171,7 @@ fn main() {
 
         let (number, output_root) = advance_to_target(
             &mut pipeline,
-            &executor,
+            &mut executor,
             &mut cursor,
             &mut l2_provider,
             &boot,
@@ -210,9 +208,9 @@ fn main() {
 // After each block execution, we update the L2 provider's caches (header_by_number, block_by_number,
 // system_config_by_number, l2_block_info_by_number) with the new block data. This ensures subsequent
 // lookups for this block number can be served directly from cache rather than requiring oracle queries.
-pub async fn advance_to_target<E, EC, DP, P, O>(
+pub async fn advance_to_target<E, DP, P, O>(
     pipeline: &mut DP,
-    executor: &EC,
+    executor: &mut E,
     cursor: &mut PipelineCursor,
     l2_provider: &mut MultiblockOracleL2ChainProvider<O>,
     boot: &BootInfo,
@@ -221,7 +219,6 @@ pub async fn advance_to_target<E, EC, DP, P, O>(
 ) -> DriverResult<(u64, B256), E::Error>
 where
     E: Executor + Send + Sync + Debug,
-    EC: ExecutorConstructor<E> + Send + Sync + Debug,
     DP: DriverPipeline<P> + Send + Sync + Debug,
     P: Pipeline + SignalReceiver + Send + Sync + Debug,
     O: CommsClient + FlushableCache + FlushableCache + Send + Sync + Debug,
@@ -259,8 +256,7 @@ where
         println!("cycle-tracker-report-end: payload-derivation");
 
         println!("cycle-tracker-report-start: block-execution");
-        let mut block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
-        let header = match block_executor.execute_payload(attributes.clone()) {
+        let header = match executor.execute_payload(attributes.clone()) {
             Ok(header) => header,
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
@@ -283,8 +279,7 @@ where
                     });
 
                     // Retry the execution.
-                    block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
-                    match block_executor.execute_payload(attributes.clone()) {
+                    match executor.execute_payload(attributes.clone()) {
                         Ok(header) => header,
                         Err(e) => {
                             error!(
@@ -332,7 +327,7 @@ where
         let tip_cursor = TipCursor::new(
             l2_info,
             header.clone().seal_slow(),
-            block_executor
+            executor
                 .compute_output_root()
                 .map_err(DriverError::Executor)?,
         );

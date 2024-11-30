@@ -12,14 +12,18 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
+use alloy_consensus::{Header, Sealed};
 use cfg_if::cfg_if;
 use kona_driver::Driver;
+use kona_executor::TrieDBProvider;
+use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
 use kona_proof::{
-    executor::KonaExecutorConstructor,
+    errors::OracleProviderError,
+    executor::KonaExecutor,
     l1::{OracleBlobProvider, OracleL1ChainProvider, OraclePipeline},
     l2::OracleL2ChainProvider,
     sync::new_pipeline_cursor,
-    BootInfo,
+    BootInfo, HintType,
 };
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 
@@ -84,16 +88,19 @@ fn main() {
         }
 
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
+        let mut l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
+        let safe_head = fetch_safe_head(oracle.as_ref(), boot.as_ref(), &mut l2_provider)
+            .await
+            .unwrap();
 
         ////////////////////////////////////////////////////////////////
         //                   DERIVATION & EXECUTION                   //
         ////////////////////////////////////////////////////////////////
 
         let cursor = new_pipeline_cursor(
-            oracle.clone(),
             &boot,
+            safe_head,
             &mut l1_provider.clone(),
             &mut l2_provider.clone(),
         )
@@ -109,17 +116,18 @@ fn main() {
             l1_provider.clone(),
             l2_provider.clone(),
         );
-        let executor = KonaExecutorConstructor::new(
+        let executor = KonaExecutor::new(
             &cfg,
             l2_provider.clone(),
             l2_provider,
-            zkvm_handle_register,
+            Some(zkvm_handle_register),
+            None,
         );
         let mut driver = Driver::new(cursor, executor, pipeline);
 
         println!("cycle-tracker-start: produce-output");
         let (number, output_root) = driver
-            .advance_to_target(&boot.rollup_config, boot.claimed_l2_block_number)
+            .advance_to_target(&boot.rollup_config, Some(boot.claimed_l2_block_number))
             .await
             .unwrap();
         println!("cycle-tracker-end: produce-output");
@@ -133,4 +141,35 @@ fn main() {
 
         println!("Validated derivation and STF. Output Root: {}", output_root);
     });
+}
+
+/// Fetches the safe head of the L2 chain based on the agreed upon L2 output root in the
+/// [BootInfo].
+async fn fetch_safe_head<O>(
+    caching_oracle: &O,
+    boot_info: &BootInfo,
+    l2_chain_provider: &mut OracleL2ChainProvider<O>,
+) -> Result<Sealed<Header>, OracleProviderError>
+where
+    O: CommsClient,
+{
+    caching_oracle
+        .write(&HintType::StartingL2Output.encode_with(&[boot_info.agreed_l2_output_root.as_ref()]))
+        .await
+        .map_err(OracleProviderError::Preimage)?;
+    let mut output_preimage = [0u8; 128];
+    caching_oracle
+        .get_exact(
+            PreimageKey::new(*boot_info.agreed_l2_output_root, PreimageKeyType::Keccak256),
+            &mut output_preimage,
+        )
+        .await
+        .map_err(OracleProviderError::Preimage)?;
+
+    let safe_hash = output_preimage[96..128]
+        .try_into()
+        .map_err(OracleProviderError::SliceConversion)?;
+    l2_chain_provider
+        .header_by_hash(safe_hash)
+        .map(|header| Sealed::new_unchecked(header, safe_hash))
 }

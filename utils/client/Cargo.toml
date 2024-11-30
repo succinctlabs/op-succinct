@@ -26,7 +26,7 @@ op-alloy-protocol.workspace = true
 op-alloy-rpc-types-engine.workspace = true
 
 # workspace (kona)
-kona-common.workspace = true
+kona-std-fpvm.workspace = true
 kona-client.workspace = true
 kona-preimage.workspace = true
 kona-mpt.workspace = true

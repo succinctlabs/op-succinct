@@ -690,14 +690,6 @@ impl OPSuccinctDataFetcher {
             }
         };
 
-        // The native programs are built with profile release-client-lto in build.rs
-        let exec_directory = match multi_block {
-            ProgramType::Single => {
-                format!("{}/target/release-client-lto/fault-proof", workspace_root)
-            }
-            ProgramType::Multi => format!("{}/target/release-client-lto/range", workspace_root),
-        };
-
         // Delete the data directory if the cache mode is DeleteCache.
         match cache_mode {
             CacheMode::KeepCache => (),
@@ -745,7 +737,7 @@ impl OPSuccinctDataFetcher {
                     .to_string(),
             ),
             data_dir: Some(data_directory.into()),
-            exec: Some(exec_directory),
+            native: true,
             server: false,
             rollup_config_path: Some(rollup_config_path),
             v: std::env::var("VERBOSITY")
