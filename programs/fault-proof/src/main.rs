@@ -49,7 +49,7 @@ fn main() {
             .map_err(|e| anyhow!(e))
             .unwrap();
     }
-    
+
     op_succinct_client_utils::block_on(async move {
         ////////////////////////////////////////////////////////////////
         //                          PROLOGUE                          //
