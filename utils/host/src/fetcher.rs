@@ -748,10 +748,15 @@ impl OPSuccinctDataFetcher {
             exec: Some(exec_directory),
             server: false,
             rollup_config_path: Some(rollup_config_path),
+            mantle_da_indexer_url: None,
+            proxy_url: None,
+            disperse_url: None,
+            disperse_timeout: Default::default(),
             v: std::env::var("VERBOSITY")
                 .unwrap_or("0".to_string())
                 .parse()
                 .unwrap(),
+            retrieve_timeout: Default::default(),
         })
     }
 

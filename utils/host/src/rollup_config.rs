@@ -85,31 +85,12 @@ pub(crate) fn merge_rollup_config(
         l1_chain_id: op_rollup_config_rpc.l1_chain_id,
         l2_chain_id: op_rollup_config_rpc.l2_chain_id,
         regolith_time: op_rollup_config_rpc.regolith_time,
-        canyon_time: op_rollup_config_rpc.canyon_time,
-        delta_time: op_rollup_config_rpc.delta_time,
-        ecotone_time: op_rollup_config_rpc.ecotone_time,
-        fjord_time: op_rollup_config_rpc.fjord_time,
-        granite_time: op_rollup_config_rpc.granite_time,
-        holocene_time: op_rollup_config_rpc.holocene_time,
         batch_inbox_address: op_rollup_config_rpc.batch_inbox_address,
         deposit_contract_address: op_rollup_config_rpc.deposit_contract_address,
         l1_system_config_address: op_rollup_config_rpc.l1_system_config_address,
-        protocol_versions_address: op_rollup_config_rpc.protocol_versions_address,
-        da_challenge_address: op_rollup_config_rpc.da_challenge_contract_address,
-        ..Default::default()
+        datalayr_service_manager_addr: op_rollup_config_rpc.
     };
 
-    // Add the base fee params from the chain config.
-    rollup_config.base_fee_params = BaseFeeParams {
-        elasticity_multiplier: chain.optimism.eip1559_elasticity,
-        max_change_denominator: chain.optimism.eip1559_denominator,
-    };
-
-    // Add the canyon base fee params from the chain config.
-    rollup_config.canyon_base_fee_params = BaseFeeParams {
-        elasticity_multiplier: chain.optimism.eip1559_elasticity,
-        max_change_denominator: chain.optimism.eip1559_denominator_canyon,
-    };
 
     Ok(rollup_config)
 }

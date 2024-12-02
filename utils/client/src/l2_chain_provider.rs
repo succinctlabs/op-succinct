@@ -199,11 +199,7 @@ impl<T: CommsClient + Send + Sync> BatchValidationProvider for MultiblockOracleL
             body: BlockBody {
                 transactions,
                 ommers: Vec::new(),
-                withdrawals: self
-                    .boot_info
-                    .rollup_config
-                    .is_canyon_active(timestamp)
-                    .then(|| Withdrawals(vec![])),
+                withdrawals: None,
             },
         };
         Ok(optimism_block)
@@ -212,7 +208,6 @@ impl<T: CommsClient + Send + Sync> BatchValidationProvider for MultiblockOracleL
 
 #[async_trait]
 impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainProvider<T> {
-    type Error = OracleProviderError;
 
     async fn system_config_by_number(
         &mut self,

@@ -44,18 +44,18 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 # Branch: patch-kona-proof-v0.1.0
-kona-common = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-common-proc = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", features = [
+kona-common = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-common-proc = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", features = [
     "rkyv",
 ] }
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226", default-features = false }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "574f5f56793ac592b5b31ffdd2cf683ac8371226" }
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-derive = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", default-features = false }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-client = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -68,31 +68,34 @@ op-succinct-proposer = { path = "proposer/succinct" }
 # Alloy
 alloy = { version = "0.6.4", default-features = false, features = ["full"] }
 # Uses sha3 instead of tiny-keccak. Reduces cycle count for Keccak by 50%.
-alloy-primitives = { version = "0.8.12", default-features = false, features = [
+alloy-primitives = { version = "0.8.13", default-features = false, features = [
     "sha3-keccak",
 ] }
 alloy-rlp = { version = "0.3.8", default-features = false }
 alloy-eips = { version = "0.6.4", default-features = false }
-revm = { version = "16.0.0", default-features = false, features = ["kzg-rs"] }
+revm = { git = "https://github.com/mantle-xyz/revm", branch = "kona", default-features = false, features = [
+    "kzg-rs",
+] }
 alloy-consensus = { version = "0.6.4", default-features = false }
 alloy-sol-types = { version = "0.8" }
 
 # OP Alloy
-op-alloy-consensus = { version = "0.6.8", default-features = false }
-op-alloy-genesis = { version = "0.6.8", default-features = false, features = [
+op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
+op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false, features = [
     "serde",
 ] }
-op-alloy-protocol = { version = "0.6.8", default-features = false }
-op-alloy-rpc-types = { version = "0.6.8", default-features = false }
-op-alloy-rpc-types-engine = { version = "0.6.8", default-features = false }
-op-alloy-network = { version = "0.6.8", default-features = false }
+
+op-alloy-protocol = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
+op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
+op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
+op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
 
 # sp1
 sp1-lib = { version = "3.0.0", features = ["verify"] }
 sp1-zkvm = { version = "3.0.0", features = ["verify"] }
 # Note: This rev is on a branch which includes skipping deferred verification + SP1 mock groth16 bytes fix + executor opts. Once 4.0.0 is released, update this.
 # ratan/op-succinct-sp1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "884948a30c9b125950b9ddf7a344fb69548cd9df" }
+sp1-sdk = { version = "3.0.0" }
 sp1-build = { version = "3.0.0" }
 
 [profile.release-client-lto]
