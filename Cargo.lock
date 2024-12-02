@@ -105,9 +105,9 @@ checksum = "cc7bb162ec39d46ab1ca8c77bf72e890535becd1751bb45f64c597edb4c8c6b3"
 
 [[package]]
 name = "allocator-api2"
-version = "0.2.20"
+version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45862d1c77f2228b9e10bc609d5bc203d86ebc9b87ad8d5d5167a6c9abf739d9"
+checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "alloy"
@@ -5608,6 +5608,7 @@ dependencies = [
  "alloy-rlp",
  "anyhow",
  "cfg-if",
+ "eigen-da",
  "kona-derive",
  "kona-driver",
  "kona-executor",
@@ -5850,7 +5851,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "17.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#fc7c3c0c28a0847402b0c6f1661d66ccdee7f9ec"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -5865,7 +5866,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "13.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#fc7c3c0c28a0847402b0c6f1661d66ccdee7f9ec"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -5874,7 +5875,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "14.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#fc7c3c0c28a0847402b0c6f1661d66ccdee7f9ec"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -5894,7 +5895,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "13.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#fc7c3c0c28a0847402b0c6f1661d66ccdee7f9ec"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702 0.3.2",

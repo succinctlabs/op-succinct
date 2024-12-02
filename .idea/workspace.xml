@@ -8,11 +8,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9e830ace-6034-4340-b3c0-dc8e9b36a5c2" name="更改" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/client/src/l2_chain_provider.rs" beforeDir="false" afterPath="$PROJECT_DIR$/utils/client/src/l2_chain_provider.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utils/client/src/pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/utils/client/src/pipeline.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/programs/fault-proof/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/programs/fault-proof/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/programs/range/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/programs/range/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/programs/range/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/programs/range/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/host/src/fetcher.rs" beforeDir="false" afterPath="$PROJECT_DIR$/utils/host/src/fetcher.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/host/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/utils/host/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils/host/src/rollup_config.rs" beforeDir="false" afterPath="$PROJECT_DIR$/utils/host/src/rollup_config.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -21,11 +24,21 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="MacroExpansionManager">
     <option name="directoryName" value="fv3ob8dc" />
+  </component>
+  <component name="PerforceDirect.Settings">
+    <option name="CHARSET" value="无" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
@@ -38,6 +51,7 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;mantle-kona-zkvm&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/jayliu/Projects/mantle-xyz/op-succinct&quot;,
@@ -49,7 +63,7 @@
     &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
     &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
     &quot;org.rust.first.attach.projects&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;language.rust.cargo.check&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -214,6 +228,10 @@
       <workItem from="1733058523835" duration="815000" />
       <workItem from="1733059530421" duration="2476000" />
       <workItem from="1733121505207" duration="234000" />
+      <workItem from="1733125157689" duration="9000" />
+      <workItem from="1733125169460" duration="2144000" />
+      <workItem from="1733127324968" duration="6525000" />
+      <workItem from="1733133884818" duration="2707000" />
     </task>
     <servers />
   </component>

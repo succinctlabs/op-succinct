@@ -13,6 +13,9 @@ data
 # vscode
 .vscode
 
+# idea
+.idea
+
 # .env files
 .env*
 !.env.example

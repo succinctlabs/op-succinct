@@ -21,6 +21,7 @@ use kona_proof::{
     sync::new_pipeline_cursor,
     BootInfo,
 };
+use kona_proof::l1::OracleEigenDaProvider;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 
 cfg_if! {
@@ -86,6 +87,7 @@ fn main() {
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let l2_provider = OracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
+        let eigen_da_provider = OracleEigenDaProvider::new(oracle.clone());
 
         ////////////////////////////////////////////////////////////////
         //                   DERIVATION & EXECUTION                   //
@@ -106,6 +108,7 @@ fn main() {
             cursor.clone(),
             oracle.clone(),
             beacon,
+            eigen_da_provider,
             l1_provider.clone(),
             l2_provider.clone(),
         );
@@ -113,7 +116,7 @@ fn main() {
             &cfg,
             l2_provider.clone(),
             l2_provider,
-            zkvm_handle_register,
+            Some(zkvm_handle_register),
         );
         let mut driver = Driver::new(cursor, executor, pipeline);
 

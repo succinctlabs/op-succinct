@@ -32,9 +32,10 @@ use std::{cmp::Ordering, collections::HashMap, env, fs, path::Path, str::FromStr
 use alloy_primitives::{keccak256, Bytes, U256, U64};
 
 use crate::{
-    rollup_config::{get_rollup_config_path, merge_rollup_config},
+    rollup_config::{get_rollup_config_path},
     L2Output, ProgramType,
 };
+use crate::rollup_config::{get_eigen_da_config, read_rollup_config};
 
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
@@ -91,6 +92,7 @@ fn get_rpcs() -> RPCConfig {
     }
 }
 
+
 /// The info to fetch for a block.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockInfo {
@@ -128,12 +130,8 @@ impl OPSuccinctDataFetcher {
 
     /// Initialize the fetcher with a rollup config.
     pub async fn new_with_rollup_config() -> Result<Self> {
-        let rpc_config = get_rpcs();
 
-        let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
-        let l2_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l2_rpc.clone()));
-
-        let rollup_config = Self::fetch_and_save_rollup_config(&rpc_config).await?;
+        let rollup_config = read_rollup_config().await?;
 
         Ok(OPSuccinctDataFetcher {
             rpc_config,
@@ -449,32 +447,6 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// Fetch the rollup config. Combines the rollup config from `optimism_rollupConfig` and the
-    /// chain config from `debug_chainConfig`. Saves the rollup config to the rollup config file and
-    /// in memory.
-    async fn fetch_and_save_rollup_config(rpc_config: &RPCConfig) -> Result<RollupConfig> {
-        let rollup_config =
-            Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
-        let chain_config =
-            Self::fetch_rpc_data(&rpc_config.l2_rpc, "debug_chainConfig", vec![]).await?;
-        let rollup_config = merge_rollup_config(&rollup_config, &chain_config)?;
-
-        // Save rollup config to the rollup config file.
-        let rollup_config_path = get_rollup_config_path(rollup_config.l2_chain_id)?;
-
-        // Create the directory for the rollup config if it doesn't exist.
-        let rollup_configs_dir = rollup_config_path.parent().unwrap();
-        if !rollup_configs_dir.exists() {
-            fs::create_dir_all(rollup_configs_dir)?;
-        }
-
-        // Write the rollup config to the file.
-        let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
-        fs::write(rollup_config_path, rollup_config_str)?;
-
-        Ok(rollup_config)
-    }
-
     async fn fetch_rpc_data<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
@@ -708,8 +680,13 @@ impl OPSuccinctDataFetcher {
             }
         }
 
-        // Create the path to the rollup config file.
-        let rollup_config_path = get_rollup_config_path(l2_chain_id)?;
+        // Get the path to the rollup config file.
+        let rollup_config_path = get_rollup_config_path()?;
+
+        // Get the EigenDa config.
+        let eigen_da_config = get_eigen_da_config()?;
+
+
 
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
@@ -749,14 +726,14 @@ impl OPSuccinctDataFetcher {
             server: false,
             rollup_config_path: Some(rollup_config_path),
             mantle_da_indexer_url: None,
-            proxy_url: None,
+            proxy_url: eigen_da_config.proxy_url.clone(),
             disperse_url: None,
             disperse_timeout: Default::default(),
             v: std::env::var("VERBOSITY")
                 .unwrap_or("0".to_string())
                 .parse()
                 .unwrap(),
-            retrieve_timeout: Default::default(),
+            retrieve_timeout: eigen_da_config.retrieve_timeout,
         })
     }
 

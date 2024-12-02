@@ -17,11 +17,12 @@ use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
 use core::fmt::Debug;
+use eigen_da::EigenDaConfig;
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
-    prelude::{Pipeline, SignalReceiver},
-    types::Signal,
+    prelude::{Pipeline},
 };
+use kona_derive::pipeline::{SignalReceiver, Signal};
 use kona_driver::{
     DriverError, DriverPipeline, DriverResult, Executor, ExecutorConstructor, PipelineCursor,
     TipCursor,
@@ -32,6 +33,7 @@ use kona_proof::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo, FlushableCache,
 };
+use kona_proof::l1::OracleEigenDaProvider;
 use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
 use op_alloy_genesis::RollupConfig;
 use op_alloy_protocol::L2BlockInfo;
@@ -49,7 +51,8 @@ cfg_if! {
 
         use op_succinct_client_utils::{
             BootInfoWithBytesConfig, boot::BootInfoStruct,
-            InMemoryOracle
+            InMemoryOracle,
+            EigenDa
         };
         use alloc::vec::Vec;
         use serde_json;
@@ -102,6 +105,11 @@ fn main() {
                 });
                 println!("cycle-tracker-end: boot-load");
 
+                println!("cycle-tracker-start: boot-load");
+                let eigen_da_config = sp1_zkvm::io::read::<EigenDa>();
+                println!("cycle-tracker-end: boot-load");
+
+
                 println!("cycle-tracker-start: oracle-load");
                 let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
                 let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
@@ -122,6 +130,8 @@ fn main() {
         let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
+        let eigen_da_provider = OracleEigenDaProvider::new(oracle.clone());
+
 
         // If the genesis block is claimed, we can exit early.
         // The agreed upon prestate is consented to by all parties, and there is no state
@@ -157,6 +167,7 @@ fn main() {
             cursor.clone(),
             oracle.clone(),
             beacon,
+            eigen_da_provider,
             l1_provider.clone(),
             l2_provider.clone(),
         );
@@ -164,7 +175,7 @@ fn main() {
             &cfg,
             l2_provider.clone(),
             l2_provider.clone(),
-            zkvm_handle_register,
+            Some(zkvm_handle_register),
         );
 
         // Run the derivation pipeline until we are able to produce the output root of the claimed
