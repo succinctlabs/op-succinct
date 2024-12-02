@@ -130,8 +130,10 @@ impl OPSuccinctDataFetcher {
 
     /// Initialize the fetcher with a rollup config.
     pub async fn new_with_rollup_config() -> Result<Self> {
-
-        let rollup_config = read_rollup_config().await?;
+        let rpc_config = get_rpcs();
+        let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
+        let l2_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l2_rpc.clone()));
+        let rollup_config = read_rollup_config()?;
 
         Ok(OPSuccinctDataFetcher {
             rpc_config,

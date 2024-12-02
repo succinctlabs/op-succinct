@@ -105,11 +105,6 @@ fn main() {
                 });
                 println!("cycle-tracker-end: boot-load");
 
-                println!("cycle-tracker-start: boot-load");
-                let eigen_da_config = sp1_zkvm::io::read::<EigenDa>();
-                println!("cycle-tracker-end: boot-load");
-
-
                 println!("cycle-tracker-start: oracle-load");
                 let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
                 let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
@@ -275,40 +270,8 @@ where
             Ok(header) => header,
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
-
-                if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
-                    // Retry with a deposit-only block.
-                    warn!(target: "client", "Flushing current channel and retrying deposit only block");
-
-                    // Flush the current batch and channel - if a block was replaced with a
-                    // deposit-only block due to execution failure, the
-                    // batch and channel it is contained in is forwards
-                    // invalidated.
-                    pipeline.signal(Signal::FlushChannel).await?;
-
-                    // Strip out all transactions that are not deposits.
-                    attributes.transactions = attributes.transactions.map(|txs| {
-                        txs.into_iter()
-                            .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
-                            .collect::<Vec<_>>()
-                    });
-
-                    // Retry the execution.
-                    block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
-                    match block_executor.execute_payload(attributes.clone()) {
-                        Ok(header) => header,
-                        Err(e) => {
-                            error!(
-                                target: "client",
-                                "Critical - Failed to execute deposit-only block: {e}",
-                            );
-                            return Err(DriverError::Executor(e));
-                        }
-                    }
-                } else {
-                    // Pre-Holocene, discard the block if execution fails.
-                    continue;
-                }
+                // Pre-Holocene, discard the block if execution fails.
+                continue;
             }
         };
         println!("cycle-tracker-report-end: block-execution");

@@ -13,7 +13,7 @@ use kona_host::{
     HostCli,
 };
 use op_alloy_genesis::RollupConfig;
-use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, EigenDa, InMemoryOracle};
+use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, InMemoryOracle};
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 
@@ -76,12 +76,6 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         rollup_config_bytes,
     };
     stdin.write(&boot_info);
-
-    let eigen_da = EigenDa {
-        proxy_url: host_cli.proxy_url.clone().unwrap(),
-        retrieve_timeout: host_cli.retrieve_timeout.as_secs().to_string(),
-    };
-    stdin.write(&eigen_da);
 
     // Get the disk KV store.
     let disk_kv_store = DiskKeyValueStore::new(host_cli.data_dir.clone().unwrap());
