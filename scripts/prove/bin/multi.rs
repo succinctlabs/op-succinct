@@ -116,7 +116,7 @@ async fn main() -> Result<()> {
             execution_duration.as_secs(),
         );
 
-        println!("Execution Stats: \n{:?}", stats);
+        println!("Execution Stats: \n{stats}");
 
         // Create the report directory if it doesn't exist.
         let report_dir = format!("execution-reports/multi/{}", l2_chain_id);
