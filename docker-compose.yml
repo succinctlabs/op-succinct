@@ -16,6 +16,7 @@ services:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
     env_file:
+      # Running with Conduit.
       - ${ENV_FILE:-.env}
     restart: unless-stopped
     depends_on:
