@@ -54,7 +54,17 @@ jobs:
 
       - name: Run cost estimator
         run: |
-          ARGS="--batch-size ${{ github.event.inputs.batch_size }} --default-range ${{ github.event.inputs.default_range }}"
+          if [ -z "${{ github.event.inputs.batch_size }}" ]; then
+            ARGS="--batch-size 30"
+          else
+            ARGS="--batch-size ${{ github.event.inputs.batch_size }}"
+          fi
+
+          if [ -z "${{ github.event.inputs.default_range }}" ]; then
+            ARGS="$ARGS --default-range 1000"
+          else
+            ARGS="$ARGS --default-range ${{ github.event.inputs.default_range }}"
+          fi
           if [ ! -z "${{ github.event.inputs.start_block }}" ]; then
             ARGS="$ARGS --start ${{ github.event.inputs.start_block }}"
           fi
