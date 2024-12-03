@@ -270,15 +270,15 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	return l.db.SetProverRequestID(p.ID, proofID)
 }
 
-func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) (string, error) {
+func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
 	resp, err := l.makeProofRequest(proofType, jsonBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var response WitnessGenerationResponse
 	if err := json.Unmarshal(resp, &response); err != nil {
-		return "", fmt.Errorf("error decoding JSON response: %w", err)
+		return nil, fmt.Errorf("error decoding JSON response: %w", err)
 	}
 	l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
 	return response.ProofID, nil

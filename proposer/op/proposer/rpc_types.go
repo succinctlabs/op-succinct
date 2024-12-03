@@ -23,7 +23,7 @@ type ValidateConfigResponse struct {
 // WitnessGenerationResponse is the response type for the `request_span_proof` and `request_agg_proof`
 // RPCs from the op-succinct-server.
 type WitnessGenerationResponse struct {
-	ProofID string `json:"proof_id"`
+	ProofID []byte `json:"proof_id"`
 }
 
 // UnclaimDescription is the description of why a proof was unclaimed.
