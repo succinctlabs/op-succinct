@@ -396,8 +396,9 @@ async fn get_proof_status(
                 ));
             }
         };
+    
+    // Note: Once network-v2 adds an execution error for reserved, we can use it.
 
-    // Note: This description is now unused. Once network-v2 adds an execution error, we can use it.
     let status = status.fulfillment_status();
     if status == FulfillmentStatus::Fulfilled {
         let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
