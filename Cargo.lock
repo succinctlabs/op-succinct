@@ -5639,7 +5639,6 @@ dependencies = [
  "alloy-rlp",
  "anyhow",
  "cfg-if",
- "eigen-da",
  "kona-derive",
  "kona-driver",
  "kona-executor",

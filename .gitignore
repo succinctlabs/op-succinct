@@ -15,6 +15,7 @@ data
 
 # idea
 .idea
+.idea/*
 
 # .env files
 .env*

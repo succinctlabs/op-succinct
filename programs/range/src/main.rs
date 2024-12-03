@@ -17,7 +17,6 @@ use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
 use core::fmt::Debug;
-use eigen_da::EigenDaConfig;
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
     prelude::{Pipeline},
@@ -51,8 +50,7 @@ cfg_if! {
 
         use op_succinct_client_utils::{
             BootInfoWithBytesConfig, boot::BootInfoStruct,
-            InMemoryOracle,
-            EigenDa
+            InMemoryOracle
         };
         use alloc::vec::Vec;
         use serde_json;
