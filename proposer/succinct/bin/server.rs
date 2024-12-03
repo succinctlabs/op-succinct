@@ -25,7 +25,7 @@ use op_succinct_proposer::{
 use sp1_sdk::{
     network_v2::{
         client::NetworkClient,
-        proto::network::{FulfillmentStatus, ProofMode},
+        proto::network::{FulfillmentStatus, FulfillmentStrategy, ProofMode},
     },
     utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
@@ -221,25 +221,24 @@ async fn request_agg_proof(
         .get_header_preimages(&boot_infos, l1_head.into())
         .await?;
 
-    let prover = NetworkProverV2::new();
+    // Use the reserved strategy for the OP Succinct fulfiller/cluster.
+    let prover = NetworkProverV2::new().with_strategy(FulfillmentStrategy::Reserved);
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
 
-    let proof_id = prover
+    let res = prover
         .request_proof(AGG_ELF, stdin, ProofMode::Groth16, None)
-        .await?;
+        .await;
 
-    let proof_id = String::from_utf8(proof_id).unwrap();
-
-    // // Check if error, otherwise get proof ID.
-    // let proof_id = match res {
-    //     Ok(proof_id) => String::from_utf8(proof_id).unwrap(),
-    //     Err(e) => {
-    //         log::error!("Failed to request proof: {}", e);
-    //         return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
-    //     }
-    // };
+    // Check if error, otherwise get proof ID.
+    let proof_id = match res {
+        Ok(proof_id) => String::from_utf8(proof_id).unwrap(),
+        Err(e) => {
+            log::error!("Failed to request proof: {}", e);
+            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
+        }
+    };
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
@@ -292,7 +291,6 @@ async fn request_mock_span_proof(
         Json(ProofStatus {
             status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
             proof: proof_bytes,
-            unclaim_description: None,
         }),
     ))
 }
@@ -350,7 +348,6 @@ async fn request_mock_agg_proof(
         Json(ProofStatus {
             status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
             proof: proof.bytes(),
-            unclaim_description: None,
         }),
     ))
 }
@@ -386,7 +383,6 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
                         proof: vec![],
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -396,15 +392,12 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
                         proof: vec![],
-                        unclaim_description: None,
                     }),
                 ));
             }
         };
 
     // Note: This description is now unused. Once network-v2 adds an execution error, we can use it.
-    let unclaim_description_enum: UnclaimDescription = UnclaimDescription::Other;
-
     let status = status.fulfillment_status();
     if status == FulfillmentStatus::Fulfilled {
         let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
@@ -420,7 +413,6 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: status.into(),
                         proof: proof_bytes,
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -432,7 +424,6 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: status.into(),
                         proof: proof_bytes,
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -444,7 +435,6 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: status.into(),
                         proof: proof_bytes,
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -456,7 +446,6 @@ async fn get_proof_status(
             Json(ProofStatus {
                 status: status.into(),
                 proof: vec![],
-                unclaim_description: Some(unclaim_description_enum),
             }),
         ));
     }
@@ -465,7 +454,6 @@ async fn get_proof_status(
         Json(ProofStatus {
             status: status.into(),
             proof: vec![],
-            unclaim_description: None,
         }),
     ))
 }

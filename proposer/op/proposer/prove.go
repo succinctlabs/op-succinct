@@ -39,7 +39,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			l.Metr.RecordError("get_proof_status", 1)
 			return err
 		}
-		if proofStatus.Status == SP1ProofStatusFulfilled {
+		if proofStatus.Status == SP1FulfillmentStatusFulfilled {
 			// Update the proof in the DB and update status to COMPLETE.
 			l.Log.Info("Fulfilled Proof", "id", req.ProverRequestID)
 			err = l.db.AddFulfilledProof(req.ID, proofStatus.Proof)
@@ -50,10 +50,10 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			continue
 		}
 
-		if proofStatus.Status == SP1ProofStatusUnclaimed {
+		if proofStatus.Status == SP1FulfillmentStatusUnfulfillable {
 			// Record the failure reason.
-			l.Log.Info("Proof unclaimed", "id", req.ProverRequestID, "reason", proofStatus.UnclaimDescription.String())
-			l.Metr.RecordProveFailure(proofStatus.UnclaimDescription.String())
+			l.Log.Info("Proof is unfulfillable", "id", req.ProverRequestID)
+			l.Metr.RecordProveFailure("unfulfillable")
 
 			err = l.RetryRequest(req, proofStatus)
 			if err != nil {
@@ -66,7 +66,8 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 }
 
 // Retry a proof request. Sets the status of a proof to FAILED and retries the proof based on the optional proof status response.
-// If the response is a program execution error, the proof is split into two, which will avoid SP1 out of memory execution errors.
+// If an error response is received, the proof is split into two, which will avoid SP1 out of memory execution errors.
+// TODO: Once the reserved strategy adds an execution error, we should update this to retry only when there's an execution error returned.
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStatusResponse) error {
 	err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
 	if err != nil {

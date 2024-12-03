@@ -66,11 +66,10 @@ impl From<String> for UnclaimDescription {
 #[derive(Serialize, Deserialize)]
 /// The status of a proof request.
 pub struct ProofStatus {
-    // Note: Can't use `SP1ProofStatus` directly because `Serialize_repr` and `Deserialize_repr` aren't derived on it.
-    // serde_repr::Serialize_repr and Deserialize_repr are necessary to use `SP1ProofStatus` in this struct.
+    // Note: Can't use `SP1FulfillmentStatus` directly because `Serialize_repr` and `Deserialize_repr` aren't derived on it.
+    // serde_repr::Serialize_repr and Deserialize_repr are necessary to use `SP1FulfillmentStatus` in this struct.
     pub status: i32,
     pub proof: Vec<u8>,
-    pub unclaim_description: Option<UnclaimDescription>,
 }
 
 /// Configuration of the L2 Output Oracle contract. Created once at server start-up, monitors if there are any changes
