@@ -352,14 +352,6 @@ async fn request_mock_agg_proof(
     ))
 }
 
-pub fn string_to_bytes(s: &str) -> Vec<u8> {
-    // Convert string to Vec<u8>
-    s.as_bytes().to_vec()
-
-    // Alternatively, if you want to keep the original string:
-    // s.bytes().collect()
-}
-
 /// Get the status of a proof.
 async fn get_proof_status(
     Path(proof_id): Path<String>,
