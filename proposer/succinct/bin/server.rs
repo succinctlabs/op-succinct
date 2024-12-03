@@ -20,7 +20,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proposer::{
     AggProofRequest, ContractConfig, ProofResponse, ProofStatus, SpanProofRequest,
-    UnclaimDescription, ValidateConfigRequest, ValidateConfigResponse,
+    ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
     network_v2::{
@@ -165,7 +165,8 @@ async fn request_span_proof(
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     // let prover = NetworkProverV1::new();
-    let prover = NetworkProverV2::new();
+    let mut prover = NetworkProverV2::new();
+    prover.with_strategy(FulfillmentStrategy::Reserved);
 
     // Set simulation to false on range proofs as they're large.
     env::set_var("SKIP_SIMULATION", "true");
@@ -222,7 +223,8 @@ async fn request_agg_proof(
         .await?;
 
     // Use the reserved strategy for the OP Succinct fulfiller/cluster.
-    let prover = NetworkProverV2::new().with_strategy(FulfillmentStrategy::Reserved);
+    let mut prover = NetworkProverV2::new();
+    prover.with_strategy(FulfillmentStrategy::Reserved);
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
@@ -233,7 +235,7 @@ async fn request_agg_proof(
 
     // Check if error, otherwise get proof ID.
     let proof_id = match res {
-        Ok(proof_id) => String::from_utf8(proof_id).unwrap(),
+        Ok(proof_id) => proof_id,
         Err(e) => {
             log::error!("Failed to request proof: {}", e);
             return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
@@ -388,7 +390,7 @@ async fn get_proof_status(
                 ));
             }
         };
-    
+
     // Note: Once network-v2 adds an execution error for reserved, we can use it.
 
     let status = status.fulfillment_status();

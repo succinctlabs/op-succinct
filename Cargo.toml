@@ -93,7 +93,7 @@ sp1-zkvm = { version = "3.0.0", features = ["verify"] }
 # Note: This rev is on Matt's mattstam/v3.0.0-w-network-v2 branch which includes the network-v2 changes from Dec 2.
 # This branch DOES NOT include the SP1 mock groth16 bytes fix, skipping deferred verification and executor opts.
 # This means deferred verification does not work, mock does not work and the cost estimator will be slow.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "f668dc6568b082b9af75d8bd0c776205f6945185", features = [
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "0a455d69946a0eb9984cbabb38a5c3ed50ceebed", features = [
     "network-v2",
 ] }
 sp1-build = { version = "3.0.0" }
