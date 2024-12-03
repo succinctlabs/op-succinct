@@ -36,7 +36,7 @@ pub struct MockProofResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ProofResponse {
-    pub proof_id: String,
+    pub proof_id: Vec<u8>,
 }
 
 #[derive(Debug, Serialize_repr, Deserialize_repr)]

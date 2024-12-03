@@ -176,7 +176,7 @@ async fn request_span_proof(
 
     // Check if error, otherwise get proof ID.
     let proof_id = match res {
-        Ok(proof_id) => String::from_utf8(proof_id).unwrap(),
+        Ok(proof_id) => proof_id,
         Err(e) => {
             log::error!("Failed to request proof: {}", e);
             return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
@@ -369,7 +369,7 @@ async fn get_proof_status(
 
     let client = NetworkClient::new(&private_key);
 
-    let proof_id_bytes = string_to_bytes(&proof_id);
+    let proof_id_bytes = hex::decode(proof_id)?;
 
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
