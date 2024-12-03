@@ -19,6 +19,8 @@ on:
         default: '1000'
   schedule:
     - cron: '0 0 * * *' # Run the workflow every day at midnight UTC.
+  pull_request:
+    branches: [ main ]
 
 jobs:
   cost-estimate:
