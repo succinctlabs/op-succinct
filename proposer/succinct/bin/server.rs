@@ -384,7 +384,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: 1,
+                        status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -394,7 +394,7 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: 1,
+                        status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
                         proof: vec![],
                         unclaim_description: None,
                     }),
@@ -402,8 +402,7 @@ async fn get_proof_status(
             }
         };
 
-    // let unclaim_description = status.unclaim_description.unwrap_or_default();
-    // let unclaim_description_enum: UnclaimDescription = unclaim_description.into();
+    // Note: This description is now unused. Once network-v2 adds an execution error, we can use it.
     let unclaim_description_enum: UnclaimDescription = UnclaimDescription::Other;
 
     let status = status.fulfillment_status();

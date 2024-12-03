@@ -74,8 +74,8 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 		return err
 	}
 
-	// If the proof was unclaimed due to a program execution error, we should split the proof into two.
-	if status.UnclaimDescription == ProgramExecutionError {
+	// Split the proof in two if range is > 1, otherwise retry same request.
+	if (req.EndBlock-req.StartBlock) > 1 {
 		mid := (req.StartBlock + req.EndBlock) / 2
 		// Create two new proof requests, one from [start, mid] and one from [mid, end]. The requests
 		// are consecutive and overlapping.
@@ -90,10 +90,10 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
-		// If the proof was unclaimed for any other reason, retry with the same range.
+		// Retry same request if range is 1 block.
 		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
 		if err != nil {
-			l.Log.Error("failed to add proof request", "err", err)
+			l.Log.Error("failed to retry proof request", "err", err)
 			return err
 		}
 	}
