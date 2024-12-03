@@ -23,7 +23,7 @@ on:
     branches: [ main ]
 
 jobs:
-  cost-estimate:
+  daily-cost-estimator:
     runs-on:
       - runs-on
       - cpu=32
