@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -117,10 +118,13 @@ func (db *ProofDB) UpdateProofStatus(id int, proofStatus proofrequest.Status) er
 }
 
 // SetProverRequestID sets the prover request ID for a proof request in the database.
-func (db *ProofDB) SetProverRequestID(id int, proverRequestID string) error {
+func (db *ProofDB) SetProverRequestID(id int, proverRequestID []byte) error {
+	// Convert the []byte to a hex string.
+	proverRequestIDHex := hex.EncodeToString(proverRequestID)
+
 	_, err := db.writeClient.ProofRequest.Update().
 		Where(proofrequest.ID(id)).
-		SetProverRequestID(proverRequestID).
+		SetProverRequestID(proverRequestIDHex).
 		SetProofRequestTime(uint64(time.Now().Unix())).
 		SetLastUpdatedTime(uint64(time.Now().Unix())).
 		Save(context.Background())
