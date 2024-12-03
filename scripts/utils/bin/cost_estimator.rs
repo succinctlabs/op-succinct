@@ -280,13 +280,7 @@ async fn main() -> Result<()> {
     let (l2_start_block, l2_end_block) = if args.rolling {
         get_rolling_block_range(&data_fetcher, TWELVE_HOURS, args.default_range).await?
     } else {
-        get_validated_block_range(
-            &data_fetcher,
-            args.start,
-            args.end,
-            args.default_range
-        )
-        .await?
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?
     };
 
     let split_ranges = split_range(l2_start_block, l2_end_block, l2_chain_id, args.batch_size);
