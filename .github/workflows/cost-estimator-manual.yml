@@ -26,8 +26,8 @@ jobs:
   cost-estimate:
     runs-on:
       - runs-on
-      - cpu=16
-      - ram=64
+      - cpu=32
+      - ram=128
       - family=m7a+m7i-flex
       - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}
