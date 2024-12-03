@@ -23,21 +23,11 @@ use op_succinct_proposer::{
     UnclaimDescription, ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
-    // network::{
-    //     client::NetworkClient,
-    //     proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
-    // },
     network_v2::{
         client::NetworkClient,
         proto::network::{FulfillmentStatus, ProofMode},
     },
-    utils,
-    HashableKey,
-    NetworkProverV1,
-    NetworkProverV2,
-    ProverClient,
-    SP1Proof,
-    SP1ProofWithPublicValues,
+    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
