@@ -12,7 +12,6 @@ pub async fn get_validated_block_range(
     default_range: u64,
 ) -> Result<(u64, u64)> {
     let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
-    println!("header: {:?}", header.number);
 
     // If end block not provided, use latest finalized block
     let l2_end_block = match end {
