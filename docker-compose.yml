@@ -51,27 +51,27 @@ services:
     ports:
       - "7301:7301"
 
-  # Worldchain Mainnet
-  op-succinct-server-worldchain-mainnet:
-    build:
-      context: .
-      dockerfile: ./proposer/succinct/Dockerfile
-    env_file:
-      - .env.worldchainmainnet
-    restart: unless-stopped
-    ports:
-      - "3003:3003"
+  # # Worldchain Mainnet
+  # op-succinct-server-worldchain-mainnet:
+  #   build:
+  #     context: .
+  #     dockerfile: ./proposer/succinct/Dockerfile
+  #   env_file:
+  #     - .env.worldchainmainnet
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3003:3003"
 
-  op-succinct-proposer-worldchain-mainnet:
-    build:
-      context: .
-      dockerfile: ./proposer/op/Dockerfile.op_proposer
-    env_file:
-      - .env.worldchainmainnet
-    restart: unless-stopped
-    depends_on:
-      - op-succinct-server-worldchain-mainnet
-    volumes:
-      - ./db:/usr/local/bin/dbdata
-    ports:
-      - "7302:7302"
+  # op-succinct-proposer-worldchain-mainnet:
+  #   build:
+  #     context: .
+  #     dockerfile: ./proposer/op/Dockerfile.op_proposer
+  #   env_file:
+  #     - .env.worldchainmainnet
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - op-succinct-server-worldchain-mainnet
+  #   volumes:
+  #     - ./db:/usr/local/bin/dbdata
+  #   ports:
+  #     - "7302:7302"
