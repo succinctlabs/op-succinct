@@ -2,21 +2,7 @@ name: Cost Estimator (1000 blocks)
 
 on:
   workflow_dispatch:
-    inputs:
-      start_block:
-        description: 'Start block (optional - will use latest finalized - 1000 if not provided)'
-        required: false
-      end_block:
-        description: 'End block (optional - will use latest finalized if not provided)'
-        required: false
-      batch_size:
-        description: 'Batch size for processing blocks'
-        required: false
-        default: '30'
-      default_range:
-        description: 'The number of blocks to use for the default range'
-        required: false
-        default: '1000'
+    inputs: {}
   schedule:
     - cron: '0 0 * * *' # Run the workflow every day at midnight UTC.
 
@@ -52,25 +38,7 @@ jobs:
 
       - name: Run cost estimator
         run: |
-          if [ -z "${{ github.event.inputs.batch_size }}" ]; then
-            ARGS="--batch-size 30"
-          else
-            ARGS="--batch-size ${{ github.event.inputs.batch_size }}"
-          fi
-
-          if [ -z "${{ github.event.inputs.default_range }}" ]; then
-            ARGS="$ARGS --default-range 1000"
-          else
-            ARGS="$ARGS --default-range ${{ github.event.inputs.default_range }}"
-          fi
-          if [ ! -z "${{ github.event.inputs.start_block }}" ]; then
-            ARGS="$ARGS --start ${{ github.event.inputs.start_block }}"
-          fi
-          if [ ! -z "${{ github.event.inputs.end_block }}" ]; then
-            ARGS="$ARGS --end ${{ github.event.inputs.end_block }}"
-          fi
-          
-          RUST_LOG=info cargo run --bin cost-estimator --release -- $ARGS
+          RUST_LOG=info cargo run --bin cost-estimator --release -- --batch-size 30 --default-range 1000
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
