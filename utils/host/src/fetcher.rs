@@ -10,8 +10,8 @@ use alloy::{
 use alloy_consensus::{BlockHeader, Header};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
 use kona_host::HostCli;
@@ -365,23 +365,29 @@ impl OPSuccinctDataFetcher {
     }
 
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
-        Ok(self
+        let block = self
             .l1_provider
             .get_block(block_number, alloy::rpc::types::BlockTransactionsKind::Full)
-            .await?
-            .unwrap()
-            .header
-            .inner)
+            .await?;
+
+        if let Some(block) = block {
+            Ok(block.header.inner)
+        } else {
+            bail!("Failed to get L1 header for block {block_number}");
+        }
     }
 
     pub async fn get_l2_header(&self, block_number: BlockId) -> Result<Header> {
-        Ok(self
+        let block = self
             .l2_provider
-            .get_block(block_number, BlockTransactionsKind::Full)
-            .await?
-            .unwrap()
-            .header
-            .inner)
+            .get_block(block_number, alloy::rpc::types::BlockTransactionsKind::Full)
+            .await?;
+
+        if let Some(block) = block {
+            Ok(block.header.inner)
+        } else {
+            bail!("Failed to get L1 header for block {block_number}");
+        }
     }
 
     /// Finds the L1 block at the provided timestamp.
