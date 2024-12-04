@@ -256,6 +256,7 @@ async fn request_mock_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
+    // TODO: Save the data of remove execution with the MockProver to execution-reports/ in mock mode.
     let prover = ProverClient::mock();
     let proof = prover
         .prove(&state.range_pk, sp1_stdin)
