@@ -166,7 +166,7 @@ async fn request_span_proof(
 
     // let prover = NetworkProverV1::new();
     let mut prover = NetworkProverV2::new();
-    prover.with_strategy(FulfillmentStrategy::Reserved);
+    prover.with_strategy(FulfillmentStrategy::Hosted);
 
     // Set simulation to false on range proofs as they're large.
     env::set_var("SKIP_SIMULATION", "true");
@@ -224,7 +224,7 @@ async fn request_agg_proof(
 
     // Use the reserved strategy for the OP Succinct fulfiller/cluster.
     let mut prover = NetworkProverV2::new();
-    prover.with_strategy(FulfillmentStrategy::Reserved);
+    prover.with_strategy(FulfillmentStrategy::Hosted);
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
