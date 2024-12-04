@@ -105,6 +105,7 @@ fn split_range_basic(
 /// 1. Get the L1 block range [L1 origin of l2_start, L1Head] where L1Head is the block from which l2_end can be derived
 /// 2. Loop over L1 blocks to get safeHead increases (batch posts) which form a step function
 /// 3. Split ranges based on safeHead increases and max batch size
+/// 
 /// Example: If safeHeads are [27,49,90] and max_size=30, ranges will be [(0,27), (27,49), (49,69), (69,90)]
 async fn split_range_based_on_safe_heads(
     l2_start: u64,
