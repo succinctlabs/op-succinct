@@ -2,32 +2,8 @@ optimism_package:
   chains:
     - participants:
       - el_type: op-geth
-        el_image: ""
-        el_log_level: ""
-        el_extra_env_vars: {}
-        el_extra_labels: {}
-        el_extra_params: []
-        el_tolerations: []
-        el_volume_size: 0
-        el_min_cpu: 0
-        el_max_cpu: 0
-        el_min_mem: 0
-        el_max_mem: 0
         cl_type: op-node
-        cl_image: ""
-        cl_log_level: ""
-        cl_extra_env_vars: {}
-        cl_extra_labels: {}
-        cl_extra_params: []
-        cl_tolerations: []
-        cl_volume_size: 0
-        cl_min_cpu: 0
-        cl_max_cpu: 0
-        cl_min_mem: 0
-        cl_max_mem: 0
-        node_selectors: {}
-        tolerations: []
-        count: 1
+        cl_extra_params: ["--safedb.path=/safe-db"]
       network_params:
         network: "kurtosis"
         network_id: "2151908"
@@ -43,9 +19,7 @@ optimism_package:
         image: ""
 
         # A list of optional extra params that will be passed to the batcher container for modifying its behaviour
-        extra_params: []
-      additional_services:
-        - blockscout
+        extra_params: ["--batch-type=1"]
   op_contract_deployer_params:
     image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-deployer:v0.0.6
     l1_artifacts_locator: tag://op-contracts/v1.6.0
@@ -68,5 +42,3 @@ ethereum_package:
         }
       }
     '
-  additional_services:
-    - blockscout

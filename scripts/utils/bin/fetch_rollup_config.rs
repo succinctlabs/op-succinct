@@ -107,7 +107,7 @@ async fn update_l2oo_config() -> Result<()> {
         let signer_address = signer.address().to_string();
         (
             env::var("PROPOSER").unwrap_or(signer_address.clone()),
-            env::var("OWNER").unwrap_or(signer_address)
+            env::var("OWNER").unwrap_or(signer_address),
         )
     };
     let challenger = env::var("CHALLENGER").unwrap_or(Address::ZERO.to_string());

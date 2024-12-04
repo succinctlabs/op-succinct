@@ -1,12 +1,16 @@
 # Kurtosis
 
-To test `op-succinct` on a local devnet, you can use Kurtosis.
+## What is Kurtosis?
 
-First, install Kurtosis: https://docs.kurtosis.com/install/
+Kurtosis is a tool that allows you to test `op-succinct` on a local devnet.
 
-https://github.com/ethpandaops/optimism-package/tree/main/.github/tests
+## Install Kurtosis
 
-Then, configure the `op-network.yaml` file to use the Kurtosis engine:
+First, install Kurtosis by following the instructions here: [Kurtosis Installation Guide](https://docs.kurtosis.com/install/).
+
+## How to configure Kurtosis
+
+Configure the `op-network.yaml` file to use the Kurtosis engine:
 
 ```yaml
 optimism_package:
@@ -30,6 +34,28 @@ ethereum_package:
     - blockscout
 ```
 
-Run the testnet: `kurtosis run --enclave my-testnet github.com/ratankaliani/optimism-package@ratan/fixes --args-file op-network.yaml --image-download always`
+## How to run Kurtosis?
 
-Remove the testnet: `kurtosis clean -a`
+Run the testnet using the following command:
+
+```bash
+kurtosis run --enclave my-testnet github.com/ethpandaops/optimism-package@bbusa/add-miner --args-file op-network.yaml --image-download always
+```
+
+Note: We're currently using the `bbusa/add-miner` branch of the `optimism-package` repo because it has a fix for the `op-batcher` container.
+
+## How to get the relevant RPC's from Kurtosis?
+
+To get the relevant RPC endpoints (`L1_RPC`, `L2_RPC`, `L1_BEACON_RPC`, `L2_NODE_RPC`) from Kurtosis for `op-succinct`, you can use the following commands:
+
+```bash
+kurtosis logs -a
+```
+
+## Clean up
+
+Remove the testnet with:
+
+```bash
+kurtosis clean -a
+```
