@@ -838,7 +838,8 @@ impl OPSuccinctDataFetcher {
                 )
                 .await?;
             let l2_safe_head = result.safe_head.number;
-            if l2_safe_head > l2_end_block {
+            // If the safe head is greater than or equal to the L2 end block at this L1 block, then we can derive the L2 end block from this L1 block.
+            if l2_safe_head >= l2_end_block {
                 return Ok((result.l1_block.hash, result.l1_block.number));
             }
 
