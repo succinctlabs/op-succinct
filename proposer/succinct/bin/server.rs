@@ -1,3 +1,4 @@
+use alloy::providers::ProviderBuilder;
 use alloy_primitives::{hex, Address, B256};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
@@ -91,10 +92,10 @@ async fn validate_config(
     Json(payload): Json<ValidateConfigRequest>,
 ) -> Result<(StatusCode, Json<ValidateConfigResponse>), AppError> {
     info!("Received validate config request: {:?}", payload);
-    let fetcher = OPSuccinctDataFetcher::default();
-
     let address = Address::from_str(&payload.address).unwrap();
-    let l2_output_oracle = L2OutputOracle::new(address, fetcher.l1_provider);
+    let l1_proposer_provider =
+        ProviderBuilder::new().on_http(env::var("L1_RPC_PROPOSER").unwrap().parse().unwrap());
+    let l2_output_oracle = L2OutputOracle::new(address, l1_proposer_provider);
 
     let agg_vkey = l2_output_oracle.aggregationVkey().call().await?;
     let range_vkey = l2_output_oracle.rangeVkeyCommitment().call().await?;

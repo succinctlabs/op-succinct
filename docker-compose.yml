@@ -1,27 +1,77 @@
 services:
-  # OP Succinct Server
-  op-succinct-server:
+  # BoB Testnet
+  op-succinct-server-bob-testnet:
     build:
       context: .
       dockerfile: ./proposer/succinct/Dockerfile
     env_file:
-      - ${ENV_FILE:-.env}
+      - .env.bobtestnet
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3001"
 
-  # OP Succinct Proposer
-  op-succinct-proposer:
+  op-succinct-proposer-bob-testnet:
     build:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
     env_file:
-      - ${ENV_FILE:-.env}
+      - .env.bobtestnet
     restart: unless-stopped
     depends_on:
-      - op-succinct-server
+      - op-succinct-server-bob-testnet
     volumes:
       - ./db:/usr/local/bin/dbdata
     # The metrics port is the default port for the OP Proposer.
     ports:
       - "7300:7300"
+
+  # Conduit 10s
+  op-succinct-server-conduit-10s:
+    build:
+      context: .
+      dockerfile: ./proposer/succinct/Dockerfile
+    env_file:
+      - .env.conduit10s
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+
+  op-succinct-proposer-conduit-10s:
+    build:
+      context: .
+      dockerfile: ./proposer/op/Dockerfile.op_proposer
+    env_file:
+      - .env.conduit10s
+    restart: unless-stopped
+    depends_on:
+      - op-succinct-server-conduit-10s
+    volumes:
+      - ./db:/usr/local/bin/dbdata
+    # The metrics port is the default port for the OP Proposer.
+    ports:
+      - "7301:7301"
+
+  # Worldchain Mainnet
+  op-succinct-server-worldchain-mainnet:
+    build:
+      context: .
+      dockerfile: ./proposer/succinct/Dockerfile
+    env_file:
+      - .env.worldchainmainnet
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+
+  op-succinct-proposer-worldchain-mainnet:
+    build:
+      context: .
+      dockerfile: ./proposer/op/Dockerfile.op_proposer
+    env_file:
+      - .env.worldchainmainnet
+    restart: unless-stopped
+    depends_on:
+      - op-succinct-server-worldchain-mainnet
+    volumes:
+      - ./db:/usr/local/bin/dbdata
+    ports:
+      - "7302:7302"
