@@ -914,7 +914,7 @@ impl OPSuccinctDataFetcher {
         Ok(result.safe_head.number)
     }
 
-    /// Check if the safeDb method is accessible on the L2 node.
+    /// Check if the safeDB is activated on the L2 node.
     pub async fn is_safe_db_activated(&self) -> Result<bool> {
         let l1_block = self.get_l1_header(BlockId::latest()).await?;
         let l1_block_number_hex = format!("0x{:x}", l1_block.number);
