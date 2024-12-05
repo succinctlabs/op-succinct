@@ -16,6 +16,7 @@ async fn main() -> Result<()> {
     } else {
         let res = start_server_and_native_client(cfg.clone()).await;
         if res.is_err() {
+            println!("Failed to start server and native client: {}", res.err().unwrap());
             std::process::exit(1);
         }
     }

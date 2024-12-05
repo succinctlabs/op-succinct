@@ -123,6 +123,7 @@ async fn request_span_proof(
         .await
         .unwrap();
 
+    info!("New host cli");
     let host_cli = fetcher
         .get_host_cli_args(
             payload.start,
@@ -131,7 +132,7 @@ async fn request_span_proof(
             CacheMode::DeleteCache,
         )
         .await?;
-
+    info!("Start to spawn witnessgen");
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
@@ -146,6 +147,7 @@ async fn request_span_proof(
             e
         )));
     }
+    info!("Witnessgen complete");
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 

@@ -793,7 +793,7 @@ dependencies = [
  "alloy-pubsub",
  "alloy-transport",
  "futures",
- "http 1.1.0",
+ "http 1.2.0",
  "rustls",
  "serde_json",
  "tokio",
@@ -804,9 +804,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-trie"
-version = "0.7.4"
+version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b2e366c0debf0af77766c23694a3f863b02633050e71e096e257ffbd395e50"
+checksum = "3a5fd8fea044cc9a8c8a50bb6f28e31f0385d820f116c5b98f6f4e55d6e5590b"
 dependencies = [
  "alloy-primitives 0.8.14",
  "alloy-rlp",
@@ -893,9 +893,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.93"
+version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c95c10ba0b00a02636238b814946408b1322d5ac4760326e6fb8ec956d85775"
+checksum = "c1fd03a028ef38ba2276dce7e33fcd6369c158a1bca17946c4b1b701891c1ff7"
 
 [[package]]
 name = "ark-ff"
@@ -1135,7 +1135,7 @@ dependencies = [
  "axum-core",
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.5.1",
@@ -1168,7 +1168,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "mime",
@@ -1642,9 +1642,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.21"
+version = "4.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb3b4b9e5a7c7514dfa52869339ee98b3156b0bfb4e8a77c4ff4babb64b1604f"
+checksum = "69371e34337c4c984bbe322360c2547210bf632eb2814bbe78a6e87a2935bd2b"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1652,9 +1652,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.21"
+version = "4.5.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b17a95aa67cc7b5ebd32aa5370189aa0d79069ef1c64ce893bd30fb24bff20ec"
+checksum = "6e24c1b4099818523236a8ca881d2b45db98dadfb4625cf6608c12069fcbbde1"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2238,7 +2238,7 @@ dependencies = [
 [[package]]
 name = "eigen-da"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-primitives 0.8.14",
  "anyhow",
@@ -3046,7 +3046,7 @@ dependencies = [
  "fnv",
  "futures-core",
  "futures-sink",
- "http 1.1.0",
+ "http 1.2.0",
  "indexmap 2.7.0",
  "slab",
  "tokio",
@@ -3179,9 +3179,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21b9ddb458710bc376481b842f5da65cdf31522de232c1ca8146abce2a358258"
+checksum = "f16ca2af56261c99fba8bac40a10251ce8188205a4c448fbb745a2e4daa76fea"
 dependencies = [
  "bytes",
  "fnv",
@@ -3206,7 +3206,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1efedce1fb8e6913f23e0c92de8e62cd5b772a67e7b3946df930a62566c93184"
 dependencies = [
  "bytes",
- "http 1.1.0",
+ "http 1.2.0",
 ]
 
 [[package]]
@@ -3217,7 +3217,7 @@ checksum = "793429d76616a256bcb62c2a2ec2bed781c8307e797e2598c50010f2bee2544f"
 dependencies = [
  "bytes",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "pin-project-lite",
 ]
@@ -3268,7 +3268,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "h2 0.4.7",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "httparse",
  "httpdate",
@@ -3286,7 +3286,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08afdbb5c31130e3034af566421053ab03787c640246a446327f550d11bcb333"
 dependencies = [
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "hyper 1.5.1",
  "hyper-util",
  "rustls",
@@ -3335,7 +3335,7 @@ dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "hyper 1.5.1",
  "pin-project-lite",
@@ -3753,7 +3753,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3780,24 +3780,24 @@ dependencies = [
  "serde",
  "serde_json",
  "spin 0.9.8",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tracing",
 ]
 
 [[package]]
 name = "kona-common"
 version = "0.0.4"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "cfg-if",
  "linked_list_allocator",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
 name = "kona-common-proc"
 version = "0.0.4"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3810,7 +3810,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.5"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3830,14 +3830,14 @@ dependencies = [
  "prost",
  "rlp 0.6.1",
  "serde",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tracing",
 ]
 
 [[package]]
 name = "kona-driver"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.14",
@@ -3848,14 +3848,14 @@ dependencies = [
  "op-alloy-genesis",
  "op-alloy-protocol",
  "op-alloy-rpc-types-engine",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tracing",
 ]
 
 [[package]]
 name = "kona-executor"
 version = "0.0.4"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3866,14 +3866,14 @@ dependencies = [
  "op-alloy-genesis",
  "op-alloy-rpc-types-engine",
  "revm",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tracing",
 ]
 
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3914,33 +3914,33 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.5"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives 0.8.14",
  "alloy-rlp",
  "alloy-trie",
  "serde",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
 name = "kona-preimage"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-primitives 0.8.14",
  "async-channel",
  "async-trait",
  "rkyv 0.8.9",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tracing",
 ]
 
 [[package]]
 name = "kona-proof"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#544cd306fa7ab7ec52cbca591334264bf119141d"
+source = "git+https://github.com/mantle-xyz/kona?branch=mantle-kona-mpt#aaee2304ad4b1b937ee26fdc000b5a5a45922c66"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3960,7 +3960,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spin 0.9.8",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tokio",
  "tracing",
 ]
@@ -4463,7 +4463,7 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 [[package]]
 name = "op-alloy-consensus"
 version = "0.4.0"
-source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#e433a8a8a91e3141c23217038f35944b26fa97d9"
+source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#75430da099aa9d8a8cb20f18ff3215f682997c7d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4478,7 +4478,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-genesis"
 version = "0.4.0"
-source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#e433a8a8a91e3141c23217038f35944b26fa97d9"
+source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#75430da099aa9d8a8cb20f18ff3215f682997c7d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4491,7 +4491,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-network"
 version = "0.4.0"
-source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#e433a8a8a91e3141c23217038f35944b26fa97d9"
+source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#75430da099aa9d8a8cb20f18ff3215f682997c7d"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -4505,7 +4505,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-protocol"
 version = "0.4.0"
-source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#e433a8a8a91e3141c23217038f35944b26fa97d9"
+source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#75430da099aa9d8a8cb20f18ff3215f682997c7d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4522,7 +4522,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types"
 version = "0.4.0"
-source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#e433a8a8a91e3141c23217038f35944b26fa97d9"
+source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#75430da099aa9d8a8cb20f18ff3215f682997c7d"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4538,7 +4538,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types-engine"
 version = "0.4.0"
-source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#e433a8a8a91e3141c23217038f35944b26fa97d9"
+source = "git+https://github.com/mantle-xyz/op-alloy?branch=mantle-alloy-0.6.4#75430da099aa9d8a8cb20f18ff3215f682997c7d"
 dependencies = [
  "alloy-primitives 0.8.14",
  "alloy-rpc-types-engine",
@@ -4589,7 +4589,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "spin 0.9.8",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tracing",
 ]
 
@@ -5118,14 +5118,14 @@ dependencies = [
 
 [[package]]
 name = "parity-scale-codec-derive"
-version = "3.7.0"
+version = "3.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8781a75c6205af67215f382092b6e0a4ff3734798523e69073d4bcd294ec767b"
+checksum = "d830939c76d294956402033aee57a6da7b438f2294eb94864c37b0569053a42c"
 dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.90",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -5526,7 +5526,7 @@ dependencies = [
  "rustc-hash 2.1.0",
  "rustls",
  "socket2",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tokio",
  "tracing",
 ]
@@ -5545,7 +5545,7 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "slab",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "tinyvec",
  "tracing",
  "web-time",
@@ -5825,7 +5825,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2 0.4.7",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.5.1",
@@ -5871,7 +5871,7 @@ checksum = "562ceb5a604d3f7c885a792d42c199fd8af239d0a51b2fa6a78aafa092452b04"
 dependencies = [
  "anyhow",
  "async-trait",
- "http 1.1.0",
+ "http 1.2.0",
  "reqwest 0.12.9",
  "serde",
  "thiserror 1.0.69",
@@ -5881,7 +5881,7 @@ dependencies = [
 [[package]]
 name = "revm"
 version = "17.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#5b96f121ea94c3cab30c8a431da8a2f85b401cd3"
 dependencies = [
  "auto_impl",
  "cfg-if",
@@ -5896,7 +5896,7 @@ dependencies = [
 [[package]]
 name = "revm-interpreter"
 version = "13.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#5b96f121ea94c3cab30c8a431da8a2f85b401cd3"
 dependencies = [
  "revm-primitives",
  "serde",
@@ -5905,7 +5905,7 @@ dependencies = [
 [[package]]
 name = "revm-precompile"
 version = "14.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#5b96f121ea94c3cab30c8a431da8a2f85b401cd3"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
@@ -5925,7 +5925,7 @@ dependencies = [
 [[package]]
 name = "revm-primitives"
 version = "13.0.0"
-source = "git+https://github.com/mantle-xyz/revm?branch=kona#742469e54b7104a19f56e8142746f4d72130d752"
+source = "git+https://github.com/mantle-xyz/revm?branch=kona#5b96f121ea94c3cab30c8a431da8a2f85b401cd3"
 dependencies = [
  "alloy-eip2930",
  "alloy-eip7702 0.3.2",
@@ -7466,11 +7466,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
 dependencies = [
- "thiserror-impl 2.0.3",
+ "thiserror-impl 2.0.4",
 ]
 
 [[package]]
@@ -7486,9 +7486,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7516,9 +7516,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.36"
+version = "0.3.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5dfd88e563464686c916c7e46e623e520ddc6d79fa6641390f2e3fa86e83e885"
+checksum = "35e7868883861bd0e56d9ac6efcaaca0d6d5d82a2a7ec8209ff492c07cf37b21"
 dependencies = [
  "deranged",
  "itoa",
@@ -7539,9 +7539,9 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "time-macros"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f252a68540fde3a3877aeea552b832b40ab9a69e318efd078774a01ddee1ccf"
+checksum = "2834e6017e3e5e4b9834939793b282bc03b37a3336245fa820e35e233e2a85de"
 dependencies = [
  "num-conv",
  "time-core",
@@ -7583,9 +7583,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.41.1"
+version = "1.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cfb5bee7a6a52939ca9224d6ac897bb669134078daa8735560897f69de4d33"
+checksum = "5cec9b21b0450273377fc97bd4c33a8acffc8c996c987a7c5b319a0083707551"
 dependencies = [
  "backtrace",
  "bytes",
@@ -7661,9 +7661,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.12"
+version = "0.7.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61e7c3654c13bcd040d4a03abee2c75b1d14a37b423cf5a813ceae1cc903ec6a"
+checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
 dependencies = [
  "bytes",
  "futures-core",
@@ -7741,7 +7741,7 @@ checksum = "1e9cd434a998747dd2c4276bc96ee2e0c7a2eadf3cae88e52be55a05fa9053f5"
 dependencies = [
  "bitflags 2.6.0",
  "bytes",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body 1.0.1",
  "http-body-util",
  "pin-project-lite",
@@ -7861,7 +7861,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "data-encoding",
- "http 1.1.0",
+ "http 1.2.0",
  "httparse",
  "log",
  "rand",
@@ -7881,7 +7881,7 @@ dependencies = [
  "async-trait",
  "axum",
  "futures",
- "http 1.1.0",
+ "http 1.2.0",
  "http-body-util",
  "hyper 1.5.1",
  "prost",

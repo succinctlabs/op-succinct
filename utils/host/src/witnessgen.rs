@@ -3,6 +3,7 @@ use std::time::Duration;
 use sysinfo::System;
 
 use kona_host::HostCli;
+use log::info;
 
 /// Convert the HostCli to a vector of arguments that can be passed to a command.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
@@ -51,6 +52,10 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
         args.push("--rollup-config-path".to_string());
         args.push(rollup_config_path.to_string_lossy().into_owned());
     }
+    if let Some(proxy_url) = &host_cli.proxy_url {
+        args.push("--proxy-url".to_string());
+        args.push(proxy_url.to_string());
+    }
     args
 }
 
@@ -91,13 +96,14 @@ impl WitnessGenExecutor {
             .expect("Failed to get cargo metadata");
         let target_dir = metadata
             .target_directory
-            .join("native_host_runner/release/native_host_runner");
+            .join("release/native_host_runner");
         let args = convert_host_cli_to_args(host_cli);
 
+        info!("Running args {:?}", args);
         // Run the native host runner.
         let child = tokio::process::Command::new(target_dir)
             .args(&args)
-            .env("RUST_LOG", "info")
+            .env("RUST_LOG", "debug")
             .spawn()?;
         self.ongoing_processes.push(WitnessGenProcess {
             child,

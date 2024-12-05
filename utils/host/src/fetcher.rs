@@ -30,7 +30,7 @@ use serde_json::{json, Value};
 use std::{cmp::Ordering, collections::HashMap, env, fs, path::Path, str::FromStr, sync::Arc};
 
 use alloy_primitives::{keccak256, Bytes, U256, U64};
-
+use log::info;
 use crate::{
     rollup_config::{get_rollup_config_path},
     L2Output, ProgramType,
@@ -466,7 +466,6 @@ impl OPSuccinctDataFetcher {
             .await?
             .json::<serde_json::Value>()
             .await?;
-
         // Check for RPC error from the JSON RPC response.
         if let Some(error) = response.get("error") {
             let error_message = error["message"].as_str().unwrap_or("Unknown error");
@@ -487,6 +486,7 @@ impl OPSuccinctDataFetcher {
         T: serde::de::DeserializeOwned,
     {
         let url = self.get_rpc_url(rpc_mode);
+        info!("Fetching RPC data from {}, method {}", url.clone(), method.clone());
         Self::fetch_rpc_data(url, method, params).await
     }
 
@@ -612,7 +612,7 @@ impl OPSuccinctDataFetcher {
             l2_claim_hash: agreed_l2_head_hash.0.into(),
         };
         let agreed_l2_output_root = keccak256(l2_output_encoded.abi_encode());
-
+        info!("Agreed l2 output root: {:?}", agreed_l2_output_root);
         // Get L2 claim data.
         let l2_claim_block = l2_provider
             .get_block_by_number(l2_end_block.into(), BlockTransactionsKind::Hashes)
@@ -636,14 +636,16 @@ impl OPSuccinctDataFetcher {
             l2_claim_hash: l2_claim_hash.0.into(),
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
+        info!("Claim l2 output root: {:?}", claimed_l2_output_root);
 
-        let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+        // let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+        let l1_head_number = 149;
 
         // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block
         let l1_head_number = l1_head_number + 7;
         let header = self.get_l1_header(l1_head_number.into()).await?;
         let l1_head_hash = header.hash_slow();
-
+        info!("L1 head number: {}", l1_head_number);
         // Get the workspace root, which is where the data directory is.
         let metadata = MetadataCommand::new().exec().unwrap();
         let workspace_root = metadata.workspace_root;
@@ -669,7 +671,7 @@ impl OPSuccinctDataFetcher {
             ProgramType::Single => {
                 format!("{}/target/release-client-lto/fault-proof", workspace_root)
             }
-            ProgramType::Multi => format!("{}/target/release-client-lto/range", workspace_root),
+            ProgramType::Multi => format!("{}/target/release/range", workspace_root),
         };
 
         // Delete the data directory if the cache mode is DeleteCache.
@@ -765,6 +767,8 @@ impl OPSuccinctDataFetcher {
 
         // Get the l1 origin of the l2 end block.
         let l2_end_block_hex = format!("0x{:x}", l2_end_block);
+        info!("l2 end block hex {:?}", l2_end_block_hex.clone());
+
         let optimism_output_data: OutputResponse = self
             .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
@@ -773,6 +777,7 @@ impl OPSuccinctDataFetcher {
             )
             .await?;
 
+        info!("optimism_outputAtBlock {:?}", optimism_output_data.clone());
         let l1_origin = optimism_output_data.block_ref.l1_origin;
 
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
@@ -814,7 +819,7 @@ impl OPSuccinctDataFetcher {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
         let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
-
+        info!("Fetching l1 head from {}", l2_end_block);
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
 
