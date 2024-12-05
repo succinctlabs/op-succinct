@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    networks:
+      - kt-op
 
   # OP Succinct Proposer
   op-succinct-proposer:
@@ -25,3 +27,10 @@ services:
     # The metrics port is the default port for the OP Proposer.
     ports:
       - "7300:7300"
+    networks:
+      - kt-op
+  
+networks:
+  kt-op:
+    name: kt-op
+    external: true
