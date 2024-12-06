@@ -251,6 +251,12 @@ func (l *L2OutputSubmitter) GetProposerMetrics(ctx context.Context) (opsuccinctm
 		return opsuccinctmetrics.ProposerMetrics{}, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
 	}
 
+	// This fetches the next block number, which is the currentBlock + submissionInterval.
+	minBlockToProveToAgg, err := l.l2ooContract.NextBlockNumber(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return opsuccinctmetrics.ProposerMetrics{}, fmt.Errorf("failed to get next L2OO output: %w", err)
+	}
+
 	numProving, err := l.db.GetNumberOfRequestsWithStatuses(proofrequest.StatusPROVING)
 	if err != nil {
 		return opsuccinctmetrics.ProposerMetrics{}, fmt.Errorf("failed to get number of proofs proving: %w", err)
@@ -271,6 +277,7 @@ func (l *L2OutputSubmitter) GetProposerMetrics(ctx context.Context) (opsuccinctm
 		L2FinalizedBlock:               l2FinalizedBlock,
 		LatestContractL2Block:          latestContractL2Block.Uint64(),
 		HighestProvenContiguousL2Block: highestProvenContiguousL2Block,
+		MinBlockToProveToAgg:           minBlockToProveToAgg.Uint64(),
 		NumProving:                     uint64(numProving),
 		NumWitnessgen:                  uint64(numWitnessgen),
 		NumUnrequested:                 uint64(numUnrequested),
@@ -312,8 +319,8 @@ func (l *L2OutputSubmitter) SendSlackNotification(proposerMetrics opsuccinctmetr
 
 	message := fmt.Sprintf("*Chain %d Proposer Metrics*:\n"+
 		"Contract is %d minutes behind L2 Finalized\n"+
-		"| L2 Unsafe | L2 Finalized | Contract L2 | Proven L2 |\n"+
-		"| %-9d | %-12d | %-11d | %-9d |\n"+
+		"| L2 Unsafe | L2 Finalized | Contract L2 | Proven L2 | Min to Agg |\n"+
+		"| %-9d | %-12d | %-11d | %-9d | %-9d |\n"+
 		"| Proving   | Witness Gen | Unrequested |\n"+
 		"| %-9d | %-11d | %-11d |",
 		l.Cfg.L2ChainID,
@@ -322,6 +329,7 @@ func (l *L2OutputSubmitter) SendSlackNotification(proposerMetrics opsuccinctmetr
 		proposerMetrics.L2FinalizedBlock,
 		proposerMetrics.LatestContractL2Block,
 		proposerMetrics.HighestProvenContiguousL2Block,
+		proposerMetrics.MinBlockToProveToAgg,
 		proposerMetrics.NumProving,
 		proposerMetrics.NumWitnessgen,
 		proposerMetrics.NumUnrequested)

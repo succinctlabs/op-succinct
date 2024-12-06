@@ -190,7 +190,6 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 		return fmt.Errorf("failed to get next L2OO output: %w", err)
 	}
 
-	l.Log.Info("Checking for AGG proof", "blocksToProve", minTo.Uint64()-latest.Uint64(), "latestProvenBlock", latest.Uint64(), "minBlockToProveToAgg", minTo.Uint64())
 	created, end, err := l.db.TryCreateAggProofFromSpanProofs(latest.Uint64(), minTo.Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to create agg proof from span proofs: %w", err)

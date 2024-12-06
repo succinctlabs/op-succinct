@@ -61,6 +61,7 @@ async fn main() -> Result<()> {
         rollup_config_hash,
         range_vk,
         range_pk,
+        agg_vk,
         agg_pk,
     };
 
@@ -116,6 +117,7 @@ async fn validate_config(
 
 /// Request a proof for a span of blocks.
 async fn request_span_proof(
+    State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
@@ -170,8 +172,17 @@ async fn request_span_proof(
 
     // Set simulation to false on range proofs as they're large.
     env::set_var("SKIP_SIMULATION", "true");
+    let vk_hash = prover
+        .register_program(&state.range_vk, MULTI_BLOCK_ELF)
+        .await?;
     let res = prover
-        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed, None)
+        .request_proof(
+            &vk_hash,
+            &sp1_stdin,
+            ProofMode::Compressed,
+            1_000_000_000_000,
+            None,
+        )
         .await;
     env::set_var("SKIP_SIMULATION", "false");
 
@@ -229,8 +240,17 @@ async fn request_agg_proof(
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
 
+    let vk_hash = prover
+        .register_program(&state.agg_vk, AGG_ELF)
+        .await?;
     let res = prover
-        .request_proof(AGG_ELF, stdin, ProofMode::Groth16, None)
+        .request_proof(
+            &vk_hash,
+            &stdin,
+            ProofMode::Groth16,
+            1_000_000_000_000,
+            None,
+        )
         .await;
 
     // Check if error, otherwise get proof ID.
