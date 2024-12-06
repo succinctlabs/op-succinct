@@ -173,8 +173,6 @@ async fn request_span_proof(
         .await;
     env::set_var("SKIP_SIMULATION", "false");
 
-    info!("Proof request complete!");
-
     // Check if error, otherwise get proof ID.
     let proof_id = match res {
         Ok(proof_id) => proof_id,
