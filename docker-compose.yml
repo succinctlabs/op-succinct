@@ -35,7 +35,7 @@ services:
       - ${ENV_FILE:-.env.conduit}
     restart: unless-stopped
     ports:
-      - "3002:3002"
+      - "3005:3005"
 
   # OP Succinct Proposer
   op-succinct-proposer-conduit-10s:
@@ -52,4 +52,4 @@ services:
       - ./db:/usr/local/bin/dbdata
     # The metrics port is the default port for the OP Proposer.
     ports:
-      - "7302:7302"
+      - "7305:7305"
