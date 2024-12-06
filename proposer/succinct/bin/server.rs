@@ -341,7 +341,15 @@ async fn request_mock_span_proof(
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
     let start_prove = Instant::now();
-    let (proof, report) = generate_mock_compressed_proof(MULTI_BLOCK_ELF, sp1_stdin)?;
+    let res = generate_mock_compressed_proof(MULTI_BLOCK_ELF, sp1_stdin);
+    let (proof, report) = if let Ok(result) = res {
+        result
+    } else {
+        return Err(AppError(anyhow::anyhow!(
+            "Failed to generate mock compressed proof: {}",
+            res.err().unwrap()
+        )));
+    };
     let prove_duration = start_prove.elapsed();
     // Save the report to execution-reports/ with .csv
     let report_path = format!("execution-reports/{}.json", payload.start);
