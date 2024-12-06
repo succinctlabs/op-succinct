@@ -60,7 +60,7 @@ services:
       - .env.worldchainmainnet
     restart: unless-stopped
     volumes:
-      - ./execution-reports-docker:/execution-reports
+      - ./execution-reports/docker:/execution-reports
     ports:
       - "3003:3003"
 
