@@ -3,7 +3,10 @@ use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
-use op_succinct_host_utils::{fetcher::{OPSuccinctDataFetcher, RunContext}, get_agg_proof_stdin};
+use op_succinct_host_utils::{
+    fetcher::{OPSuccinctDataFetcher, RunContext},
+    get_agg_proof_stdin,
+};
 use sp1_sdk::{
     utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };

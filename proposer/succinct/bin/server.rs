@@ -1,4 +1,5 @@
 use alloy_primitives::{hex, Address, B256};
+use anyhow::Result;
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::StatusCode,
@@ -6,7 +7,6 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use anyhow::Result;
 use log::info;
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},

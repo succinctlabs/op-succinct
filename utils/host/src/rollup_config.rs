@@ -129,7 +129,8 @@ pub fn get_rollup_config_path(l2_chain_id: u64, run_context: RunContext) -> Resu
             Ok(rollup_config_path.into())
         }
         RunContext::Docker => {
-            let rollup_config_path = PathBuf::from(format!("/usr/local/configs/{}/rollup.json", l2_chain_id));
+            let rollup_config_path =
+                PathBuf::from(format!("/usr/local/configs/{}/rollup.json", l2_chain_id));
             Ok(rollup_config_path)
         }
     }
