@@ -20,14 +20,14 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proposer::{
     AggProofRequest, ContractConfig, ProofResponse, ProofStatus, SpanProofRequest,
-    UnclaimDescription, ValidateConfigRequest, ValidateConfigResponse,
+    ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
-    network::{
+    network_v2::{
         client::NetworkClient,
-        proto::network::{ProofMode, ProofStatus as SP1ProofStatus},
+        proto::network::{FulfillmentStatus, FulfillmentStrategy, ProofMode},
     },
-    utils, HashableKey, NetworkProverV1, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -61,6 +61,7 @@ async fn main() -> Result<()> {
         rollup_config_hash,
         range_vk,
         range_pk,
+        agg_vk,
         agg_pk,
     };
 
@@ -116,6 +117,7 @@ async fn validate_config(
 
 /// Request a proof for a span of blocks.
 async fn request_span_proof(
+    State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
@@ -164,12 +166,23 @@ async fn request_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = NetworkProverV1::new();
+    // let prover = NetworkProverV1::new();
+    let mut prover = NetworkProverV2::new();
+    prover.with_strategy(FulfillmentStrategy::Reserved);
 
     // Set simulation to false on range proofs as they're large.
     env::set_var("SKIP_SIMULATION", "true");
+    let vk_hash = prover
+        .register_program(&state.range_vk, MULTI_BLOCK_ELF)
+        .await?;
     let res = prover
-        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
+        .request_proof(
+            &vk_hash,
+            &sp1_stdin,
+            ProofMode::Compressed,
+            1_000_000_000_000,
+            None,
+        )
         .await;
     env::set_var("SKIP_SIMULATION", "false");
 
@@ -220,14 +233,34 @@ async fn request_agg_proof(
         .get_header_preimages(&boot_infos, l1_head.into())
         .await?;
 
-    let prover = NetworkProverV1::new();
+    // Use the reserved strategy for the OP Succinct fulfiller/cluster.
+    let mut prover = NetworkProverV2::new();
+    prover.with_strategy(FulfillmentStrategy::Reserved);
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
 
-    let proof_id = prover
-        .request_proof(AGG_ELF, stdin, ProofMode::Groth16)
+    let vk_hash = prover
+        .register_program(&state.agg_vk, AGG_ELF)
         .await?;
+    let res = prover
+        .request_proof(
+            &vk_hash,
+            &stdin,
+            ProofMode::Groth16,
+            1_000_000_000_000,
+            None,
+        )
+        .await;
+
+    // Check if error, otherwise get proof ID.
+    let proof_id = match res {
+        Ok(proof_id) => proof_id,
+        Err(e) => {
+            log::error!("Failed to request proof: {}", e);
+            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
+        }
+    };
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
@@ -269,7 +302,7 @@ async fn request_mock_span_proof(
     let prover = ProverClient::mock();
     let proof = prover
         .prove(&state.range_pk, sp1_stdin)
-        .set_skip_deferred_proof_verification(true)
+        // .set_skip_deferred_proof_verification(true)
         .compressed()
         .run()?;
 
@@ -280,7 +313,6 @@ async fn request_mock_span_proof(
         Json(ProofStatus {
             status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
             proof: proof_bytes,
-            unclaim_description: None,
         }),
     ))
 }
@@ -329,7 +361,7 @@ async fn request_mock_agg_proof(
     // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
     let proof = prover
         .prove(&state.agg_pk, stdin)
-        .set_skip_deferred_proof_verification(true)
+        // .set_skip_deferred_proof_verification(true)
         .groth16()
         .run()?;
 
@@ -338,7 +370,6 @@ async fn request_mock_agg_proof(
         Json(ProofStatus {
             status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
             proof: proof.bytes(),
-            unclaim_description: None,
         }),
     ))
 }
@@ -352,18 +383,20 @@ async fn get_proof_status(
 
     let client = NetworkClient::new(&private_key);
 
+    let proof_id_bytes = hex::decode(proof_id)?;
+
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
     let (status, maybe_proof) =
-        match tokio::time::timeout(timeout, client.get_proof_status(&proof_id)).await {
+        match tokio::time::timeout(timeout, client.get_proof_request_status(&proof_id_bytes)).await
+        {
             Ok(Ok(result)) => result,
             Ok(Err(_)) => {
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: SP1ProofStatus::ProofUnspecifiedStatus.into(),
+                        status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
                         proof: vec![],
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -371,20 +404,17 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: SP1ProofStatus::ProofUnspecifiedStatus.into(),
+                        status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
                         proof: vec![],
-                        unclaim_description: None,
                     }),
                 ));
             }
         };
 
-    let unclaim_description = status.unclaim_description.unwrap_or_default();
+    // Note: Once network-v2 adds an execution error for reserved, we can use it.
 
-    let unclaim_description_enum: UnclaimDescription = unclaim_description.into();
-
-    let status: SP1ProofStatus = SP1ProofStatus::try_from(status.status)?;
-    if status == SP1ProofStatus::ProofFulfilled {
+    let status = status.fulfillment_status();
+    if status == FulfillmentStatus::Fulfilled {
         let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
         match proof.proof {
@@ -398,7 +428,6 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: status.into(),
                         proof: proof_bytes,
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -410,7 +439,6 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: status.into(),
                         proof: proof_bytes,
-                        unclaim_description: None,
                     }),
                 ));
             }
@@ -422,19 +450,17 @@ async fn get_proof_status(
                     Json(ProofStatus {
                         status: status.into(),
                         proof: proof_bytes,
-                        unclaim_description: None,
                     }),
                 ));
             }
             _ => (),
         }
-    } else if status == SP1ProofStatus::ProofUnclaimed {
+    } else if status == FulfillmentStatus::Unfulfillable {
         return Ok((
             StatusCode::OK,
             Json(ProofStatus {
                 status: status.into(),
                 proof: vec![],
-                unclaim_description: Some(unclaim_description_enum),
             }),
         ));
     }
@@ -443,7 +469,6 @@ async fn get_proof_status(
         Json(ProofStatus {
             status: status.into(),
             proof: vec![],
-            unclaim_description: None,
         }),
     ))
 }

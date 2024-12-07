@@ -39,7 +39,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			l.Metr.RecordError("get_proof_status", 1)
 			return err
 		}
-		if proofStatus.Status == SP1ProofStatusFulfilled {
+		if proofStatus.Status == SP1FulfillmentStatusFulfilled {
 			// Update the proof in the DB and update status to COMPLETE.
 			l.Log.Info("Fulfilled Proof", "id", req.ProverRequestID)
 			err = l.db.AddFulfilledProof(req.ID, proofStatus.Proof)
@@ -50,10 +50,10 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			continue
 		}
 
-		if proofStatus.Status == SP1ProofStatusUnclaimed {
+		if proofStatus.Status == SP1FulfillmentStatusUnfulfillable {
 			// Record the failure reason.
-			l.Log.Info("Proof unclaimed", "id", req.ProverRequestID, "reason", proofStatus.UnclaimDescription.String())
-			l.Metr.RecordProveFailure(proofStatus.UnclaimDescription.String())
+			l.Log.Info("Proof is unfulfillable", "id", req.ProverRequestID)
+			l.Metr.RecordProveFailure("unfulfillable")
 
 			err = l.RetryRequest(req, proofStatus)
 			if err != nil {
@@ -66,7 +66,8 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 }
 
 // Retry a proof request. Sets the status of a proof to FAILED and retries the proof based on the optional proof status response.
-// If the response is a program execution error, the proof is split into two, which will avoid SP1 out of memory execution errors.
+// If an error response is received, the proof is split into two, which will avoid SP1 out of memory execution errors.
+// TODO: Once the reserved strategy adds an execution error, we should update this to retry only when there's an execution error returned.
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStatusResponse) error {
 	err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
 	if err != nil {
@@ -74,8 +75,8 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 		return err
 	}
 
-	// If the proof was unclaimed due to a program execution error, we should split the proof into two.
-	if status.UnclaimDescription == ProgramExecutionError {
+	// Split the proof in two if range is > 1, otherwise retry same request.
+	if (req.EndBlock-req.StartBlock) > 1 {
 		mid := (req.StartBlock + req.EndBlock) / 2
 		// Create two new proof requests, one from [start, mid] and one from [mid, end]. The requests
 		// are consecutive and overlapping.
@@ -90,10 +91,10 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
-		// If the proof was unclaimed for any other reason, retry with the same range.
+		// Retry same request if range is 1 block.
 		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
 		if err != nil {
-			l.Log.Error("failed to add proof request", "err", err)
+			l.Log.Error("failed to retry proof request", "err", err)
 			return err
 		}
 	}
@@ -189,7 +190,6 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 		return fmt.Errorf("failed to get next L2OO output: %w", err)
 	}
 
-	l.Log.Info("Checking for AGG proof", "blocksToProve", minTo.Uint64()-latest.Uint64(), "latestProvenBlock", latest.Uint64(), "minBlockToProveToAgg", minTo.Uint64())
 	created, end, err := l.db.TryCreateAggProofFromSpanProofs(latest.Uint64(), minTo.Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to create agg proof from span proofs: %w", err)
@@ -269,15 +269,15 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	return l.db.SetProverRequestID(p.ID, proofID)
 }
 
-func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) (string, error) {
+func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
 	resp, err := l.makeProofRequest(proofType, jsonBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var response WitnessGenerationResponse
 	if err := json.Unmarshal(resp, &response); err != nil {
-		return "", fmt.Errorf("error decoding JSON response: %w", err)
+		return nil, fmt.Errorf("error decoding JSON response: %w", err)
 	}
 	l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
 	return response.ProofID, nil
