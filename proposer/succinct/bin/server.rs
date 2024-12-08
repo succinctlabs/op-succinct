@@ -375,6 +375,7 @@ async fn request_mock_span_proof(
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received mock span proof request: {:?}", payload);
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await?;
+    let l2_chain_id = fetcher.get_l2_chain_id().await?;
 
     let host_cli = fetcher
         .get_host_cli_args(
@@ -416,8 +417,11 @@ async fn request_mock_span_proof(
     };
     let prove_duration = start_prove.elapsed();
     // Save the report to execution-reports/ with .csv
-    let report_path = format!("execution-reports/{}.json", payload.start);
-    std::fs::create_dir_all("execution-reports").unwrap();
+    let report_path = format!(
+        "/usr/local/bin/execution-reports/{}/{}-{}.json",
+        l2_chain_id, payload.start, payload.end
+    );
+    std::fs::create_dir_all("/usr/local/bin/execution-reports").unwrap();
     let mut file = OpenOptions::new()
         .read(true)
         .append(true)
