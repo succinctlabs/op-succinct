@@ -33,6 +33,8 @@ services:
   #   env_file:
   #     - .env.conduit10s
   #   restart: unless-stopped
+  #   volumes:
+  #     - ./execution-reports/docker:/usr/local/bin/execution-reports
   #   ports:
   #     - "3002:3002"
 
@@ -49,7 +51,7 @@ services:
   #     - ./db:/usr/local/bin/dbdata
   #   # The metrics port is the default port for the OP Proposer.
   #   ports:
-  #     - "7301:7301"
+  #     - "7309:7309"
 
   # Worldchain Mainnet
   op-succinct-server-worldchain-mainnet:
