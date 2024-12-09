@@ -40,11 +40,7 @@ use sp1_sdk::{
 use sp1_stark::StarkVerifyingKey;
 use sp1_stark::{ShardCommitment, ShardOpenedValues, ShardProof};
 use std::{
-    env,
-    fs::OpenOptions,
-    io::Seek,
-    str::FromStr,
-    time::{Duration, Instant},
+    env, fs::OpenOptions, io::Seek, path::PathBuf, str::FromStr, time::{Duration, Instant}
 };
 use tower_http::limit::RequestBodyLimitLayer;
 
@@ -417,11 +413,11 @@ async fn request_mock_span_proof(
     };
     let prove_duration = start_prove.elapsed();
     // Save the report to execution-reports/ with .csv
-    let report_path = format!(
-        "/usr/local/bin/execution-reports/{}/{}-{}.json",
+    let report_path: PathBuf = PathBuf::from(format!(
+        "/usr/local/bin/execution-reports/{}/{}-{}.csv",
         l2_chain_id, payload.start, payload.end
-    );
-    std::fs::create_dir_all("/usr/local/bin/execution-reports").unwrap();
+    ));
+    std::fs::create_dir_all(report_path.parent().unwrap()).unwrap();
     let mut file = OpenOptions::new()
         .read(true)
         .append(true)
