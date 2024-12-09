@@ -166,8 +166,9 @@ async fn request_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    // let prover = NetworkProverV1::new();
-    let mut prover = NetworkProverV2::new();
+    let private_key = env::var("SP1_PRIVATE_KEY")?;
+    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
+    let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
     prover.with_strategy(FulfillmentStrategy::Reserved);
 
     // Set simulation to false on range proofs as they're large.
@@ -234,23 +235,27 @@ async fn request_agg_proof(
         .await?;
 
     // Use the reserved strategy for the OP Succinct fulfiller/cluster.
-    let mut prover = NetworkProverV2::new();
+    let private_key = env::var("SP1_PRIVATE_KEY")?;
+    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
+    let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
     prover.with_strategy(FulfillmentStrategy::Reserved);
 
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
 
-    let vk_hash = prover
-        .register_program(&state.agg_vk, AGG_ELF)
-        .await?;
+    let res = prover.register_program(&state.agg_vk, AGG_ELF).await;
+    let vk_hash = match res {
+        Ok(vk_hash) => vk_hash,
+        Err(e) => {
+            log::error!("Failed to register program: {}", e);
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to register program: {}",
+                e
+            )));
+        }
+    };
     let res = prover
-        .request_proof(
-            &vk_hash,
-            &stdin,
-            ProofMode::Groth16,
-            1_000_000_000_000,
-            None,
-        )
+        .request_proof(&vk_hash, &stdin, ProofMode::Groth16, 1_000_000_000_000, None)
         .await;
 
     // Check if error, otherwise get proof ID.
@@ -380,8 +385,9 @@ async fn get_proof_status(
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received proof status request: {:?}", proof_id);
     let private_key = env::var("SP1_PRIVATE_KEY")?;
+    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
 
-    let client = NetworkClient::new(&private_key);
+    let client = NetworkClient::new(&private_key, Some(rpc_url.to_string()));
 
     let proof_id_bytes = hex::decode(proof_id)?;
 
