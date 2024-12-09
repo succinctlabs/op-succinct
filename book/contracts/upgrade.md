@@ -4,7 +4,7 @@ Similar to the `L2OutputOracle` contract, the `OPSuccinctL2OutputOracle` is mana
 
 ## 1. Decide on the target `OPSuccinctL2OutputOracle` contract code
 
-### [Recommended] Using `OPSuccinctL2OutputOracle` from a release
+### (Recommanded) Using `OPSuccinctL2OutputOracle` from a release
 
 Check out the latest release of `op-succinct` from [here](https://github.com/succinctlabs/op-succinct/releases). You can always find the latest version of the `OPSuccinctL2OutputOracle` on the latest release.
 
@@ -24,7 +24,7 @@ If you want to manually upgrade the `OPSuccinctL2OutputOracle` contract, follow 
   // Increment the initializerVersion to 2.
   uint256 public constant initializerVersion = 2;
   ```
-  
+
 ## 2. Configure your environment
 
 Ensure that you have the correct environment variables set in your environment file. See the [Configuration](./configuration.md) section for more information.
