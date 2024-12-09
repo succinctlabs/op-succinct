@@ -162,7 +162,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     string public constant version = "beta-v0.4.0";
 
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
-    uint256 public constant initializerVersion = 1;
+    uint8 public constant initializerVersion = 1;
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
