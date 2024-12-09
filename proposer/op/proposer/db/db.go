@@ -441,7 +441,7 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 		currentBlock = span.EndBlock
 	}
 
-	return max(start, currentBlock), nil
+	return currentBlock, nil
 }
 
 // GetConsecutiveSpanProofs returns the span proofs that cover the range [start, end].

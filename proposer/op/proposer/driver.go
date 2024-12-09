@@ -687,9 +687,18 @@ func (l *L2OutputSubmitter) proposeOutput(ctx context.Context, output *eth.Outpu
 	cCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
+	// Get the current nextBlockNumber from the L2OO contract.
+	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(&bind.CallOpts{Context: cCtx})
+	if err != nil {
+		l.Log.Error("Failed to get nextBlockNumber", "err", err)
+		return
+	}
+
 	if err := l.sendTransaction(cCtx, output, proof, l1BlockNum); err != nil {
 		l.Log.Error("Failed to send proposal transaction",
 			"err", err,
+			"expected_next_blocknum", nextBlockNumber.Uint64(),
+			"l2blocknum", output.BlockRef.Number,
 			"l1blocknum", l1BlockNum,
 			"l1head", output.Status.HeadL1.Number,
 			"proof", proof)
