@@ -3,7 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 remappings = [
-    # Use openzeppelin-contracts v4.7.3 as the some contracts are not compatible with 0.8.15
+    # Use openzeppelin-contracts v4.7.3 as some contracts are not compatible with 0.8.15
     "@openzeppelin/=lib/openzeppelin-contracts/",
     "@optimism/=lib/optimism/packages/contracts-bedrock/",
     "@forge-std/=lib/forge-std/src/",
