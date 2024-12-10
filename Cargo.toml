@@ -95,7 +95,12 @@ sp1-zkvm = { version = "3.0.0", features = ["verify"] }
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "447fda5f759908bbc3091979bd933ee9d126873b", features = [
     "network-v2",
 ] }
+sp1-core-executor = { git = "https://github.com/succinctlabs/sp1.git", rev = "447fda5f759908bbc3091979bd933ee9d126873b" }
+sp1-stark = { git = "https://github.com/succinctlabs/sp1.git", rev = "447fda5f759908bbc3091979bd933ee9d126873b" }
 sp1-build = { version = "3.0.0" }
+p3-baby-bear = "0.1.4-succinct"
+p3-fri = "0.1.4-succinct"
+p3-field = "0.1.4-succinct"
 
 [profile.release-client-lto]
 inherits = "release"
