@@ -16,7 +16,6 @@ services:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
     env_file:
-      # Running with Conduit.
       - ${ENV_FILE:-.env.bobtestnet}
     restart: unless-stopped
     depends_on:
@@ -43,7 +42,6 @@ services:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
     env_file:
-      # Running with Conduit.
       - ${ENV_FILE:-.env.conduit}
     restart: unless-stopped
     depends_on:
