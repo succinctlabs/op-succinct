@@ -31,7 +31,7 @@ services:
       context: .
       dockerfile: ./proposer/succinct/Dockerfile
     env_file:
-      - ${ENV_FILE:-.env.conduit}
+      - ${ENV_FILE:-.env.conduit10s}
     restart: unless-stopped
     ports:
       - "3005:3005"
@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: ./proposer/op/Dockerfile.op_proposer
     env_file:
-      - ${ENV_FILE:-.env.conduit}
+      - ${ENV_FILE:-.env.conduit10s}
     restart: unless-stopped
     depends_on:
       - op-succinct-server-conduit-10s
@@ -52,29 +52,29 @@ services:
     ports:
       - "7305:7305"
 
-  # Worldchain Mainnet
-  op-succinct-server-worldchain-mainnet:
-    build:
-      context: .
-      dockerfile: ./proposer/succinct/Dockerfile
-    env_file:
-      - .env.worldchainmainnet
-    restart: unless-stopped
-    volumes:
-      - ./execution-reports/docker:/usr/local/bin/execution-reports
-    ports:
-      - "3003:3003"
+  # # Worldchain Mainnet
+  # op-succinct-server-worldchain-mainnet:
+  #   build:
+  #     context: .
+  #     dockerfile: ./proposer/succinct/Dockerfile
+  #   env_file:
+  #     - .env.worldchainmainnet
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./execution-reports/docker:/usr/local/bin/execution-reports
+  #   ports:
+  #     - "3003:3003"
 
-  op-succinct-proposer-worldchain-mainnet:
-    build:
-      context: .
-      dockerfile: ./proposer/op/Dockerfile.op_proposer
-    env_file:
-      - .env.worldchainmainnet
-    restart: unless-stopped
-    depends_on:
-      - op-succinct-server-worldchain-mainnet
-    volumes:
-      - ./db:/usr/local/bin/dbdata
-    ports:
-      - "7302:7302"
+  # op-succinct-proposer-worldchain-mainnet:
+  #   build:
+  #     context: .
+  #     dockerfile: ./proposer/op/Dockerfile.op_proposer
+  #   env_file:
+  #     - .env.worldchainmainnet
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - op-succinct-server-worldchain-mainnet
+  #   volumes:
+  #     - ./db:/usr/local/bin/dbdata
+  #   ports:
+  #     - "7302:7302"
