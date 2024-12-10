@@ -90,10 +90,9 @@ op-alloy-network = { version = "0.6.8", default-features = false }
 # sp1
 sp1-lib = { version = "3.0.0", features = ["verify"] }
 sp1-zkvm = { version = "3.0.0", features = ["verify"] }
-# Note: This rev is on Matt's mattstam/v3.0.0-w-network-v2 branch which includes the network-v2 changes from Dec 2.
-# This branch DOES NOT include the SP1 mock groth16 bytes fix, skipping deferred verification and executor opts.
-# This means deferred verification does not work, mock does not work and the cost estimator will be slow.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "42fa6cf585cfdb125c0d171ab28b24fbd0416be4", features = [
+# Note: This rev includes the SP1 mock groth16 bytes fix, skipping deferred verification, executor opts and network-v2 changes.
+# ratan/v3.0.0-w-network-v2 branch includes the network-v2 changes from `19ae3e1`.
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "447fda5f759908bbc3091979bd933ee9d126873b", features = [
     "network-v2",
 ] }
 sp1-build = { version = "3.0.0" }
