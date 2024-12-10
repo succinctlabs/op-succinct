@@ -11,7 +11,7 @@ import {ISP1VerifierGateway} from "@sp1-contracts/src/ISP1VerifierGateway.sol";
 /// @title OPSuccinctL2OutputOracle
 /// @notice The OPSuccinctL2OutputOracle contains an array of L2 state outputs, where each output is a
 ///         commitment to the state of the L2 chain. Other contracts like the OptimismPortal use
-///         these outputs to verify information about the state of L2. The outputs posted to this contract
+///         these outputs verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
 contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Parameters to initialize the contract.
@@ -23,7 +23,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         bytes32 rollupConfigHash;
     }
 
-    /// @notice The public values committed to for an OP Succinct aggregation program.
+    /// @notice The public values committed to an OP Succinct aggregation program.
     struct AggregationOutputs {
         bytes32 l1Head;
         bytes32 l2PreRoot;
@@ -372,7 +372,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     }
 
     /// @notice Returns the block number of the latest submitted L2 output proposal.
-    ///         If no proposals been submitted yet then this function will return the starting
+    ///         If no proposals have been submitted yet then this function will return the starting
     ///         block number.
     /// @return Latest submitted L2 block number.
     function latestBlockNumber() public view returns (uint256) {
