@@ -383,8 +383,6 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofs(from, minTo uint64) (bool, ui
 		Where(
 			proofrequest.TypeEQ(proofrequest.TypeAGG),
 			proofrequest.StartBlockEQ(from),
-			// TODO: Remove, only for testing. Basically, a bad AGG proof got added to the DB.
-			proofrequest.EndBlockGTE(minTo),
 			proofrequest.StatusNEQ(proofrequest.StatusFAILED),
 		).
 		Count(context.Background())
