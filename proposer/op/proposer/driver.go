@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	_ "net/http/pprof"
+	"sort"
 	"sync"
 	"time"
 
@@ -362,12 +363,20 @@ func (l *L2OutputSubmitter) SubmitAggProofs(ctx context.Context) error {
 		return nil
 	}
 
-	for _, aggProof := range completedAggProofs {
-		output, err := l.FetchOutput(ctx, aggProof.EndBlock)
-		if err != nil {
-			return fmt.Errorf("failed to fetch output at block %d: %w", aggProof.EndBlock, err)
-		}
-		l.proposeOutput(ctx, output, aggProof.Proof, aggProof.L1BlockNumber)
+	// Select the agg proof with the highest L2 block number.
+	sort.Slice(completedAggProofs, func(i, j int) bool {
+		return completedAggProofs[i].EndBlock > completedAggProofs[j].EndBlock
+	})
+
+	// Submit the agg proof with the highest L2 block number.
+	aggProof := completedAggProofs[0]
+	output, err := l.FetchOutput(ctx, aggProof.EndBlock)
+	if err != nil {
+		return fmt.Errorf("failed to fetch output at block %d: %w", aggProof.EndBlock, err)
+	}
+	err = l.proposeOutput(ctx, output, aggProof.Proof, aggProof.L1BlockNumber)
+	if err != nil {
+		return fmt.Errorf("failed to propose output: %w", err)
 	}
 
 	return nil
@@ -683,7 +692,7 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 	}
 }
 
-func (l *L2OutputSubmitter) proposeOutput(ctx context.Context, output *eth.OutputResponse, proof []byte, l1BlockNum uint64) {
+func (l *L2OutputSubmitter) proposeOutput(ctx context.Context, output *eth.OutputResponse, proof []byte, l1BlockNum uint64) error {
 	cCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
@@ -691,7 +700,7 @@ func (l *L2OutputSubmitter) proposeOutput(ctx context.Context, output *eth.Outpu
 	nextBlockNumber, err := l.l2ooContract.NextBlockNumber(&bind.CallOpts{Context: cCtx})
 	if err != nil {
 		l.Log.Error("Failed to get nextBlockNumber", "err", err)
-		return
+		return err
 	}
 
 	if err := l.sendTransaction(cCtx, output, proof, l1BlockNum); err != nil {
@@ -702,10 +711,11 @@ func (l *L2OutputSubmitter) proposeOutput(ctx context.Context, output *eth.Outpu
 			"l1blocknum", l1BlockNum,
 			"l1head", output.Status.HeadL1.Number,
 			"proof", proof)
-		return
+		return err
 	}
 	l.Log.Info("AGG proof submitted on-chain", "end", output.BlockRef.Number)
 	l.Metr.RecordL2BlocksProposed(output.BlockRef)
+	return nil
 }
 
 // checkpointBlockHash gets the current L1 head, and then sends a transaction to checkpoint the blockhash on
