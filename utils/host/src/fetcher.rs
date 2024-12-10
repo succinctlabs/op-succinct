@@ -767,7 +767,16 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        let (l1_head_hash, _) = self.get_l1_head(l2_end_block).await?;
+        let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+
+        // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block.
+        let l1_head_number = l1_head_number + 20;
+        // The new L1 header requested should not be greater than the latest L1 header.
+        let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
+        let l1_head_hash = match l1_head_number > latest_l1_header.number {
+            true => latest_l1_header.hash_slow(),
+            false => self.get_l1_header(l1_head_number.into()).await?.hash_slow(),
+        };
 
         // Get the workspace root, which is where the data directory is.
         let data_directory =

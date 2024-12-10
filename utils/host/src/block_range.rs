@@ -8,6 +8,7 @@ use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use alloy_eips::BlockId;
 use anyhow::{bail, Result};
 use futures::StreamExt;
+use log::info;
 use op_alloy_rpc_types::{OutputResponse, SafeHeadResponse};
 use serde::{Deserialize, Serialize};
 
@@ -134,6 +135,8 @@ pub async fn split_range_based_on_safe_heads(
 
     // Get the L1Head from which l2_end can be derived
     let (_, l1_head_number) = data_fetcher.get_l1_head_with_safe_head(l2_end).await?;
+    let l1_head_number = l1_head_number + 1;
+    println!("L1 head number: {:?}", l1_head_number);
 
     // Get all the unique safeHeads between l1_start and l1_head
     let mut ranges = Vec::new();
@@ -159,10 +162,12 @@ pub async fn split_range_based_on_safe_heads(
     // Collect and sort the safe heads.
     let mut safe_heads: Vec<_> = safe_heads.into_iter().collect();
     safe_heads.sort();
+    info!("Safe heads: {:?}", safe_heads);
 
     // Loop over all of the safe heads and create ranges.
     for safe_head in safe_heads {
-        if safe_head > current_l2_start && safe_head <= l2_end {
+        if safe_head > current_l2_start && current_l2_start < l2_end {
+            info!("Safe head: {:?}", safe_head);
             let mut range_start = current_l2_start;
             while range_start + max_range_size < min(l2_end, safe_head) {
                 ranges.push(SpanBatchRange {
