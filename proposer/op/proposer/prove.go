@@ -66,8 +66,11 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 }
 
 // Retry a proof request. Sets the status of a proof to FAILED and retries the proof based on the optional proof status response.
-// If an error response is received, the proof is split into two, which will avoid SP1 out of memory execution errors.
-// TODO: Once the reserved strategy adds an execution error, we should update this to retry only when there's an execution error returned.
+// If an error response is received:
+// - Range Proof: Split in two if the block range is > 1. Retry the same request if range is 1 block.
+// - Agg Proof: Retry the same request.
+// TODO: Once the reserved strategy adds an execution error, update this to retry only when there's an execution error returned.
+// TODO: With a new allocator, there will not be OOM issues.
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStatusResponse) error {
 	err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
 	if err != nil {
