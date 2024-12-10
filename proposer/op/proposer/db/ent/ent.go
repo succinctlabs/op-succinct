@@ -106,7 +106,7 @@ func Desc(fields ...string) func(*sql.Selector) {
 // AggregateFunc applies an aggregation step on the group-by traversal/selector.
 type AggregateFunc func(*sql.Selector) string
 
-// As is a pseudo aggregation function for renaming another other functions with custom names. For example:
+// As is a pseudo aggregation function for renaming other functions with custom names. For example:
 //
 //	GroupBy(field1, field2).
 //	Aggregate(ent.As(ent.Sum(field1), "sum_field1"), (ent.As(ent.Sum(field2), "sum_field2")).
@@ -220,7 +220,7 @@ func MaskNotFound(err error) error {
 	return err
 }
 
-// NotSingularError returns when trying to fetch a singular entity and more then one was found in the database.
+// NotSingularError returns when trying to fetch a singular entity and more than one was found in the database.
 type NotSingularError struct {
 	label string
 }
