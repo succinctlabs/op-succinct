@@ -169,6 +169,7 @@ async fn request_span_proof(
     let private_key = env::var("SP1_PRIVATE_KEY")?;
     let rpc_url = env::var("PROVER_NETWORK_RPC")?;
     let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
+    // Use the reserved strategy to route to a specific cluster.
     prover.with_strategy(FulfillmentStrategy::Reserved);
 
     // Set simulation to false on range proofs as they're large.
@@ -244,23 +245,23 @@ async fn request_agg_proof(
         }
     };
 
-    // Use the reserved strategy for the OP Succinct fulfiller/cluster.
     let private_key = env::var("SP1_PRIVATE_KEY")?;
     let rpc_url = env::var("PROVER_NETWORK_RPC")?;
     let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
+    // Use the reserved strategy to route to a specific cluster.
     prover.with_strategy(FulfillmentStrategy::Reserved);
 
-    let stdin = match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into())
-    {
-        Ok(stdin) => stdin,
-        Err(e) => {
-            log::error!("Failed to get agg proof stdin: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to get agg proof stdin: {}",
-                e
-            )));
-        }
-    };
+    let stdin =
+        match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
+            Ok(stdin) => stdin,
+            Err(e) => {
+                log::error!("Failed to get agg proof stdin: {}", e);
+                return Err(AppError(anyhow::anyhow!(
+                    "Failed to get agg proof stdin: {}",
+                    e
+                )));
+            }
+        };
 
     let res = prover.register_program(&state.agg_vk, AGG_ELF).await;
     let vk_hash = match res {
