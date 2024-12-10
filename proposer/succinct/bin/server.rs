@@ -230,9 +230,19 @@ async fn request_agg_proof(
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await?;
-    let headers = fetcher
+    let res = fetcher
         .get_header_preimages(&boot_infos, l1_head.into())
-        .await?;
+        .await;
+    let headers = match res {
+        Ok(headers) => headers,
+        Err(e) => {
+            log::error!("Failed to get header preimages: {}", e);
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get header preimages: {}",
+                e
+            )));
+        }
+    };
 
     // Use the reserved strategy for the OP Succinct fulfiller/cluster.
     let private_key = env::var("SP1_PRIVATE_KEY")?;
@@ -240,8 +250,17 @@ async fn request_agg_proof(
     let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
     prover.with_strategy(FulfillmentStrategy::Reserved);
 
-    let stdin =
-        get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()).unwrap();
+    let stdin = match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into())
+    {
+        Ok(stdin) => stdin,
+        Err(e) => {
+            log::error!("Failed to get agg proof stdin: {}", e);
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get agg proof stdin: {}",
+                e
+            )));
+        }
+    };
 
     let res = prover.register_program(&state.agg_vk, AGG_ELF).await;
     let vk_hash = match res {
@@ -255,7 +274,13 @@ async fn request_agg_proof(
         }
     };
     let res = prover
-        .request_proof(&vk_hash, &stdin, ProofMode::Groth16, 1_000_000_000_000, None)
+        .request_proof(
+            &vk_hash,
+            &stdin,
+            ProofMode::Groth16,
+            1_000_000_000_000,
+            None,
+        )
         .await;
 
     // Check if error, otherwise get proof ID.
