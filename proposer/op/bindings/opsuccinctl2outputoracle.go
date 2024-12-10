@@ -1129,7 +1129,7 @@ func (it *OPSuccinctL2OutputOracleInitializedIterator) Next() bool {
 	if it.fail != nil {
 		return false
 	}
-	// If the iterator completed, deliver directly whatever's available
+	// If the iterator is completed, deliver directly whatever's available
 	if it.done {
 		select {
 		case log := <-it.logs:
@@ -1163,7 +1163,7 @@ func (it *OPSuccinctL2OutputOracleInitializedIterator) Next() bool {
 	}
 }
 
-// Error returns any retrieval or parsing error occurred during filtering.
+// Error returns any retrieval or parsing error that occurred during filtering.
 func (it *OPSuccinctL2OutputOracleInitializedIterator) Error() error {
 	return it.fail
 }
@@ -1175,7 +1175,7 @@ func (it *OPSuccinctL2OutputOracleInitializedIterator) Close() error {
 	return nil
 }
 
-// OPSuccinctL2OutputOracleInitialized represents a Initialized event raised by the OPSuccinctL2OutputOracle contract.
+// OPSuccinctL2OutputOracleInitialized represents an Initialized event raised by the OPSuccinctL2OutputOracle contract.
 type OPSuccinctL2OutputOracleInitialized struct {
 	Version uint8
 	Raw     types.Log // Blockchain specific contextual infos
@@ -1263,7 +1263,7 @@ func (it *OPSuccinctL2OutputOracleOutputProposedIterator) Next() bool {
 	if it.fail != nil {
 		return false
 	}
-	// If the iterator completed, deliver directly whatever's available
+	// If the iterator is completed, deliver directly whatever's available
 	if it.done {
 		select {
 		case log := <-it.logs:
@@ -1297,7 +1297,7 @@ func (it *OPSuccinctL2OutputOracleOutputProposedIterator) Next() bool {
 	}
 }
 
-// Error returns any retrieval or parsing error occurred during filtering.
+// Error returns any retrieval or parsing error that occurred during filtering.
 func (it *OPSuccinctL2OutputOracleOutputProposedIterator) Error() error {
 	return it.fail
 }
@@ -1309,7 +1309,7 @@ func (it *OPSuccinctL2OutputOracleOutputProposedIterator) Close() error {
 	return nil
 }
 
-// OPSuccinctL2OutputOracleOutputProposed represents a OutputProposed event raised by the OPSuccinctL2OutputOracle contract.
+// OPSuccinctL2OutputOracleOutputProposed represents an OutputProposed event raised by the OPSuccinctL2OutputOracle contract.
 type OPSuccinctL2OutputOracleOutputProposed struct {
 	OutputRoot    [32]byte
 	L2OutputIndex *big.Int
@@ -1426,7 +1426,7 @@ func (it *OPSuccinctL2OutputOracleOutputsDeletedIterator) Next() bool {
 	if it.fail != nil {
 		return false
 	}
-	// If the iterator completed, deliver directly whatever's available
+	// If the iterator is completed, deliver directly whatever's available
 	if it.done {
 		select {
 		case log := <-it.logs:
@@ -1460,7 +1460,7 @@ func (it *OPSuccinctL2OutputOracleOutputsDeletedIterator) Next() bool {
 	}
 }
 
-// Error returns any retrieval or parsing error occurred during filtering.
+// Error returns any retrieval or parsing error that occurred during filtering.
 func (it *OPSuccinctL2OutputOracleOutputsDeletedIterator) Error() error {
 	return it.fail
 }
@@ -1472,7 +1472,7 @@ func (it *OPSuccinctL2OutputOracleOutputsDeletedIterator) Close() error {
 	return nil
 }
 
-// OPSuccinctL2OutputOracleOutputsDeleted represents a OutputsDeleted event raised by the OPSuccinctL2OutputOracle contract.
+// OPSuccinctL2OutputOracleOutputsDeleted represents an OutputsDeleted event raised by the OPSuccinctL2OutputOracle contract.
 type OPSuccinctL2OutputOracleOutputsDeleted struct {
 	PrevNextOutputIndex *big.Int
 	NewNextOutputIndex  *big.Int
