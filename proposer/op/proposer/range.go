@@ -92,6 +92,8 @@ func (l *L2OutputSubmitter) SplitRangeBasedOnSafeHeads(ctx context.Context, l2St
 	g := errgroup.Group{}
 	g.SetLimit(10)
 
+	// Get all of the safe heads between the L2 start block and the L1 head. Use parallel requests to speed up the process.
+	// This is useful for when a chain is behind.
 	for currentL1Block := L2StartL1Origin; currentL1Block <= L1Head; currentL1Block++ {
 		l1Block := currentL1Block
 		g.Go(func() error {
@@ -183,25 +185,24 @@ func (l *L2OutputSubmitter) GetRangeProofBoundaries(ctx context.Context) error {
 	// Note: Originally, this used the L1 finalized block. However, to satisfy the new API, we now use the L2 finalized block.
 	newL2EndBlock := status.FinalizedL2.Number
 
-	// // Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range
-	// // splitting algorithm. Otherwise, we use the simple range splitting algorithm.
-	// safeDBActivated, err := l.isSafeDBActivated(ctx, rollupClient)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to check if safeDB is activated: %w", err)
-	// }
+	// Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range
+	// splitting algorithm. Otherwise, we use the simple range splitting algorithm.
+	safeDBActivated, err := l.isSafeDBActivated(ctx, rollupClient)
+	if err != nil {
+		return fmt.Errorf("failed to check if safeDB is activated: %w", err)
+	}
 
 	var spans []Span
-	// // If the safeDB is activated, we use the safeHead based range splitting algorithm.
-	// // Otherwise, we use the simple range splitting algorithm.
-	// if safeDBActivated {
-	// 	spans, err = l.SplitRangeBasedOnSafeHeads(ctx, newL2StartBlock, newL2EndBlock)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to split range based on safe heads: %w", err)
-	// 	}
-	// } else {
-	// 	spans = l.SplitRangeBasic(newL2StartBlock, newL2EndBlock)
-	// }
-	spans = l.SplitRangeBasic(newL2StartBlock, newL2EndBlock)
+	// If the safeDB is activated, we use the safeHead based range splitting algorithm.
+	// Otherwise, we use the simple range splitting algorithm.
+	if safeDBActivated {
+		spans, err = l.SplitRangeBasedOnSafeHeads(ctx, newL2StartBlock, newL2EndBlock)
+		if err != nil {
+			return fmt.Errorf("failed to split range based on safe heads: %w", err)
+		}
+	} else {
+		spans = l.SplitRangeBasic(newL2StartBlock, newL2EndBlock)
+	}
 
 
 	// Add each span to the DB. If there are no spans, we will not create any proofs.
