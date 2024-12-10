@@ -441,6 +441,7 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 		currentBlock = span.EndBlock
 	}
 
+	// The current block is at minimum the start block, and at maximum the end block of the last span proof.
 	return currentBlock, nil
 }
 
