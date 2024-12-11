@@ -81,15 +81,15 @@ alloy-consensus = { version = "0.6.4", default-features = false }
 alloy-sol-types = { version = "0.8" }
 
 # OP Alloy
-op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
-op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false, features = [
+op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4-fix", default-features = false }
+op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4-fix", default-features = false, features = [
     "serde",
 ] }
 
-op-alloy-protocol = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
-op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
-op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
-op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4", default-features = false }
+op-alloy-protocol = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4-fix", default-features = false }
+op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4-fix", default-features = false }
+op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4-fix", default-features = false }
+op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", branch = "mantle-alloy-0.6.4-fix", default-features = false }
 
 # sp1
 sp1-lib = { version = "3.0.0", features = ["verify"] }

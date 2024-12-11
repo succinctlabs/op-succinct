@@ -638,8 +638,7 @@ impl OPSuccinctDataFetcher {
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
         info!("Claim l2 output root: {:?}", claimed_l2_output_root);
 
-        // let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
-        let l1_head_number = 149;
+        let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
 
         // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block
         let l1_head_number = l1_head_number + 7;
@@ -783,6 +782,7 @@ impl OPSuccinctDataFetcher {
         // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
         let mut current_l1_block_number = l1_origin.number;
         loop {
+            info!("l1 block number {:?}", current_l1_block_number);
             // If the current L1 block number is greater than the latest L1 header number, then return an error.
             if current_l1_block_number > latest_l1_header.number {
                 return Err(anyhow::anyhow!(
@@ -798,7 +798,9 @@ impl OPSuccinctDataFetcher {
                     vec![l1_block_number_hex.into()],
                 )
                 .await?;
+
             let l2_safe_head = result.safe_head.number;
+            info!("l2 safe head number {:?}", l2_safe_head.clone());
             if l2_safe_head > l2_end_block {
                 return Ok((result.l1_block.hash, result.l1_block.number));
             }

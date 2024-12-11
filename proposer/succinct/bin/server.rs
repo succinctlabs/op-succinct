@@ -151,25 +151,36 @@ async fn request_span_proof(
 
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = NetworkProverV1::new();
-
-    // Set simulation to false on range proofs as they're large.
-    env::set_var("SKIP_SIMULATION", "true");
-    let res = prover
-        .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
-        .await;
-    env::set_var("SKIP_SIMULATION", "false");
-
-    // Check if error, otherwise get proof ID.
-    let proof_id = match res {
-        Ok(proof_id) => proof_id,
-        Err(e) => {
-            log::error!("Failed to request proof: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
-        }
-    };
-
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+    // let prover = NetworkProverV1::new();
+    //
+    // // Set simulation to false on range proofs as they're large.
+    // env::set_var("SKIP_SIMULATION", "true");
+    // let res = prover
+    //     .request_proof(MULTI_BLOCK_ELF, sp1_stdin, ProofMode::Compressed)
+    //     .await;
+    // env::set_var("SKIP_SIMULATION", "false");
+    //
+    // // Check if error, otherwise get proof ID.
+    // let proof_id = match res {
+    //     Ok(proof_id) => proof_id,
+    //     Err(e) => {
+    //         log::error!("Failed to request proof: {}", e);
+    //         return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
+    //     }
+    // };
+    //
+    // Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+    let client = ProverClient::new();
+    let (mut public_values, execution_report) = client.execute(MULTI_BLOCK_ELF, sp1_stdin).run().unwrap();
+    // Print the total number of cycles executed and the full execution report with a breakdown of
+    // the RISC-V opcode and syscall counts.
+    println!(
+        "Executed program with {} cycles",
+        execution_report.total_instruction_count() + execution_report.total_syscall_count()
+    );
+    println!("Full execution report:\n{:?}", execution_report);
+    println!("public values: {:#?}", public_values.raw());
+    Ok((StatusCode::OK, Json(ProofResponse { proof_id: "".to_string() })))
 }
 
 /// Request an aggregation proof for a set of subproofs.
