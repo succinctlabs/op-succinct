@@ -91,7 +91,7 @@ pub fn build_all() {
         // Note: Don't comment this out, because the Docker program depends on the native program
         // for range being built.
         build_native_program(program);
-        // build_zkvm_program(program);
+        build_zkvm_program(program);
     }
 
     // build_zkvm_program("aggregation");
