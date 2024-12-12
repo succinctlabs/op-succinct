@@ -5,44 +5,16 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin,
     stats::ExecutionStats,
-    ProgramType,
+    HostExecutorArgs, ProgramType,
 };
-use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, MULTI_BLOCK_ELF};
+use op_succinct_prove::{execute_multi, generate_witness, MULTI_BLOCK_ELF};
 use sp1_sdk::{utils, ProverClient};
-use std::{fs, path::PathBuf, time::Duration};
-
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Start L2 block number.
-    #[arg(short, long)]
-    start: Option<u64>,
-
-    /// End L2 block number.
-    #[arg(short, long)]
-    end: Option<u64>,
-
-    /// Verbosity level.
-    #[arg(short, long, default_value = "0")]
-    verbosity: u8,
-
-    /// Skip running native execution.
-    #[arg(short, long)]
-    use_cache: bool,
-
-    /// Generate proof.
-    #[arg(short, long)]
-    prove: bool,
-
-    /// Env file.
-    #[arg(long, default_value = ".env")]
-    env_file: PathBuf,
-}
+use std::{fs, time::Duration};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = Args::parse();
+    let args = HostExecutorArgs::parse();
 
     dotenv::from_path(&args.env_file)?;
     utils::setup_logger();
@@ -57,7 +29,7 @@ async fn main() -> Result<()> {
 
     // If the end block is provided, check that it is less than the latest finalized block. If the end block is not provided, use the latest finalized block.
     let (l2_start_block, l2_end_block) =
-        get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?;
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?;
 
     let host_cli = data_fetcher
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)

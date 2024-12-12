@@ -44,4 +44,4 @@ serde.workspace = true
 reqwest.workspace = true
 log.workspace = true
 sysinfo = "0.32.0"
-
+clap.workspace = true
