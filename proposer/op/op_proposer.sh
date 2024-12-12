@@ -10,7 +10,7 @@
     --rollup-rpc=${L2_NODE_RPC} \
     --l2oo-address=${L2OO_ADDRESS} \
     --private-key=${PRIVATE_KEY} \
-    --l1-eth-rpc=${L1_RPC} \
+    --l1-eth-rpc=${L1_RPC_PROPOSER} \
     --beacon-rpc=${L1_BEACON_RPC} \
     --max-concurrent-proof-requests=${MAX_CONCURRENT_PROOF_REQUESTS:-10} \
     --db-path=${DB_PATH:-/usr/local/bin/dbdata} \
