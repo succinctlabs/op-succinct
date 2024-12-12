@@ -4199,15 +4199,22 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bincode",
+ "csv",
  "dotenv",
+ "hashbrown 0.14.5",
  "log",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-fri",
  "serde",
  "serde_json",
  "serde_repr",
+ "sp1-core-executor",
  "sp1-sdk",
+ "sp1-stark",
  "tokio",
  "tower-http",
 ]
@@ -6183,8 +6190,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6221,8 +6232,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "bincode",
  "cfg-if",
@@ -6273,8 +6288,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "cfg-if",
  "dashu",
@@ -6298,8 +6317,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6325,8 +6348,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "bincode",
  "hex",
@@ -6368,8 +6395,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "anyhow",
  "bincode",
@@ -6414,8 +6445,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6452,8 +6487,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6478,8 +6517,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "backtrace",
  "ff 0.13.0",
@@ -6518,8 +6561,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6532,8 +6579,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "anyhow",
  "bincode",
@@ -6562,8 +6613,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "alloy-primitives",
  "alloy-signer 0.5.4",
@@ -6613,8 +6668,12 @@ version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
 =======
 version = "3.3.0"
+<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
 >>>>>>> ea27c43 (feat: allocator works)
+=======
+source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
+>>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "arrayref",
  "getrandom",
