@@ -7,9 +7,13 @@ use op_succinct_host_utils::{
     block_range::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
         split_range_basic, SpanBatchRange,
-    }, fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext}, get_proof_stdin, stats::ExecutionStats, witnessgen::run_native_data_generation, HostExecutorArgs, ProgramType
+    },
+    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
+    get_proof_stdin,
+    stats::ExecutionStats,
+    witnessgen::run_native_data_generation,
+    HostExecutorArgs, ProgramType,
 };
-use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use sp1_sdk::{utils, ProverClient};
 use std::{
