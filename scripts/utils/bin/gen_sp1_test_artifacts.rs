@@ -4,11 +4,7 @@ use futures::StreamExt;
 use kona_host::HostCli;
 use log::info;
 use op_succinct_host_utils::{
-    block_range::{get_validated_block_range, split_range_basic, SpanBatchRange},
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin,
-    witnessgen::run_native_data_generation,
-    ProgramType,
+    block_range::{get_validated_block_range, split_range_basic, SpanBatchRange}, fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext}, get_proof_stdin, witnessgen::run_native_data_generation, HostExecutorArgs, ProgramType
 };
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use sp1_sdk::{utils, ProverClient, SP1Stdin};
