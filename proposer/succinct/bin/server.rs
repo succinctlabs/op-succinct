@@ -1,3 +1,4 @@
+use alloy::providers::ProviderBuilder;
 use alloy_primitives::{hex, Address, B256};
 use anyhow::Result;
 use axum::{
@@ -7,6 +8,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use hashbrown::HashMap;
 use log::{error, info};
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
@@ -15,6 +17,7 @@ use op_succinct_client_utils::{
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_agg_proof_stdin, get_proof_stdin,
+    stats::ExecutionStats,
     witnessgen::{WitnessGenExecutor, WITNESSGEN_TIMEOUT},
     L2OutputOracle, ProgramType,
 };
@@ -22,15 +25,28 @@ use op_succinct_proposer::{
     AggProofRequest, ContractConfig, ProofResponse, ProofStatus, SpanProofRequest,
     ValidateConfigRequest, ValidateConfigResponse,
 };
+use p3_baby_bear::BabyBear;
+use p3_field::AbstractField;
+use p3_fri::{FriProof, TwoAdicFriPcsProof};
+use sp1_core_executor::SP1ReduceProof;
 use sp1_sdk::{
     network_v2::{
         client::NetworkClient,
         proto::network::{ExecutionStatus, FulfillmentStatus, FulfillmentStrategy, ProofMode},
     },
-    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
-    SP1Stdin,
+    utils, ExecutionReport, HashableKey, MockProver, NetworkProverV2, Prover, ProverClient,
+    SP1Context, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
 };
-use std::{env, str::FromStr, time::Duration};
+use sp1_stark::StarkVerifyingKey;
+use sp1_stark::{ShardCommitment, ShardOpenedValues, ShardProof};
+use std::{
+    env,
+    fs::OpenOptions,
+    io::Seek,
+    path::PathBuf,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 use tower_http::limit::RequestBodyLimitLayer;
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
@@ -93,10 +109,10 @@ async fn validate_config(
     Json(payload): Json<ValidateConfigRequest>,
 ) -> Result<(StatusCode, Json<ValidateConfigResponse>), AppError> {
     info!("Received validate config request: {:?}", payload);
-    let fetcher = OPSuccinctDataFetcher::default();
-
     let address = Address::from_str(&payload.address).unwrap();
-    let l2_output_oracle = L2OutputOracle::new(address, fetcher.l1_provider);
+    let l1_proposer_provider =
+        ProviderBuilder::new().on_http(env::var("L1_RPC_PROPOSER").unwrap().parse().unwrap());
+    let l2_output_oracle = L2OutputOracle::new(address, l1_proposer_provider);
 
     let agg_vkey = l2_output_oracle.aggregationVkey().call().await?;
     let range_vkey = l2_output_oracle.rangeVkeyCommitment().call().await?;
@@ -259,12 +275,15 @@ async fn request_agg_proof(
         .map(|proof| proof.proof.clone())
         .collect();
 
-    let l1_head_bytes = hex::decode(
+    let l1_head_bytes = match hex::decode(
         payload
             .head
             .strip_prefix("0x")
             .expect("Invalid L1 head, no 0x prefix."),
-    )?;
+    ) {
+        Ok(bytes) => bytes,
+        Err(e) => return Err(AppError(anyhow::anyhow!("Failed to decode L1 head: {}", e))),
+    };
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
     let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
@@ -286,8 +305,25 @@ async fn request_agg_proof(
         }
     };
 
-    let private_key = env::var("SP1_PRIVATE_KEY")?;
-    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
+    let private_key = match env::var("SP1_PRIVATE_KEY") {
+        Ok(key) => key,
+        Err(e) => {
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get SP1_PRIVATE_KEY: {}",
+                e
+            )))
+        }
+    };
+    let rpc_url = match env::var("PROVER_NETWORK_RPC") {
+        Ok(url) => url,
+        Err(e) => {
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get PROVER_NETWORK_RPC: {}",
+                e
+            )))
+        }
+    };
+
     let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
     // Use the reserved strategy to route to a specific cluster.
     prover.with_strategy(FulfillmentStrategy::Reserved);
@@ -326,7 +362,7 @@ async fn request_agg_proof(
     {
         Ok(id) => id,
         Err(e) => {
-            error!("Failed to request proof: {}", e);
+            log::error!("Failed to request proof: {}", e);
             return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
         }
     };
@@ -334,9 +370,65 @@ async fn request_agg_proof(
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
 
+// Sourced from /crates/sdk/src/provers/mock.rs, because the normal prove doesn't expose the ExecutionReport.
+// TODO: If the original mock method exposed the execution report, or there was a default method, we wouldn't need these imports.
+fn generate_mock_compressed_proof(
+    elf: &[u8],
+    stdin: SP1Stdin,
+) -> Result<(SP1ProofWithPublicValues, ExecutionReport)> {
+    let mock_prover = MockProver::new();
+    let context = SP1Context::builder()
+        .set_skip_deferred_proof_verification(true)
+        .build();
+    let (public_values, report) = mock_prover.sp1_prover().execute(elf, &stdin, context)?;
+
+    // TODO: Rather than using this type, we can just return the public values, sp1 version and sp1 stdin
+    let shard_proof = ShardProof {
+        commitment: ShardCommitment {
+            global_main_commit: [BabyBear::zero(); 8].into(),
+            local_main_commit: [BabyBear::zero(); 8].into(),
+            permutation_commit: [BabyBear::zero(); 8].into(),
+            quotient_commit: [BabyBear::zero(); 8].into(),
+        },
+        opened_values: ShardOpenedValues { chips: vec![] },
+        opening_proof: TwoAdicFriPcsProof {
+            fri_proof: FriProof {
+                commit_phase_commits: vec![],
+                query_proofs: vec![],
+                final_poly: Default::default(),
+                pow_witness: BabyBear::zero(),
+            },
+            query_openings: vec![],
+        },
+        chip_ordering: HashMap::new(),
+        public_values: vec![],
+    };
+
+    let reduce_vk = StarkVerifyingKey {
+        commit: [BabyBear::zero(); 8].into(),
+        pc_start: BabyBear::zero(),
+        chip_information: vec![],
+        chip_ordering: HashMap::new(),
+    };
+
+    let proof = SP1Proof::Compressed(Box::new(SP1ReduceProof {
+        vk: reduce_vk,
+        proof: shard_proof,
+    }));
+
+    Ok((
+        SP1ProofWithPublicValues {
+            proof,
+            stdin,
+            public_values,
+            sp1_version: mock_prover.version().to_string(),
+        },
+        report,
+    ))
+}
+
 /// Request a proof for a span of blocks.
 async fn request_mock_span_proof(
-    State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received mock span proof request: {:?}", payload);
@@ -347,6 +439,7 @@ async fn request_mock_span_proof(
             return Err(AppError(e));
         }
     };
+    let l2_chain_id = fetcher.get_l2_chain_id().await?;
 
     let host_cli = match fetcher
         .get_host_cli_args(
@@ -367,6 +460,7 @@ async fn request_mock_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
+    let start_witnessgen = Instant::now();
     let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Docker);
     if let Err(e) = witnessgen_executor.spawn_witnessgen(&host_cli).await {
         error!("Failed to spawn witness generator: {}", e);
@@ -380,6 +474,7 @@ async fn request_mock_span_proof(
             e
         )));
     }
+    let witnessgen_duration = start_witnessgen.elapsed();
 
     let sp1_stdin = match get_proof_stdin(&host_cli) {
         Ok(stdin) => stdin,
@@ -389,12 +484,51 @@ async fn request_mock_span_proof(
         }
     };
 
-    let prover = ProverClient::mock();
-    let proof = prover
-        .prove(&state.range_pk, sp1_stdin)
-        .set_skip_deferred_proof_verification(true)
-        .compressed()
-        .run()?;
+    let start_prove = Instant::now();
+    let res = generate_mock_compressed_proof(MULTI_BLOCK_ELF, sp1_stdin);
+    let (proof, report) = if let Ok(result) = res {
+        result
+    } else {
+        return Err(AppError(anyhow::anyhow!(
+            "Failed to generate mock compressed proof: {}",
+            res.err().unwrap()
+        )));
+    };
+    let prove_duration = start_prove.elapsed();
+    // Save the report to execution-reports/ with .csv
+    let report_path: PathBuf = PathBuf::from(format!(
+        "/usr/local/bin/execution-reports/{}/{}-{}.csv",
+        l2_chain_id, payload.start, payload.end
+    ));
+    std::fs::create_dir_all(report_path.parent().unwrap()).unwrap();
+    let mut file = OpenOptions::new()
+        .read(true)
+        .append(true)
+        .create(true)
+        .open(&report_path)
+        .unwrap();
+
+    // Writes the headers only if the file is empty.
+    let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+
+    let mut csv_writer = csv::WriterBuilder::new()
+        .has_headers(needs_header)
+        .from_writer(file);
+
+    let block_data = fetcher
+        .get_l2_block_data_range(payload.start, payload.end)
+        .await?;
+    let execution_stats = ExecutionStats::new(
+        &block_data,
+        &report,
+        witnessgen_duration.as_secs(),
+        prove_duration.as_secs(),
+    );
+
+    csv_writer
+        .serialize(execution_stats)
+        .expect("Failed to write execution stats to CSV.");
+    csv_writer.flush().expect("Failed to flush CSV writer.");
 
     let proof_bytes = bincode::serialize(&proof).unwrap();
 
