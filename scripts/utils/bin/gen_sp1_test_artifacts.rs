@@ -10,7 +10,6 @@ use op_succinct_host_utils::{
     witnessgen::run_native_data_generation,
     ProgramType,
 };
-use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use sp1_sdk::{utils, ProverClient, SP1Stdin};
 use std::{
