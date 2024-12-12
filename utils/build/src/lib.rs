@@ -85,13 +85,12 @@ fn build_zkvm_program(program: &str) {
 /// Build all the native programs and the native host runner. Optional flag to build the zkVM
 /// programs.
 pub fn build_all() {
-    // let programs = vec!["fault-proof", "range"];
-    let programs = vec!["range"];
+    let programs = vec!["fault-proof", "range"];
     for program in programs {
         // Note: Don't comment this out, because the Docker program depends on the native program
         // for range being built.
         build_native_program(program);
-        build_zkvm_program(program);
+        // build_zkvm_program(program);
     }
 
     // build_zkvm_program("aggregation");
