@@ -90,9 +90,9 @@ op-alloy-network = { version = "0.6.8", default-features = false }
 # sp1
 sp1-lib = { version = "3.3.0", features = ["verify"] }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "ratan/allocators", features = ["verify", "embedded", "libm", "lib"], default-features = false }
-# Note: This rev includes the SP1 mock groth16 bytes fix, skipping deferred verification, executor opts and network-v2 changes.
+# Note: This rev includes the SP1 mock groth16 bytes fix, skipping deferred verification, executor opts and network-v2 changes. Also turn off debug assertions on the executor.
 # ratan/v3.3.0-network-v2-with-features branch includes the network-v2 changes from `19ae3e1`.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "cd23301f627370eace27a6cb28450d65151cbed4", features = [
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "3ef33280f638d080a1ceda6de597867e720df660", features = [
     "network-v2",
 ] }
 sp1-build = { version = "3.3.0" }
