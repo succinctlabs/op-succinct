@@ -84,14 +84,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The hash of the chain's rollup config, which ensures the proofs submitted are for the correct chain.
     bytes32 public rollupConfigHash;
 
+    /// @notice A trusted mapping of block numbers to block hashes.
+    mapping(uint256 => bytes32) public historicBlockHashes;
+
     /// @notice The owner of the contract, who has admin permissions.
     address public owner;
 
     /// @notice The proposers that can propose new proofs.
     mapping(address => bool) public approvedProposers;
-
-    /// @notice A trusted mapping of block numbers to block hashes.
-    mapping(uint256 => bytes32) public historicBlockHashes;
 
     ////////////////////////////////////////////////////////////
     //                         Events                         //
