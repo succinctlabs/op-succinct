@@ -204,7 +204,6 @@ func (l *L2OutputSubmitter) GetRangeProofBoundaries(ctx context.Context) error {
 	// 	}
 	// }
 
-
 	// Add each span to the DB. If there are no spans, we will not create any proofs.
 	for _, span := range spans {
 		err := l.db.NewEntry(proofrequest.TypeSPAN, span.Start, span.End)
