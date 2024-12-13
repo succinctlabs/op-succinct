@@ -193,8 +193,6 @@ func (l *L2OutputSubmitter) GetRangeProofBoundaries(ctx context.Context) error {
 	// if err != nil {
 	// 	l.Log.Warn("safeDB is not activated. Using simple range splitting algorithm.", "err", err)
 	// }
-	// // If the safeDB is activated, we use the safeHead based range splitting algorithm.
-	// // Otherwise, we use the simple range splitting algorithm.
 	// if safeDBActivated {
 	// 	safeHeadSpans, err := l.SplitRangeBasedOnSafeHeads(ctx, newL2StartBlock, newL2EndBlock)
 	// 	if err == nil {
