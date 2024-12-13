@@ -17,7 +17,7 @@ import (
 )
 
 const PROOF_STATUS_TIMEOUT = 30 * time.Second
-const WITNESS_GEN_TIMEOUT = 40 * time.Minute
+const WITNESSGEN_TIMEOUT = 60 * 60 * time.Second
 
 // This limit is set to prevent overloading the witness generation server. Until Kona improves their native I/O API (https://github.com/anton-rs/kona/issues/553)
 // the maximum number of concurrent witness generation requests is roughly num_cpu / 2. Set it to 5 for now to be safe.
@@ -297,13 +297,13 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: WITNESS_GEN_TIMEOUT}
+	client := &http.Client{Timeout: WITNESSGEN_TIMEOUT}
 	resp, err := client.Do(req)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			l.Log.Error("Witness generation request timed out", "err", err)
 			l.Metr.RecordWitnessGenFailure("Timeout")
-			return nil, fmt.Errorf("request timed out after %s: %w", WITNESS_GEN_TIMEOUT, err)
+			return nil, fmt.Errorf("request timed out after %s: %w", WITNESSGEN_TIMEOUT, err)
 		}
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
