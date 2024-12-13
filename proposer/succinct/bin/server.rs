@@ -166,7 +166,10 @@ async fn request_span_proof(
         Ok(stdin) => stdin,
         Err(e) => {
             log::error!("Failed to get proof stdin: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to get proof stdin: {}", e)));
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get proof stdin: {}",
+                e
+            )));
         }
     };
 
@@ -174,14 +177,20 @@ async fn request_span_proof(
         Ok(private_key) => private_key,
         Err(e) => {
             log::error!("Failed to get SP1 private key: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to get SP1 private key: {}", e)));
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get SP1 private key: {}",
+                e
+            )));
         }
     };
     let rpc_url = match env::var("PROVER_NETWORK_RPC") {
         Ok(rpc_url) => rpc_url,
         Err(e) => {
             log::error!("Failed to get PROVER_NETWORK_RPC: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to get PROVER_NETWORK_RPC: {}", e)));
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to get PROVER_NETWORK_RPC: {}",
+                e
+            )));
         }
     };
     let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
@@ -197,7 +206,10 @@ async fn request_span_proof(
         Ok(vk_hash) => vk_hash,
         Err(e) => {
             log::error!("Failed to register program: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to register program: {}", e)));
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to register program: {}",
+                e
+            )));
         }
     };
     let proof_id = match prover
