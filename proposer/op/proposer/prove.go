@@ -17,7 +17,7 @@ import (
 )
 
 const PROOF_STATUS_TIMEOUT = 30 * time.Second
-const WITNESS_GEN_TIMEOUT = 20 * time.Minute
+const WITNESS_GEN_TIMEOUT = 40 * time.Minute
 
 // This limit is set to prevent overloading the witness generation server. Until Kona improves their native I/O API (https://github.com/anton-rs/kona/issues/553)
 // the maximum number of concurrent witness generation requests is roughly num_cpu / 2. Set it to 5 for now to be safe.

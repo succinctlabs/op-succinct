@@ -41,12 +41,10 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 #     --mount=type=cache,target=/build/target \
 #     cargo build --bin server --release && \
 #     cp target/release/server /build/server && \
-#     cp target/release-client-lto/fault-proof /build/fault_proof && \
 #     cp target/release-client-lto/range /build/range && \
 #     cp target/native_host_runner/release/native_host_runner /build/native_host_runner
 
 COPY target/release/server /build/server
-COPY target/release-client-lto/fault-proof /build/fault_proof
 COPY target/release-client-lto/range /build/range
 COPY target/native_host_runner/release/native_host_runner /build/native_host_runner
 
@@ -78,7 +76,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/server /usr/local/bin/server
-COPY --from=builder /build/fault_proof /usr/local/bin/fault_proof
 COPY --from=builder /build/range /usr/local/bin/range
 COPY --from=builder /build/native_host_runner /usr/local/bin/native_host_runner
 
