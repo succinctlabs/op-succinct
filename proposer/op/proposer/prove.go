@@ -78,7 +78,7 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 		return err
 	}
 
-	// TODO: Once execution errors are added, update this to retry only when there's an execution error returned on
+	// TODO: Once execution errors are added, update this to split the range only when there's an execution error returned on
 	// a SPAN proof.
 	// Retry same request.
 	err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
