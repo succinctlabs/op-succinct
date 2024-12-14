@@ -92,10 +92,10 @@ if __name__ == "__main__":
     # Load environment variables from .env file
     load_dotenv()
 
-    # Get L2OO_ADDRESS from environment variables
-    L2OO_ADDRESS = os.getenv('L2OO_ADDRESS')
-    if L2OO_ADDRESS is None:
-        raise ValueError("L2OO_ADDRESS not found in .env file")
+    # # Get L2OO_ADDRESS from environment variables
+    # L2OO_ADDRESS = os.getenv('L2OO_ADDRESS')
+    # if L2OO_ADDRESS is None:
+    #     raise ValueError("L2OO_ADDRESS not found in .env file")
 
     # Get chain ID from command line args
     if len(sys.argv) != 2:
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         sys.exit(1)
     chain_id = sys.argv[1]
 
-    print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
+    # print(f"L2OO_ADDRESS: {L2OO_ADDRESS}")
     db_path = f"../../db/{chain_id}/proofs.db"
 
     print(f"DB Path: {db_path}")
