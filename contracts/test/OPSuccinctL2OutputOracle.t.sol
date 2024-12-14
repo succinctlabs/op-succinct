@@ -29,5 +29,15 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
         vm.prank(OWNER);
         l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof);
+
+        assertEq(l2oo.getL2OutputAfter(claimedL2BlockNum).outputRoot, claimedOutputRoot);
+    }
+
+    // Test the L2OO contract upgrade and proposal.
+    function testOPSuccinctL2OOUpgradeAndProposal() public {
+        l2oo = OPSuccinctL2OutputOracle(0x83EBf366f868784c91d49fBEe67651F7a3de74C5);
+        l2oo.checkpointBlockHash(checkpointedL1BlockNum);
+        vm.prank(OWNER);
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof);
     }
 }
