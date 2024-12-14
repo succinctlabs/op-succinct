@@ -3,12 +3,15 @@ pragma solidity ^0.8.15;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "./helpers/Utils.sol";
+import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {OPSuccinctL2OutputOracle} from "../src/OPSuccinctL2OutputOracle.sol";
+import {NewOPSuccinctL2OutputOracle} from "./helpers/OPSuccinctL2OutputOracleVersionBumped.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Example proof data for the BoB testnet. Tx: https://sepolia.etherscan.io/tx/0x3910121f57c2e81ac98f5154eba7a2845f7ed27caf57a73e516ca606ad9d9aab
     uint256 checkpointedL1BlockNum = 6931062;
-    bytes32 claimedOutputRoot = 0xf5ef905ba2c0e598c2f5274177700f3dfe37f66db15e8957e63d0732b0e611b8;
+    bytes32 claimedOutputRoot =
+        0xf5ef905ba2c0e598c2f5274177700f3dfe37f66db15e8957e63d0732b0e611b8;
     uint256 claimedL2BlockNum = 3677705;
     bytes proof =
         hex"91ff06f303ed1bf4b5dbf52b2dd7201cb9675afd59200464ef55cff01d113ca54d96b52c2689d0a64c90eb674d1cb9119e4f4fde54d9414d056112df7bf01066b86ee5e410d4d6a93c26c287e1c010bf03fcc0ebfaa6ae294650bba1bf177271c96911771624e73cf6192e3f1a5ac0bd7943f5921df5c22e1c2661a40c33a40b70e9f8d6164ab1e3e1abd666c19aae2012ec389a295e9ce148f781a81363685da83b32390785840f77691e93d734863d283a05497f8a8621dd1dc5e410b6bef0ed9ce53422a8b41ebdbc7e82202fafa1dd5a0fcc458932f76390f9d1f1fbf4134cf68dec06bf5b5b1c0cde47bd89198a52e7b92c634da6dadcf59efa6b78d51273e3316d";
@@ -25,19 +28,72 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
 
     // Test the L2OO contract.
     function testOPSuccinctL2OOFork() public {
-        l2oo = OPSuccinctL2OutputOracle(0x83EBf366f868784c91d49fBEe67651F7a3de74C5);
+        l2oo = OPSuccinctL2OutputOracle(
+            0x83EBf366f868784c91d49fBEe67651F7a3de74C5
+        );
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
         vm.prank(OWNER);
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof);
+        l2oo.proposeL2Output(
+            claimedOutputRoot,
+            claimedL2BlockNum,
+            checkpointedL1BlockNum,
+            proof
+        );
 
-        assertEq(l2oo.getL2OutputAfter(claimedL2BlockNum).outputRoot, claimedOutputRoot);
+        assertEq(
+            l2oo.getL2OutputAfter(claimedL2BlockNum).outputRoot,
+            claimedOutputRoot
+        );
     }
 
     // Test the L2OO contract upgrade and proposal.
     function testOPSuccinctL2OOUpgradeAndProposal() public {
-        l2oo = OPSuccinctL2OutputOracle(0x83EBf366f868784c91d49fBEe67651F7a3de74C5);
+        OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(
+            0x83EBf366f868784c91d49fBEe67651F7a3de74C5
+        );
+
+        Proxy l2ooProxy = Proxy(payable(address(l2oo)));
+
+        // Upgrade to the new implementation.
+        vm.prank(OWNER);
+        Config memory cfg = readJson("opsuccinctl2ooconfig.json");
+        NewOPSuccinctL2OutputOracle.InitParams
+            memory initParams = NewOPSuccinctL2OutputOracle.InitParams({
+                verifier: cfg.verifier,
+                aggregationVkey: cfg.aggregationVkey,
+                rangeVkeyCommitment: cfg.rangeVkeyCommitment,
+                startingOutputRoot: cfg.startingOutputRoot,
+                rollupConfigHash: cfg.rollupConfigHash,
+                proposer: cfg.proposer,
+                challenger: cfg.challenger,
+                owner: cfg.owner,
+                finalizationPeriodSeconds: cfg.finalizationPeriod,
+                l2BlockTime: cfg.l2BlockTime,
+                startingBlockNumber: cfg.startingBlockNumber,
+                startingTimestamp: cfg.startingTimestamp,
+                submissionInterval: cfg.submissionInterval
+            });
+
+        bytes memory initializationParams = abi.encodeWithSelector(
+            NewOPSuccinctL2OutputOracle.initialize.selector,
+            initParams
+        );
+
+        address newImpl = address(new NewOPSuccinctL2OutputOracle());
+        require(
+            NewOPSuccinctL2OutputOracle(newImpl).initializerVersion() ==
+                4,
+            "L2OO is not the implementation"
+        );
+        l2ooProxy.upgradeToAndCall(newImpl, initializationParams);
+
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
         vm.prank(OWNER);
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof);
+        l2oo.proposeL2Output(
+            claimedOutputRoot,
+            claimedL2BlockNum,
+            checkpointedL1BlockNum,
+            proof
+        );
     }
 }
