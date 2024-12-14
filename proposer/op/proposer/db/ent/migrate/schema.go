@@ -3,6 +3,7 @@
 package migrate
 
 import (
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/dialect/sql/schema"
 	"entgo.io/ent/schema/field"
 )
@@ -15,8 +16,8 @@ var (
 		{Name: "start_block", Type: field.TypeUint64},
 		{Name: "end_block", Type: field.TypeUint64},
 		{Name: "status", Type: field.TypeEnum, Enums: []string{"UNREQ", "WITNESSGEN", "PROVING", "FAILED", "COMPLETE"}},
-		{Name: "request_added_time", Type: field.TypeUint64},
 		{Name: "prover_request_id", Type: field.TypeString, Nullable: true},
+		{Name: "request_added_time", Type: field.TypeUint64},
 		{Name: "proof_request_time", Type: field.TypeUint64, Nullable: true},
 		{Name: "last_updated_time", Type: field.TypeUint64},
 		{Name: "l1_block_number", Type: field.TypeUint64, Nullable: true},
@@ -36,4 +37,8 @@ var (
 )
 
 func init() {
+	ProofRequestsTable.Annotation = &entsql.Annotation{
+		Table:   "proof_requests",
+		Options: "STRICT",
+	}
 }

@@ -24,10 +24,10 @@ type ProofRequest struct {
 	EndBlock uint64 `json:"end_block,omitempty"`
 	// Status holds the value of the "status" field.
 	Status proofrequest.Status `json:"status,omitempty"`
-	// RequestAddedTime holds the value of the "request_added_time" field.
-	RequestAddedTime uint64 `json:"request_added_time,omitempty"`
 	// ProverRequestID holds the value of the "prover_request_id" field.
 	ProverRequestID string `json:"prover_request_id,omitempty"`
+	// RequestAddedTime holds the value of the "request_added_time" field.
+	RequestAddedTime uint64 `json:"request_added_time,omitempty"`
 	// ProofRequestTime holds the value of the "proof_request_time" field.
 	ProofRequestTime uint64 `json:"proof_request_time,omitempty"`
 	// LastUpdatedTime holds the value of the "last_updated_time" field.
@@ -97,17 +97,17 @@ func (pr *ProofRequest) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				pr.Status = proofrequest.Status(value.String)
 			}
-		case proofrequest.FieldRequestAddedTime:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field request_added_time", values[i])
-			} else if value.Valid {
-				pr.RequestAddedTime = uint64(value.Int64)
-			}
 		case proofrequest.FieldProverRequestID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field prover_request_id", values[i])
 			} else if value.Valid {
 				pr.ProverRequestID = value.String
+			}
+		case proofrequest.FieldRequestAddedTime:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field request_added_time", values[i])
+			} else if value.Valid {
+				pr.RequestAddedTime = uint64(value.Int64)
 			}
 		case proofrequest.FieldProofRequestTime:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -187,11 +187,11 @@ func (pr *ProofRequest) String() string {
 	builder.WriteString("status=")
 	builder.WriteString(fmt.Sprintf("%v", pr.Status))
 	builder.WriteString(", ")
-	builder.WriteString("request_added_time=")
-	builder.WriteString(fmt.Sprintf("%v", pr.RequestAddedTime))
-	builder.WriteString(", ")
 	builder.WriteString("prover_request_id=")
 	builder.WriteString(pr.ProverRequestID)
+	builder.WriteString(", ")
+	builder.WriteString("request_added_time=")
+	builder.WriteString(fmt.Sprintf("%v", pr.RequestAddedTime))
 	builder.WriteString(", ")
 	builder.WriteString("proof_request_time=")
 	builder.WriteString(fmt.Sprintf("%v", pr.ProofRequestTime))
