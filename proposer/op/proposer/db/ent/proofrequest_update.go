@@ -97,26 +97,6 @@ func (pru *ProofRequestUpdate) SetNillableStatus(pr *proofrequest.Status) *Proof
 	return pru
 }
 
-// SetProverRequestID sets the "prover_request_id" field.
-func (pru *ProofRequestUpdate) SetProverRequestID(s string) *ProofRequestUpdate {
-	pru.mutation.SetProverRequestID(s)
-	return pru
-}
-
-// SetNillableProverRequestID sets the "prover_request_id" field if the given value is not nil.
-func (pru *ProofRequestUpdate) SetNillableProverRequestID(s *string) *ProofRequestUpdate {
-	if s != nil {
-		pru.SetProverRequestID(*s)
-	}
-	return pru
-}
-
-// ClearProverRequestID clears the value of the "prover_request_id" field.
-func (pru *ProofRequestUpdate) ClearProverRequestID() *ProofRequestUpdate {
-	pru.mutation.ClearProverRequestID()
-	return pru
-}
-
 // SetRequestAddedTime sets the "request_added_time" field.
 func (pru *ProofRequestUpdate) SetRequestAddedTime(u uint64) *ProofRequestUpdate {
 	pru.mutation.ResetRequestAddedTime()
@@ -135,6 +115,26 @@ func (pru *ProofRequestUpdate) SetNillableRequestAddedTime(u *uint64) *ProofRequ
 // AddRequestAddedTime adds u to the "request_added_time" field.
 func (pru *ProofRequestUpdate) AddRequestAddedTime(u int64) *ProofRequestUpdate {
 	pru.mutation.AddRequestAddedTime(u)
+	return pru
+}
+
+// SetProverRequestID sets the "prover_request_id" field.
+func (pru *ProofRequestUpdate) SetProverRequestID(s string) *ProofRequestUpdate {
+	pru.mutation.SetProverRequestID(s)
+	return pru
+}
+
+// SetNillableProverRequestID sets the "prover_request_id" field if the given value is not nil.
+func (pru *ProofRequestUpdate) SetNillableProverRequestID(s *string) *ProofRequestUpdate {
+	if s != nil {
+		pru.SetProverRequestID(*s)
+	}
+	return pru
+}
+
+// ClearProverRequestID clears the value of the "prover_request_id" field.
+func (pru *ProofRequestUpdate) ClearProverRequestID() *ProofRequestUpdate {
+	pru.mutation.ClearProverRequestID()
 	return pru
 }
 
@@ -322,17 +322,17 @@ func (pru *ProofRequestUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := pru.mutation.Status(); ok {
 		_spec.SetField(proofrequest.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := pru.mutation.ProverRequestID(); ok {
-		_spec.SetField(proofrequest.FieldProverRequestID, field.TypeString, value)
-	}
-	if pru.mutation.ProverRequestIDCleared() {
-		_spec.ClearField(proofrequest.FieldProverRequestID, field.TypeString)
-	}
 	if value, ok := pru.mutation.RequestAddedTime(); ok {
 		_spec.SetField(proofrequest.FieldRequestAddedTime, field.TypeUint64, value)
 	}
 	if value, ok := pru.mutation.AddedRequestAddedTime(); ok {
 		_spec.AddField(proofrequest.FieldRequestAddedTime, field.TypeUint64, value)
+	}
+	if value, ok := pru.mutation.ProverRequestID(); ok {
+		_spec.SetField(proofrequest.FieldProverRequestID, field.TypeString, value)
+	}
+	if pru.mutation.ProverRequestIDCleared() {
+		_spec.ClearField(proofrequest.FieldProverRequestID, field.TypeString)
 	}
 	if value, ok := pru.mutation.ProofRequestTime(); ok {
 		_spec.SetField(proofrequest.FieldProofRequestTime, field.TypeUint64, value)
@@ -460,26 +460,6 @@ func (pruo *ProofRequestUpdateOne) SetNillableStatus(pr *proofrequest.Status) *P
 	return pruo
 }
 
-// SetProverRequestID sets the "prover_request_id" field.
-func (pruo *ProofRequestUpdateOne) SetProverRequestID(s string) *ProofRequestUpdateOne {
-	pruo.mutation.SetProverRequestID(s)
-	return pruo
-}
-
-// SetNillableProverRequestID sets the "prover_request_id" field if the given value is not nil.
-func (pruo *ProofRequestUpdateOne) SetNillableProverRequestID(s *string) *ProofRequestUpdateOne {
-	if s != nil {
-		pruo.SetProverRequestID(*s)
-	}
-	return pruo
-}
-
-// ClearProverRequestID clears the value of the "prover_request_id" field.
-func (pruo *ProofRequestUpdateOne) ClearProverRequestID() *ProofRequestUpdateOne {
-	pruo.mutation.ClearProverRequestID()
-	return pruo
-}
-
 // SetRequestAddedTime sets the "request_added_time" field.
 func (pruo *ProofRequestUpdateOne) SetRequestAddedTime(u uint64) *ProofRequestUpdateOne {
 	pruo.mutation.ResetRequestAddedTime()
@@ -498,6 +478,26 @@ func (pruo *ProofRequestUpdateOne) SetNillableRequestAddedTime(u *uint64) *Proof
 // AddRequestAddedTime adds u to the "request_added_time" field.
 func (pruo *ProofRequestUpdateOne) AddRequestAddedTime(u int64) *ProofRequestUpdateOne {
 	pruo.mutation.AddRequestAddedTime(u)
+	return pruo
+}
+
+// SetProverRequestID sets the "prover_request_id" field.
+func (pruo *ProofRequestUpdateOne) SetProverRequestID(s string) *ProofRequestUpdateOne {
+	pruo.mutation.SetProverRequestID(s)
+	return pruo
+}
+
+// SetNillableProverRequestID sets the "prover_request_id" field if the given value is not nil.
+func (pruo *ProofRequestUpdateOne) SetNillableProverRequestID(s *string) *ProofRequestUpdateOne {
+	if s != nil {
+		pruo.SetProverRequestID(*s)
+	}
+	return pruo
+}
+
+// ClearProverRequestID clears the value of the "prover_request_id" field.
+func (pruo *ProofRequestUpdateOne) ClearProverRequestID() *ProofRequestUpdateOne {
+	pruo.mutation.ClearProverRequestID()
 	return pruo
 }
 
@@ -715,17 +715,17 @@ func (pruo *ProofRequestUpdateOne) sqlSave(ctx context.Context) (_node *ProofReq
 	if value, ok := pruo.mutation.Status(); ok {
 		_spec.SetField(proofrequest.FieldStatus, field.TypeEnum, value)
 	}
-	if value, ok := pruo.mutation.ProverRequestID(); ok {
-		_spec.SetField(proofrequest.FieldProverRequestID, field.TypeString, value)
-	}
-	if pruo.mutation.ProverRequestIDCleared() {
-		_spec.ClearField(proofrequest.FieldProverRequestID, field.TypeString)
-	}
 	if value, ok := pruo.mutation.RequestAddedTime(); ok {
 		_spec.SetField(proofrequest.FieldRequestAddedTime, field.TypeUint64, value)
 	}
 	if value, ok := pruo.mutation.AddedRequestAddedTime(); ok {
 		_spec.AddField(proofrequest.FieldRequestAddedTime, field.TypeUint64, value)
+	}
+	if value, ok := pruo.mutation.ProverRequestID(); ok {
+		_spec.SetField(proofrequest.FieldProverRequestID, field.TypeString, value)
+	}
+	if pruo.mutation.ProverRequestIDCleared() {
+		_spec.ClearField(proofrequest.FieldProverRequestID, field.TypeString)
 	}
 	if value, ok := pruo.mutation.ProofRequestTime(); ok {
 		_spec.SetField(proofrequest.FieldProofRequestTime, field.TypeUint64, value)

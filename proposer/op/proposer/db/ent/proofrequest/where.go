@@ -62,14 +62,14 @@ func EndBlock(v uint64) predicate.ProofRequest {
 	return predicate.ProofRequest(sql.FieldEQ(FieldEndBlock, v))
 }
 
-// ProverRequestID applies equality check predicate on the "prover_request_id" field. It's identical to ProverRequestIDEQ.
-func ProverRequestID(v string) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldEQ(FieldProverRequestID, v))
-}
-
 // RequestAddedTime applies equality check predicate on the "request_added_time" field. It's identical to RequestAddedTimeEQ.
 func RequestAddedTime(v uint64) predicate.ProofRequest {
 	return predicate.ProofRequest(sql.FieldEQ(FieldRequestAddedTime, v))
+}
+
+// ProverRequestID applies equality check predicate on the "prover_request_id" field. It's identical to ProverRequestIDEQ.
+func ProverRequestID(v string) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldEQ(FieldProverRequestID, v))
 }
 
 // ProofRequestTime applies equality check predicate on the "proof_request_time" field. It's identical to ProofRequestTimeEQ.
@@ -217,6 +217,46 @@ func StatusNotIn(vs ...Status) predicate.ProofRequest {
 	return predicate.ProofRequest(sql.FieldNotIn(FieldStatus, vs...))
 }
 
+// RequestAddedTimeEQ applies the EQ predicate on the "request_added_time" field.
+func RequestAddedTimeEQ(v uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldEQ(FieldRequestAddedTime, v))
+}
+
+// RequestAddedTimeNEQ applies the NEQ predicate on the "request_added_time" field.
+func RequestAddedTimeNEQ(v uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldNEQ(FieldRequestAddedTime, v))
+}
+
+// RequestAddedTimeIn applies the In predicate on the "request_added_time" field.
+func RequestAddedTimeIn(vs ...uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldIn(FieldRequestAddedTime, vs...))
+}
+
+// RequestAddedTimeNotIn applies the NotIn predicate on the "request_added_time" field.
+func RequestAddedTimeNotIn(vs ...uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldNotIn(FieldRequestAddedTime, vs...))
+}
+
+// RequestAddedTimeGT applies the GT predicate on the "request_added_time" field.
+func RequestAddedTimeGT(v uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldGT(FieldRequestAddedTime, v))
+}
+
+// RequestAddedTimeGTE applies the GTE predicate on the "request_added_time" field.
+func RequestAddedTimeGTE(v uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldGTE(FieldRequestAddedTime, v))
+}
+
+// RequestAddedTimeLT applies the LT predicate on the "request_added_time" field.
+func RequestAddedTimeLT(v uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldLT(FieldRequestAddedTime, v))
+}
+
+// RequestAddedTimeLTE applies the LTE predicate on the "request_added_time" field.
+func RequestAddedTimeLTE(v uint64) predicate.ProofRequest {
+	return predicate.ProofRequest(sql.FieldLTE(FieldRequestAddedTime, v))
+}
+
 // ProverRequestIDEQ applies the EQ predicate on the "prover_request_id" field.
 func ProverRequestIDEQ(v string) predicate.ProofRequest {
 	return predicate.ProofRequest(sql.FieldEQ(FieldProverRequestID, v))
@@ -290,46 +330,6 @@ func ProverRequestIDEqualFold(v string) predicate.ProofRequest {
 // ProverRequestIDContainsFold applies the ContainsFold predicate on the "prover_request_id" field.
 func ProverRequestIDContainsFold(v string) predicate.ProofRequest {
 	return predicate.ProofRequest(sql.FieldContainsFold(FieldProverRequestID, v))
-}
-
-// RequestAddedTimeEQ applies the EQ predicate on the "request_added_time" field.
-func RequestAddedTimeEQ(v uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldEQ(FieldRequestAddedTime, v))
-}
-
-// RequestAddedTimeNEQ applies the NEQ predicate on the "request_added_time" field.
-func RequestAddedTimeNEQ(v uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldNEQ(FieldRequestAddedTime, v))
-}
-
-// RequestAddedTimeIn applies the In predicate on the "request_added_time" field.
-func RequestAddedTimeIn(vs ...uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldIn(FieldRequestAddedTime, vs...))
-}
-
-// RequestAddedTimeNotIn applies the NotIn predicate on the "request_added_time" field.
-func RequestAddedTimeNotIn(vs ...uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldNotIn(FieldRequestAddedTime, vs...))
-}
-
-// RequestAddedTimeGT applies the GT predicate on the "request_added_time" field.
-func RequestAddedTimeGT(v uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldGT(FieldRequestAddedTime, v))
-}
-
-// RequestAddedTimeGTE applies the GTE predicate on the "request_added_time" field.
-func RequestAddedTimeGTE(v uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldGTE(FieldRequestAddedTime, v))
-}
-
-// RequestAddedTimeLT applies the LT predicate on the "request_added_time" field.
-func RequestAddedTimeLT(v uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldLT(FieldRequestAddedTime, v))
-}
-
-// RequestAddedTimeLTE applies the LTE predicate on the "request_added_time" field.
-func RequestAddedTimeLTE(v uint64) predicate.ProofRequest {
-	return predicate.ProofRequest(sql.FieldLTE(FieldRequestAddedTime, v))
 }
 
 // ProofRequestTimeEQ applies the EQ predicate on the "proof_request_time" field.

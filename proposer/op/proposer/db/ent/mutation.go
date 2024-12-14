@@ -38,9 +38,9 @@ type ProofRequestMutation struct {
 	end_block             *uint64
 	addend_block          *int64
 	status                *proofrequest.Status
-	prover_request_id     *string
 	request_added_time    *uint64
 	addrequest_added_time *int64
+	prover_request_id     *string
 	proof_request_time    *uint64
 	addproof_request_time *int64
 	last_updated_time     *uint64
@@ -337,55 +337,6 @@ func (m *ProofRequestMutation) ResetStatus() {
 	m.status = nil
 }
 
-// SetProverRequestID sets the "prover_request_id" field.
-func (m *ProofRequestMutation) SetProverRequestID(s string) {
-	m.prover_request_id = &s
-}
-
-// ProverRequestID returns the value of the "prover_request_id" field in the mutation.
-func (m *ProofRequestMutation) ProverRequestID() (r string, exists bool) {
-	v := m.prover_request_id
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldProverRequestID returns the old "prover_request_id" field's value of the ProofRequest entity.
-// If the ProofRequest object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ProofRequestMutation) OldProverRequestID(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldProverRequestID is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldProverRequestID requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldProverRequestID: %w", err)
-	}
-	return oldValue.ProverRequestID, nil
-}
-
-// ClearProverRequestID clears the value of the "prover_request_id" field.
-func (m *ProofRequestMutation) ClearProverRequestID() {
-	m.prover_request_id = nil
-	m.clearedFields[proofrequest.FieldProverRequestID] = struct{}{}
-}
-
-// ProverRequestIDCleared returns if the "prover_request_id" field was cleared in this mutation.
-func (m *ProofRequestMutation) ProverRequestIDCleared() bool {
-	_, ok := m.clearedFields[proofrequest.FieldProverRequestID]
-	return ok
-}
-
-// ResetProverRequestID resets all changes to the "prover_request_id" field.
-func (m *ProofRequestMutation) ResetProverRequestID() {
-	m.prover_request_id = nil
-	delete(m.clearedFields, proofrequest.FieldProverRequestID)
-}
-
 // SetRequestAddedTime sets the "request_added_time" field.
 func (m *ProofRequestMutation) SetRequestAddedTime(u uint64) {
 	m.request_added_time = &u
@@ -440,6 +391,55 @@ func (m *ProofRequestMutation) AddedRequestAddedTime() (r int64, exists bool) {
 func (m *ProofRequestMutation) ResetRequestAddedTime() {
 	m.request_added_time = nil
 	m.addrequest_added_time = nil
+}
+
+// SetProverRequestID sets the "prover_request_id" field.
+func (m *ProofRequestMutation) SetProverRequestID(s string) {
+	m.prover_request_id = &s
+}
+
+// ProverRequestID returns the value of the "prover_request_id" field in the mutation.
+func (m *ProofRequestMutation) ProverRequestID() (r string, exists bool) {
+	v := m.prover_request_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProverRequestID returns the old "prover_request_id" field's value of the ProofRequest entity.
+// If the ProofRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProofRequestMutation) OldProverRequestID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProverRequestID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProverRequestID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProverRequestID: %w", err)
+	}
+	return oldValue.ProverRequestID, nil
+}
+
+// ClearProverRequestID clears the value of the "prover_request_id" field.
+func (m *ProofRequestMutation) ClearProverRequestID() {
+	m.prover_request_id = nil
+	m.clearedFields[proofrequest.FieldProverRequestID] = struct{}{}
+}
+
+// ProverRequestIDCleared returns if the "prover_request_id" field was cleared in this mutation.
+func (m *ProofRequestMutation) ProverRequestIDCleared() bool {
+	_, ok := m.clearedFields[proofrequest.FieldProverRequestID]
+	return ok
+}
+
+// ResetProverRequestID resets all changes to the "prover_request_id" field.
+func (m *ProofRequestMutation) ResetProverRequestID() {
+	m.prover_request_id = nil
+	delete(m.clearedFields, proofrequest.FieldProverRequestID)
 }
 
 // SetProofRequestTime sets the "proof_request_time" field.
@@ -783,11 +783,11 @@ func (m *ProofRequestMutation) Fields() []string {
 	if m.status != nil {
 		fields = append(fields, proofrequest.FieldStatus)
 	}
-	if m.prover_request_id != nil {
-		fields = append(fields, proofrequest.FieldProverRequestID)
-	}
 	if m.request_added_time != nil {
 		fields = append(fields, proofrequest.FieldRequestAddedTime)
+	}
+	if m.prover_request_id != nil {
+		fields = append(fields, proofrequest.FieldProverRequestID)
 	}
 	if m.proof_request_time != nil {
 		fields = append(fields, proofrequest.FieldProofRequestTime)
@@ -820,10 +820,10 @@ func (m *ProofRequestMutation) Field(name string) (ent.Value, bool) {
 		return m.EndBlock()
 	case proofrequest.FieldStatus:
 		return m.Status()
-	case proofrequest.FieldProverRequestID:
-		return m.ProverRequestID()
 	case proofrequest.FieldRequestAddedTime:
 		return m.RequestAddedTime()
+	case proofrequest.FieldProverRequestID:
+		return m.ProverRequestID()
 	case proofrequest.FieldProofRequestTime:
 		return m.ProofRequestTime()
 	case proofrequest.FieldLastUpdatedTime:
@@ -851,10 +851,10 @@ func (m *ProofRequestMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldEndBlock(ctx)
 	case proofrequest.FieldStatus:
 		return m.OldStatus(ctx)
-	case proofrequest.FieldProverRequestID:
-		return m.OldProverRequestID(ctx)
 	case proofrequest.FieldRequestAddedTime:
 		return m.OldRequestAddedTime(ctx)
+	case proofrequest.FieldProverRequestID:
+		return m.OldProverRequestID(ctx)
 	case proofrequest.FieldProofRequestTime:
 		return m.OldProofRequestTime(ctx)
 	case proofrequest.FieldLastUpdatedTime:
@@ -902,19 +902,19 @@ func (m *ProofRequestMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetStatus(v)
 		return nil
-	case proofrequest.FieldProverRequestID:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetProverRequestID(v)
-		return nil
 	case proofrequest.FieldRequestAddedTime:
 		v, ok := value.(uint64)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRequestAddedTime(v)
+		return nil
+	case proofrequest.FieldProverRequestID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProverRequestID(v)
 		return nil
 	case proofrequest.FieldProofRequestTime:
 		v, ok := value.(uint64)
@@ -1120,11 +1120,11 @@ func (m *ProofRequestMutation) ResetField(name string) error {
 	case proofrequest.FieldStatus:
 		m.ResetStatus()
 		return nil
-	case proofrequest.FieldProverRequestID:
-		m.ResetProverRequestID()
-		return nil
 	case proofrequest.FieldRequestAddedTime:
 		m.ResetRequestAddedTime()
+		return nil
+	case proofrequest.FieldProverRequestID:
+		m.ResetProverRequestID()
 		return nil
 	case proofrequest.FieldProofRequestTime:
 		m.ResetProofRequestTime()

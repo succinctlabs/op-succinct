@@ -21,10 +21,10 @@ const (
 	FieldEndBlock = "end_block"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
-	// FieldProverRequestID holds the string denoting the prover_request_id field in the database.
-	FieldProverRequestID = "prover_request_id"
 	// FieldRequestAddedTime holds the string denoting the request_added_time field in the database.
 	FieldRequestAddedTime = "request_added_time"
+	// FieldProverRequestID holds the string denoting the prover_request_id field in the database.
+	FieldProverRequestID = "prover_request_id"
 	// FieldProofRequestTime holds the string denoting the proof_request_time field in the database.
 	FieldProofRequestTime = "proof_request_time"
 	// FieldLastUpdatedTime holds the string denoting the last_updated_time field in the database.
@@ -46,8 +46,8 @@ var Columns = []string{
 	FieldStartBlock,
 	FieldEndBlock,
 	FieldStatus,
-	FieldProverRequestID,
 	FieldRequestAddedTime,
+	FieldProverRequestID,
 	FieldProofRequestTime,
 	FieldLastUpdatedTime,
 	FieldL1BlockNumber,
@@ -142,14 +142,14 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
-// ByProverRequestID orders the results by the prover_request_id field.
-func ByProverRequestID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldProverRequestID, opts...).ToFunc()
-}
-
 // ByRequestAddedTime orders the results by the request_added_time field.
 func ByRequestAddedTime(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequestAddedTime, opts...).ToFunc()
+}
+
+// ByProverRequestID orders the results by the prover_request_id field.
+func ByProverRequestID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProverRequestID, opts...).ToFunc()
 }
 
 // ByProofRequestTime orders the results by the proof_request_time field.
