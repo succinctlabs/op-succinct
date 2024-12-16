@@ -21,13 +21,7 @@ use std::{fs::File, io::Read};
 
 use anyhow::Result;
 
-use rkyv::{
-    ser::{
-        serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
-        Serializer,
-    },
-    AlignedVec,
-};
+use rkyv::{api::high::HighSerializer, rancor::Error, ser::Serializer, to_bytes, util::AlignedVec};
 
 sol! {
     #[allow(missing_docs)]
@@ -88,19 +82,8 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         anyhow::anyhow!("Failed to convert DiskKeyValueStore to MemoryKeyValueStore")
     })?;
 
-    let mut serializer = CompositeSerializer::new(
-        AlignedSerializer::new(AlignedVec::new()),
-        // Note: This value corresponds to the size of the heap needed to serialize the KV store.
-        // Increase this value if we start running into serialization issues.
-        HeapScratch::<268435456>::new(),
-        SharedSerializeMap::new(),
-    );
-    // Serialize the underlying KV store.
-    serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
-
-    let buffer = serializer.into_serializer().into_inner();
-    let kv_store_bytes = buffer.into_vec();
-    stdin.write_slice(&kv_store_bytes);
+    let bytes = bincode::serialize(&mem_kv_store.store).unwrap();
+    stdin.write_slice(&bytes);
 
     Ok(stdin)
 }
