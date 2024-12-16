@@ -11,10 +11,7 @@ use kona_preimage::{
 };
 use kona_proof::FlushableCache;
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
-use rkyv::{
-    with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Deserialize, Fallible, Infallible, Resolver, Serialize,
-};
+use rkyv::rancor::Error;
 use sha2::{Digest, Sha256};
 use spin::mutex::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -25,9 +22,8 @@ type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
 /// Rather than relying on a trusted host for data, the data in this oracle
 /// is verified with the `verify()` function, and then is trusted for
 /// the remainder of execution.
-#[derive(Debug, Clone, Archive, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct InMemoryOracle {
-    #[with(Lock)]
     cache: LockableMap,
 }
 
@@ -36,13 +32,14 @@ impl InMemoryOracle {
     /// These values are deserialized using rkyv for zero copy deserialization.
     pub fn from_raw_bytes(input: Vec<u8>) -> Self {
         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-archive");
-        let archived = unsafe { rkyv::archived_root::<Self>(&input) };
+        let deserialized: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> =
+            rkyv::from_bytes::<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>, Error>(&input)
+                .expect("Failed to deserialize oracle bytes");
         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-archive");
-        println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-deserialize");
-        let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
-        println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-deserialize");
 
-        deserialized
+        let cache = Arc::new(Mutex::new(deserialized));
+
+        Self { cache }
     }
 
     /// Creates a new [InMemoryOracle] from a HashMap of B256 keys and Vec<u8> values.
@@ -197,48 +194,5 @@ impl InMemoryOracle {
         println!("cycle-tracker-report-end: blob-verification");
 
         Ok(())
-    }
-}
-
-struct Lock;
-
-impl<F: Archive> ArchiveWith<Arc<Mutex<F>>> for Lock {
-    type Archived = Archived<F>;
-    type Resolver = Resolver<F>;
-
-    unsafe fn resolve_with(
-        field: &Arc<Mutex<F>>,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        field.lock().resolve(pos, resolver, out.cast());
-    }
-}
-
-impl<S, T> SerializeWith<Arc<Mutex<T>>, S> for Lock
-where
-    T: Serialize<S>,
-    S: Fallible + ?Sized,
-{
-    fn serialize_with(
-        field: &Arc<Mutex<T>>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
-        field.lock().serialize(serializer)
-    }
-}
-
-impl<D, T> DeserializeWith<Archived<T>, Arc<Mutex<T>>, D> for Lock
-where
-    Archived<T>: Deserialize<T, D>,
-    T: Archive,
-    D: Fallible + ?Sized,
-{
-    fn deserialize_with(
-        field: &Archived<T>,
-        deserializer: &mut D,
-    ) -> Result<Arc<Mutex<T>>, D::Error> {
-        Ok(Arc::new(Mutex::new(field.deserialize(deserializer)?)))
     }
 }
