@@ -41,10 +41,7 @@ pub async fn execute_multi(
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
     let start_time = Instant::now();
-    let (_, report) = prover
-        .execute(RANGE_ELF, sp1_stdin.clone())
-        .run()
-        .unwrap();
+    let (_, report) = prover.execute(RANGE_ELF, sp1_stdin.clone()).run().unwrap();
     let execution_duration = start_time.elapsed();
 
     let block_data = data_fetcher
