@@ -5,7 +5,11 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 import {ISemver} from "@optimism/src/universal/ISemver.sol";
 import {Types} from "@optimism/src/libraries/Types.sol";
 import {Constants} from "@optimism/src/libraries/Constants.sol";
+import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
+import {Claim, GameStatus, GameType, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
+import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
+import { CWIA } from "@solady/utils/legacy/CWIA.sol";
 
 /// @custom:proxied
 /// @title OPSuccinctL2OutputOracle
@@ -13,7 +17,7 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 ///         commitment to the state of the L2 chain. Other contracts like the OptimismPortal use
 ///         these outputs to verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
-contract OPSuccinctL2OutputOracle is Initializable, ISemver {
+contract OPSuccinctL2OutputOracle is Initializable, CWIA, ISemver {
     /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
     struct InitParams {
         address challenger;
@@ -93,6 +97,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice A trusted mapping of block numbers to block hashes.
     mapping(uint256 => bytes32) public historicBlockHashes;
 
+    /// @notice The timestamp of the game's global resolution.
+    Timestamp public resolvedAt;
+
+    /// @notice Returns the current status of the game.
+    GameStatus public status;
+
     ////////////////////////////////////////////////////////////
     //                         Events                         //
     ////////////////////////////////////////////////////////////
@@ -146,6 +156,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param newSubmissionInterval The new submission interval.
     event SubmissionIntervalUpdated(uint256 oldSubmissionInterval, uint256 newSubmissionInterval);
 
+    /// @notice Emitted when the game is resolved.
+    /// @param status The status of the game after resolution.
+    event Resolved(GameStatus indexed status);
+
     ////////////////////////////////////////////////////////////
     //                         Errors                         //
     ////////////////////////////////////////////////////////////
@@ -184,7 +198,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Initializer.
     /// @param _initParams The initialization parameters for the contract.
-    function initialize(InitParams memory _initParams) public reinitializer(initializerVersion) {
+    function initializeParams(InitParams memory _initParams) public reinitializer(initializerVersion) {
         require(_initParams.submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
         require(_initParams.l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
         require(
@@ -223,6 +237,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         rollupConfigHash = _initParams.rollupConfigHash;
         owner = _initParams.owner;
     }
+
+    function initialize() external payable {}
 
     /// @notice Getter for the submissionInterval.
     ///         Public getter is legacy and will be removed in the future. Use `submissionInterval` instead.
@@ -494,5 +510,85 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function removeProposer(address _proposer) external onlyOwner {
         approvedProposers[_proposer] = false;
         emit ProposerUpdated(_proposer, false);
+    }
+
+    ////////////////////////////////////////////////////////////
+    //                    IDisputeGame impl                   //
+    ////////////////////////////////////////////////////////////
+
+    /// @notice Returns the timestamp that the DisputeGame contract was created at.
+    /// @return createdAt_ The timestamp that the DisputeGame contract was created at.
+    function createdAt() external view returns (Timestamp) {
+        return Timestamp.wrap(uint64(startingTimestamp));
+    }
+
+    /// @notice Getter for the game type.
+    /// @dev The reference impl should be entirely different depending on the type (fault, validity)
+    ///      i.e. The game type should indicate the security model.
+    /// @return gameType_ The type of proof system being used.
+    function gameType() public view returns (GameType) {
+        // TODO: Retrive and return the game type.
+    }
+
+    /// @notice Getter for the creator of the dispute game.
+    /// @dev `clones-with-immutable-args` argument #1
+    /// @return The creator of the dispute game.
+    function gameCreator() external pure returns (address) {
+        return _getArgAddress(0x00);
+    }
+
+    /// @notice Getter for the root claim.
+    /// @dev `clones-with-immutable-args` argument #2
+    /// @return The root claim of the DisputeGame.
+    function rootClaim() public pure returns (Claim) {
+        return Claim.wrap(_getArgBytes32(0x14));
+    }
+
+    /// @notice Getter for the parent hash of the L1 block when the dispute game was created.
+    /// @dev `clones-with-immutable-args` argument #3
+    /// @return The parent hash of the L1 block when the dispute game was created.
+    function l1Head() public pure returns (Hash) {
+        return Hash.wrap(_getArgBytes32(0x34));
+    }
+
+    /// @notice Getter for the extra data.
+    /// @dev `clones-with-immutable-args` argument #4
+    /// @return Any extra data supplied to the dispute game contract by the creator.
+    function extraData() public pure returns (bytes memory) {
+        // The extra data starts at the second word within the cwia calldata and
+        // is 32 bytes long.
+        return _getArgBytes(0x54, 0x20);
+    }
+
+    /// @notice If all necessary information has been gathered, this function should mark the game
+    ///         status as either `CHALLENGER_WINS` or `DEFENDER_WINS` and return the status of
+    ///         the resolved game. It is at this stage that the bonds should be awarded to the
+    ///         necessary parties.
+    /// @dev May only be called if the `status` is `IN_PROGRESS`.
+    /// @return status_ The status of the game after resolution.
+    function resolve() external returns (GameStatus status_) {
+        // INVARIANT: Resolution cannot occur unless the game is currently in progress.
+        if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
+
+        // INVARIANT: Resolution cannot occur unless proposeL2Output() has been called at least once.
+        if (l2Outputs.length < 2) revert OutOfOrderResolution();
+
+        resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+        status_ = GameStatus.DEFENDER_WINS;
+
+        emit Resolved(status = status_);
+    }
+
+    /// @notice A compliant implementation of this interface should return the components of the
+    ///         game UUID's preimage provided in the cwia payload. The preimage of the UUID is
+    ///         constructed as `keccak256(gameType . rootClaim . extraData)` where `.` denotes
+    ///         concatenation.
+    /// @return gameType_ The type of proof system being used.
+    /// @return rootClaim_ The root claim of the DisputeGame.
+    /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
+    function gameData() external view returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
+        gameType_ = gameType();
+        rootClaim_ = rootClaim();
+        extraData_ = extraData();
     }
 }

@@ -42,7 +42,7 @@ contract Utils is Test, JSONDecoder {
         });
 
         bytes memory initializationParams =
-            abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
+            abi.encodeWithSelector(OPSuccinctL2OutputOracle.initializeParams.selector, initParams);
 
         if (executeUpgradeCall) {
             Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));
