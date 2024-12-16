@@ -41,7 +41,6 @@ RUN --mount=type=ssh \
     --mount=type=cache,target=/build/target \
     cargo build --bin server --release && \
     cp target/release/server /build/server && \
-    cp target/release-client-lto/fault-proof /build/fault_proof && \
     cp target/release-client-lto/range /build/range && \
     cp target/native_host_runner/release/native_host_runner /build/native_host_runner
 
