@@ -42,7 +42,7 @@ pub async fn execute_multi(
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
     let start_time = Instant::now();
     let (_, report) = prover
-        .execute(DUMMY_RANGE_ELF, sp1_stdin.clone())
+        .execute(RANGE_ELF, sp1_stdin.clone())
         .run()
         .unwrap();
     let execution_duration = start_time.elapsed();
