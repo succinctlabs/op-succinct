@@ -72,7 +72,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/server /usr/local/bin/server
-COPY --from=builder /build/fault_proof /usr/local/bin/fault_proof
 COPY --from=builder /build/range /usr/local/bin/range
 COPY --from=builder /build/native_host_runner /usr/local/bin/native_host_runner
 
