@@ -19,6 +19,7 @@ jobs:
       - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}    
     steps:
+      - name: Checkout repository
       - uses: actions/checkout@v4
 
       - name: Set up Docker Compose

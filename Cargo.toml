@@ -106,6 +106,10 @@ lto = "fat"
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "tiny_keccak-v2.0.2-patch-v1" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "sha2-v0.10.8-patch-v1" }
-ecdsa = { git = "https://github.com/sp1-patches/signatures", tag = "ecdsa-v0.16.8-patch-v1" }
+ecdsa = { git = "https://github.com/sp1-patches/signatures", tag = "ecdsa-v0.16.9-patch-v3.3.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "substrate_bn-v0.6.0-patch-v2" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "sha3-v0.10.8-patch-v1" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "ratan/allocators" }
+
+# Note: Renamed this package to sp1_bls12_381 because it was published with that crate name to kzg_rs.
+sp1_bls12_381 = { git = "https://github.com/sp1-patches/bls12_381.git", branch = "ratan/rename-package" }

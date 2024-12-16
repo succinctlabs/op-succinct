@@ -203,6 +203,16 @@ fn main() {
             number = number,
             output_root = output_root
         );
+
+        // Manually forget large objects to avoid allocator overhead
+        std::mem::forget(pipeline);
+        std::mem::forget(executor);
+        std::mem::forget(l2_provider);
+        std::mem::forget(l1_provider);
+        std::mem::forget(oracle);
+        std::mem::forget(cfg);
+        std::mem::forget(cursor);
+        std::mem::forget(boot);
     });
 }
 

@@ -60,7 +60,7 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_cbor",
  "sha2",
- "sp1-lib 3.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-lib",
  "sp1-zkvm",
 ]
 
@@ -2394,8 +2394,8 @@ checksum = "0d6ef0072f8a535281e4876be788938b528e9a1d43900b82c2569af7da799125"
 
 [[package]]
 name = "ecdsa"
-version = "0.16.8"
-source = "git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.8-patch-v1#aad9626d51e830729969220eee44de082ff97d53"
+version = "0.16.9"
+source = "git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.9-patch-v3.3.0#5de03653f713e2b314d9d7aeaa3d6755d77b7e44"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -2405,7 +2405,7 @@ dependencies = [
  "hex-literal",
  "rfc6979",
  "signature",
- "sp1-lib 3.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-lib",
  "spki",
 ]
 
@@ -6114,7 +6114,7 @@ dependencies = [
 [[package]]
 name = "rfc6979"
 version = "0.4.0"
-source = "git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.8-patch-v1#aad9626d51e830729969220eee44de082ff97d53"
+source = "git+https://github.com/sp1-patches/signatures?tag=ecdsa-v0.16.9-patch-v3.3.0#5de03653f713e2b314d9d7aeaa3d6755d77b7e44"
 dependencies = [
  "hmac",
  "subtle",
@@ -7059,30 +7059,6 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bea7811abd2d3a991007fcb284f41152840b8388c171288d0c52c6793956609c"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "hex",
- "serde",
- "snowbridge-amcl",
-]
-
-[[package]]
-name = "sp1-lib"
-version = "3.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a5729da1b05d56c01457e5ecabdc77f1cc941df23f2921163a2f325aec22428"
-dependencies = [
- "bincode",
- "serde",
-]
-
-[[package]]
-name = "sp1-lib"
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan/allocators#64e1abd078982facc4fd1716bdb1c3a12bd10196"
 dependencies = [
@@ -7384,22 +7360,21 @@ dependencies = [
  "p3-field",
  "rand",
  "sha2",
- "sp1-lib 3.4.0 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan/allocators)",
+ "sp1-lib",
  "sp1-primitives 3.4.0",
 ]
 
 [[package]]
 name = "sp1_bls12_381"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a27c4b8901334dc09099dd82f80a72ddfc76b0046f4b342584c808f1931bed5a"
+source = "git+https://github.com/sp1-patches/bls12_381.git?branch=ratan/rename-package#3e3654ad7e4633d78c7b7b107764d89b5b7a2b7c"
 dependencies = [
  "cfg-if",
  "ff 0.13.0",
  "group 0.13.0",
  "pairing 0.23.0",
  "rand_core",
- "sp1-lib 1.2.0",
+ "sp1-lib",
  "subtle",
 ]
 
@@ -7490,7 +7465,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "rand",
  "rustc-hex",
- "sp1-lib 3.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp1-lib",
 ]
 
 [[package]]
