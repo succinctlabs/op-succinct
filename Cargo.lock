@@ -5257,7 +5257,6 @@ dependencies = [
  "alloy-rlp",
  "alloy-sol-types 0.8.15",
  "anyhow",
- "bincode",
  "cargo_metadata",
  "dotenv",
  "futures",
