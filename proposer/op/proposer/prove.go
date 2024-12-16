@@ -17,14 +17,14 @@ import (
 )
 
 const PROOF_STATUS_TIMEOUT = 30 * time.Second
-const WITNESS_GEN_TIMEOUT = 20 * time.Minute
+const WITNESSGEN_TIMEOUT = 20 * time.Minute
 
 // This limit is set to prevent overloading the witness generation server. Until Kona improves their native I/O API (https://github.com/anton-rs/kona/issues/553)
 // the maximum number of concurrent witness generation requests is roughly num_cpu / 2. Set it to 5 for now to be safe.
 const MAX_CONCURRENT_WITNESS_GEN = 5
 
-// Process all of the pending proofs.
-func (l *L2OutputSubmitter) ProcessPendingProofs() error {
+// Process all of requests in PROVING state.
+func (l *L2OutputSubmitter) ProcessProvingRequests() error {
 	// Get all proof requests that are currently in the PROVING state.
 	reqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusPROVING)
 	if err != nil {
@@ -39,7 +39,7 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			l.Metr.RecordError("get_proof_status", 1)
 			return err
 		}
-		if proofStatus.Status == SP1ProofStatusFulfilled {
+		if proofStatus.Status == SP1FulfillmentStatusFulfilled {
 			// Update the proof in the DB and update status to COMPLETE.
 			l.Log.Info("Fulfilled Proof", "id", req.ProverRequestID)
 			err = l.db.AddFulfilledProof(req.ID, proofStatus.Proof)
@@ -50,17 +50,10 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 			continue
 		}
 
-		// TODO: Is this proof timeout logic necessary? Users should be able to count on the proof being fulfilled or unclaimed.
-		timeout := uint64(time.Now().Unix()) > req.ProofRequestTime+l.DriverSetup.Cfg.ProofTimeout
-		if timeout || proofStatus.Status == SP1ProofStatusUnclaimed {
+		if proofStatus.Status == SP1FulfillmentStatusUnfulfillable {
 			// Record the failure reason.
-			if timeout {
-				l.Log.Info("Proof timed out", "id", req.ProverRequestID)
-				l.Metr.RecordProveFailure("Timeout")
-			} else {
-				l.Log.Info("Proof unclaimed", "id", req.ProverRequestID, "reason", proofStatus.UnclaimDescription.String())
-				l.Metr.RecordProveFailure(proofStatus.UnclaimDescription.String())
-			}
+			l.Log.Info("Proof is unfulfillable", "id", req.ProverRequestID)
+			l.Metr.RecordProveFailure("unfulfillable")
 
 			err = l.RetryRequest(req, proofStatus)
 			if err != nil {
@@ -72,8 +65,31 @@ func (l *L2OutputSubmitter) ProcessPendingProofs() error {
 	return nil
 }
 
+// Process all of requests in WITNESSGEN state.
+func (l *L2OutputSubmitter) ProcessWitnessgenRequests() error {
+	// Get all proof requests that are currently in the WITNESSGEN state.
+	reqs, err := l.db.GetAllProofsWithStatus(proofrequest.StatusWITNESSGEN)
+	if err != nil {
+		return err
+	}
+	for _, req := range reqs {
+		// If the request has been in the WITNESSGEN state for longer than the timeout, set status to FAILED.
+		// This is a catch-all in case the witness generation state update failed.
+		if req.LastUpdatedTime+uint64(WITNESSGEN_TIMEOUT.Seconds()) < uint64(time.Now().Unix()) {
+			// Retry the request if it timed out.
+			l.RetryRequest(req, ProofStatusResponse{})
+		}
+	}
+
+	return nil
+}
+
 // Retry a proof request. Sets the status of a proof to FAILED and retries the proof based on the optional proof status response.
-// If the response is a program execution error, the proof is split into two, which will avoid SP1 out of memory execution errors.
+// If an error response is received:
+// - Range Proof: Split in two if the block range is > 1. Retry the same request if range is 1 block.
+// - Agg Proof: Retry the same request.
+// TODO: Once the reserved strategy adds an execution error, update this to retry only when there's an execution error returned.
+// TODO: With a new allocator, there will not be OOM issues.
 func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStatusResponse) error {
 	err := l.db.UpdateProofStatus(req.ID, proofrequest.StatusFAILED)
 	if err != nil {
@@ -81,28 +97,13 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 		return err
 	}
 
-	// If the proof was unclaimed due to a program execution error, we should split the proof into two.
-	if status.UnclaimDescription == ProgramExecutionError {
-		mid := (req.StartBlock + req.EndBlock) / 2
-		// Create two new proof requests, one from [start, mid] and one from [mid, end]. The requests
-		// are consecutive and overlapping.
-		err = l.db.NewEntry(req.Type, req.StartBlock, mid)
-		if err != nil {
-			l.Log.Error("failed to add first proof request", "err", err)
-			return err
-		}
-		err = l.db.NewEntry(req.Type, mid, req.EndBlock)
-		if err != nil {
-			l.Log.Error("failed to add second proof request", "err", err)
-			return err
-		}
-	} else {
-		// If the proof was unclaimed for any other reason, retry with the same range.
-		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
-		if err != nil {
-			l.Log.Error("failed to add proof request", "err", err)
-			return err
-		}
+	// TODO: Once execution errors are added, update this to split the range only when there's an execution error returned on
+	// a SPAN proof.
+	// Retry same request.
+	err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+	if err != nil {
+		l.Log.Error("failed to retry proof request", "err", err)
+		return err
 	}
 
 	return nil
@@ -196,7 +197,6 @@ func (l *L2OutputSubmitter) DeriveAggProofs(ctx context.Context) error {
 		return fmt.Errorf("failed to get next L2OO output: %w", err)
 	}
 
-	l.Log.Info("Checking for AGG proof", "blocksToProve", minTo.Uint64()-latest.Uint64(), "latestProvenBlock", latest.Uint64(), "minBlockToProveToAgg", minTo.Uint64())
 	created, end, err := l.db.TryCreateAggProofFromSpanProofs(latest.Uint64(), minTo.Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to create agg proof from span proofs: %w", err)
@@ -276,17 +276,19 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	return l.db.SetProverRequestID(p.ID, proofID)
 }
 
-func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) (string, error) {
+func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
 	resp, err := l.makeProofRequest(proofType, jsonBody)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var response WitnessGenerationResponse
 	if err := json.Unmarshal(resp, &response); err != nil {
-		return "", fmt.Errorf("error decoding JSON response: %w", err)
+		return nil, fmt.Errorf("error decoding JSON response: %w", err)
 	}
-	l.Log.Info("successfully submitted proof", "proofID", response.ProofID)
+	// Format the proof ID as a hex string.
+	proofIdHex := fmt.Sprintf("%x", response.ProofID)
+	l.Log.Info("successfully submitted proof", "proofID", proofIdHex)
 	return response.ProofID, nil
 }
 
@@ -314,18 +316,20 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: WITNESS_GEN_TIMEOUT}
+	client := &http.Client{Timeout: WITNESSGEN_TIMEOUT}
 	resp, err := client.Do(req)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			l.Log.Error("Witness generation request timed out", "err", err)
 			l.Metr.RecordWitnessGenFailure("Timeout")
-			return nil, fmt.Errorf("request timed out after %s: %w", WITNESS_GEN_TIMEOUT, err)
+			return nil, fmt.Errorf("request timed out after %s: %w", WITNESSGEN_TIMEOUT, err)
 		}
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		l.Log.Error("Witness generation request failed", "status", resp.StatusCode, "body", resp.Body)
 		l.Metr.RecordWitnessGenFailure("Failed")
 		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
