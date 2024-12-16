@@ -12,7 +12,9 @@ pub const DEFAULT_RANGE: u64 = 5;
 pub const TWO_WEEKS: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 pub const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
-pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
+pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
+pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
+pub const DUMMY_RANGE_ELF: &[u8] = include_bytes!("../../../elf/dummy-range-elf");
 
 pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
     let start_time = Instant::now();
@@ -40,7 +42,7 @@ pub async fn execute_multi(
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
     let start_time = Instant::now();
     let (_, report) = prover
-        .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
+        .execute(DUMMY_RANGE_ELF, sp1_stdin.clone())
         .run()
         .unwrap();
     let execution_duration = start_time.elapsed();
