@@ -53,7 +53,7 @@ func (d UnclaimDescription) String() string {
 	}
 }
 
-// SP1FulfillmentStatus represents the status of a proof in the SP1 network.
+// SP1FulfillmentStatus represents the fulfillment status of a proof in the SP1 network.
 type SP1FulfillmentStatus int
 
 const (
@@ -64,7 +64,7 @@ const (
 	SP1FulfillmentStatusUnfulfillable
 )
 
-// SP1ExecutionStatus represents the status of the execution of a proof in the SP1 network.
+// SP1ExecutionStatus represents the execution status of a proof in the SP1 network.
 type SP1ExecutionStatus int
 
 const (
