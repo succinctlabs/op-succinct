@@ -90,8 +90,8 @@ op-alloy-network = { version = "0.6.8", default-features = false }
 # sp1
 sp1-lib = { version = "3.0.0", features = ["verify"] }
 # Note: This rev includes the SP1 mock groth16 bytes fix, skipping deferred verification, executor opts and network-v2 changes.
-# ratan/v3.0.0-w-network-v2 branch includes the network-v2 changes from `19ae3e1`. Has the latest FD's for ECDSA patch.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "3ef33280f638d080a1ceda6de597867e720df660", features = [
+# ratan/v3.4.0-with-additions includes the network-v2 changes from `19ae3e1`. Has the latest FD's for ECDSA patch.
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "f0b61cf262388c1be7edfcf984c8e070064e980f", features = [
     "network-v2",
 ] }
 # From branch ratan/alloc. Adds support for a custom allocator.
