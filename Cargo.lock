@@ -60,7 +60,7 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_cbor",
  "sha2",
- "sp1-lib",
+ "sp1-lib 3.4.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan%2Falloc)",
  "sp1-zkvm",
 ]
 
@@ -2866,7 +2866,7 @@ dependencies = [
  "hex-literal",
  "rfc6979 0.4.0",
  "signature 2.1.0",
- "sp1-lib",
+ "sp1-lib 3.4.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan%2Falloc)",
  "spki 0.7.3",
 ]
 
@@ -7686,6 +7686,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-lib"
+version = "3.4.0"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
+dependencies = [
+ "bincode",
+ "serde",
+]
+
+[[package]]
 name = "sp1-primitives"
 version = "3.3.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
@@ -7705,7 +7714,7 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "3.4.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan%2Falloc#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
 dependencies = [
  "bincode",
  "hex",
@@ -7968,7 +7977,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "3.4.0"
-source = "git+https://github.com/succinctlabs/sp1.git?branch=ratan%2Falloc#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
+source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
 dependencies = [
  "cfg-if",
  "critical-section",
@@ -7980,7 +7989,7 @@ dependencies = [
  "p3-field",
  "rand",
  "sha2",
- "sp1-lib",
+ "sp1-lib 3.4.0 (git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1)",
  "sp1-primitives 3.4.0",
 ]
 
@@ -7994,7 +8003,7 @@ dependencies = [
  "group 0.13.0",
  "pairing 0.23.0",
  "rand_core",
- "sp1-lib",
+ "sp1-lib 3.4.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan%2Falloc)",
  "subtle",
 ]
 
@@ -8095,7 +8104,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "rand",
  "rustc-hex",
- "sp1-lib",
+ "sp1-lib 3.4.0 (git+https://github.com/succinctlabs/sp1.git?branch=ratan%2Falloc)",
 ]
 
 [[package]]
