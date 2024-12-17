@@ -88,7 +88,7 @@ op-alloy-rpc-types-engine = { version = "0.6.8", default-features = false }
 op-alloy-network = { version = "0.6.8", default-features = false }
 
 # sp1
-sp1-lib = { version = "3.0.0", features = ["verify"] }
+sp1-lib = { version = "3.4.0", features = ["verify"] }
 # Note: This rev includes the SP1 mock groth16 bytes fix, skipping deferred verification, executor opts and network-v2 changes.
 # ratan/v3.4.0-with-additions includes the network-v2 changes from `19ae3e1`. Has the latest FD's for ECDSA patch.
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "f0b61cf262388c1be7edfcf984c8e070064e980f", features = [
@@ -96,7 +96,7 @@ sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "f0b61cf26238
 ] }
 # From branch ratan/alloc. Adds support for a custom allocator.
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "16431e6b979a617fa08994ccdaf866b22ba4b7a1", features = ["verify"] }
-sp1-build = { version = "3.0.0" }
+sp1-build = { version = "3.4.0" }
 
 [profile.release-client-lto]
 inherits = "release"

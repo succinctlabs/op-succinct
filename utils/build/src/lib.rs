@@ -100,12 +100,12 @@ pub fn build_all(program_args: ProgramBuildArgs) {
     // Note: Don't comment this out, because the Docker program depends on the native program
     // for range being built.
     build_native_program("range", program_args);
-    build_zkvm_program("range");
+    // build_zkvm_program("range");
 
     // Build aggregation program.
-    build_zkvm_program("aggregation");
+    // build_zkvm_program("aggregation");
     // Build dummy range program.
-    build_zkvm_program("dummy-range");
+    // build_zkvm_program("dummy-range");
 
     // Note: Don't comment this out, because the Docker program depends on the native host runner
     // being built.
