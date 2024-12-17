@@ -375,13 +375,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockHash   A block hash which must be included in the current chain.
     /// @param _l1BlockNumber The block number with the specified block hash.
-    /// @dev This function is sourced from the original L2OutputOracle contract.
+    /// @dev This function is sourced from the original L2OutputOracle contract. The only modification is that the proposer address must be in the approvedProposers mapping, or permissionless proposing is enabled.
     function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, bytes32 _l1BlockHash, uint256 _l1BlockNumber)
         external
         payable
         whenOptimistic
     {
-        require(msg.sender == proposer, "L2OutputOracle: only the proposer address can propose new outputs");
+        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
+        require(
+            approvedProposers[msg.sender] || approvedProposers[address(0)],
+            "L2OutputOracle: only approved proposers can propose new outputs"
+        );
 
         require(
             _l2BlockNumber == nextBlockNumber(),
