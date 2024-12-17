@@ -25,14 +25,14 @@ use op_succinct_proposer::{
 use sp1_sdk::{
     network_v2::{
         client::NetworkClient,
-        proto::network::{FulfillmentStatus, FulfillmentStrategy, ProofMode},
+        proto::network::{ExecutionStatus, FulfillmentStatus, FulfillmentStrategy, ProofMode},
     },
     utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
 
-pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
+pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 
 #[tokio::main]
@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let prover = ProverClient::new();
-    let (range_pk, range_vk) = prover.setup(MULTI_BLOCK_ELF);
+    let (range_pk, range_vk) = prover.setup(RANGE_ELF);
     let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
     let range_vkey_commitment = B256::from(multi_block_vkey_u8);
@@ -205,10 +205,7 @@ async fn request_span_proof(
 
     // Set simulation to false on range proofs as they're large.
     env::set_var("SKIP_SIMULATION", "true");
-    let vk_hash = match prover
-        .register_program(&state.range_vk, MULTI_BLOCK_ELF)
-        .await
-    {
+    let vk_hash = match prover.register_program(&state.range_vk, RANGE_ELF).await {
         Ok(vk_hash) => vk_hash,
         Err(e) => {
             error!("Failed to register program: {}", e);
@@ -403,7 +400,8 @@ async fn request_mock_span_proof(
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
-            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
+            fulfillment_status: FulfillmentStatus::Fulfilled.into(),
+            execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
             proof: proof_bytes,
         }),
     ))
@@ -492,7 +490,8 @@ async fn request_mock_agg_proof(
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
-            status: sp1_sdk::network::proto::network::ProofStatus::ProofFulfilled.into(),
+            fulfillment_status: FulfillmentStatus::Fulfilled.into(),
+            execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
             proof: proof.bytes(),
         }),
     ))
@@ -520,7 +519,8 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                        fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                        execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
                         proof: vec![],
                     }),
                 ));
@@ -529,16 +529,17 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ProofStatus {
-                        status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                        fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                        execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
                         proof: vec![],
                     }),
                 ));
             }
         };
 
-    // TODO: Use execution error for reserved once it's added.
-    let status = status.fulfillment_status();
-    if status == FulfillmentStatus::Fulfilled {
+    let fulfillment_status = status.fulfillment_status;
+    let execution_status = status.execution_status;
+    if fulfillment_status == FulfillmentStatus::Fulfilled as i32 {
         let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
         match proof.proof {
@@ -550,7 +551,8 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        status: status.into(),
+                        fulfillment_status,
+                        execution_status,
                         proof: proof_bytes,
                     }),
                 ));
@@ -561,7 +563,8 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        status: status.into(),
+                        fulfillment_status,
+                        execution_status,
                         proof: proof_bytes,
                     }),
                 ));
@@ -572,18 +575,20 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        status: status.into(),
+                        fulfillment_status,
+                        execution_status,
                         proof: proof_bytes,
                     }),
                 ));
             }
             _ => (),
         }
-    } else if status == FulfillmentStatus::Unfulfillable {
+    } else if fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
         return Ok((
             StatusCode::OK,
             Json(ProofStatus {
-                status: status.into(),
+                fulfillment_status,
+                execution_status,
                 proof: vec![],
             }),
         ));
@@ -591,7 +596,8 @@ async fn get_proof_status(
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
-            status: status.into(),
+            fulfillment_status,
+            execution_status,
             proof: vec![],
         }),
     ))
