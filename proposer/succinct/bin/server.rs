@@ -551,8 +551,8 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        fulfillment_status: fulfillment_status.into(),
-                        execution_status: execution_status.into(),
+                        fulfillment_status,
+                        execution_status,
                         proof: proof_bytes,
                     }),
                 ));
@@ -563,8 +563,8 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        fulfillment_status: fulfillment_status.into(),
-                        execution_status: execution_status.into(),
+                        fulfillment_status,
+                        execution_status,
                         proof: proof_bytes,
                     }),
                 ));
@@ -575,8 +575,8 @@ async fn get_proof_status(
                 return Ok((
                     StatusCode::OK,
                     Json(ProofStatus {
-                        fulfillment_status: fulfillment_status.into(),
-                        execution_status: execution_status.into(),
+                        fulfillment_status,
+                        execution_status,
                         proof: proof_bytes,
                     }),
                 ));
@@ -587,8 +587,8 @@ async fn get_proof_status(
         return Ok((
             StatusCode::OK,
             Json(ProofStatus {
-                fulfillment_status: fulfillment_status.into(),
-                execution_status: execution_status.into(),
+                fulfillment_status,
+                execution_status,
                 proof: vec![],
             }),
         ));
@@ -596,8 +596,8 @@ async fn get_proof_status(
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
-            fulfillment_status: fulfillment_status.into(),
-            execution_status: execution_status.into(),
+            fulfillment_status,
+            execution_status,
             proof: vec![],
         }),
     ))
