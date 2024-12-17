@@ -382,15 +382,19 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         whenOptimistic
     {
         require(msg.sender == proposer, "L2OutputOracle: only the proposer address can propose new outputs");
+
         require(
             _l2BlockNumber == nextBlockNumber(),
             "L2OutputOracle: block number must be equal to next expected block number"
         );
+
         require(
             computeL2Timestamp(_l2BlockNumber) < block.timestamp,
             "L2OutputOracle: cannot propose L2 output in the future"
         );
+
         require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
+
         if (_l1BlockHash != bytes32(0)) {
             // This check allows the proposer to propose an output based on a given L1 block,
             // without fear that it will be reorged out.
@@ -405,7 +409,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
                 "L2OutputOracle: block hash does not match the hash at the expected height"
             );
         }
+
         emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
+
         l2Outputs.push(
             Types.OutputProposal({
                 outputRoot: _outputRoot,
