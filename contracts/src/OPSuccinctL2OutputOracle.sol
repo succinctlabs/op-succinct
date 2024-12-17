@@ -575,9 +575,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         optimisticMode = true;
         emit OptimisticModeToggled(true, _finalizationPeriodSeconds);
     }
+
     /// @notice Disables optimistic mode.
     /// @param _finalizationPeriodSeconds The new finalization window.
-
     function disableOptimisticMode(uint256 _finalizationPeriodSeconds) external onlyOwner whenOptimistic {
         finalizationPeriodSeconds = _finalizationPeriodSeconds;
         optimisticMode = false;
