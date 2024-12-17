@@ -360,6 +360,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         historicBlockHashes[_blockNumber] = blockHash;
     }
 
+    /// @notice Forces an output root proposal.
+    /// @dev This function is only intended to be used when the L2OutputOracle is in a state where it's not possible to propose outputs.
+    function forceOutputRootProposal(bytes32 _outputRoot, uint256 _l2BlockNumber) external onlyOwner {
+        l2Outputs.push(
+            Types.OutputProposal({
+                outputRoot: _outputRoot,
+                timestamp: uint128(block.timestamp),
+                l2BlockNumber: uint128(_l2BlockNumber)
+            })
+        );
+    }
+
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.
     /// @param _l2OutputIndex Index of the output to return.
     /// @return The output at the given index.
