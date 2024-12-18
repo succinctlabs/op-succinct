@@ -41,6 +41,7 @@ sol! {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum ProgramType {
     Single,
     Multi,
@@ -89,7 +90,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         AlignedSerializer::new(AlignedVec::new()),
         // Note: This value corresponds to the size of the heap needed to serialize the KV store.
         // Increase this value if we start running into serialization issues.
-        HeapScratch::<67108864>::new(),
+        HeapScratch::<268435456>::new(),
         SharedSerializeMap::new(),
     );
     // Serialize the underlying KV store.

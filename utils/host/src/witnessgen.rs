@@ -1,9 +1,11 @@
 use anyhow::Result;
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 use sysinfo::System;
 
 use kona_host::HostCli;
 use log::info;
+
+use crate::fetcher::RunContext;
 
 /// Convert the HostCli to a vector of arguments that can be passed to a command.
 pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
@@ -72,38 +74,46 @@ struct WitnessGenProcess {
 pub struct WitnessGenExecutor {
     ongoing_processes: Vec<WitnessGenProcess>,
     timeout: Duration,
+    run_context: RunContext,
 }
 
 impl Default for WitnessGenExecutor {
     fn default() -> Self {
-        Self::new(WITNESSGEN_TIMEOUT)
+        Self::new(WITNESSGEN_TIMEOUT, RunContext::Dev)
     }
 }
 
 impl WitnessGenExecutor {
-    pub fn new(timeout: Duration) -> Self {
+    pub fn new(timeout: Duration, run_context: RunContext) -> Self {
         Self {
             ongoing_processes: Vec::new(),
             timeout,
+            run_context,
         }
     }
 
     /// Spawn a witness generation process for the given host CLI, and adds it to the list of
     /// ongoing processes.
     pub async fn spawn_witnessgen(&mut self, host_cli: &HostCli) -> Result<()> {
-        let metadata = cargo_metadata::MetadataCommand::new()
-            .exec()
-            .expect("Failed to get cargo metadata");
-        let target_dir = metadata
-            .target_directory
-            .join("release/native_host_runner");
+        let target_dir = match self.run_context {
+            RunContext::Dev => {
+                let metadata = cargo_metadata::MetadataCommand::new()
+                    .exec()
+                    .expect("Failed to get cargo metadata");
+                metadata
+                    .target_directory
+                    .join("native_host_runner/release/native_host_runner")
+                    .into()
+            }
+            RunContext::Docker => PathBuf::from("/usr/local/bin/native_host_runner"),
+        };
         let args = convert_host_cli_to_args(host_cli);
 
         info!("Running args {:?}", args);
         // Run the native host runner.
         let child = tokio::process::Command::new(target_dir)
             .args(&args)
-            .env("RUST_LOG", "debug")
+            .env("RUST_LOG", "info")
             .spawn()?;
         self.ongoing_processes.push(WitnessGenProcess {
             child,
@@ -192,5 +202,30 @@ impl WitnessGenExecutor {
         }
 
         Ok(())
+    }
+}
+
+/// Concurrently run the native data generation process for each split range.
+pub async fn run_native_data_generation(host_clis: &[HostCli]) {
+    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
+
+    // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
+    // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
+    // being overloaded with too many concurrent requests, while also improving witness generation
+    // throughput.
+    for chunk in host_clis.chunks(CONCURRENT_NATIVE_HOST_RUNNERS) {
+        let mut witnessgen_executor = WitnessGenExecutor::default();
+
+        for host_cli in chunk {
+            witnessgen_executor
+                .spawn_witnessgen(host_cli)
+                .await
+                .expect("Failed to spawn witness generation process");
+        }
+
+        witnessgen_executor
+            .flush()
+            .await
+            .expect("Failed to generate witnesses");
     }
 }

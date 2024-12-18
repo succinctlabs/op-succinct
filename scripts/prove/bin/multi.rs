@@ -2,12 +2,12 @@ use anyhow::Result;
 use clap::Parser;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range,
-    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin,
     stats::ExecutionStats,
     ProgramType,
 };
-use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, MULTI_BLOCK_ELF};
+use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, RANGE_ELF};
 use sp1_sdk::{utils, ProverClient};
 use std::{fs, path::PathBuf, time::Duration};
 
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file)?;
     utils::setup_logger();
 
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
     let cache_mode = if args.use_cache {
         CacheMode::KeepCache
@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(MULTI_BLOCK_ELF);
+        let (pk, _) = prover.setup(RANGE_ELF);
 
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();

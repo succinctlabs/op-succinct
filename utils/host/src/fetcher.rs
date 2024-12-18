@@ -10,8 +10,8 @@ use alloy::{
 use alloy_consensus::{BlockHeader, Header};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
 use kona_host::HostCli;
@@ -27,7 +27,14 @@ use op_alloy_rpc_types::{OpTransactionReceipt, OutputResponse, SafeHeadResponse}
 use op_succinct_client_utils::boot::BootInfoStruct;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{cmp::Ordering, collections::HashMap, env, fs, path::Path, str::FromStr, sync::Arc};
+use std::{
+    cmp::{min, Ordering},
+    collections::HashMap,
+    env, fs,
+    path::Path,
+    str::FromStr,
+    sync::Arc,
+};
 
 use alloy_primitives::{keccak256, Bytes, U256, U64};
 use log::info;
@@ -46,11 +53,12 @@ pub struct OPSuccinctDataFetcher {
     pub l1_provider: Arc<RootProvider<Http<Client>>>,
     pub l2_provider: Arc<RootProvider<Http<Client>, Optimism>>,
     pub rollup_config: Option<RollupConfig>,
+    pub run_context: RunContext,
 }
 
 impl Default for OPSuccinctDataFetcher {
     fn default() -> Self {
-        OPSuccinctDataFetcher::new()
+        OPSuccinctDataFetcher::new(RunContext::Dev)
     }
 }
 
@@ -78,6 +86,13 @@ pub enum CacheMode {
     DeleteCache,
 }
 
+/// Dev or Docker context.
+#[derive(Clone, Copy)]
+pub enum RunContext {
+    Dev,
+    Docker,
+}
+
 fn get_rpcs() -> RPCConfig {
     let l1_rpc = env::var("L1_RPC").expect("L1_RPC must be set");
     let l1_beacon_rpc = env::var("L1_BEACON_RPC").expect("L1_BEACON_RPC must be set");
@@ -91,7 +106,6 @@ fn get_rpcs() -> RPCConfig {
         l2_node_rpc: Url::parse(&l2_node_rpc).expect("L2_NODE_RPC must be a valid URL"),
     }
 }
-
 
 /// The info to fetch for a block.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -114,7 +128,7 @@ pub struct FeeData {
 
 impl OPSuccinctDataFetcher {
     /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
-    pub fn new() -> Self {
+    pub fn new(run_context: RunContext) -> Self {
         let rpc_config = get_rpcs();
 
         let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
@@ -125,12 +139,14 @@ impl OPSuccinctDataFetcher {
             l1_provider,
             l2_provider,
             rollup_config: None,
+            run_context,
         }
     }
 
     /// Initialize the fetcher with a rollup config.
-    pub async fn new_with_rollup_config() -> Result<Self> {
+    pub async fn new_with_rollup_config(run_context: RunContext) -> Result<Self> {
         let rpc_config = get_rpcs();
+
         let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
         let l2_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l2_rpc.clone()));
         let rollup_config = read_rollup_config()?;
@@ -140,6 +156,7 @@ impl OPSuccinctDataFetcher {
             l1_provider,
             l2_provider,
             rollup_config: Some(rollup_config),
+            run_context,
         })
     }
 
@@ -147,24 +164,28 @@ impl OPSuccinctDataFetcher {
         Ok(self.l2_provider.get_chain_id().await?)
     }
 
-    pub async fn get_l2_head(&self) -> Header {
-        self.l2_provider
+    pub async fn get_l2_head(&self) -> Result<Header> {
+        let block = self
+            .l2_provider
             .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
-            .await
-            .unwrap()
-            .unwrap()
-            .header
-            .inner
+            .await?;
+        if let Some(block) = block {
+            Ok(block.header.inner)
+        } else {
+            bail!("Failed to get L2 head");
+        }
     }
 
-    pub async fn get_l2_header_by_number(&self, block_number: u64) -> Header {
-        self.l2_provider
+    pub async fn get_l2_header_by_number(&self, block_number: u64) -> Result<Header> {
+        let block = self
+            .l2_provider
             .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
-            .await
-            .unwrap()
-            .unwrap()
-            .header
-            .inner
+            .await?;
+        if let Some(block) = block {
+            Ok(block.header.inner)
+        } else {
+            bail!("Failed to get L2 header for block {block_number}");
+        }
     }
 
     /// Manually calculate the L1 fee data for a range of blocks. Allows for modifying the L1 fee scalar.
@@ -183,11 +204,14 @@ impl OPSuccinctDataFetcher {
                 let block = self
                     .l2_provider
                     .get_block(block_number.into(), BlockTransactionsKind::Hashes)
-                    .await?
-                    .unwrap();
-                match block.transactions {
-                    BlockTransactions::Hashes(txs) => Ok((block_number, txs)),
-                    _ => Err(anyhow::anyhow!("Unsupported transaction type")),
+                    .await?;
+                if let Some(block) = block {
+                    match block.transactions {
+                        BlockTransactions::Hashes(txs) => Ok((block_number, txs)),
+                        _ => Err(anyhow::anyhow!("Unsupported transaction type")),
+                    }
+                } else {
+                    bail!("Failed to get L2 block for block {block_number}");
                 }
             })
             .buffered(100)
@@ -204,18 +228,22 @@ impl OPSuccinctDataFetcher {
         // Fetch all of the L1 block receipts in parallel.
         let block_receipts: Vec<(u64, Vec<OpTransactionReceipt>)> = stream::iter(start..=end)
             .map(|block_number| async move {
-                (
-                    block_number,
-                    self.l2_provider
-                        .get_block_receipts(block_number.into())
-                        .await
-                        .unwrap()
-                        .unwrap(),
-                )
+                let receipts = self
+                    .l2_provider
+                    .get_block_receipts(block_number.into())
+                    .await?;
+                if let Some(receipts) = receipts {
+                    Ok((block_number, receipts))
+                } else {
+                    bail!("Failed to get L2 receipts for block {block_number}");
+                }
             })
             .buffered(100)
-            .collect::<Vec<(u64, Vec<OpTransactionReceipt>)>>()
-            .await;
+            .collect::<Vec<Result<(u64, Vec<OpTransactionReceipt>), anyhow::Error>>>()
+            .await
+            .into_iter()
+            .filter_map(Result::ok)
+            .collect();
 
         // Get all the encoded transactions for each block number in parallel.
         let block_number_to_encoded_transactions = stream::iter(block_number_to_transactions)
@@ -365,23 +393,29 @@ impl OPSuccinctDataFetcher {
     }
 
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
-        Ok(self
+        let block = self
             .l1_provider
             .get_block(block_number, alloy::rpc::types::BlockTransactionsKind::Full)
-            .await?
-            .unwrap()
-            .header
-            .inner)
+            .await?;
+
+        if let Some(block) = block {
+            Ok(block.header.inner)
+        } else {
+            bail!("Failed to get L1 header for block {block_number}");
+        }
     }
 
     pub async fn get_l2_header(&self, block_number: BlockId) -> Result<Header> {
-        Ok(self
+        let block = self
             .l2_provider
-            .get_block(block_number, BlockTransactionsKind::Full)
-            .await?
-            .unwrap()
-            .header
-            .inner)
+            .get_block(block_number, alloy::rpc::types::BlockTransactionsKind::Full)
+            .await?;
+
+        if let Some(block) = block {
+            Ok(block.header.inner)
+        } else {
+            bail!("Failed to get L1 header for block {block_number}");
+        }
     }
 
     /// Finds the L1 block at the provided timestamp.
@@ -409,34 +443,43 @@ impl OPSuccinctDataFetcher {
     {
         let latest_block = provider
             .get_block(BlockId::latest(), BlockTransactionsKind::Hashes)
-            .await?
-            .unwrap();
+            .await?;
         let mut low = 0;
-        let mut high = latest_block.header().number();
+        let mut high = if let Some(block) = latest_block {
+            block.header().number()
+        } else {
+            bail!("Failed to get latest block");
+        };
 
         while low <= high {
             let mid = (low + high) / 2;
             let block = provider
                 .get_block(mid.into(), BlockTransactionsKind::Hashes)
-                .await?
-                .unwrap();
-            let block_timestamp = block.header().timestamp();
+                .await?;
+            if let Some(block) = block {
+                let block_timestamp = block.header().timestamp();
 
-            match block_timestamp.cmp(&target_timestamp) {
-                Ordering::Equal => {
-                    return Ok((block.header().hash().0.into(), block.header().number()));
+                match block_timestamp.cmp(&target_timestamp) {
+                    Ordering::Equal => {
+                        return Ok((block.header().hash().0.into(), block.header().number()));
+                    }
+                    Ordering::Less => low = mid + 1,
+                    Ordering::Greater => high = mid - 1,
                 }
-                Ordering::Less => low = mid + 1,
-                Ordering::Greater => high = mid - 1,
+            } else {
+                bail!("Failed to get block for block {mid}");
             }
         }
 
         // Return the block hash of the closest block after the target timestamp
         let block = provider
-            .get_block((low - 10).into(), BlockTransactionsKind::Hashes)
-            .await?
-            .unwrap();
-        Ok((block.header().hash().0.into(), block.header().number()))
+            .get_block(low.into(), BlockTransactionsKind::Hashes)
+            .await?;
+        if let Some(block) = block {
+            Ok((block.header().hash().0.into(), block.header().number()))
+        } else {
+            bail!("Failed to get block for block {low}");
+        }
     }
 
     /// Get the RPC URL for the given RPC mode.
@@ -523,19 +566,22 @@ impl OPSuccinctDataFetcher {
                 latest_l1_header = Some(l1_block_header);
             }
         }
-        Ok(latest_l1_header.unwrap())
+        if let Some(header) = latest_l1_header {
+            Ok(header)
+        } else {
+            bail!("Failed to get latest L1 header");
+        }
     }
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        let headers =
-            stream::iter(start..=end)
-                .map(|block_number| async move {
-                    self.get_l1_header(block_number.into()).await.unwrap()
-                })
-                .buffered(100)
-                .collect()
-                .await;
+        let headers = stream::iter(start..=end)
+            .map(|block_number| async move { self.get_l1_header(block_number.into()).await })
+            .buffered(100)
+            .collect::<Vec<Result<Header>>>()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(headers)
     }
@@ -559,6 +605,61 @@ impl OPSuccinctDataFetcher {
             .await?;
 
         Ok(headers)
+    }
+
+    /// Get the data directory for the given program type and run context.
+    ///
+    /// If the RunContext is Dev, prepend the workspace root.
+    fn get_data_directory(
+        &self,
+        l2_chain_id: u64,
+        l2_start_block: u64,
+        l2_end_block: u64,
+        multi_block: ProgramType,
+    ) -> Result<String> {
+        let mut data_directory = match multi_block {
+            ProgramType::Single => {
+                format!("data/{}/{}", l2_chain_id, l2_end_block)
+            }
+            ProgramType::Multi => {
+                format!("data/{}/{}-{}", l2_chain_id, l2_start_block, l2_end_block)
+            }
+        };
+
+        // If the run context is Dev, prepend the workspace root.
+        match self.run_context {
+            RunContext::Dev => {
+                let metadata = MetadataCommand::new().exec().unwrap();
+                let workspace_root = metadata.workspace_root;
+                data_directory = format!("{}/{}", workspace_root, data_directory);
+                Ok(data_directory)
+            }
+            RunContext::Docker => {
+                data_directory = format!("/usr/local/{}", data_directory);
+                Ok(data_directory)
+            }
+        }
+    }
+
+    /// Get the exec directory for the given program type and run context.
+    fn get_exec_directory(&self, multi_block: ProgramType) -> Result<String> {
+        let exec_directory = match multi_block {
+            ProgramType::Single => "fault-proof",
+            ProgramType::Multi => "range",
+        };
+
+        // If the run context is Dev, prepend the workspace root.
+        match self.run_context {
+            RunContext::Dev => {
+                let metadata = MetadataCommand::new().exec().unwrap();
+                let workspace_root = metadata.workspace_root;
+                Ok(format!(
+                    "{}/target/release-client-lto/{}",
+                    workspace_root, exec_directory
+                ))
+            }
+            RunContext::Docker => Ok(format!("/usr/local/bin/{}", exec_directory)),
+        }
     }
 
     /// Get the L2 output data for a given block number and save the boot info to a file in the data
@@ -640,38 +741,21 @@ impl OPSuccinctDataFetcher {
 
         let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
 
-        // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block
-        let l1_head_number = l1_head_number + 7;
-        let header = self.get_l1_header(l1_head_number.into()).await?;
-        let l1_head_hash = header.hash_slow();
-        info!("L1 head number: {}", l1_head_number);
-        // Get the workspace root, which is where the data directory is.
-        let metadata = MetadataCommand::new().exec().unwrap();
-        let workspace_root = metadata.workspace_root;
-        let data_directory = match multi_block {
-            ProgramType::Single => {
-                let proof_dir = format!(
-                    "{}/data/{}/single/{}",
-                    workspace_root, l2_chain_id, l2_end_block
-                );
-                proof_dir
-            }
-            ProgramType::Multi => {
-                let proof_dir = format!(
-                    "{}/data/{}/multi/{}-{}",
-                    workspace_root, l2_chain_id, l2_start_block, l2_end_block
-                );
-                proof_dir
-            }
+        // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block.
+        let l1_head_number = l1_head_number + 20;
+        // The new L1 header requested should not be greater than the latest L1 header.
+        let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
+        let l1_head_hash = match l1_head_number > latest_l1_header.number {
+            true => latest_l1_header.hash_slow(),
+            false => self.get_l1_header(l1_head_number.into()).await?.hash_slow(),
         };
 
+        // Get the workspace root, which is where the data directory is.
+        let data_directory =
+            self.get_data_directory(l2_chain_id, l2_start_block, l2_end_block, multi_block)?;
+
         // The native programs are built with profile release-client-lto in build.rs
-        let exec_directory = match multi_block {
-            ProgramType::Single => {
-                format!("{}/target/release-client-lto/fault-proof", workspace_root)
-            }
-            ProgramType::Multi => format!("{}/target/release/range", workspace_root),
-        };
+        let exec_directory = self.get_exec_directory(multi_block)?;
 
         // Delete the data directory if the cache mode is DeleteCache.
         match cache_mode {
@@ -741,6 +825,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the L1 block time in seconds.
+    #[allow(dead_code)]
     async fn get_l1_block_time(&self) -> Result<u64> {
         let l1_head = self.get_l1_header(BlockId::latest()).await?;
 
@@ -759,9 +844,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the L1 block from which the `l2_end_block` can be derived.
-    async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
-        let l1_block_time_secs = self.get_l1_block_time().await?;
-
+    pub async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
         let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
 
         // Get the l1 origin of the l2 end block.
@@ -779,7 +862,7 @@ impl OPSuccinctDataFetcher {
         info!("optimism_outputAtBlock {:?}", optimism_output_data.clone());
         let l1_origin = optimism_output_data.block_ref.l1_origin;
 
-        // Search forward from the l1Origin, skipping forward in 5 minute increments until an L1 block with an L2 safe head greater than the l2_end_block is found.
+        // Search forward from the l1Origin, checking each L1 block until we find one with an L2 safe head greater than l2_end_block
         let mut current_l1_block_number = l1_origin.number;
         loop {
             info!("l1 block number {:?}", current_l1_block_number);
@@ -798,16 +881,13 @@ impl OPSuccinctDataFetcher {
                     vec![l1_block_number_hex.into()],
                 )
                 .await?;
-
             let l2_safe_head = result.safe_head.number;
             info!("l2 safe head number {:?}", l2_safe_head.clone());
             if l2_safe_head > l2_end_block {
                 return Ok((result.l1_block.hash, result.l1_block.number));
             }
 
-            // Move forward in 5 minute increments.
-            const SKIP_MINS: u64 = 5;
-            current_l1_block_number += SKIP_MINS * (60 / l1_block_time_secs);
+            current_l1_block_number += 1;
         }
     }
 
@@ -839,8 +919,13 @@ impl OPSuccinctDataFetcher {
 
             // Get L1 head.
             let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
+            let latest_l1_timestamp = self.get_l1_header(BlockId::latest()).await?.timestamp;
 
-            let target_timestamp = l2_block_timestamp + (max_batch_post_delay_minutes * 60);
+            // Ensure that the target timestamp is not greater than the latest L1 timestamp.
+            let target_timestamp = min(
+                l2_block_timestamp + (max_batch_post_delay_minutes * 60),
+                latest_l1_timestamp,
+            );
             Ok(self.find_l1_block_by_timestamp(target_timestamp).await?)
         }
     }
@@ -878,6 +963,20 @@ impl OPSuccinctDataFetcher {
         Ok(result.safe_head.number)
     }
 
+    /// Check if the safeDB is activated on the L2 node.
+    pub async fn is_safe_db_activated(&self) -> Result<bool> {
+        let l1_block = self.get_l1_header(BlockId::latest()).await?;
+        let l1_block_number_hex = format!("0x{:x}", l1_block.number);
+        let result: Result<SafeHeadResponse, _> = self
+            .fetch_rpc_data_with_mode(
+                RPCMode::L2Node,
+                "optimism_safeHeadAtL1Block",
+                vec![l1_block_number_hex.into()],
+            )
+            .await;
+        Ok(result.is_ok())
+    }
+
     /// Get the l2_end_block number given the l2_start_block number and the ideal block interval.
     /// Picks the l2 end block that minimizes the derivation cost by picking the l2 block that can be derived from the same batch as the l2_start_block.
     pub async fn get_l2_end_block(
@@ -905,6 +1004,7 @@ impl OPSuccinctDataFetcher {
 #[cfg(test)]
 mod tests {
     use crate::fetcher::OPSuccinctDataFetcher;
+    use crate::fetcher::RunContext;
 
     #[tokio::test]
     #[cfg(test)]
@@ -912,7 +1012,7 @@ mod tests {
         use alloy::eips::BlockId;
 
         dotenv::dotenv().ok();
-        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev)
             .await
             .unwrap();
         let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
@@ -934,7 +1034,7 @@ mod tests {
         use crate::fetcher::RPCMode;
 
         dotenv::dotenv().ok();
-        let fetcher = OPSuccinctDataFetcher::new();
+        let fetcher = OPSuccinctDataFetcher::new(RunContext::Dev);
         let mut l2_safe_heads = Vec::new();
 
         let latest_l1_block = fetcher.get_l1_header(BlockId::latest()).await.unwrap();

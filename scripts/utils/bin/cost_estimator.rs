@@ -4,15 +4,18 @@ use futures::StreamExt;
 use kona_host::HostCli;
 use log::info;
 use op_succinct_host_utils::{
-    block_range::{get_rolling_block_range, get_validated_block_range},
-    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    block_range::{
+        get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
+        split_range_basic, SpanBatchRange,
+    },
+    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin,
     stats::ExecutionStats,
-    witnessgen::WitnessGenExecutor,
+    witnessgen::run_native_data_generation,
     ProgramType,
 };
+use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use serde::{Deserialize, Serialize};
 use sp1_sdk::{utils, ProverClient};
 use std::{
     cmp::{max, min},
@@ -22,105 +25,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
+pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 const TWELVE_HOURS: Duration = Duration::from_secs(60 * 60 * 12);
 
-/// The arguments for the host executable.
-#[derive(Debug, Clone, Parser)]
-struct CostEstimatorArgs {
-    /// The start block of the range to execute.
-    #[clap(long)]
-    start: Option<u64>,
-    /// The end block of the range to execute.
-    #[clap(long)]
-    end: Option<u64>,
-    /// The number of blocks to execute in a single batch.
-    #[clap(long)]
-    batch_size: Option<u64>,
-    /// Use cached witness generation.
-    #[clap(long)]
-    use_cache: bool,
-    /// Use a fixed recent range.
-    #[clap(long)]
-    rolling: bool,
-    /// The environment file to use.
-    #[clap(long, default_value = ".env")]
-    env_file: PathBuf,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct SpanBatchRange {
-    start: u64,
-    end: u64,
-}
-
-fn get_max_span_batch_range_size(l2_chain_id: u64, supplied_range_size: Option<u64>) -> u64 {
-    // FIXME: The default size/batch size should be dynamic based on the L2 chain. Specifically, look at the gas used across the block range (should be fast to compute) and then set the batch size accordingly.
-    if let Some(supplied_range_size) = supplied_range_size {
-        return supplied_range_size;
-    }
-
-    const DEFAULT_SIZE: u64 = 300;
-    match l2_chain_id {
-        8453 => 5,      // Base
-        11155420 => 30, // OP Sepolia
-        10 => 10,       // OP Mainnet
-        _ => DEFAULT_SIZE,
-    }
-}
-
-/// Split a range of blocks into a list of span batch ranges.
-fn split_range(
-    start: u64,
-    end: u64,
-    l2_chain_id: u64,
-    supplied_range_size: Option<u64>,
-) -> Vec<SpanBatchRange> {
-    let mut ranges = Vec::new();
-    let mut current_start = start;
-    let max_size = get_max_span_batch_range_size(l2_chain_id, supplied_range_size);
-
-    while current_start < end {
-        let current_end = min(current_start + max_size, end);
-        ranges.push(SpanBatchRange {
-            start: current_start,
-            end: current_end,
-        });
-        current_start = current_end + 1;
-    }
-
-    ranges
-}
-
-/// Concurrently run the native data generation process for each split range.
-async fn run_native_data_generation(host_clis: &[HostCli]) {
-    const CONCURRENT_NATIVE_HOST_RUNNERS: usize = 5;
-
-    // Split the entire range into chunks of size CONCURRENT_NATIVE_HOST_RUNNERS and process chunks
-    // serially. Generate witnesses within each chunk in parallel. This prevents the RPC from
-    // being overloaded with too many concurrent requests, while also improving witness generation
-    // throughput.
-    for chunk in host_clis.chunks(CONCURRENT_NATIVE_HOST_RUNNERS) {
-        let mut witnessgen_executor = WitnessGenExecutor::default();
-
-        for host_cli in chunk {
-            witnessgen_executor
-                .spawn_witnessgen(host_cli)
-                .await
-                .expect("Failed to spawn witness generation process");
-        }
-
-        witnessgen_executor
-            .flush()
-            .await
-            .expect("Failed to generate witnesses");
-    }
-}
-
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
-/// each block range to a CSV file (not guaranteed to be in order).
-async fn execute_blocks_parallel(
+/// each block range to a CSV file after each execution completes (not guaranteed to be in order).
+async fn execute_blocks_and_write_stats_csv(
     host_clis: &[HostCli],
     ranges: Vec<SpanBatchRange>,
     prover: &ProverClient,
@@ -128,7 +39,7 @@ async fn execute_blocks_parallel(
     start: u64,
     end: u64,
 ) {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config()
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev)
         .await
         .unwrap();
 
@@ -170,7 +81,7 @@ async fn execute_blocks_parallel(
             let sp1_stdin = get_proof_stdin(host_cli).unwrap();
 
             // FIXME: Implement retries with a smaller block range if this fails.
-            let result = prover.execute(MULTI_BLOCK_ELF, sp1_stdin).run();
+            let result = prover.execute(RANGE_ELF, sp1_stdin).run();
 
             // If the execution fails, skip this block range and log the error.
             if let Some(err) = result.as_ref().err() {
@@ -266,22 +177,29 @@ fn aggregate_execution_stats(
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args = CostEstimatorArgs::parse();
+    let args = HostExecutorArgs::parse();
 
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-    const DEFAULT_RANGE: u64 = 5;
     let (l2_start_block, l2_end_block) = if args.rolling {
-        get_rolling_block_range(&data_fetcher, TWELVE_HOURS, DEFAULT_RANGE).await?
+        get_rolling_block_range(&data_fetcher, TWELVE_HOURS, args.default_range).await?
     } else {
-        get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?
     };
 
-    let split_ranges = split_range(l2_start_block, l2_end_block, l2_chain_id, args.batch_size);
+    // Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range
+    // splitting algorithm. Otherwise, we use the simple range splitting algorithm.
+    let safe_db_activated = data_fetcher.is_safe_db_activated().await?;
+
+    let split_ranges = if safe_db_activated {
+        split_range_based_on_safe_heads(l2_start_block, l2_end_block, args.batch_size).await?
+    } else {
+        split_range_basic(l2_start_block, l2_end_block, args.batch_size)
+    };
 
     info!(
         "The span batch ranges which will be executed: {:?}",
@@ -316,7 +234,7 @@ async fn main() -> Result<()> {
     let total_witness_generation_time_sec = start_time.elapsed().as_secs();
 
     let start_time = Instant::now();
-    execute_blocks_parallel(
+    execute_blocks_and_write_stats_csv(
         &host_clis,
         split_ranges,
         &prover,

@@ -18,11 +18,14 @@ We recommend the following hardware configuration for the `op-succinct` service 
 
 Using the docker compose file:
 
-- `op-succinct`: 16 vCPUs, 16GB RAM
+- Full `op-succinct` service: 16 vCPUs, 64GB RAM.
+- Mock `op-succinct` service: 32 vCPUs, 128GB RAM. Increased memory because the machine is executing the proofs locally.
 
 Running as separate containers:
 
-- `op-succinct-server`: 16 vCPUs, 16GB RAM
+- `op-succinct-server`
+    - Full `op-succinct` service: 16 vCPUs, 64GB RAM.
+    - Mock `op-succinct` service: 32 vCPUs, 128GB RAM. Increased memory because the machine is executing the proofs locally.
 - `op-succinct-proposer`: 1 vCPU, 4GB RAM
 
 For advanced configurations, depending on the number of concurrent requests you expect, you may need to increase the number of vCPUs and memory allocated to the `op-succinct-server` container.
@@ -31,7 +34,7 @@ For advanced configurations, depending on the number of concurrent requests you 
 
 ### Required Environment Variables
 
-Before starting the proposer, the following environment variables should be in your `.env` file. You should have already set up your environment when you deployed the L2 Output Oracle. If you have not done so, follow the steps in the [L2 Output Oracle](./l2-output-oracle.md) section.
+Before starting the proposer, the following environment variables should be in your `.env` file. You should have already set up your environment when you deployed the L2 Output Oracle. If you have not done so, follow the steps in the [Contract Configuration](../contracts/configuration.md) section.
 
 | Parameter | Description |
 |-----------|-------------|
