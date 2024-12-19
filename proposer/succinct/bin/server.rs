@@ -121,7 +121,7 @@ async fn request_span_proof(
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
-    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
+    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
         Ok(f) => f,
         Err(e) => {
             error!("Failed to create data fetcher: {}", e);
@@ -151,7 +151,7 @@ async fn request_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
-    let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Docker);
+    let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Dev);
     if let Err(e) = witnessgen_executor.spawn_witnessgen(&host_cli).await {
         error!("Failed to spawn witness generation: {}", e);
         return Err(AppError(anyhow::anyhow!(
