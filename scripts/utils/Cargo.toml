@@ -65,6 +65,7 @@ op-alloy-rpc-types.workspace = true
 # sp1
 sp1-sdk = { workspace = true }
 dashmap = { version = "6.1.0", features = ["rayon"] }
+tonic = { version = "0.12", features = ["tls", "tls-roots"] }
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true

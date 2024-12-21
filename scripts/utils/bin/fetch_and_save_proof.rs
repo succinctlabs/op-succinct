@@ -1,28 +1,31 @@
 use alloy::{hex, sol_types::SolValue};
+use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use clap::Parser;
+use futures::StreamExt;
 use op_succinct_client_utils::{boot::BootInfoStruct, AGGREGATION_OUTPUTS_SIZE};
-use sp1_sdk::{NetworkProverV2, SP1ProofWithPublicValues};
-use std::{env, fs, path::Path};
+use sp1_sdk::{
+    network_v2::{
+        client::NetworkClient,
+        proto::network::{
+            prover_network_client::ProverNetworkClient, FulfillmentStatus,
+            GetFilteredProofRequestsRequest, ProofMode,
+        },
+    },
+    NetworkProverV2, SP1ProofWithPublicValues,
+};
+use std::{env, fs, path::Path, str::FromStr};
+use tonic::{
+    transport::{channel::ClientTlsConfig, Channel},
+    Code,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Request ID string
-    #[arg(short, long)]
-    request_id: String,
-
-    /// Aggregate proof.
-    #[arg(short, long)]
-    agg_proof: bool,
-
-    /// Start L2 block number.
+    /// Requester address.
     #[arg(short, long, required = false)]
-    start: Option<u64>,
-
-    /// End L2 block number.
-    #[arg(short, long, required = false)]
-    end: Option<u64>,
+    requester: String,
 }
 
 #[tokio::main]
@@ -32,47 +35,65 @@ async fn main() -> Result<()> {
 
     let private_key = env::var("SP1_PRIVATE_KEY")?;
     let rpc_url = env::var("PROVER_NETWORK_RPC")?;
-    let prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
+    let mut endpoint = Channel::from_shared(rpc_url.clone())?;
 
-    let request_id = hex::decode(&args.request_id)?;
-    // Fetch the proof
-    let mut proof: SP1ProofWithPublicValues = prover.wait_proof(&request_id, None).await?;
-
-    if args.agg_proof {
-        let mut raw_boot_info = [0u8; AGGREGATION_OUTPUTS_SIZE];
-        proof.public_values.read_slice(&mut raw_boot_info);
-        let boot_info = BootInfoStruct::abi_decode(&raw_boot_info, false).unwrap();
-
-        let proof_bytes = proof.bytes();
-        println!("Proof bytes: {:?}", hex::encode(proof_bytes));
-        println!("Boot info: {:?}", boot_info);
-    } else {
-        // Read the BootInfoStruct from the proof
-        let _boot_info: BootInfoStruct = proof.public_values.read();
-
-        // Create the proofs directory if it doesn't exist
-        let proof_path = "data/fetched_proofs".to_string();
-        let proof_dir = Path::new(&proof_path);
-        fs::create_dir_all(proof_dir)?;
-
-        let filename: String = if args.start.is_some() && args.end.is_some() {
-            let start = args.start.unwrap();
-            let end = args.end.unwrap();
-            format!("{}_{}.bin", start, end)
-        } else {
-            // Generate the filename
-            format!("{}.bin", args.request_id)
-        };
-        let file_path = proof_dir.join(filename);
-
-        // Save the proof
-        proof.save(&file_path).expect("Failed to save proof");
-
-        println!(
-            "Proof saved successfully to path: {}",
-            file_path.to_str().unwrap()
-        );
+    // Check if the URL scheme is HTTPS and configure TLS.
+    if rpc_url.starts_with("https://") {
+        let tls_config = ClientTlsConfig::new().with_enabled_roots();
+        endpoint = endpoint.tls_config(tls_config)?;
     }
+
+    let channel = endpoint.connect().await?;
+    let mut prover_network_client = ProverNetworkClient::new(channel);
+
+    let requester = Address::from_str(&args.requester)?;
+
+    let request = GetFilteredProofRequestsRequest {
+        requester: Some(requester.to_vec()),
+        fulfillment_status: Some(FulfillmentStatus::Fulfilled as i32),
+        limit: Some(10),
+        mode: Some(ProofMode::Groth16 as i32),
+        ..Default::default()
+    };
+
+    let response = prover_network_client
+        .get_filtered_proof_requests(request)
+        .await?;
+
+    let requests = response.into_inner().requests;
+    println!("{:?}", requests.len());
+
+    // Loop over all of the proof requests and print the total size of all of the proof data in bytes.
+    let mut total_size = 0;
+    let mut stdin_size = 0;
+
+    let results = futures::stream::iter(requests)
+        .map(|proof_request| async move {
+            let private_key = env::var("SP1_PRIVATE_KEY")?;
+            let rpc_url = env::var("PROVER_NETWORK_RPC")?;
+            let prover = NetworkProverV2::new(&private_key.clone(), Some(rpc_url.clone()), false);
+            println!("Fetching proof for request: {:?}", proof_request.request_id);
+            let proof: SP1ProofWithPublicValues =
+                prover.wait_proof(&proof_request.request_id, None).await?;
+            println!("Proof fetched for request: {:?}", proof_request.request_id);
+
+            let proof_size = bincode::serialized_size(&proof)?;
+            let stdin_size = bincode::serialized_size(&proof.stdin)?;
+
+            Ok::<_, anyhow::Error>((proof_size, stdin_size))
+        })
+        .buffer_unordered(10)
+        .collect::<Vec<_>>()
+        .await;
+
+    for result in results {
+        let (proof_size, proof_stdin_size) = result?;
+        total_size += proof_size;
+        stdin_size += proof_stdin_size;
+    }
+
+    println!("Total size of all proof data: {} bytes", total_size);
+    println!("Total size of all stdin data: {} bytes", stdin_size);
 
     Ok(())
 }
