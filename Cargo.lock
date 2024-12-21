@@ -4198,6 +4198,7 @@ dependencies = [
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
+ "op-succinct-scripts",
  "reqwest 0.12.9",
  "serde_json",
  "sp1-sdk",

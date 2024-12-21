@@ -33,12 +33,12 @@ pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
 }
 
 pub async fn execute_multi(
-    prover: &ProverClient,
     data_fetcher: &OPSuccinctDataFetcher,
     sp1_stdin: SP1Stdin,
     l2_start_block: u64,
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
+    let prover = ProverClient::new();
     let start_time = Instant::now();
     let (_, report) = prover.execute(RANGE_ELF, sp1_stdin.clone()).run().unwrap();
     let execution_duration = start_time.elapsed();

@@ -25,4 +25,7 @@ pub struct HostExecutorArgs {
     /// The environment file to use.
     #[clap(long, default_value = ".env")]
     pub env_file: PathBuf,
+    /// Generate proof.
+    #[clap(long)]
+    pub prove: bool,
 }
