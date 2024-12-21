@@ -23,12 +23,11 @@ use op_succinct_proposer::{
     ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
-    network_v2::{
-        client::NetworkClient,
-        proto::network::{ExecutionStatus, FulfillmentStatus, FulfillmentStrategy, ProofMode},
+    network::{
+        proto::network::{ExecutionStatus, FulfillmentStatus},
+        FulfillmentStrategy,
     },
-    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
-    SP1Stdin,
+    utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -46,7 +45,7 @@ async fn main() -> Result<()> {
 
     dotenv::dotenv().ok();
 
-    let prover = ProverClient::new();
+    let prover = ProverClient::from_env();
     let (range_pk, range_vk) = prover.setup(RANGE_ELF);
     let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
@@ -184,59 +183,19 @@ async fn request_span_proof(
         }
     };
 
-    let private_key = match env::var("SP1_PRIVATE_KEY") {
-        Ok(private_key) => private_key,
-        Err(e) => {
-            error!("Failed to get SP1 private key: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to get SP1 private key: {}",
-                e
-            )));
-        }
-    };
-    let rpc_url = match env::var("PROVER_NETWORK_RPC") {
-        Ok(rpc_url) => rpc_url,
-        Err(e) => {
-            error!("Failed to get PROVER_NETWORK_RPC: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to get PROVER_NETWORK_RPC: {}",
-                e
-            )));
-        }
-    };
-    let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
-    // Use the reserved strategy to route to a specific cluster.
-    prover.with_strategy(FulfillmentStrategy::Reserved);
-
-    // Set simulation to false on range proofs as they're large.
-    env::set_var("SKIP_SIMULATION", "true");
-    let vk_hash = match prover.register_program(&state.range_vk, RANGE_ELF).await {
-        Ok(vk_hash) => vk_hash,
-        Err(e) => {
-            error!("Failed to register program: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to register program: {}",
-                e
-            )));
-        }
-    };
-    let proof_id = match prover
-        .request_proof(
-            &vk_hash,
-            &sp1_stdin,
-            ProofMode::Compressed,
-            1_000_000_000_000,
-            None,
-        )
+    let client = ProverClient::builder().network().build();
+    let proof_id = client
+        .prove(&state.range_pk, &sp1_stdin)
+        .compressed()
+        .strategy(FulfillmentStrategy::Reserved)
+        .skip_simulation(true)
+        .cycle_limit(1_000_000_000_000)
+        .request()
         .await
-    {
-        Ok(proof_id) => proof_id,
-        Err(e) => {
+        .map_err(|e| {
             error!("Failed to request proof: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
-        }
-    };
-    env::set_var("SKIP_SIMULATION", "false");
+            AppError(anyhow::anyhow!("Failed to request proof: {}", e))
+        })?;
 
     Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
 }
@@ -315,11 +274,7 @@ async fn request_agg_proof(
         }
     };
 
-    let private_key = env::var("SP1_PRIVATE_KEY")?;
-    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
-    let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
-    // Use the reserved strategy to route to a specific cluster.
-    prover.with_strategy(FulfillmentStrategy::Reserved);
+    let prover = ProverClient::builder().network().build();
 
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
@@ -333,24 +288,11 @@ async fn request_agg_proof(
             }
         };
 
-    let vk_hash = match prover.register_program(&state.agg_vk, AGG_ELF).await {
-        Ok(vk_hash) => vk_hash,
-        Err(e) => {
-            error!("Failed to register program: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to register program: {}",
-                e
-            )));
-        }
-    };
     let proof_id = match prover
-        .request_proof(
-            &vk_hash,
-            &stdin,
-            ProofMode::Groth16,
-            1_000_000_000_000,
-            None,
-        )
+        .prove(&state.agg_pk, &stdin)
+        .groth16()
+        .strategy(FulfillmentStrategy::Reserved)
+        .request()
         .await
     {
         Ok(id) => id,
@@ -418,10 +360,9 @@ async fn request_mock_span_proof(
         }
     };
 
-    let prover = ProverClient::mock();
+    let prover = ProverClient::builder().mock().build();
     let proof = prover
-        .prove(&state.range_pk, sp1_stdin)
-        .set_skip_deferred_proof_verification(true)
+        .prove(&state.range_pk, &sp1_stdin)
         .compressed()
         .run()?;
 
@@ -492,7 +433,7 @@ async fn request_mock_agg_proof(
         }
     };
 
-    let prover = ProverClient::mock();
+    let prover = ProverClient::builder().mock().build();
 
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
@@ -505,9 +446,9 @@ async fn request_mock_agg_proof(
 
     // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
     let proof = match prover
-        .prove(&state.agg_pk, stdin)
-        .set_skip_deferred_proof_verification(true)
+        .prove(&state.agg_pk, &stdin)
         .groth16()
+        .deferred_proof_verification(false)
         .run()
     {
         Ok(p) => p,
@@ -532,18 +473,15 @@ async fn get_proof_status(
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received proof status request: {:?}", proof_id);
-    let private_key = env::var("SP1_PRIVATE_KEY")?;
-    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
 
-    let client = NetworkClient::new(&private_key, Some(rpc_url.to_string()));
+    let client = ProverClient::builder().network().build();
 
     let proof_id_bytes = hex::decode(proof_id)?;
 
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
     let (status, maybe_proof) =
-        match tokio::time::timeout(timeout, client.get_proof_request_status(&proof_id_bytes)).await
-        {
+        match tokio::time::timeout(timeout, client.get_proof_status(&proof_id_bytes)).await {
             Ok(Ok(result)) => result,
             Ok(Err(_)) => {
                 return Ok((
