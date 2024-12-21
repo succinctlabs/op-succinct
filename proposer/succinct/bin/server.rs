@@ -27,8 +27,7 @@ use sp1_sdk::{
         client::NetworkClient,
         proto::network::{ExecutionStatus, FulfillmentStatus, FulfillmentStrategy, ProofMode},
     },
-    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
-    SP1Stdin,
+    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1Stdin,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
