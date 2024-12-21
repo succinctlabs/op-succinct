@@ -88,14 +88,10 @@ op-alloy-rpc-types-engine = { version = "0.6.8", default-features = false }
 op-alloy-network = { version = "0.6.8", default-features = false }
 
 # sp1
-sp1-lib = { version = "3.4.0", features = ["verify"] }
-# Note: This rev includes the SP1 mock groth16 bytes fix, skipping deferred verification, executor opts and network-v2 changes.
-# ratan/v3.4.0-with-additions includes the network-v2 changes from `19ae3e1`. Has the latest FD's for ECDSA patch.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "f0b61cf262388c1be7edfcf984c8e070064e980f", features = [
-    "network-v2",
-] }
-sp1-zkvm = { version = "3.4.0", features = ["verify"] }
-sp1-build = { version = "3.4.0" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = ["verify"] }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev", features = ["verify"] }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev"}
 
 [profile.release-client-lto]
 inherits = "release"
