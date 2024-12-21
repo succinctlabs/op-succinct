@@ -12,13 +12,15 @@ use sp1_sdk::{
             GetFilteredProofRequestsRequest, ProofMode,
         },
     },
-    NetworkProverV2, SP1ProofWithPublicValues,
+    NetworkProverV2, Prover, SP1ProofWithPublicValues, SP1Stdin,
 };
 use std::{env, fs, path::Path, str::FromStr};
 use tonic::{
     transport::{channel::ClientTlsConfig, Channel},
     Code,
 };
+
+pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -52,7 +54,7 @@ async fn main() -> Result<()> {
         requester: Some(requester.to_vec()),
         fulfillment_status: Some(FulfillmentStatus::Fulfilled as i32),
         limit: Some(10),
-        mode: Some(ProofMode::Groth16 as i32),
+        mode: Some(ProofMode::Compressed as i32),
         ..Default::default()
     };
 
@@ -72,13 +74,17 @@ async fn main() -> Result<()> {
             let private_key = env::var("SP1_PRIVATE_KEY")?;
             let rpc_url = env::var("PROVER_NETWORK_RPC")?;
             let prover = NetworkProverV2::new(&private_key.clone(), Some(rpc_url.clone()), false);
+            let (_, range_vk) = prover.setup(RANGE_ELF);
             println!("Fetching proof for request: {:?}", proof_request.request_id);
-            let proof: SP1ProofWithPublicValues =
+            let mut proof: SP1ProofWithPublicValues =
                 prover.wait_proof(&proof_request.request_id, None).await?;
             println!("Proof fetched for request: {:?}", proof_request.request_id);
 
             let proof_size = bincode::serialized_size(&proof)?;
             let stdin_size = bincode::serialized_size(&proof.stdin)?;
+
+            proof.stdin = SP1Stdin::default();
+            prover.verify(&proof, &range_vk.clone())?;
 
             Ok::<_, anyhow::Error>((proof_size, stdin_size))
         })
