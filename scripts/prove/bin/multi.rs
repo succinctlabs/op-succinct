@@ -13,7 +13,7 @@ use sp1_sdk::{
     network_v2::proto::network::{FulfillmentStrategy, ProofMode},
     utils, NetworkProverV2, Prover,
 };
-use std::{fs, path::PathBuf, time::Duration};
+use std::{fs, time::Duration};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
