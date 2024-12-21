@@ -1,10 +1,10 @@
 [book]
-authors = ["Uma Roy"]
+authors = ["Ratan Kaliani"]
 language = "en"
 multilingual = false
 src = "book"
 title = "OP Succinct"
-description = "A book on all things SP1"
+description = "A book on all things OP Succinct"
 
 [build]
 build-dir = "target/book"
