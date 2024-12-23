@@ -419,7 +419,8 @@ fn generate_mock_compressed_proof(
     Ok((
         SP1ProofWithPublicValues {
             proof,
-            stdin,
+            // Set stdin to empty, to avoid putting more data in the DB.
+            stdin: SP1Stdin::default(),
             public_values,
             sp1_version: mock_prover.version().to_string(),
         },
