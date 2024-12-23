@@ -99,6 +99,12 @@ var (
 		Value:   5,
 		EnvVars: prefixEnvVars("MAX_CONCURRENT_WITNESS_GEN"),
 	}
+	WitnessGenTimeoutFlag = &cli.Uint64Flag{
+		Name:    "witness-gen-timeout",
+		Usage:   "Maximum time in seconds to spend generating a witness before giving up",
+		Value:   20 * 60,
+		EnvVars: prefixEnvVars("WITNESS_GEN_TIMEOUT"),
+	}
 	ProofTimeoutFlag = &cli.Uint64Flag{
 		Name:  "proof-timeout",
 		Usage: "Maximum time in seconds to spend generating a proof before giving up",

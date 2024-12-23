@@ -17,7 +17,6 @@ import (
 )
 
 const PROOF_STATUS_TIMEOUT = 30 * time.Second
-const WITNESSGEN_TIMEOUT = 20 * time.Minute
 
 // Process all of requests in PROVING state.
 func (l *L2OutputSubmitter) ProcessProvingRequests() error {
@@ -71,7 +70,7 @@ func (l *L2OutputSubmitter) ProcessWitnessgenRequests() error {
 	for _, req := range reqs {
 		// If the request has been in the WITNESSGEN state for longer than the timeout, set status to FAILED.
 		// This is a catch-all in case the witness generation state update failed.
-		if req.LastUpdatedTime+uint64(WITNESSGEN_TIMEOUT.Seconds()) < uint64(time.Now().Unix()) {
+		if req.LastUpdatedTime+uint64(l.Cfg.WitnessGenTimeout) < uint64(time.Now().Unix()) {
 			// Retry the request if it timed out.
 			l.RetryRequest(req, ProofStatusResponse{})
 		}
@@ -327,13 +326,14 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: WITNESSGEN_TIMEOUT}
+	timeout := time.Duration(l.Cfg.WitnessGenTimeout) * time.Second
+	client := &http.Client{Timeout: timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			l.Log.Error("Witness generation request timed out", "err", err)
 			l.Metr.RecordWitnessGenFailure("Timeout")
-			return nil, fmt.Errorf("request timed out after %s: %w", WITNESSGEN_TIMEOUT, err)
+			return nil, fmt.Errorf("request timed out after %s: %w", timeout, err)
 		}
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
