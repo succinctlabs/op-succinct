@@ -19,10 +19,6 @@ import (
 const PROOF_STATUS_TIMEOUT = 30 * time.Second
 const WITNESSGEN_TIMEOUT = 20 * time.Minute
 
-// This limit is set to prevent overloading the witness generation server. Until Kona improves their native I/O API (https://github.com/anton-rs/kona/issues/553)
-// the maximum number of concurrent witness generation requests is roughly num_cpu / 2. Set it to 5 for now to be safe.
-const MAX_CONCURRENT_WITNESS_GEN = 5
-
 // Process all of requests in PROVING state.
 func (l *L2OutputSubmitter) ProcessProvingRequests() error {
 	// Get all proof requests that are currently in the PROVING state.
@@ -162,7 +158,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 
 		// The number of witness generation requests is capped at MAX_CONCURRENT_WITNESS_GEN. This prevents overloading the machine with processes spawned by the witness generation server.
 		// Once https://github.com/anton-rs/kona/issues/553 is fixed, we may be able to remove this check.
-		if witnessGenProofs >= MAX_CONCURRENT_WITNESS_GEN {
+		if witnessGenProofs >= int(l.Cfg.MaxConcurrentWitnessGen) {
 			l.Log.Info("max witness generation reached, waiting for next cycle")
 			return nil
 		}
