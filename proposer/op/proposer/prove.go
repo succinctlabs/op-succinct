@@ -252,13 +252,8 @@ func (l *L2OutputSubmitter) prepareProofRequest(p ent.ProofRequest) ([]byte, err
 
 // RequestProof handles both mock and real proof requests
 func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error {
-	jsonBody, err := l.prepareProofRequest(p)
-	if err != nil {
-		return err
-	}
-
 	if isMock {
-		proofData, err := l.requestMockProof(p.Type, jsonBody)
+		proofData, err := l.requestMockProof(p.Type, p)
 		if err != nil {
 			return fmt.Errorf("mock proof request failed: %w", err)
 		}
@@ -272,7 +267,7 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	}
 
 	// Request a real proof from the witness generation server. Returns the proof ID from the network.
-	proofID, err := l.requestRealProof(p.Type, jsonBody)
+	proofID, err := l.requestRealProof(p.Type, p)
 	if err != nil {
 		return fmt.Errorf("real proof request failed: %w", err)
 	}
@@ -286,8 +281,8 @@ func (l *L2OutputSubmitter) RequestProof(p ent.ProofRequest, isMock bool) error 
 	return l.db.SetProverRequestID(p.ID, proofID)
 }
 
-func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
-	resp, err := l.makeProofRequest(proofType, jsonBody)
+func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, p ent.ProofRequest) ([]byte, error) {
+	resp, err := l.makeProofRequest(proofType, p)
 	if err != nil {
 		return nil, err
 	}
@@ -303,8 +298,8 @@ func (l *L2OutputSubmitter) requestRealProof(proofType proofrequest.Type, jsonBo
 }
 
 // Request a mock proof from the witness generation server.
-func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
-	resp, err := l.makeProofRequest(proofType, jsonBody)
+func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, p ent.ProofRequest) ([]byte, error) {
+	resp, err := l.makeProofRequest(proofType, p)
 	if err != nil {
 		return nil, err
 	}
@@ -318,7 +313,12 @@ func (l *L2OutputSubmitter) requestMockProof(proofType proofrequest.Type, jsonBo
 }
 
 // Make a proof request to the witness generation server for the correct proof type.
-func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBody []byte) ([]byte, error) {
+func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, p ent.ProofRequest) ([]byte, error) {
+	jsonBody, err := l.prepareProofRequest(p)
+	if err != nil {
+		return nil, err
+	}
+
 	urlPath := l.getProofEndpoint(proofType)
 	req, err := http.NewRequest("POST", l.Cfg.OPSuccinctServerUrl+"/"+urlPath, bytes.NewBuffer(jsonBody))
 	if err != nil {
@@ -340,7 +340,7 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		l.Log.Error("Witness generation request failed", "status", resp.StatusCode, "body", resp.Body)
+		l.Log.Error("Witness generation request failed. ", "proofType", proofType, "start", p.StartBlock, "end", p.EndBlock, "status", resp.StatusCode, "body", resp.Body)
 		l.Metr.RecordWitnessGenFailure("Failed")
 		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
