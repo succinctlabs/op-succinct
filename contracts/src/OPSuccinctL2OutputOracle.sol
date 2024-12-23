@@ -170,7 +170,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     string public constant version = "v1.0.0-rc2";
 
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
-    uint8 public constant initializerVersion = 4;
+    uint8 public constant initializerVersion = 5;
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
@@ -215,7 +215,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         // For proof verification to work, there must be an initial output.
         // Disregard the _startingBlockNumber and _startingTimestamp parameters during upgrades, as they're already set.
-        if (l2Outputs.length == 0) {
+        // if (l2Outputs.length == 0) {
             l2Outputs.push(
                 Types.OutputProposal({
                     outputRoot: _initParams.startingOutputRoot,
@@ -226,7 +226,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
             startingBlockNumber = _initParams.startingBlockNumber;
             startingTimestamp = _initParams.startingTimestamp;
-        }
+        // }
 
         challenger = _initParams.challenger;
         finalizationPeriodSeconds = _initParams.finalizationPeriodSeconds;
