@@ -485,7 +485,7 @@ async fn request_mock_span_proof(
     };
 
     let start_prove = Instant::now();
-    let res = generate_mock_compressed_proof(MULTI_BLOCK_ELF, sp1_stdin);
+    let res = generate_mock_compressed_proof(RANGE_ELF, sp1_stdin);
     let (proof, report) = if let Ok(result) = res {
         result
     } else {

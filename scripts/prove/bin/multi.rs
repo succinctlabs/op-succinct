@@ -7,9 +7,12 @@ use op_succinct_host_utils::{
     stats::ExecutionStats,
     HostExecutorArgs, ProgramType,
 };
-use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, RANGE_ELF};
-use sp1_sdk::{utils, ProverClient};
-use std::{fs, time::Duration};
+use op_succinct_prove::{execute_multi, generate_witness, RANGE_ELF};
+use sp1_sdk::{
+    network_v2::proto::network::{FulfillmentStrategy, ProofMode},
+    utils, NetworkProverV2, Prover,
+};
+use std::{env, fs, time::Duration};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -45,14 +48,19 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = ProverClient::new();
+    let private_key = env::var("SP1_PRIVATE_KEY").unwrap();
+    let sp1_rpc_url = env::var("PROVER_NETWORK_RPC").unwrap();
+    let mut prover = NetworkProverV2::new(&private_key, Some(sp1_rpc_url), false);
+    prover.with_strategy(FulfillmentStrategy::Reserved);
 
     if args.prove {
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(RANGE_ELF);
 
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
+        let proof = prover
+            .prove(&pk, sp1_stdin, ProofMode::Compressed, None)
+            .await?;
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!(
@@ -72,14 +80,8 @@ async fn main() -> Result<()> {
     } else {
         let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-        let (block_data, report, execution_duration) = execute_multi(
-            &prover,
-            &data_fetcher,
-            sp1_stdin,
-            l2_start_block,
-            l2_end_block,
-        )
-        .await?;
+        let (block_data, report, execution_duration) =
+            execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
         let stats = ExecutionStats::new(
             &block_data,
