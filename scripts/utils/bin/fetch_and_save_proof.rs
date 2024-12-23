@@ -1,24 +1,16 @@
-use alloy::{hex, sol_types::SolValue};
-use alloy_primitives::{Address, B256};
+use alloy_primitives::Address;
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
-use op_succinct_client_utils::{boot::BootInfoStruct, AGGREGATION_OUTPUTS_SIZE};
 use sp1_sdk::{
-    network_v2::{
-        client::NetworkClient,
-        proto::network::{
-            prover_network_client::ProverNetworkClient, FulfillmentStatus,
-            GetFilteredProofRequestsRequest, ProofMode,
-        },
+    network_v2::proto::network::{
+        prover_network_client::ProverNetworkClient, FulfillmentStatus,
+        GetFilteredProofRequestsRequest, ProofMode,
     },
     NetworkProverV2, Prover, SP1ProofWithPublicValues, SP1Stdin,
 };
-use std::{env, fs, path::Path, str::FromStr};
-use tonic::{
-    transport::{channel::ClientTlsConfig, Channel},
-    Code,
-};
+use std::{env, str::FromStr};
+use tonic::transport::{channel::ClientTlsConfig, Channel};
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
