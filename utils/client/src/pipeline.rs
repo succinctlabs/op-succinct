@@ -3,6 +3,7 @@
 use alloc::{boxed::Box, sync::Arc};
 use async_trait::async_trait;
 use core::fmt::Debug;
+use kona_derive::traits::EigenDAProvider;
 use kona_derive::{
     attributes::StatefulAttributesBuilder,
     errors::PipelineErrorKind,
@@ -14,7 +15,6 @@ use kona_derive::{
     },
     traits::{BlobProvider, OriginProvider, Pipeline, SignalReceiver},
 };
-use kona_derive::traits::EigenDAProvider;
 use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_preimage::CommsClient;
 use kona_proof::{l1::OracleL1ChainProvider, FlushableCache};
@@ -87,7 +87,12 @@ where
             l2_chain_provider.clone(),
             chain_provider.clone(),
         );
-        let dap = EthereumDataSource::new(chain_provider.clone(), blob_provider, eigen_da_provider, &cfg);
+        let dap = EthereumDataSource::new(
+            chain_provider.clone(),
+            blob_provider,
+            eigen_da_provider,
+            &cfg,
+        );
 
         let pipeline = PipelineBuilder::new()
             .rollup_config(cfg)
@@ -104,7 +109,8 @@ where
     }
 }
 
-impl<O, B, E> DriverPipeline<OracleDerivationPipeline<O, B, E>> for MultiblockOraclePipeline<O, B, E>
+impl<O, B, E> DriverPipeline<OracleDerivationPipeline<O, B, E>>
+    for MultiblockOraclePipeline<O, B, E>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
     B: BlobProvider + Send + Sync + Debug + Clone,

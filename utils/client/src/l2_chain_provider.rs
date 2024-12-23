@@ -208,7 +208,6 @@ impl<T: CommsClient + Send + Sync> BatchValidationProvider for MultiblockOracleL
 
 #[async_trait]
 impl<T: CommsClient + Send + Sync> L2ChainProvider for MultiblockOracleL2ChainProvider<T> {
-
     async fn system_config_by_number(
         &mut self,
         number: u64,

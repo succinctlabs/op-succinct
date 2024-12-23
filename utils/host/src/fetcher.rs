@@ -36,13 +36,10 @@ use std::{
     sync::Arc,
 };
 
+use crate::rollup_config::{get_eigen_da_config, read_rollup_config};
+use crate::{rollup_config::get_rollup_config_path, L2Output, ProgramType};
 use alloy_primitives::{keccak256, Bytes, U256, U64};
 use log::info;
-use crate::{
-    rollup_config::{get_rollup_config_path},
-    L2Output, ProgramType,
-};
-use crate::rollup_config::{get_eigen_da_config, read_rollup_config};
 
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
@@ -529,7 +526,6 @@ impl OPSuccinctDataFetcher {
         T: serde::de::DeserializeOwned,
     {
         let url = self.get_rpc_url(rpc_mode);
-        info!("Fetching RPC data from {}, method {}", url.clone(), method.clone());
         Self::fetch_rpc_data(url, method, params).await
     }
 
@@ -713,7 +709,6 @@ impl OPSuccinctDataFetcher {
             l2_claim_hash: agreed_l2_head_hash.0.into(),
         };
         let agreed_l2_output_root = keccak256(l2_output_encoded.abi_encode());
-        info!("Agreed l2 output root: {:?}", agreed_l2_output_root);
         // Get L2 claim data.
         let l2_claim_block = l2_provider
             .get_block_by_number(l2_end_block.into(), BlockTransactionsKind::Hashes)
@@ -737,7 +732,6 @@ impl OPSuccinctDataFetcher {
             l2_claim_hash: l2_claim_hash.0.into(),
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
-        info!("Claim l2 output root: {:?}", claimed_l2_output_root);
 
         let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
 
@@ -749,7 +743,6 @@ impl OPSuccinctDataFetcher {
             true => latest_l1_header.hash_slow(),
             false => self.get_l1_header(l1_head_number.into()).await?.hash_slow(),
         };
-
         // Get the workspace root, which is where the data directory is.
         let data_directory =
             self.get_data_directory(l2_chain_id, l2_start_block, l2_end_block, multi_block)?;
@@ -766,19 +759,15 @@ impl OPSuccinctDataFetcher {
                 }
             }
         }
-
         // Get the path to the rollup config file.
         let rollup_config_path = get_rollup_config_path()?;
 
         // Get the EigenDa config.
         let eigen_da_config = get_eigen_da_config()?;
 
-
-
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
         fs::create_dir_all(&data_directory)?;
-
         Ok(HostCli {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
@@ -849,7 +838,6 @@ impl OPSuccinctDataFetcher {
 
         // Get the l1 origin of the l2 end block.
         let l2_end_block_hex = format!("0x{:x}", l2_end_block);
-        info!("l2 end block hex {:?}", l2_end_block_hex.clone());
 
         let optimism_output_data: OutputResponse = self
             .fetch_rpc_data_with_mode(
@@ -859,13 +847,11 @@ impl OPSuccinctDataFetcher {
             )
             .await?;
 
-        info!("optimism_outputAtBlock {:?}", optimism_output_data.clone());
         let l1_origin = optimism_output_data.block_ref.l1_origin;
 
         // Search forward from the l1Origin, checking each L1 block until we find one with an L2 safe head greater than l2_end_block
         let mut current_l1_block_number = l1_origin.number;
         loop {
-            info!("l1 block number {:?}", current_l1_block_number);
             // If the current L1 block number is greater than the latest L1 header number, then return an error.
             if current_l1_block_number > latest_l1_header.number {
                 return Err(anyhow::anyhow!(
@@ -882,7 +868,6 @@ impl OPSuccinctDataFetcher {
                 )
                 .await?;
             let l2_safe_head = result.safe_head.number;
-            info!("l2 safe head number {:?}", l2_safe_head.clone());
             if l2_safe_head > l2_end_block {
                 return Ok((result.l1_block.hash, result.l1_block.number));
             }
@@ -901,7 +886,6 @@ impl OPSuccinctDataFetcher {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
         let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
-        info!("Fetching l1 head from {}", l2_end_block);
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
 

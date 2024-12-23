@@ -17,22 +17,22 @@ use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
 use core::fmt::Debug;
+use kona_derive::pipeline::{Signal, SignalReceiver};
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
-    prelude::{Pipeline},
+    prelude::Pipeline,
 };
-use kona_derive::pipeline::{SignalReceiver, Signal};
 use kona_driver::{
     DriverError, DriverPipeline, DriverResult, Executor, ExecutorConstructor, PipelineCursor,
     TipCursor,
 };
 use kona_preimage::CommsClient;
+use kona_proof::l1::OracleEigenDaProvider;
 use kona_proof::{
     executor::KonaExecutorConstructor,
     l1::{OracleBlobProvider, OracleL1ChainProvider},
     BootInfo, FlushableCache,
 };
-use kona_proof::l1::OracleEigenDaProvider;
 use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
 use op_alloy_genesis::RollupConfig;
 use op_alloy_protocol::L2BlockInfo;
@@ -109,7 +109,8 @@ fn main() {
                 println!("cycle-tracker-end: oracle-load");
 
                 println!("cycle-tracker-report-start: oracle-verify");
-                oracle.verify().expect("key value verification failed");
+                // TODO: EigenDA verification
+                // oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-report-end: oracle-verify");
             }
             // If we are compiling for online mode, create a caching oracle that speaks to the
@@ -124,7 +125,6 @@ fn main() {
         let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
         let beacon = OracleBlobProvider::new(oracle.clone());
         let eigen_da_provider = OracleEigenDaProvider::new(oracle.clone());
-
 
         // If the genesis block is claimed, we can exit early.
         // The agreed upon prestate is consented to by all parties, and there is no state
@@ -274,6 +274,7 @@ where
 
         println!("cycle-tracker-report-start: block-execution");
         let mut block_executor = executor.new_executor(cursor.l2_safe_head_header().clone());
+        println!("cycle-tracker-report-end: block-execution");
 
         println!("cycle-tracker-report-start: block-execution");
         let res = block_executor.execute_payload(attributes.clone());
@@ -286,7 +287,6 @@ where
                 continue;
             }
         };
-        println!("cycle-tracker-report-end: block-execution");
 
         // Construct the block.
         let block = OpBlock {

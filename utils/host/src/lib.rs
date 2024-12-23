@@ -13,7 +13,9 @@ use kona_host::{
     HostCli,
 };
 use op_alloy_genesis::RollupConfig;
-use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, InMemoryOracle};
+use op_succinct_client_utils::{
+    boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, InMemoryOracle,
+};
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 

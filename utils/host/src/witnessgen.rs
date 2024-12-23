@@ -109,7 +109,6 @@ impl WitnessGenExecutor {
         };
         let args = convert_host_cli_to_args(host_cli);
 
-        info!("Running args {:?}", args);
         // Run the native host runner.
         let child = tokio::process::Command::new(target_dir)
             .args(&args)
