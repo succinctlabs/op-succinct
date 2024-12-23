@@ -5,8 +5,7 @@ use kona_host::HostCli;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
-        get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
-        split_range_basic, SpanBatchRange,
+        get_rolling_block_range, get_validated_block_range, split_range_basic, SpanBatchRange,
     },
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin,

@@ -6185,17 +6185,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-core-executor"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6227,17 +6218,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-core-machine"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "bincode",
  "cfg-if",
@@ -6283,17 +6265,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-curves"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "cfg-if",
  "dashu",
@@ -6312,17 +6285,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-derive"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6331,11 +6295,7 @@ dependencies = [
 [[package]]
 name = "sp1-lib"
 version = "3.4.0"
-<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
-=======
-source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fallocators#64e1abd078982facc4fd1716bdb1c3a12bd10196"
->>>>>>> ea27c43 (feat: allocator works)
 dependencies = [
  "bincode",
  "serde",
@@ -6343,17 +6303,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-primitives"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "bincode",
  "hex",
@@ -6370,11 +6321,7 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "3.4.0"
-<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fallocators#64e1abd078982facc4fd1716bdb1c3a12bd10196"
->>>>>>> ea27c43 (feat: allocator works)
 dependencies = [
  "bincode",
  "hex",
@@ -6390,17 +6337,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-prover"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "anyhow",
  "bincode",
@@ -6440,17 +6378,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-circuit"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6482,17 +6411,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-compiler"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6512,17 +6432,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-core"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "backtrace",
  "ff 0.13.0",
@@ -6556,17 +6467,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-derive"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6574,17 +6476,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-gnark-ffi"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "anyhow",
  "bincode",
@@ -6608,17 +6501,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-sdk"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "alloy-primitives",
  "alloy-signer 0.5.4",
@@ -6663,17 +6547,8 @@ dependencies = [
 
 [[package]]
 name = "sp1-stark"
-<<<<<<< HEAD
 version = "3.4.0"
 source = "git+https://github.com/succinctlabs/sp1.git?rev=f0b61cf262388c1be7edfcf984c8e070064e980f#f0b61cf262388c1be7edfcf984c8e070064e980f"
-=======
-version = "3.3.0"
-<<<<<<< HEAD
-source = "git+https://github.com/succinctlabs/sp1.git?rev=3ef33280f638d080a1ceda6de597867e720df660#3ef33280f638d080a1ceda6de597867e720df660"
->>>>>>> ea27c43 (feat: allocator works)
-=======
-source = "git+https://github.com/succinctlabs/sp1.git?rev=bb1fade9f0b3aa66637dd5af3657fd007d5f72d1#bb1fade9f0b3aa66637dd5af3657fd007d5f72d1"
->>>>>>> 7f489c9 (feat: new alloc works)
 dependencies = [
  "arrayref",
  "getrandom",
@@ -6708,11 +6583,7 @@ dependencies = [
 [[package]]
 name = "sp1-zkvm"
 version = "3.4.0"
-<<<<<<< HEAD
 source = "git+https://github.com/succinctlabs/sp1.git?rev=16431e6b979a617fa08994ccdaf866b22ba4b7a1#16431e6b979a617fa08994ccdaf866b22ba4b7a1"
-=======
-source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fallocators#64e1abd078982facc4fd1716bdb1c3a12bd10196"
->>>>>>> ea27c43 (feat: allocator works)
 dependencies = [
  "cfg-if",
  "critical-section",
