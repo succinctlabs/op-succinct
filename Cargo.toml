@@ -30,7 +30,7 @@ reqwest = { version = "0.12", features = ["json"] }
 csv = "1.3.0"
 serde = { version = "1.0.213", features = ["derive"] }
 serde_json = { version = "1.0.132", default-features = false }
-rkyv = {version = "0.7"}
+rkyv = { version = "0.7" }
 hex = "0.4.3"
 bincode = "1.3.3"
 base64 = "0.22.1"
@@ -44,19 +44,19 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 # Branch: patch-kona-proof-v0.1.0
-kona-common = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-common-proc = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", features = [
+kona-common = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-common-proc = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0", features = [
     "rkyv",
 ] }
-kona-mpt = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-driver = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-derive = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", default-features = false }
-kona-executor = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-client = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-host = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-proof = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-eigen-da = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0", default-features = false }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
