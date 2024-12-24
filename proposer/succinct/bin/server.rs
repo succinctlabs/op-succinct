@@ -9,7 +9,6 @@ use axum::{
     Json, Router,
 };
 use hashbrown::HashMap;
-use log::{error, info};
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
     types::u32_to_u8,
@@ -48,6 +47,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tower_http::limit::RequestBodyLimitLayer;
+use tracing::{error, info};
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
@@ -487,13 +487,15 @@ async fn request_mock_span_proof(
 
     let start_prove = Instant::now();
     let res = generate_mock_compressed_proof(RANGE_ELF, sp1_stdin);
-    let (proof, report) = if let Ok(result) = res {
-        result
-    } else {
-        return Err(AppError(anyhow::anyhow!(
-            "Failed to generate mock compressed proof: {}",
-            res.err().unwrap()
-        )));
+    let (proof, report) = match res {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Failed to generate mock compressed proof: {}", e);
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to generate mock compressed proof: {}",
+                e
+            )));
+        }
     };
     let prove_duration = start_prove.elapsed();
     // Save the report to execution-reports/ with .csv
