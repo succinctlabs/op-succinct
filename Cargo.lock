@@ -4217,6 +4217,7 @@ dependencies = [
  "sp1-stark",
  "tokio",
  "tower-http",
+ "tracing",
 ]
 
 [[package]]

@@ -355,10 +355,6 @@ where
         );
         cursor.advance(origin, tip_cursor);
 
-        // Reduce the amount of de-allocation by forgetting the block.
-        // Manually forget objects before loop continues
-        std::mem::forget(block);
-
         println!("cycle-tracker-report-end: output-root");
     }
 }
