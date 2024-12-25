@@ -120,7 +120,7 @@ impl InMemoryOracle {
                     assert_eq!(key, derived_key, "zkvm keccak constraint failed!");
                 }
                 PreimageKeyType::GlobalGeneric => {
-                    unimplemented!();
+                    // TODO
                 }
                 PreimageKeyType::Sha256 => {
                     let derived_key: [u8; 32] = Sha256::digest(value).into();

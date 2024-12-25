@@ -109,8 +109,7 @@ fn main() {
                 println!("cycle-tracker-end: oracle-load");
 
                 println!("cycle-tracker-report-start: oracle-verify");
-                // TODO: EigenDA verification
-                // oracle.verify().expect("key value verification failed");
+                oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-report-end: oracle-verify");
             }
             // If we are compiling for online mode, create a caching oracle that speaks to the
@@ -182,7 +181,6 @@ fn main() {
             &mut l2_provider,
             &boot,
             target,
-            &cfg,
         )
         .await
         .expect("Failed to advance to target L2 block");
@@ -231,7 +229,6 @@ pub async fn advance_to_target<E, EC, DP, P, O>(
     l2_provider: &mut MultiblockOracleL2ChainProvider<O>,
     boot: &BootInfo,
     mut target: u64,
-    cfg: &RollupConfig,
 ) -> DriverResult<(u64, B256), E::Error>
 where
     E: Executor + Send + Sync + Debug,
