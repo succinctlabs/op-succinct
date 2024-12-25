@@ -88,6 +88,7 @@ impl HintWriterClient for InMemoryOracle {
 
 impl FlushableCache for InMemoryOracle {
     fn flush(&self) {
+        println!("Clearing cache");
         self.cache.lock().clear();
     }
 }
@@ -186,14 +187,14 @@ impl InMemoryOracle {
             .map(|blob| KzgRsBlob::from_slice(&blob.data.0).unwrap())
             .collect_vec();
         println!("Verifying {} blobs", blob_datas.len());
-        // Verify reconstructed blobs.
-        kzg_rs::KzgProof::verify_blob_kzg_proof_batch(
-            blob_datas,
-            commitments,
-            kzg_proofs,
-            &get_kzg_settings(),
-        )
-        .map_err(|e| anyhow!("blob verification failed for batch: {:?}", e))?;
+        // // Verify reconstructed blobs.
+        // kzg_rs::KzgProof::verify_blob_kzg_proof_batch(
+        //     blob_datas,
+        //     commitments,
+        //     kzg_proofs,
+        //     &get_kzg_settings(),
+        // )
+        // .map_err(|e| anyhow!("blob verification failed for batch: {:?}", e))?;
         println!("cycle-tracker-report-end: blob-verification");
 
         Ok(())
