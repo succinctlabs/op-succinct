@@ -1,6 +1,5 @@
 //! Contains the [PrecompileOverride] trait implementation for the FPVM-accelerated precompiles.
 use alloc::sync::Arc;
-use alloy_primitives::hex;
 use kona_executor::{TrieDB, TrieDBProvider};
 use kona_mpt::TrieHinter;
 use revm::{
@@ -19,15 +18,13 @@ macro_rules! create_annotated_precompile {
                 let precompile = $precompile.precompile();
                 match precompile {
                     Precompile::Standard(precompile) => {
-                        // if cfg!(target_os = "zkvm") {
-                        //     println!(concat!("cycle-tracker-report-start: precompile-", $name));
-                        // }
-                        println!("input: {}", hex::encode(input));
+                        if cfg!(target_os = "zkvm") {
+                            println!(concat!("cycle-tracker-report-start: precompile-", $name));
+                        }
                         let result = precompile(input, gas_limit);
-                        println!("result: {:?}", hex::encode(result.clone().unwrap().bytes));
-                        // if cfg!(target_os = "zkvm") {
-                        //     println!(concat!("cycle-tracker-report-end: precompile-", $name));
-                        // }
+                        if cfg!(target_os = "zkvm") {
+                            println!(concat!("cycle-tracker-report-end: precompile-", $name));
+                        }
                         result
                     }
                     _ => panic!("Annotated precompile must be a standard precompile."),
