@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     let args = HostExecutorArgs::parse();
 
     dotenv::from_path(&args.env_file)?;
-    utils::setup_logger();
+    // utils::setup_logger();
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
