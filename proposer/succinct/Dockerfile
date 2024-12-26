@@ -77,6 +77,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 COPY --from=builder /build/server /usr/local/bin/server
 COPY --from=builder /build/range /usr/local/bin/range
 COPY --from=builder /build/native_host_runner /usr/local/bin/native_host_runner
+COPY ./configs /configs
 
 # Expose port based on environment variable or default to 3000
 ENV PORT=${PORT:-3000}

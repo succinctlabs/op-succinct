@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
     let range_vkey_commitment = B256::from(multi_block_vkey_u8);
     let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
 
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await?;
     // Note: The rollup config hash never changes for a given chain, so we can just hash it once at
     // server start-up. The only time a rollup config changes is typically when a new version of the
     // [`RollupConfig`] is released from `op-alloy`.
@@ -121,7 +121,7 @@ async fn request_span_proof(
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
-    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
+    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
         Err(e) => {
             error!("Failed to create data fetcher: {}", e);
@@ -134,7 +134,7 @@ async fn request_span_proof(
             payload.start,
             payload.end,
             ProgramType::Multi,
-            CacheMode::KeepCache,
+            CacheMode::DeleteCache,
         )
         .await
     {
@@ -151,7 +151,7 @@ async fn request_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
-    let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Dev);
+    let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Docker);
     if let Err(e) = witnessgen_executor.spawn_witnessgen(&host_cli).await {
         error!("Failed to spawn witness generation: {}", e);
         return Err(AppError(anyhow::anyhow!(
@@ -281,7 +281,7 @@ async fn request_agg_proof(
     )?;
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
-    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
+    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
         Err(e) => return Err(AppError(anyhow::anyhow!("Failed to create fetcher: {}", e))),
     };
@@ -354,7 +354,7 @@ async fn request_mock_span_proof(
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received mock span proof request: {:?}", payload);
-    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
+    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
         Err(e) => {
             error!("Failed to create data fetcher: {}", e);
@@ -367,7 +367,7 @@ async fn request_mock_span_proof(
             payload.start,
             payload.end,
             ProgramType::Multi,
-            CacheMode::KeepCache,
+            CacheMode::DeleteCache,
         )
         .await
     {
@@ -381,7 +381,7 @@ async fn request_mock_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
-    let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Dev);
+    let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Docker);
     if let Err(e) = witnessgen_executor.spawn_witnessgen(&host_cli).await {
         error!("Failed to spawn witness generator: {}", e);
         return Err(AppError(e));
@@ -459,7 +459,7 @@ async fn request_mock_agg_proof(
     };
     let l1_head: [u8; 32] = l1_head_bytes.try_into().unwrap();
 
-    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
+    let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
         Err(e) => {
             error!("Failed to create data fetcher: {}", e);
