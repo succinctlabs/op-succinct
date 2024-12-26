@@ -4281,6 +4281,7 @@ dependencies = [
  "clap",
  "kona-host",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

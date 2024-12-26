@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
         }
     }
 
-    println!(
+    tracing::info!(
         "Ran host program with end block: {:?}",
         cfg.claimed_l2_block_number
     );
