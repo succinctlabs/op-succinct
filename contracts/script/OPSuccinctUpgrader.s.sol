@@ -16,7 +16,12 @@ contract OPSuccinctUpgrader is Script, Utils {
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
-        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        address OPSuccinctL2OutputOracleImpl = vm.envOr("OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL", address(0));
+
+        if (OPSuccinctL2OutputOracleImpl == address(0)) {
+            console.log("Deploying new logic");
+            OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        }
 
         upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, executeUpgradeCall);
 
