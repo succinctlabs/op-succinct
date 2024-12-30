@@ -3,10 +3,18 @@ use std::process::Command;
 use chrono::Local;
 use sp1_build::{build_program_with_args, BuildArgs};
 
+const ZKVM_TAG_VERSION: &str = "v3.0.0";
+
 #[derive(Clone, Copy)]
 pub enum ProgramBuildArgs {
     Default,
     WithTracing,
+}
+
+/// Configuration for build process
+pub struct BuildConfig {
+    pub program_args: ProgramBuildArgs,
+    pub build_zkvm: bool,
 }
 
 /// Build a native program.
@@ -77,35 +85,38 @@ pub(crate) fn current_datetime() -> String {
     now.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
-/// Build a program for the zkVM.
+/// Build a zkVM program.
 #[allow(dead_code)]
-fn build_zkvm_program(program: &str) {
+fn build_zkvm_program(program: &str) -> Result<(), String> {
     let metadata = cargo_metadata::MetadataCommand::new()
         .exec()
-        .expect("Failed to get cargo metadata");
+        .map_err(|e| format!("Failed to get cargo metadata: {}", e))?;
+    
     build_program_with_args(
         &format!("{}/{}", metadata.workspace_root.join("programs"), program),
         BuildArgs {
             elf_name: format!("{}-elf", program),
             docker: true,
-            tag: "v3.0.0".to_string(),
+            tag: ZKVM_TAG_VERSION.to_string(),
             ..Default::default()
         },
     );
+    Ok(())
 }
 
-/// Build all the native programs and the native host runner. Optional flag to build the zkVM
-/// programs.
-pub fn build_all(program_args: ProgramBuildArgs) {
-    // Note: Don't comment this out, because the Docker program depends on the native program
-    // for range being built.
-    build_native_program("range", program_args);
-    // build_zkvm_program("range");
+/// Build all the native programs and the native host runner.
+pub fn build_all(config: BuildConfig) {
+    build_native_program("range", config.program_args);
+    
+    if config.build_zkvm {
+        if let Err(e) = build_zkvm_program("range") {
+            println!("cargo:warning=Failed to build zkVM range program: {}", e);
+        }
+        
+        if let Err(e) = build_zkvm_program("aggregation") {
+            println!("cargo:warning=Failed to build zkVM aggregation program: {}", e);
+        }
+    }
 
-    // Build aggregation program.
-    // build_zkvm_program("aggregation");
-
-    // Note: Don't comment this out, because the Docker program depends on the native host runner
-    // being built.
     build_native_host_runner();
 }
