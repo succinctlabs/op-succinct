@@ -8,7 +8,7 @@ use op_succinct_host_utils::{
     ProgramType,
 };
 use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, RANGE_ELF};
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{utils, NetworkProverV2, Prover, ProverClient};
 use std::{fs, path::PathBuf, time::Duration};
 
 #[derive(Parser, Debug)]
@@ -73,14 +73,23 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = ProverClient::new();
-
     if args.prove {
+        let private_key = std::env::var("SP1_PRIVATE_KEY").unwrap();
+        let rpc_url = std::env::var("PROVER_NETWORK_RPC").unwrap();
+        let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url), false);
+        prover.with_strategy(sp1_sdk::network_v2::proto::network::FulfillmentStrategy::Reserved);
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(RANGE_ELF);
 
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, sp1_stdin).compressed().run().unwrap();
+        let proof = prover
+            .prove(
+                &pk,
+                sp1_stdin,
+                sp1_sdk::network_v2::proto::network::ProofMode::Compressed,
+                None,
+            )
+            .await?;
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!(
@@ -98,6 +107,7 @@ async fn main() -> Result<()> {
             ))
             .expect("saving proof failed");
     } else {
+        let prover = ProverClient::new();
         let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
         let (block_data, report, execution_duration) = execute_multi(

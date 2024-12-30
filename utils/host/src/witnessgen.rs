@@ -57,7 +57,7 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
 }
 
 /// Default timeout for witness generation.
-pub const WITNESSGEN_TIMEOUT: Duration = Duration::from_secs(60 * 20);
+pub const WITNESSGEN_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 
 struct WitnessGenProcess {
     child: tokio::process::Child,
@@ -208,7 +208,7 @@ pub async fn run_native_data_generation(host_clis: &[HostCli]) {
     // being overloaded with too many concurrent requests, while also improving witness generation
     // throughput.
     for chunk in host_clis.chunks(CONCURRENT_NATIVE_HOST_RUNNERS) {
-        let mut witnessgen_executor = WitnessGenExecutor::default();
+        let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Dev);
 
         for host_cli in chunk {
             witnessgen_executor
