@@ -340,7 +340,19 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		l.Log.Error("Witness generation request failed", "status", resp.StatusCode, "body", resp.Body)
+		body, _ := io.ReadAll(resp.Body)
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			l.Log.Error("Witness generation request failed",
+				"status", resp.StatusCode,
+				"error", errResp.Error)
+		} else {
+			l.Log.Error("Witness generation request failed", 
+				"status", resp.StatusCode,
+				"body", string(body))
+		}
 		l.Metr.RecordWitnessGenFailure("Failed")
 		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
@@ -382,6 +394,20 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 
 	// If the response status code is not 200, return an error.
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(body, &errResp); err == nil {
+			l.Log.Error("Get proof status request failed",
+				"status", resp.StatusCode,
+				"error", errResp.Error)
+		} else {
+			l.Log.Error("Get proof status request failed", 
+				"status", resp.StatusCode,
+				"body", string(body))
+		}
+		l.Metr.RecordWitnessGenFailure("Failed")
 		return ProofStatusResponse{}, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
 
