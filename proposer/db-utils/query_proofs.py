@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 import time
 import sys
+from typing import List, Optional
+from contextlib import contextmanager
 
 # Types of proofs
 class ProofType(Enum):
@@ -17,6 +19,32 @@ class ProofStatus(Enum):
     PROVING = "PROVING"
     COMPLETE = "COMPLETE"
     FAILED = "FAILED"
+
+class DatabaseError(Exception):
+    """Custom exception for database errors"""
+    pass
+
+@contextmanager
+def database_connection(db_path: str):
+    """
+    A context manager for safe database operations.
+    
+    Args:
+        db_path: Path to the database file
+        
+    Yields:
+        sqlite3.Connection: Database connection object
+    
+    Raises:
+        DatabaseError: In case of connection or database operation issues
+    """
+    try:
+        conn = sqlite3.connect(db_path)
+        yield conn
+    except sqlite3.Error as e:
+        raise DatabaseError(f"Database error occurred: {str(e)}")
+    finally:
+        conn.close()
 
 # Represents a proof request with all its attributes
 class ProofRequest:
@@ -64,28 +92,40 @@ def convert_to_proof_request(result):
     )
 
 # Queries proofs of a specific type from the database
-def query_proofs(db_path, proof_type) -> [ProofRequest]:
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-
-    query = f"""
-    SELECT * FROM proof_requests
-    WHERE type = '{proof_type}'
+def query_proofs(db_path: str, proof_type: str) -> List[ProofRequest]:
     """
-    cursor.execute(query)
+    Requests evidence of a specific type from the database.
     
-    results = cursor.fetchall()
-    conn.close()
-
-    return [convert_to_proof_request(result) for result in results] if results else []
+    Args:
+        db_path: Path to the database file
+        proof_type: Type of evidence for the query
+        
+    Returns:
+        List[ProofRequest]: List of ProofRequest objects
+        
+    Raises:
+        DatabaseError: In case of issues with the database query
+    """
+    try:
+        with database_connection(db_path) as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM proof_requests WHERE type = ?"
+            cursor.execute(query, (proof_type,))
+            results = cursor.fetchall()
+            return [convert_to_proof_request(result) for result in results] if results else []
+    except DatabaseError as e:
+        print(f"Error querying proofs: {str(e)}")
+        return []
 
 # Queries span proofs from the database
-def query_span_proofs(db_path) -> [ProofRequest]:
-    return query_proofs(db_path, 'SPAN')
+def query_span_proofs(db_path: str) -> List[ProofRequest]:
+    """Requests SPAN evidence from the database"""
+    return query_proofs(db_path, ProofType.SPAN.value)
 
 # Queries aggregation proofs from the database
-def query_agg_proofs(db_path) -> [ProofRequest]:
-    return query_proofs(db_path, 'AGG')
+def query_agg_proofs(db_path: str) -> List[ProofRequest]:
+    """Requests AGG evidence from the database."""
+    return query_proofs(db_path, ProofType.AGG.value)
 
 
 if __name__ == "__main__":
