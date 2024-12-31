@@ -335,6 +335,7 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 			l.Metr.RecordWitnessGenFailure("Timeout")
 			return nil, fmt.Errorf("request timed out after %s: %w", timeout, err)
 		}
+		l.Log.Error("Witness generation request failed", "err", err)
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()

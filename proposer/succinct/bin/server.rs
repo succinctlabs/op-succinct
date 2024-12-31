@@ -282,7 +282,7 @@ async fn request_agg_proof(
         }
     };
 
-    let l1_head: [u8; 32] = match l1_head_bytes.try_into() {
+    let l1_head: [u8; 32] = match l1_head_bytes.clone().try_into() {
         Ok(array) => array,
         Err(_) => {
             error!(
