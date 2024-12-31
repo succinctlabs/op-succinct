@@ -399,15 +399,14 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 			Error string `json:"error"`
 		}
 		if err := json.Unmarshal(body, &errResp); err == nil {
-			l.Log.Error("Get proof status request failed",
+			l.Log.Error("Failed to get proof status",
 				"status", resp.StatusCode,
 				"error", errResp.Error)
 		} else {
-			l.Log.Error("Get proof status request failed", 
+			l.Log.Error("Failed to get unmarshal proof status error message", 
 				"status", resp.StatusCode,
-				"body", string(body))
+				"body", body)
 		}
-		l.Metr.RecordWitnessGenFailure("Failed")
 		return ProofStatusResponse{}, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
 	}
 
