@@ -8,7 +8,7 @@ services:
       - ${ENV_FILE:-.env}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3006:3006"
 
   # OP Succinct Proposer
   op-succinct-proposer:
@@ -29,7 +29,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -46,7 +46,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_SECURITY_ADMIN_USER=admin
     ports:
-      - "3000:3000"
+      - "4000:3000" # Map internal port 3000 to external port 4000
     depends_on:
       - prometheus
     restart: unless-stopped
