@@ -1,8 +1,20 @@
-# Use a multi-stage build for efficiency
-FROM golang:1.22 AS go-builder
+# Build stage
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
 
-# Set up Go environment
-FROM go-builder AS optimism-builder
+# Install build dependencies
+RUN apk add --no-cache make gcc musl-dev linux-headers git
+
+# Set up cross-compilation
+ARG TARGETOS
+ARG TARGETARCH
+ENV GOOS=$TARGETOS
+ENV GOARCH=$TARGETARCH
+
+# Install cross-compilation tools for ARM64
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+    apk add --no-cache gcc-aarch64-none-elf musl-dev; \
+fi
+
 WORKDIR /optimism
 
 # Cache go modules
@@ -15,32 +27,19 @@ COPY ./proposer/op /optimism/op-proposer
 WORKDIR /optimism/op-proposer/proposer
 RUN --mount=type=cache,target=/root/.cache/go-build \
     make op-proposer
-RUN ls -l /optimism/op-proposer/proposer
-RUN ls -l /optimism/op-proposer/proposer/bin
-RUN pwd
 
-# Use a slim Debian image for the final stage
-FROM ubuntu:22.04
+# Runtime stage
+FROM --platform=$TARGETPLATFORM ubuntu:22.04
 
-# Install necessary dependencies
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     ca-certificates \
     sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the built op-proposer binary from the previous stage
-COPY --from=optimism-builder /optimism/op-proposer/proposer/bin/op-proposer /usr/local/bin/op-proposer
-
-# Set the entrypoint to run op-proposer with environment variables
-COPY ./proposer/op/op_proposer.sh /usr/local/bin/op_proposer.sh
-
-# Copy the rollup configs
+COPY --from=builder /optimism/op-proposer/proposer/bin/op-proposer /usr/local/bin/
+COPY ./proposer/op/op_proposer.sh /usr/local/bin/
 COPY ../configs /configs
 
-# Make the binary and entrypoint executable.
-RUN ls -l /usr/local/bin/
-RUN chmod +x /usr/local/bin/op-proposer
-RUN chmod +x /usr/local/bin/op_proposer.sh
+RUN chmod +x /usr/local/bin/op-proposer /usr/local/bin/op_proposer.sh
 
 ENTRYPOINT ["/usr/local/bin/op_proposer.sh"]
