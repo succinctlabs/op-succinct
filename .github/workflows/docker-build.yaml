@@ -61,6 +61,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Pre-build debug
+        run: |
+          echo "Meta tags: ${{ steps.meta-op-proposer.outputs.tags }}"
+          echo "Push condition: ${{ github.event_name != 'pull_request' }}"
+          echo "Event name: ${{ github.event_name }}"
+
       - name: Build and push op-proposer
         uses: docker/build-push-action@v6
         with:
@@ -71,6 +77,12 @@ jobs:
           labels: ${{ steps.meta-op-proposer.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Post-build debug
+        run: |
+          docker images
+          echo "Checking authentication:"
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }} 2>&1 || true
 
       - name: Build and push succinct-proposer
         uses: docker/build-push-action@v6
