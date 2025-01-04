@@ -82,4 +82,3 @@ jobs:
           labels: ${{ steps.meta-succinct.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          ssh: default 
