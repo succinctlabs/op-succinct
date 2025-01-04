@@ -1,5 +1,5 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache make gcc musl-dev linux-headers git
@@ -29,7 +29,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     make op-proposer
 
 # Runtime stage
-FROM --platform=$TARGETPLATFORM ubuntu:22.04
+FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
