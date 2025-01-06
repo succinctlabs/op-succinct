@@ -22,10 +22,7 @@ remappings = [
     "src/universal/=lib/optimism/packages/contracts-bedrock/src/universal/",
 ]
 
-# Enable read-write access to opsuccinctl2ooconfig.json
-fs_permissions = [
-    { access = "read-write", path = "./opsuccinctl2ooconfig.json" },
-    { access = "read-write", path = "./opsuccinctl2ooconfig-test.json" }
-]
+# Enable read-write access to config files
+fs_permissions = [{ access = "read", path = "./deploy-config" }]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

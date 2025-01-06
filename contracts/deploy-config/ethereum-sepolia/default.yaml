@@ -1,0 +1,24 @@
+chainId: 17000
+  
+envs:
+  F_WALLET_TYPE: LEDGER # options: AWS_KMS, PRIVATE_KEY, LEDGER, MNEMONIC
+  F_PRIVATE_KEY: ""
+  F_MNEMONIC: ""
+  F_MNEMONIC_INDEX: 0
+  F_AWS_KMS_KEY_ID: ""
+  F_SENDER: "0x207E804758e28F2b3fD6E4219671B327100b82f8" 
+  F_VERBOSE: true
+  F_RPC_URL: https://rpc.ankr.com/eth
+  VERIFIER_URL: ""
+
+explorers: {}
+
+config:
+  emptyContractAddress: "0x36eFDDBc258102b5D946645a16C4d78B185748ED"
+  timelockControllerAddress: "0x423617E9585ddFc0E220F3EdB1C361402e18FE0e"
+  # MSig_MDeployer: 
+  timelockAdminAddress: "0xe6EA31979daDF6c2364bA5d74159c292064601c2"
+  # MSig_MDeployer: 
+  mtDefaultAdminAddress: "0xe6EA31979daDF6c2364bA5d74159c292064601c2"
+  mtPauserAddress: "0xe6EA31979daDF6c2364bA5d74159c292064601c2"
+  mtMinterAddress: "0xe6EA31979daDF6c2364bA5d74159c292064601c2"

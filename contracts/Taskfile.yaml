@@ -1,0 +1,60 @@
+version: 3
+env:
+  ROOT_DIR: "{{ .ROOT_DIR }}"
+  CONFIG_YAML: 
+    sh: printf "%s/deploy-config/%s/%s.yaml" {{.ROOT_DIR}} {{ .NETWORK }} {{ .PROFILE | default "default" }}
+  CONFIG_JSON: 
+    sh: printf "%s/deploy-config/%s/%s.json" {{.ROOT_DIR}} {{ .NETWORK }} {{ .PROFILE | default "default" }}
+  DEPLOYMENTS_DIR: 
+    sh: printf "%s/deployments/%s" {{.ROOT_DIR}} {{ .NETWORK }}
+
+tasks:
+  test:
+    cmds:
+     - |
+       env
+  _config_yaml2json:
+    internal: true
+    silent: true
+    desc: update json before forge script
+    cmd: yq -o json {{.CONFIG_YAML}} > {{.CONFIG_JSON}}
+  _script:
+    internal: true
+    # silent: true
+    cmds: 
+      - |
+        export $(yq '.envs | ... comments="" | to_entries | .[] | .key + "=" + (.value|tostring)' {{.CONFIG_YAML}})
+        source {{.ROOT_DIR}}/lib/func.sh
+        if [[ -z "${NETWORK}" ]]; then
+          log_error "NETWORK env is empty: NETWORK=anvil task yourTask"
+        fi
+        yq -o json {{.CONFIG_YAML}} > {{.CONFIG_JSON}}
+
+        mkdir -p $DEPLOYMENTS_DIR
+        forge_script {{.EXTRA_ARGS}}
+  _test:
+    internal: true
+    cmds: 
+      - |
+        export $(yq '.envs | ... comments="" | to_entries | .[] | .key + "=" + (.value|tostring)' {{.CONFIG_YAML}})
+        source {{.ROOT_DIR}}/lib/func.sh
+        forge_test {{.EXTRA_ARGS}}
+  #InitAnvilNetwork:
+  #  silent: true
+  #  cmds:
+  #    - |
+  #      NETWORK=anvil forge script script/libraries/AnvilGenesis.s.sol:AnvilGenesis
+  #      yq ea 'select(fi==0).alloc = select(fi==1) | select(fi==0)' {{.ROOT_DIR}}/script/libraries/genesis.json {{.ROOT_DIR}}/state-dump/anvil/31337-default.json \
+  #        > {{.ROOT_DIR}}/deploy-config/anvil/genesis.json
+  InitForkedNetwork:
+    # silent: true
+    cmds:
+      - |
+        export $(yq '.envs | ... comments="" | to_entries | .[] | .key + "=" + (.value|tostring)' {{.CONFIG_YAML}})
+        source {{.ROOT_DIR}}/lib/func.sh
+        sender_impersonate_safe_signer_on_forked_network deployerSafeAddress
+  Deploy:
+    cmds:
+      - task: _script
+        vars:
+          EXTRA_ARGS: ${ROOT_DIR}/script/OPSuccinctDeployer.s.sol {{.CLI_ARGS}}
