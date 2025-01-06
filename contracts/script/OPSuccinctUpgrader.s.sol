@@ -9,7 +9,9 @@ import {console} from "forge-std/console.sol";
 
 contract OPSuccinctUpgrader is Script, Utils {
     function run() public {
-        Config memory cfg = readJson("opsuccinctl2ooconfig.json");
+        vm.startBroadcast();
+
+        Config memory cfg = readJson(string.concat("deploy-config/", vm.envString("NETWORK"), "/default.json"));
 
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
