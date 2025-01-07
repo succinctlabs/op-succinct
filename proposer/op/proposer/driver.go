@@ -91,6 +91,8 @@ type L2OutputSubmitter struct {
 	l2ooContract L2OOContract
 	l2ooABI      *abi.ABI
 
+	dgfABI *abi.ABI
+
 	db db.ProofDB
 }
 
@@ -109,7 +111,7 @@ func NewL2OutputSubmitter(setup DriverSetup) (_ *L2OutputSubmitter, err error) {
 	if setup.Cfg.L2OutputOracleAddr != nil {
 		return newL2OOSubmitter(ctx, cancel, setup)
 	} else {
-		return nil, errors.New("the `L2OutputOracle` address was not provided")
+		return newDGFSubmitter(ctx, cancel, setup)
 	}
 }
 
@@ -150,6 +152,23 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 		l2ooContract: l2ooContract,
 		l2ooABI:      parsed,
 		db:           *db,
+	}, nil
+}
+
+func newDGFSubmitter(ctx context.Context, cancel context.CancelFunc, setup DriverSetup) (*L2OutputSubmitter, error) {
+	parsed, err := opsuccinctbindings.OPSuccinctDisputeGameFactoryMetaData.GetAbi()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	return &L2OutputSubmitter{
+		DriverSetup: setup,
+		done:        make(chan struct{}),
+		ctx:         ctx,
+		cancel:      cancel,
+
+		dgfABI: parsed,
 	}, nil
 }
 
@@ -486,6 +505,15 @@ func proposeL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, proof []byt
 		proof)
 }
 
+func (l *L2OutputSubmitter) ProposeL2OutputDGFTxData(output *eth.OutputResponse, proof []byte, l1BlockNum uint64) ([]byte, error) {
+	return l.dgfABI.Pack(
+		"create",
+		output.OutputRoot,
+		new(big.Int).SetUint64(output.BlockRef.Number),
+		new(big.Int).SetUint64(l1BlockNum),
+		proof)
+}
+
 func (l *L2OutputSubmitter) CheckpointBlockHashTxData(blockNumber *big.Int) ([]byte, error) {
 	return l.l2ooABI.Pack("checkpointBlockHash", blockNumber)
 }
@@ -526,7 +554,19 @@ func (l *L2OutputSubmitter) sendTransaction(ctx context.Context, output *eth.Out
 	l.Log.Info("Proposing output root", "output", output.OutputRoot, "block", output.BlockRef)
 	var receipt *types.Receipt
 	if l.Cfg.DisputeGameFactoryAddr != nil {
-		return errors.New("not implemented")
+		data, err := l.ProposeL2OutputDGFTxData(output, proof, l1BlockNum)
+		if err != nil {
+			return err
+		}
+		// TODO: This currently blocks the loop while it waits for the transaction to be confirmed. Up to 3 minutes.
+		receipt, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+			TxData:   data,
+			To:       l.Cfg.DisputeGameFactoryAddr,
+			GasLimit: 0,
+		})
+		if err != nil {
+			return err
+		}
 	} else {
 		data, err := l.ProposeL2OutputTxData(output, proof, l1BlockNum)
 		if err != nil {

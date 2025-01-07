@@ -44,6 +44,11 @@ var (
 		Usage:   "Address of the L2OutputOracle contract",
 		EnvVars: prefixEnvVars("L2OO_ADDRESS"),
 	}
+	DGFAddressFlag = &cli.StringFlag{
+		Name:    "dgf-address",
+		Usage:   "Address of the DisputeGameFactory contract",
+		EnvVars: prefixEnvVars("DGF_ADDRESS"),
+	}
 	PollIntervalFlag = &cli.DurationFlag{
 		Name:    "poll-interval",
 		Usage:   "How frequently to poll L2 for new blocks (legacy L2OO)",
@@ -92,8 +97,8 @@ var (
 		EnvVars: prefixEnvVars("MAX_BLOCK_RANGE_PER_SPAN_PROOF"),
 	}
 	ProofTimeoutFlag = &cli.Uint64Flag{
-		Name:    "proof-timeout",
-		Usage:   "Maximum time in seconds to spend generating a proof before giving up",
+		Name:  "proof-timeout",
+		Usage: "Maximum time in seconds to spend generating a proof before giving up",
 		// If a proof takes more than 4 hours, assume the cluster failed to set it to failed state.
 		Value:   14400,
 		EnvVars: prefixEnvVars("MAX_PROOF_TIME"),
