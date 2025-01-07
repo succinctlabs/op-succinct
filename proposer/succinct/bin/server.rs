@@ -190,14 +190,14 @@ async fn request_span_proof(
         .strategy(FulfillmentStrategy::Reserved)
         .skip_simulation(true)
         .cycle_limit(1_000_000_000_000)
-        .request()
+        .request_async()
         .await
         .map_err(|e| {
             error!("Failed to request proof: {}", e);
             AppError(anyhow::anyhow!("Failed to request proof: {}", e))
         })?;
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+    Ok((StatusCode::OK, Json(ProofResponse { proof_id: proof_id.to_vec() })))
 }
 
 /// Request an aggregation proof for a set of subproofs.
@@ -292,7 +292,7 @@ async fn request_agg_proof(
         .prove(&state.agg_pk, &stdin)
         .groth16()
         .strategy(FulfillmentStrategy::Reserved)
-        .request()
+        .request_async()
         .await
     {
         Ok(id) => id,
@@ -302,7 +302,7 @@ async fn request_agg_proof(
         }
     };
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+    Ok((StatusCode::OK, Json(ProofResponse { proof_id: proof_id.to_vec() })))
 }
 
 /// Request a proof for a span of blocks.
@@ -480,30 +480,34 @@ async fn get_proof_status(
 
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
-    let (status, maybe_proof) =
-        match tokio::time::timeout(timeout, client.get_proof_status(&proof_id_bytes)).await {
-            Ok(Ok(result)) => result,
-            Ok(Err(_)) => {
-                return Ok((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ProofStatus {
-                        fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
-                        execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-                        proof: vec![],
-                    }),
-                ));
-            }
-            Err(_) => {
-                return Ok((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ProofStatus {
-                        fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
-                        execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-                        proof: vec![],
-                    }),
-                ));
-            }
-        };
+    let (status, maybe_proof) = match tokio::time::timeout(
+        timeout,
+        client.get_proof_status(B256::from_slice(&proof_id_bytes)),
+    )
+    .await
+    {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => {
+            return Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ProofStatus {
+                    fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                    execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
+                    proof: vec![],
+                }),
+            ));
+        }
+        Err(_) => {
+            return Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ProofStatus {
+                    fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                    execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
+                    proof: vec![],
+                }),
+            ));
+        }
+    };
 
     let fulfillment_status = status.fulfillment_status;
     let execution_status = status.execution_status;
