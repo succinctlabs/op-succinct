@@ -48,6 +48,8 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
             l1BlockNumber,
             proof
         );
+
+        this.resolve();
     }
 
     /// @notice Getter for the game type.
