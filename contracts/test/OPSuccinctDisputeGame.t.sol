@@ -11,12 +11,12 @@ import { LibCWIA } from "@solady/utils/legacy/LibCWIA.sol";
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     using LibCWIA for address;
 
-    // Example proof data for the BoB testnet. Tx: https://sepolia.etherscan.io/tx/0x3910121f57c2e81ac98f5154eba7a2845f7ed27caf57a73e516ca606ad9d9aab
-    uint256 checkpointedL1BlockNum = 6931062;
-    bytes32 claimedOutputRoot = 0xf5ef905ba2c0e598c2f5274177700f3dfe37f66db15e8957e63d0732b0e611b8;
-    uint256 claimedL2BlockNum = 3677705;
+    // Example proof data for the BoB testnet. Tx: https://sepolia.etherscan.io/tx/0x35df99dce5db3d7644a005bd582af2d66533b56fdb01970f248d96e8053fc0ba
+    uint256 checkpointedL1BlockNum = 7438547;
+    bytes32 claimedOutputRoot = 0x974323e1f533bf40923f6a5f9d8752d42743bb5b784d9a6d1ce223a5cc368ae6;
+    uint256 claimedL2BlockNum = 6940641;
     bytes proof =
-        hex"91ff06f303ed1bf4b5dbf52b2dd7201cb9675afd59200464ef55cff01d113ca54d96b52c2689d0a64c90eb674d1cb9119e4f4fde54d9414d056112df7bf01066b86ee5e410d4d6a93c26c287e1c010bf03fcc0ebfaa6ae294650bba1bf177271c96911771624e73cf6192e3f1a5ac0bd7943f5921df5c22e1c2661a40c33a40b70e9f8d6164ab1e3e1abd666c19aae2012ec389a295e9ce148f781a81363685da83b32390785840f77691e93d734863d283a05497f8a8621dd1dc5e410b6bef0ed9ce53422a8b41ebdbc7e82202fafa1dd5a0fcc458932f76390f9d1f1fbf4134cf68dec06bf5b5b1c0cde47bd89198a52e7b92c634da6dadcf59efa6b78d51273e3316d";
+        hex"09069090289d338bbce470b324757ae21b8846ba36d88feb8fc9e32aa477d193153db2bc1ffead4fb681196de556343a1cd61954d5e6863327d35e0f2e0b9781278b58231af27bb83226d60c1573639e400130ed49318f28dddb9768c8a71f20de8bc07d0355ef76ec0661b0d720d36943e7d8660b6e603733afb549ffba8773cec52097011525d1239e39b8da29bec5fb18d6f4bdfd84890fedd6c0cf67342a6843bb2a28e9ceae9069e52312b7b79d4a39b7d5527bbcfefd66de3887cea63f76b672081dd49279796f07bfdb04e9c5284dd0565ac923bc2c5c01be28a22c314402280001a7aa13b9a8a1c92850ae89fcede9142542fbc13298ecab89ad8fbfbdabbee3";
 
     function setUp() public {
         // Note: L1_RPC should be a valid Sepolia RPC.
