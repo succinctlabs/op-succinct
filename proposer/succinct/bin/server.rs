@@ -119,7 +119,7 @@ async fn validate_config(
     ))
 }
 
-/// Request a mock proof for a span of blocks.
+/// Request a proof for a span of blocks.
 async fn request_span_proof(
     State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
@@ -315,7 +315,7 @@ async fn request_agg_proof(
     ))
 }
 
-/// Request a proof for a span of blocks.
+/// Request a mock proof for a span of blocks.
 async fn request_mock_span_proof(
     State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
@@ -454,7 +454,6 @@ async fn request_mock_agg_proof(
             }
         };
 
-    // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
     let proof = match prover
         .prove(&state.agg_pk, &stdin)
         .groth16()
