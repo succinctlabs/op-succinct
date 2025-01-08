@@ -119,7 +119,7 @@ async fn validate_config(
     ))
 }
 
-/// Request a proof for a span of blocks.
+/// Request a mock proof for a span of blocks.
 async fn request_span_proof(
     State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,

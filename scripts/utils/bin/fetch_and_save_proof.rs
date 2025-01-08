@@ -41,7 +41,9 @@ async fn main() -> Result<()> {
     let (status, proof): (
         GetProofRequestStatusResponse,
         Option<SP1ProofWithPublicValues>,
-    ) = prover.get_proof_status(B256::from_slice(&request_id)).await?;
+    ) = prover
+        .get_proof_status(B256::from_slice(&request_id))
+        .await?;
     let fulfillment_status = FulfillmentStatus::try_from(status.fulfillment_status).unwrap();
     let _ = ExecutionStatus::try_from(status.execution_status).unwrap();
 
