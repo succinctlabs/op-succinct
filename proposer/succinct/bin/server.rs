@@ -27,7 +27,7 @@ use sp1_sdk::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
         FulfillmentStrategy,
     },
-    utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::{env, str::FromStr, time::Duration};
 use tower_http::limit::RequestBodyLimitLayer;
@@ -45,7 +45,7 @@ async fn main() -> Result<()> {
 
     dotenv::dotenv().ok();
 
-    let prover = ProverClient::from_env();
+    let prover = ProverClient::builder().mock().build();
     let (range_pk, range_vk) = prover.setup(RANGE_ELF);
     let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
@@ -197,7 +197,12 @@ async fn request_span_proof(
             AppError(anyhow::anyhow!("Failed to request proof: {}", e))
         })?;
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id: proof_id.to_vec() })))
+    Ok((
+        StatusCode::OK,
+        Json(ProofResponse {
+            proof_id: proof_id.to_vec(),
+        }),
+    ))
 }
 
 /// Request an aggregation proof for a set of subproofs.
@@ -302,7 +307,12 @@ async fn request_agg_proof(
         }
     };
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id: proof_id.to_vec() })))
+    Ok((
+        StatusCode::OK,
+        Json(ProofResponse {
+            proof_id: proof_id.to_vec(),
+        }),
+    ))
 }
 
 /// Request a proof for a span of blocks.
@@ -512,10 +522,7 @@ async fn get_proof_status(
     let fulfillment_status = status.fulfillment_status;
     let execution_status = status.execution_status;
     if fulfillment_status == FulfillmentStatus::Fulfilled as i32 {
-        let mut proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
-        // Remove the stdin from the proof, as it's unnecessary for verification. Note: In v4, there is no stdin.
-        // Previously, this caused the memory usage of the proposer to be high.
-        proof.stdin = SP1Stdin::default();
+        let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
         match proof.proof {
             SP1Proof::Compressed(_) => {
