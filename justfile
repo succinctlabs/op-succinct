@@ -106,10 +106,10 @@ deploy-oracle env_file=".env":
     forge script script/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
-        --broadcast \
-        --verify \
-        --verifier etherscan \
-        --etherscan-api-key $ETHERSCAN_API_KEY
+        # --broadcast \
+        # --verify \
+        # --verifier etherscan \
+        # --etherscan-api-key $ETHERSCAN_API_KEY
 
 
 # Upgrade the OPSuccinct L2 Output Oracle

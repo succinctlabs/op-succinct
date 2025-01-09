@@ -130,21 +130,17 @@ var (
 		Value:   "/tmp/batch_decoder/transactions_cache",
 		EnvVars: prefixEnvVars("TX_CACHE_OUT_DIR"),
 	}
-	BatchInboxFlag = &cli.StringFlag{
-		Name:    "batch-inbox",
-		Usage:   "Batch Inbox Address",
-		EnvVars: prefixEnvVars("BATCH_INBOX"),
-	}
-	BatcherAddressFlag = &cli.StringFlag{
-		Name:    "batcher-address",
-		Usage:   "Batch Sender Address",
-		EnvVars: prefixEnvVars("BATCHER_ADDRESS"),
-	}
 	MockFlag = &cli.BoolFlag{
 		Name:    "mock",
 		Usage:   "Use the mock OP Succinct server",
 		Value:   false,
 		EnvVars: prefixEnvVars("OP_SUCCINCT_MOCK"),
+	}
+	AlternateChainModeFlag = &cli.BoolFlag{
+		Name:    "alternate-chain-mode",
+		Usage:   "Use the alternate chain mode",
+		Value:   false,
+		EnvVars: prefixEnvVars("ALTERNATE_CHAIN_MODE"),
 	}
 
 	// Legacy Flags
@@ -169,14 +165,13 @@ var optionalFlags = []cli.Flag{
 	SlackTokenFlag,
 	MaxBlockRangePerSpanProofFlag,
 	MaxConcurrentWitnessGenFlag,
+	WitnessGenTimeoutFlag,
 	TxCacheOutDirFlag,
 	OPSuccinctServerUrlFlag,
 	ProofTimeoutFlag,
 	MaxConcurrentProofRequestsFlag,
-	BatchInboxFlag,
-	BatcherAddressFlag,
 	MockFlag,
-	WitnessGenTimeoutFlag,
+	AlternateChainModeFlag,
 }
 
 func init() {

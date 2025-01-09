@@ -3,11 +3,14 @@ SHELL := /bin/bash
 .PHONY: bindings
 
 bindings:
-	@echo "Generating bindings for OPSuccinctL2OutputOracle.sol..."
+	@echo "Generating bindings for OPSuccinctL2OutputOracle.sol and MockOPSuccinctL2OutputOracle.sol..."
 	@mkdir -p bin generated_bindings
 	@cd ../../contracts/ && forge install && forge build
 	@cd ../../contracts/ && forge inspect src/OPSuccinctL2OutputOracle.sol:OPSuccinctL2OutputOracle abi > ../proposer/op/generated_bindings/OPSuccinctL2OutputOracle.abi
 	@cd ../../contracts/ && forge inspect src/OPSuccinctL2OutputOracle.sol:OPSuccinctL2OutputOracle bytecode > ../proposer/op/generated_bindings/OPSuccinctL2OutputOracle.bin
+	@cd ../../contracts/ && forge inspect src/MockOPSuccinctL2OutputOracle.sol:MockOPSuccinctL2OutputOracle abi > ../proposer/op/generated_bindings/MockOPSuccinctL2OutputOracle.abi
+	@cd ../../contracts/ && forge inspect src/MockOPSuccinctL2OutputOracle.sol:MockOPSuccinctL2OutputOracle bytecode > ../proposer/op/generated_bindings/MockOPSuccinctL2OutputOracle.bin
 	@abigen --abi generated_bindings/OPSuccinctL2OutputOracle.abi --bin generated_bindings/OPSuccinctL2OutputOracle.bin --pkg bindings --type OPSuccinctL2OutputOracle --out ./bindings/opsuccinctl2outputoracle.go
+	@abigen --abi generated_bindings/MockOPSuccinctL2OutputOracle.abi --bin generated_bindings/MockOPSuccinctL2OutputOracle.bin --pkg bindings --type MockOPSuccinctL2OutputOracle --out ./bindings/mockopsuccinctl2outputoracle.go
 	@rm -rf generated_bindings
 	@echo "Bindings generated successfully."

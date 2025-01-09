@@ -92,12 +92,10 @@ type CLIConfig struct {
 	OPSuccinctServerUrl string
 	// The maximum proofs that can be requested from the server concurrently.
 	MaxConcurrentProofRequests uint64
-	// The batch inbox on L1 to read batches from. Note that this is ignored if L2 Chain ID is in rollup config.
-	BatchInbox string
-	// The batcher address to include transactions from. Note that this is ignored if L2 Chain ID is in rollup config.
-	BatcherAddress string
 	// Mock is a flag to use the mock OP Succinct server.
 	Mock bool
+	// AlternateChainMode is a flag to use the alternate chain mode.
+	AlternateChainMode bool
 }
 
 func (c *CLIConfig) Check() error {
@@ -165,8 +163,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		TxCacheOutDir:                ctx.String(flags.TxCacheOutDirFlag.Name),
 		OPSuccinctServerUrl:          ctx.String(flags.OPSuccinctServerUrlFlag.Name),
 		MaxConcurrentProofRequests:   ctx.Uint64(flags.MaxConcurrentProofRequestsFlag.Name),
-		BatchInbox:                   ctx.String(flags.BatchInboxFlag.Name),
-		BatcherAddress:               ctx.String(flags.BatcherAddressFlag.Name),
 		Mock:                         ctx.Bool(flags.MockFlag.Name),
+		AlternateChainMode:           ctx.Bool(flags.AlternateChainModeFlag.Name),
 	}
 }
