@@ -108,10 +108,12 @@ func NewL2OutputSubmitter(setup DriverSetup) (_ *L2OutputSubmitter, err error) {
 		}
 	}()
 
-	if setup.Cfg.L2OutputOracleAddr != nil {
+	if setup.Cfg.DisputeGameFactoryAddr != nil {
+		return newDGFSubmitter(ctx, cancel, setup)
+	} else if setup.Cfg.L2OutputOracleAddr != nil {
 		return newL2OOSubmitter(ctx, cancel, setup)
 	} else {
-		return newDGFSubmitter(ctx, cancel, setup)
+		return nil, errors.New("the `L2OutputOracle` or `DisputeGameFactory` address was not provided")
 	}
 }
 
