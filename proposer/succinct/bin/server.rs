@@ -24,11 +24,13 @@ use op_succinct_proposer::{
     ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
+    cpu::mock_proof_from_public_values,
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
         FulfillmentStrategy,
     },
     utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues,
+    SP1_CIRCUIT_VERSION,
 };
 use std::{
     env, fs,
@@ -406,8 +408,12 @@ async fn request_mock_span_proof(
     csv_writer.serialize(&stats)?;
     csv_writer.flush()?;
 
-    let proof =
-        prover.mock_proof_from_public_values(&state.range_pk, pv.clone(), SP1ProofMode::Compressed);
+    let proof = SP1ProofWithPublicValues::create_mock_proof(
+        &state.range_pk,
+        pv.clone(),
+        SP1ProofMode::Compressed,
+        SP1_CIRCUIT_VERSION,
+    );
 
     let proof_bytes = bincode::serialize(&proof).unwrap();
 
