@@ -4061,7 +4061,7 @@ version = "0.1.0"
 dependencies = [
  "cargo_metadata",
  "chrono",
- "sp1-build",
+ "sp1-build 4.0.0-rc.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4155,6 +4155,7 @@ dependencies = [
  "axum",
  "base64",
  "bincode",
+ "csv",
  "dotenv",
  "log",
  "op-succinct-build-utils",
@@ -6074,10 +6075,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-build"
+version = "4.0.0-rc.8"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "chrono",
+ "clap",
+ "dirs",
+]
+
+[[package]]
 name = "sp1-core-executor"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1dfa47135712338e72c79485e4074279a5ac2d8784feb026e726121403a3f6e"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6100,7 +6112,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp1-curves",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-stark",
  "strum",
  "strum_macros",
@@ -6115,8 +6127,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58d30a44739a1488d0747963dceaf80edda3ea0c5a64566ec1ed5a9c7474906b"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "bincode",
  "cbindgen",
@@ -6155,7 +6166,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-curves",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-stark",
  "static_assertions",
  "strum",
@@ -6172,8 +6183,7 @@ dependencies = [
 [[package]]
 name = "sp1-cuda"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60c88410077030eaefa95eb89b29ab7291d933c36b8ed22b6f762930e40892c8"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "bincode",
  "ctrlc",
@@ -6189,8 +6199,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "867fc2549585d2c2d9cd405147feee0abd972e94f73f8c051d772b663ae2a656"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "cfg-if",
  "dashu",
@@ -6203,7 +6212,7 @@ dependencies = [
  "p3-field",
  "serde",
  "snowbridge-amcl",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-stark",
  "typenum",
 ]
@@ -6211,8 +6220,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1447e99b10de5b7907b310594fd290e68aa7016c39251cc3aede71c04987fd70"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6226,7 +6234,7 @@ checksum = "f59a68a06f7297083f430d6e3e3b34ac64cada0323f46554a46ec0b48d15e93e"
 dependencies = [
  "bincode",
  "serde",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6248,10 +6256,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "4.0.0-rc.8"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
+dependencies = [
+ "bincode",
+ "hex",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "sp1-prover"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9550b9ddd73eee793a8f3d4f41d0cf17f8a42b2ec6f84282b63851c679027b1a"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6278,7 +6302,7 @@ dependencies = [
  "sha2",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-recursion-circuit",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
@@ -6293,8 +6317,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a2e8c7b12d0742cefebe7a072bb4d0af37a6547bbeb0c65bc06412e671de78b"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6316,7 +6339,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
  "sp1-recursion-gnark-ffi",
@@ -6327,8 +6350,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32c61b89fda18ceb9e665dc650213333db4bafb81a7d17f01ca16174c2d695da"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6338,7 +6360,7 @@ dependencies = [
  "p3-symmetric",
  "serde",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-recursion-core",
  "sp1-recursion-derive",
  "sp1-stark",
@@ -6349,8 +6371,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41e13b2832da86fc06719153698a8ed9eb372625062aa9e0c4457f01a74c174d"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -6380,7 +6401,7 @@ dependencies = [
  "serde",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-stark",
  "static_assertions",
  "thiserror 1.0.69",
@@ -6392,8 +6413,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f5755f140fee3eec82c82cd433c0900db244edb0d303db67e3b28fb92463cac"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6402,8 +6422,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "005c5b981febb6a0d1b12c9ecee5fae9e10296376168a0753236079148b5fdd1"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6428,8 +6447,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "806fa98a7d364c3778439d6546d4ca26abc9d790d0ee18689f2e1308d08707ad"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "alloy-primitives",
  "alloy-signer 0.8.3",
@@ -6455,11 +6473,11 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "sp1-build",
+ "sp1-build 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-cuda",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "sp1-prover",
  "sp1-stark",
  "strum",
@@ -6476,8 +6494,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "4.0.0-rc.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2c21b89ea4e45c57a20102754024c7b628957394e62e5bcb263e05b8e01b5b"
+source = "git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv#87984d8068972d112c130580ad48a0320c7774a2"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",
@@ -6501,7 +6518,7 @@ dependencies = [
  "rayon-scan",
  "serde",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (git+https://github.com/succinctlabs/sp1-wip?branch=ratan%2Fmock-proof-from-pv)",
  "strum",
  "strum_macros",
  "sysinfo 0.30.13",
@@ -6523,7 +6540,7 @@ dependencies = [
  "rand",
  "sha2",
  "sp1-lib",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
