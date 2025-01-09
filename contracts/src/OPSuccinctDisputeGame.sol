@@ -25,7 +25,7 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
 
     constructor(address _l2OutpoutOracle) {
       l2OutpoutOracle = _l2OutpoutOracle;   
-   }
+    }
 
     ////////////////////////////////////////////////////////////
     //                    IDisputeGame impl                   //
