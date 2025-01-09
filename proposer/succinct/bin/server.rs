@@ -24,7 +24,6 @@ use op_succinct_proposer::{
     ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
-    cpu::mock_proof_from_public_values,
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
         FulfillmentStrategy,
