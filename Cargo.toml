@@ -100,6 +100,7 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip", rev = "d7a6b03" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0-rc.3" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0-rc.3" }
 ecdsa = { git = "https://github.com/sp1-patches/signatures", tag = "patch-0.16.9-sp1-4.0.0-rc.3-v2" }
