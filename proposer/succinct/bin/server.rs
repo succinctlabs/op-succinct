@@ -15,6 +15,7 @@ use op_succinct_client_utils::{
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_agg_proof_stdin, get_proof_stdin,
+    stats::ExecutionStats,
     witnessgen::{WitnessGenExecutor, WITNESSGEN_TIMEOUT},
     L2OutputOracle, ProgramType,
 };
@@ -23,14 +24,18 @@ use op_succinct_proposer::{
     ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
-    network_v2::{
-        client::NetworkClient,
-        proto::network::{ExecutionStatus, FulfillmentStatus, FulfillmentStrategy, ProofMode},
+    network::{
+        proto::network::{ExecutionStatus, FulfillmentStatus},
+        FulfillmentStrategy,
     },
-    utils, HashableKey, NetworkProverV2, ProverClient, SP1Proof, SP1ProofWithPublicValues,
-    SP1Stdin,
+    utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues,
+    SP1_CIRCUIT_VERSION,
 };
-use std::{env, str::FromStr, time::Duration};
+use std::{
+    env, fs,
+    str::FromStr,
+    time::{Duration, Instant},
+};
 use tower_http::limit::RequestBodyLimitLayer;
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
@@ -46,7 +51,7 @@ async fn main() -> Result<()> {
 
     dotenv::dotenv().ok();
 
-    let prover = ProverClient::new();
+    let prover = ProverClient::builder().cpu().build();
     let (range_pk, range_vk) = prover.setup(RANGE_ELF);
     let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
@@ -185,75 +190,26 @@ async fn request_span_proof(
         }
     };
 
-    let private_key = match env::var("SP1_PRIVATE_KEY") {
-        Ok(private_key) => private_key,
-        Err(e) => {
-            error!("Failed to get SP1 private key: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to get SP1 private key: {}",
-                e
-            )));
-        }
-    };
-    let rpc_url = match env::var("PROVER_NETWORK_RPC") {
-        Ok(rpc_url) => rpc_url,
-        Err(e) => {
-            error!("Failed to get PROVER_NETWORK_RPC: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to get PROVER_NETWORK_RPC: {}",
-                e
-            )));
-        }
-    };
-    let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
-    // Use the reserved strategy to route to a specific cluster.
-    prover.with_strategy(FulfillmentStrategy::Reserved);
-
-    // Set simulation to false on range proofs as they're large.
-    env::set_var("SKIP_SIMULATION", "true");
-    let vk_hash = match prover.register_program(&state.range_vk, RANGE_ELF).await {
-        Ok(vk_hash) => vk_hash,
-        Err(e) => {
-            error!("Failed to register program: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to register program: {}",
-                e
-            )));
-        }
-    };
-    let proof_id = match prover
-        .request_proof(
-            &vk_hash,
-            &sp1_stdin,
-            ProofMode::Compressed,
-            1_000_000_000_000,
-            None,
-        )
+    let client = ProverClient::builder().network().build();
+    let proof_id = client
+        .prove(&state.range_pk, &sp1_stdin)
+        .compressed()
+        .strategy(FulfillmentStrategy::Reserved)
+        .skip_simulation(true)
+        .cycle_limit(1_000_000_000_000)
+        .request_async()
         .await
-    {
-        Ok(proof_id) => proof_id,
-        Err(e) => {
+        .map_err(|e| {
             error!("Failed to request proof: {}", e);
-            return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
-        }
-    };
-    env::set_var("SKIP_SIMULATION", "false");
+            AppError(anyhow::anyhow!("Failed to request proof: {}", e))
+        })?;
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
-
-    // LOCAL PROOF GENERATION
-    // -----------------------
-    // let client = ProverClient::new();
-    // let (mut public_values, execution_report) = client.execute(RANGE_ELF, sp1_stdin).run().unwrap();
-    // // Print the total number of cycles executed and the full execution report with a breakdown of
-    // // the RISC-V opcode and syscall counts.
-    // println!(
-    //     "Executed program with {} cycles",
-    //     execution_report.total_instruction_count() + execution_report.total_syscall_count()
-    // );
-    // println!("Full execution report:\n{:?}", execution_report);
-    // println!("public values: {:#?}", public_values.raw());
-    // Ok((StatusCode::OK, Json(ProofResponse { proof_id: vec![] })))
+    Ok((
+        StatusCode::OK,
+        Json(ProofResponse {
+            proof_id: proof_id.to_vec(),
+        }),
+    ))
 }
 
 /// Request an aggregation proof for a set of subproofs.
@@ -330,11 +286,7 @@ async fn request_agg_proof(
         }
     };
 
-    let private_key = env::var("SP1_PRIVATE_KEY")?;
-    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
-    let mut prover = NetworkProverV2::new(&private_key, Some(rpc_url.to_string()), false);
-    // Use the reserved strategy to route to a specific cluster.
-    prover.with_strategy(FulfillmentStrategy::Reserved);
+    let prover = ProverClient::builder().network().build();
 
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
@@ -348,24 +300,11 @@ async fn request_agg_proof(
             }
         };
 
-    let vk_hash = match prover.register_program(&state.agg_vk, AGG_ELF).await {
-        Ok(vk_hash) => vk_hash,
-        Err(e) => {
-            error!("Failed to register program: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to register program: {}",
-                e
-            )));
-        }
-    };
     let proof_id = match prover
-        .request_proof(
-            &vk_hash,
-            &stdin,
-            ProofMode::Groth16,
-            1_000_000_000_000,
-            None,
-        )
+        .prove(&state.agg_pk, &stdin)
+        .groth16()
+        .strategy(FulfillmentStrategy::Reserved)
+        .request_async()
         .await
     {
         Ok(id) => id,
@@ -375,10 +314,15 @@ async fn request_agg_proof(
         }
     };
 
-    Ok((StatusCode::OK, Json(ProofResponse { proof_id })))
+    Ok((
+        StatusCode::OK,
+        Json(ProofResponse {
+            proof_id: proof_id.to_vec(),
+        }),
+    ))
 }
 
-/// Request a proof for a span of blocks.
+/// Request a mock proof for a span of blocks.
 async fn request_mock_span_proof(
     State(state): State<ContractConfig>,
     Json(payload): Json<SpanProofRequest>,
@@ -411,6 +355,7 @@ async fn request_mock_span_proof(
     // Start the server and native client with a timeout.
     // Note: Ideally, the server should call out to a separate process that executes the native
     // host, and return an ID that the client can poll on to check if the proof was submitted.
+    let start_time = Instant::now();
     let mut witnessgen_executor = WitnessGenExecutor::new(WITNESSGEN_TIMEOUT, RunContext::Docker);
     if let Err(e) = witnessgen_executor.spawn_witnessgen(&host_cli).await {
         error!("Failed to spawn witness generator: {}", e);
@@ -424,6 +369,7 @@ async fn request_mock_span_proof(
             e
         )));
     }
+    let witness_generation_time_sec = start_time.elapsed();
 
     let sp1_stdin = match get_proof_stdin(&host_cli) {
         Ok(stdin) => stdin,
@@ -433,12 +379,41 @@ async fn request_mock_span_proof(
         }
     };
 
-    let prover = ProverClient::mock();
-    let proof = prover
-        .prove(&state.range_pk, sp1_stdin)
-        .set_skip_deferred_proof_verification(true)
-        .compressed()
-        .run()?;
+    let start_time = Instant::now();
+    let prover = ProverClient::builder().cpu().build();
+    let (pv, report) = prover.execute(RANGE_ELF, &sp1_stdin).run().unwrap();
+    let execution_duration = start_time.elapsed();
+
+    let block_data = fetcher
+        .get_l2_block_data_range(payload.start, payload.end)
+        .await?;
+
+    let stats = ExecutionStats::new(
+        &block_data,
+        &report,
+        witness_generation_time_sec.as_secs(),
+        execution_duration.as_secs(),
+    );
+
+    let l2_chain_id = fetcher.get_l2_chain_id().await?;
+    // Save the report to disk.
+    let report_dir = format!("execution-reports/{}", l2_chain_id);
+    if !std::path::Path::new(&report_dir).exists() {
+        fs::create_dir_all(&report_dir)?;
+    }
+
+    let report_path = format!("{}/{}-{}.json", report_dir, payload.start, payload.end);
+    // Write to CSV.
+    let mut csv_writer = csv::Writer::from_path(report_path)?;
+    csv_writer.serialize(&stats)?;
+    csv_writer.flush()?;
+
+    let proof = SP1ProofWithPublicValues::create_mock_proof(
+        &state.range_pk,
+        pv.clone(),
+        SP1ProofMode::Compressed,
+        SP1_CIRCUIT_VERSION,
+    );
 
     let proof_bytes = bincode::serialize(&proof).unwrap();
 
@@ -507,7 +482,7 @@ async fn request_mock_agg_proof(
         }
     };
 
-    let prover = ProverClient::mock();
+    let prover = ProverClient::builder().mock().build();
 
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
@@ -518,11 +493,10 @@ async fn request_mock_agg_proof(
             }
         };
 
-    // Simulate the mock proof. proof.bytes() returns an empty byte array for mock proofs.
     let proof = match prover
-        .prove(&state.agg_pk, stdin)
-        .set_skip_deferred_proof_verification(true)
+        .prove(&state.agg_pk, &stdin)
         .groth16()
+        .deferred_proof_verification(false)
         .run()
     {
         Ok(p) => p,
@@ -547,48 +521,46 @@ async fn get_proof_status(
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received proof status request: {:?}", proof_id);
-    let private_key = env::var("SP1_PRIVATE_KEY")?;
-    let rpc_url = env::var("PROVER_NETWORK_RPC")?;
 
-    let client = NetworkClient::new(&private_key, Some(rpc_url.to_string()));
+    let client = ProverClient::builder().network().build();
 
     let proof_id_bytes = hex::decode(proof_id)?;
 
     // Time out this request if it takes too long.
     let timeout = Duration::from_secs(10);
-    let (status, maybe_proof) =
-        match tokio::time::timeout(timeout, client.get_proof_request_status(&proof_id_bytes)).await
-        {
-            Ok(Ok(result)) => result,
-            Ok(Err(_)) => {
-                return Ok((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ProofStatus {
-                        fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
-                        execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-                        proof: vec![],
-                    }),
-                ));
-            }
-            Err(_) => {
-                return Ok((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(ProofStatus {
-                        fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
-                        execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-                        proof: vec![],
-                    }),
-                ));
-            }
-        };
+    let (status, maybe_proof) = match tokio::time::timeout(
+        timeout,
+        client.get_proof_status(B256::from_slice(&proof_id_bytes)),
+    )
+    .await
+    {
+        Ok(Ok(result)) => result,
+        Ok(Err(_)) => {
+            return Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ProofStatus {
+                    fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                    execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
+                    proof: vec![],
+                }),
+            ));
+        }
+        Err(_) => {
+            return Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ProofStatus {
+                    fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
+                    execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
+                    proof: vec![],
+                }),
+            ));
+        }
+    };
 
     let fulfillment_status = status.fulfillment_status;
     let execution_status = status.execution_status;
     if fulfillment_status == FulfillmentStatus::Fulfilled as i32 {
-        let mut proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
-        // Remove the stdin from the proof, as it's unnecessary for verification. Note: In v4, there is no stdin.
-        // Previously, this caused the memory usage of the proposer to be high.
-        proof.stdin = SP1Stdin::default();
+        let proof: SP1ProofWithPublicValues = maybe_proof.unwrap();
 
         match proof.proof {
             SP1Proof::Compressed(_) => {
