@@ -24,7 +24,7 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
     GameStatus public status;
 
     constructor(address _l2OutpoutOracle) {
-      l2OutpoutOracle = _l2OutpoutOracle;   
+        l2OutpoutOracle = _l2OutpoutOracle;
     }
 
     ////////////////////////////////////////////////////////////
@@ -32,21 +32,13 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
     ////////////////////////////////////////////////////////////
 
     function initialize() external payable {
-
         // TODO: Set createdAt and status
 
-        (
-            uint256 l2BlockNumber,
-            uint256 l1BlockNumber,
-            bytes memory proof 
-        ) = abi.decode(extraData(), (uint256, uint256, bytes));
-
+        (uint256 l2BlockNumber, uint256 l1BlockNumber, bytes memory proof) =
+            abi.decode(extraData(), (uint256, uint256, bytes));
 
         OPSuccinctL2OutputOracle(l2OutpoutOracle).proposeL2Output(
-            rootClaim().raw(),
-            l2BlockNumber,
-            l1BlockNumber,
-            proof
+            rootClaim().raw(), l2BlockNumber, l1BlockNumber, proof
         );
 
         this.resolve();
@@ -117,5 +109,4 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
         rootClaim_ = rootClaim();
         extraData_ = extraData();
     }
-
 }

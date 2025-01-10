@@ -6,7 +6,7 @@ import {Utils} from "./helpers/Utils.sol";
 import {OPSuccinctL2OutputOracle} from "../src/OPSuccinctL2OutputOracle.sol";
 import {OPSuccinctDisputeGame} from "../src/OPSuccinctDisputeGame.sol";
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
-import { LibCWIA } from "@solady/utils/legacy/LibCWIA.sol";
+import {LibCWIA} from "@solady/utils/legacy/LibCWIA.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     using LibCWIA for address;
@@ -36,22 +36,22 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(l2ooProxy);
         OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(l2ooProxy);
 
-        
         l2oo.addProposer(address(0));
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
 
-        IDisputeGame proxy = IDisputeGame(address(game).clone(
-            abi.encodePacked(
-                msg.sender,
-                claimedOutputRoot,
-                bytes32(0), // TODO: This should be parentHash
-                abi.encode(claimedL2BlockNum, checkpointedL1BlockNum, proof)
+        IDisputeGame proxy = IDisputeGame(
+            address(game).clone(
+                abi.encodePacked(
+                    msg.sender,
+                    claimedOutputRoot,
+                    bytes32(0), // TODO: This should be parentHash
+                    abi.encode(claimedL2BlockNum, checkpointedL1BlockNum, proof)
+                )
             )
-        ));
+        );
 
         vm.stopBroadcast();
 
-        proxy.initialize{ value: 10 }();
-
+        proxy.initialize{value: 10}();
     }
 }
