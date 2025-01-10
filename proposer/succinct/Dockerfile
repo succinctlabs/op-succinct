@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup install nightly
+RUN rustup default nightly
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
@@ -28,7 +30,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
     
 # Copy only what's needed for the build
 COPY Cargo.toml Cargo.lock ./
-COPY scripts/prove ./scripts/prove
 COPY proposer/succinct ./proposer/succinct
 COPY scripts/witnessgen ./scripts/witnessgen
 COPY elf ./elf
@@ -41,7 +42,6 @@ RUN --mount=type=ssh \
     --mount=type=cache,target=/build/target \
     cargo build --bin server --release && \
     cp target/release/server /build/server && \
-    cp target/release-client-lto/fault-proof /build/fault_proof && \
     cp target/release-client-lto/range /build/range && \
     cp target/native_host_runner/release/native_host_runner /build/native_host_runner
 
@@ -62,6 +62,8 @@ RUN apt-get update && apt-get install -y \
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup install nightly
+RUN rustup default nightly
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
@@ -73,7 +75,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/server /usr/local/bin/server
-COPY --from=builder /build/fault_proof /usr/local/bin/fault_proof
 COPY --from=builder /build/range /usr/local/bin/range
 COPY --from=builder /build/native_host_runner /usr/local/bin/native_host_runner
 

@@ -49,7 +49,7 @@ func (l *L2OutputSubmitter) GetL1HeadForL2Block(ctx context.Context, rollupClien
 	return 0, fmt.Errorf("could not find an L1 block with an L2 safe head greater than the L2 end block")
 }
 
-func (l *L2OutputSubmitter) isSafeDBActivated(ctx context.Context, rollupClient *sources.RollupClient) (bool, error) {
+func (l *L2OutputSubmitter) IsSafeDBActivated(ctx context.Context, rollupClient *sources.RollupClient) (bool, error) {
 	// Get the sync status of the rollup node.
 	status, err := rollupClient.SyncStatus(ctx)
 	if err != nil {
@@ -185,25 +185,7 @@ func (l *L2OutputSubmitter) GetRangeProofBoundaries(ctx context.Context) error {
 	// Note: Originally, this used the L1 finalized block. However, to satisfy the new API, we now use the L2 finalized block.
 	newL2EndBlock := status.FinalizedL2.Number
 
-	// Check if the safeDB is activated on the L2 node. If it is, we use the safeHead based range
-	// splitting algorithm. Otherwise, we use the simple range splitting algorithm.
-	safeDBActivated, err := l.isSafeDBActivated(ctx, rollupClient)
-	if err != nil {
-		l.Log.Warn("safeDB is not activated. Using simple range splitting algorithm.", "err", err)
-	}
-
-	var spans []Span
-	// If the safeDB is activated, we use the safeHead based range splitting algorithm.
-	// Otherwise, we use the simple range splitting algorithm.
-	if safeDBActivated {
-		spans, err = l.SplitRangeBasedOnSafeHeads(ctx, newL2StartBlock, newL2EndBlock)
-		if err != nil {
-			return fmt.Errorf("failed to split range based on safe heads: %w", err)
-		}
-	} else {
-		spans = l.SplitRangeBasic(newL2StartBlock, newL2EndBlock)
-	}
-
+	spans := l.SplitRangeBasic(newL2StartBlock, newL2EndBlock)
 
 	// Add each span to the DB. If there are no spans, we will not create any proofs.
 	for _, span := range spans {

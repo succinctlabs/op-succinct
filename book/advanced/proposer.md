@@ -18,11 +18,14 @@ We recommend the following hardware configuration for the `op-succinct` service 
 
 Using the docker compose file:
 
-- `op-succinct`: 16 vCPUs, 16GB RAM
+- Full `op-succinct` service: 16 vCPUs, 64GB RAM.
+- Mock `op-succinct` service: 32 vCPUs, 128GB RAM. Increased memory because the machine is executing the proofs locally.
 
 Running as separate containers:
 
-- `op-succinct-server`: 16 vCPUs, 16GB RAM
+- `op-succinct-server`
+    - Full `op-succinct` service: 16 vCPUs, 64GB RAM.
+    - Mock `op-succinct` service: 32 vCPUs, 128GB RAM. Increased memory because the machine is executing the proofs locally.
 - `op-succinct-proposer`: 1 vCPU, 4GB RAM
 
 For advanced configurations, depending on the number of concurrent requests you expect, you may need to increase the number of vCPUs and memory allocated to the `op-succinct-server` container.
@@ -39,8 +42,8 @@ Before starting the proposer, the following environment variables should be in y
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
-| `PROVER_NETWORK_RPC` | Default: `rpc.succinct.xyz`. |
-| `SP1_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/generating-proofs/prover-network). |
+| `NETWORK_RPC_URL` | RPC URL for the Succinct Prover Network. |
+| `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/generating-proofs/prover-network). |
 | `SP1_PROVER` | Default: `network`. Set to `network` to use the Succinct Prover Network. |
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract and posting output roots to L1. |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
@@ -52,6 +55,8 @@ The following environment variables are optional.
 | Parameter | Description |
 |-----------|-------------|
 | `MAX_CONCURRENT_PROOF_REQUESTS` | Default: `10`. The maximum number of concurrent proof requests to send to the `op-succinct-server`. |
+| `MAX_CONCURRENT_WITNESS_GEN` | Default: `5`. The maximum number of concurrent witness generation processes to run on the `op-succinct-server`. |
+| `WITNESS_GEN_TIMEOUT` | Default: `1200`. The maximum time in seconds to spend generating a witness for `op-succinct-server`. |
 | `MAX_BLOCK_RANGE_PER_SPAN_PROOF` | Default: `300`. The maximum number of blocks to include in each span proof. For chains with high throughput, you need to decrease this value. |
 | `OP_SUCCINCT_MOCK` | Default: `false`. Set to `true` to run in mock proof mode. The `OPSuccinctL2OutputOracle` contract must be configured to use an `SP1MockVerifier`. |
 | `OP_SUCCINCT_SERVER_URL` | Default: `http://op-succinct-server:3000`. The URL of the `op-succinct-server` service which the `op-succinct-proposer` will send proof requests to. |

@@ -5,7 +5,7 @@ use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode, RunContext};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{HashableKey, Prover, ProverClient};
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -34,12 +34,26 @@ struct L2OOConfig {
     range_vkey_commitment: String,
 }
 
+/// If the environment variable is set for the address, return it. Otherwise, return the address associated with the private key. If the private key is not set, return the zero address.
+fn get_address(env_var: &str) -> String {
+    let private_key = env::var("PRIVATE_KEY").unwrap_or_else(|_| B256::ZERO.to_string());
+
+    env::var(env_var).unwrap_or_else(|_| {
+        if private_key == B256::ZERO.to_string() {
+            Address::ZERO.to_string()
+        } else {
+            let signer: PrivateKeySigner = private_key.parse().unwrap();
+            signer.address().to_string()
+        }
+    })
+}
+
 /// Update the L2OO config with the rollup config hash and other relevant data before the contract is deployed.
 ///
 /// Specifically, updates the following fields in `opsuccinctl2ooconfig.json`:
 /// - rollup_config_hash: Get the hash of the rollup config from the rollup config file.
 /// - l2_block_time: Get the block time from the rollup config.
-/// - starting_block_number: If `USE_CACHED_STARTING_BLOCK` is `false`, set starting_block_number to 10 blocks before the latest block on L2.
+/// - starting_block_number: If `STARTING_BLOCK_NUMBER` is not set, set starting_block_number to the latest finalized block on L2.
 /// - starting_output_root: Set to the output root of the starting block number.
 /// - starting_timestamp: Set to the timestamp of the starting block number.
 /// - chain_id: Get the chain id from the rollup config.
@@ -102,20 +116,12 @@ async fn update_l2oo_config() -> Result<()> {
         .map(|p| p.parse().unwrap())
         .unwrap_or(DEFAULT_FINALIZATION_PERIOD_SECS);
 
-    let private_key = env::var("PRIVATE_KEY").unwrap_or_else(|_| B256::ZERO.to_string());
-    let (proposer, owner) = if private_key == B256::ZERO.to_string() {
-        (Address::ZERO.to_string(), Address::ZERO.to_string())
-    } else {
-        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-        let signer_address = signer.address().to_string();
-        (
-            env::var("PROPOSER").unwrap_or(signer_address.clone()),
-            env::var("OWNER").unwrap_or(signer_address),
-        )
-    };
-    let challenger = env::var("CHALLENGER").unwrap_or(Address::ZERO.to_string());
+    // Default to the address associated with the private key if the environment variable is not set. If private key is not set, default to zero address.
+    let proposer = get_address("PROPOSER");
+    let owner = get_address("OWNER");
+    let challenger = get_address("CHALLENGER");
 
-    let prover = ProverClient::new();
+    let prover = ProverClient::builder().cpu().build();
     let (_, agg_vkey) = prover.setup(AGG_ELF);
     let aggregation_vkey = agg_vkey.vk.bytes32();
 

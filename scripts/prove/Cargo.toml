@@ -8,10 +8,6 @@ repository.workspace = true
 homepage.workspace = true
 
 [[bin]]
-name = "single"
-path = "bin/single.rs"
-
-[[bin]]
 name = "multi"
 path = "bin/multi.rs"
 
@@ -36,6 +32,7 @@ kona-host = { workspace = true }
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
+op-succinct-scripts = { path = "../utils" }
 
 # op-alloy
 op-alloy-genesis.workspace = true

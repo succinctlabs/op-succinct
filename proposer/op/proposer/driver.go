@@ -593,32 +593,6 @@ func (l *L2OutputSubmitter) sendTransaction(ctx context.Context, output *eth.Out
 	return nil
 }
 
-// sendCheckpointTransaction sends a transaction to checkpoint the blockhash corresponding to `blockNumber` on the L2OO contract.
-func (l *L2OutputSubmitter) sendCheckpointTransaction(ctx context.Context, blockNumber *big.Int) error {
-	var receipt *types.Receipt
-	data, err := l.CheckpointBlockHashTxData(blockNumber)
-	if err != nil {
-		return err
-	}
-	// TODO: This currently blocks the loop while it waits for the transaction to be confirmed. Up to 3 minutes.
-	receipt, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
-		TxData:   data,
-		To:       l.Cfg.L2OutputOracleAddr,
-		GasLimit: 0,
-	})
-	if err != nil {
-		return err
-	}
-
-	if receipt.Status == types.ReceiptStatusFailed {
-		l.Log.Error("checkpoint blockhash tx successfully published but reverted", "tx_hash", receipt.TxHash)
-	} else {
-		l.Log.Info("checkpoint blockhash tx successfully published",
-			"tx_hash", receipt.TxHash)
-	}
-	return nil
-}
-
 // loop is responsible for creating & submitting the next outputs
 // TODO: Look into adding a transaction cache so the loop isn't waiting for the transaction to confirm. This sometimes takes up to 30s.
 func (l *L2OutputSubmitter) loop() {
@@ -681,13 +655,22 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				continue
 			}
 
-			// 2) Check the statuses of all requested proofs.
+			// 2) Check the statuses of PROVING requests.
 			// If it's successfully returned, we validate that we have it on disk and set status = "COMPLETE".
 			// If it fails or times out, we set status = "FAILED" (and, if it's a span proof, split the request in half to try again).
-			l.Log.Info("Stage 2: Processing Pending Proofs...")
-			err = l.ProcessPendingProofs()
+			l.Log.Info("Stage 2: Processing PROVING requests...")
+			err = l.ProcessProvingRequests()
 			if err != nil {
-				l.Log.Error("failed to update requested proofs", "err", err)
+				l.Log.Error("failed to update PROVING requests", "err", err)
+				continue
+			}
+
+			// 3) Check the statuses of WITNESSGEN requests.
+			// If the witness generation request has been in the WITNESSGEN state for longer than the timeout, set status to FAILED and retry.
+			l.Log.Info("Stage 3: Processing WITNESSGEN requests...")
+			err = l.ProcessWitnessgenRequests()
+			if err != nil {
+				l.Log.Error("failed to update WITNESSGEN requests", "err", err)
 				continue
 			}
 
@@ -777,9 +760,43 @@ func (l *L2OutputSubmitter) checkpointBlockHash(ctx context.Context) (uint64, co
 	blockHash := header.Hash()
 	blockNumber := header.Number
 
-	err = l.sendCheckpointTransaction(cCtx, blockNumber)
+	// Check if the block hash has ALREADY been checkpointed on the L2OO contract.
+	// If it has, we can skip the checkpointing step.
+	contract, err := opsuccinctbindings.NewOPSuccinctL2OutputOracleCaller(*l.Cfg.L2OutputOracleAddr, l.L1Client)
 	if err != nil {
 		return 0, common.Hash{}, err
+	}
+	maybeBlockHash, err := contract.HistoricBlockHashes(&bind.CallOpts{Context: cCtx}, blockNumber)
+	if err != nil {
+		return 0, common.Hash{}, err
+	}
+	if maybeBlockHash != (common.Hash{}) {
+		l.Log.Info("Block hash already checkpointed on L2OO contract", "block_number", blockNumber, "block_hash", blockHash)
+		return blockNumber.Uint64(), blockHash, nil
+	}
+
+	// If not, send a transaction to checkpoint the blockhash on the L2OO contract.
+	var receipt *types.Receipt
+	data, err := l.CheckpointBlockHashTxData(blockNumber)
+	if err != nil {
+		return 0, common.Hash{}, err
+	}
+
+	// TODO: This currently blocks the loop while it waits for the transaction to be confirmed. Up to 3 minutes.
+	receipt, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+		TxData:   data,
+		To:       l.Cfg.L2OutputOracleAddr,
+		GasLimit: 0,
+	})
+	if err != nil {
+		return 0, common.Hash{}, err
+	}
+
+	if receipt.Status == types.ReceiptStatusFailed {
+		l.Log.Error("checkpoint blockhash tx successfully published but reverted", "tx_hash", receipt.TxHash)
+	} else {
+		l.Log.Info("checkpoint blockhash tx successfully published",
+			"tx_hash", receipt.TxHash)
 	}
 	return blockNumber.Uint64(), blockHash, nil
 }

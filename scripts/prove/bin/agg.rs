@@ -7,13 +7,11 @@ use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RunContext},
     get_agg_proof_stdin,
 };
+use op_succinct_prove::{AGG_ELF, RANGE_ELF};
 use sp1_sdk::{
-    utils, HashableKey, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
+    utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
 use std::fs;
-
-pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
-pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -35,7 +33,6 @@ struct Args {
 fn load_aggregation_proof_data(
     proof_names: Vec<String>,
     range_vkey: &SP1VerifyingKey,
-    prover: &ProverClient,
 ) -> (Vec<SP1Proof>, Vec<BootInfoStruct>) {
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
@@ -43,6 +40,8 @@ fn load_aggregation_proof_data(
 
     let mut proofs = Vec::with_capacity(proof_names.len());
     let mut boot_infos = Vec::with_capacity(proof_names.len());
+
+    let prover = ProverClient::builder().cpu().build();
 
     for proof_name in proof_names.iter() {
         let proof_path = format!("{}/{}.bin", proof_directory, proof_name);
@@ -73,12 +72,12 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let prover = ProverClient::new();
+    let prover = ProverClient::from_env();
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
-    let (_, vkey) = prover.setup(MULTI_BLOCK_ELF);
+    let (_, vkey) = prover.setup(RANGE_ELF);
 
-    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey, &prover);
+    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
 
     let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
     let headers = fetcher
@@ -98,12 +97,12 @@ async fn main() -> Result<()> {
 
     if args.prove {
         prover
-            .prove(&agg_pk, stdin)
+            .prove(&agg_pk, &stdin)
             .groth16()
             .run()
             .expect("proving failed");
     } else {
-        let (_, report) = prover.execute(AGG_ELF, stdin).run().unwrap();
+        let (_, report) = prover.execute(AGG_ELF, &stdin).run().unwrap();
         println!("report: {:?}", report);
     }
 

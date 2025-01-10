@@ -12,7 +12,8 @@ pub const DEFAULT_RANGE: u64 = 5;
 pub const TWO_WEEKS: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 pub const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
-pub const MULTI_BLOCK_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
+pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
+pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
     let start_time = Instant::now();
@@ -32,17 +33,14 @@ pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
 }
 
 pub async fn execute_multi(
-    prover: &ProverClient,
     data_fetcher: &OPSuccinctDataFetcher,
     sp1_stdin: SP1Stdin,
     l2_start_block: u64,
     l2_end_block: u64,
 ) -> Result<(Vec<BlockInfo>, ExecutionReport, Duration)> {
     let start_time = Instant::now();
-    let (_, report) = prover
-        .execute(MULTI_BLOCK_ELF, sp1_stdin.clone())
-        .run()
-        .unwrap();
+    let prover = ProverClient::builder().mock().build();
+    let (_, report) = prover.execute(RANGE_ELF, &sp1_stdin).run().unwrap();
     let execution_duration = start_time.elapsed();
 
     let block_data = data_fetcher
