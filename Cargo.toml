@@ -44,19 +44,19 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 # Branch: patch-kona-proof-v0.1.0
-kona-common = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-common-proc = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1", features = [
+kona-common = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-common-proc = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2", features = [
     "rkyv",
 ] }
-kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1", default-features = false }
-kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1" }
-eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0" }
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2", default-features = false }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
+eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.2" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -82,7 +82,9 @@ alloy-sol-types = { version = "0.8" }
 
 # OP Alloy
 op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5-m", default-features = false }
-op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5-m", default-features = false, features = ["serde"] }
+op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5-m", default-features = false, features = [
+    "serde",
+] }
 
 op-alloy-protocol = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5-m", default-features = false }
 op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5-m", default-features = false }
