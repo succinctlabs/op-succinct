@@ -4061,7 +4061,7 @@ version = "0.1.0"
 dependencies = [
  "cargo_metadata",
  "chrono",
- "sp1-build",
+ "sp1-build 4.0.0-rc.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4176,6 +4176,7 @@ dependencies = [
  "alloy-eips 0.6.4",
  "alloy-primitives",
  "anyhow",
+ "bincode",
  "cargo_metadata",
  "clap",
  "csv",
@@ -6075,10 +6076,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-build"
+version = "4.0.0-rc.9"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "chrono",
+ "clap",
+ "dirs",
+]
+
+[[package]]
 name = "sp1-core-executor"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da54b4972102d0b92d497c2960509761e52b3df72698163de6dbad2402fd62f0"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6101,7 +6113,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp1-curves",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-stark",
  "strum",
  "strum_macros",
@@ -6116,8 +6128,7 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0fc5c4c88c858c6e5a3d6f27d0891cc00279db8ab93674f5b247edd467be897"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "bincode",
  "cbindgen",
@@ -6156,7 +6167,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-curves",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-stark",
  "static_assertions",
  "strum",
@@ -6173,8 +6184,7 @@ dependencies = [
 [[package]]
 name = "sp1-cuda"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6beed9b7b05764a14a4b0b678fcc7f361ce78dcff4878e02e838052f05944b9b"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "bincode",
  "ctrlc",
@@ -6190,8 +6200,7 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c201b0af8b2714171fcaa6dedba177e56cb5bcf080ce9d201cceaa97d7a1c298"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "cfg-if",
  "dashu",
@@ -6204,7 +6213,7 @@ dependencies = [
  "p3-field",
  "serde",
  "snowbridge-amcl",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-stark",
  "typenum",
 ]
@@ -6212,8 +6221,7 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f380cb8468eb2ea5d32a89a9eed123cbfb0cfd1ce8f373603e69296e2bb4b11f"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6227,7 +6235,7 @@ checksum = "f4d273fe1c97fd68a63850f65baa7c5a3baaf8ea5c857e661d28c01af06c3d12"
 dependencies = [
  "bincode",
  "serde",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6249,10 +6257,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp1-primitives"
+version = "4.0.0-rc.9"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
+dependencies = [
+ "bincode",
+ "hex",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "p3-baby-bear",
+ "p3-field",
+ "p3-poseidon2",
+ "p3-symmetric",
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "sp1-prover"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96f8c9f160d1aea850e879a384d8431ee5a2b5a5440421c478829553f1e44e1f"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6279,7 +6303,7 @@ dependencies = [
  "sha2",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-recursion-circuit",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
@@ -6294,8 +6318,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4c7c84d29986a9a80c1b66d232a9778e4cd8b08ce41057501c020667d060d3c"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6317,7 +6340,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
  "sp1-recursion-gnark-ffi",
@@ -6328,8 +6351,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff9c4e487b620829f2d47959fc946e80de5941ae83aff0cf6068f2c5fbf3949d"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6339,7 +6361,7 @@ dependencies = [
  "p3-symmetric",
  "serde",
  "sp1-core-machine",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-recursion-core",
  "sp1-recursion-derive",
  "sp1-stark",
@@ -6350,8 +6372,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "badc0833a5a1efd27350ebe18a656ce1664ed37f0d6d9b408a1c866538edfb18"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -6381,7 +6402,7 @@ dependencies = [
  "serde",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-stark",
  "static_assertions",
  "thiserror 1.0.69",
@@ -6393,8 +6414,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "529bdae45a2f67af20f1e8fdf8cc8756f4e7d9dcbd501b6774ea529b0a90675e"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6403,8 +6423,7 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6bcbca09ae033391e0ede93cc7044ce6653a84ff683076fa9309576b499ab74"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6429,8 +6448,7 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6e2dc9d893b032f84d3177fb53e7e248ea9043624de5d4ff473c5521ba2b966"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "alloy-primitives",
  "alloy-signer 0.8.3",
@@ -6456,11 +6474,11 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "sp1-build",
+ "sp1-build 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-cuda",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "sp1-prover",
  "sp1-stark",
  "strum",
@@ -6477,8 +6495,7 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "4.0.0-rc.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "613291f39f6ac82e9fb0bcfbb9625567cab310fc3b891a6790ccacc97976f088"
+source = "git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode#8f8eb345cbd0d32189bbd20c60fce97ab5aeffb6"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",
@@ -6502,7 +6519,7 @@ dependencies = [
  "rayon-scan",
  "serde",
  "sp1-derive",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (git+https://github.com/succinctlabs/sp1-wip.git?branch=ratan%2Fadd-context-to-mock-mode)",
  "strum",
  "strum_macros",
  "sysinfo 0.30.13",
@@ -6524,7 +6541,7 @@ dependencies = [
  "rand",
  "sha2",
  "sp1-lib",
- "sp1-primitives",
+ "sp1-primitives 4.0.0-rc.9 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

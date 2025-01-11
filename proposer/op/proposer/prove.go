@@ -3,6 +3,7 @@ package proposer
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -238,6 +239,9 @@ func (l *L2OutputSubmitter) prepareProofRequest(p ent.ProofRequest) ([]byte, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to get subproofs: %w", err)
 		}
+		for _, subproof := range subproofs {
+			l.Log.Info("subproof", "subproof", hex.EncodeToString(subproof))
+		}
 		requestBody := AggProofRequest{
 			Subproofs: subproofs,
 			L1Head:    p.L1BlockHash,
@@ -350,7 +354,7 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 				"status", resp.StatusCode,
 				"error", errResp.Error)
 		} else {
-			l.Log.Error("Witness generation request failed", 
+			l.Log.Error("Witness generation request failed",
 				"status", resp.StatusCode,
 				"body", string(body))
 		}
@@ -404,7 +408,7 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 				"status", resp.StatusCode,
 				"error", errResp.Error)
 		} else {
-			l.Log.Error("Failed to get unmarshal proof status error message", 
+			l.Log.Error("Failed to get unmarshal proof status error message",
 				"status", resp.StatusCode,
 				"body", body)
 		}
@@ -425,6 +429,8 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 	if err != nil {
 		return ProofStatusResponse{}, fmt.Errorf("error decoding JSON response: %v", err)
 	}
+
+	l.Log.Info("proof bytes", "Proof", hex.EncodeToString(proofStatus.Proof))
 
 	return proofStatus, nil
 }

@@ -416,6 +416,9 @@ async fn request_mock_span_proof(
 
     let proof_bytes = bincode::serialize(&proof).unwrap();
 
+    // Log as Hex string.
+    println!("Proof: {:?}", hex::encode(&proof_bytes));
+
     Ok((
         StatusCode::OK,
         Json(ProofStatus {

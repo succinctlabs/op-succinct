@@ -113,8 +113,9 @@ if __name__ == "__main__":
     print("-" * 50)
     span_proofs = query_span_proofs(db_path)
     for proof in span_proofs:
-        if proof.status is not ProofStatus.UNREQ:
-            print(f"Request ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}, Request Added Time: {proof.request_added_time}, Proof Request Time: {proof.proof_request_time}")
+        if proof.status is ProofStatus.COMPLETE:
+            # print(f"Request ID: {proof.id}, Type: {proof.type}, Start Block: {proof.start_block}, End Block: {proof.end_block}, Status: {proof.status}, Prover Request ID: {proof.prover_request_id}, Request Added Time: {proof.request_added_time}, Proof Request Time: {proof.proof_request_time}")
+            print(f"Proof: {vars(proof)}")
     print("-" * 50)
 
     # Query for aggregation proofs

@@ -89,7 +89,7 @@ op-alloy-network = { version = "0.6.8", default-features = false }
 
 # sp1
 sp1-lib = { version = "4.0.0-rc.9", features = ["verify"] }
-sp1-sdk = { version = "4.0.0-rc.9" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "ratan/add-context-to-mock-mode" }
 sp1-zkvm = { version = "4.0.0-rc.9", features = ["verify"] }
 sp1-build = { version = "4.0.0-rc.9" }
 

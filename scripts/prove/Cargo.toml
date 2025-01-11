@@ -25,6 +25,7 @@ anyhow.workspace = true
 dotenv.workspace = true
 num-format.workspace = true
 csv.workspace = true
+bincode = { workspace = true }
 
 # kona
 kona-host = { workspace = true }

@@ -1,4 +1,4 @@
-use alloy_primitives::B256;
+use alloy_primitives::{hex, B256};
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
@@ -34,33 +34,37 @@ fn load_aggregation_proof_data(
     proof_names: Vec<String>,
     range_vkey: &SP1VerifyingKey,
 ) -> (Vec<SP1Proof>, Vec<BootInfoStruct>) {
-    let metadata = MetadataCommand::new().exec().unwrap();
-    let workspace_root = metadata.workspace_root;
-    let proof_directory = format!("{}/data/fetched_proofs", workspace_root);
+    // let metadata = MetadataCommand::new().exec().unwrap();
+    // let workspace_root = metadata.workspace_root;
+    // let proof_directory = format!("{}/data/fetched_proofs", workspace_root);
 
-    let mut proofs = Vec::with_capacity(proof_names.len());
-    let mut boot_infos = Vec::with_capacity(proof_names.len());
+    // let mut proofs = Vec::with_capacity(proof_names.len());
+    // let mut boot_infos = Vec::with_capacity(proof_names.len());
 
-    let prover = ProverClient::builder().cpu().build();
+    // let prover = ProverClient::builder().cpu().build();
 
-    for proof_name in proof_names.iter() {
-        let proof_path = format!("{}/{}.bin", proof_directory, proof_name);
-        if fs::metadata(&proof_path).is_err() {
-            panic!("Proof file not found: {}", proof_path);
-        }
-        let mut deserialized_proof =
-            SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
-        prover
-            .verify(&deserialized_proof, range_vkey)
-            .expect("proof verification failed");
-        proofs.push(deserialized_proof.proof);
+    // for proof_name in proof_names.iter() {
+    //     let proof_path = format!("{}/{}.bin", proof_directory, proof_name);
+    //     if fs::metadata(&proof_path).is_err() {
+    //         panic!("Proof file not found: {}", proof_path);
+    //     }
+    //     let mut deserialized_proof =
+    //         SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
+    //     prover
+    //         .verify(&deserialized_proof, range_vkey)
+    //         .expect("proof verification failed");
+    //     proofs.push(deserialized_proof.proof);
 
-        // The public values are the BootInfoStruct.
-        let boot_info = deserialized_proof.public_values.read();
-        boot_infos.push(boot_info);
-    }
+    //     // The public values are the BootInfoStruct.
+    //     let boot_info = deserialized_proof.public_values.read();
+    //     boot_infos.push(boot_info);
+    // }
 
-    (proofs, boot_infos)
+    let serialized_proof = hex!("01000000000000000000000000000000000000000000000000000000000000000000000000000000134243013037620580485009248768018069090267698507765387011d32cc34e4a25e43977ed82150242403a09a480ebbb9611a759fa36d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a80000000000000020000000000000008a32956e2f67c7e68893b6e2b1538442d9f048e5e889858c79a959fa6419917c2000000000000000672155f4db0fbbbf23d718dbf939344bd39cc059e7703081cfb0b08af49599af200000000000000056f948f1896d0a6af455a6efd1f2b2d9b4bf2f49bef68a218a65d40f9cff4b86c43d060000000000200000000000000071241d0f92749d7365aaaf6a015de550816632a4e4e84e273f865f582e8190aa0b0000000000000076342e302e302d72632e33");
+    let mut proof: SP1ProofWithPublicValues = bincode::deserialize(&serialized_proof).unwrap();
+    let boot_info = BootInfoStruct::from(proof.public_values.read::<BootInfoStruct>());
+
+    (vec![proof.proof], vec![boot_info])
 }
 
 // Execute the OP Succinct program for a single block.
