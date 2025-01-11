@@ -61,8 +61,9 @@ fn load_aggregation_proof_data(
     // }
 
     let serialized_proof = hex!("01000000000000000000000000000000000000000000000000000000000000000000000000000000134243013037620580485009248768018069090267698507765387011d32cc34e4a25e43977ed82150242403a09a480ebbb9611a759fa36d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a80000000000000020000000000000008a32956e2f67c7e68893b6e2b1538442d9f048e5e889858c79a959fa6419917c2000000000000000672155f4db0fbbbf23d718dbf939344bd39cc059e7703081cfb0b08af49599af200000000000000056f948f1896d0a6af455a6efd1f2b2d9b4bf2f49bef68a218a65d40f9cff4b86c43d060000000000200000000000000071241d0f92749d7365aaaf6a015de550816632a4e4e84e273f865f582e8190aa0b0000000000000076342e302e302d72632e33");
-    let mut proof: SP1ProofWithPublicValues = bincode::deserialize(&serialized_proof).unwrap();
-    let boot_info = BootInfoStruct::from(proof.public_values.read::<BootInfoStruct>());
+    let proof: SP1ProofWithPublicValues = bincode::deserialize(&serialized_proof).unwrap();
+    let mut pv_copy = proof.public_values.clone();
+    let boot_info = BootInfoStruct::from(pv_copy.read::<BootInfoStruct>());
 
     (vec![proof.proof], vec![boot_info])
 }
@@ -76,7 +77,7 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let prover = ProverClient::from_env();
+    let prover = ProverClient::builder().mock().build();
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
     let (_, vkey) = prover.setup(RANGE_ELF);
@@ -100,13 +101,16 @@ async fn main() -> Result<()> {
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
+        println!("running prove");
         prover
             .prove(&agg_pk, &stdin)
             .groth16()
+            .deferred_proof_verification(false)
             .run()
             .expect("proving failed");
     } else {
-        let (_, report) = prover.execute(AGG_ELF, &stdin).run().unwrap();
+        println!("running execute");
+        let (_, report) = prover.execute(AGG_ELF, &stdin).deferred_proof_verification(false).run().unwrap();
         println!("report: {:?}", report);
     }
 
