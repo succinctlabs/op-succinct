@@ -18,12 +18,14 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         address OPSuccinctL2OutputOracleImpl = vm.envOr("OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL", address(0));
 
+        address proxyAdmin = vm.envOr("PROXY_ADMIN", address(0));
+
         if (OPSuccinctL2OutputOracleImpl == address(0)) {
             console.log("Deploying new logic");
             OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         }
 
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, executeUpgradeCall);
+        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, executeUpgradeCall, proxyAdmin);
 
         vm.stopBroadcast();
     }

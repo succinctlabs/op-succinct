@@ -17,7 +17,7 @@ contract OPSuccinctDeployer is Script, Utils {
         OPSuccinctL2OutputOracle oracleImpl = new OPSuccinctL2OutputOracle();
         Proxy proxy = new Proxy(msg.sender);
 
-        upgradeAndInitialize(address(oracleImpl), config, address(proxy), true);
+        upgradeAndInitialize(address(oracleImpl), config, address(proxy), true, address(0));
 
         vm.stopBroadcast();
 
