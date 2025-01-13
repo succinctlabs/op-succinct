@@ -3,12 +3,17 @@ pragma solidity ^0.8.15;
 
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
 import {LibCWIA} from "@solady/utils/legacy/LibCWIA.sol";
+import {ISemver} from "@optimism/src/universal/ISemver.sol";
 
-contract OPSuccinctDisputeGameFactory {
+contract OPSuccinctDisputeGameFactory is ISemver {
     using LibCWIA for address;
 
     /// @notice The address of the OP Succinct DisputeGame implementation contract.
     address public gameImpl;
+
+    /// @notice Semantic version.
+    /// @custom:semver v1.0.0-rc2
+    string public constant version = "v1.0.0-rc2";
 
     /// @notice Constructs the OPSuccinctDisputeGameFactory contract.
     constructor(address _gameImpl) {

@@ -4,11 +4,12 @@ pragma solidity ^0.8.15;
 import {OPSuccinctL2OutputOracle} from "./OPSuccinctL2OutputOracle.sol";
 import {CWIA} from "@solady/utils/legacy/CWIA.sol";
 import {LibBytes} from "@solady/utils/LibBytes.sol";
+import {ISemver} from "@optimism/src/universal/ISemver.sol";
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
 
-contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
+contract OPSuccinctDisputeGame is ISemver, CWIA, IDisputeGame {
     using LibBytes for bytes;
 
     /// @notice The address of the L2 output oracle contract.
@@ -22,6 +23,10 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
 
     /// @notice Returns the current status of the game.
     GameStatus public status;
+
+    /// @notice Semantic version.
+    /// @custom:semver v1.0.0-rc2
+    string public constant version = "v1.0.0-rc2";
 
     constructor(address _l2OutpoutOracle) {
         l2OutpoutOracle = _l2OutpoutOracle;
