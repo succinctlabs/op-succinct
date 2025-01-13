@@ -5,7 +5,7 @@ import {OPSuccinctL2OutputOracle} from "./OPSuccinctL2OutputOracle.sol";
 import {CWIA} from "@solady/utils/legacy/CWIA.sol";
 import {LibBytes} from "@solady/utils/LibBytes.sol";
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
-import {Claim, GameStatus, GameType, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
+import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
 
 contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
@@ -32,7 +32,8 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
     ////////////////////////////////////////////////////////////
 
     function initialize() external payable {
-        // TODO: Set createdAt and status
+        createdAt = Timestamp.wrap(uint64(block.timestamp));
+        status = GameStatus.IN_PROGRESS;
 
         (uint256 l2BlockNumber, uint256 l1BlockNumber, bytes memory proof) =
             abi.decode(extraData(), (uint256, uint256, bytes));
@@ -48,8 +49,8 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
     /// @dev The reference impl should be entirely different depending on the type (fault, validity)
     ///      i.e. The game type should indicate the security model.
     /// @return gameType_ The type of proof system being used.
-    function gameType() public view returns (GameType) {
-        // TODO: Retrive and return the game type.
+    function gameType() public pure returns (GameType) {
+        return GameTypes.CANNON;
     }
 
     /// @notice Getter for the creator of the dispute game.
@@ -104,7 +105,7 @@ contract OPSuccinctDisputeGame is CWIA, IDisputeGame {
     /// @return gameType_ The type of proof system being used.
     /// @return rootClaim_ The root claim of the DisputeGame.
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function gameData() external view returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
+    function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();
