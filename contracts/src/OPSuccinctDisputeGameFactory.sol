@@ -8,6 +8,9 @@ import {ISemver} from "@optimism/src/universal/ISemver.sol";
 contract OPSuccinctDisputeGameFactory is ISemver {
     using LibCWIA for address;
 
+    /// @notice The owner of the contract, who has admin permissions.
+    address public owner;
+
     /// @notice The address of the OP Succinct DisputeGame implementation contract.
     address public gameImpl;
 
@@ -15,8 +18,22 @@ contract OPSuccinctDisputeGameFactory is ISemver {
     /// @custom:semver v1.0.0-rc2
     string public constant version = "v1.0.0-rc2";
 
+    ////////////////////////////////////////////////////////////
+    //                        Modifiers                       //
+    ////////////////////////////////////////////////////////////
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "OPSuccinctDisputeGameFactory: caller is not the owner");
+        _;
+    }
+
+    ////////////////////////////////////////////////////////////
+    //                        Functions                       //
+    ////////////////////////////////////////////////////////////
+
     /// @notice Constructs the OPSuccinctDisputeGameFactory contract.
-    constructor(address _gameImpl) {
+    constructor(address _owner, address _gameImpl) {
+        owner = _owner;
         gameImpl = _gameImpl;
     }
 
@@ -32,5 +49,17 @@ contract OPSuccinctDisputeGameFactory is ISemver {
         );
 
         game.initialize{value: msg.value}();
+    }
+
+    /// Updates the owner address.
+    /// @param _owner The new owner address.
+    function transferOwnership(address _owner) external onlyOwner {
+        owner = _owner;
+    }
+
+        /// @notice Sets the implementation address.
+    /// @param _implementation New implementation address.
+    function setImplementation(address _implementation) external onlyOwner {
+        gameImpl = _implementation;
     }
 }

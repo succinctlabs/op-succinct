@@ -36,7 +36,7 @@ contract OPSuccinctL2OutputOracleFactoryTest is Test, Utils {
 
         OPSuccinctL2OutputOracle l2oo = OPSuccinctL2OutputOracle(l2ooProxy);
         OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(l2ooProxy);
-        OPSuccinctDisputeGameFactory gameFactory = new OPSuccinctDisputeGameFactory(address(game));
+        OPSuccinctDisputeGameFactory gameFactory = new OPSuccinctDisputeGameFactory(msg.sender, address(game));
 
         l2oo.addProposer(address(0));
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
