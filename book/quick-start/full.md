@@ -25,7 +25,7 @@ In the root directory, create a file called `.env` and set the following environ
 
 There are additional optional parameters that you can set in the `.env` file. See the [Advanced Parameters](../contracts/configuration.md#optional-advanced-parameters) section for more information.
 
-### 2) Deploy the `OPSuccinctL2OutputOracle` contract.
+### 2) Deploy the `OPSuccinctL2OutputOracle` contract
 
 This contract is a modification of the `L2OutputOracle` contract which verifies a proof along with the proposed state root.
 
@@ -70,6 +70,44 @@ Estimated amount required: 0.00431887950806754 ETH
 
 In these deployment logs, `0xde4656D4FbeaC0c0863Ab428727e3414Fa251A4C` is the address of the proxy for the `OPSuccinctL2OutputOracle` contract. This deployed proxy contract is used to track the verified state roots of the OP Stack chain on L1.
 
+#### 3.1) *Optional:* Deploy the `OPSuccinctDisputeGameFactory` contract
+
+Optionally, deploy the `OPSuccinctDisputeGameFactory` contract.
+
+```shell
+just deploy-dispute-game-factory
+```
+
+If successful, you should see the following output:
+
+```
+[⠊] Compiling...
+[⠊] Compiling 1 files with Solc 0.8.15
+[⠒] Solc 0.8.15 finished in 1.93s
+Compiler run successful!
+Script ran successfully.
+
+== Return ==
+0: address 0x6A04B767f15055aebFFd21157D12aB12e8B764Ed
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 3151908
+
+Estimated gas price: 1.000000014 gwei
+
+Estimated total gas used for script: 1614671
+
+Estimated amount required: 0.001614671022605394 ETH
+
+==========================
+```
+
+In these deployment logs, `0x6A04B767f15055aebFFd21157D12aB12e8B764Ed` is the address of the proxy for the `OPSuccinctDisputeGameFactory` contract.
+
+
 ### 3) `op-succinct` service environment variables
 
 To start the `op-succinct` service, add the following parameters to the `.env` file in the root directory:
@@ -79,6 +117,10 @@ To start the `op-succinct` service, add the following parameters to the `.env` f
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `NETWORK_PRIVATE_KEY` | The private key for the account that will be submitting proofs to the L1. |
 | `NETWORK_RPC_URL` | The RPC endpoint for the Succinct Prover Network. The default endpoint (`https://rpc.succinct.xyz`) is not suitable for use in OP Succinct. Reach out to the Succinct team to get access with OP Succinct. |
+
+If you want the proposer to use the `OPSuccinctDisputeGameFactory` contract, you must add an additional parameter `DGF_ADDRESS` to the `.env` file
+with the `OPSuccinctDisputeGameFactory` contract address.
+
 
 Now, you should have the following in your `.env` file:
 
@@ -91,6 +133,7 @@ Now, you should have the following in your `.env` file:
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract and relaying proofs on-chain. |
 | `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
+| `DGF_ADDRESS` | *Optional* The address of the `OPSuccinctDisputeGameFactory` contract from the previous step. |
 | `NETWORK_PRIVATE_KEY` | The private key for the account that will be submitting proofs to the L1. |
 | `NETWORK_RPC_URL` | Reach out to the Succinct team to get access [here](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The default endpoint (`https://rpc.succinct.xyz`) is not suitable for use in OP Succinct. |
 
