@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 
 # Build stage
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:24.04 AS builder
 
 WORKDIR /build
 
@@ -35,18 +35,21 @@ COPY scripts/witnessgen ./scripts/witnessgen
 COPY elf ./elf
 COPY utils ./utils
 COPY programs ./programs
+COPY target/release/server /build/server
+COPY target/release-client-lto/range /build/range
+COPY target/native_host_runner/release/native_host_runner /build/native_host_runner
 
-# Build the server
-RUN --mount=type=ssh \
-    --mount=type=cache,target=/root/.cargo/registry \
-    --mount=type=cache,target=/build/target \
-    cargo build --bin server --release && \
-    cp target/release/server /build/server && \
-    cp target/release-client-lto/range /build/range && \
-    cp target/native_host_runner/release/native_host_runner /build/native_host_runner
+# # Build the server
+# RUN --mount=type=ssh \
+#     --mount=type=cache,target=/root/.cargo/registry \
+#     --mount=type=cache,target=/build/target \
+#     cargo build --bin server --release && \
+#     cp target/release/server /build/server && \
+#     cp target/release-client-lto/range /build/range && \
+#     cp target/native_host_runner/release/native_host_runner /build/native_host_runner
 
 # Final stage
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 WORKDIR /app
 
