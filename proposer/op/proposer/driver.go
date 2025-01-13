@@ -108,12 +108,10 @@ func NewL2OutputSubmitter(setup DriverSetup) (_ *L2OutputSubmitter, err error) {
 		}
 	}()
 
-	if setup.Cfg.DisputeGameFactoryAddr != nil {
-		return newDGFSubmitter(ctx, cancel, setup)
-	} else if setup.Cfg.L2OutputOracleAddr != nil {
+	if setup.Cfg.L2OutputOracleAddr != nil {
 		return newL2OOSubmitter(ctx, cancel, setup)
 	} else {
-		return nil, errors.New("the `L2OutputOracle` or `DisputeGameFactory` address was not provided")
+		return nil, errors.New("the `L2OutputOracle` address was not provided")
 	}
 }
 
@@ -133,7 +131,13 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 	}
 	log.Info("Connected to L2OutputOracle", "address", setup.Cfg.L2OutputOracleAddr, "version", version)
 
-	parsed, err := opsuccinctbindings.OPSuccinctL2OutputOracleMetaData.GetAbi()
+	l2ooAbiParsed, err := opsuccinctbindings.OPSuccinctL2OutputOracleMetaData.GetAbi()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	dfgAbiParsed, err := opsuccinctbindings.OPSuccinctDisputeGameFactoryMetaData.GetAbi()
 	if err != nil {
 		cancel()
 		return nil, err
@@ -152,25 +156,10 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 		cancel:      cancel,
 
 		l2ooContract: l2ooContract,
-		l2ooABI:      parsed,
-		db:           *db,
-	}, nil
-}
+		l2ooABI:      l2ooAbiParsed,
+		dgfABI:       dfgAbiParsed,
 
-func newDGFSubmitter(ctx context.Context, cancel context.CancelFunc, setup DriverSetup) (*L2OutputSubmitter, error) {
-	parsed, err := opsuccinctbindings.OPSuccinctDisputeGameFactoryMetaData.GetAbi()
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-
-	return &L2OutputSubmitter{
-		DriverSetup: setup,
-		done:        make(chan struct{}),
-		ctx:         ctx,
-		cancel:      cancel,
-
-		dgfABI: parsed,
+		db: *db,
 	}, nil
 }
 
