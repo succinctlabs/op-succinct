@@ -57,7 +57,8 @@ pub fn convert_host_cli_to_args(host_cli: &HostCli) -> Vec<String> {
 }
 
 /// Default timeout for witness generation.
-pub const WITNESSGEN_TIMEOUT: Duration = Duration::from_secs(60 * 20);
+/// TODO: Long proof generation, set to 12H. Decide if we should remove this timeout.
+pub const WITNESSGEN_TIMEOUT: Duration = Duration::from_secs(60 * 60 * 12);
 
 struct WitnessGenProcess {
     child: tokio::process::Child,
