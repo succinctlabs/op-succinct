@@ -428,12 +428,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Checkpoints a block hash at a given block number.
     /// @param _blockNumber Block number to checkpoint the hash at.
     /// @dev If the block hash is not available, this will revert.
-    function checkpointBlockHash(uint256 _blockNumber) external {
-        bytes32 blockHash = blockhash(_blockNumber);
-        if (blockHash == bytes32(0)) {
-            revert L1BlockHashNotAvailable();
-        }
-        historicBlockHashes[_blockNumber] = blockHash;
+    /// TODO: just for testing
+    function checkpointBlockHash(uint256 _blockNumber, bytes32 l1BlockHash) external {
+        // bytes32 blockHash = blockhash(_blockNumber);
+        // if (blockHash == bytes32(0)) {
+        //     revert L1BlockHashNotAvailable();
+        // }
+        historicBlockHashes[_blockNumber] = l1BlockHash;
     }
 
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.
