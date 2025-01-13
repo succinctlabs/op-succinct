@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
+import {OPSuccinctL2OutputOracle} from "../src/OPSuccinctL2OutputOracle.sol";
 import {OPSuccinctDisputeGame} from "../src/OPSuccinctDisputeGame.sol";
 import {OPSuccinctDisputeGameFactory} from "../src/OPSuccinctDisputeGameFactory.sol";
 import {Utils} from "../test/helpers/Utils.sol";
@@ -12,22 +13,15 @@ contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
         vm.startBroadcast();
 
-        address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
+        OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
 
-        // This initializes the dipute game
-        OPSuccinctDisputeGame gameImpl = new OPSuccinctDisputeGame(l2OutputOracleProxy);
-        Proxy gameProxy = new Proxy(msg.sender);
+        l2OutputOracleProxy.addProposer(address(0));
 
-        gameProxy.upgradeTo(address(gameImpl));
-
-        // This initializes the dispute game factory
-        OPSuccinctDisputeGameFactory factoryImpl = new OPSuccinctDisputeGameFactory(address(gameProxy));
-        Proxy factoryProxy = new Proxy(msg.sender);
-
-        factoryProxy.upgradeTo(address(factoryImpl));
+        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy));
+        OPSuccinctDisputeGameFactory gameFactory = new OPSuccinctDisputeGameFactory(msg.sender, address(game));
 
         vm.stopBroadcast();
 
-        return address(factoryProxy);
+        return address(gameFactory);
     }
 }
