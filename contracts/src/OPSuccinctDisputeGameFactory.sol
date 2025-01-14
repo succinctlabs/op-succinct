@@ -57,7 +57,7 @@ contract OPSuccinctDisputeGameFactory is ISemver {
         owner = _owner;
     }
 
-        /// @notice Sets the implementation address.
+    /// @notice Sets the implementation address.
     /// @param _implementation New implementation address.
     function setImplementation(address _implementation) external onlyOwner {
         gameImpl = _implementation;

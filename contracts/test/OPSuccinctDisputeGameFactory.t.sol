@@ -42,7 +42,7 @@ contract OPSuccinctL2OutputOracleFactoryTest is Test, Utils {
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
 
         vm.stopBroadcast();
-        
+
         gameFactory.create(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof);
     }
 }
