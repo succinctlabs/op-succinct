@@ -9,7 +9,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, Prover, ProverClient};
+use sp1_sdk::{utils, ProverClient};
 use std::{fs, time::Duration};
 
 /// Execute the OP Succinct program for multiple blocks.
