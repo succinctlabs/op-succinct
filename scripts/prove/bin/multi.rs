@@ -49,8 +49,6 @@ async fn main() -> Result<()> {
     let prover = ProverClient::from_env();
 
     if args.prove {
-        let prover = ProverClient::builder().network().build();
-
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(RANGE_ELF);
 
