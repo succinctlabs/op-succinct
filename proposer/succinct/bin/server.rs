@@ -482,7 +482,7 @@ async fn request_mock_agg_proof(
         }
     };
 
-    let prover = ProverClient::builder().mock().build();
+    let prover = ProverClient::builder().cpu().build();
 
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
