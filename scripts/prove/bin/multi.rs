@@ -9,7 +9,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{utils, Prover, ProverClient};
 use std::{fs, time::Duration};
 
 /// Execute the OP Succinct program for multiple blocks.
@@ -46,14 +46,20 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
-    let prover = ProverClient::from_env();
-
     if args.prove {
+        let prover = ProverClient::builder().network().build();
+
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(RANGE_ELF);
 
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+        let proof = prover
+            .prove(&pk, &sp1_stdin)
+            .compressed()
+            .strategy(sp1_sdk::network::FulfillmentStrategy::Reserved)
+            .skip_simulation(true)
+            .run()
+            .unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!(
