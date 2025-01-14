@@ -12,7 +12,7 @@ import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib
 contract OPSuccinctDisputeGame is ISemver, CWIA, IDisputeGame {
     using LibBytes for bytes;
 
-    /// @notice The address of the L2 output oracle contract.
+    /// @notice The address of the L2 output oracle proxy contract.
     address internal immutable l2OutpoutOracle;
 
     /// @notice The timestamp of the game's global creation.
@@ -55,7 +55,7 @@ contract OPSuccinctDisputeGame is ISemver, CWIA, IDisputeGame {
     ///      i.e. The game type should indicate the security model.
     /// @return gameType_ The type of proof system being used.
     function gameType() public pure returns (GameType) {
-        return GameTypes.CANNON;
+        return GameType.wrap(3);
     }
 
     /// @notice Getter for the creator of the dispute game.

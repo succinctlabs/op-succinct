@@ -17,6 +17,7 @@ contract OPSuccinctDFGDeployer is Script, Utils {
 
         l2OutputOracleProxy.addProposer(address(0));
 
+        // Initialize the dispute game based on the existing L2OO_ADDRESS.
         OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy));
         OPSuccinctDisputeGameFactory gameFactory = new OPSuccinctDisputeGameFactory(msg.sender, address(game));
 
