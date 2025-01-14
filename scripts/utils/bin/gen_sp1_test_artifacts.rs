@@ -100,7 +100,11 @@ async fn main() -> Result<()> {
         run_native_data_generation(&host_clis).await;
     }
 
-    let successful_ranges = execute_blocks_parallel(&host_clis, split_ranges).await;
+    // let successful_ranges = execute_blocks_parallel(&host_clis, split_ranges).await;
+    let successful_ranges = split_ranges.iter().zip(host_clis.iter()).map(|(range, host_cli)| {
+        let sp1_stdin = get_proof_stdin(host_cli).unwrap();
+        (sp1_stdin, range)
+    });
 
     // Now, write the successful ranges to /sp1-testing-suite-artifacts/op-succinct-chain-{l2_chain_id}-{start}-{end}
     // The folders should each have the RANGE_ELF as program.bin, and the serialized stdin should be
