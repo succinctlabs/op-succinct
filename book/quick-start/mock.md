@@ -116,43 +116,6 @@ Estimated amount required: 0.00431887950806754 ETH
 
 In these deployment logs, `0xde4656D4FbeaC0c0863Ab428727e3414Fa251A4C` is the address of the proxy for the `OPSuccinctL2OutputOracle` contract. This deployed proxy contract is used to track the verified state roots of the OP Stack chain on L1.
 
-#### 3.1) *Optional:* Deploy the `OPSuccinctDisputeGameFactory` contract
-
-Optionally, deploy the `OPSuccinctDisputeGameFactory` contract.
-
-```shell
-just deploy-dispute-game-factory
-```
-
-If successful, you should see the following output:
-
-```
-[⠊] Compiling...
-[⠊] Compiling 1 files with Solc 0.8.15
-[⠒] Solc 0.8.15 finished in 1.93s
-Compiler run successful!
-Script ran successfully.
-
-== Return ==
-0: address 0x6B3342821680031732Bc7d4E88A6528478aF9E38
-
-## Setting up 1 EVM.
-
-==========================
-
-Chain 3151908
-
-Estimated gas price: 1.000000014 gwei
-
-Estimated total gas used for script: 1614671
-
-Estimated amount required: 0.001614671022605394 ETH
-
-==========================
-```
-
-In these deployment logs, `0x6B3342821680031732Bc7d4E88A6528478aF9E38` is the address of the proxy for the `OPSuccinctDisputeGameFactory` contract.
-
 ### 4) Set `op-succinct` service environment variables
 
 To start the mock `op-succinct` service, add the following parameters to the `.env` file in the root directory:
@@ -176,7 +139,6 @@ Now, you should have the following in your `.env` file:
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract and relaying proofs on-chain. |
 | `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
-| `DGF_ADDRESS` | *Optional* The address of the `OPSuccinctDisputeGameFactory` contract from the previous step. |
 | `OP_SUCCINCT_MOCK` | Set to `true` for mock mode. |
 
 ### 5) Start the `op-succinct` service in mock mode.
