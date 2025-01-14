@@ -46,6 +46,8 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli)?;
 
+    let prover = ProverClient::from_env();
+
     if args.prove {
         let prover = ProverClient::builder().network().build();
 
@@ -53,13 +55,7 @@ async fn main() -> Result<()> {
         let (pk, _) = prover.setup(RANGE_ELF);
 
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover
-            .prove(&pk, &sp1_stdin)
-            .compressed()
-            .strategy(sp1_sdk::network::FulfillmentStrategy::Reserved)
-            .skip_simulation(true)
-            .run()
-            .unwrap();
+        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!(
