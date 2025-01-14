@@ -61,7 +61,6 @@ async fn main() -> Result<()> {
         run_native_data_generation(&host_clis).await;
     }
 
-    // let successful_ranges = execute_blocks_parallel(&host_clis, split_ranges).await;
     let successful_ranges = split_ranges
         .iter()
         .zip(host_clis.iter())
