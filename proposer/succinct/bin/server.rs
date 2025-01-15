@@ -299,10 +299,10 @@ async fn request_agg_proof(
             }
         };
 
+    // Use hosted proving for Groth16 as the proof is lightweight.
     let proof_id = match prover
         .prove(&state.agg_pk, &stdin)
         .groth16()
-        .strategy(FulfillmentStrategy::Reserved)
         .request_async()
         .await
     {
