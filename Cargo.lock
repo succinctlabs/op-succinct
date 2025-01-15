@@ -957,11 +957,12 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "3.0.6"
+version = "3.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2109dbce0e72be3ec00bed26e6a7479ca384ad226efdd66db8fa2e3a38c83125"
+checksum = "ca3534e77181a9cc07539ad51f2141fe32f6c3ffd4df76db8ad92346b003ae4e"
 dependencies = [
  "anstyle",
+ "once_cell",
  "windows-sys 0.59.0",
 ]
 
@@ -1184,9 +1185,9 @@ dependencies = [
 
 [[package]]
 name = "auto_impl"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c87f3f15e7794432337fc718554eaa4dc8f04c9677a950ffe366f20a162ae42"
+checksum = "e12882f59de5360c748c4cbf569a042d5fb0eb515f7bea9c1f470b47f6ffbd73"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1374,9 +1375,9 @@ checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitflags"
-version = "2.7.0"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1be3f42a67d6d345ecd59f675f3f012d6974981560836e938c22b424b85ce1be"
+checksum = "8f68f53c83ab957f72c32642f3868eec03eb974d1fb82e453128456482613d36"
 
 [[package]]
 name = "bitvec"
@@ -2052,9 +2053,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
+checksum = "0e60eed09d8c01d3cee5b7d30acb059b76614c918fa0f992e0dd6eeb10daad6f"
 
 [[package]]
 name = "der"
@@ -2225,7 +2226,7 @@ dependencies = [
 [[package]]
 name = "eigen-da"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -2641,9 +2642,9 @@ dependencies = [
 
 [[package]]
 name = "generic-array"
-version = "1.2.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8c8444bc9d71b935156cc0ccab7f622180808af7867b1daae6547d773591703"
+checksum = "96512db27971c2c3eece70a1e106fbe6c87760234e31e8f7e5634912fe52794a"
 dependencies = [
  "serde",
  "typenum",
@@ -3338,7 +3339,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -3372,7 +3373,7 @@ dependencies = [
 [[package]]
 name = "kona-common"
 version = "0.0.4"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "cfg-if",
  "linked_list_allocator",
@@ -3382,7 +3383,7 @@ dependencies = [
 [[package]]
 name = "kona-common-proc"
 version = "0.0.4"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "anyhow",
  "cfg-if",
@@ -3395,7 +3396,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.0.5"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus 0.6.4",
@@ -3423,7 +3424,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-primitives",
@@ -3441,7 +3442,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.0.4"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -3459,7 +3460,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -3500,7 +3501,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.0.5"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-primitives",
@@ -3513,7 +3514,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -3526,7 +3527,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?tag=v1.2#d0dd02ba5ca72593edaf412b4b08f19b824540d8"
+source = "git+https://github.com/mantle-xyz/kona?tag=v1.3#0c023beb7ef232beb0ac4fab3a20917110f72843"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -3682,9 +3683,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.22"
+version = "0.4.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
+checksum = "04cbf5b083de1c7e0222a7a51dbfdba1cbe1c6ab0b15e29fff3f6c077fd9cd9f"
 
 [[package]]
 name = "lru"
@@ -3736,9 +3737,9 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ffbe83022cedc1d264172192511ae958937694cd57ce297164951b8b3568394"
+checksum = "b8402cab7aefae129c6977bb0ff1b8fd9a04eb5b51efc50a70bea51cda0c7924"
 dependencies = [
  "adler2",
 ]
@@ -4060,7 +4061,7 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 [[package]]
 name = "op-alloy-consensus"
 version = "0.6.5"
-source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5-m#9736af2b4aac5a2dd1bd4fe509adf7bfd1a45037"
+source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5.1#b83c84f64e17d743d30785999bf040bef702d4f9"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -4075,7 +4076,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-genesis"
 version = "0.6.5"
-source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5-m#9736af2b4aac5a2dd1bd4fe509adf7bfd1a45037"
+source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5.1#b83c84f64e17d743d30785999bf040bef702d4f9"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -4088,7 +4089,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-network"
 version = "0.6.5"
-source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5-m#9736af2b4aac5a2dd1bd4fe509adf7bfd1a45037"
+source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5.1#b83c84f64e17d743d30785999bf040bef702d4f9"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-network 0.6.4",
@@ -4102,7 +4103,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-protocol"
 version = "0.6.5"
-source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5-m#9736af2b4aac5a2dd1bd4fe509adf7bfd1a45037"
+source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5.1#b83c84f64e17d743d30785999bf040bef702d4f9"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -4121,7 +4122,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types"
 version = "0.6.5"
-source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5-m#9736af2b4aac5a2dd1bd4fe509adf7bfd1a45037"
+source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5.1#b83c84f64e17d743d30785999bf040bef702d4f9"
 dependencies = [
  "alloy-consensus 0.6.4",
  "alloy-eips 0.6.4",
@@ -4138,7 +4139,7 @@ dependencies = [
 [[package]]
 name = "op-alloy-rpc-types-engine"
 version = "0.6.5"
-source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5-m#9736af2b4aac5a2dd1bd4fe509adf7bfd1a45037"
+source = "git+https://github.com/mantle-xyz/op-alloy?tag=v0.6.5.1#b83c84f64e17d743d30785999bf040bef702d4f9"
 dependencies = [
  "alloy-eips 0.6.4",
  "alloy-primitives",
@@ -6180,9 +6181,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9460237df12353b32e7c3597eb4d30a3a75a5f53460d8a4d51a72d323cef6c7"
+checksum = "b1a0466de2063deb545dba0723821df15e06992a05fce2981ee6334310f6ae0c"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -6193,9 +6194,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-core-executor"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fcd2f6184a3e5e7dd9eb2380f1060cedcc2c9d0b2c01e44d71ad3d414b712dc"
+checksum = "2232f1fac622da63a98893bb6014cbc8169955355999a038d4c95b0fb18a41c9"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6232,16 +6233,16 @@ dependencies = [
 
 [[package]]
 name = "sp1-core-machine"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63b8c7befeaebc208eaf52e3bda355ce5954a3a5e0994f5a354b7590169a6754"
+checksum = "80bf55c47af18c3e4b369c0becd104883ef69f4bef23ce98854784247af9ae00"
 dependencies = [
  "bincode",
  "cbindgen",
  "cc",
  "cfg-if",
  "elliptic-curve",
- "generic-array 1.2.0",
+ "generic-array 1.1.0",
  "glob",
  "hashbrown 0.14.5",
  "hex",
@@ -6289,9 +6290,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-cuda"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef9c0f3dd415dc4d6c126bb4d27d0df2252b739ff6480a1c892f18e561ba2351"
+checksum = "29ab934478c06447ed2f5d069df063913ae6cd1b7d09efc4ceebcf95b609c1ad"
 dependencies = [
  "bincode",
  "ctrlc",
@@ -6306,14 +6307,14 @@ dependencies = [
 
 [[package]]
 name = "sp1-curves"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "deac68dbbbf257ccde6b349bfba04e3714fdfd005b8a2ba4c689e5a515756739"
+checksum = "c73ba59503249c055a44f97f895186ce6a429d856a50ac0938d4ccdeef966858"
 dependencies = [
  "cfg-if",
  "dashu",
  "elliptic-curve",
- "generic-array 1.2.0",
+ "generic-array 1.1.0",
  "itertools 0.13.0",
  "k256",
  "num",
@@ -6328,9 +6329,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-derive"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b735d6232f360db26fae5adf86d58545951cbdb08dc195eff79f51cfab74045"
+checksum = "37ca695c6394f4c1d7b1e7cbdddb306c62d6cad669b5ba815ff7b77699c072bd"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6338,9 +6339,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2592b08337e63a52e2a7bad6ee2ca9b81fcae4c6f684b2db145d24a5e290d08f"
+checksum = "f4eb00d2fc1c7bcd56b926e8d335a2f9979932a957d05e4050ac0d9078231dbf"
 dependencies = [
  "bincode",
  "serde",
@@ -6349,9 +6350,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-primitives"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1be5929843ba7cb9930fb8f1fe4f76e12baa9f6e92e9ea02feff351a0fb0df12"
+checksum = "08954e37cc693c59f6132db6f250b2d6b36d69a82827725ba2c00de1e8884d3f"
 dependencies = [
  "bincode",
  "hex",
@@ -6367,9 +6368,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-prover"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91b2766a71850cabe1361e4668f4b3b183a87051d90b75b4666ffafdc6462ebf"
+checksum = "9d4d59bef922b73b9b406c6bd39dcdfef66433beb04ec859b8f2bb19b6e5732c"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6410,9 +6411,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-circuit"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "373a9ca7e5d825220c77e3b2263cb8ea97f4116669768e9fa418607fb04df2bd"
+checksum = "6c5d9ac385a59197465717c0687b04e6564a1d5d2e91459c61599a1902e7f720"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6444,9 +6445,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-compiler"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6dbbd7419d45625248fc1c7df9f8b95861cbbaee5835bf61480772c55725d77"
+checksum = "c792857d97ee7012814c7919d8b4b5ec3d78f0632debdca3f565fa4afe48c312"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6466,9 +6467,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-core"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba114b2fe1cea19d9c3e9e5d4ed7f56f56a0710078c33032f7ba09a7d4d6e053"
+checksum = "b3cf090783787865fa2e123395309e0366256977c9aeb1f20c66455244dd95df"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -6509,9 +6510,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-derive"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "021b259b90018be29aa79fc6bb3d3247d9ea50e0f7d29be994403aa16f0979ba"
+checksum = "67b6b96b27d38b57e3c0541fa549016fe89c3fd8806b534dd37fe5df8e00adf1"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6519,9 +6520,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-gnark-ffi"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "820786c2969dff20d119693a830c04105f2585368693e25a27c39c8fbe2ad605"
+checksum = "39677668adde207270b803d72f65d329acf7cace8167c7592d6fb3c3c991c9ab"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6545,9 +6546,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-sdk"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac404d61e27a9b668c91e1e956052be903ab387409d3b12f6a4a218aee9ee040"
+checksum = "c5a369b012b852c0bbe13527573f13c7d3d7b5816221832c62bdd8b1024a5f6d"
 dependencies = [
  "alloy-primitives",
  "alloy-signer 0.8.3",
@@ -6593,9 +6594,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-stark"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a9b3658df710a7b885b1ad310b27a00abd304e7d14f07ba1b1a9b9aaf08a482"
+checksum = "d7fbf0a5d98aaa723ed3f675f1057eb674576dac85656aaeb37d9f15279abfdc"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",
@@ -6628,9 +6629,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-zkvm"
-version = "4.0.0-rc.10"
+version = "4.0.0-rc.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28f50891ad17d456c0cf2a47e13cf82da13bebb0890ffb2d79363f13b0a4c818"
+checksum = "696fb397d323b05674a17044eb70478f30f786778d2e403de1ded0b14b0596f9"
 dependencies = [
  "cfg-if",
  "getrandom",
@@ -7474,9 +7475,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b913a3b5fe84142e269d63cc62b64319ccaf89b748fc31fe025177f767a756c4"
+checksum = "744018581f9a3454a9e15beb8a33b017183f1e7c0cd170232a2d1453b23a51c4"
 
 [[package]]
 name = "valuable"

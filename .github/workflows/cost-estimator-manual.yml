@@ -4,17 +4,11 @@ on:
   workflow_dispatch:
     inputs: {}
   schedule:
-    - cron: '0 0 * * *' # Run the workflow every day at midnight UTC.
+    - cron: "0 0 * * *" # Run the workflow every day at midnight UTC.
 
 jobs:
   daily-cost-estimator:
-    runs-on:
-      - runs-on
-      - cpu=32
-      - ram=128
-      - family=m7a+m7i-flex
-      - image=ubuntu22-full-x64
-      - run-id=${{ github.run_id }}
+    runs-on: [self-hosted, Linux, X64, eks, prod, infra, default]
     steps:
       - uses: actions/checkout@v4
 
@@ -34,4 +28,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: execution-reports
-          path: execution-reports/ 
+          path: execution-reports/
