@@ -11,10 +11,7 @@ use kona_preimage::{
 };
 use kona_proof::FlushableCache;
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
-use rkyv::{
-    with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Deserialize, Fallible, Infallible, Resolver, Serialize,
-};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use spin::mutex::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -25,21 +22,16 @@ type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
 /// Rather than relying on a trusted host for data, the data in this oracle
 /// is verified with the `verify()` function, and then is trusted for
 /// the remainder of execution.
-#[derive(Debug, Clone, Archive, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct InMemoryOracle {
-    #[with(Lock)]
     cache: LockableMap,
 }
 
 impl InMemoryOracle {
     /// Creates a new [InMemoryOracle] from the raw bytes passed into the zkVM.
-    /// These values are deserialized using rkyv for zero copy deserialization.
     pub fn from_raw_bytes(input: Vec<u8>) -> Self {
-        println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-archive");
-        let archived = unsafe { rkyv::archived_root::<Self>(&input) };
-        println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-archive");
         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-deserialize");
-        let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized = bincode::deserialize(&input).unwrap();
         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-deserialize");
 
         deserialized
@@ -200,45 +192,23 @@ impl InMemoryOracle {
     }
 }
 
-struct Lock;
-
-impl<F: Archive> ArchiveWith<Arc<Mutex<F>>> for Lock {
-    type Archived = Archived<F>;
-    type Resolver = Resolver<F>;
-
-    unsafe fn resolve_with(
-        field: &Arc<Mutex<F>>,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        field.lock().resolve(pos, resolver, out.cast());
+impl Serialize for InMemoryOracle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.cache.lock().serialize(serializer)
     }
 }
 
-impl<S, T> SerializeWith<Arc<Mutex<T>>, S> for Lock
-where
-    T: Serialize<S>,
-    S: Fallible + ?Sized,
-{
-    fn serialize_with(
-        field: &Arc<Mutex<T>>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
-        field.lock().serialize(serializer)
-    }
-}
-
-impl<D, T> DeserializeWith<Archived<T>, Arc<Mutex<T>>, D> for Lock
-where
-    Archived<T>: Deserialize<T, D>,
-    T: Archive,
-    D: Fallible + ?Sized,
-{
-    fn deserialize_with(
-        field: &Archived<T>,
-        deserializer: &mut D,
-    ) -> Result<Arc<Mutex<T>>, D::Error> {
-        Ok(Arc::new(Mutex::new(field.deserialize(deserializer)?)))
+impl<'de> Deserialize<'de> for InMemoryOracle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let cache = HashMap::deserialize(deserializer)?;
+        Ok(InMemoryOracle {
+            cache: Arc::new(Mutex::new(cache)),
+        })
     }
 }

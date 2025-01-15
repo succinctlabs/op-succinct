@@ -31,7 +31,7 @@ alloy-eips.workspace = true
 kona-host.workspace = true
 
 # general
-rkyv.workspace = true
+bincode.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 cargo_metadata.workspace = true
