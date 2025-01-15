@@ -55,6 +55,8 @@ contract OPSuccinctDisputeGame is ISemver, CWIA, IDisputeGame {
     ///      i.e. The game type should indicate the security model.
     /// @return gameType_ The type of proof system being used.
     function gameType() public pure returns (GameType) {
+        // TODO: Once the following PR https://github.com/ethereum-optimism/optimism/pull/13780 is merged,
+        // update this to return the correct game type: GameTypes.OP_SUCCINCT
         return GameType.wrap(3);
     }
 
