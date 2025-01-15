@@ -125,9 +125,6 @@ To start the mock `op-succinct` service, add the following parameters to the `.e
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `OP_SUCCINCT_MOCK` | Set to `true` for mock mode. |
 
-If you want the proposer to use the `OPSuccinctDisputeGameFactory` contract, you must add an additional parameter `DGF_ADDRESS` to the `.env` file
-with the `OPSuccinctDisputeGameFactory` contract address.
-
 Now, you should have the following in your `.env` file:
 
 | Parameter | Description |

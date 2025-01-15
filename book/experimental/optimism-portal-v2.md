@@ -1,11 +1,11 @@
 # OptimismPortalV2
 
-If you want to use `OptimismPortalV2` or conform to Optimism `IDisputeGame`, you can follow this section that describe how to deploy 2 contracts:
+If you want to use `OptimismPortalV2` or conform to Optimism's `IDisputeGame`, you can follow this section that describe how to deploy the 2 contracts:
 
-* `OPSuccinctDisputeGame` a thin wrapper around `OPSuccinctL2OutputOracle` that implements `IDisputeGame`
-* `OPSuccinctDisputeGameFactory` the proposer entry point when creating new dispoute game
+* `OPSuccinctDisputeGame` a thin wrapper around `OPSuccinctL2OutputOracle` that implements `IDisputeGame`.
+* `OPSuccinctDisputeGameFactory` the proposer entry point when creating new dispute game.
 
-And instruct how to configure the proposer to use them.
+And instructions about how to configure the proposer to use them.
 
 After having done the step 2) either in mock or full mode, with `L2OO_ADDRESS` set with the address of the `OPSuccinctL2OutputOracle` contract in your `.env` file,
 run the following to deploy the contracts:
