@@ -25,3 +25,4 @@
 - [Experimental](./experimental/intro.md)
   - [OptimismPortalV2](./experimental/optimism-portal-v2.md)
 - [FAQ](./faq.md)
+- [Troubleshooting](./troubleshooting.md)
