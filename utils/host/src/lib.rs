@@ -82,7 +82,7 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
     })?;
 
     // Convert the memory KV store to a HashMap<[u8;32], Vec<u8>>.
-    let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder::default());
+    let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
     for (k, v) in mem_kv_store.store {
         kv_store_map.insert(k.0, v);
     }
