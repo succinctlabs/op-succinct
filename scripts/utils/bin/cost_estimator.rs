@@ -59,7 +59,9 @@ async fn execute_blocks_and_write_stats_csv(
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
     let report_path = root_dir.join(format!(
         "execution-reports/{}/{}-{}-report.csv",
-        l2_chain_id, start, end
+        l2_chain_id,
+        start + 1,
+        end
     ));
     // Create the parent directory if it doesn't exist
     if let Some(parent) = report_path.parent() {
@@ -212,10 +214,7 @@ async fn main() -> Result<()> {
         split_range_basic(l2_start_block, l2_end_block, args.batch_size)
     };
 
-    info!(
-        "The span batch ranges which will be executed: {:?}",
-        split_ranges
-    );
+    info!("The span batch ranges: {:?}", split_ranges);
 
     let cache_mode = if args.use_cache {
         CacheMode::KeepCache
@@ -258,7 +257,9 @@ async fn main() -> Result<()> {
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
     let report_path = root_dir.join(format!(
         "execution-reports/{}/{}-{}-report.csv",
-        l2_chain_id, l2_start_block, l2_end_block
+        l2_chain_id,
+        l2_start_block + 1,
+        l2_end_block
     ));
 
     // Read the execution stats from the CSV file and aggregate them to output to the user.

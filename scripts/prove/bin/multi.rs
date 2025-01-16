@@ -67,7 +67,9 @@ async fn main() -> Result<()> {
         proof
             .save(format!(
                 "{}/{}-{}.bin",
-                proof_dir, l2_start_block, l2_end_block
+                proof_dir,
+                l2_start_block + 1,
+                l2_end_block
             ))
             .expect("saving proof failed");
     } else {
@@ -93,7 +95,9 @@ async fn main() -> Result<()> {
 
         let report_path = format!(
             "execution-reports/multi/{}/{}-{}.csv",
-            l2_chain_id, l2_start_block, l2_end_block
+            l2_chain_id,
+            l2_start_block + 1,
+            l2_end_block
         );
 
         // Write to CSV.

@@ -51,20 +51,20 @@ pub async fn get_validated_block_range(
     };
 
     // If start block not provided, use end block - default_range
-    let l2_start_block = match start {
-        Some(start) => start,
-        None => max(1, l2_end_block.saturating_sub(default_range)),
+    let l2_initial_state_block = match start {
+        Some(start) => start - 1,
+        None => max(1, l2_end_block.saturating_sub(default_range + 1)),
     };
 
-    if l2_start_block >= l2_end_block {
+    if l2_initial_state_block >= l2_end_block {
         bail!(
-            "Start block ({}) must be less than end block ({})",
-            l2_start_block,
+            "Initial state block ({}) must be less than end block ({})",
+            l2_initial_state_block,
             l2_end_block
         );
     }
 
-    Ok((l2_start_block, l2_end_block))
+    Ok((l2_initial_state_block, l2_end_block))
 }
 
 /// Get a fixed recent (less than the provided interval) block range.
