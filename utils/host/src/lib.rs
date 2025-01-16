@@ -8,26 +8,19 @@ pub mod witnessgen;
 use alloy::sol;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
+use anyhow::Result;
 use kona_host::{
     kv::{DiskKeyValueStore, MemoryKeyValueStore},
     HostCli,
 };
 use op_alloy_genesis::RollupConfig;
 use op_succinct_client_utils::{
-    boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, InMemoryOracle,
+    boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
+    InMemoryOracle,
 };
+use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
-
-use anyhow::Result;
-
-use rkyv::{
-    ser::{
-        serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
-        Serializer,
-    },
-    AlignedVec,
-};
 
 sol! {
     #[allow(missing_docs)]
@@ -88,17 +81,10 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         anyhow::anyhow!("Failed to convert DiskKeyValueStore to MemoryKeyValueStore")
     })?;
 
-    let mut serializer = CompositeSerializer::new(
-        AlignedSerializer::new(AlignedVec::new()),
-        // Note: This value corresponds to the size of the heap needed to serialize the KV store.
-        // Increase this value if we start running into serialization issues.
-        HeapScratch::<268435456>::new(),
-        SharedSerializeMap::new(),
-    );
-    // Serialize the underlying KV store.
-    serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
+    let in_memory_oracle = InMemoryOracle::from_b256_hashmap(mem_kv_store.store);
 
-    let buffer = serializer.into_serializer().into_inner();
+    let buffer = to_bytes::<rkyv::rancor::Error>(&in_memory_oracle)?;
+
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
 
