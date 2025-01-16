@@ -20,7 +20,7 @@ type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
 
 #[derive(Archive, Serialize, Deserialize)]
 pub struct InMemoryOracleData {
-    pub map: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>, // Key and Value must implement Archive/Serialize/Deserialize
+    pub map: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
 }
 
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
