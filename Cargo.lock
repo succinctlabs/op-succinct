@@ -39,7 +39,7 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_cbor",
  "sha2",
- "sp1-lib",
+ "sp1-lib 4.0.0",
  "sp1-zkvm",
 ]
 
@@ -1314,7 +1314,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.10.5",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -2211,7 +2211,7 @@ dependencies = [
  "hex-literal",
  "rfc6979",
  "signature",
- "sp1-lib",
+ "sp1-lib 4.0.0",
  "spki",
 ]
 
@@ -3466,9 +3466,9 @@ dependencies = [
 
 [[package]]
 name = "kzg-rs"
-version = "0.2.4"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08151404e9f89dfc6149ccb2d3e03f2c4ec4f253b721770975da1a1644c6b79f"
+checksum = "0850eb19206463a61bede4f7b7e6b21731807137619044b1f3c287ebcfe2b3b0"
 dependencies = [
  "ff 0.13.0",
  "hex",
@@ -6264,6 +6264,20 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bea7811abd2d3a991007fcb284f41152840b8388c171288d0c52c6793956609c"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
+]
+
+[[package]]
+name = "sp1-lib"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2378a017c2159e1ab89ed73ff797771ab8b00b11ee1d86852c00c2c9fabc76ce"
@@ -6568,22 +6582,22 @@ dependencies = [
  "p3-field",
  "rand",
  "sha2",
- "sp1-lib",
+ "sp1-lib 4.0.0",
  "sp1-primitives",
 ]
 
 [[package]]
 name = "sp1_bls12_381"
-version = "0.8.0-sp1-4.0.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "260e07035fec67f2018dbb70359bed671582160bbcb2419deb812e583c8c975a"
+checksum = "a27c4b8901334dc09099dd82f80a72ddfc76b0046f4b342584c808f1931bed5a"
 dependencies = [
  "cfg-if",
  "ff 0.13.0",
  "group 0.13.0",
  "pairing 0.23.0",
  "rand_core",
- "sp1-lib",
+ "sp1-lib 1.2.0",
  "subtle",
 ]
 
@@ -6680,7 +6694,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "rand",
  "rustc-hex",
- "sp1-lib",
+ "sp1-lib 4.0.0",
 ]
 
 [[package]]
