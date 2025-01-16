@@ -98,7 +98,16 @@ async fn execute_blocks_and_write_stats_csv(
             let (_, report) = result.unwrap();
 
             // Get the existing execution stats and modify it in place.
-            let execution_stats = ExecutionStats::new(block_data, &report, 0, 0);
+            // Skip the first block if this is the very first range, as this is not actually executed
+            let first_block_number = block_data.first()
+                .map(|block| block.block_number)
+                .expect("`block_data` is empty");
+            let block_data = if first_block_number == start {
+                block_data.iter().skip(1).cloned().collect()
+            } else {
+                block_data.clone()
+            };
+            let execution_stats = ExecutionStats::new(&block_data, &report, 0, 0);
 
             let mut file = OpenOptions::new()
                 .read(true)
