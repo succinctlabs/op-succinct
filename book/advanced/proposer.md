@@ -6,13 +6,13 @@ The `op-succinct` service consists of two containers:
 
 We've packaged the `op-succinct` service in a docker compose file to make it easier to run.
 
-## Prerequisites
+# Prerequisites
 
-### RPC Requirements
+## RPC Requirements
 
 Confirm that your RPC's have all of the required endpoints. More details can be found in the [prerequisites](../quick-start/prerequisites.md#requirements) section.
 
-### Hardware Requirements
+## Hardware Requirements
 
 We recommend the following hardware configuration for the `op-succinct` service containers:
 
@@ -23,18 +23,22 @@ Using the docker compose file:
 
 Running as separate containers:
 
-- `op-succinct-server`
+- [`op-succinct/succinct-proposer`](https://ghcr.io/succinctlabs/op-succinct/succinct-proposer):
     - Full `op-succinct` service: 16 vCPUs, 64GB RAM.
     - Mock `op-succinct` service: 32 vCPUs, 128GB RAM. Increased memory because the machine is executing the proofs locally.
-- `op-succinct-proposer`: 1 vCPU, 4GB RAM
+- [`op-succinct/op-proposer`](https://ghcr.io/succinctlabs/op-succinct/op-proposer): 1 vCPU, 4GB RAM
 
 For advanced configurations, depending on the number of concurrent requests you expect, you may need to increase the number of vCPUs and memory allocated to the `op-succinct-server` container.
 
-## Environment Setup
+# Environment Setup
 
-### Required Environment Variables
+If you are running the `op-succinct` service as a Docker Compose service, you should include *all* of the required environment variables in the `.env` file for both the `op-succinct/succinct-proposer` and `op-succinct/op-proposer` services.
 
-Before starting the proposer, the following environment variables should be in your `.env` file. You should have already set up your environment when you deployed the L2 Output Oracle. If you have not done so, follow the steps in the [Contract Configuration](../contracts/configuration.md) section.
+Before starting the proposer, ensure you have deployed the L2 Output Oracle and have the address of the proxy contract ready. Follow the steps in the [Contract Configuration](../contracts/configuration.md) section.
+
+## Required Environment Variables
+
+### `op-succinct/succinct-proposer`
 
 | Parameter | Description |
 |-----------|-------------|
@@ -42,15 +46,25 @@ Before starting the proposer, the following environment variables should be in y
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
-| `NETWORK_RPC_URL` | RPC URL for the Succinct Prover Network. |
 | `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/generating-proofs/prover-network). |
-| `SP1_PROVER` | Default: `network`. Set to `network` to use the Succinct Prover Network. |
-| `PRIVATE_KEY` | Private key for the account that will be deploying the contract and posting output roots to L1. |
+
+### `op-succinct/op-proposer`
+
+| Parameter | Description |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
+| `PRIVATE_KEY` | Private key for the account that will be posting output roots to L1. |
 
-### Advanced Environment Variables
+## Advanced Environment Variables
 
-The following environment variables are optional.
+### `op-succinct/succinct-proposer`
+
+| Parameter | Description |
+|-----------|-------------|
+| `NETWORK_RPC_URL` | Default: `https://rpc.production.succinct.xyz`. RPC URL for the Succinct Prover Network. |
+| `SP1_PROVER` | Default: `network`. Set to `network` to use the Succinct Prover Network. |
+
+
+### `op-succinct/op-proposer`
 
 | Parameter | Description |
 |-----------|-------------|
