@@ -22,10 +22,12 @@ runs:
       shell: bash
       run: go version
 
-    - name: Setup GCC
-      uses: Dup4/actions-setup-gcc@v1
-      with:
-        version: latest
+    - name: Install GCC and OpenSSL dependencies
+      shell: bash
+      run: |
+        sudo yum update -y
+        sudo yum install -y gcc gcc-c++ make pkg-config openssl-devel clang llvm llvm-devel clang-devel
+        gcc --version
 
     - name: rust-cache
       uses: actions/cache@v3
@@ -35,13 +37,22 @@ runs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: rust-nightly-${{ hashFiles('**/Cargo.toml') }}
-        restore-keys: rust-nightly-
+        key: rust-nightly-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          rust-nightly-
 
     - name: Setup toolchain
       id: rustc-toolchain
       shell: bash
       run: |
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain nightly -y
-        source "$HOME/.cargo/env"
+        source $HOME/.cargo/env
         rustup default nightly
+
+    - name: Verify Rust and OpenSSL
+      shell: bash
+      run: |
+        source $HOME/.cargo/env
+        rustc --version
+        cargo --version
+        pkg-config --libs --cflags openssl

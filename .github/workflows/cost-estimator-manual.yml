@@ -17,12 +17,14 @@ jobs:
 
       - name: Run cost estimator
         run: |
+          source $HOME/.cargo/env
           RUST_LOG=info cargo run --bin cost-estimator --release -- --batch-size 30 --default-range 1000
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
+          ROLLUP_CONFIG_PATH: configs/5000/rollup.json
 
       - name: Upload execution reports
         uses: actions/upload-artifact@v4
