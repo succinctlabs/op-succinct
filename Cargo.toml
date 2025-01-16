@@ -90,7 +90,7 @@ op-alloy-network = { version = "0.6.8", default-features = false }
 # sp1
 sp1-lib = { version = "4.0.0", features = ["verify"] }
 sp1-sdk = { version = "4.0.0" }
-sp1-zkvm = {version = "4.0.0", features = ["verify", "embedded"] }
+sp1-zkvm = { version = "4.0.0", features = ["verify", "embedded"] }
 sp1-build = { version = "4.0.0" }
 
 [profile.release-client-lto]
