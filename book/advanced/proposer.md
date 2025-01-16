@@ -87,7 +87,7 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 
 # Build the Proposer Service
 
-Build the docker images for the `op-succinct/op-proposer` service.
+Build the docker images for the OP Succinct services.
 
 ```bash
 docker compose build
@@ -101,15 +101,15 @@ Now, launch both services in the background.
 docker compose up
 ```
 
-To see the logs of the `op-succinct-proposer` service, run:
+To see the logs of the OP Succinct services, run:
 
 ```bash
 docker compose logs -f
 ```
 
-After a few minutes, you should see the `op-succinct/op-proposer` service start to generate range proofs. Once enough range proofs have been generated, they will be verified in an aggregate proof and submitted to the L1.
+After a few minutes, you should see the OP Succinct services start to generate range proofs. Once enough range proofs have been generated, they will be verified in an aggregate proof and submitted to the L1.
 
-To stop the `op-succinct-proposer` service, run:
+To stop the OP Succinct services, run:
 
 ```bash
 docker compose stop
