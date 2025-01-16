@@ -39,7 +39,6 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_cbor",
  "sha2",
- "sp1-lib",
  "sp1-zkvm",
 ]
 
@@ -5110,6 +5109,7 @@ dependencies = [
  "op-alloy-rpc-types-engine",
  "op-succinct-client-utils",
  "serde_json",
+ "sp1-lib",
  "sp1-zkvm",
  "tracing",
  "tracing-subscriber",

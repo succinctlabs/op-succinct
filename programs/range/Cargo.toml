@@ -26,6 +26,7 @@ alloy-primitives.workspace = true
 
 # sp1
 sp1-zkvm.workspace = true
+sp1-lib = { workspace = true }
 
 # kona
 kona-executor.workspace = true
