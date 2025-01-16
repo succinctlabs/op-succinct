@@ -19,7 +19,6 @@ alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
 revm.workspace = true
-bytecheck.workspace = true
 
 # workspace (op-alloy)
 op-alloy-genesis.workspace = true

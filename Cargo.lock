@@ -1456,35 +1456,14 @@ checksum = "c3ac9f8b63eca6fd385229b3675f6cc0dc5c8a5c8a54a59d4f52ffd670d87b0c"
 
 [[package]]
 name = "bytecheck"
-version = "0.6.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23cdc57ce23ac53c931e88a43d06d070a6fd142f2617be5855eb75efc9beb1c2"
-dependencies = [
- "bytecheck_derive 0.6.12",
- "ptr_meta 0.1.4",
-]
-
-[[package]]
-name = "bytecheck"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50c8f430744b23b54ad15161fcbc22d82a29b73eacbe425fea23ec822600bc6f"
 dependencies = [
- "bytecheck_derive 0.8.0",
- "ptr_meta 0.3.0",
+ "bytecheck_derive",
+ "ptr_meta",
  "rancor",
  "simdutf8",
-]
-
-[[package]]
-name = "bytecheck_derive"
-version = "0.6.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3db406d29fbcd95542e92559bed4d8ad92636d1ca8b3b72ede10b4bcc010e659"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -1950,7 +1929,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
- "rayon",
 ]
 
 [[package]]
@@ -4090,7 +4068,6 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
- "bytecheck 0.6.12",
  "itertools 0.13.0",
  "kona-client",
  "kona-common",
@@ -4189,7 +4166,6 @@ dependencies = [
 name = "op-succinct-prove"
 version = "0.1.0"
 dependencies = [
- "alloy-eips 0.6.4",
  "alloy-primitives",
  "anyhow",
  "cargo_metadata",
@@ -4197,8 +4173,6 @@ dependencies = [
  "csv",
  "dotenv",
  "kona-host",
- "num-format",
- "op-alloy-genesis",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
@@ -4220,14 +4194,10 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "csv",
- "dashmap",
  "dotenv",
  "futures",
  "kona-host",
  "log",
- "op-alloy-consensus",
- "op-alloy-network",
- "op-alloy-rpc-types",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
@@ -4914,31 +4884,11 @@ dependencies = [
 
 [[package]]
 name = "ptr_meta"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0738ccf7ea06b608c10564b31debd4f5bc5e197fc8bfe088f68ae5ce81e7a4f1"
-dependencies = [
- "ptr_meta_derive 0.1.4",
-]
-
-[[package]]
-name = "ptr_meta"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe9e76f66d3f9606f44e45598d155cb13ecf09f4a28199e48daf8c8fc937ea90"
 dependencies = [
- "ptr_meta_derive 0.3.0",
-]
-
-[[package]]
-name = "ptr_meta_derive"
-version = "0.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16b845dbfca988fa33db069c0e230574d15a3088f147a87b64c7589eb662c9ac"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
+ "ptr_meta_derive",
 ]
 
 [[package]]
@@ -5031,7 +4981,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caf5f7161924b9d1cea0e4cabc97c372cea92b5f927fc13c6bca67157a0ad947"
 dependencies = [
- "ptr_meta 0.3.0",
+ "ptr_meta",
 ]
 
 [[package]]
@@ -5206,7 +5156,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a35e8a6bf28cd121053a66aa2e6a2e3eaffad4a60012179f0e864aa5ffeff215"
 dependencies = [
- "bytecheck 0.8.0",
+ "bytecheck",
 ]
 
 [[package]]
@@ -5381,12 +5331,12 @@ version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b11a153aec4a6ab60795f8ebe2923c597b16b05bb1504377451e705ef1a45323"
 dependencies = [
- "bytecheck 0.8.0",
+ "bytecheck",
  "bytes",
  "hashbrown 0.15.2",
  "indexmap 2.7.0",
  "munge",
- "ptr_meta 0.3.0",
+ "ptr_meta",
  "rancor",
  "rend",
  "rkyv_derive",
