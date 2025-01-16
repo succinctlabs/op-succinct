@@ -85,7 +85,7 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `POLL_INTERVAL` | Default: `20s`. The interval at which the `op-succinct-proposer` service runs. |
 | `USE_CACHED_DB` | Default: `false`. Set to `true` to use cached proofs from previous runs when restarting the service, avoiding regeneration of unused proofs. |
 
-## Build the Proposer Service
+# Build the Proposer Service
 
 Build the docker images for the `op-succinct-proposer` service.
 
@@ -93,7 +93,7 @@ Build the docker images for the `op-succinct-proposer` service.
 docker compose build
 ```
 
-## Run the Proposer
+# Run the Proposer
 
 This command launches the `op-succinct-proposer` service in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original `op-proposer` service.
 
