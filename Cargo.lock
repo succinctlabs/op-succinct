@@ -1962,7 +1962,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
- "rayon",
 ]
 
 [[package]]
@@ -4203,7 +4202,6 @@ dependencies = [
 name = "op-succinct-prove"
 version = "0.1.0"
 dependencies = [
- "alloy-eips 0.6.4",
  "alloy-primitives",
  "anyhow",
  "cargo_metadata",
@@ -4211,8 +4209,6 @@ dependencies = [
  "csv",
  "dotenv",
  "kona-host",
- "num-format",
- "op-alloy-genesis",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
@@ -4234,14 +4230,10 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "csv",
- "dashmap",
  "dotenv",
  "futures",
  "kona-host",
  "log",
- "op-alloy-consensus",
- "op-alloy-network",
- "op-alloy-rpc-types",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
