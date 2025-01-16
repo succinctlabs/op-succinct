@@ -1,4 +1,4 @@
-name: Cost Estimator (1000 blocks)
+name: Cost Estimator (1000 blocks) - Sepolia
 
 on:
   workflow_dispatch:
@@ -24,7 +24,8 @@ jobs:
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          ROLLUP_CONFIG_PATH: configs/5000/rollup.json
+          EIGEN_DA_PROXY_URL: ${{ secrets.EIGEN_DA_PROXY_URL }}
+          ROLLUP_CONFIG_PATH: configs/5003/rollup.json
 
       - name: Upload execution reports
         uses: actions/upload-artifact@v4
