@@ -103,7 +103,7 @@ fn main() {
                 println!("cycle-tracker-end: boot-load");
 
                 println!("cycle-tracker-start: oracle-load");
-                let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
+                let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_aligned::<16>();
                 let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
                 println!("cycle-tracker-end: oracle-load");
 
