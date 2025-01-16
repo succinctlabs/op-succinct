@@ -51,6 +51,11 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 ### `op-succinct/op-proposer`
 
 | Parameter | Description |
+|-----------|-------------|
+| `L1_RPC` | L1 Archive Node. |
+| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
+| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
 | `PRIVATE_KEY` | Private key for the account that will be posting output roots to L1. |
 
