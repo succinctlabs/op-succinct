@@ -1,8 +1,8 @@
 # Proposer
 
 The `op-succinct` service consists of two containers:
-- `op-succinct-server`: Receives proof requests from the `op-succinct-proposer`, generates the witness for the proof, and submits the proof to the Succinct Prover Network. Handles the communication with the [Succinct's Prover Network](https://docs.succinct.xyz/docs/generating-proofs/prover-network) to fetch the proof status and completed proof data.
-- `op-succinct-proposer`: Monitors L1 state to determine when to request a proof. Sends proof requests to the `op-succinct-server`. Once proofs have been generated for a sufficiently large range, aggregates range proofs into an aggregation proof. Submits the aggregation proof to the `OPSuccinctL2OutputOracle` contract which includes the L2 state outputs.
+- [`op-succinct/succinct-proposer`](https://ghcr.io/succinctlabs/op-succinct/succinct-proposer): Receives proof requests from the `op-succinct/op-proposer`, generates the witness for the proof, and submits the proof to the Succinct Prover Network. Handles the communication with the [Succinct's Prover Network](https://docs.succinct.xyz/docs/generating-proofs/prover-network) to fetch the proof status and completed proof data.
+- [`op-succinct/op-proposer`](https://ghcr.io/succinctlabs/op-succinct/op-proposer): Monitors L1 state to determine when to request a proof. Sends proof requests to the `op-succinct/succinct-proposer`. Once proofs have been generated for a sufficiently large range, aggregates range proofs into an aggregation proof. Submits the aggregation proof to the `OPSuccinctL2OutputOracle` contract which includes the L2 state outputs.
 
 We've packaged the `op-succinct` service in a docker compose file to make it easier to run.
 
@@ -78,16 +78,16 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `WITNESS_GEN_TIMEOUT` | Default: `1200`. The maximum time in seconds to spend generating a witness for `op-succinct-server`. |
 | `MAX_BLOCK_RANGE_PER_SPAN_PROOF` | Default: `300`. The maximum number of blocks to include in each span proof. For chains with high throughput, you need to decrease this value. |
 | `OP_SUCCINCT_MOCK` | Default: `false`. Set to `true` to run in mock proof mode. The `OPSuccinctL2OutputOracle` contract must be configured to use an `SP1MockVerifier`. |
-| `OP_SUCCINCT_SERVER_URL` | Default: `http://op-succinct-server:3000`. The URL of the `op-succinct-server` service which the `op-succinct-proposer` will send proof requests to. |
+| `OP_SUCCINCT_SERVER_URL` | Default: `http://op-succinct-server:3000`. The URL of the `op-succinct-server` service which the `op-succinct/op-proposer` will send proof requests to. |
 | `METRICS_ENABLED` | Default: `true`. Set to `false` to disable metrics collection. |
 | `METRICS_PORT` | Default: `7300`. The port to run the metrics server on. |
 | `DB_PATH` | Default: `/usr/local/bin/dbdata`. The path to the database directory within the container. |
-| `POLL_INTERVAL` | Default: `20s`. The interval at which the `op-succinct-proposer` service runs. |
+| `POLL_INTERVAL` | Default: `20s`. The interval at which the `op-succinct/op-proposer` service runs. |
 | `USE_CACHED_DB` | Default: `false`. Set to `true` to use cached proofs from previous runs when restarting the service, avoiding regeneration of unused proofs. |
 
 # Build the Proposer Service
 
-Build the docker images for the `op-succinct-proposer` service.
+Build the docker images for the `op-succinct/op-proposer` service.
 
 ```bash
 docker compose build
@@ -95,9 +95,7 @@ docker compose build
 
 # Run the Proposer
 
-This command launches the `op-succinct-proposer` service in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original `op-proposer` service.
-
-After a few minutes, you should see the `op-succinct-proposer` service start to generate range proofs. Once enough range proofs have been generated, they will be verified in an aggregate proof and submitted to the L1.
+Now, launch both services in the background.
 
 ```bash
 docker compose up
@@ -109,7 +107,9 @@ To see the logs of the `op-succinct-proposer` service, run:
 docker compose logs -f
 ```
 
-and to stop the `op-succinct-proposer` service, run:
+After a few minutes, you should see the `op-succinct/op-proposer` service start to generate range proofs. Once enough range proofs have been generated, they will be verified in an aggregate proof and submitted to the L1.
+
+To stop the `op-succinct-proposer` service, run:
 
 ```bash
 docker compose stop
