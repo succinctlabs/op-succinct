@@ -23,7 +23,7 @@ pub struct HostExecutorArgs {
     #[clap(long, default_value = "100")]
     pub default_range: u64,
     /// The environment file to use.
-    #[clap(long, default_value = ".env")]
+    #[clap(long, default_value = ".env.opmainnet")]
     pub env_file: PathBuf,
     /// Whether to generate proofs.
     #[clap(long)]

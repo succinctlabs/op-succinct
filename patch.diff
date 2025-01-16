@@ -1,0 +1,483 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index f5dde64..8fddb99 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -39,7 +39,7 @@ dependencies = [
+  "op-succinct-client-utils",
+  "serde_cbor",
+  "sha2",
+- "sp1-lib",
++ "sp1-lib 4.0.0",
+  "sp1-zkvm",
+ ]
+ 
+@@ -2211,7 +2211,7 @@ dependencies = [
+  "hex-literal",
+  "rfc6979",
+  "signature",
+- "sp1-lib",
++ "sp1-lib 4.0.0-rc.11",
+  "spki",
+ ]
+ 
+@@ -4105,6 +4105,7 @@ dependencies = [
+  "alloy-sol-types",
+  "anyhow",
+  "async-trait",
++ "bytecheck 0.6.12",
+  "itertools 0.13.0",
+  "kona-client",
+  "kona-common",
+@@ -6106,9 +6107,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-build"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "b1a0466de2063deb545dba0723821df15e06992a05fce2981ee6334310f6ae0c"
++version = "4.0.0"
+ dependencies = [
+  "anyhow",
+  "cargo_metadata",
+@@ -6119,9 +6118,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-core-executor"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "2232f1fac622da63a98893bb6014cbc8169955355999a038d4c95b0fb18a41c9"
++version = "4.0.0"
+ dependencies = [
+  "bincode",
+  "bytemuck",
+@@ -6144,7 +6141,7 @@ dependencies = [
+  "serde",
+  "serde_json",
+  "sp1-curves",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-stark",
+  "strum",
+  "strum_macros",
+@@ -6158,9 +6155,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-core-machine"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "80bf55c47af18c3e4b369c0becd104883ef69f4bef23ce98854784247af9ae00"
++version = "4.0.0"
+ dependencies = [
+  "bincode",
+  "cbindgen",
+@@ -6199,7 +6194,7 @@ dependencies = [
+  "sp1-core-executor",
+  "sp1-curves",
+  "sp1-derive",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-stark",
+  "static_assertions",
+  "strum",
+@@ -6215,9 +6210,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-cuda"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "29ab934478c06447ed2f5d069df063913ae6cd1b7d09efc4ceebcf95b609c1ad"
++version = "4.0.0"
+ dependencies = [
+  "bincode",
+  "ctrlc",
+@@ -6232,9 +6225,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-curves"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c73ba59503249c055a44f97f895186ce6a429d856a50ac0938d4ccdeef966858"
++version = "4.0.0"
+ dependencies = [
+  "cfg-if",
+  "dashu",
+@@ -6247,16 +6238,14 @@ dependencies = [
+  "p3-field",
+  "serde",
+  "snowbridge-amcl",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-stark",
+  "typenum",
+ ]
+ 
+ [[package]]
+ name = "sp1-derive"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "37ca695c6394f4c1d7b1e7cbdddb306c62d6cad669b5ba815ff7b77699c072bd"
++version = "4.0.0"
+ dependencies = [
+  "quote",
+  "syn 1.0.109",
+@@ -6270,7 +6259,16 @@ checksum = "f4eb00d2fc1c7bcd56b926e8d335a2f9979932a957d05e4050ac0d9078231dbf"
+ dependencies = [
+  "bincode",
+  "serde",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0-rc.11",
++]
++
++[[package]]
++name = "sp1-lib"
++version = "4.0.0"
++dependencies = [
++ "bincode",
++ "serde",
++ "sp1-primitives 4.0.0",
+ ]
+ 
+ [[package]]
+@@ -6291,11 +6289,25 @@ dependencies = [
+  "sha2",
+ ]
+ 
++[[package]]
++name = "sp1-primitives"
++version = "4.0.0"
++dependencies = [
++ "bincode",
++ "hex",
++ "lazy_static",
++ "num-bigint 0.4.6",
++ "p3-baby-bear",
++ "p3-field",
++ "p3-poseidon2",
++ "p3-symmetric",
++ "serde",
++ "sha2",
++]
++
+ [[package]]
+ name = "sp1-prover"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "9d4d59bef922b73b9b406c6bd39dcdfef66433beb04ec859b8f2bb19b6e5732c"
++version = "4.0.0"
+ dependencies = [
+  "anyhow",
+  "bincode",
+@@ -6322,7 +6334,7 @@ dependencies = [
+  "sha2",
+  "sp1-core-executor",
+  "sp1-core-machine",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-recursion-circuit",
+  "sp1-recursion-compiler",
+  "sp1-recursion-core",
+@@ -6336,9 +6348,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-recursion-circuit"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "6c5d9ac385a59197465717c0687b04e6564a1d5d2e91459c61599a1902e7f720"
++version = "4.0.0"
+ dependencies = [
+  "hashbrown 0.14.5",
+  "itertools 0.13.0",
+@@ -6360,7 +6370,7 @@ dependencies = [
+  "sp1-core-executor",
+  "sp1-core-machine",
+  "sp1-derive",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-recursion-compiler",
+  "sp1-recursion-core",
+  "sp1-recursion-gnark-ffi",
+@@ -6370,9 +6380,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-recursion-compiler"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c792857d97ee7012814c7919d8b4b5ec3d78f0632debdca3f565fa4afe48c312"
++version = "4.0.0"
+ dependencies = [
+  "backtrace",
+  "itertools 0.13.0",
+@@ -6382,7 +6390,7 @@ dependencies = [
+  "p3-symmetric",
+  "serde",
+  "sp1-core-machine",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-recursion-core",
+  "sp1-recursion-derive",
+  "sp1-stark",
+@@ -6392,9 +6400,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-recursion-core"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "b3cf090783787865fa2e123395309e0366256977c9aeb1f20c66455244dd95df"
++version = "4.0.0"
+ dependencies = [
+  "backtrace",
+  "cbindgen",
+@@ -6424,7 +6430,7 @@ dependencies = [
+  "serde",
+  "sp1-core-machine",
+  "sp1-derive",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-stark",
+  "static_assertions",
+  "thiserror 1.0.69",
+@@ -6435,9 +6441,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-recursion-derive"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "67b6b96b27d38b57e3c0541fa549016fe89c3fd8806b534dd37fe5df8e00adf1"
++version = "4.0.0"
+ dependencies = [
+  "quote",
+  "syn 1.0.109",
+@@ -6445,9 +6449,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-recursion-gnark-ffi"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "39677668adde207270b803d72f65d329acf7cace8167c7592d6fb3c3c991c9ab"
++version = "4.0.0"
+ dependencies = [
+  "anyhow",
+  "bincode",
+@@ -6471,9 +6473,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-sdk"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "c5a369b012b852c0bbe13527573f13c7d3d7b5816221832c62bdd8b1024a5f6d"
++version = "4.0.0"
+ dependencies = [
+  "alloy-primitives",
+  "alloy-signer 0.8.3",
+@@ -6503,7 +6503,7 @@ dependencies = [
+  "sp1-core-executor",
+  "sp1-core-machine",
+  "sp1-cuda",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "sp1-prover",
+  "sp1-stark",
+  "strum",
+@@ -6519,9 +6519,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-stark"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d7fbf0a5d98aaa723ed3f675f1057eb674576dac85656aaeb37d9f15279abfdc"
++version = "4.0.0"
+ dependencies = [
+  "arrayref",
+  "hashbrown 0.14.5",
+@@ -6545,7 +6543,7 @@ dependencies = [
+  "rayon-scan",
+  "serde",
+  "sp1-derive",
+- "sp1-primitives",
++ "sp1-primitives 4.0.0",
+  "strum",
+  "strum_macros",
+  "sysinfo 0.30.13",
+@@ -6554,9 +6552,7 @@ dependencies = [
+ 
+ [[package]]
+ name = "sp1-zkvm"
+-version = "4.0.0-rc.11"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "696fb397d323b05674a17044eb70478f30f786778d2e403de1ded0b14b0596f9"
++version = "4.0.0"
+ dependencies = [
+  "cfg-if",
+  "critical-section",
+@@ -6568,8 +6564,8 @@ dependencies = [
+  "p3-field",
+  "rand",
+  "sha2",
+- "sp1-lib",
+- "sp1-primitives",
++ "sp1-lib 4.0.0",
++ "sp1-primitives 4.0.0",
+ ]
+ 
+ [[package]]
+@@ -6582,7 +6578,7 @@ dependencies = [
+  "group 0.13.0",
+  "pairing 0.23.0",
+  "rand_core",
+- "sp1-lib",
++ "sp1-lib 4.0.0-rc.11",
+  "subtle",
+ ]
+ 
+@@ -6679,7 +6675,7 @@ dependencies = [
+  "num-bigint 0.4.6",
+  "rand",
+  "rustc-hex",
+- "sp1-lib",
++ "sp1-lib 4.0.0-rc.11",
+ ]
+ 
+ [[package]]
+diff --git a/Cargo.toml b/Cargo.toml
+index 79670d3..7c77c35 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -30,7 +30,8 @@ reqwest = { version = "0.12", features = ["json"] }
+ csv = "1.3.0"
+ serde = { version = "1.0.198", features = ["derive"] }
+ serde_json = { version = "1.0.117", default-features = false }
+-rkyv = {version = "0.7"}
++bytecheck = { version = "0.6.11", default-features = false }
++rkyv = { version = "0.7", features = ["validation"] }
+ hex = "0.4.3"
+ bincode = "1.3.3"
+ base64 = "0.22.1"
+@@ -88,10 +89,13 @@ op-alloy-rpc-types-engine = { version = "0.6.8", default-features = false }
+ op-alloy-network = { version = "0.6.8", default-features = false }
+ 
+ # sp1
+-sp1-lib = { version = "4.0.0-rc.11", features = ["verify"] }
+-sp1-sdk = { version = "4.0.0-rc.11" }
+-sp1-zkvm = {version = "4.0.0-rc.11", features = ["verify", "embedded"] }
+-sp1-build = { version = "4.0.0-rc.11" }
++sp1-lib = { path = "../sp1/crates/zkvm/lib", features = ["verify"] }
++sp1-sdk = { path = "../sp1/crates/sdk" }
++sp1-zkvm = { path = "../sp1/crates/zkvm/entrypoint", features = [
++    "verify",
++    "embedded",
++] }
++sp1-build = { path = "../sp1/crates/build" }
+ 
+ [profile.release-client-lto]
+ inherits = "release"
+diff --git a/configs/10/rollup.json b/configs/10/rollup.json
+index 21cf836..cff2345 100644
+--- a/configs/10/rollup.json
++++ b/configs/10/rollup.json
+@@ -41,6 +41,7 @@
+   "ecotone_time": 1710374401,
+   "fjord_time": 1720627201,
+   "granite_time": 1726070401,
++  "holocene_time": 1736445601,
+   "batch_inbox_address": "0xff00000000000000000000000000000000000010",
+   "deposit_contract_address": "0xbeb5fc579115071764c7423a4f12edde41f106ed",
+   "l1_system_config_address": "0x229047fed2591dbec1ef1118d64f7af3db9eb290",
+diff --git a/scripts/utils/src/lib.rs b/scripts/utils/src/lib.rs
+index bce9190..5810251 100644
+--- a/scripts/utils/src/lib.rs
++++ b/scripts/utils/src/lib.rs
+@@ -23,7 +23,7 @@ pub struct HostExecutorArgs {
+     #[clap(long, default_value = "100")]
+     pub default_range: u64,
+     /// The environment file to use.
+-    #[clap(long, default_value = ".env")]
++    #[clap(long, default_value = ".env.opmainnet")]
+     pub env_file: PathBuf,
+     /// Whether to generate proofs.
+     #[clap(long)]
+diff --git a/utils/client/Cargo.toml b/utils/client/Cargo.toml
+index 54120bb..99cfb93 100644
+--- a/utils/client/Cargo.toml
++++ b/utils/client/Cargo.toml
+@@ -37,6 +37,7 @@ kona-driver.workspace = true
+ 
+ # general
+ serde.workspace = true
++bytecheck.workspace = true
+ rkyv.workspace = true
+ sha2.workspace = true
+ log.workspace = true
+diff --git a/utils/client/src/oracle/mod.rs b/utils/client/src/oracle/mod.rs
+index 92ac60f..2afadc3 100644
+--- a/utils/client/src/oracle/mod.rs
++++ b/utils/client/src/oracle/mod.rs
+@@ -4,6 +4,7 @@ use crate::BytesHasherBuilder;
+ use alloy_primitives::{keccak256, FixedBytes, B256};
+ use anyhow::{anyhow, Result as AnyhowResult};
+ use async_trait::async_trait;
++use bytecheck::CheckBytes;
+ use itertools::Itertools;
+ use kona_preimage::{
+     errors::PreimageOracleError, HintWriterClient, PreimageKey, PreimageKeyType,
+@@ -12,6 +13,7 @@ use kona_preimage::{
+ use kona_proof::FlushableCache;
+ use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
+ use rkyv::{
++    check_archived_root, check_archived_root_with_context, check_archived_value, from_bytes,
+     with::{ArchiveWith, DeserializeWith, SerializeWith},
+     Archive, Archived, Deserialize, Fallible, Infallible, Resolver, Serialize,
+ };
+@@ -26,6 +28,7 @@ type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
+ /// is verified with the `verify()` function, and then is trusted for
+ /// the remainder of execution.
+ #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
++#[archive_attr(derive(CheckBytes))]
+ pub struct InMemoryOracle {
+     #[with(Lock)]
+     cache: LockableMap,
+@@ -36,10 +39,13 @@ impl InMemoryOracle {
+     /// These values are deserialized using rkyv for zero copy deserialization.
+     pub fn from_raw_bytes(input: Vec<u8>) -> Self {
+         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-archive");
+-        let archived = unsafe { rkyv::archived_root::<Self>(&input) };
++        let archived = check_archived_root::<Self>(&input)
++            .map_err(|e| anyhow!("Failed to validate archive: {}", e))
++            .unwrap();
+         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-archive");
+         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-deserialize");
+-        let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
++        // let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
++        let deserialized = from_bytes(&input).expect("failed to deserialize");
+         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-deserialize");
+ 
+         deserialized
+diff --git a/utils/host/src/lib.rs b/utils/host/src/lib.rs
+index 2cab84c..b33a11b 100644
+--- a/utils/host/src/lib.rs
++++ b/utils/host/src/lib.rs
+@@ -19,9 +19,10 @@ use op_succinct_client_utils::{
+ use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
+ use std::{fs::File, io::Read};
+ 
+-use anyhow::Result;
++use anyhow::{anyhow, Result};
+ 
+ use rkyv::{
++    check_archived_value,
+     ser::{
+         serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
+         Serializer,
+@@ -96,9 +97,12 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
+         SharedSerializeMap::new(),
+     );
+     // Serialize the underlying KV store.
+-    serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
++    let pos = serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
+ 
+     let buffer = serializer.into_serializer().into_inner();
++    let archived = check_archived_value::<InMemoryOracle>(&buffer, pos)
++        .map_err(|e| anyhow!("Failed to check archived value: {}", e))
++        .unwrap();
+     let kv_store_bytes = buffer.into_vec();
+     stdin.write_slice(&kv_store_bytes);
+ 

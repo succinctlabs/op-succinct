@@ -4,6 +4,7 @@ use crate::BytesHasherBuilder;
 use alloy_primitives::{keccak256, FixedBytes, B256};
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
+use bytecheck::CheckBytes;
 use itertools::Itertools;
 use kona_preimage::{
     errors::PreimageOracleError, HintWriterClient, PreimageKey, PreimageKeyType,
@@ -12,6 +13,7 @@ use kona_preimage::{
 use kona_proof::FlushableCache;
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{
+    check_archived_root, check_archived_root_with_context, check_archived_value, from_bytes,
     with::{ArchiveWith, DeserializeWith, SerializeWith},
     Archive, Archived, Deserialize, Fallible, Infallible, Resolver, Serialize,
 };
@@ -26,6 +28,7 @@ type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
 /// is verified with the `verify()` function, and then is trusted for
 /// the remainder of execution.
 #[derive(Debug, Clone, Archive, Serialize, Deserialize)]
+#[archive_attr(derive(CheckBytes))]
 pub struct InMemoryOracle {
     #[with(Lock)]
     cache: LockableMap,
@@ -36,10 +39,13 @@ impl InMemoryOracle {
     /// These values are deserialized using rkyv for zero copy deserialization.
     pub fn from_raw_bytes(input: Vec<u8>) -> Self {
         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-archive");
-        let archived = unsafe { rkyv::archived_root::<Self>(&input) };
+        let archived = check_archived_root::<Self>(&input)
+            .map_err(|e| anyhow!("Failed to validate archive: {}", e))
+            .unwrap();
         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-archive");
         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-deserialize");
-        let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
+        // let deserialized: Self = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized = from_bytes(&input).expect("failed to deserialize");
         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-deserialize");
 
         deserialized

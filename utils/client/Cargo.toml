@@ -37,6 +37,7 @@ kona-driver.workspace = true
 
 # general
 serde.workspace = true
+bytecheck.workspace = true
 rkyv.workspace = true
 sha2.workspace = true
 log.workspace = true

@@ -19,9 +19,10 @@ use op_succinct_client_utils::{
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::{fs::File, io::Read};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use rkyv::{
+    check_archived_value,
     ser::{
         serializers::{AlignedSerializer, CompositeSerializer, HeapScratch, SharedSerializeMap},
         Serializer,
@@ -96,9 +97,12 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         SharedSerializeMap::new(),
     );
     // Serialize the underlying KV store.
-    serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
+    let pos = serializer.serialize_value(&InMemoryOracle::from_b256_hashmap(mem_kv_store.store))?;
 
     let buffer = serializer.into_serializer().into_inner();
+    let archived = check_archived_value::<InMemoryOracle>(&buffer, pos)
+        .map_err(|e| anyhow!("Failed to check archived value: {}", e))
+        .unwrap();
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
 
