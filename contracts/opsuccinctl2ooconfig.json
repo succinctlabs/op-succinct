@@ -5,16 +5,6 @@
   "opSuccinctL2OutputOracleImpl": "0xe2314c6d41f0b73d8998e3bd3174c3b149c394d5",
   "owner": "0x788c45CafaB3ea427b9079889BE43D7d3cd7500C",
   "proposer": "0x788c45CafaB3ea427b9079889BE43D7d3cd7500C",
-<<<<<<< HEAD
-  "rollupConfigHash": "0x78e77d3560e6cfb84e49b62ce66ccce1a8c347b1f3e7c6353a590dcb373a6a4e",
-  "startingBlockNumber": 8740000,
-  "startingOutputRoot": "0x7046a9509eb163d33a906daf1564c33854432ea4fdd37371623df75878c71dbe",
-  "startingTimestamp": 1736815639,
-  "submissionInterval": 2500,
-  "verifier": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B",
-  "aggregationVkey": "0x002a9b63d01f9e55e791671ff8c42008da75b0804983f2aeb501d5652ea4b03b",
-  "rangeVkeyCommitment": "0x17f2876a475131400204ac2d0a4b046d4a116d2f1b38acfd74b39acf1b27b97b"
-=======
   "rollupConfigHash": "0x0d7101e2acc7eae1fb42cfce5c604d14da561726e4e01b509315e5a9f97a9816",
   "startingBlockNumber": 7399691,
   "startingOutputRoot": "0x68b2375ce95062cfd73ad9a303ca723022322f730cdf378bc8ead80c05b7f68f",
@@ -24,5 +14,4 @@
   "aggregationVkey": "0x001758559af75612b9d16de030ed47309d7d28fadd3839a3addaa78d2d4e2754",
   "rangeVkeyCommitment": "0x39979c7850d2d3f00c30b29a503c80e245af53ce02a1202518ae0d3c1f8691d0",
   "proxyAdmin": "0x0000000000000000000000000000000000000000"
->>>>>>> e28f82e (chore: improve)
 }
