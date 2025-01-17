@@ -10,21 +10,18 @@ import {OPSuccinctL2OutputOracle} from "src/OPSuccinctL2OutputOracle.sol";
 
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
-        address OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        if (cfg.opSuccinctL2OutputOracleImpl == address(0)) {
+            cfg.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        }
+
         Proxy l2OutputOracleProxy = new Proxy(msg.sender);
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, address(l2OutputOracleProxy), true, address(0));
+        upgradeAndInitialize(cfg, address(l2OutputOracleProxy), true);
 
         return address(l2OutputOracleProxy);
     }
 
     // If `executeUpgradeCall` is false, the upgrade call will not be executed.
-    function upgradeAndInitialize(
-        address impl,
-        Config memory cfg,
-        address l2OutputOracleProxy,
-        bool executeUpgradeCall,
-        address proxyAdmin
-    ) public {
+    function upgradeAndInitialize(Config memory cfg, address l2OutputOracleProxy, bool executeUpgradeCall) public {
         // Require that the verifier gateway is deployed
         require(
             address(cfg.verifier).code.length > 0, "OPSuccinctL2OutputOracleUpgrader: verifier gateway not deployed"
@@ -50,21 +47,27 @@ contract Utils is Test, JSONDecoder {
             abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
 
         if (executeUpgradeCall) {
-            if (proxyAdmin == address(0)) {
+            if (cfg.proxyAdmin == address(0)) {
                 Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));
-                existingProxy.upgradeToAndCall(impl, initializationParams);
+                existingProxy.upgradeToAndCall(cfg.opSuccinctL2OutputOracleImpl, initializationParams);
             } else {
-                ProxyAdmin(payable(proxyAdmin)).upgradeAndCall(payable(l2OutputOracleProxy), impl, initializationParams);
+                // This is used if the ProxyAdmin contract is deployed.
+                ProxyAdmin(payable(cfg.proxyAdmin)).upgradeAndCall(
+                    payable(l2OutputOracleProxy), cfg.opSuccinctL2OutputOracleImpl, initializationParams
+                );
             }
         } else {
             // Raw calldata for an upgrade call by a multisig.
             bytes memory multisigCalldata = "";
 
-            if (proxyAdmin == address(0)) {
-                multisigCalldata = abi.encodeWithSelector(Proxy.upgradeToAndCall.selector, impl, initializationParams);
+            if (cfg.proxyAdmin == address(0)) {
+                multisigCalldata = abi.encodeWithSelector(
+                    Proxy.upgradeToAndCall.selector, cfg.opSuccinctL2OutputOracleImpl, initializationParams
+                );
             } else {
-                multisigCalldata =
-                    abi.encodeWithSelector(ProxyAdmin.upgradeAndCall.selector, impl, initializationParams);
+                multisigCalldata = abi.encodeWithSelector(
+                    ProxyAdmin.upgradeAndCall.selector, cfg.opSuccinctL2OutputOracleImpl, initializationParams
+                );
             }
 
             console.log("The calldata for upgrading the contract with the new initialization parameters is:");

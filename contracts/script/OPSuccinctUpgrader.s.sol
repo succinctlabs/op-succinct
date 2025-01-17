@@ -14,26 +14,35 @@ contract OPSuccinctUpgrader is Script, Utils {
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
-        address OPSuccinctL2OutputOracleImpl = vm.envOr("OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL", address(0));
+        // Use implementation address from config
+        address OPSuccinctL2OutputOracleImpl = cfg.opSuccinctL2OutputOracleImpl;
+        address proxyAdmin = cfg.proxyAdmin;
 
-        address proxyAdmin = vm.envOr("PROXY_ADMIN", address(0));
-
-        uint256 adminPk = vm.envUint("ADMIN_PK");
         // optionally use a different key for deployment
-        uint256 deployPk = vm.envOr("DEPLOY_PK", adminPk);
+        uint256 deployPk = vm.envOr("DEPLOY_PK", uint256(0));
+        uint256 adminPk = vm.envOr("ADMIN_PK", uint256(0));
 
-        if (OPSuccinctL2OutputOracleImpl == address(0)) {
+        // If deployPk is not set, use the default key.
+        if (deployPk != uint256(0)) {
             vm.startBroadcast(deployPk);
-
-            console.log("Deploying new logic");
-            OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
-
-            vm.stopBroadcast();
+        } else {
+            vm.startBroadcast();
         }
 
-        vm.startBroadcast(adminPk);
+        if (OPSuccinctL2OutputOracleImpl == address(0)) {
+            console.log("Deploying new OPSuccinctL2OutputOracle impl");
+            OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        }
 
-        upgradeAndInitialize(OPSuccinctL2OutputOracleImpl, cfg, l2OutputOracleProxy, executeUpgradeCall, proxyAdmin);
+        vm.stopBroadcast();
+
+        if (adminPk != uint256(0)) {
+            vm.startBroadcast(adminPk);
+        } else {
+            vm.startBroadcast();
+        }
+
+        upgradeAndInitialize(cfg, l2OutputOracleProxy, executeUpgradeCall);
 
         vm.stopBroadcast();
     }
