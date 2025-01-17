@@ -8,7 +8,7 @@ on:
 
 jobs:
   daily-cost-estimator:
-    runs-on: [self-hosted, Linux, X64, eks, prod, infra, default]
+    runs-on: [self-hosted, Linux, X64, eks, mantle-default, "sepolia"]
     steps:
       - uses: actions/checkout@v4
 
