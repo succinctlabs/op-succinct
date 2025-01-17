@@ -130,7 +130,7 @@ impl ExecutionStats {
 
         Self {
             // The first block is not included in the cycles, or in the gas used.
-            batch_start: block_data[0].block_number + 1,
+            batch_start: block_data[0].block_number - 1,
             batch_end: block_data[block_data.len() - 1].block_number,
             total_instruction_count: report.total_instruction_count(),
             total_sp1_gas: 0,
