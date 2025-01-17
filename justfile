@@ -121,8 +121,8 @@ deploy-oracle env_file=".env":
     $ENV_VARS forge script script/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
-        # --broadcast \
-        # $VERIFY
+        --broadcast \
+        $VERIFY
 
 # Upgrade the OPSuccinct L2 Output Oracle
 upgrade-oracle env_file=".env":
