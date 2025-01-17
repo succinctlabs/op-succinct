@@ -223,5 +223,4 @@ deploy-dispute-game-factory env_file=".env":
         --private-key $PRIVATE_KEY \
         --broadcast \
         $VERIFY
-            --etherscan-api-key $ETHERSCAN_API_KEY
     fi
