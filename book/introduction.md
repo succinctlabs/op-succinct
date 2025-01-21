@@ -14,10 +14,10 @@ OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https
 
 ## Getting Started
 
-1. Check the [Prerequisites](./quick-start/prerequisites.md) to ensure your environment is ready
-2. Run the [Cost Estimator](./quick-start/cost-estimator.md) to understand resource requirements
-3. Try [OP Succinct in Mock Mode](./quick-start/mock.md) for development
-4. Deploy [OP Succinct in Full Mode](./quick-start/full.md) for production
+1. Check the [Prerequisites](./quick-start/prerequisites.md) to ensure your environment is ready.
+2. Run the [Cost Estimator](./quick-start/cost-estimator.md) to understand the resource requirements for proving.
+3. Try [OP Succinct in Mock Mode](./quick-start/mock.md) for development.
+4. Deploy [OP Succinct in Full Mode](./quick-start/full.md) for production.
 
 ## Support and Community
 
@@ -27,7 +27,7 @@ All of this has been possible thanks to close collaboration with the core team a
 
 ## Documentation Structure
 
-- **Quick Start**: Get up and running quickly with basic setup and configuration
-- **Advanced**: Detailed guides for production deployment and maintenance
-- **Contracts**: `OPSuccinctL2OutputOracle` contract documentation and deployment guides
-- **FAQ & Troubleshooting**: Common issues and their solutions
+- **Quick Start**: Get up and running quickly with basic setup and configuration.
+- **Advanced**: Detailed guides for production deployment and maintenance.
+- **Contracts**: `OPSuccinctL2OutputOracle` contract documentation and deployment guides.
+- **FAQ & Troubleshooting**: Common issues and their solutions.
