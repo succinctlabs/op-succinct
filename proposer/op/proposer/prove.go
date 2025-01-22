@@ -93,7 +93,6 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 	unexecutable := status.ExecutionStatus == SP1ExecutionStatusUnexecutable
 	spanProof := req.Type == proofrequest.TypeSPAN
 	multiBlockRange := req.EndBlock-req.StartBlock > 1
-
 	// Get the number of failed requests with the same block range and status.
 	prevFailedReq, err := l.db.GetProofRequestsWithBlockRangeAndStatus(req.Type, req.StartBlock, req.EndBlock, proofrequest.StatusFAILED)
 	if err != nil {
