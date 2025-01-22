@@ -182,7 +182,15 @@ async fn request_span_proof(
         }
     };
 
-    let client = ProverClient::builder().network().build();
+    let private_key = if rand::random::<bool>() {
+        env::var("NETWORK_PRIVATE_KEY_1").unwrap()
+    } else {
+        env::var("NETWORK_PRIVATE_KEY_2").unwrap()
+    };
+    let client = ProverClient::builder()
+        .network()
+        .private_key(&private_key)
+        .build();
     let proof_id = client
         .prove(&state.range_pk, &sp1_stdin)
         .compressed()
