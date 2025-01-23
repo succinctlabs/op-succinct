@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
-import {OPSuccinctL2OutputOracle} from "../src/OPSuccinctL2OutputOracle.sol";
+import {OPSuccinctL2OutputOracle} from "../src/zk/OPSuccinctL2OutputOracle.sol";
 import {Utils} from "../test/helpers/Utils.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
@@ -31,7 +31,9 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         if (OPSuccinctL2OutputOracleImpl == address(0)) {
             console.log("Deploying new OPSuccinctL2OutputOracle impl");
-            OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+            OPSuccinctL2OutputOracleImpl = address(
+                new OPSuccinctL2OutputOracle()
+            );
         }
 
         vm.stopBroadcast();

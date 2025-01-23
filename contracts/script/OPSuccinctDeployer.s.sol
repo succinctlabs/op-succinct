@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
-import {OPSuccinctL2OutputOracle} from "../src/OPSuccinctL2OutputOracle.sol";
+import {OPSuccinctL2OutputOracle} from "../src/zk/OPSuccinctL2OutputOracle.sol";
 import {Utils} from "../test/helpers/Utils.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
@@ -23,11 +23,15 @@ contract OPSuccinctDeployer is Script, Utils {
         // Set the implementation address if it is not already set.
         if (config.opSuccinctL2OutputOracleImpl == address(0)) {
             console.log("Deploying new OPSuccinctL2OutputOracle impl");
-            config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+            config.opSuccinctL2OutputOracleImpl = address(
+                new OPSuccinctL2OutputOracle()
+            );
         }
 
         // If the Admin PK is set, use it as the owner of the proxy.
-        address proxyOwner = adminPk != uint256(0) ? vm.addr(adminPk) : msg.sender;
+        address proxyOwner = adminPk != uint256(0)
+            ? vm.addr(adminPk)
+            : msg.sender;
 
         Proxy proxy = new Proxy(proxyOwner);
 
