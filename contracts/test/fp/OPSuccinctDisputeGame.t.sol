@@ -6,7 +6,17 @@ import "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Libraries
-import {Claim, Clock, Duration, GameStatus, GameType, Hash, OutputRoot, Position, Timestamp} from "src/dispute/lib/Types.sol";
+import {
+    Claim,
+    Clock,
+    Duration,
+    GameStatus,
+    GameType,
+    Hash,
+    OutputRoot,
+    Position,
+    Timestamp
+} from "src/dispute/lib/Types.sol";
 import {ClockNotExpired} from "src/dispute/lib/Errors.sol";
 
 // Contracts
@@ -57,35 +67,27 @@ contract OPSuccinctDisputeGameTest is Test {
     // Extra data is L2 block number bigger
     bytes extraData = abi.encode(uint256(1234567891));
 
-    Hash gameUUID =
-        Hash.wrap(keccak256(abi.encode(gameType, rootClaim, extraData)));
+    Hash gameUUID = Hash.wrap(keccak256(abi.encode(gameType, rootClaim, extraData)));
 
     function setUp() public {
         // Deploy the implementation contract
         DisputeGameFactory factoryImpl = new DisputeGameFactory();
 
         // Deploy a proxy pointing to the implementation contract
-        factoryProxy = new ERC1967Proxy(
-            address(factoryImpl),
-            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, this)
-        );
+        factoryProxy =
+            new ERC1967Proxy(address(factoryImpl), abi.encodeWithSelector(DisputeGameFactory.initialize.selector, this));
 
         // Cast the factory proxy to the factory contract
         factory = DisputeGameFactory(address(factoryProxy));
 
         // Deploy the registry implementation contract
-        AnchorStateRegistry registryImpl = new AnchorStateRegistry(
-            IDisputeGameFactory(address(factory))
-        );
+        AnchorStateRegistry registryImpl = new AnchorStateRegistry(IDisputeGameFactory(address(factory)));
 
         // Prepare starting anchor roots
         startingAnchorRoots.push(
             AnchorStateRegistry.StartingAnchorRoot({
                 gameType: gameType,
-                outputRoot: OutputRoot({
-                    l2BlockNumber: 1234567890,
-                    root: startingAnchorRoot
-                })
+                outputRoot: OutputRoot({l2BlockNumber: 1234567890, root: startingAnchorRoot})
             })
         );
 
@@ -95,11 +97,7 @@ contract OPSuccinctDisputeGameTest is Test {
         // Deploy a proxy pointing to the registry implementation contract
         registryProxy = new ERC1967Proxy(
             address(registryImpl),
-            abi.encodeWithSelector(
-                AnchorStateRegistry.initialize.selector,
-                startingAnchorRoots,
-                mockSuperchainConfig
-            )
+            abi.encodeWithSelector(AnchorStateRegistry.initialize.selector, startingAnchorRoots, mockSuperchainConfig)
         );
 
         // Cast the registry proxy to the registry contract
@@ -126,11 +124,7 @@ contract OPSuccinctDisputeGameTest is Test {
         // Create a new dispute game
         vm.prank(proposer);
         vm.deal(proposer, 1 ether);
-        game = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(gameType, rootClaim, extraData)
-            )
-        );
+        game = OPSuccinctFaultDisputeGame(address(factory.create{value: 1 ether}(gameType, rootClaim, extraData)));
         vm.stopPrank();
     }
 
@@ -140,7 +134,7 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(address(factory.owner()), address(this));
         assertEq(address(factory.gameImpls(gameType)), address(gameImpl));
         assertEq(factory.gameCount(), 1);
-        (, , IDisputeGame proxy_) = factory.gameAtIndex(0);
+        (,, IDisputeGame proxy_) = factory.gameAtIndex(0);
         assertEq(address(game), address(proxy_));
 
         // Test the initialization of the game
@@ -155,14 +149,7 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(address(game).balance, 1 ether);
 
         // Test the claim data
-        (
-            ,
-            address counteredBy,
-            address claimant,
-            uint128 bond,
-            Claim claim,
-            Clock clock
-        ) = game.claimData();
+        (, address counteredBy, address claimant, uint128 bond, Claim claim, Clock clock) = game.claimData();
         assertEq(counteredBy, address(0));
         assertEq(claimant, proposer);
         assertEq(bond, 1 ether);
@@ -170,7 +157,7 @@ contract OPSuccinctDisputeGameTest is Test {
 
         // Test the anchor state registry
         assertEq(registry.superchainConfig().guardian(), address(0x789));
-        (Hash root, ) = registry.anchors(gameType);
+        (Hash root,) = registry.anchors(gameType);
         assertEq(root.raw(), startingAnchorRoot.raw());
     }
 
@@ -181,7 +168,7 @@ contract OPSuccinctDisputeGameTest is Test {
         game.resolve();
 
         // Set the clock to expire
-        (, , , , , Clock clock) = game.claimData();
+        (,,,,, Clock clock) = game.claimData();
         vm.warp(clock.raw() + 7 days);
 
         vm.expectEmit(true, false, false, false, address(game));
