@@ -17,6 +17,7 @@ path = "bin/server.rs"
 tokio = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy = { workspace = true }
+rand = { workspace = true }
 
 # local
 op-succinct-host-utils.workspace = true
