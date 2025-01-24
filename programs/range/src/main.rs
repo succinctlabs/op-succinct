@@ -18,8 +18,8 @@ use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
 use core::fmt::Debug;
 use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
-use op_alloy_genesis::RollupConfig;
-use op_alloy_protocol::L2BlockInfo;
+use maili_genesis::RollupConfig;
+use maili_protocol::L2BlockInfo;
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use tracing::{error, info, warn};
@@ -90,6 +90,8 @@ fn main() {
                 println!("cycle-tracker-report-start: oracle-verify");
                 oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-report-end: oracle-verify");
+            } else {
+                let oracle = Arc::new(CachingOracle::new(ORACLE_LRU_SIZE, oracle_client, hint_client));
             }
         }
 

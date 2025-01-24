@@ -18,8 +18,8 @@ use kona_derive::{
 use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_preimage::CommsClient;
 use kona_proof::{l1::OracleL1ChainProvider, FlushableCache};
-use op_alloy_genesis::{RollupConfig, SystemConfig};
-use op_alloy_protocol::{BlockInfo, L2BlockInfo};
+use maili_genesis::{RollupConfig, SystemConfig};
+use maili_protocol::{BlockInfo, L2BlockInfo};
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
 
 use crate::l2_chain_provider::MultiblockOracleL2ChainProvider;

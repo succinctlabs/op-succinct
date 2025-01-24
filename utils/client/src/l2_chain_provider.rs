@@ -17,9 +17,9 @@ use kona_preimage::{CommsClient, PreimageKey, PreimageKeyType};
 use kona_proof::{
     errors::OracleProviderError, l1::OracleL1ChainProvider, BootInfo, FlushableCache, HintType,
 };
+use maili_genesis::{RollupConfig, SystemConfig};
+use maili_protocol::{to_system_config, BatchValidationProvider, L2BlockInfo};
 use op_alloy_consensus::{OpBlock, OpTxEnvelope};
-use op_alloy_genesis::{RollupConfig, SystemConfig};
-use op_alloy_protocol::{to_system_config, BatchValidationProvider, L2BlockInfo};
 use std::{collections::HashMap, sync::Mutex};
 
 use crate::block_on;

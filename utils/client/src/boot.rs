@@ -3,7 +3,7 @@
 
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
-use op_alloy_genesis::RollupConfig;
+use maili_genesis::RollupConfig;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

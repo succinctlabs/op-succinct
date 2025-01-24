@@ -13,10 +13,10 @@ sp1-sdk.workspace = true
 op-succinct-client-utils.workspace = true
 
 # op-alloy
-op-alloy-genesis.workspace = true
+maili-genesis.workspace = true
 op-alloy-rpc-types.workspace = true
 op-alloy-network.workspace = true
-op-alloy-protocol.workspace = true
+maili-protocol.workspace = true
 op-alloy-consensus.workspace = true
 
 # alloy
@@ -44,4 +44,3 @@ serde.workspace = true
 reqwest.workspace = true
 log.workspace = true
 sysinfo = "0.32.0"
-

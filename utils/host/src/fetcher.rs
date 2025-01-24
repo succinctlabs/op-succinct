@@ -15,14 +15,14 @@ use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
 use kona_host::HostCli;
+use maili_genesis::RollupConfig;
+use maili_protocol::calculate_tx_l1_cost_fjord;
+use maili_protocol::L2BlockInfo;
 use op_alloy_consensus::OpBlock;
-use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind, HeaderResponse},
     BlockResponse, Network, Optimism,
 };
-use op_alloy_protocol::calculate_tx_l1_cost_fjord;
-use op_alloy_protocol::L2BlockInfo;
 use op_alloy_rpc_types::{OpTransactionReceipt, OutputResponse, SafeHeadResponse};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use serde::{Deserialize, Serialize};

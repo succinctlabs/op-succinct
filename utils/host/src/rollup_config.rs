@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use alloy::eips::eip1559::BaseFeeParams;
 use alloy_primitives::Address;
 use anyhow::Result;
-use op_alloy_genesis::ChainGenesis;
-use op_alloy_genesis::RollupConfig;
+use maili_genesis::ChainGenesis;
+use maili_genesis::RollupConfig;
 use serde::{Deserialize, Serialize};
 
 use crate::fetcher::RunContext;

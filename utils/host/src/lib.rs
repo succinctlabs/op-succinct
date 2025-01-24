@@ -13,7 +13,7 @@ use kona_host::{
     kv::{DiskKeyValueStore, MemoryKeyValueStore},
     HostCli,
 };
-use op_alloy_genesis::RollupConfig;
+use maili_genesis::RollupConfig;
 use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
     InMemoryOracleData,
