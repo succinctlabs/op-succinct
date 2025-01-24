@@ -17,30 +17,11 @@ use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use cfg_if::cfg_if;
 use core::fmt::Debug;
-use kona_derive::{
-    errors::{PipelineError, PipelineErrorKind},
-    prelude::{Pipeline, SignalReceiver},
-    types::Signal,
-};
-use kona_driver::{
-    DriverError, DriverPipeline, DriverResult, Executor, ExecutorConstructor, PipelineCursor,
-    TipCursor,
-};
-use kona_preimage::CommsClient;
-use kona_proof::{
-    executor::KonaExecutorConstructor,
-    l1::{OracleBlobProvider, OracleL1ChainProvider},
-    BootInfo, FlushableCache,
-};
 use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
 use op_alloy_genesis::RollupConfig;
 use op_alloy_protocol::L2BlockInfo;
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
-use op_succinct_client_utils::{
-    l2_chain_provider::{new_pipeline_cursor, MultiblockOracleL2ChainProvider},
-    pipeline::MultiblockOraclePipeline,
-    precompiles::zkvm_handle_register,
-};
+use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use tracing::{error, info, warn};
 
 cfg_if! {
@@ -54,7 +35,6 @@ cfg_if! {
         use alloc::vec::Vec;
         use serde_json;
     } else {
-        use kona_proof::CachingOracle;
         use op_succinct_client_utils::pipes::{ORACLE_READER, HINT_WRITER};
     }
 }
@@ -111,108 +91,24 @@ fn main() {
                 oracle.verify().expect("key value verification failed");
                 println!("cycle-tracker-report-end: oracle-verify");
             }
-            // If we are compiling for online mode, create a caching oracle that speaks to the
-            // fetcher via hints, and gather boot info from this oracle.
-            else {
-                let oracle = Arc::new(CachingOracle::new(1024, ORACLE_READER, HINT_WRITER));
-                let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
-            }
         }
 
-        let l1_provider = OracleL1ChainProvider::new(boot.clone(), oracle.clone());
-        let mut l2_provider = MultiblockOracleL2ChainProvider::new(boot.clone(), oracle.clone());
-        let beacon = OracleBlobProvider::new(oracle.clone());
+        kona_proof::block_on(kona_client::single::run(
+            ORACLE_READER,
+            HINT_WRITER,
+            Some(precompiles::fpvm_handle_register),
+        ))
+        
 
-        // If the genesis block is claimed, we can exit early.
-        // The agreed upon prestate is consented to by all parties, and there is no state
-        // transition, so the claim is valid if the claimed output root matches the agreed
-        // upon output root.
-        if boot.claimed_l2_block_number == 0 {
-            warn!("Genesis block claimed. Exiting early.");
-            assert_eq!(boot.agreed_l2_output_root, boot.claimed_l2_output_root);
-        }
-
-        ////////////////////////////////////////////////////////////////
-        //                   DERIVATION & EXECUTION                   //
-        ////////////////////////////////////////////////////////////////
-
-        let mut cursor = match new_pipeline_cursor(
-            oracle.clone(),
-            &boot,
-            &mut l1_provider.clone(),
-            &mut l2_provider.clone(),
-        )
-        .await
-        {
-            Ok(cursor) => cursor,
-            Err(_) => {
-                error!(target: "client", "Failed to find sync start");
-                panic!("Failed to find sync start");
-            }
-        };
-
-        let cfg = Arc::new(boot.rollup_config.clone());
-        let mut pipeline = MultiblockOraclePipeline::new(
-            cfg.clone(),
-            cursor.clone(),
-            oracle.clone(),
-            beacon,
-            l1_provider.clone(),
-            l2_provider.clone(),
-        );
-        let executor = KonaExecutorConstructor::new(
-            &cfg,
-            l2_provider.clone(),
-            l2_provider.clone(),
-            zkvm_handle_register,
-        );
-
-        // Run the derivation pipeline until we are able to produce the output root of the claimed
-        // L2 block.
-        let target = boot.claimed_l2_block_number;
-
-        let (number, output_root) = advance_to_target(
-            &mut pipeline,
-            &executor,
-            &mut cursor,
-            &mut l2_provider,
-            &boot,
-            target,
-            &cfg,
-        )
-        .await
-        .expect("Failed to advance to target L2 block");
-
-        ////////////////////////////////////////////////////////////////
-        //                          EPILOGUE                          //
-        ////////////////////////////////////////////////////////////////
-
-        if output_root != boot.claimed_l2_output_root {
-            error!(
-                target: "client",
-                "Failed to validate L2 block #{number} with output root {output_root}",
-                number = number,
-                output_root = output_root
-            );
-            panic!("Failed to validate L2 block #{number} with output root {output_root}");
-        }
-
-        info!(
-            target: "client",
-            "Successfully validated L2 block #{number} with output root {output_root}",
-            number = number,
-            output_root = output_root
-        );
-
-        // Manually forget large objects to avoid allocator overhead
-        std::mem::forget(pipeline);
-        std::mem::forget(executor);
-        std::mem::forget(l2_provider);
-        std::mem::forget(l1_provider);
-        std::mem::forget(oracle);
-        std::mem::forget(cfg);
-        std::mem::forget(cursor);
-        std::mem::forget(boot);
+        // // Manually forget large objects to avoid allocator overhead
+        // std::mem::forget(pipeline);
+        // std::mem::forget(executor);
+        // std::mem::forget(l2_provider);
+        // std::mem::forget(l1_provider);
+        // std::mem::forget(oracle);
+        // std::mem::forget(cfg);
+        // std::mem::forget(cursor);
+        // std::mem::forget(boot);
     });
 }
 
