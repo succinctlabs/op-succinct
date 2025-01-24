@@ -14,8 +14,6 @@ pub mod precompiles;
 
 pub mod types;
 
-pub mod pipes;
-
 extern crate alloc;
 
 pub mod l2_chain_provider;

@@ -29,7 +29,6 @@ alloy-primitives.workspace = true
 sp1-zkvm.workspace = true
 
 # kona
-kona-client.workspace = true
 kona-proof.workspace = true
 
 # op-succinct
