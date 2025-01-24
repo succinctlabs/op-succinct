@@ -11,8 +11,8 @@ import {ClockNotExpired} from "src/dispute/lib/Errors.sol";
 
 // Contracts
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
+import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
-import {OPSuccinctDisputeGameFactory} from "src/fp/OPSuccinctDisputeGameFactory.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 
 // Interfaces
@@ -34,7 +34,7 @@ contract OPSuccinctDisputeGameTest is Test {
     // Event definition matching the one in the game contract
     event Resolved(GameStatus indexed status);
 
-    OPSuccinctDisputeGameFactory factory;
+    DisputeGameFactory factory;
     ERC1967Proxy factoryProxy;
 
     OPSuccinctFaultDisputeGame gameImpl;
@@ -62,19 +62,16 @@ contract OPSuccinctDisputeGameTest is Test {
 
     function setUp() public {
         // Deploy the implementation contract
-        OPSuccinctDisputeGameFactory implementation = new OPSuccinctDisputeGameFactory();
+        DisputeGameFactory factoryImpl = new DisputeGameFactory();
 
         // Deploy a proxy pointing to the implementation contract
         factoryProxy = new ERC1967Proxy(
-            address(implementation),
-            abi.encodeWithSelector(
-                OPSuccinctDisputeGameFactory.initialize.selector,
-                this
-            )
+            address(factoryImpl),
+            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, this)
         );
 
         // Cast the factory proxy to the factory contract
-        factory = OPSuccinctDisputeGameFactory(address(factoryProxy));
+        factory = DisputeGameFactory(address(factoryProxy));
 
         // Deploy the registry implementation contract
         AnchorStateRegistry registryImpl = new AnchorStateRegistry(
