@@ -40,7 +40,7 @@ contract MockSuperchainConfig {
     }
 }
 
-contract OPSuccinctDisputeGameTest is Test {
+contract OPSuccinctFaultDisputeGameTest is Test {
     // Event definition matching the one in the game contract
     event Resolved(GameStatus indexed status);
 
