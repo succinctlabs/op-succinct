@@ -24,6 +24,7 @@ import {
     GameNotInProgress,
     UnexpectedRootClaim
 } from "src/dispute/lib/Errors.sol";
+import "src/fp/lib/Errors.sol";
 
 // Interfaces
 import {ISemver} from "src/universal/interfaces/ISemver.sol";
@@ -218,7 +219,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         startingBlockNumber_ = startingOutputRoot.l2BlockNumber;
     }
 
-    /// @notice Starting output root and block number of the game.
+    /// @notice Starting output root of the game.
     function startingRootHash() external view returns (Hash startingRootHash_) {
         startingRootHash_ = startingOutputRoot.root;
     }
@@ -252,7 +253,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         ANCHOR_STATE_REGISTRY.tryUpdateAnchorState();
 
         // Distribute the bond back to the proposer
-        // payable(claimData.claimant).transfer(claimData.bond);
         (bool success,) = claimData.claimant.call{value: claimData.bond}("");
         if (!success) revert BondTransferFailed();
     }
@@ -276,6 +276,21 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Decode the public values to check the claim root
         AggregationOutputs memory outputs = abi.decode(publicValues, (AggregationOutputs));
+
+        // The proof must have the same l1 head committed as the game's l1 head
+        if (outputs.l1Head != Hash.unwrap(l1Head())) {
+            revert UnexpectedL1Head(outputs.l1Head);
+        }
+
+        // The proof must have the same starting output root committed as the game's starting output root
+        if (outputs.l2PreRoot != Hash.unwrap(startingOutputRoot.root)) {
+            revert UnexpectedStartingOutputRoot(outputs.l2PreRoot);
+        }
+
+        // The proof must have the same claim block number committed as the starting output root's block number
+        if (outputs.claimBlockNum != l2BlockNumber()) {
+            revert UnexpectedClaimBlockNum(outputs.claimBlockNum);
+        }
 
         // The proof must show a different claim root than what was originally claimed
         if (outputs.claimRoot == Claim.unwrap(rootClaim())) {

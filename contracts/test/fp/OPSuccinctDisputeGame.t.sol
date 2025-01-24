@@ -64,8 +64,8 @@ contract OPSuccinctDisputeGameTest is Test {
     Hash startingAnchorRoot = Hash.wrap(keccak256("startingAnchorRoot"));
     Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
 
-    // Extra data is L2 block number bigger
-    bytes extraData = abi.encode(uint256(1234567891));
+    // Extra data must be the L2 block number bigger than the starting anchor root's block number
+    uint256 extraData = 1234567891;
 
     Hash gameUUID = Hash.wrap(keccak256(abi.encode(gameType, rootClaim, extraData)));
 
@@ -124,7 +124,7 @@ contract OPSuccinctDisputeGameTest is Test {
         // Create a new dispute game
         vm.prank(proposer);
         vm.deal(proposer, 1 ether);
-        game = OPSuccinctFaultDisputeGame(address(factory.create{value: 1 ether}(gameType, rootClaim, extraData)));
+        game = OPSuccinctFaultDisputeGame(address(factory.create{value: 1 ether}(gameType, rootClaim, abi.encode(extraData))));
         vm.stopPrank();
     }
 
@@ -143,13 +143,13 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(game.maxClockDuration().raw(), maxClockDuration.raw());
         assertEq(address(game.anchorStateRegistry()), address(registry));
         assertEq(game.l2ChainId(), l2ChainId);
-        assertEq(game.l2BlockNumber(), 1234567891);
+        assertEq(game.l2BlockNumber(), extraData);
         assertEq(game.startingBlockNumber(), 1234567890);
         assertEq(game.startingRootHash().raw(), startingAnchorRoot.raw());
         assertEq(address(game).balance, 1 ether);
 
         // Test the claim data
-        (, address counteredBy, address claimant, uint128 bond, Claim claim, Clock clock) = game.claimData();
+        (, address counteredBy, address claimant, uint128 bond, Claim claim,) = game.claimData();
         assertEq(counteredBy, address(0));
         assertEq(claimant, proposer);
         assertEq(bond, 1 ether);
@@ -180,28 +180,32 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(challenger.balance, 0);
     }
 
-    function testResolveChallengerWins() public {
+    function testResolveWithProof() public {
         assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
 
         vm.expectRevert(ClockNotExpired.selector);
         game.resolve();
 
-        vm.prank(challenger);
-        vm.expectEmit(true, false, false, false, address(game));
-        emit Resolved(GameStatus.CHALLENGER_WINS);
+        assertEq(address(game).balance, 1 ether);
+
+        vm.startPrank(challenger);
         game.resolveWithProof(
             abi.encode(
                 OPSuccinctFaultDisputeGame.AggregationOutputs({
-                    l1Head: bytes32(0),
-                    l2PreRoot: bytes32(0),
+                    l1Head: Hash.unwrap(game.l1Head()),
+                    l2PreRoot: Hash.unwrap(startingAnchorRoot),
                     claimRoot: bytes32(uint256(1)), // Different from game's root claim
-                    claimBlockNum: 0,
+                    claimBlockNum: extraData,
                     rollupConfigHash: bytes32(0),
                     rangeVkeyCommitment: bytes32(0)
                 })
             ),
             bytes("")
         );
+        vm.stopPrank();
+
+        (, address counteredBy,,,,) = game.claimData();
+        assertEq(counteredBy, challenger);
 
         assertEq(address(game).balance, 0);
         assertEq(proposer.balance, 0);
