@@ -3,8 +3,27 @@ pragma solidity 0.8.15;
 
 // Libraries
 import {Clone} from "@solady/utils/Clone.sol";
-import {Claim, Clock, Duration, GameStatus, GameType, Hash, LibClock, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
-import {AlreadyInitialized, AnchorRootNotFound, BondTransferFailed, ClaimAlreadyResolved, ClockNotExpired, ClockTimeExceeded, GameNotInProgress, UnexpectedRootClaim} from "src/dispute/lib/Errors.sol";
+import {
+    Claim,
+    Clock,
+    Duration,
+    GameStatus,
+    GameType,
+    Hash,
+    LibClock,
+    OutputRoot,
+    Timestamp
+} from "src/dispute/lib/Types.sol";
+import {
+    AlreadyInitialized,
+    AnchorRootNotFound,
+    BondTransferFailed,
+    ClaimAlreadyResolved,
+    ClockNotExpired,
+    ClockTimeExceeded,
+    GameNotInProgress,
+    UnexpectedRootClaim
+} from "src/dispute/lib/Errors.sol";
 
 // Interfaces
 import {ISemver} from "src/universal/interfaces/ISemver.sol";
@@ -134,18 +153,13 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (initialized) revert AlreadyInitialized();
 
         // Grab the latest anchor root.
-        (Hash root, uint256 rootBlockNumber) = ANCHOR_STATE_REGISTRY.anchors(
-            GAME_TYPE
-        );
+        (Hash root, uint256 rootBlockNumber) = ANCHOR_STATE_REGISTRY.anchors(GAME_TYPE);
 
         // Should only happen if this is a new game type that hasn't been set up yet.
         if (root.raw() == bytes32(0)) revert AnchorRootNotFound();
 
         // Set the starting output root.
-        startingOutputRoot = OutputRoot({
-            l2BlockNumber: rootBlockNumber,
-            root: root
-        });
+        startingOutputRoot = OutputRoot({l2BlockNumber: rootBlockNumber, root: root});
 
         // Revert if the calldata size is not the expected length.
         //
@@ -170,8 +184,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
         // configured starting block number.
-        if (l2BlockNumber() <= rootBlockNumber)
+        if (l2BlockNumber() <= rootBlockNumber) {
             revert UnexpectedRootClaim(rootClaim());
+        }
 
         // Set the root claim
         claimData = ClaimData({
@@ -180,10 +195,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             claimant: gameCreator(),
             bond: uint128(msg.value),
             claim: rootClaim(),
-            clock: LibClock.wrap(
-                Duration.wrap(0),
-                Timestamp.wrap(uint64(block.timestamp))
-            )
+            clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
         });
 
         // Hold the bond in the contract.
@@ -202,11 +214,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     }
 
     /// @notice Only the starting block number of the game.
-    function startingBlockNumber()
-        external
-        view
-        returns (uint256 startingBlockNumber_)
-    {
+    function startingBlockNumber() external view returns (uint256 startingBlockNumber_) {
         startingBlockNumber_ = startingOutputRoot.l2BlockNumber;
     }
 
@@ -229,8 +237,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // INVARIANT: Cannot resolve a subgame unless the clock of its would-be counter has expired
         // INVARIANT: Assuming ordered subgame resolution, challengeClockDuration is always >= MAX_CLOCK_DURATION if all
         // descendant subgames are resolved
-        if (challengeClockDuration.raw() < MAX_CLOCK_DURATION.raw())
+        if (challengeClockDuration.raw() < MAX_CLOCK_DURATION.raw()) {
             revert ClockNotExpired();
+        }
 
         // Update the global game status; The dispute has concluded.
         status_ = GameStatus.DEFENDER_WINS;
@@ -244,31 +253,29 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Distribute the bond back to the proposer
         // payable(claimData.claimant).transfer(claimData.bond);
-        (bool success, ) = claimData.claimant.call{value: claimData.bond}("");
+        (bool success,) = claimData.claimant.call{value: claimData.bond}("");
         if (!success) revert BondTransferFailed();
     }
 
     /// @notice Resolves the game immediately with a proof. The honest challenger wins and the bond is rewarded to the challenger.
     /// @param publicValues The public values committed to for an OP Succinct aggregation program.
     /// @param proofBytes The proof of the program execution the SP1 zkVM encoded as bytes.
-    function resolveWithProof(
-        bytes calldata publicValues,
-        bytes calldata proofBytes
-    ) external returns (GameStatus status_) {
+    function resolveWithProof(bytes calldata publicValues, bytes calldata proofBytes)
+        external
+        returns (GameStatus status_)
+    {
         // INVARIANT: Resolution cannot occur unless the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
         Duration challengeClockDuration = getChallengerDuration();
 
         // INVARIANT: Cannot resolve a game with a proof if clock has timed out.
-        if (challengeClockDuration.raw() == MAX_CLOCK_DURATION.raw())
+        if (challengeClockDuration.raw() == MAX_CLOCK_DURATION.raw()) {
             revert ClockTimeExceeded();
+        }
 
         // Decode the public values to check the claim root
-        AggregationOutputs memory outputs = abi.decode(
-            publicValues,
-            (AggregationOutputs)
-        );
+        AggregationOutputs memory outputs = abi.decode(publicValues, (AggregationOutputs));
 
         // The proof must show a different claim root than what was originally claimed
         if (outputs.claimRoot == Claim.unwrap(rootClaim())) {
@@ -285,7 +292,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         emit Resolved(status = status_);
 
         // Distribute the bond to the challenger
-        (bool success, ) = msg.sender.call{value: claimData.bond}("");
+        (bool success,) = msg.sender.call{value: claimData.bond}("");
         if (!success) revert BondTransferFailed();
     }
 
@@ -334,11 +341,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @return gameType_ The type of proof system being used.
     /// @return rootClaim_ The root claim of the DisputeGame.
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function gameData()
-        external
-        view
-        returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_)
-    {
+    function gameData() external view returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();
@@ -358,12 +361,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         }
 
         // Compute the duration elapsed of the potential challenger's clock.
-        uint64 challengeDuration = uint64(
-            (block.timestamp - claimData.clock.timestamp().raw())
-        );
-        duration_ = challengeDuration > MAX_CLOCK_DURATION.raw()
-            ? MAX_CLOCK_DURATION
-            : Duration.wrap(challengeDuration);
+        uint64 challengeDuration = uint64((block.timestamp - claimData.clock.timestamp().raw()));
+        duration_ = challengeDuration > MAX_CLOCK_DURATION.raw() ? MAX_CLOCK_DURATION : Duration.wrap(challengeDuration);
     }
 
     ////////////////////////////////////////////////////////////////
@@ -371,29 +370,17 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Returns the absolute prestate of the instruction trace.
-    function absolutePrestate()
-        external
-        view
-        returns (Claim absolutePrestate_)
-    {
+    function absolutePrestate() external view returns (Claim absolutePrestate_) {
         absolutePrestate_ = ABSOLUTE_PRESTATE;
     }
 
     /// @notice Returns the max clock duration.
-    function maxClockDuration()
-        external
-        view
-        returns (Duration maxClockDuration_)
-    {
+    function maxClockDuration() external view returns (Duration maxClockDuration_) {
         maxClockDuration_ = MAX_CLOCK_DURATION;
     }
 
     /// @notice Returns the anchor state registry contract.
-    function anchorStateRegistry()
-        external
-        view
-        returns (IAnchorStateRegistry registry_)
-    {
+    function anchorStateRegistry() external view returns (IAnchorStateRegistry registry_) {
         registry_ = ANCHOR_STATE_REGISTRY;
     }
 

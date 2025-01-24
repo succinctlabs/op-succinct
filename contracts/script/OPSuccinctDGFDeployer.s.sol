@@ -13,20 +13,13 @@ contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
         vm.startBroadcast();
 
-        OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(
-            vm.envAddress("L2OO_ADDRESS")
-        );
+        OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
 
         l2OutputOracleProxy.addProposer(address(0));
 
         // Initialize the dispute game based on the existing L2OO_ADDRESS.
-        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(
-            address(l2OutputOracleProxy)
-        );
-        OPSuccinctDisputeGameFactory gameFactory = new OPSuccinctDisputeGameFactory(
-                msg.sender,
-                address(game)
-            );
+        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy));
+        OPSuccinctDisputeGameFactory gameFactory = new OPSuccinctDisputeGameFactory(msg.sender, address(game));
 
         vm.stopBroadcast();
 

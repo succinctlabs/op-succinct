@@ -31,9 +31,7 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         if (OPSuccinctL2OutputOracleImpl == address(0)) {
             console.log("Deploying new OPSuccinctL2OutputOracle impl");
-            OPSuccinctL2OutputOracleImpl = address(
-                new OPSuccinctL2OutputOracle()
-            );
+            OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         }
 
         vm.stopBroadcast();

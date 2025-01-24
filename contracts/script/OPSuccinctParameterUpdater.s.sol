@@ -19,21 +19,15 @@ contract OPSuccinctParameterUpdater is Script, Utils {
         address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
-        OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(
-            l2OutputOracleProxy
-        );
+        OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(l2OutputOracleProxy);
 
         if (cfg.aggregationVkey != oracleImpl.aggregationVkey()) {
             if (executeUpgradeCall) {
                 oracleImpl.updateAggregationVkey(cfg.aggregationVkey);
             } else {
-                bytes memory aggregationVkeyCalldata = abi.encodeWithSelector(
-                    OPSuccinctL2OutputOracle.updateAggregationVkey.selector,
-                    cfg.aggregationVkey
-                );
-                console.log(
-                    "The calldata for upgrading the aggregationVkey is:"
-                );
+                bytes memory aggregationVkeyCalldata =
+                    abi.encodeWithSelector(OPSuccinctL2OutputOracle.updateAggregationVkey.selector, cfg.aggregationVkey);
+                console.log("The calldata for upgrading the aggregationVkey is:");
                 console.logBytes(aggregationVkeyCalldata);
             }
         }
@@ -42,16 +36,10 @@ contract OPSuccinctParameterUpdater is Script, Utils {
             if (executeUpgradeCall) {
                 oracleImpl.updateRangeVkeyCommitment(cfg.rangeVkeyCommitment);
             } else {
-                bytes memory rangeVkeyCommitmentCalldata = abi
-                    .encodeWithSelector(
-                        OPSuccinctL2OutputOracle
-                            .updateRangeVkeyCommitment
-                            .selector,
-                        cfg.rangeVkeyCommitment
-                    );
-                console.log(
-                    "The calldata for upgrading the rangeVkeyCommitment is:"
+                bytes memory rangeVkeyCommitmentCalldata = abi.encodeWithSelector(
+                    OPSuccinctL2OutputOracle.updateRangeVkeyCommitment.selector, cfg.rangeVkeyCommitment
                 );
+                console.log("The calldata for upgrading the rangeVkeyCommitment is:");
                 console.logBytes(rangeVkeyCommitmentCalldata);
             }
         }
@@ -61,12 +49,9 @@ contract OPSuccinctParameterUpdater is Script, Utils {
                 oracleImpl.updateRollupConfigHash(cfg.rollupConfigHash);
             } else {
                 bytes memory rollupConfigHashCalldata = abi.encodeWithSelector(
-                    OPSuccinctL2OutputOracle.updateRollupConfigHash.selector,
-                    cfg.rollupConfigHash
+                    OPSuccinctL2OutputOracle.updateRollupConfigHash.selector, cfg.rollupConfigHash
                 );
-                console.log(
-                    "The calldata for upgrading the rollupConfigHash is:"
-                );
+                console.log("The calldata for upgrading the rollupConfigHash is:");
                 console.logBytes(rollupConfigHashCalldata);
             }
         }
@@ -75,16 +60,10 @@ contract OPSuccinctParameterUpdater is Script, Utils {
             if (executeUpgradeCall) {
                 oracleImpl.updateSubmissionInterval(cfg.submissionInterval);
             } else {
-                bytes memory submissionIntervalCalldata = abi
-                    .encodeWithSelector(
-                        OPSuccinctL2OutputOracle
-                            .updateSubmissionInterval
-                            .selector,
-                        cfg.submissionInterval
-                    );
-                console.log(
-                    "The calldata for upgrading the submissionInterval is:"
+                bytes memory submissionIntervalCalldata = abi.encodeWithSelector(
+                    OPSuccinctL2OutputOracle.updateSubmissionInterval.selector, cfg.submissionInterval
                 );
+                console.log("The calldata for upgrading the submissionInterval is:");
                 console.logBytes(submissionIntervalCalldata);
             }
         }
@@ -93,10 +72,8 @@ contract OPSuccinctParameterUpdater is Script, Utils {
             if (executeUpgradeCall) {
                 oracleImpl.updateVerifier(cfg.verifier);
             } else {
-                bytes memory verifierCalldata = abi.encodeWithSelector(
-                    OPSuccinctL2OutputOracle.updateVerifier.selector,
-                    cfg.verifier
-                );
+                bytes memory verifierCalldata =
+                    abi.encodeWithSelector(OPSuccinctL2OutputOracle.updateVerifier.selector, cfg.verifier);
                 console.log("The calldata for upgrading the verifier is:");
                 console.logBytes(verifierCalldata);
             }
