@@ -124,7 +124,9 @@ contract OPSuccinctDisputeGameTest is Test {
         // Create a new dispute game
         vm.prank(proposer);
         vm.deal(proposer, 1 ether);
-        game = OPSuccinctFaultDisputeGame(address(factory.create{value: 1 ether}(gameType, rootClaim, abi.encode(extraData))));
+        game = OPSuccinctFaultDisputeGame(
+            address(factory.create{value: 1 ether}(gameType, rootClaim, abi.encode(extraData)))
+        );
         vm.stopPrank();
     }
 
