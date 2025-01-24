@@ -3,8 +3,8 @@ pragma solidity 0.8.15;
 
 // Libraries
 import {Clone} from "@solady/utils/Clone.sol";
-import {GameStatus, GameType, Claim, Clock, Duration, Timestamp, Hash, OutputRoot, LibClock} from "src/dispute/lib/Types.sol";
-import {ClaimAlreadyResolved, AnchorRootNotFound, AlreadyInitialized, UnexpectedRootClaim, GameNotInProgress, ClockNotExpired, BondTransferFailed} from "src/dispute/lib/Errors.sol";
+import {Claim, Clock, Duration, GameStatus, GameType, Hash, LibClock, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
+import {AlreadyInitialized, AnchorRootNotFound, BondTransferFailed, ClaimAlreadyResolved, ClockNotExpired, ClockTimeExceeded, GameNotInProgress, UnexpectedRootClaim} from "src/dispute/lib/Errors.sol";
 
 // Interfaces
 import {ISemver} from "src/universal/interfaces/ISemver.sol";
@@ -26,6 +26,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         uint128 bond;
         Claim claim;
         Clock clock;
+    }
+
+    /// @notice The public values committed to for an OP Succinct aggregation program.
+    struct AggregationOutputs {
+        bytes32 l1Head;
+        bytes32 l2PreRoot;
+        bytes32 claimRoot;
+        uint256 claimBlockNum;
+        bytes32 rollupConfigHash;
+        bytes32 rangeVkeyCommitment;
     }
 
     ////////////////////////////////////////////////////////////////
@@ -84,13 +94,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The latest finalized output root, serving as the anchor for output bisection.
     OutputRoot public startingOutputRoot;
 
-    /// @param _gameType The type ID of the game.
     /// @param _absolutePrestate The absolute prestate of the instruction trace.
     /// @param _maxClockDuration The maximum amount of time that may accumulate on a team's chess clock.
     /// @param _anchorStateRegistry The contract that stores the anchor state for each game type.
     /// @param _l2ChainId Chain ID of the L2 network this contract argues about.
     constructor(
-        GameType _gameType,
         Claim _absolutePrestate,
         Duration _maxClockDuration,
         IAnchorStateRegistry _anchorStateRegistry,
@@ -99,7 +107,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _aggregationVkey
     ) {
         // Set up initial game state.
-        GAME_TYPE = _gameType;
+        GAME_TYPE = GameType.wrap(42);
         ABSOLUTE_PRESTATE = _absolutePrestate;
         MAX_CLOCK_DURATION = _maxClockDuration;
         ANCHOR_STATE_REGISTRY = _anchorStateRegistry;
@@ -211,7 +219,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     //                    `IDisputeGame` impl                     //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Resolves the game.
+    /// @notice Resolves the game after the clock expires. The proposer wins and the bond is returned back to the proposer.
     function resolve() external returns (GameStatus status_) {
         // INVARIANT: Resolution cannot occur unless the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
@@ -240,12 +248,32 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (!success) revert BondTransferFailed();
     }
 
+    /// @notice Resolves the game immediately with a proof. The honest challenger wins and the bond is rewarded to the challenger.
+    /// @param publicValues The public values committed to for an OP Succinct aggregation program.
+    /// @param proofBytes The proof of the program execution the SP1 zkVM encoded as bytes.
     function resolveWithProof(
         bytes calldata publicValues,
         bytes calldata proofBytes
     ) external returns (GameStatus status_) {
         // INVARIANT: Resolution cannot occur unless the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
+
+        Duration challengeClockDuration = getChallengerDuration();
+
+        // INVARIANT: Cannot resolve a game with a proof if clock has timed out.
+        if (challengeClockDuration.raw() == MAX_CLOCK_DURATION.raw())
+            revert ClockTimeExceeded();
+
+        // Decode the public values to check the claim root
+        AggregationOutputs memory outputs = abi.decode(
+            publicValues,
+            (AggregationOutputs)
+        );
+
+        // The proof must show a different claim root than what was originally claimed
+        if (outputs.claimRoot == Claim.unwrap(rootClaim())) {
+            revert UnexpectedRootClaim(rootClaim());
+        }
 
         SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, publicValues, proofBytes);
 

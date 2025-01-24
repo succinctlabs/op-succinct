@@ -2,9 +2,9 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
-import {OPSuccinctL2OutputOracle} from "../src/zk/OPSuccinctL2OutputOracle.sol";
-import {OPSuccinctDisputeGame} from "../src/zk/OPSuccinctDisputeGame.sol";
-import {OPSuccinctDisputeGameFactory} from "../src/zk/OPSuccinctDisputeGameFactory.sol";
+import {OPSuccinctL2OutputOracle} from "../src/validity/OPSuccinctL2OutputOracle.sol";
+import {OPSuccinctDisputeGame} from "../src/validity/OPSuccinctDisputeGame.sol";
+import {OPSuccinctDisputeGameFactory} from "../src/validity/OPSuccinctDisputeGameFactory.sol";
 import {Utils} from "../test/helpers/Utils.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";

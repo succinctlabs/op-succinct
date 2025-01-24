@@ -11,8 +11,8 @@ import {ClockNotExpired} from "src/dispute/lib/Errors.sol";
 
 // Contracts
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
-import {OPSuccinctFaultDisputeGame} from "src/op/OPSuccinctFaultDisputeGame.sol";
-import {OPSuccinctDisputeGameFactory} from "src/op/OPSuccinctDisputeGameFactory.sol";
+import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
+import {OPSuccinctDisputeGameFactory} from "src/fp/OPSuccinctDisputeGameFactory.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 
 // Interfaces
@@ -46,7 +46,7 @@ contract OPSuccinctDisputeGameTest is Test {
     address proposer = address(0x123);
     address challenger = address(0x456);
 
-    GameType gameType = GameType.wrap(6);
+    GameType gameType = GameType.wrap(42);
     Claim absolutePrestate = Claim.wrap(keccak256("absolutePrestate"));
     Duration maxClockDuration = Duration.wrap(7 days);
     uint256 l2ChainId = 10;
@@ -112,7 +112,6 @@ contract OPSuccinctDisputeGameTest is Test {
         bytes32 aggregationVkey = bytes32(0);
 
         gameImpl = new OPSuccinctFaultDisputeGame(
-            gameType,
             absolutePrestate,
             maxClockDuration,
             IAnchorStateRegistry(address(registry)),
@@ -125,21 +124,14 @@ contract OPSuccinctDisputeGameTest is Test {
         factory.setInitBond(gameType, 1 ether);
 
         // Set the implementation
-        factory.setImplementation(
-            GameType.wrap(6),
-            IDisputeGame(address(gameImpl))
-        );
+        factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         // Create a new dispute game
         vm.prank(proposer);
         vm.deal(proposer, 1 ether);
         game = OPSuccinctFaultDisputeGame(
             address(
-                factory.create{value: 1 ether}(
-                    GameType.wrap(6),
-                    rootClaim,
-                    extraData
-                )
+                factory.create{value: 1 ether}(gameType, rootClaim, extraData)
             )
         );
         vm.stopPrank();
@@ -151,11 +143,7 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(address(factory.owner()), address(this));
         assertEq(address(factory.gameImpls(gameType)), address(gameImpl));
         assertEq(factory.gameCount(), 1);
-        (
-            GameType gameType_,
-            Timestamp timestamp_,
-            IDisputeGame proxy_
-        ) = factory.gameAtIndex(0);
+        (, , IDisputeGame proxy_) = factory.gameAtIndex(0);
         assertEq(address(game), address(proxy_));
 
         // Test the initialization of the game
@@ -171,7 +159,7 @@ contract OPSuccinctDisputeGameTest is Test {
 
         // Test the claim data
         (
-            uint32 parentIndex,
+            ,
             address counteredBy,
             address claimant,
             uint128 bond,
@@ -185,7 +173,7 @@ contract OPSuccinctDisputeGameTest is Test {
 
         // Test the anchor state registry
         assertEq(registry.superchainConfig().guardian(), address(0x789));
-        (Hash root, uint256 rootBlockNumber) = registry.anchors(gameType);
+        (Hash root, ) = registry.anchors(gameType);
         assertEq(root.raw(), startingAnchorRoot.raw());
     }
 
@@ -196,14 +184,7 @@ contract OPSuccinctDisputeGameTest is Test {
         game.resolve();
 
         // Set the clock to expire
-        (
-            uint32 parentIndex,
-            address counteredBy,
-            address claimant,
-            uint128 bond,
-            Claim claim,
-            Clock clock
-        ) = game.claimData();
+        (, , , , , Clock clock) = game.claimData();
         vm.warp(clock.raw() + 7 days);
 
         vm.expectEmit(true, false, false, false, address(game));
@@ -224,7 +205,19 @@ contract OPSuccinctDisputeGameTest is Test {
         vm.prank(challenger);
         vm.expectEmit(true, false, false, false, address(game));
         emit Resolved(GameStatus.CHALLENGER_WINS);
-        game.resolveWithProof(bytes(""), bytes(""));
+        game.resolveWithProof(
+            abi.encode(
+                OPSuccinctFaultDisputeGame.AggregationOutputs({
+                    l1Head: bytes32(0),
+                    l2PreRoot: bytes32(0),
+                    claimRoot: bytes32(uint256(1)), // Different from game's root claim
+                    claimBlockNum: 0,
+                    rollupConfigHash: bytes32(0),
+                    rangeVkeyCommitment: bytes32(0)
+                })
+            ),
+            bytes("")
+        );
 
         assertEq(address(game).balance, 0);
         assertEq(proposer.balance, 0);

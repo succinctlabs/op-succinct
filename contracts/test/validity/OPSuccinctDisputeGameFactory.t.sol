@@ -3,9 +3,9 @@ pragma solidity ^0.8.15;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "../helpers/Utils.sol";
-import {OPSuccinctL2OutputOracle} from "../../src/zk/OPSuccinctL2OutputOracle.sol";
-import {OPSuccinctDisputeGame} from "../../src/zk/OPSuccinctDisputeGame.sol";
-import {OPSuccinctDisputeGameFactory} from "../../src/zk/OPSuccinctDisputeGameFactory.sol";
+import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
+import {OPSuccinctDisputeGame} from "../../src/validity/OPSuccinctDisputeGame.sol";
+import {OPSuccinctDisputeGameFactory} from "../../src/validity/OPSuccinctDisputeGameFactory.sol";
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
 import {LibCWIA} from "@solady-v0.0.281/utils/legacy/LibCWIA.sol";
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Utils} from "../helpers/Utils.sol";
-import {OPSuccinctL2OutputOracle} from "../../src/zk/OPSuccinctL2OutputOracle.sol";
+import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Example proof data for the BoB testnet. Tx: https://sepolia.etherscan.io/tx/0x3910121f57c2e81ac98f5154eba7a2845f7ed27caf57a73e516ca606ad9d9aab
