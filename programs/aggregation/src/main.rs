@@ -7,7 +7,7 @@ sp1_zkvm::entrypoint!(main);
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
-use std::collections::HashMap;
+use alloy_primitives::map::HashMap;
 
 use op_succinct_client_utils::{
     boot::BootInfoStruct,

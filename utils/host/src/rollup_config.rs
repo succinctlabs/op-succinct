@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use alloy::eips::eip1559::BaseFeeParams;
+use alloy_eips::eip1559::BaseFeeParams;
 use alloy_primitives::Address;
 use anyhow::Result;
 use maili_genesis::ChainGenesis;

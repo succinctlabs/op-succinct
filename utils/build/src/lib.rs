@@ -43,35 +43,6 @@ fn build_native_program(program: &str, program_args: ProgramBuildArgs) {
     );
 }
 
-/// Build the native host runner to a separate target directory to avoid build lockups.
-fn build_native_host_runner() {
-    let metadata = cargo_metadata::MetadataCommand::new()
-        .exec()
-        .expect("Failed to get cargo metadata");
-    let target_dir = metadata.target_directory.join("native_host_runner");
-
-    let status = Command::new("cargo")
-        .args([
-            "build",
-            "--workspace",
-            "--bin",
-            "native_host_runner",
-            "--release",
-            "--target-dir",
-            target_dir.as_ref(),
-        ])
-        .status()
-        .expect("Failed to execute cargo build command");
-    if !status.success() {
-        panic!("Failed to build native_host_runner");
-    }
-
-    println!(
-        "cargo:warning=native_host_runner built with release profile at {}",
-        current_datetime()
-    );
-}
-
 pub(crate) fn current_datetime() -> String {
     let now = Local::now();
     now.format("%Y-%m-%d %H:%M:%S").to_string()
@@ -105,8 +76,4 @@ pub fn build_all(program_args: ProgramBuildArgs) {
 
     // Build aggregation program.
     // build_zkvm_program("aggregation");
-
-    // Note: Don't comment this out, because the Docker program depends on the native host runner
-    // being built.
-    build_native_host_runner();
 }

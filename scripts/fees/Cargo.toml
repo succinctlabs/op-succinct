@@ -17,4 +17,4 @@ clap = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 dotenv = { workspace = true }
-alloy-primitives = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }

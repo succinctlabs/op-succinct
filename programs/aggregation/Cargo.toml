@@ -13,7 +13,7 @@ sp1-zkvm = { workspace = true }
 sp1-lib = { workspace = true }
 op-succinct-client-utils = { workspace = true }
 alloy-consensus = { workspace = true }
-alloy-primitives = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
 alloy-sol-types = { workspace = true }
 serde_cbor.workspace = true
 bincode.workspace = true

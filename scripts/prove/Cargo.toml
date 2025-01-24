@@ -27,6 +27,7 @@ csv.workspace = true
 
 # kona
 kona-host = { workspace = true }
+kona-preimage = { workspace = true }
 
 # local
 op-succinct-host-utils.workspace = true
@@ -34,7 +35,7 @@ op-succinct-client-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
 
 # alloy
-alloy-primitives = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
 
 # sp1
 sp1-sdk = { workspace = true }

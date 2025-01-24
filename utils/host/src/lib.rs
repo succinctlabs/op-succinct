@@ -5,14 +5,11 @@ pub mod rollup_config;
 pub mod stats;
 pub mod witnessgen;
 
-use alloy::sol;
 use alloy_consensus::Header;
-use alloy_primitives::B256;
+use alloy_primitives::{map::HashMap, B256};
+use alloy_sol_types::sol;
 use anyhow::Result;
-use kona_host::{
-    kv::{DiskKeyValueStore, MemoryKeyValueStore},
-    HostCli,
-};
+use kona_host::{DiskKeyValueStore, MemoryKeyValueStore};
 use maili_genesis::RollupConfig;
 use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
@@ -20,7 +17,7 @@ use op_succinct_client_utils::{
 };
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
-use std::{collections::HashMap, fs::File, io::Read};
+use std::{fs::File, io::Read};
 
 sol! {
     #[allow(missing_docs)]

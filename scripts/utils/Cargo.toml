@@ -34,8 +34,7 @@ path = "bin/gen_sp1_test_artifacts.rs"
 [dependencies]
 
 # workspace
-alloy-primitives = { workspace = true }
-alloy = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
 bincode = { workspace = true }
 tokio = { workspace = true }
 clap = { workspace = true }

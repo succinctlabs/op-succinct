@@ -6,7 +6,8 @@
 //! native mode, the data for verifying the batch validity is fetched from RPC, while in zkVM mode,
 //! the data is supplied by the host binary to the verifiable program.
 
-#![cfg_attr(target_os = "zkvm", no_main)]
+#![no_main]
+sp1_zkvm::entrypoint!(main);
 
 extern crate alloc;
 
@@ -28,8 +29,6 @@ use kona_proof::{
 use maili_genesis::RollupConfig;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use tracing::{error, info};
-
-sp1_zkvm::entrypoint!(main);
 
 use alloc::vec::Vec;
 use op_succinct_client_utils::{boot::BootInfoStruct, BootInfoWithBytesConfig, InMemoryOracle};

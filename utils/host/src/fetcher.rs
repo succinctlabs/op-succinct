@@ -1,20 +1,14 @@
-use alloy::{
-    eips::{BlockId, BlockNumberOrTag},
-    primitives::{Address, B256},
-    providers::{Provider, ProviderBuilder, RootProvider},
-    transports::{
-        http::{reqwest::Url, Client, Http},
-        Transport,
-    },
-};
 use alloy_consensus::{BlockHeader, Header};
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, B256};
+use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
+use alloy_transport_http::Http;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
-use kona_host::HostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
 use maili_protocol::L2BlockInfo;
@@ -23,24 +17,25 @@ use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind, HeaderResponse},
     BlockResponse, Network, Optimism,
 };
-use op_alloy_rpc_types::{OpTransactionReceipt, OutputResponse, SafeHeadResponse};
+use op_alloy_rpc_types::OpTransactionReceipt;
 use op_succinct_client_utils::boot::BootInfoStruct;
+use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     cmp::{min, Ordering},
-    collections::HashMap,
     env, fs,
     path::Path,
     str::FromStr,
     sync::Arc,
 };
 
-use alloy_primitives::{keccak256, Bytes, U256, U64};
+use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
+use crate::L2Output;
 use crate::{
     rollup_config::{get_rollup_config_path, merge_rollup_config},
-    L2Output, ProgramType,
+    ProgramType,
 };
 
 #[derive(Clone)]
@@ -400,7 +395,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
         let block = self
             .l1_provider
-            .get_block(block_number, alloy::rpc::types::BlockTransactionsKind::Full)
+            .get_block(block_number, BlockTransactionsKind::Full)
             .await?;
 
         if let Some(block) = block {
@@ -413,7 +408,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l2_header(&self, block_number: BlockId) -> Result<Header> {
         let block = self
             .l2_provider
-            .get_block(block_number, alloy::rpc::types::BlockTransactionsKind::Full)
+            .get_block(block_number, BlockTransactionsKind::Full)
             .await?;
 
         if let Some(block) = block {
@@ -807,7 +802,7 @@ impl OPSuccinctDataFetcher {
         // witness data.
         fs::create_dir_all(&data_directory)?;
 
-        Ok(HostCli {
+        Ok(SingleChainHostCli {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
             agreed_l2_head_hash,
@@ -1046,9 +1041,8 @@ mod tests {
     #[tokio::test]
     #[cfg(test)]
     async fn test_l2_safe_head_progression() {
-        use alloy::eips::BlockId;
+        use alloy_eips::BlockId;
         use futures::StreamExt;
-        use op_alloy_rpc_types::SafeHeadResponse;
 
         use crate::fetcher::RPCMode;
 

@@ -1,4 +1,3 @@
-use alloy::{eips::BlockId, hex, signers::local::PrivateKeySigner};
 use alloy_primitives::Address;
 use anyhow::Result;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};

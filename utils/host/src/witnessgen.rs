@@ -2,8 +2,6 @@ use anyhow::Result;
 use std::{path::PathBuf, time::Duration};
 use sysinfo::System;
 
-use kona_host::HostCli;
-
 use crate::fetcher::RunContext;
 
 /// Convert the HostCli to a vector of arguments that can be passed to a command.

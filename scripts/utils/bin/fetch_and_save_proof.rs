@@ -1,4 +1,3 @@
-use alloy::{hex, sol_types::SolValue};
 use alloy_primitives::B256;
 use anyhow::Result;
 use clap::Parser;

@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use kona_host::start_native_preimage_server;
+use kona_preimage::{BidirectionalChannel, HintWriter, OracleReader, PreimageKey, PreimageKeyType};
 use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
@@ -38,7 +40,15 @@ async fn main() -> Result<()> {
 
     // By default, re-run the native execution unless the user passes `--use-cache`.
     let witness_generation_time_sec = if !args.use_cache {
-        generate_witness(&host_cli).await?
+        let hint_chan = BidirectionalChannel::new()?;
+        let preimage_chan = BidirectionalChannel::new()?;
+        // Create the server and start it.
+        let server_task = task::spawn(start_native_preimage_server(
+            kv_store,
+            fetcher,
+            hint_chan.host,
+            preimage_chan.host,
+        ));
     } else {
         Duration::ZERO
     };

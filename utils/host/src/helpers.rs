@@ -1,6 +1,6 @@
-use alloy_primitives::hex;
+use alloy_primitives::{hex, map::HashMap};
 use op_succinct_client_utils::BytesHasherBuilder;
-use std::{collections::HashMap, fs, io::Read, path::PathBuf};
+use std::{fs, io::Read, path::PathBuf};
 
 pub fn load_kv_store(data_dir: &PathBuf) -> HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> {
     let capacity = get_file_count(data_dir);

@@ -23,7 +23,7 @@ maili-genesis.workspace = true
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
-alloy-primitives.workspace = true
+alloy-primitives = { workspace = true, default-features = false }
 
 # sp1
 sp1-zkvm.workspace = true
