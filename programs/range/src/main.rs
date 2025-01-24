@@ -12,43 +12,28 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use alloy_consensus::{BlockBody, Sealable};
+use alloy_consensus::Sealed;
 use alloy_primitives::B256;
-use alloy_rlp::Decodable;
-use cfg_if::cfg_if;
-use core::fmt::Debug;
-use kona_driver::{Driver, DriverError};
-use kona_executor::{ExecutorError, KonaHandleRegister, TrieDBProvider};
-use kona_preimage::{CommsClient, HintWriterClient, PreimageKeyType, PreimageOracleClient};
+use kona_driver::Driver;
+use kona_executor::TrieDBProvider;
+use kona_preimage::{CommsClient, PreimageKeyType};
 use kona_proof::{
     errors::OracleProviderError,
     executor::KonaExecutor,
     l1::{OracleBlobProvider, OracleL1ChainProvider, OraclePipeline},
     l2::OracleL2ChainProvider,
     sync::new_pipeline_cursor,
-    BootInfo, CachingOracle, HintType,
+    BootInfo, HintType,
 };
 use maili_genesis::RollupConfig;
-use maili_protocol::L2BlockInfo;
-use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
-use op_alloy_rpc_types_engine::OpAttributesWithParent;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
-cfg_if! {
-    if #[cfg(target_os = "zkvm")] {
-        sp1_zkvm::entrypoint!(main);
+sp1_zkvm::entrypoint!(main);
 
-        use op_succinct_client_utils::{
-            BootInfoWithBytesConfig, boot::BootInfoStruct,
-            InMemoryOracle
-        };
-        use alloc::vec::Vec;
-        use serde_json;
-    } else {
-        use op_succinct_client_utils::pipes::{ORACLE_READER, HINT_WRITER};
-    }
-}
+use alloc::vec::Vec;
+use op_succinct_client_utils::{boot::BootInfoStruct, BootInfoWithBytesConfig, InMemoryOracle};
+use serde_json;
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
@@ -64,51 +49,45 @@ fn main() {
             .unwrap();
     }
 
-    op_succinct_client_utils::block_on(async move {
+    kona_proof::block_on(async move {
         ////////////////////////////////////////////////////////////////
         //                          PROLOGUE                          //
         ////////////////////////////////////////////////////////////////
 
-        cfg_if! {
-            // If we are compiling for the zkVM, read inputs from SP1 to generate boot info
-            // and in memory oracle.
-            if #[cfg(target_os = "zkvm")] {
-                println!("cycle-tracker-start: boot-load");
-                let boot_info_with_bytes_config = sp1_zkvm::io::read::<BootInfoWithBytesConfig>();
+        println!("cycle-tracker-start: boot-load");
+        let boot_info_with_bytes_config = sp1_zkvm::io::read::<BootInfoWithBytesConfig>();
 
-                // BootInfoStruct is identical to BootInfoWithBytesConfig, except it replaces
-                // the rollup_config_bytes with a hash of those bytes (rollupConfigHash). Securely
-                // hashes the rollup config bytes.
-                let boot_info_struct = BootInfoStruct::from(boot_info_with_bytes_config.clone());
-                sp1_zkvm::io::commit::<BootInfoStruct>(&boot_info_struct);
+        // BootInfoStruct is identical to BootInfoWithBytesConfig, except it replaces
+        // the rollup_config_bytes with a hash of those bytes (rollupConfigHash). Securely
+        // hashes the rollup config bytes.
+        let boot_info_struct = BootInfoStruct::from(boot_info_with_bytes_config.clone());
+        sp1_zkvm::io::commit::<BootInfoStruct>(&boot_info_struct);
 
-                let rollup_config: RollupConfig = serde_json::from_slice(&boot_info_with_bytes_config.rollup_config_bytes).expect("failed to parse rollup config");
-                let boot: Arc<BootInfo> = Arc::new(BootInfo {
-                    l1_head: boot_info_with_bytes_config.l1_head,
-                    agreed_l2_output_root: boot_info_with_bytes_config.l2_output_root,
-                    claimed_l2_output_root: boot_info_with_bytes_config.l2_claim,
-                    claimed_l2_block_number: boot_info_with_bytes_config.l2_claim_block,
-                    chain_id: boot_info_with_bytes_config.chain_id,
-                    rollup_config,
-                });
-                println!("cycle-tracker-end: boot-load");
+        let rollup_config: RollupConfig =
+            serde_json::from_slice(&boot_info_with_bytes_config.rollup_config_bytes)
+                .expect("failed to parse rollup config");
+        let boot: Arc<BootInfo> = Arc::new(BootInfo {
+            l1_head: boot_info_with_bytes_config.l1_head,
+            agreed_l2_output_root: boot_info_with_bytes_config.l2_output_root,
+            claimed_l2_output_root: boot_info_with_bytes_config.l2_claim,
+            claimed_l2_block_number: boot_info_with_bytes_config.l2_claim_block,
+            chain_id: boot_info_with_bytes_config.chain_id,
+            rollup_config,
+        });
+        println!("cycle-tracker-end: boot-load");
 
-                println!("cycle-tracker-start: oracle-load");
-                let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
-                let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
-                println!("cycle-tracker-end: oracle-load");
+        println!("cycle-tracker-start: oracle-load");
+        let in_memory_oracle_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
+        let oracle = Arc::new(InMemoryOracle::from_raw_bytes(in_memory_oracle_bytes));
+        println!("cycle-tracker-end: oracle-load");
 
-                println!("cycle-tracker-report-start: oracle-verify");
-                oracle.verify().expect("key value verification failed");
-                println!("cycle-tracker-report-end: oracle-verify");
-            } else {
-                const ORACLE_LRU_SIZE: usize = 1024;
-                let oracle = Arc::new(CachingOracle::new(ORACLE_LRU_SIZE, oracle_client, hint_client));
-                let boot = Arc::new(BootInfo::load(oracle.as_ref()).await.unwrap());
-            }
-        }
+        println!("cycle-tracker-report-start: oracle-verify");
+        oracle.verify().expect("key value verification failed");
+        println!("cycle-tracker-report-end: oracle-verify");
 
-        let safe_head_hash = fetch_safe_head_hash(oracle.as_ref(), boot.as_ref()).await.unwrap();
+        let safe_head_hash = fetch_safe_head_hash(oracle.as_ref(), boot.as_ref())
+            .await
+            .unwrap();
 
         let mut l1_provider = OracleL1ChainProvider::new(boot.l1_head, oracle.clone());
         let mut l2_provider =
@@ -130,10 +109,10 @@ fn main() {
                 claimed = boot.claimed_l2_block_number,
                 safe = safe_head.number
             );
-            return Err(FaultProofProgramError::InvalidClaim(
-                boot.agreed_l2_output_root,
-                boot.claimed_l2_output_root,
-            ));
+            panic!(
+                "Invalid claim. Expected {:?} actual {:?}",
+                boot.claimed_l2_output_root, boot.agreed_l2_output_root
+            );
         }
 
         // In the case where the agreed upon L2 output root is the same as the claimed L2 output root,
@@ -143,7 +122,7 @@ fn main() {
                 target: "client",
                 "Trace extension detected. State transition is already agreed upon.",
             );
-            return Ok(());
+            return;
         }
 
         ////////////////////////////////////////////////////////////////
@@ -174,7 +153,7 @@ fn main() {
             &cfg,
             l2_provider.clone(),
             l2_provider,
-            handle_register,
+            Some(zkvm_handle_register),
             None,
         );
         let mut driver = Driver::new(cursor, executor, pipeline);
@@ -197,10 +176,10 @@ fn main() {
                 number = number,
                 output_root = output_root
             );
-            return Err(FaultProofProgramError::InvalidClaim(
-                output_root,
-                boot.claimed_l2_output_root,
-            ));
+            panic!(
+                "Invalid claim. Expected {:?} actual {:?}",
+                boot.claimed_l2_output_root, output_root
+            );
         }
 
         info!(
@@ -210,14 +189,37 @@ fn main() {
             output_root = output_root
         );
 
-        // // Manually forget large objects to avoid allocator overhead
-        // std::mem::forget(pipeline);
-        // std::mem::forget(executor);
-        // std::mem::forget(l2_provider);
-        // std::mem::forget(l1_provider);
-        // std::mem::forget(oracle);
-        // std::mem::forget(cfg);
-        // std::mem::forget(cursor);
-        // std::mem::forget(boot);
+        // Manually forget large objects to avoid allocator overhead
+        std::mem::forget(l1_provider);
+        std::mem::forget(oracle);
+        std::mem::forget(cfg);
+        std::mem::forget(boot);
     });
+}
+
+/// Fetches the safe head hash of the L2 chain based on the agreed upon L2 output root in the
+/// [BootInfo].
+/// 
+/// Sourced from Kona until it's exposed nicely from a crate that doesn't depend on kona-std-fpvm, which can compile in zkVM mode.
+/// https://github.com/op-rs/kona/blob/a59f643d0627320efff49f40f4803741ae9194f1/bin/client/src/single.rs#L153-L155.
+pub async fn fetch_safe_head_hash<O>(
+    caching_oracle: &O,
+    boot_info: &BootInfo,
+) -> Result<B256, OracleProviderError>
+where
+    O: CommsClient,
+{
+    let mut output_preimage = [0u8; 128];
+    HintType::StartingL2Output
+        .get_exact_preimage(
+            caching_oracle,
+            boot_info.agreed_l2_output_root,
+            PreimageKeyType::Keccak256,
+            &mut output_preimage,
+        )
+        .await?;
+
+    output_preimage[96..128]
+        .try_into()
+        .map_err(OracleProviderError::SliceConversion)
 }

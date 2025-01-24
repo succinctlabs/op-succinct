@@ -4337,16 +4337,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-witnessgen"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "kona-host",
- "tokio",
-]
-
-[[package]]
 name = "openssl"
 version = "0.10.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5157,6 +5147,9 @@ dependencies = [
  "alloy-rlp",
  "anyhow",
  "cfg-if",
+ "kona-driver",
+ "kona-executor",
+ "kona-preimage",
  "kona-proof",
  "log",
  "maili-genesis",
@@ -5166,6 +5159,7 @@ dependencies = [
  "op-succinct-client-utils",
  "serde_json",
  "sp1-zkvm",
+ "thiserror 2.0.11",
  "tracing",
  "tracing-subscriber",
 ]
@@ -5381,6 +5375,7 @@ dependencies = [
  "c-kzg",
  "cfg-if",
  "k256",
+ "kzg-rs",
  "once_cell",
  "p256",
  "revm-primitives",
@@ -5407,6 +5402,7 @@ dependencies = [
  "dyn-clone",
  "enumn",
  "hex",
+ "kzg-rs",
  "serde",
 ]
 
