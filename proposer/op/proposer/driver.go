@@ -91,6 +91,8 @@ type L2OutputSubmitter struct {
 	l2ooContract L2OOContract
 	l2ooABI      *abi.ABI
 
+	dgfABI *abi.ABI
+
 	db db.ProofDB
 }
 
@@ -129,7 +131,13 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 	}
 	log.Info("Connected to L2OutputOracle", "address", setup.Cfg.L2OutputOracleAddr, "version", version)
 
-	parsed, err := opsuccinctbindings.OPSuccinctL2OutputOracleMetaData.GetAbi()
+	l2ooAbiParsed, err := opsuccinctbindings.OPSuccinctL2OutputOracleMetaData.GetAbi()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	dfgAbiParsed, err := opsuccinctbindings.OPSuccinctDisputeGameFactoryMetaData.GetAbi()
 	if err != nil {
 		cancel()
 		return nil, err
@@ -148,8 +156,10 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 		cancel:      cancel,
 
 		l2ooContract: l2ooContract,
-		l2ooABI:      parsed,
-		db:           *db,
+		l2ooABI:      l2ooAbiParsed,
+		dgfABI:       dfgAbiParsed,
+
+		db: *db,
 	}, nil
 }
 
@@ -486,6 +496,15 @@ func proposeL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, proof []byt
 		proof)
 }
 
+func (l *L2OutputSubmitter) ProposeL2OutputDGFTxData(output *eth.OutputResponse, proof []byte, l1BlockNum uint64) ([]byte, error) {
+	return l.dgfABI.Pack(
+		"create",
+		output.OutputRoot,
+		new(big.Int).SetUint64(output.BlockRef.Number),
+		new(big.Int).SetUint64(l1BlockNum),
+		proof)
+}
+
 func (l *L2OutputSubmitter) CheckpointBlockHashTxData(blockNumber *big.Int, blockHash common.Hash) ([]byte, error) {
 	return l.l2ooABI.Pack("checkpointBlockHash", blockNumber, blockHash)
 }
@@ -526,7 +545,19 @@ func (l *L2OutputSubmitter) sendTransaction(ctx context.Context, output *eth.Out
 	l.Log.Info("Proposing output root", "output", output.OutputRoot, "block", output.BlockRef)
 	var receipt *types.Receipt
 	if l.Cfg.DisputeGameFactoryAddr != nil {
-		return errors.New("not implemented")
+		data, err := l.ProposeL2OutputDGFTxData(output, proof, l1BlockNum)
+		if err != nil {
+			return err
+		}
+		// TODO: This currently blocks the loop while it waits for the transaction to be confirmed. Up to 3 minutes.
+		receipt, err = l.Txmgr.Send(ctx, txmgr.TxCandidate{
+			TxData:   data,
+			To:       l.Cfg.DisputeGameFactoryAddr,
+			GasLimit: 0,
+		})
+		if err != nil {
+			return err
+		}
 	} else {
 		data, err := l.ProposeL2OutputTxData(output, proof, l1BlockNum)
 		if err != nil {
@@ -632,29 +663,29 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				continue
 			}
 
-			// 3) Determine if there is a continguous chain of span proofs starting from the latest block on the L2OO contract.
+			// 4) Determine if there is a continguous chain of span proofs starting from the latest block on the L2OO contract.
 			// If there is, queue an aggregate proof for all of the span proofs.
-			l.Log.Info("Stage 3: Deriving Agg Proofs...")
+			l.Log.Info("Stage 4: Deriving Agg Proofs...")
 			err = l.DeriveAggProofs(ctx)
 			if err != nil {
 				l.Log.Error("failed to generate pending agg proofs", "err", err)
 				continue
 			}
 
-			// 4) Request all unrequested proofs from the prover network.
+			// 5) Request all unrequested proofs from the prover network.
 			// Any DB entry with status = "UNREQ" means it's queued up and ready.
 			// We request all of these (both span and agg) from the prover network.
 			// For agg proofs, we also checkpoint the blockhash in advance.
-			l.Log.Info("Stage 4: Requesting Queued Proofs...")
+			l.Log.Info("Stage 5: Requesting Queued Proofs...")
 			err = l.RequestQueuedProofs(ctx)
 			if err != nil {
 				l.Log.Error("failed to request unrequested proofs", "err", err)
 				continue
 			}
 
-			// 5) Submit agg proofs on chain.
+			// 6) Submit agg proofs on chain.
 			// If we have a completed agg proof waiting in the DB, we submit them on chain.
-			l.Log.Info("Stage 5: Submitting Agg Proofs...")
+			l.Log.Info("Stage 6: Submitting Agg Proofs...")
 			err = l.SubmitAggProofs(ctx)
 			if err != nil {
 				l.Log.Error("failed to submit agg proofs", "err", err)

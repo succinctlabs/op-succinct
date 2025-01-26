@@ -4,7 +4,7 @@ Running OP Succinct in full mode will generate proofs of valid OP Stack L2 outpu
 
 ## Prerequisites
 
-You will need a whitelisted key on the Succinct Prover Network. Follow the instructions [here](https://docs.succinct.xyz/generating-proofs/prover-network) to get your key whitelisted.
+You will need a whitelisted key on the Succinct Prover Network. Follow the instructions [here](https://docs.succinct.xyz/docs/generating-proofs/prover-network) to get your key whitelisted.
 
 To get access to the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
 
@@ -25,7 +25,7 @@ In the root directory, create a file called `.env` and set the following environ
 
 There are additional optional parameters that you can set in the `.env` file. See the [Advanced Parameters](../contracts/configuration.md#optional-advanced-parameters) section for more information.
 
-### 2) Deploy the `OPSuccinctL2OutputOracle` contract.
+### 2) Deploy the `OPSuccinctL2OutputOracle` contract
 
 This contract is a modification of the `L2OutputOracle` contract which verifies a proof along with the proposed state root.
 
@@ -104,11 +104,11 @@ We provide a Docker Compose file for running the `op-succinct` service.
 docker compose build
 ```
 
-#### Run the Proposer
+#### Run OP Succinct
 
-This command launches the [op-succinct service](../advanced/proposer.md) in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original op-proposer service.
+This command launches [OP Succinct](../advanced/proposer.md) in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original op-proposer service.
 
-After a few minutes, you should see the op-succinct-proposer service start to request proofs from the Succinct Prover Network. Once enough proofs have been generated, an aggregate proof will be requested and submitted to the L1.
+After a few minutes, you should see the OP Succinct service start to request proofs from the Succinct Prover Network. Once enough proofs have been generated, an aggregate proof will be requested and submitted to the L1.
 
 ```shell
 docker compose up

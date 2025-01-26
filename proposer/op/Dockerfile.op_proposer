@@ -28,6 +28,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
     ca-certificates \
     sqlite3 \
     curl \
+    jq \
+    netcat-traditional \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the built op-proposer binary from the previous stage

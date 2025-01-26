@@ -29,9 +29,14 @@ run-multi start end use-cache="false" prove="false":
   cargo run --bin multi --release -- --start {{start}} --end {{end}} $CACHE_FLAG $PROVE_FLAG
 
 # Runs the cost estimator for a given block range.
-cost-estimator start end:
+# If no range is provided, runs for the last 5 finalized blocks.
+cost-estimator *args='':
   #!/usr/bin/env bash
-  cargo run --bin cost-estimator --release -- --start {{start}} --end {{end}}
+  if [ -z "{{args}}" ]; then
+    cargo run --bin cost-estimator --release
+  else
+    cargo run --bin cost-estimator --release -- {{args}}
+  fi
 
   # Output the data required for the ZKVM execution.
   echo "$L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
@@ -74,15 +79,18 @@ deploy-mock-verifier env_file=".env":
     fi
 
     cd contracts
+
+    VERIFY=""
+    if [ $ETHERSCAN_API_KEY != "" ]; then
+      VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+    fi
     
     forge script script/DeployMockVerifier.s.sol:DeployMockVerifier \
     --rpc-url $L1_RPC \
     --private-key $PRIVATE_KEY \
     --broadcast \
-    --verify \
-    --verifier etherscan \
-    --etherscan-api-key $ETHERSCAN_API_KEY
-  
+    $VERIFY
+
 # Deploy the OPSuccinct L2 Output Oracle
 deploy-oracle env_file=".env":
     #!/usr/bin/env bash
@@ -99,16 +107,22 @@ deploy-oracle env_file=".env":
 
     # forge install
     forge install
+
+    VERIFY=""
+    if [ $ETHERSCAN_API_KEY != "" ]; then
+      VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+    fi
+    
+    ENV_VARS=""
+    if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
+    if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
     
     # Run the forge deployment script
-    forge script script/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
+    $ENV_VARS forge script script/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast \
-        --verify \
-        --verifier etherscan \
-        --etherscan-api-key $ETHERSCAN_API_KEY
-
+        $VERIFY
 
 # Upgrade the OPSuccinct L2 Output Oracle
 upgrade-oracle env_file=".env":
@@ -128,13 +142,19 @@ upgrade-oracle env_file=".env":
     forge install
     
     # Run the forge upgrade script
+    
+    ENV_VARS="L2OO_ADDRESS=$L2OO_ADDRESS"
+    if [ -n "${EXECUTE_UPGRADE_CALL:-}" ]; then ENV_VARS="$ENV_VARS EXECUTE_UPGRADE_CALL=$EXECUTE_UPGRADE_CALL"; fi
+    if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
+    if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
+    
     if [ "${EXECUTE_UPGRADE_CALL:-true}" = "false" ]; then
-        L2OO_ADDRESS=$L2OO_ADDRESS forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
+        $ENV_VARS forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
             --etherscan-api-key $ETHERSCAN_API_KEY
     else
-        L2OO_ADDRESS=$L2OO_ADDRESS forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
+        $ENV_VARS forge script script/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
             --verify \
@@ -161,13 +181,46 @@ update-parameters env_file=".env":
     forge install
     
     # Run the forge upgrade script
+    ENV_VARS="L2OO_ADDRESS=$L2OO_ADDRESS"
+    if [ -n "${EXECUTE_UPGRADE_CALL:-}" ]; then ENV_VARS="$ENV_VARS EXECUTE_UPGRADE_CALL=$EXECUTE_UPGRADE_CALL"; fi
+    if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
+    if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
+
+
     if [ "${EXECUTE_UPGRADE_CALL:-true}" = "false" ]; then
-        L2OO_ADDRESS=$L2OO_ADDRESS forge script script/OPSuccinctParameterUpdater.s.sol:OPSuccinctParameterUpdater \
-            --rpc-url $L1_RPC \
-            --private-key $PRIVATE_KEY
-    else
-        L2OO_ADDRESS=$L2OO_ADDRESS forge script script/OPSuccinctParameterUpdater.s.sol:OPSuccinctParameterUpdater \
+        $ENV_VARS forge script script/OPSuccinctParameterUpdater.s.sol:OPSuccinctParameterUpdater \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
             --broadcast
+    else
+        $ENV_VARS forge script script/OPSuccinctParameterUpdater.s.sol:OPSuccinctParameterUpdater \
+            --rpc-url $L1_RPC \
+            --private-key $PRIVATE_KEY \
+            --broadcast
+    fi
+
+deploy-dispute-game-factory env_file=".env":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    
+    # Load environment variables
+    source {{env_file}}
+
+    # cd into contracts directory
+    cd contracts
+
+    # forge install
+    forge install
+
+    VERIFY=""
+    if [ $ETHERSCAN_API_KEY != "" ]; then
+      VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+    fi
+    
+    # Run the forge deployment script
+    L2OO_ADDRESS=$L2OO_ADDRESS forge script script/OPSuccinctDGFDeployer.s.sol:OPSuccinctDFGDeployer \
+        --rpc-url $L1_RPC \
+        --private-key $PRIVATE_KEY \
+        --broadcast \
+        $VERIFY
     fi

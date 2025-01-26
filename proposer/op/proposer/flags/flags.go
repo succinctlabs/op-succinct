@@ -44,6 +44,11 @@ var (
 		Usage:   "Address of the L2OutputOracle contract",
 		EnvVars: prefixEnvVars("L2OO_ADDRESS"),
 	}
+	DGFAddressFlag = &cli.StringFlag{
+		Name:    "dgf-address",
+		Usage:   "Address of the DisputeGameFactory contract",
+		EnvVars: prefixEnvVars("DGF_ADDRESS"),
+	}
 	PollIntervalFlag = &cli.DurationFlag{
 		Name:    "poll-interval",
 		Usage:   "How frequently to poll L2 for new blocks (legacy L2OO)",
@@ -124,22 +129,6 @@ var (
 		Value:   20,
 		EnvVars: prefixEnvVars("MAX_CONCURRENT_PROOF_REQUESTS"),
 	}
-	TxCacheOutDirFlag = &cli.StringFlag{
-		Name:    "tx-cache-out-dir",
-		Usage:   "Cache directory for the found transactions to determine span batch boundaries",
-		Value:   "/tmp/batch_decoder/transactions_cache",
-		EnvVars: prefixEnvVars("TX_CACHE_OUT_DIR"),
-	}
-	BatchInboxFlag = &cli.StringFlag{
-		Name:    "batch-inbox",
-		Usage:   "Batch Inbox Address",
-		EnvVars: prefixEnvVars("BATCH_INBOX"),
-	}
-	BatcherAddressFlag = &cli.StringFlag{
-		Name:    "batcher-address",
-		Usage:   "Batch Sender Address",
-		EnvVars: prefixEnvVars("BATCHER_ADDRESS"),
-	}
 	MockFlag = &cli.BoolFlag{
 		Name:    "mock",
 		Usage:   "Use the mock OP Succinct server",
@@ -159,6 +148,7 @@ var requiredFlags = []cli.Flag{
 
 var optionalFlags = []cli.Flag{
 	L2OOAddressFlag,
+	DGFAddressFlag,
 	PollIntervalFlag,
 	AllowNonFinalizedFlag,
 	L2OutputHDPathFlag,
@@ -169,12 +159,9 @@ var optionalFlags = []cli.Flag{
 	SlackTokenFlag,
 	MaxBlockRangePerSpanProofFlag,
 	MaxConcurrentWitnessGenFlag,
-	TxCacheOutDirFlag,
 	OPSuccinctServerUrlFlag,
 	ProofTimeoutFlag,
 	MaxConcurrentProofRequestsFlag,
-	BatchInboxFlag,
-	BatcherAddressFlag,
 	MockFlag,
 	WitnessGenTimeoutFlag,
 }

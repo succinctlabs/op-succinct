@@ -35,6 +35,7 @@ pub struct ExecutionStats {
     pub bn_mul_cycles: u64,
     pub kzg_eval_cycles: u64,
     pub ec_recover_cycles: u64,
+    pub p256_verify_cycles: u64,
 }
 
 /// Write a statistic to the formatter.
@@ -101,6 +102,7 @@ impl fmt::Display for ExecutionStats {
         write_stat(f, "BN Mul Cycles", self.bn_mul_cycles)?;
         write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
         write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
+        write_stat(f, "P256 Verify Cycles", self.p256_verify_cycles)?;
         writeln!(
             f,
             "+--------------------------------+---------------------------+"
@@ -127,7 +129,9 @@ impl ExecutionStats {
         let total_gas_used: u64 = block_data.iter().map(|b| b.gas_used).sum();
 
         Self {
-            batch_start: block_data[0].block_number,
+            // The "block data" does not include the first block (as it's not executed), so we need to subtract 1 to give the user back the
+            // block corresponding to the blockhash they're proving from.
+            batch_start: block_data[0].block_number - 1,
             batch_end: block_data[block_data.len() - 1].block_number,
             total_instruction_count: report.total_instruction_count(),
             total_sp1_gas: 0,
@@ -140,6 +144,7 @@ impl ExecutionStats {
             bn_pair_cycles: get_cycles("precompile-bn-pair"),
             kzg_eval_cycles: get_cycles("precompile-kzg-eval"),
             ec_recover_cycles: get_cycles("precompile-ec-recover"),
+            p256_verify_cycles: get_cycles("precompile-p256-verify"),
             nb_transactions,
             eth_gas_used: block_data.iter().map(|b| b.gas_used).sum(),
             l1_fees: block_data.iter().map(|b| b.total_l1_fees).sum(),
@@ -219,7 +224,8 @@ impl fmt::Display for MarkdownExecutionStats {
         write_stat(f, "BN Add Cycles", self.0.bn_add_cycles)?;
         write_stat(f, "BN Mul Cycles", self.0.bn_mul_cycles)?;
         write_stat(f, "KZG Eval Cycles", self.0.kzg_eval_cycles)?;
-        write_stat(f, "EC Recover Cycles", self.0.ec_recover_cycles)
+        write_stat(f, "EC Recover Cycles", self.0.ec_recover_cycles)?;
+        write_stat(f, "P256 Verify Cycles", self.0.p256_verify_cycles)
     }
 }
 
@@ -244,6 +250,7 @@ pub struct SpanBatchStats {
     pub bn_pair_cycles: u64,
     pub kzg_eval_cycles: u64,
     pub ec_recover_cycles: u64,
+    pub p256_verify_cycles: u64,
 }
 
 impl fmt::Display for SpanBatchStats {
@@ -280,6 +287,7 @@ impl fmt::Display for SpanBatchStats {
         write_stat(f, "BN Pair Cycles", self.bn_pair_cycles)?;
         write_stat(f, "KZG Eval Cycles", self.kzg_eval_cycles)?;
         write_stat(f, "EC Recover Cycles", self.ec_recover_cycles)?;
+        write_stat(f, "P256 Verify Cycles", self.p256_verify_cycles)?;
         writeln!(
             f,
             "+-------------------------------+---------------------------+"

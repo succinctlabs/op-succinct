@@ -20,7 +20,7 @@ use op_succinct_host_utils::{
     L2OutputOracle, ProgramType,
 };
 use op_succinct_proposer::{
-    AggProofRequest, ContractConfig, ProofResponse, ProofStatus, SpanProofRequest,
+    AggProofRequest, ProofResponse, ProofStatus, SpanProofRequest, SuccinctProposerConfig,
     ValidateConfigRequest, ValidateConfigResponse,
 };
 use sp1_sdk::{
@@ -34,7 +34,7 @@ use sp1_sdk::{
 use std::{
     env, fs,
     str::FromStr,
-    time::{Duration, Instant},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tower_http::limit::RequestBodyLimitLayer;
 
@@ -43,11 +43,11 @@ pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Set up the SP1 SDK logger.
-    utils::setup_logger();
-
     // Enable logging.
     env::set_var("RUST_LOG", "info");
+
+    // Set up the SP1 SDK logger.
+    utils::setup_logger();
 
     dotenv::dotenv().ok();
 
@@ -64,8 +64,18 @@ async fn main() -> Result<()> {
     // [`RollupConfig`] is released from `op-alloy`.
     let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
 
+    // Set the proof strategies based on environment variables. Default to reserved to keep existing behavior.
+    let range_proof_strategy = match env::var("RANGE_PROOF_STRATEGY") {
+        Ok(strategy) if strategy.to_lowercase() == "hosted" => FulfillmentStrategy::Hosted,
+        _ => FulfillmentStrategy::Reserved,
+    };
+    let agg_proof_strategy = match env::var("AGG_PROOF_STRATEGY") {
+        Ok(strategy) if strategy.to_lowercase() == "hosted" => FulfillmentStrategy::Hosted,
+        _ => FulfillmentStrategy::Reserved,
+    };
+
     // Initialize global hashes.
-    let global_hashes = ContractConfig {
+    let global_hashes = SuccinctProposerConfig {
         agg_vkey_hash,
         range_vkey_commitment,
         rollup_config_hash,
@@ -73,6 +83,8 @@ async fn main() -> Result<()> {
         range_pk,
         agg_vk,
         agg_pk,
+        range_proof_strategy,
+        agg_proof_strategy,
     };
 
     let app = Router::new()
@@ -98,7 +110,7 @@ async fn main() -> Result<()> {
 
 /// Validate the configuration of the L2 Output Oracle.
 async fn validate_config(
-    State(state): State<ContractConfig>,
+    State(state): State<SuccinctProposerConfig>,
     Json(payload): Json<ValidateConfigRequest>,
 ) -> Result<(StatusCode, Json<ValidateConfigResponse>), AppError> {
     info!("Received validate config request: {:?}", payload);
@@ -127,7 +139,7 @@ async fn validate_config(
 
 /// Request a proof for a span of blocks.
 async fn request_span_proof(
-    State(state): State<ContractConfig>,
+    State(state): State<SuccinctProposerConfig>,
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received span proof request: {:?}", payload);
@@ -194,7 +206,7 @@ async fn request_span_proof(
     let proof_id = client
         .prove(&state.range_pk, &sp1_stdin)
         .compressed()
-        .strategy(FulfillmentStrategy::Reserved)
+        .strategy(state.range_proof_strategy)
         .skip_simulation(true)
         .cycle_limit(1_000_000_000_000)
         .request_async()
@@ -214,7 +226,7 @@ async fn request_span_proof(
 
 /// Request an aggregation proof for a set of subproofs.
 async fn request_agg_proof(
-    State(state): State<ContractConfig>,
+    State(state): State<SuccinctProposerConfig>,
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofResponse>), AppError> {
     info!("Received agg proof request");
@@ -303,7 +315,7 @@ async fn request_agg_proof(
     let proof_id = match prover
         .prove(&state.agg_pk, &stdin)
         .groth16()
-        .strategy(FulfillmentStrategy::Reserved)
+        .strategy(state.agg_proof_strategy)
         .request_async()
         .await
     {
@@ -324,7 +336,7 @@ async fn request_agg_proof(
 
 /// Request a mock proof for a span of blocks.
 async fn request_mock_span_proof(
-    State(state): State<ContractConfig>,
+    State(state): State<SuccinctProposerConfig>,
     Json(payload): Json<SpanProofRequest>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received mock span proof request: {:?}", payload);
@@ -429,7 +441,7 @@ async fn request_mock_span_proof(
 
 /// Request mock aggregation proof.
 async fn request_mock_agg_proof(
-    State(state): State<ContractConfig>,
+    State(state): State<SuccinctProposerConfig>,
     Json(payload): Json<AggProofRequest>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received mock agg proof request!");
@@ -526,36 +538,37 @@ async fn get_proof_status(
 
     let proof_id_bytes = hex::decode(proof_id)?;
 
-    // Time out this request if it takes too long.
-    let timeout = Duration::from_secs(10);
-    let (status, maybe_proof) = match tokio::time::timeout(
-        timeout,
-        client.get_proof_status(B256::from_slice(&proof_id_bytes)),
-    )
-    .await
+    // This request will time out if the server is down.
+    let (status, maybe_proof) = match client
+        .get_proof_status(B256::from_slice(&proof_id_bytes))
+        .await
     {
-        Ok(Ok(result)) => result,
-        Ok(Err(_)) => {
-            return Ok((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ProofStatus {
-                    fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
-                    execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-                    proof: vec![],
-                }),
-            ));
-        }
-        Err(_) => {
-            return Ok((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ProofStatus {
-                    fulfillment_status: FulfillmentStatus::UnspecifiedFulfillmentStatus.into(),
-                    execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-                    proof: vec![],
-                }),
-            ));
+        Ok(res) => res,
+        Err(e) => {
+            error!("Failed to get proof status: {}", e);
+            return Err(AppError(e));
         }
     };
+
+    // Check the deadline.
+    if status.deadline
+        < SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    {
+        error!(
+            "Proof request timed out on the server. Default timeout is set to 4 hours. Returning status as Unfulfillable."
+        );
+        return Ok((
+            StatusCode::OK,
+            Json(ProofStatus {
+                fulfillment_status: FulfillmentStatus::Unfulfillable.into(),
+                execution_status: ExecutionStatus::Executed.into(),
+                proof: vec![],
+            }),
+        ));
+    }
 
     let fulfillment_status = status.fulfillment_status;
     let execution_status = status.execution_status;

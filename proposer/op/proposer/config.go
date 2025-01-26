@@ -33,6 +33,9 @@ type CLIConfig struct {
 	// L2OOAddress is the L2OutputOracle contract address.
 	L2OOAddress string
 
+	// DGFAddress is the DisputeGameFactory contract address.
+	DGFAddress string
+
 	// PollInterval is the delay between querying L2 for more transaction
 	// and creating a new batch.
 	PollInterval time.Duration
@@ -76,8 +79,6 @@ type CLIConfig struct {
 
 	// L1 Beacon RPC URL used to determine span batch boundaries.
 	BeaconRpc string
-	// Directory to store the transaction cache when determining span batch boundaries.
-	TxCacheOutDir string
 	// The max size (in blocks) of a proof we will attempt to generate. If span batches are larger, we break them up.
 	MaxBlockRangePerSpanProof uint64
 	// The max number of concurrent witness generation processes.
@@ -92,10 +93,6 @@ type CLIConfig struct {
 	OPSuccinctServerUrl string
 	// The maximum proofs that can be requested from the server concurrently.
 	MaxConcurrentProofRequests uint64
-	// The batch inbox on L1 to read batches from. Note that this is ignored if L2 Chain ID is in rollup config.
-	BatchInbox string
-	// The batcher address to include transactions from. Note that this is ignored if L2 Chain ID is in rollup config.
-	BatcherAddress string
 	// Mock is a flag to use the mock OP Succinct server.
 	Mock bool
 }
@@ -114,8 +111,8 @@ func (c *CLIConfig) Check() error {
 		return err
 	}
 
-	if c.L2OOAddress == "" {
-		return errors.New("the `L2OutputOracle` address was not provided")
+	if c.L2OOAddress == "" && c.DGFAddress == "" {
+		return errors.New("one of the `DisputeGameFactory` or `L2OutputOracle` address must be provided")
 	}
 
 	return nil
@@ -142,6 +139,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		L1EthRpc:     ctx.String(flags.L1EthRpcFlag.Name),
 		RollupRpc:    ctx.String(flags.RollupRpcFlag.Name),
 		L2OOAddress:  ctx.String(flags.L2OOAddressFlag.Name),
+		DGFAddress:   ctx.String(flags.DGFAddressFlag.Name),
 		PollInterval: ctx.Duration(flags.PollIntervalFlag.Name),
 		TxMgrConfig:  txmgr.ReadCLIConfig(ctx),
 		BeaconRpc:    ctx.String(flags.BeaconRpcFlag.Name),
@@ -162,11 +160,8 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		MaxConcurrentWitnessGen:      ctx.Uint64(flags.MaxConcurrentWitnessGenFlag.Name),
 		WitnessGenTimeout:            ctx.Uint64(flags.WitnessGenTimeoutFlag.Name),
 		ProofTimeout:                 ctx.Uint64(flags.ProofTimeoutFlag.Name),
-		TxCacheOutDir:                ctx.String(flags.TxCacheOutDirFlag.Name),
 		OPSuccinctServerUrl:          ctx.String(flags.OPSuccinctServerUrlFlag.Name),
 		MaxConcurrentProofRequests:   ctx.Uint64(flags.MaxConcurrentProofRequestsFlag.Name),
-		BatchInbox:                   ctx.String(flags.BatchInboxFlag.Name),
-		BatcherAddress:               ctx.String(flags.BatcherAddressFlag.Name),
 		Mock:                         ctx.Bool(flags.MockFlag.Name),
 	}
 }
