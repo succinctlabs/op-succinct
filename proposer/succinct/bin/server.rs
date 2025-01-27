@@ -288,10 +288,7 @@ async fn request_agg_proof(
         Ok(f) => f,
         Err(e) => {
             error!("Failed to create fetcher: {}", e);
-            return Err(AppError(anyhow::anyhow!(
-                "Failed to create fetcher: {}",
-                e
-            )));
+            return Err(AppError(anyhow::anyhow!("Failed to create fetcher: {}", e)));
         }
     };
 
