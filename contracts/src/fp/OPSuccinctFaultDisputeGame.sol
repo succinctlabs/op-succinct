@@ -28,7 +28,8 @@ import "src/fp/lib/Errors.sol";
 
 // Interfaces
 import {ISemver} from "src/universal/interfaces/ISemver.sol";
-import {IAnchorStateRegistry} from "src/dispute/interfaces/IAnchorStateRegistry.sol";
+import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
+import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 
 /// @title OPSuccinctFaultDisputeGame
@@ -43,7 +44,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         uint32 parentIndex;
         address counteredBy;
         address claimant;
-        uint128 bond;
         Claim claim;
         Clock clock;
     }
@@ -70,24 +70,26 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     //                         State Vars                         //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice The absolute prestate of the instruction trace. This is a constant that is defined
-    ///         by the program that is being used to execute the trace.
-    Claim internal immutable ABSOLUTE_PRESTATE;
+    /// @notice The maximum duration allowed for a challenger to challenge a game.
+    Duration internal immutable MAX_CHALLENGE_DURATION;
 
-    /// @notice The maximum duration that may accumulate on a team's chess clock before they may no longer respond.
-    Duration internal immutable MAX_CLOCK_DURATION;
+    /// @notice The maximum duration allowed for a proposer to prove against a challenge.
+    Duration internal immutable MAX_PROVE_DURATION;
 
     /// @notice The game type ID.
     GameType internal immutable GAME_TYPE;
 
-    /// @notice The anchor state registry.
-    IAnchorStateRegistry internal immutable ANCHOR_STATE_REGISTRY;
+    /// @notice The dispute game factory.
+    IDisputeGameFactory internal immutable DISPUTE_GAME_FACTORY;
 
     /// @notice The chain ID of the L2 network this contract argues about.
     uint256 internal immutable L2_CHAIN_ID;
 
     /// @notice The SP1 verifier.
     ISP1Verifier internal immutable SP1_VERIFIER;
+
+    /// @notice The rollup config hash.
+    bytes32 internal immutable ROLLUP_CONFIG_HASH;
 
     /// @notice The vkey for the aggregation program.
     bytes32 internal immutable AGGREGATION_VKEY;
@@ -114,25 +116,36 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The latest finalized output root, serving as the anchor for output bisection.
     OutputRoot public startingOutputRoot;
 
-    /// @param _absolutePrestate The absolute prestate of the instruction trace.
-    /// @param _maxClockDuration The maximum amount of time that may accumulate on a team's chess clock.
-    /// @param _anchorStateRegistry The contract that stores the anchor state for each game type.
+    /// @notice Modifier to ensure that the caller is the proposer.
+    modifier onlyProposer() {
+        if (msg.sender != claimData.claimant) revert NotProposer();
+        _;
+    }
+
+    /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
+    /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
+    /// @param _disputeGameFactory The factory that creates the dispute games.
     /// @param _l2ChainId Chain ID of the L2 network this contract argues about.
+    /// @param _sp1Verifier The address of the SP1 verifier that verifies the proof for the aggregation program.
+    /// @param _rollupConfigHash The rollup config hash for the L2 network.
+    /// @param _aggregationVkey The vkey for the aggregation program.
     constructor(
-        Claim _absolutePrestate,
-        Duration _maxClockDuration,
-        IAnchorStateRegistry _anchorStateRegistry,
+        Duration _maxChallengeDuration,
+        Duration _maxProveDuration,
+        IDisputeGameFactory _disputeGameFactory,
         uint256 _l2ChainId,
         ISP1Verifier _sp1Verifier,
+        bytes32 _rollupConfigHash,
         bytes32 _aggregationVkey
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
-        ABSOLUTE_PRESTATE = _absolutePrestate;
-        MAX_CLOCK_DURATION = _maxClockDuration;
-        ANCHOR_STATE_REGISTRY = _anchorStateRegistry;
+        MAX_CHALLENGE_DURATION = _maxChallengeDuration;
+        MAX_PROVE_DURATION = _maxProveDuration;
+        DISPUTE_GAME_FACTORY = _disputeGameFactory;
         L2_CHAIN_ID = _l2ChainId;
         SP1_VERIFIER = _sp1Verifier;
+        ROLLUP_CONFIG_HASH = _rollupConfigHash;
         AGGREGATION_VKEY = _aggregationVkey;
     }
 
@@ -153,48 +166,52 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // INVARIANT: The game must not have already been initialized.
         if (initialized) revert AlreadyInitialized();
 
-        // Grab the latest anchor root.
-        (Hash root, uint256 rootBlockNumber) = ANCHOR_STATE_REGISTRY.anchors(GAME_TYPE);
-
-        // Should only happen if this is a new game type that hasn't been set up yet.
-        if (root.raw() == bytes32(0)) revert AnchorRootNotFound();
-
-        // Set the starting output root.
-        startingOutputRoot = OutputRoot({l2BlockNumber: rootBlockNumber, root: root});
-
         // Revert if the calldata size is not the expected length.
         //
         // This is to prevent adding extra or omitting bytes from to `extraData` that result in a different game UUID
         // in the factory, but are not used by the game, which would allow for multiple dispute games for the same
         // output proposal to be created.
         //
-        // Expected length: 0x7A
+        // Expected length: 0x7E
         // - 0x04 selector
         // - 0x14 creator address
         // - 0x20 root claim
         // - 0x20 l1 head
-        // - 0x20 extraData
+        // - 0x20 extraData (l2BlockNumber)
+        // - 0x04 extraData (parentIndex)
         // - 0x02 CWIA bytes
         assembly {
-            if iszero(eq(calldatasize(), 0x7A)) {
+            if iszero(eq(calldatasize(), 0x7E)) {
                 // Store the selector for `BadExtraData()` & revert
                 mstore(0x00, 0x9824bdab)
                 revert(0x1C, 0x04)
             }
         }
 
+        // Set the starting output root.
+        (GameType gameType, Timestamp timestamp, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+        startingOutputRoot = OutputRoot({
+            l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
+            root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
+        });
+
+        // INVARIANT: The parent game must have the same game type as the current game.
+        if (gameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
+
+        // INVARIANT: The parent game must be a valid game.
+        if (proxy.status() != GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
+
         // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
         // configured starting block number.
-        if (l2BlockNumber() <= rootBlockNumber) {
+        if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
             revert UnexpectedRootClaim(rootClaim());
         }
 
         // Set the root claim
         claimData = ClaimData({
-            parentIndex: type(uint32).max,
+            parentIndex: parentIndex(),
             counteredBy: address(0),
             claimant: gameCreator(),
-            bond: uint128(msg.value),
             claim: rootClaim(),
             clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
         });
@@ -214,6 +231,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         l2BlockNumber_ = _getArgUint256(0x54);
     }
 
+    /// @notice The parent index of the game.
+    function parentIndex() public pure returns (uint32 parentIndex_) {
+        parentIndex_ = _getArgUint32(0x74);
+    }
+
     /// @notice Only the starting block number of the game.
     function startingBlockNumber() external view returns (uint256 startingBlockNumber_) {
         startingBlockNumber_ = startingOutputRoot.l2BlockNumber;
@@ -228,49 +250,39 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     //                    `IDisputeGame` impl                     //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Resolves the game after the clock expires. The proposer wins and the bond is returned back to the proposer.
-    function resolve() external returns (GameStatus status_) {
-        // INVARIANT: Resolution cannot occur unless the game is currently in progress.
+    /// @notice Challenges the game.
+    function challenge() external payable {
+        // INVARIANT: Cannot challenge a game if the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
-        Duration challengeClockDuration = getChallengerDuration();
+        // INVARIANT: Cannot challenge a game if the game has already been challenged.
+        if (claimData.counteredBy != address(0)) revert ClaimAlreadyChallenged();
 
-        // INVARIANT: Cannot resolve a subgame unless the clock of its would-be counter has expired
-        // INVARIANT: Assuming ordered subgame resolution, challengeClockDuration is always >= MAX_CLOCK_DURATION if all
-        // descendant subgames are resolved
-        if (challengeClockDuration.raw() < MAX_CLOCK_DURATION.raw()) {
-            revert ClockNotExpired();
+        // INVARIANT: Cannot challenge a game if the clock has already expired.
+        if (getChallengeDuration().raw() == MAX_CHALLENGE_DURATION.raw()) {
+            revert ClockTimeExceeded();
         }
 
-        // Update the global game status; The dispute has concluded.
-        status_ = GameStatus.DEFENDER_WINS;
-        resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+        // Update the clock to the current block timestamp, which marks the start of the challenge.
+        claimData.clock = LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)));
 
-        // Update the status and emit the resolved event, note that we're performing an assignment here.
-        emit Resolved(status = status_);
-
-        // Try to update the anchor state, this should not revert.
-        ANCHOR_STATE_REGISTRY.tryUpdateAnchorState();
-
-        // Distribute the bond back to the proposer
-        (bool success,) = claimData.claimant.call{value: claimData.bond}("");
-        if (!success) revert BondTransferFailed();
+        // Hold the bond in the contract.
+        payable(address(this)).transfer(msg.value);
     }
 
-    /// @notice Resolves the game immediately with a proof. The honest challenger wins and the bond is rewarded to the challenger.
-    /// @param publicValues The public values committed to for an OP Succinct aggregation program.
-    /// @param proofBytes The proof of the program execution the SP1 zkVM encoded as bytes.
-    function resolveWithProof(bytes calldata publicValues, bytes calldata proofBytes)
+    function prove(bytes calldata publicValues, bytes calldata proofBytes)
         external
+        onlyProposer
         returns (GameStatus status_)
     {
-        // INVARIANT: Resolution cannot occur unless the game is currently in progress.
+        // INVARIANT: Cannot prove a game if the game is not challenged.
+        if (claimData.counteredBy == address(0)) revert ClaimNotChallenged();
+
+        // INVARIANT: Cannot prove a game if the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
-        Duration challengeClockDuration = getChallengerDuration();
-
-        // INVARIANT: Cannot resolve a game with a proof if clock has timed out.
-        if (challengeClockDuration.raw() == MAX_CLOCK_DURATION.raw()) {
+        // INVARIANT: Cannot prove a game if the clock has timed out.
+        if (getChallengeDuration().raw() == MAX_CHALLENGE_DURATION.raw()) {
             revert ClockTimeExceeded();
         }
 
@@ -292,23 +304,84 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             revert UnexpectedClaimBlockNum(outputs.claimBlockNum);
         }
 
-        // The proof must show a different claim root than what was originally claimed
-        if (outputs.claimRoot == Claim.unwrap(rootClaim())) {
-            revert UnexpectedRootClaim(rootClaim());
+        // The proof must show a same claim root from what was originally claimed
+        if (outputs.claimRoot != rootClaim().raw()) {
+            revert UnexpectedRootClaim(Claim.wrap(outputs.claimRoot));
+        }
+
+        // The proof must have the same rollup config hash committed as the game's rollup config hash
+        if (outputs.rollupConfigHash != ROLLUP_CONFIG_HASH) {
+            revert UnexpectedRollupConfigHash(outputs.rollupConfigHash);
+        }
+
+        // The proof must have the same range vkey commitment committed as the game's range vkey commitment
+        if (outputs.rangeVkeyCommitment != AGGREGATION_VKEY) {
+            revert UnexpectedRangeVkeyCommitment(outputs.rangeVkeyCommitment);
         }
 
         SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, publicValues, proofBytes);
 
-        claimData.counteredBy = msg.sender;
-
-        status_ = GameStatus.CHALLENGER_WINS;
+        status_ = GameStatus.DEFENDER_WINS;
         resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
         emit Resolved(status = status_);
 
-        // Distribute the bond to the challenger
-        (bool success,) = msg.sender.call{value: claimData.bond}("");
+        // Distribute the bond to the proposer
+        (bool success,) = msg.sender.call{value: address(this).balance}("");
         if (!success) revert BondTransferFailed();
+    }
+
+    /// @notice Resolves the game after the clock expires.
+    ///         `DEFENDER_WINS` when no one has challenged the proposer's claim.
+    ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
+    ///         its claim within the `MAX_PROVE_DURATION`.
+    function resolve() external returns (GameStatus status_) {
+        // INVARIANT: Resolution cannot occur unless the game has already been resolved.
+        if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
+
+        // INVARIANT: Cannot resolve a game if the parent game has not been resolved.
+        (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+        if (proxy.status() == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
+
+        // INVARIANT: If the parent game is an invalid game, then the current game is invalid.
+        if (proxy.status() == GameStatus.CHALLENGER_WINS) {
+            status_ = GameStatus.CHALLENGER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+            emit Resolved(status = status_);
+
+            return status_;
+        }
+
+        // The only case left is that the parent game is a valid game (i.e. parent game's status is `DEFENDER_WINS`)
+        if (claimData.counteredBy != address(0)) {
+            // INVARIANT: Cannot resolve a game unless the clock has expired.
+            if (getProveDuration().raw() < MAX_PROVE_DURATION.raw()) {
+                revert ClockNotExpired();
+            }
+
+            status_ = GameStatus.CHALLENGER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+            emit Resolved(status = status_);
+
+            // Distribute the bond to the challenger
+            (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
+            if (!success) revert BondTransferFailed();
+
+            return status_;
+        } else {
+            // INVARIANT: Cannot resolve a game unless the clock has expired.
+            if (getChallengeDuration().raw() < MAX_CHALLENGE_DURATION.raw()) {
+                revert ClockNotExpired();
+            }
+
+            status_ = GameStatus.DEFENDER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+            emit Resolved(status = status_);
+
+            // Distribute the bond back to the proposer
+            (bool success,) = claimData.claimant.call{value: address(this).balance}("");
+            if (!success) revert BondTransferFailed();
+        }
     }
 
     /// @notice Getter for the game type.
@@ -366,41 +439,61 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     //                       MISC EXTERNAL                        //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Returns the amount of time elapsed on the potential challenger to `claimData`'s chess clock. Maxes
-    ///         out at `MAX_CLOCK_DURATION`.
-    /// @return duration_ The time elapsed on the potential challenger to `_claimIndex`'s chess clock.
-    function getChallengerDuration() public view returns (Duration duration_) {
+    /// @notice Returns the amount of time elapsed on the proposer's chess clock. Maxes out at
+    ///         `MAX_PROVE_DURATION`.
+    /// @return duration_ The time elapsed on the proposer's chess clock.
+    function getProveDuration() public view returns (Duration duration_) {
+        // INVARIANT: The game must be in progress to query the remaining time.
+        if (status != GameStatus.IN_PROGRESS) {
+            revert GameNotInProgress();
+        }
+
+        // INVARIANT: The game must have been challenged to query the remaining time.
+        if (claimData.counteredBy == address(0)) {
+            revert ClaimNotChallenged();
+        }
+
+        // Compute the duration elapsed of the proposer's clock.
+        uint64 proveDuration = uint64(block.timestamp - claimData.clock.timestamp().raw());
+        duration_ = proveDuration > MAX_PROVE_DURATION.raw() ? MAX_PROVE_DURATION : Duration.wrap(proveDuration);
+    }
+
+    /// @notice Returns the amount of time elapsed on the potential challenger's chess clock. Maxes
+    ///         out at `MAX_CHALLENGE_DURATION`.
+    /// @return duration_ The time elapsed on the potential challenger's chess clock.
+    function getChallengeDuration() public view returns (Duration duration_) {
         // INVARIANT: The game must be in progress to query the remaining time to respond to a given claim.
         if (status != GameStatus.IN_PROGRESS) {
             revert GameNotInProgress();
         }
 
         // Compute the duration elapsed of the potential challenger's clock.
-        uint64 challengeDuration = uint64((block.timestamp - claimData.clock.timestamp().raw()));
-        duration_ = challengeDuration > MAX_CLOCK_DURATION.raw() ? MAX_CLOCK_DURATION : Duration.wrap(challengeDuration);
+        uint64 challengeDuration = uint64(block.timestamp - claimData.clock.timestamp().raw());
+        duration_ =
+            challengeDuration > MAX_CHALLENGE_DURATION.raw() ? MAX_CHALLENGE_DURATION : Duration.wrap(challengeDuration);
     }
 
     ////////////////////////////////////////////////////////////////
     //                     IMMUTABLE GETTERS                      //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Returns the absolute prestate of the instruction trace.
-    function absolutePrestate() external view returns (Claim absolutePrestate_) {
-        absolutePrestate_ = ABSOLUTE_PRESTATE;
+    /// @notice Returns the max challenge duration.
+    function maxChallengeDuration() external view returns (Duration maxChallengeDuration_) {
+        maxChallengeDuration_ = MAX_CHALLENGE_DURATION;
     }
 
-    /// @notice Returns the max clock duration.
-    function maxClockDuration() external view returns (Duration maxClockDuration_) {
-        maxClockDuration_ = MAX_CLOCK_DURATION;
-    }
-
-    /// @notice Returns the anchor state registry contract.
-    function anchorStateRegistry() external view returns (IAnchorStateRegistry registry_) {
-        registry_ = ANCHOR_STATE_REGISTRY;
+    /// @notice Returns the max prove duration.
+    function maxProveDuration() external view returns (Duration maxProveDuration_) {
+        maxProveDuration_ = MAX_PROVE_DURATION;
     }
 
     /// @notice Returns the chain ID of the L2 network this contract argues about.
     function l2ChainId() external view returns (uint256 l2ChainId_) {
         l2ChainId_ = L2_CHAIN_ID;
+    }
+
+    /// @notice Returns the dispute game factory.
+    function disputeGameFactory() external view returns (IDisputeGameFactory disputeGameFactory_) {
+        disputeGameFactory_ = DISPUTE_GAME_FACTORY;
     }
 }
