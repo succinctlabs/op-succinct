@@ -235,15 +235,21 @@ async fn request_agg_proof(
         .map(|sp| bincode::deserialize(sp).unwrap())
         .collect();
 
+    info!("Deserialized proofs from the server.");
+
     let boot_infos: Vec<BootInfoStruct> = proofs_with_pv
         .iter_mut()
         .map(|proof| proof.public_values.read())
         .collect();
 
+    info!("Read public values from the proofs.");
+
     let proofs: Vec<SP1Proof> = proofs_with_pv
         .iter_mut()
         .map(|proof| proof.proof.clone())
         .collect();
+
+    info!("Cloned proofs from the server.");
 
     let l1_head_bytes = match payload.head.strip_prefix("0x") {
         Some(hex_str) => match hex::decode(hex_str) {
@@ -280,7 +286,13 @@ async fn request_agg_proof(
 
     let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
-        Err(e) => return Err(AppError(anyhow::anyhow!("Failed to create fetcher: {}", e))),
+        Err(e) => {
+            error!("Failed to create fetcher: {}", e);
+            return Err(AppError(anyhow::anyhow!(
+                "Failed to create fetcher: {}",
+                e
+            )));
+        }
     };
 
     let headers = match fetcher
