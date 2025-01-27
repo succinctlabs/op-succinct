@@ -31,6 +31,10 @@ path = "bin/fetch_rollup_config.rs"
 name = "gen-sp1-test-artifacts"
 path = "bin/gen_sp1_test_artifacts.rs"
 
+[[bin]]
+name = "find_proof_by_l1head"
+path = "bin/find_proof_by_l1head.rs"
+
 [dependencies]
 
 # workspace
@@ -49,6 +53,8 @@ reqwest = { workspace = true }
 futures.workspace = true
 rayon = "1.10.0"
 serde_json.workspace = true
+
+rusqlite = { version = "0.29.0", features = ["bundled"] }
 
 # kona
 kona-host = { workspace = true }
