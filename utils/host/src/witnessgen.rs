@@ -1,4 +1,5 @@
 use anyhow::Result;
+use kona_host::cli::HostCli;
 use std::{path::PathBuf, time::Duration};
 use sysinfo::System;
 

@@ -4,11 +4,13 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
+use alloy_transport::Transport;
 use alloy_transport_http::Http;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
+use kona_host::cli::HostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
 use maili_protocol::L2BlockInfo;
@@ -296,7 +298,7 @@ impl OPSuccinctDataFetcher {
                     tx_index: receipt.inner.transaction_index.unwrap(),
                     tx_hash: receipt.inner.transaction_hash,
                     l1_gas_cost,
-                    tx_fee: receipt.inner.effective_gas_price * receipt.inner.gas_used,
+                    tx_fee: receipt.inner.effective_gas_price * receipt.inner.gas_used as u128,
                 });
             }
         }
@@ -327,7 +329,7 @@ impl OPSuccinctDataFetcher {
                             tx_index: tx_index as u64,
                             tx_hash: tx.inner.transaction_hash,
                             l1_gas_cost: U256::from(tx.l1_block_info.l1_fee.unwrap_or(0)),
-                            tx_fee: tx.inner.effective_gas_price * tx.inner.gas_used,
+                            tx_fee: tx.inner.effective_gas_price * tx.inner.gas_used as u128,
                         })
                         .collect();
                     block_fee_data
@@ -372,7 +374,7 @@ impl OPSuccinctDataFetcher {
                     .map(|tx| {
                         // tx.inner.effective_gas_price * tx.inner.gas_used + tx.l1_block_info.l1_fee is the total fee for the transaction.
                         // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used
+                        tx.inner.effective_gas_price * tx.inner.gas_used as u128
                             + tx.l1_block_info.l1_fee.unwrap_or(0)
                     })
                     .sum();
@@ -802,7 +804,7 @@ impl OPSuccinctDataFetcher {
         // witness data.
         fs::create_dir_all(&data_directory)?;
 
-        Ok(SingleChainHostCli {
+        Ok(kona_host::HostCli {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
             agreed_l2_head_hash,

@@ -9,7 +9,8 @@ use alloy_consensus::Header;
 use alloy_primitives::{map::HashMap, B256};
 use alloy_sol_types::sol;
 use anyhow::Result;
-use kona_host::{DiskKeyValueStore, MemoryKeyValueStore};
+use clap::Parser;
+use kona_host::{cli::HostCli, DiskKeyValueStore, MemoryKeyValueStore};
 use maili_genesis::RollupConfig;
 use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
@@ -46,6 +47,22 @@ sol! {
         bytes32 l2_storage_hash;
         bytes32 l2_claim_hash;
     }
+}
+
+/// The host binary CLI application arguments.
+#[derive(Parser, Clone, Debug)]
+pub struct OPSuccinctHostArgs {
+    #[clap(flatten)]
+    pub kona: kona_host::cli::HostCli,
+
+    /// Address of L2 rollup node endpoint (op-node) to use
+    #[clap(long, env)]
+    pub l2_rollup_node_address: String,
+    /// Whether to skip running the zeth preflight engine
+    #[clap(long, default_value_t = false, env)]
+    pub skip_zeth_preflight: bool,
+    #[clap(long, value_parser = parse_address, env)]
+    pub payout_recipient_address: Option<Address>,
 }
 
 /// Get the stdin to generate a proof for the given L2 claim.
