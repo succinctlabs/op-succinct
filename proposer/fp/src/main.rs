@@ -25,6 +25,8 @@ struct OutputRoot {
 struct GameInfo {
     challenged: bool,
     clock_expired: bool,
+    proxy_address: Address,
+    timestamp: u64,
 }
 
 struct ContractAddresses {
@@ -197,9 +199,9 @@ impl OPSuccinctProposer {
 
         tracing::debug!("RPC Response: {:?}", response);
 
-        // The outputRoot is directly in the response, not under "result"
         let output_root = response
-            .get("outputRoot")
+            .get("result")
+            .and_then(|r| r.get("outputRoot"))
             .and_then(|v| v.as_str())
             .ok_or_else(|| eyre::eyre!("Invalid output root response format: {:?}", response))?;
 
@@ -267,21 +269,39 @@ impl OPSuccinctProposer {
     async fn check_and_resolve_games(&self) -> Result<()> {
         // Get total games count
         let games_count = self.get_games_count().await?;
+        tracing::info!("Total games count: {}", games_count);
 
         // Iterate through all games
         for game_id in 0..games_count.as_u64() {
             let game_id = U256::from(game_id);
+            tracing::info!("Checking game {}", game_id);
 
-            // Get game status
-            if let Ok(game_info) = self.get_game_info(game_id).await {
-                // Check if game is unchallenged and clock expired
-                if !game_info.challenged && game_info.clock_expired {
-                    tracing::info!("Found resolvable game: {}", game_id);
-                    match self.resolve_game(game_id).await {
-                        Ok(_) => tracing::info!("Successfully resolved game {}", game_id),
-                        Err(e) => tracing::error!("Failed to resolve game {}: {}", game_id, e),
+            match self.get_game_info(game_id).await {
+                Ok(game_info) => {
+                    tracing::info!(
+                        "Game {} info - challenged: {}, clock_expired: {}",
+                        game_id,
+                        game_info.challenged,
+                        game_info.clock_expired
+                    );
+
+                    // Check if game is unchallenged and clock expired
+                    if !game_info.challenged && game_info.clock_expired {
+                        tracing::info!("Found resolvable game: {}", game_id);
+                        match self.resolve_game(game_info.proxy_address).await {
+                            Ok(_) => tracing::info!("Successfully resolved game {}", game_id),
+                            Err(e) => tracing::error!("Failed to resolve game {}: {}", game_id, e),
+                        }
+                    } else {
+                        tracing::info!(
+                            "Game {} not resolvable - challenged: {}, clock_expired: {}",
+                            game_id,
+                            game_info.challenged,
+                            game_info.clock_expired
+                        );
                     }
                 }
+                Err(e) => tracing::error!("Failed to get game info for game {}: {}", game_id, e),
             }
         }
         Ok(())
@@ -320,20 +340,28 @@ impl OPSuccinctProposer {
 
     async fn get_game_info(&self, game_id: U256) -> Result<GameInfo> {
         let function = Function {
-            name: "games".to_string(),
+            name: "gameAtIndex".to_string(),
             inputs: vec![Param {
-                name: "".to_string(),
+                name: "index".to_string(),
                 kind: ParamType::Uint(256),
                 internal_type: None,
             }],
             outputs: vec![
-                // Add all game struct fields here, but we only care about status for now
                 Param {
-                    name: "status".to_string(),
-                    kind: ParamType::Uint(8),
+                    name: "gameType".to_string(),
+                    kind: ParamType::Uint(32),
                     internal_type: None,
                 },
-                // Add other fields as needed
+                Param {
+                    name: "timestamp".to_string(),
+                    kind: ParamType::Uint(64),
+                    internal_type: None,
+                },
+                Param {
+                    name: "proxy".to_string(),
+                    kind: ParamType::Address,
+                    internal_type: None,
+                },
             ],
             constant: Some(true),
             state_mutability: StateMutability::View,
@@ -355,49 +383,91 @@ impl OPSuccinctProposer {
             .await?;
 
         let decoded = function.decode_output(&result)?;
-        let status = decoded[0].clone().into_uint().unwrap().as_u64();
+        tracing::debug!("Game {} raw data: {:?}", game_id, decoded);
 
-        // Status 1 means IN_PROGRESS
-        // If game is in progress, check if clock is expired
-        let clock_expired = if status == 1 {
-            self.check_clock_expired(game_id).await?
-        } else {
-            false
-        };
+        let game_type = decoded[0].clone().into_uint().unwrap().as_u64();
+        tracing::info!("Game {} type: {}", game_id, game_type);
 
-        // Game is challenged if there are moves (status > 1)
+        // Only check games of our type (42)
+        if game_type != GAME_TYPE as u64 {
+            tracing::info!(
+                "Game {} is not our type ({} != {})",
+                game_id,
+                game_type,
+                GAME_TYPE
+            );
+            return Ok(GameInfo {
+                challenged: false,
+                clock_expired: false,
+                proxy_address: Address::zero(),
+                timestamp: 0,
+            });
+        }
+
+        // Get the game proxy address and timestamp
+        let proxy_address = decoded[2].clone().into_address().unwrap();
+        let game_timestamp = decoded[1].clone().into_uint().unwrap().as_u64();
+        tracing::info!(
+            "Game {} proxy: {:?}, timestamp: {}",
+            game_id,
+            proxy_address,
+            game_timestamp
+        );
+
+        // Now get the game status from the proxy
+        let status = self.get_game_status(proxy_address).await?;
+        tracing::info!("Game {} status: {}", game_id, status);
+
+        // If game is already resolved (CHALLENGER_WINS or DEFENDER_WINS), skip it
+        if status > 0 {
+            tracing::info!(
+                "Game {} is already resolved with status {}",
+                game_id,
+                status
+            );
+            return Ok(GameInfo {
+                challenged: false,
+                clock_expired: false,
+                proxy_address,
+                timestamp: game_timestamp,
+            });
+        }
+
+        // If game is IN_PROGRESS (status == 0), check if clock has expired
+        let clock_expired = self
+            .check_clock_expired_at(proxy_address, game_timestamp)
+            .await?;
+        tracing::info!("Game {} clock expired: {}", game_id, clock_expired);
+
         Ok(GameInfo {
-            challenged: status > 1,
+            challenged: false, // Game is not challenged if it's still IN_PROGRESS
             clock_expired,
+            proxy_address,
+            timestamp: game_timestamp,
         })
     }
 
-    async fn check_clock_expired(&self, game_id: U256) -> Result<bool> {
+    async fn get_game_status(&self, game_address: Address) -> Result<u64> {
         let function = Function {
-            name: "clockExpired".to_string(),
-            inputs: vec![Param {
-                name: "gameId".to_string(),
-                kind: ParamType::Uint(256),
-                internal_type: None,
-            }],
+            name: "status".to_string(),
+            inputs: vec![],
             outputs: vec![Param {
                 name: "".to_string(),
-                kind: ParamType::Bool,
+                kind: ParamType::Uint(8),
                 internal_type: None,
             }],
             constant: Some(true),
             state_mutability: StateMutability::View,
         };
 
-        let params = vec![Token::Uint(game_id)];
-        let data = function.encode_input(&params)?;
+        let data = function.encode_input(&[])?;
 
         let result = self
             .eth_client
             .call(
                 &TypedTransaction::Legacy(
                     TransactionRequest::new()
-                        .to(self.addresses.factory_proxy)
+                        .to(game_address)
                         .data(Bytes::from(data)),
                 ),
                 None,
@@ -405,34 +475,83 @@ impl OPSuccinctProposer {
             .await?;
 
         let decoded = function.decode_output(&result)?;
-        Ok(decoded[0].clone().into_bool().unwrap())
+        Ok(decoded[0].clone().into_uint().unwrap().as_u64())
     }
 
-    async fn resolve_game(&self, game_id: U256) -> Result<()> {
+    async fn check_clock_expired_at(
+        &self,
+        game_address: Address,
+        game_timestamp: u64,
+    ) -> Result<bool> {
+        // Get current block timestamp
+        let block = self.eth_client.get_block(BlockNumber::Latest).await?;
+        let current_timestamp = block
+            .ok_or_else(|| eyre::eyre!("Failed to get latest block"))?
+            .timestamp
+            .as_u64();
+        tracing::info!("Current timestamp: {}", current_timestamp);
+
+        // Get challenger duration from the game contract
         let function = Function {
-            name: "resolve".to_string(),
-            inputs: vec![Param {
-                name: "gameId".to_string(),
-                kind: ParamType::Uint(256),
+            name: "maxClockDuration".to_string(),
+            inputs: vec![],
+            outputs: vec![Param {
+                name: "".to_string(),
+                kind: ParamType::Uint(64),
                 internal_type: None,
             }],
+            constant: Some(true),
+            state_mutability: StateMutability::View,
+        };
+
+        let data = function.encode_input(&[])?;
+
+        let result = self
+            .eth_client
+            .call(
+                &TypedTransaction::Legacy(
+                    TransactionRequest::new()
+                        .to(game_address)
+                        .data(Bytes::from(data)),
+                ),
+                None,
+            )
+            .await?;
+
+        let decoded = function.decode_output(&result)?;
+        let max_duration = decoded[0].clone().into_uint().unwrap().as_u64();
+
+        tracing::info!(
+            "Game timestamp: {}, current: {}, max duration: {}",
+            game_timestamp,
+            current_timestamp,
+            max_duration
+        );
+
+        // Clock is expired if current_timestamp > game_timestamp + max_duration
+        Ok(current_timestamp > game_timestamp + max_duration)
+    }
+
+    async fn resolve_game(&self, game_address: Address) -> Result<()> {
+        let function = Function {
+            name: "resolve".to_string(),
+            inputs: vec![],
             outputs: vec![],
             constant: None,
             state_mutability: StateMutability::NonPayable,
         };
 
-        let params = vec![Token::Uint(game_id)];
-        let data = function.encode_input(&params)?;
+        let data = function.encode_input(&[])?;
 
         let tx = TransactionRequest::new()
-            .to(self.addresses.factory_proxy)
+            .to(game_address)
             .data(Bytes::from(data));
 
         let pending_tx = self.eth_client.send_transaction(tx, None).await?;
         let receipt = pending_tx.await?;
         tracing::info!(
             "Game {} resolved in tx: {:?}",
-            game_id,
+            game_address,
             receipt.unwrap().transaction_hash
         );
 
