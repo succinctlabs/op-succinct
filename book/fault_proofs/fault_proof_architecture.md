@@ -19,10 +19,10 @@ Proposing new state roots goes through the regular flow of the `DisputeGameFacto
 
 Once a proposal is published and a `OPSuccinctFaultDisputeGame` created, the dispute game can be in one of several states:
 
-- **Unchallenged**: The initial state of a new proposal
-- **UnchallengedAndValidProofProvided**: A proposal that has been proven valid with a verified proof
-- **Challenged**: A proposal that has been challenged but not yet proven
-- **ChallengedAndValidProofProvided**: A challenged proposal that has been proven valid with a verified proof
+- **Unchallenged**: The initial state of a new proposal.
+- **Challenged**: A proposal that has been challenged but not yet proven.
+- **UnchallengedAndValidProofProvided**: A proposal that has been proven valid with a verified proof.
+- **ChallengedAndValidProofProvided**: A challenged proposal that has been proven valid with a verified proof.
 - **Resolved**: The final state after resolution, either `GameStatus.CHALLENGER_WINS` or `GameStatus.DEFENDER_WINS`.
 
 Note that "challenging" a proposal does not require a proof--as we want challenges to be able to be submitted quickly, without waiting for proof generation delay. Once a challenge is submitted, then the proposal's "timeout" is set to `MAX_PROVE_DURATION` parameter that allows for an extended amount of time to generate a proof to prove that the original proposal is correct. If a proof of validity is not submitted by the deadline, then the proposal is assumed to be invalid and the challenger wins. If a valid proof is submitted by the deadline, then the original proposer wins the dispute. Note that if a parent game is resolved in favor of a challenger wining, then any child game will also be considered invalid.
@@ -73,17 +73,72 @@ In this example, Proposal 3A would always resolve to `CHALLENGER_WON`, as its pa
 
 ### Immutable Parameters
 
-- `MAX_CHALLENGE_DURATION`: Time window during which a proposal can be challenged
-- `MAX_PROVE_DURATION`: Time allowed for proving a challenge
-- `GAME_TYPE`: The type of the game, which is set in the `DisputeGameFactory` contract
-- `DISPUTE_GAME_FACTORY`: The factory contract that creates this game
-- `SP1_VERIFIER`: The verifier contract that verifies the SP1 proof
+- `MAX_CHALLENGE_DURATION`: Time window during which a proposal can be challenged.
+- `MAX_PROVE_DURATION`: Time allowed for proving a challenge.
+- `GAME_TYPE`: The type of the game, which is set in the `DisputeGameFactory` contract.
+- `DISPUTE_GAME_FACTORY`: The factory contract that creates this game.
+- `SP1_VERIFIER`: The verifier contract that verifies the SP1 proof.
 - `ROLLUP_CONFIG_HASH`: Hash of the chain's rollup configuration
-- `AGGREGATION_VKEY`: The verification key for the aggregation SP1 program
-- `RANGE_VKEY_COMMITMENT`: The commitment to the BabyBear representation of the verification key of the range SP1 program
-- `GENESIS_L2_BLOCK_NUMBER`: The genesis L2 block number
-- `GENESIS_L2_OUTPUT_ROOT`: The genesis L2 output root
+- `AGGREGATION_VKEY`: The verification key for the aggregation SP1 program.
+- `RANGE_VKEY_COMMITMENT`: The commitment to the BabyBear representation of the verification key of the range SP1 program.
+- `GENESIS_L2_BLOCK_NUMBER`: The genesis L2 block number.
+- `GENESIS_L2_OUTPUT_ROOT`: The genesis L2 output root.
 - `PROOF_REWARD`: Amount of ETH required to submit a challenge (the reward given to a proof generator).
+
+### Types
+
+#### ProposalStatus
+
+While `GameStatus` (IN_PROGRESS, DEFENDER_WINS, CHALLENGER_WINS) represents the final outcome of the game, we need `ProposalStatus` to:
+1. allow proving for fast finality even if the proposal is unchallenged.
+2. allow anyone to prove a proposal even the prover is not the proposer.
+
+Represents the current state of a proposal in the dispute game:
+
+```solidity
+enum ProposalStatus {
+    Unchallenged,                        // Initial state: New proposal without challenge
+    Challenged,                          // Challenged by someone, awaiting proof
+    UnchallengedAndValidProofProvided,   // Valid proof provided without any challenge
+    ChallengedAndValidProofProvided,     // Valid proof provided after being challenged
+    Resolved                             // Final state after game resolution
+}
+```
+
+State Transitions:
+- `Unchallenged` → 
+  - `Challenged` (via `challenge()`)
+  - `UnchallengedAndValidProofProvided` (via `prove()`)
+  - `Resolved` (via `resolve()`)
+- `Challenged` → 
+  - `ChallengedAndValidProofProvided` (via `prove()`)
+  - `Resolved` (via `resolve()`)
+- `UnchallengedAndValidProofProvided` → `Resolved` (via `resolve()`)
+- `ChallengedAndValidProofProvided` → `Resolved` (via `resolve()`)
+
+#### ClaimData
+
+Core data structure holding the state of a proposal:
+
+```solidity
+struct ClaimData {
+    uint32 parentIndex;        // Reference to parent game (uint32.max for first game)
+    address counteredBy;       // Address of challenger (address(0) if unchallenged)
+    address prover;           // Address that provided valid proof (address(0) if unproven)
+    Claim claim;              // The claimed L2 output root
+    ProposalStatus status;    // Current status of the proposal
+    Timestamp deadline;       // Time by which proof must be provided
+}
+```
+
+Key differences from Optimism's implementation:
+- `parentIndex` is initialized on `initialize()`.
+- Simplified to single claim instead of array of claims.
+- Removed `claimant` and `position` fields since there is no bisection.
+- Removed `bond` field since bonds are stored in the game contract.
+- Added `prover` field to enable anyone to prove a proposal even the prover is not the proposer.
+- Added proposal status.
+- Uses deadline instead of clock with period getters.
 
 ### Key Functions
 
