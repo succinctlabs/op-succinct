@@ -17,7 +17,8 @@ import {
     Position,
     Timestamp
 } from "src/dispute/lib/Types.sol";
-import {ClockNotExpired} from "src/dispute/lib/Errors.sol";
+import {ClockNotExpired, IncorrectBondAmount} from "src/dispute/lib/Errors.sol";
+import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Contracts
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
@@ -160,13 +161,17 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         vm.startPrank(challenger);
         vm.deal(challenger, 1 ether);
+
+        vm.expectRevert(IncorrectBondAmount.selector);
+        game.challenge{value: 0.5 ether}();
+
         game.challenge{value: 1 ether}();
         vm.stopPrank();
 
         vm.startPrank(proposer);
         game.prove(
             abi.encode(
-                OPSuccinctFaultDisputeGame.AggregationOutputs({
+                AggregationOutputs({
                     l1Head: Hash.unwrap(game.l1Head()),
                     l2PreRoot: Hash.unwrap(game.startingRootHash()),
                     claimRoot: rootClaim.raw(),

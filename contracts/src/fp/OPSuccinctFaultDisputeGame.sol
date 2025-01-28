@@ -22,9 +22,11 @@ import {
     ClockNotExpired,
     ClockTimeExceeded,
     GameNotInProgress,
+    IncorrectBondAmount,
     UnexpectedRootClaim
 } from "src/dispute/lib/Errors.sol";
 import "src/fp/lib/Errors.sol";
+import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Interfaces
 import {ISemver} from "src/universal/interfaces/ISemver.sol";
@@ -46,16 +48,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         address claimant;
         Claim claim;
         Clock clock;
-    }
-
-    /// @notice The public values committed to for an OP Succinct aggregation program.
-    struct AggregationOutputs {
-        bytes32 l1Head;
-        bytes32 l2PreRoot;
-        bytes32 claimRoot;
-        uint256 claimBlockNum;
-        bytes32 rollupConfigHash;
-        bytes32 rangeVkeyCommitment;
     }
 
     ////////////////////////////////////////////////////////////////
@@ -113,7 +105,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The claim made by the proposer.
     ClaimData public claimData;
 
-    /// @notice The latest finalized output root, serving as the anchor for output bisection.
+    /// @notice The starting output root of the game that is proven from in case of a challenge.
+    /// @dev This should match the claim root of the parent game.
     OutputRoot public startingOutputRoot;
 
     /// @notice Modifier to ensure that the caller is the proposer.
@@ -285,6 +278,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Update the clock to the current block timestamp, which marks the start of the challenge.
         claimData.clock = LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)));
+
+        // If the required bond is not met, revert.
+        // TODO(fakedev9999): Have a separate bond for challenging.
+        if (msg.value != DISPUTE_GAME_FACTORY.initBonds(GAME_TYPE)) revert IncorrectBondAmount();
 
         // Hold the bond in the contract.
         payable(address(this)).transfer(msg.value);
