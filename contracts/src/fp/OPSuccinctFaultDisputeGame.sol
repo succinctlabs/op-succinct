@@ -294,11 +294,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         payable(address(this)).transfer(msg.value);
     }
 
-    function prove(bytes calldata publicValues, bytes calldata proofBytes)
-        external
-        onlyProposer
-        returns (GameStatus status_)
-    {
+    function prove(bytes calldata proofBytes) external onlyProposer returns (GameStatus status_) {
         // INVARIANT: Cannot prove a game if the game is not challenged.
         if (claimData.counteredBy == address(0)) revert ClaimNotChallenged();
 

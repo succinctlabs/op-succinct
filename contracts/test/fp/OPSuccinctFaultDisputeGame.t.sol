@@ -171,19 +171,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.stopPrank();
 
         vm.startPrank(proposer);
-        game.prove(
-            abi.encode(
-                AggregationOutputs({
-                    l1Head: Hash.unwrap(game.l1Head()),
-                    l2PreRoot: Hash.unwrap(game.startingRootHash()),
-                    claimRoot: rootClaim.raw(),
-                    claimBlockNum: l2BlockNumber,
-                    rollupConfigHash: bytes32(0),
-                    rangeVkeyCommitment: bytes32(0)
-                })
-            ),
-            bytes("")
-        );
+        game.prove(bytes(""));
         vm.stopPrank();
 
         (, address counteredBy,,,) = game.claimData();
