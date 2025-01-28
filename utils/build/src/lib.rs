@@ -28,8 +28,8 @@ fn build_zkvm_program(program: &str) {
 /// programs.
 pub fn build_all() {
     // Build range program.
-    build_zkvm_program("range");
+    // build_zkvm_program("range");
 
     // Build aggregation program.
-    build_zkvm_program("aggregation");
+    // build_zkvm_program("aggregation");
 }

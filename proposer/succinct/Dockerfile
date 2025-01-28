@@ -33,14 +33,13 @@ COPY Cargo.toml Cargo.lock ./
 COPY proposer/succinct ./proposer/succinct
 COPY elf ./elf
 COPY utils ./utils
-COPY programs ./programs
 
 # Build the server
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --bin server --release && \
-    cp target/release/server /build/server \
+    cp target/release/server /build/server
 
 # Final stage
 FROM ubuntu:24.04
