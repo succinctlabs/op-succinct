@@ -13,7 +13,6 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
-use futures::{stream, StreamExt};
 use kona_host::HostCli;
 use op_alloy_consensus::OpBlock;
 use op_alloy_genesis::RollupConfig;
@@ -609,13 +608,13 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        let headers = stream::iter(start..=end)
-            .map(|block_number| async move { self.get_l1_header(block_number.into()).await })
-            .buffered(10)
-            .collect::<Vec<Result<Header>>>()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>>>()?;
+        // Note: Original implementation was using a buffered stream, but this was causing
+        // issues with the RPC requests timing out/receiving no response for 20+ minutes.
+        let mut headers = Vec::new();
+        for block_number in start..=end {
+            let header = self.get_l1_header(block_number.into()).await?;
+            headers.push(header);
+        }
 
         Ok(headers)
     }
