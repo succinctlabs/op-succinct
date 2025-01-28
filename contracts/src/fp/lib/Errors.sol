@@ -37,3 +37,6 @@ error ClaimNotChallenged();
 
 /// @notice Thrown when the parent game is not resolved.
 error ParentGameNotResolved();
+
+/// @notice Thrown when the first game is challenged.
+error FirstGameCannotBeChallenged();

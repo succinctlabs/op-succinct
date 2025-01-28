@@ -188,33 +188,46 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             }
         }
 
-        // Set the starting output root.
-        (GameType gameType, Timestamp timestamp, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
-        startingOutputRoot = OutputRoot({
-            l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
-            root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
-        });
+        // TODO(fakedev9999): Come up with a better way to handle the first game
+        if (l2BlockNumber() != uint256(1234567890)) {
+            // Set the starting output root.
+            (GameType gameType, Timestamp timestamp, IDisputeGame proxy) =
+                DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+            startingOutputRoot = OutputRoot({
+                l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
+                root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
+            });
 
-        // INVARIANT: The parent game must have the same game type as the current game.
-        if (gameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
+            // INVARIANT: The parent game must have the same game type as the current game.
+            if (gameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
 
-        // INVARIANT: The parent game must be a valid game.
-        if (proxy.status() != GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
+            // INVARIANT: The parent game must be a valid game.
+            if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
 
-        // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
-        // configured starting block number.
-        if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
-            revert UnexpectedRootClaim(rootClaim());
+            // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
+            // configured starting block number.
+            if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
+                revert UnexpectedRootClaim(rootClaim());
+            }
+
+            // Set the root claim
+            claimData = ClaimData({
+                parentIndex: parentIndex(),
+                counteredBy: address(0),
+                claimant: gameCreator(),
+                claim: rootClaim(),
+                clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
+            });
+        } else {
+            // Set the root claim
+            claimData = ClaimData({
+                parentIndex: 0,
+                counteredBy: address(0),
+                claimant: gameCreator(),
+                claim: rootClaim(),
+                clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
+            });
         }
-
-        // Set the root claim
-        claimData = ClaimData({
-            parentIndex: parentIndex(),
-            counteredBy: address(0),
-            claimant: gameCreator(),
-            claim: rootClaim(),
-            clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
-        });
 
         // Hold the bond in the contract.
         payable(address(this)).transfer(msg.value);
@@ -252,6 +265,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice Challenges the game.
     function challenge() external payable {
+        // INVARIANT: Cannot challenge the first game
+        (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(0);
+        if (address(proxy) == address(this)) revert FirstGameCannotBeChallenged();
+
         // INVARIANT: Cannot challenge a game if the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
@@ -262,6 +279,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (getChallengeDuration().raw() == MAX_CHALLENGE_DURATION.raw()) {
             revert ClockTimeExceeded();
         }
+
+        // Update the counteredBy address
+        claimData.counteredBy = msg.sender;
 
         // Update the clock to the current block timestamp, which marks the start of the challenge.
         claimData.clock = LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)));
@@ -336,6 +356,20 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
     ///         its claim within the `MAX_PROVE_DURATION`.
     function resolve() external returns (GameStatus status_) {
+        // INVARIANT: First game is always resolved as `DEFENDER_WINS`
+        (,, IDisputeGame firstGame) = DISPUTE_GAME_FACTORY.gameAtIndex(0);
+        if (address(firstGame) == address(this)) {
+            status_ = GameStatus.DEFENDER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+            emit Resolved(status = status_);
+
+            // Distribute the bond back to the proposer
+            (bool success,) = claimData.claimant.call{value: address(this).balance}("");
+            if (!success) revert BondTransferFailed();
+
+            return status_;
+        }
+
         // INVARIANT: Resolution cannot occur unless the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
