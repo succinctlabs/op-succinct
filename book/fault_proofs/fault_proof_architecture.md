@@ -95,26 +95,39 @@ function initialize() external payable virtual
 
 Initializes the dispute game with:
 
-- Parent game reference (if any)
-  - First game uses `uint32.max` as parent index
-  - Subsequent games must reference a valid parent game with:
-    - Same game type
-    - Parent game must not have been won by challenger
-    - Parent game's root claim becomes the starting output root
-    - Parent game's l2 block number becomes the starting block number
+- Initial state of the game
+  - `startingOutputRoot`: Starting point for verification
+    - For first game: `GENESIS_L2_OUTPUT_ROOT` at `GENESIS_L2_BLOCK_NUMBER`
+    - For subsequent games: Parent game's root claim and block number
+  
+  - `claimData`: Core game state
+    - `parentIndex`: Reference to parent game (`uint32.max` for first game)
+    - `counteredBy`: Initially `address(0)`
+    - `prover`: Initially `address(0)`
+    - `claim`: Proposer's claimed output root
+    - `status`: Set to `ProposalStatus.Unchallenged`
+    - `deadline`: Set to `block.timestamp + MAX_CHALLENGE_DURATION`
 
-- Claimed output root
-  - Must correspond to a block number after the starting block
-  - For first game: starts from `GENESIS_L2_OUTPUT_ROOT`
-  - For subsequent games: starts from parent game's l2 output root
+- Validation Rules
+  - Parent Game (if not first game)
+    - Must be same game type
+    - Must not have been won by challenger
+    - Root claim becomes starting output root
+  
+  - Output Root
+    - Must be after starting block number
+    - First game starts from genesis
+    - Later games start from parent's output
 
-- Proposer's bond deposit
-  - Enforced by the `DisputeGameFactory` contract
-  - Held in the dispute game contract until resolution
+- Bond Management
+  - Proposer's bond enforced by factory
+  - Held in contract until resolution
 
-- Status
-  - Set to `ProposalStatus.Unchallenged`
-  - Starts `MAX_CHALLENGE_DURATION` timer
+Initialization will revert if:
+- Already initialized
+- Invalid parent game
+- Root claim at/before starting block
+- Incorrect calldata size for `extraData`
 
 ### Challenge
 
