@@ -112,13 +112,9 @@ Initializes the dispute game with:
   - Enforced by the `DisputeGameFactory` contract
   - Held in the dispute game contract until resolution
 
-Additional initialization details:
-- Sets initial status to `ProposalStatus.Unchallenged`
-- Starts `MAX_CHALLENGE_DURATION` timer
-
-Game initialization will revert if:
-- Parent game is invalid or of wrong type
-- Root claim is for same or earlier block than starting block
+- Status
+  - Set to `ProposalStatus.Unchallenged`
+  - Starts `MAX_CHALLENGE_DURATION` timer
 
 ### Challenge
 
@@ -165,11 +161,7 @@ Validates a proof for a proposal:
   - No immediate reward distribution
   - Proof reward is distributed in `resolve()`:
     - If challenged: prover receives the challenger's bond
-    - If unchallenged: no reward
-
-Proof submission will revert if:
-- Proof deadline has passed
-- Proof verification fails
+    - If unchallenged: no reward but can have fast finality
 
 ### Resolution
 
