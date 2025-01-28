@@ -172,6 +172,25 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(challenger.balance, 0);
     }
 
+    function testResolveUnchallengedAndValidProofProvided() public {
+        assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
+
+        vm.expectRevert(ClockNotExpired.selector);
+        game.resolve();
+
+        vm.startPrank(prover);
+        game.prove(bytes(""));
+        vm.stopPrank();
+
+        game.resolve();
+
+        assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
+        assertEq(address(game).balance, 0);
+        assertEq(proposer.balance, 1 ether);
+        assertEq(prover.balance, 0 ether);
+        assertEq(challenger.balance, 0);
+    }
+
     function testResolveChallengedAndValidProofProvided() public {
         assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
 

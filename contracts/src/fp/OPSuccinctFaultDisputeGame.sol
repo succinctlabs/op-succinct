@@ -46,6 +46,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         Unchallenged,
         // A proposal that has been challenged but not yet proven
         Challenged,
+        // An unchallenged proposal that has been proven valid with a verified proof
+        UnchallengedAndValidProofProvided,
         // A challenged proposal that has been proven valid with a verified proof
         ChallengedAndValidProofProvided,
         // The final state after resolution, either GameStatus.CHALLENGER_WINS or GameStatus.DEFENDER_WINS.
@@ -328,9 +330,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Proves the game.
     /// @param proofBytes The proof bytes to validate the claim.
     function prove(bytes calldata proofBytes) external returns (ProposalStatus) {
-        // INVARIANT: Can only prove a game if the game is challenged.
-        if (claimData.status != ProposalStatus.Challenged) revert ClaimNotChallenged();
-
         // INVARIANT: Cannot prove a game if the clock has timed out.
         if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
 
@@ -350,7 +349,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         claimData.prover = msg.sender;
 
         // Update the status of the proposal
-        claimData.status = ProposalStatus.ChallengedAndValidProofProvided;
+        if (claimData.counteredBy == address(0)) {
+            claimData.status = ProposalStatus.UnchallengedAndValidProofProvided;
+        } else {
+            claimData.status = ProposalStatus.ChallengedAndValidProofProvided;
+        }
 
         emit Proved(claimData.status);
 
@@ -416,6 +419,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             // Distribute the bond to the challenger
             (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
             if (!success) revert BondTransferFailed();
+
+            emit Resolved(status);
+        } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
+            claimData.status = ProposalStatus.Resolved;
+            status = GameStatus.DEFENDER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+
+            // Return the initial bond to the proposer
+            (bool initialBondSuccess,) = payable(gameCreator()).call{value: address(this).balance}("");
+            if (!initialBondSuccess) revert BondTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
