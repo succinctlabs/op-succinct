@@ -100,9 +100,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The dispute game factory.
     IDisputeGameFactory internal immutable DISPUTE_GAME_FACTORY;
 
-    /// @notice The chain ID of the L2 network this contract argues about.
-    uint256 internal immutable L2_CHAIN_ID;
-
     /// @notice The SP1 verifier.
     ISP1Verifier internal immutable SP1_VERIFIER;
 
@@ -152,7 +149,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
     /// @param _disputeGameFactory The factory that creates the dispute games.
-    /// @param _l2ChainId Chain ID of the L2 network this contract argues about.
     /// @param _sp1Verifier The address of the SP1 verifier that verifies the proof for the aggregation program.
     /// @param _rollupConfigHash The rollup config hash for the L2 network.
     /// @param _aggregationVkey The vkey for the aggregation program.
@@ -164,7 +160,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
         IDisputeGameFactory _disputeGameFactory,
-        uint256 _l2ChainId,
         ISP1Verifier _sp1Verifier,
         bytes32 _rollupConfigHash,
         bytes32 _aggregationVkey,
@@ -178,7 +173,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         MAX_CHALLENGE_DURATION = _maxChallengeDuration;
         MAX_PROVE_DURATION = _maxProveDuration;
         DISPUTE_GAME_FACTORY = _disputeGameFactory;
-        L2_CHAIN_ID = _l2ChainId;
         SP1_VERIFIER = _sp1Verifier;
         ROLLUP_CONFIG_HASH = _rollupConfigHash;
         AGGREGATION_VKEY = _aggregationVkey;
@@ -507,11 +501,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Returns the max prove duration.
     function maxProveDuration() external view returns (Duration maxProveDuration_) {
         maxProveDuration_ = MAX_PROVE_DURATION;
-    }
-
-    /// @notice Returns the chain ID of the L2 network this contract argues about.
-    function l2ChainId() external view returns (uint256 l2ChainId_) {
-        l2ChainId_ = L2_CHAIN_ID;
     }
 
     /// @notice Returns the dispute game factory.

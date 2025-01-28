@@ -44,7 +44,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     GameType gameType = GameType.wrap(42);
     Duration maxChallengeDuration = Duration.wrap(12 hours);
     Duration maxProveDuration = Duration.wrap(3 days);
-    uint256 l2ChainId = 10;
     Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
 
     // We will use these for the child game creation
@@ -82,7 +81,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             maxChallengeDuration,
             maxProveDuration,
             IDisputeGameFactory(address(factory)),
-            l2ChainId,
             ISP1Verifier(address(sp1Verifier)),
             rollupConfigHash,
             aggregationVkey,
@@ -155,7 +153,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(game.maxChallengeDuration().raw(), maxChallengeDuration.raw());
         assertEq(game.maxProveDuration().raw(), maxProveDuration.raw());
         assertEq(address(game.disputeGameFactory()), address(factory));
-        assertEq(game.l2ChainId(), l2ChainId);
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         // The parent's block number was 1000
         assertEq(game.startingBlockNumber(), 1000);
