@@ -15,16 +15,17 @@ We assume that the reader has a solid understanding of the OP Stack's `DisputeGa
 
 ## Dispute Game Implementation
 
-Proposing new state roots goes through the regular flow of the `DisputeGameFactory` to the `OPSuccinctFaultDisputeGame` contract that implements the `IDisputeGame` interface. Each proposal contains a link to a previous parent proposal (unless it is the first proposal after initialization, in which case it stores the previous parent as `addr(0)`), and includes a `l2BlockNumber` and claimed `l2OutputRoot`.
+Proposing new state roots goes through the regular flow of the `DisputeGameFactory` to the `OPSuccinctFaultDisputeGame` contract that implements the `IDisputeGame` interface. Each proposal contains a link to a previous parent proposal (unless it is the first proposal after initialization, in which case it stores the parent index as `uint32.max`), and includes a `l2BlockNumber` and claimed `l2OutputRoot`.
 
 Once a proposal is published and a `OPSuccinctFaultDisputeGame` created, the dispute game can be in one of several states:
 
 - **Unchallenged**: The initial state of a new proposal
+- **UnchallengedAndValidProofProvided**: A proposal that has been proven valid with a verified proof
 - **Challenged**: A proposal that has been challenged but not yet proven
 - **ChallengedAndValidProofProvided**: A challenged proposal that has been proven valid with a verified proof
 - **Resolved**: The final state after resolution, either `GameStatus.CHALLENGER_WINS` or `GameStatus.DEFENDER_WINS`.
 
-Note that "challenging" a proposal does not require a proof--as we want challenges to be able to be submitted quickly, without waiting for proof generation delay. Once a challenge is submitted, then the proposal's "timeout" is extended by a `provingTime` parameter that allows for an extended amount of time to generate a proof to prove that the original proposal is correct. If a proof of validity is not submitted by the deadline, then the proposal is assumed to be invalid and the challenger wins. If a valid proof is submitted by the deadline, then the original proposer wins the dispute. Note that if a parent game is resolved in favor of a challenger wining, then any child game will also be considered invalid.
+Note that "challenging" a proposal does not require a proof--as we want challenges to be able to be submitted quickly, without waiting for proof generation delay. Once a challenge is submitted, then the proposal's "timeout" is set to `MAX_PROVE_DURATION` parameter that allows for an extended amount of time to generate a proof to prove that the original proposal is correct. If a proof of validity is not submitted by the deadline, then the proposal is assumed to be invalid and the challenger wins. If a valid proof is submitted by the deadline, then the original proposer wins the dispute. Note that if a parent game is resolved in favor of a challenger wining, then any child game will also be considered invalid.
 
 **Illustrative Example**
 
@@ -55,22 +56,22 @@ In this example, Proposal 3A would always resolve to `CHALLENGER_WON`, as its pa
 
 ### Immutable Parameters
 
-- `challengeTime`: Time window during which a proposal can be challenged
-- `provingTime`: Time allowed for proving a challenge
+- `maxChallengeDuration`: Time window during which a proposal can be challenged
+- `maxProveDuration`: Time allowed for proving a challenge
 - `aggregationVkey`: ZK Verification key for the aggregation SP1 program that aggregates several range proofs into a contiguous block.
 - `rangeVkeyCommitment`: ZK Verification key for the "range" SP1 program that proves a range of L2 blocks.
 - `rollupConfigHash`: Hash of the chain's rollup configuration
-- `firstBlockNumber`: First block number
-- `firstOutputRoot`: First output root corresponding to first block number
+- `genesisL2BlockNumber`: First block number
+- `genesisL2OutputRoot`: First output root corresponding to first block number
 - `proofReward`: Amount of ETH required to submit a challenge (the reward given to a proof generator).
-- `proposalBond`: Amount of ETH required to submit a proposal
+- `initBond`: Amount of ETH required to submit a proposal (it is set in the `DisputeGameFactory` contract).
 
 ### Key Functions
 
 ### Initialization
 
 ```solidity
-function initialize() external payable
+function initialize() external payable virtual
 ```
 
 Initializes the dispute game with:
@@ -82,7 +83,7 @@ Initializes the dispute game with:
 ### Challenge
 
 ```solidity
-function challenge() public payable
+function challenge() external payable returns (ProposalStatus)
 ```
 
 Allows participants to challenge a proposal by:
@@ -94,26 +95,25 @@ Allows participants to challenge a proposal by:
 ### Proving
 
 ```solidity
-function prove(uint256 _l1BlockNumber, bytes memory proof) public
+function prove(bytes calldata proofBytes) external returns (ProposalStatus)
 ```
 
 Validates a proof for a challenged proposal:
 
-- Verifies L1 block hash exists against the block hash cache
 - Validates proof against the proposal's start output root and claimed l2 block number + output root, and other rollup parameters (like config hash and relevant vkeys)
-- Updates proposal state to `ChallengedAndValidProofProvided`
-- Distributes reward to the prover
+- Updates proposal state to `UnchallengedAndValidProofProvided` or `ChallengedAndValidProofProvided`
+- Distributes reward to the prover if there was a challenge
 
 ### Resolution
 
 ```solidity
-function resolve() external returns (GameStatus status_)
+function resolve() external returns (GameStatus)
 ```
 
 Resolves the game by:
 
 - Checking parent game status. Ensures that the parent game is resolved and that the proposal is valid. If the proposal is invalid (aka `CHALLENGER_WON`), then set the current game status to `CHALLENGER_WON`.
-- If the current game is in `ChallengedAndValidProofProvided` state, then set `DEFENDER_WON`
+- If the current game is in `UnchallengedAndValidProofProvided` or `ChallengedAndValidProofProvided` state, then set `DEFENDER_WON`.
 - Ensure that the deadline has passed, and if the proposal is `Unchallenged`, then set `DEFENDER_WON`.
 - Ensure that the deadline has passed, and if the proposal is `Challenged`, then set `CHALLENGER_WON`
 - Distributing bonds based on outcome
@@ -125,8 +125,7 @@ Resolves the game by:
 The contract implements a bond system to incentivize honest behavior:
 
 1. **Proposal Bond**: Required to submit a proposal
-2. **Challenge Bond**: Required to challenge a proposal
-3. **Proof Reward**: Paid to successful provers
+2. **Proof Reward (Challenge Bond)**: Required to challenge a proposal, which is paid to successful provers
 
 ### Time Windows
 

@@ -184,7 +184,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice Initializes the contract.
     /// @dev This function may only be called once.
-    function initialize() public payable virtual {
+    function initialize() external payable virtual {
         // SAFETY: Any revert in this function will bubble up to the DisputeGameFactory and
         // prevent the game from being created.
         //
