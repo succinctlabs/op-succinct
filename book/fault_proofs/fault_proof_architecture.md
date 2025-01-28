@@ -73,15 +73,17 @@ In this example, Proposal 3A would always resolve to `CHALLENGER_WON`, as its pa
 
 ### Immutable Parameters
 
-- `maxChallengeDuration`: Time window during which a proposal can be challenged
-- `maxProveDuration`: Time allowed for proving a challenge
-- `aggregationVkey`: ZK Verification key for the aggregation SP1 program that aggregates several range proofs into a contiguous block.
-- `rangeVkeyCommitment`: ZK Verification key for the "range" SP1 program that proves a range of L2 blocks.
-- `rollupConfigHash`: Hash of the chain's rollup configuration
-- `genesisL2BlockNumber`: First block number
-- `genesisL2OutputRoot`: First output root corresponding to first block number
-- `proofReward`: Amount of ETH required to submit a challenge (the reward given to a proof generator).
-- `initBond`: Amount of ETH required to submit a proposal (it is set in the `DisputeGameFactory` contract).
+- `MAX_CHALLENGE_DURATION`: Time window during which a proposal can be challenged
+- `MAX_PROVE_DURATION`: Time allowed for proving a challenge
+- `GAME_TYPE`: The type of the game, which is set in the `DisputeGameFactory` contract
+- `DISPUTE_GAME_FACTORY`: The factory contract that creates this game
+- `SP1_VERIFIER`: The verifier contract that verifies the SP1 proof
+- `ROLLUP_CONFIG_HASH`: Hash of the chain's rollup configuration
+- `AGGREGATION_VKEY`: The verification key for the aggregation SP1 program
+- `RANGE_VKEY_COMMITMENT`: The commitment to the BabyBear representation of the verification key of the range SP1 program
+- `GENESIS_L2_BLOCK_NUMBER`: The genesis L2 block number
+- `GENESIS_L2_OUTPUT_ROOT`: The genesis L2 output root
+- `PROOF_REWARD`: Amount of ETH required to submit a challenge (the reward given to a proof generator).
 
 ### Key Functions
 
