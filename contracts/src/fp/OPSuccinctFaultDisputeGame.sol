@@ -130,6 +130,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @dev This should match the claim root of the parent game.
     OutputRoot public startingOutputRoot;
 
+    /// @notice The genesis L2 block number.
+    uint256 internal immutable GENESIS_L2_BLOCK_NUMBER;
+
+    /// @notice The genesis L2 block hash.
+    bytes32 internal immutable GENESIS_L2_BLOCK_HASH;
+
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
     /// @param _disputeGameFactory The factory that creates the dispute games.
@@ -138,6 +144,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _rollupConfigHash The rollup config hash for the L2 network.
     /// @param _aggregationVkey The vkey for the aggregation program.
     /// @param _rangeVkeyCommitment The commitment to the range vkey.
+    /// @param _genesisL2BlockNumber The L2 block number of the genesis block.
+    /// @param _genesisL2BlockHash The L2 block hash of the genesis block.
     constructor(
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
@@ -146,7 +154,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         ISP1Verifier _sp1Verifier,
         bytes32 _rollupConfigHash,
         bytes32 _aggregationVkey,
-        bytes32 _rangeVkeyCommitment
+        bytes32 _rangeVkeyCommitment,
+        uint256 _genesisL2BlockNumber,
+        bytes32 _genesisL2BlockHash
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -158,6 +168,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         ROLLUP_CONFIG_HASH = _rollupConfigHash;
         AGGREGATION_VKEY = _aggregationVkey;
         RANGE_VKEY_COMMITMENT = _rangeVkeyCommitment;
+        GENESIS_L2_BLOCK_NUMBER = _genesisL2BlockNumber;
+        GENESIS_L2_BLOCK_HASH = _genesisL2BlockHash;
     }
 
     /// @notice Initializes the contract.
@@ -199,11 +211,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             }
         }
 
-        // TODO(fakedev9999): Come up with a better way to handle the first game
-        if (l2BlockNumber() != uint256(1234567890)) {
-            // Set the starting output root.
-            (GameType parentGameType, Timestamp timestamp, IDisputeGame proxy) =
-                DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+        // The first game is initialized with a parent index of uint32.max
+        if (parentIndex() != type(uint32).max) {
+            // For subsequent games, get the parent game's information
+            (GameType parentGameType,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
             startingOutputRoot = OutputRoot({
                 l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
                 root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
@@ -220,29 +231,21 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
                 revert UnexpectedRootClaim(rootClaim());
             }
-
-            // Set the root claim
-            claimData = ClaimData({
-                parentIndex: parentIndex(),
-                counteredBy: address(0),
-                claimant: gameCreator(),
-                prover: address(0),
-                claim: rootClaim(),
-                status: ProposalStatus.Unchallenged,
-                deadline: Timestamp.wrap(uint64(block.timestamp + MAX_CHALLENGE_DURATION.raw()))
-            });
         } else {
-            // Set the root claim
-            claimData = ClaimData({
-                parentIndex: 0,
-                counteredBy: address(0),
-                claimant: gameCreator(),
-                prover: address(0),
-                claim: rootClaim(),
-                status: ProposalStatus.Unchallenged,
-                deadline: Timestamp.wrap(uint64(block.timestamp + MAX_CHALLENGE_DURATION.raw()))
-            });
+            startingOutputRoot =
+                OutputRoot({l2BlockNumber: GENESIS_L2_BLOCK_NUMBER, root: Hash.wrap(GENESIS_L2_BLOCK_HASH)});
         }
+
+        // Set the root claim
+        claimData = ClaimData({
+            parentIndex: 0,
+            counteredBy: address(0),
+            claimant: gameCreator(),
+            prover: address(0),
+            claim: rootClaim(),
+            status: ProposalStatus.Unchallenged,
+            deadline: Timestamp.wrap(uint64(block.timestamp + MAX_CHALLENGE_DURATION.raw()))
+        });
 
         // Hold the bond in the contract.
         payable(address(this)).transfer(msg.value);

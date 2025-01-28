@@ -49,7 +49,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     Duration maxChallengeDuration = Duration.wrap(7 days);
     Duration maxProveDuration = Duration.wrap(1 days);
     uint256 l2ChainId = 10;
-    Claim rootClaim = Claim.wrap(keccak256("rootClaim1"));
+    Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
 
     // Extra data must be the L2 block number bigger than the starting anchor root's block number
     uint256 l2BlockNumber = 1234567891;
@@ -70,6 +70,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
+        uint256 genesisL2BlockNumber = 0;
+        bytes32 genesisL2BlockHash = keccak256("genesis");
 
         gameImpl = new OPSuccinctFaultDisputeGame(
             maxChallengeDuration,
@@ -79,7 +81,9 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             ISP1Verifier(address(sp1Verifier)),
             rollupConfigHash,
             aggregationVkey,
-            rangeVkeyCommitment
+            rangeVkeyCommitment,
+            genesisL2BlockNumber,
+            genesisL2BlockHash
         );
 
         // Set the initial bond
@@ -90,17 +94,17 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         vm.startPrank(proposer);
         vm.deal(proposer, 1 ether);
-        // Create the very first game
+        // Create the very first game - first game should use uint32.max as parent index
         parentGame = OPSuccinctFaultDisputeGame(
             address(
                 factory.create{value: 1 ether}(
-                    gameType, Claim.wrap(keccak256("rootClaim")), abi.encodePacked(uint256(1234567890), uint32(0))
+                    gameType, Claim.wrap(keccak256("genesis")), abi.encodePacked(uint256(1234567890), type(uint32).max)
                 )
             )
         );
         parentGame.resolve();
 
-        // Create the second game
+        // Create the second game with parent index 0
         game = OPSuccinctFaultDisputeGame(
             address(factory.create{value: 1 ether}(gameType, rootClaim, abi.encodePacked(l2BlockNumber, parentIndex)))
         );
@@ -124,7 +128,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(game.l2ChainId(), l2ChainId);
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         assertEq(game.startingBlockNumber(), 1234567890);
-        assertEq(game.startingRootHash().raw(), keccak256("rootClaim"));
+        assertEq(game.startingRootHash().raw(), keccak256("genesis"));
         assertEq(address(game).balance, 1 ether);
 
         // Test the claim data
