@@ -1,7 +1,13 @@
 use anyhow::Result;
+use async_trait::async_trait;
 use clap::Parser;
-use kona_host::start_native_preimage_server;
-use kona_preimage::{BidirectionalChannel, HintWriter, OracleReader, PreimageKey, PreimageKeyType};
+use kona_host::{
+    single::SingleChainHostCli, DetachedHostOrchestrator, Fetcher, HostOrchestrator,
+    PreimageServer, SharedKeyValueStore,
+};
+use kona_preimage::{
+    BidirectionalChannel, HintReader, HintWriter, NativeChannel, OracleReader, OracleServer,
+};
 use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
@@ -9,10 +15,82 @@ use op_succinct_host_utils::{
     stats::ExecutionStats,
     ProgramType,
 };
-use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, RANGE_ELF};
+use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
-use std::{fs, time::Duration};
+use std::{fs, sync::Arc};
+use tokio::{sync::RwLock, task};
+
+struct OPSuccinctHost {
+    cli: SingleChainHostCli,
+}
+
+/// The host<->client communication channels. The client channels are optional, as the client may
+/// not be running in the same process as the host.
+#[derive(Debug)]
+struct HostComms {
+    /// The host<->client hint channel.
+    pub hint: BidirectionalChannel,
+    /// The host<->client preimage channel.
+    pub preimage: BidirectionalChannel,
+}
+
+#[async_trait]
+impl HostOrchestrator for OPSuccinctHost {
+    type Providers = <SingleChainHostCli as HostOrchestrator>::Providers;
+
+    async fn create_providers(&self) -> Result<Option<Self::Providers>> {
+        self.cli.create_providers().await
+    }
+
+    fn create_key_value_store(&self) -> Result<SharedKeyValueStore> {
+        self.cli.create_key_value_store()
+    }
+
+    fn create_fetcher(
+        &self,
+        providers: Option<Self::Providers>,
+        kv_store: SharedKeyValueStore,
+    ) -> Option<Arc<RwLock<impl Fetcher + Send + Sync + 'static>>> {
+        self.cli.create_fetcher(providers, kv_store)
+    }
+
+    async fn run_client_native(
+        hint_reader: HintWriter<NativeChannel>,
+        oracle_reader: OracleReader<NativeChannel>,
+    ) -> Result<()> {
+        SingleChainHostCli::run_client_native(hint_reader, oracle_reader).await
+    }
+
+    /// Starts the host and client program in-process.
+    async fn start(&self) -> Result<()> {
+        let comms = HostComms {
+            hint: BidirectionalChannel::new()?,
+            preimage: BidirectionalChannel::new()?,
+        };
+        let kv_store = self.create_key_value_store()?;
+        let providers = self.create_providers().await?;
+        let fetcher = self.create_fetcher(providers, kv_store.clone());
+
+        let server_task = task::spawn(
+            PreimageServer::new(
+                OracleServer::new(comms.preimage.host),
+                HintReader::new(comms.hint.host),
+                kv_store,
+                fetcher,
+            )
+            .start(),
+        );
+        let client_task = task::spawn(Self::run_client_native(
+            HintWriter::new(comms.hint.client),
+            OracleReader::new(comms.preimage.client),
+        ));
+
+        let (_, client_result) = tokio::try_join!(server_task, client_task)?;
+
+        Ok(())
+    }
+}
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -38,20 +116,16 @@ async fn main() -> Result<()> {
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
         .await?;
 
-    // By default, re-run the native execution unless the user passes `--use-cache`.
-    let witness_generation_time_sec = if !args.use_cache {
-        let hint_chan = BidirectionalChannel::new()?;
-        let preimage_chan = BidirectionalChannel::new()?;
-        // Create the server and start it.
-        let server_task = task::spawn(start_native_preimage_server(
-            kv_store,
-            fetcher,
-            hint_chan.host,
-            preimage_chan.host,
-        ));
-    } else {
-        Duration::ZERO
+    let host = OPSuccinctHost {
+        cli: host_cli.clone(),
     };
+
+    println!("Running host CLI");
+
+    host.start().await?;
+
+    println!("Host CLI finished");
+    drop(host);
 
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli)?;
@@ -86,12 +160,7 @@ async fn main() -> Result<()> {
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
-        let stats = ExecutionStats::new(
-            &block_data,
-            &report,
-            witness_generation_time_sec.as_secs(),
-            execution_duration.as_secs(),
-        );
+        let stats = ExecutionStats::new(&block_data, &report, 0, execution_duration.as_secs());
 
         println!("Execution Stats: \n{:?}", stats);
 

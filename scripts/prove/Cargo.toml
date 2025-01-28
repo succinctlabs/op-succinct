@@ -33,6 +33,7 @@ kona-preimage = { workspace = true }
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
+async-trait = "0.1.85"
 
 # alloy
 alloy-primitives = { workspace = true, default-features = false }

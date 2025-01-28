@@ -17,6 +17,7 @@ maili-genesis.workspace = true
 op-alloy-rpc-types.workspace = true
 op-alloy-network.workspace = true
 maili-protocol.workspace = true
+maili-rpc.workspace = true
 op-alloy-consensus.workspace = true
 
 # alloy
@@ -33,6 +34,7 @@ alloy-contract = { workspace = true, default-features = false }
 
 # kona
 kona-host.workspace = true
+kona-preimage.workspace = true
 
 # general
 rkyv.workspace = true

@@ -3745,6 +3745,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "maili-rpc"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c23e579fce3c019aa9291f0184d5c10b59718da7b4b5cd23dd6a8c53aaef78f"
+dependencies = [
+ "alloy-eips 0.9.2",
+ "alloy-primitives",
+ "derive_more",
+ "serde",
+]
+
+[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4237,9 +4249,11 @@ dependencies = [
  "dotenv",
  "futures",
  "kona-host",
+ "kona-preimage",
  "log",
  "maili-genesis",
  "maili-protocol",
+ "maili-rpc",
  "num-format",
  "op-alloy-consensus",
  "op-alloy-network",
@@ -4284,6 +4298,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
+ "async-trait",
  "cargo_metadata",
  "clap",
  "csv",
@@ -4304,7 +4319,10 @@ dependencies = [
 name = "op-succinct-scripts"
 version = "0.1.0"
 dependencies = [
+ "alloy-eips 0.9.2",
  "alloy-primitives",
+ "alloy-signer-local 0.9.2",
+ "alloy-sol-types",
  "anyhow",
  "bincode",
  "cargo_metadata",

@@ -107,6 +107,7 @@ maili-consensus = { version = "=0.1.6", default-features = false }
 maili-protocol = { version = "=0.1.6", default-features = false }
 maili-registry = { version = "=0.1.6", default-features = false }
 maili-genesis = { version = "=0.1.6", default-features = false }
+maili-rpc = { version = "=0.1.6", default-features = false }
 
 # Revm
 revm = { version = "19.3.0", default-features = false, features = ["kzg-rs"] }

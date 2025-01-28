@@ -16,7 +16,6 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_agg_proof_stdin, get_proof_stdin,
     stats::ExecutionStats,
-    witnessgen::{WitnessGenExecutor, WITNESSGEN_TIMEOUT},
     L2OutputOracle, ProgramType,
 };
 use op_succinct_proposer::{

@@ -10,6 +10,7 @@ use alloy_sol_types::sol;
 use anyhow::Result;
 use clap::Parser;
 use kona_host::{single::SingleChainHostCli, DiskKeyValueStore, MemoryKeyValueStore};
+use kona_preimage::BidirectionalChannel;
 use maili_genesis::RollupConfig;
 use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,

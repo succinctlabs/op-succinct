@@ -14,6 +14,7 @@ use kona_host::single::SingleChainHostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
 use maili_protocol::L2BlockInfo;
+use maili_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_consensus::OpBlock;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind, HeaderResponse},
@@ -672,27 +673,6 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// Get the exec directory for the given program type and run context.
-    fn get_exec_directory(&self, multi_block: ProgramType) -> Result<String> {
-        let exec_directory = match multi_block {
-            ProgramType::Single => "fault-proof",
-            ProgramType::Multi => "range",
-        };
-
-        // If the run context is Dev, prepend the workspace root.
-        match self.run_context {
-            RunContext::Dev => {
-                let metadata = MetadataCommand::new().exec().unwrap();
-                let workspace_root = metadata.workspace_root;
-                Ok(format!(
-                    "{}/target/release-client-lto/{}",
-                    workspace_root, exec_directory
-                ))
-            }
-            RunContext::Docker => Ok(format!("/usr/local/bin/{}", exec_directory)),
-        }
-    }
-
     /// Get the L2 output data for a given block number and save the boot info to a file in the data
     /// directory with block_number. Return the arguments to be passed to the native host for
     /// datagen.
@@ -1018,7 +998,7 @@ mod tests {
     #[tokio::test]
     #[cfg(test)]
     async fn test_get_l1_head() {
-        use alloy::eips::BlockId;
+        use alloy_eips::BlockId;
 
         dotenv::dotenv().ok();
         let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev)
@@ -1038,6 +1018,7 @@ mod tests {
     async fn test_l2_safe_head_progression() {
         use alloy_eips::BlockId;
         use futures::StreamExt;
+        use maili_rpc::SafeHeadResponse;
 
         use crate::fetcher::RPCMode;
 
