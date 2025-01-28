@@ -11,9 +11,6 @@ use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
 use std::fs;
-use std::collections::HashMap;
-use bytes::BytesHasherBuilder;
-use to_bytes;
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -39,29 +36,16 @@ async fn main() -> Result<()> {
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
         .await?;
 
-    // First start the server and get the KV store
-    let mem_kv_store = start_server_and_native_client(host_cli).await?;
+    let mem_kv_store = start_server_and_native_client(host_cli.clone()).await?;
 
     println!("Host CLI finished");
 
-    // Get the stdin using the memory store
-    let sp1_stdin = {
-        let mut stdin = SP1Stdin::new();
-        // Write boot info...
-        
-        let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
-        for (k, v) in mem_kv_store.store {
-            kv_store_map.insert(k.0, v);
-        }
-        
-        let buffer = to_bytes::<rkyv::rancor::Error>(&InMemoryOracleData { map: kv_store_map })?;
-        stdin.write_slice(&buffer.into_vec());
-        stdin
-    };
+    // Get the stdin for the block.
+    let sp1_stdin = get_proof_stdin(&host_cli, mem_kv_store)?;
 
-    // Use the already obtained stdin
+    let prover = ProverClient::from_env();
+
     if args.prove {
-        let prover = ProverClient::from_env();
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(RANGE_ELF);
 

@@ -1,12 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
-use kona_host::DetachedHostOrchestrator;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin, ProgramType,
+    get_proof_stdin, start_server_and_native_client, ProgramType,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::utils;
@@ -57,8 +56,10 @@ async fn main() -> Result<()> {
 
     let successful_ranges = futures::stream::iter(split_ranges.iter().zip(host_clis.iter()))
         .map(|(range, host_cli)| async {
-            host_cli.run().await.unwrap();
-            let sp1_stdin = get_proof_stdin(host_cli).unwrap();
+            let mem_kv_store = start_server_and_native_client(host_cli.clone())
+                .await
+                .unwrap();
+            let sp1_stdin = get_proof_stdin(host_cli, mem_kv_store).unwrap();
             (sp1_stdin, range.clone())
         })
         .buffered(15)
