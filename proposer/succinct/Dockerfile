@@ -33,6 +33,8 @@ COPY Cargo.toml Cargo.lock ./
 COPY proposer/succinct ./proposer/succinct
 COPY elf ./elf
 COPY utils ./utils
+COPY programs ./programs
+COPY scripts ./scripts
 
 # Build the server
 RUN --mount=type=ssh \
