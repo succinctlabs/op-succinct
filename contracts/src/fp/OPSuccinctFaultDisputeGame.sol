@@ -38,6 +38,21 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 /// @notice An implementation of the `IFaultDisputeGame` interface.
 contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ////////////////////////////////////////////////////////////////
+    //                         Enums                              //
+    ////////////////////////////////////////////////////////////////
+
+    enum ProposalStatus {
+        // The initial state of a new proposal
+        Unchallenged,
+        // A proposal that has been challenged but not yet proven
+        Challenged,
+        // A challenged proposal that has been proven valid with a verified proof
+        ChallengedAndValidProofProvided,
+        // The final state after resolution, either GameStatus.CHALLENGER_WINS or GameStatus.DEFENDER_WINS.
+        Resolved
+    }
+
+    ////////////////////////////////////////////////////////////////
     //                         Structs                            //
     ////////////////////////////////////////////////////////////////
 
@@ -46,8 +61,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         uint32 parentIndex;
         address counteredBy;
         address claimant;
+        address prover;
         Claim claim;
-        Clock clock;
+        ProposalStatus status;
+        Timestamp deadline;
     }
 
     ////////////////////////////////////////////////////////////////
@@ -112,12 +129,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The starting output root of the game that is proven from in case of a challenge.
     /// @dev This should match the claim root of the parent game.
     OutputRoot public startingOutputRoot;
-
-    /// @notice Modifier to ensure that the caller is the proposer.
-    modifier onlyProposer() {
-        if (msg.sender != claimData.claimant) revert NotProposer();
-        _;
-    }
 
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
@@ -191,7 +202,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // TODO(fakedev9999): Come up with a better way to handle the first game
         if (l2BlockNumber() != uint256(1234567890)) {
             // Set the starting output root.
-            (GameType gameType, Timestamp timestamp, IDisputeGame proxy) =
+            (GameType parentGameType, Timestamp timestamp, IDisputeGame proxy) =
                 DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
             startingOutputRoot = OutputRoot({
                 l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
@@ -199,7 +210,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             });
 
             // INVARIANT: The parent game must have the same game type as the current game.
-            if (gameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
+            if (parentGameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
 
             // INVARIANT: The parent game must be a valid game.
             if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
@@ -215,8 +226,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
                 parentIndex: parentIndex(),
                 counteredBy: address(0),
                 claimant: gameCreator(),
+                prover: address(0),
                 claim: rootClaim(),
-                clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
+                status: ProposalStatus.Unchallenged,
+                deadline: Timestamp.wrap(uint64(block.timestamp + MAX_CHALLENGE_DURATION.raw()))
             });
         } else {
             // Set the root claim
@@ -224,8 +237,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
                 parentIndex: 0,
                 counteredBy: address(0),
                 claimant: gameCreator(),
+                prover: address(0),
                 claim: rootClaim(),
-                clock: LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)))
+                status: ProposalStatus.Unchallenged,
+                deadline: Timestamp.wrap(uint64(block.timestamp + MAX_CHALLENGE_DURATION.raw()))
             });
         }
 
@@ -269,42 +284,35 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(0);
         if (address(proxy) == address(this)) revert FirstGameCannotBeChallenged();
 
-        // INVARIANT: Cannot challenge a game if the game has already been resolved.
-        if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
-
-        // INVARIANT: Cannot challenge a game if the game has already been challenged.
-        if (claimData.counteredBy != address(0)) revert ClaimAlreadyChallenged();
+        // INVARIANT: Can only challenge a game that has not been challenged yet.
+        if (claimData.status != ProposalStatus.Unchallenged) revert ClaimAlreadyChallenged();
 
         // INVARIANT: Cannot challenge a game if the clock has already expired.
-        if (getChallengeDuration().raw() == MAX_CHALLENGE_DURATION.raw()) {
-            revert ClockTimeExceeded();
-        }
+        if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
 
         // Update the counteredBy address
         claimData.counteredBy = msg.sender;
 
+        // Update the status of the proposal
+        claimData.status = ProposalStatus.Challenged;
+
         // Update the clock to the current block timestamp, which marks the start of the challenge.
-        claimData.clock = LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp)));
+        claimData.deadline = Timestamp.wrap(uint64(block.timestamp + MAX_PROVE_DURATION.raw()));
 
         // If the required bond is not met, revert.
-        // TODO(fakedev9999): Have a separate bond for challenging.
+        // TODO(fakedev9999): Have a separate bond for challenging. This might require a change to the factory.
         if (msg.value != DISPUTE_GAME_FACTORY.initBonds(GAME_TYPE)) revert IncorrectBondAmount();
 
         // Hold the bond in the contract.
         payable(address(this)).transfer(msg.value);
     }
 
-    function prove(bytes calldata proofBytes) external onlyProposer returns (GameStatus status_) {
-        // INVARIANT: Cannot prove a game if the game is not challenged.
-        if (claimData.counteredBy == address(0)) revert ClaimNotChallenged();
-
-        // INVARIANT: Cannot prove a game if the game has already been resolved.
-        if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
+    function prove(bytes calldata proofBytes) external returns (GameStatus status_) {
+        // INVARIANT: Can only prove a game if the game is challenged.
+        if (claimData.status != ProposalStatus.Challenged) revert ClaimNotChallenged();
 
         // INVARIANT: Cannot prove a game if the clock has timed out.
-        if (getChallengeDuration().raw() == MAX_CHALLENGE_DURATION.raw()) {
-            revert ClockTimeExceeded();
-        }
+        if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
 
         // Decode the public values to check the claim root
         AggregationOutputs memory publicValues = AggregationOutputs({
@@ -318,24 +326,23 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, abi.encode(publicValues), proofBytes);
 
-        status_ = GameStatus.DEFENDER_WINS;
+        claimData.prover = msg.sender;
+        claimData.status = ProposalStatus.ChallengedAndValidProofProvided;
         resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
         emit Resolved(status = status_);
-
-        // Distribute the bond to the proposer
-        (bool success,) = msg.sender.call{value: address(this).balance}("");
-        if (!success) revert BondTransferFailed();
     }
 
     /// @notice Resolves the game after the clock expires.
-    ///         `DEFENDER_WINS` when no one has challenged the proposer's claim.
+    ///         `DEFENDER_WINS` when no one has challenged the proposer's claim and `MAX_CHALLENGE_DURATION` has passed
+    ///         or there is a challenge but the prover has provided a valid proof within the `MAX_PROVE_DURATION`.
     ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
     ///         its claim within the `MAX_PROVE_DURATION`.
     function resolve() external returns (GameStatus status_) {
         // INVARIANT: First game is always resolved as `DEFENDER_WINS`
         (,, IDisputeGame firstGame) = DISPUTE_GAME_FACTORY.gameAtIndex(0);
         if (address(firstGame) == address(this)) {
+            claimData.status = ProposalStatus.Resolved;
             status_ = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
             emit Resolved(status = status_);
@@ -351,40 +358,25 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
         // INVARIANT: Cannot resolve a game if the parent game has not been resolved.
-        (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
-        if (proxy.status() == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
+        (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+        if (parentGame.status() == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
 
         // INVARIANT: If the parent game is an invalid game, then the current game is invalid.
-        if (proxy.status() == GameStatus.CHALLENGER_WINS) {
+        if (parentGame.status() == GameStatus.CHALLENGER_WINS) {
+            claimData.status = ProposalStatus.Resolved;
             status_ = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
             emit Resolved(status = status_);
+
+            // TODO(fakedev9999): Distribute the bond to the challenger
 
             return status_;
         }
 
-        // The only case left is that the parent game is a valid game (i.e. parent game's status is `DEFENDER_WINS`)
-        if (claimData.counteredBy != address(0)) {
-            // INVARIANT: Cannot resolve a game unless the clock has expired.
-            if (getProveDuration().raw() < MAX_PROVE_DURATION.raw()) {
-                revert ClockNotExpired();
-            }
+        if (claimData.status == ProposalStatus.Unchallenged) {
+            if (claimData.deadline.raw() >= uint64(block.timestamp)) revert ClockNotExpired();
 
-            status_ = GameStatus.CHALLENGER_WINS;
-            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-            emit Resolved(status = status_);
-
-            // Distribute the bond to the challenger
-            (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
-            if (!success) revert BondTransferFailed();
-
-            return status_;
-        } else {
-            // INVARIANT: Cannot resolve a game unless the clock has expired.
-            if (getChallengeDuration().raw() < MAX_CHALLENGE_DURATION.raw()) {
-                revert ClockNotExpired();
-            }
-
+            claimData.status = ProposalStatus.Resolved;
             status_ = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
             emit Resolved(status = status_);
@@ -392,7 +384,29 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             // Distribute the bond back to the proposer
             (bool success,) = claimData.claimant.call{value: address(this).balance}("");
             if (!success) revert BondTransferFailed();
+        } else if (claimData.status == ProposalStatus.Challenged) {
+            if (claimData.deadline.raw() >= uint64(block.timestamp)) revert ClockNotExpired();
+            claimData.status = ProposalStatus.Resolved;
+            status_ = GameStatus.CHALLENGER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+            emit Resolved(status = status_);
+
+            // Distribute the bond to the challenger
+            (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
+            if (!success) revert BondTransferFailed();
+        } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
+            claimData.status = ProposalStatus.Resolved;
+            status_ = GameStatus.DEFENDER_WINS;
+            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+            emit Resolved(status = status_);
+
+            // Distribute the bond to the prover
+            // TODO(fakedev9999): Distribute only the proof reward to the prover. Return the initial bond to the proposer.
+            (bool success,) = claimData.prover.call{value: address(this).balance}("");
+            if (!success) revert BondTransferFailed();
         }
+
+        return status_;
     }
 
     /// @notice Getter for the game type.
@@ -444,44 +458,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();
-    }
-
-    ////////////////////////////////////////////////////////////////
-    //                       MISC EXTERNAL                        //
-    ////////////////////////////////////////////////////////////////
-
-    /// @notice Returns the amount of time elapsed on the proposer's chess clock. Maxes out at
-    ///         `MAX_PROVE_DURATION`.
-    /// @return duration_ The time elapsed on the proposer's chess clock.
-    function getProveDuration() public view returns (Duration duration_) {
-        // INVARIANT: The game must be in progress to query the remaining time.
-        if (status != GameStatus.IN_PROGRESS) {
-            revert GameNotInProgress();
-        }
-
-        // INVARIANT: The game must have been challenged to query the remaining time.
-        if (claimData.counteredBy == address(0)) {
-            revert ClaimNotChallenged();
-        }
-
-        // Compute the duration elapsed of the proposer's clock.
-        uint64 proveDuration = uint64(block.timestamp - claimData.clock.timestamp().raw());
-        duration_ = proveDuration > MAX_PROVE_DURATION.raw() ? MAX_PROVE_DURATION : Duration.wrap(proveDuration);
-    }
-
-    /// @notice Returns the amount of time elapsed on the potential challenger's chess clock. Maxes
-    ///         out at `MAX_CHALLENGE_DURATION`.
-    /// @return duration_ The time elapsed on the potential challenger's chess clock.
-    function getChallengeDuration() public view returns (Duration duration_) {
-        // INVARIANT: The game must be in progress to query the remaining time to respond to a given claim.
-        if (status != GameStatus.IN_PROGRESS) {
-            revert GameNotInProgress();
-        }
-
-        // Compute the duration elapsed of the potential challenger's clock.
-        uint64 challengeDuration = uint64(block.timestamp - claimData.clock.timestamp().raw());
-        duration_ =
-            challengeDuration > MAX_CHALLENGE_DURATION.raw() ? MAX_CHALLENGE_DURATION : Duration.wrap(challengeDuration);
     }
 
     ////////////////////////////////////////////////////////////////

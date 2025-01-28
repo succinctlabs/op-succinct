@@ -43,6 +43,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
     address proposer = address(0x123);
     address challenger = address(0x456);
+    address prover = address(0x789);
 
     GameType gameType = GameType.wrap(42);
     Duration maxChallengeDuration = Duration.wrap(7 days);
@@ -126,23 +127,33 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(game.startingRootHash().raw(), keccak256("rootClaim"));
         assertEq(address(game).balance, 1 ether);
 
-        // // Test the claim data
-        (, address counteredBy, address claimant, Claim claim,) = game.claimData();
+        // Test the claim data
+        (
+            uint32 parentIndex,
+            address counteredBy,
+            address claimant,
+            address prover,
+            Claim claim,
+            OPSuccinctFaultDisputeGame.ProposalStatus status,
+        ) = game.claimData();
+        assertEq(parentIndex, 0);
         assertEq(counteredBy, address(0));
         assertEq(claimant, proposer);
+        assertEq(prover, address(0));
         assertEq(address(game).balance, 1 ether);
         assertEq(claim.raw(), rootClaim.raw());
+        assertEq(uint8(status), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.Unchallenged));
     }
 
-    function testResolve() public {
+    function testResolveUnchallenged() public {
         assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
 
         vm.expectRevert(ClockNotExpired.selector);
         game.resolve();
 
         // Set the clock to expire
-        (,,,, Clock clock) = game.claimData();
-        vm.warp(clock.raw() + 7 days);
+        (,,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1 seconds);
 
         vm.expectEmit(true, false, false, false, address(game));
         emit Resolved(GameStatus.DEFENDER_WINS);
@@ -153,7 +164,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(challenger.balance, 0);
     }
 
-    function testProve() public {
+    function testResolveChallengedAndValidProofProvided() public {
         assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
 
         vm.expectRevert(ClockNotExpired.selector);
@@ -170,15 +181,27 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.challenge{value: 1 ether}();
         vm.stopPrank();
 
-        vm.startPrank(proposer);
+        assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
+
+        (, address counteredBy,,,, OPSuccinctFaultDisputeGame.ProposalStatus challendgedStatus,) = game.claimData();
+        assertEq(counteredBy, challenger);
+        assertEq(uint8(challendgedStatus), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.Challenged));
+
+        vm.startPrank(prover);
         game.prove(bytes(""));
         vm.stopPrank();
 
-        (, address counteredBy,,,) = game.claimData();
-        assertEq(counteredBy, challenger);
+        assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
+        (,,,,, OPSuccinctFaultDisputeGame.ProposalStatus provenStatus,) = game.claimData();
+        assertEq(uint8(provenStatus), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.ChallengedAndValidProofProvided));
+
+        game.resolve();
+
+        assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
 
         assertEq(address(game).balance, 0);
-        assertEq(proposer.balance, 2 ether);
+        assertEq(proposer.balance, 0);
+        assertEq(prover.balance, 2 ether);
         assertEq(challenger.balance, 0);
     }
 }
