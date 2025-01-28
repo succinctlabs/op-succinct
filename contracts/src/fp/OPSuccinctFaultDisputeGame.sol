@@ -431,8 +431,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             payable(gameCreator()).transfer(address(this).balance);
 
             emit Resolved(status);
-
-            emit Resolved(status);
         }
 
         return status;
