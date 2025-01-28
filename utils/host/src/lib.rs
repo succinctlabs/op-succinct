@@ -3,24 +3,30 @@ pub mod fetcher;
 pub mod helpers;
 pub mod rollup_config;
 pub mod stats;
-pub mod witnessgen;
 
-use alloy::sol;
 use alloy_consensus::Header;
-use alloy_primitives::B256;
+use alloy_primitives::{map::HashMap, B256};
+use alloy_sol_types::sol;
+use anyhow::anyhow;
 use anyhow::Result;
-use kona_host::{
-    kv::{DiskKeyValueStore, MemoryKeyValueStore},
-    HostCli,
-};
-use op_alloy_genesis::RollupConfig;
+use kona_host::HostOrchestrator;
+use kona_host::PreimageServer;
+use kona_host::{single::SingleChainHostCli, DiskKeyValueStore, MemoryKeyValueStore};
+use kona_preimage::BidirectionalChannel;
+use kona_preimage::HintReader;
+use kona_preimage::HintWriter;
+use kona_preimage::OracleReader;
+use kona_preimage::OracleServer;
+use log::info;
+use maili_genesis::RollupConfig;
 use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
     InMemoryOracleData,
 };
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
-use std::{collections::HashMap, fs::File, io::Read};
+use std::{fs::File, io::Read};
+use tokio::task;
 
 sol! {
     #[allow(missing_docs)]
@@ -52,7 +58,10 @@ sol! {
 }
 
 /// Get the stdin to generate a proof for the given L2 claim.
-pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
+pub fn get_proof_stdin(
+    host_cli: &SingleChainHostCli,
+    mem_kv_store: MemoryKeyValueStore,
+) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
 
     // Read the rollup config.
@@ -72,14 +81,6 @@ pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
         rollup_config_bytes,
     };
     stdin.write(&boot_info);
-
-    // Get the disk KV store.
-    let disk_kv_store = DiskKeyValueStore::new(host_cli.data_dir.clone().unwrap());
-
-    // Convert the disk KV store to a memory KV store.
-    let mem_kv_store: MemoryKeyValueStore = disk_kv_store.try_into().map_err(|_| {
-        anyhow::anyhow!("Failed to convert DiskKeyValueStore to MemoryKeyValueStore")
-    })?;
 
     // Convert the memory KV store to a HashMap<[u8;32], Vec<u8>>.
     let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
@@ -123,4 +124,50 @@ pub fn get_agg_proof_stdin(
     stdin.write_vec(headers_bytes);
 
     Ok(stdin)
+}
+
+/// TODO: Can we run many program tasks in parallel?
+pub async fn start_server_and_native_client(
+    cfg: &SingleChainHostCli,
+) -> Result<MemoryKeyValueStore, anyhow::Error> {
+    let hint_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
+    let preimage_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
+
+    let kv_store = cfg.create_key_value_store()?;
+    let providers = cfg.create_providers().await?;
+    let fetcher = cfg.create_fetcher(providers, kv_store.clone());
+
+    let server_task = task::spawn(
+        PreimageServer::new(
+            OracleServer::new(preimage_chan.host),
+            HintReader::new(hint_chan.host),
+            kv_store.clone(),
+            fetcher,
+        )
+        .start(),
+    );
+
+    let program_task = tokio::spawn(SingleChainHostCli::run_client_native(
+        HintWriter::new(hint_chan.client),
+        OracleReader::new(preimage_chan.client),
+    ));
+
+    info!("Starting preimage server and client program.");
+    let (_, client_result) =
+        tokio::try_join!(server_task, program_task,).map_err(|e| anyhow!(e))?;
+    if let Err(e) = client_result {
+        return Err(e);
+    }
+    info!(target: "kona_host", "Preimage server and client program have joined.");
+
+    // Drop the KV store after the server is complete, to avoid conflicting locks.
+    drop(kv_store);
+
+    // Loop over all of the keys in the KV store and convert to MemoryKeyValueStore.
+    let disk_kv_store = DiskKeyValueStore::new(cfg.data_dir.clone().unwrap());
+
+    let mem_kv_store: MemoryKeyValueStore = disk_kv_store.try_into()?;
+
+    // Convert to MemoryKeyValueStore and return it
+    Ok(mem_kv_store)
 }
