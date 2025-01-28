@@ -270,6 +270,8 @@ async fn request_agg_proof(
         }
     };
 
+    info!("L1 head bytes received");
+
     let l1_head: [u8; 32] = match l1_head_bytes.clone().try_into() {
         Ok(array) => array,
         Err(_) => {
@@ -284,6 +286,8 @@ async fn request_agg_proof(
         }
     };
 
+    info!("L1 head bytes converted to 32 byte array");
+
     let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
         Err(e) => {
@@ -291,6 +295,8 @@ async fn request_agg_proof(
             return Err(AppError(anyhow::anyhow!("Failed to create fetcher: {}", e)));
         }
     };
+
+    info!("Fetcher created");
 
     let headers = match fetcher
         .get_header_preimages(&boot_infos, l1_head.into())
@@ -306,7 +312,11 @@ async fn request_agg_proof(
         }
     };
 
+    info!("Headers received");
+
     let prover = ProverClient::builder().network().build();
+
+    info!("Prover created");
 
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
@@ -319,6 +329,8 @@ async fn request_agg_proof(
                 )));
             }
         };
+
+    info!("Agg proof stdin received");
 
     let proof_id = match prover
         .prove(&state.agg_pk, &stdin)
@@ -333,6 +345,8 @@ async fn request_agg_proof(
             return Err(AppError(anyhow::anyhow!("Failed to request proof: {}", e)));
         }
     };
+
+    info!("Proof ID received");
 
     Ok((
         StatusCode::OK,
