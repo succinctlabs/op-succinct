@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Ok, Result};
-use kona_host::HostCli;
+use kona_host::SingleChainHostCli;
 use op_succinct_host_utils::{
     fetcher::{BlockInfo, OPSuccinctDataFetcher},
     witnessgen::WitnessGenExecutor,
@@ -15,7 +15,7 @@ pub const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
-pub async fn generate_witness(host_cli: &HostCli) -> Result<Duration> {
+pub async fn generate_witness(host_cli: &SingleChainHostCli) -> Result<Duration> {
     let start_time = Instant::now();
 
     // Start the server and native client.

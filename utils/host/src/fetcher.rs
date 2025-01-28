@@ -10,7 +10,7 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
-use kona_host::cli::HostCli;
+use kona_host::single::SingleChainHostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
 use maili_protocol::L2BlockInfo;
@@ -702,7 +702,7 @@ impl OPSuccinctDataFetcher {
         l2_end_block: u64,
         multi_block: ProgramType,
         cache_mode: CacheMode,
-    ) -> Result<HostCli> {
+    ) -> Result<SingleChainHostCli> {
         // If the rollup config is not already loaded, fetch and save it.
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
@@ -784,9 +784,6 @@ impl OPSuccinctDataFetcher {
         let data_directory =
             self.get_data_directory(l2_chain_id, l2_start_block, l2_end_block, multi_block)?;
 
-        // The native programs are built with profile release-client-lto in build.rs
-        let exec_directory = self.get_exec_directory(multi_block)?;
-
         // Delete the data directory if the cache mode is DeleteCache.
         match cache_mode {
             CacheMode::KeepCache => (),
@@ -804,7 +801,7 @@ impl OPSuccinctDataFetcher {
         // witness data.
         fs::create_dir_all(&data_directory)?;
 
-        Ok(kona_host::HostCli {
+        Ok(kona_host::single::SingleChainHostCli {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
             agreed_l2_head_hash,
@@ -834,13 +831,9 @@ impl OPSuccinctDataFetcher {
                     .to_string(),
             ),
             data_dir: Some(data_directory.into()),
-            exec: Some(exec_directory),
+            native: true,
             server: false,
             rollup_config_path: Some(rollup_config_path),
-            v: std::env::var("VERBOSITY")
-                .unwrap_or("0".to_string())
-                .parse()
-                .unwrap(),
         })
     }
 

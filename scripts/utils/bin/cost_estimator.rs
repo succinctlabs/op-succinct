@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
-use kona_host::HostCli;
+use kona_host::cli::SingleChainHostCli;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
@@ -32,7 +32,7 @@ const TWELVE_HOURS: Duration = Duration::from_secs(60 * 60 * 12);
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
 async fn execute_blocks_and_write_stats_csv(
-    host_clis: &[HostCli],
+    host_clis: &[SingleChainHostCli],
     ranges: Vec<SpanBatchRange>,
     l2_chain_id: u64,
     start: u64,
