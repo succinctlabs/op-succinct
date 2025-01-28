@@ -38,8 +38,6 @@ async fn main() -> Result<()> {
 
     let mem_kv_store = start_server_and_native_client(&host_cli).await?;
 
-    println!("Host CLI finished");
-
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(&host_cli, mem_kv_store)?;
 
