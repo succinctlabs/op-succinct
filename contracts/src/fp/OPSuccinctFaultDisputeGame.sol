@@ -390,8 +390,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Distribute the bond to the challenger
-            (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
-            if (!success) revert BondTransferFailed();
+            payable(claimData.counteredBy).transfer(address(this).balance);
 
             emit Resolved(status);
 
@@ -416,8 +415,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Distribute the bond to the challenger
-            (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
-            if (!success) revert BondTransferFailed();
+            payable(claimData.counteredBy).transfer(address(this).balance);
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
@@ -426,8 +424,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Return the initial bond to the proposer
-            (bool initialBondSuccess,) = payable(gameCreator()).call{value: address(this).balance}("");
-            if (!initialBondSuccess) revert BondTransferFailed();
+            payable(gameCreator()).transfer(address(this).balance);
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
@@ -436,12 +433,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Distribute the proof reward to the prover
-            (bool proofRewardSuccess,) = payable(claimData.prover).call{value: PROOF_REWARD}("");
-            if (!proofRewardSuccess) revert BondTransferFailed();
+            payable(claimData.prover).transfer(PROOF_REWARD);
 
             // Return the initial bond to the proposer
-            (bool initialBondSuccess,) = payable(gameCreator()).call{value: address(this).balance}("");
-            if (!initialBondSuccess) revert BondTransferFailed();
+            payable(gameCreator()).transfer(address(this).balance);
+
+            emit Resolved(status);
 
             emit Resolved(status);
         }
