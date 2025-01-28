@@ -82,8 +82,6 @@ pub fn get_proof_stdin(
     };
     stdin.write(&boot_info);
 
-    println!("boot_info: {:?}", boot_info);
-
     // Convert the memory KV store to a HashMap<[u8;32], Vec<u8>>.
     let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
     for (k, v) in mem_kv_store.store {
@@ -128,16 +126,7 @@ pub fn get_agg_proof_stdin(
     Ok(stdin)
 }
 
-/// Starts the [PreimageServer] and the client program in separate threads. The client program is
-/// ran natively in this mode.
-///
-/// ## Takes
-/// - `cfg`: The host configuration.
-///
-/// ## Returns
-/// - `Ok(exit_code)` if the client program exits successfully.
-/// - `Err(_)` if the client program failed to execute, was killed by a signal, or the host program
-///   exited first.
+/// TODO: Can we run many program tasks in parallel?
 pub async fn start_server_and_native_client(
     cfg: SingleChainHostCli,
 ) -> Result<MemoryKeyValueStore, anyhow::Error> {
@@ -157,7 +146,6 @@ pub async fn start_server_and_native_client(
         )
         .start(),
     );
-    drop(kv_store);
 
     let program_task = tokio::spawn(SingleChainHostCli::run_client_native(
         HintWriter::new(hint_chan.client),
@@ -171,6 +159,9 @@ pub async fn start_server_and_native_client(
         return Err(e);
     }
     info!(target: "kona_host", "Preimage server and client program have joined.");
+
+    // Drop the KV store after the server is complete, to avoid conflicting locks.
+    drop(kv_store);
 
     // Loop over all of the keys in the KV store and convert to MemoryKeyValueStore.
     let disk_kv_store = DiskKeyValueStore::new(cfg.data_dir.clone().unwrap());

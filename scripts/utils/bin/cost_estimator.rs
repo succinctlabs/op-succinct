@@ -9,7 +9,7 @@ use op_succinct_host_utils::{
         split_range_basic, SpanBatchRange,
     },
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin,
+    get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
     ProgramType,
 };
@@ -228,7 +228,7 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
     if !args.use_cache {
         // Get the host CLI args
-        run_native_data_generation(&host_clis).await;
+        start_server_and_native_client(&host_clis).await;
     }
     let total_witness_generation_time_sec = start_time.elapsed().as_secs();
 
