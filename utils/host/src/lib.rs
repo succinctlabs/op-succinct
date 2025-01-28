@@ -128,7 +128,7 @@ pub fn get_agg_proof_stdin(
 
 /// TODO: Can we run many program tasks in parallel?
 pub async fn start_server_and_native_client(
-    cfg: SingleChainHostCli,
+    cfg: &SingleChainHostCli,
 ) -> Result<MemoryKeyValueStore, anyhow::Error> {
     let hint_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
     let preimage_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;

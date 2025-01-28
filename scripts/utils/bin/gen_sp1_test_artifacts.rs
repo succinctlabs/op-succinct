@@ -54,17 +54,12 @@ async fn main() -> Result<()> {
         .collect::<Vec<_>>()
         .await;
 
-    let successful_ranges = futures::stream::iter(split_ranges.iter().zip(host_clis.iter()))
-        .map(|(range, host_cli)| async {
-            let mem_kv_store = start_server_and_native_client(host_cli.clone())
-                .await
-                .unwrap();
-            let sp1_stdin = get_proof_stdin(host_cli, mem_kv_store).unwrap();
-            (sp1_stdin, range.clone())
-        })
-        .buffered(15)
-        .collect::<Vec<_>>()
-        .await;
+    let mut successful_ranges = Vec::new();
+    for (range, host_cli) in split_ranges.iter().zip(host_clis.iter()) {
+        let mem_kv_store = start_server_and_native_client(&host_cli).await.unwrap();
+        let sp1_stdin = get_proof_stdin(&host_cli, mem_kv_store).unwrap();
+        successful_ranges.push((sp1_stdin, range.clone()));
+    }
 
     // Now, write the successful ranges to /sp1-testing-suite-artifacts/op-succinct-chain-{l2_chain_id}-{start}-{end}
     // The folders should each have the RANGE_ELF as program.bin, and the serialized stdin should be

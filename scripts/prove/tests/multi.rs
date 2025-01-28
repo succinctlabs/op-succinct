@@ -3,7 +3,7 @@ use common::post_to_github_pr;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin,
+    get_proof_stdin, start_server_and_native_client,
     stats::{ExecutionStats, MarkdownExecutionStats},
     ProgramType,
 };
@@ -30,20 +30,15 @@ async fn execute_batch() -> Result<()> {
         )
         .await?;
 
-    let witness_generation_time_sec = generate_witness(&host_cli).await?;
+    let mem_kv_store = start_server_and_native_client(&host_cli).await?;
 
     // Get the stdin for the block.
-    let sp1_stdin = get_proof_stdin(&host_cli)?;
+    let sp1_stdin = get_proof_stdin(&host_cli, mem_kv_store)?;
 
     let (block_data, report, execution_duration) =
         execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
-    let stats = ExecutionStats::new(
-        &block_data,
-        &report,
-        witness_generation_time_sec.as_secs(),
-        execution_duration.as_secs(),
-    );
+    let stats = ExecutionStats::new(&block_data, &report, 0, execution_duration.as_secs());
 
     println!("Execution Stats: \n{:?}", stats.to_string());
 

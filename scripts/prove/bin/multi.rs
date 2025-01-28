@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
         .await?;
 
-    let mem_kv_store = start_server_and_native_client(host_cli.clone()).await?;
+    let mem_kv_store = start_server_and_native_client(&host_cli).await?;
 
     println!("Host CLI finished");
 
