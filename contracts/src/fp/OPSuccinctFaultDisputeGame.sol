@@ -74,12 +74,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Emitted when the game is challenged.
-    /// @param status The status of the game after challenge.
-    event Challenged(ProposalStatus indexed status);
+    /// @param challenger The address of the challenger.
+    event Challenged(address indexed challenger);
 
     /// @notice Emitted when the game is proved.
-    /// @param status The status of the game after prove.
-    event Proved(ProposalStatus indexed status);
+    /// @param prover The address of the prover.
+    event Proved(address indexed prover);
 
     /// @notice Emitted when the game is resolved.
     /// @param status The status of the game after resolution.
@@ -322,7 +322,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // Hold the bond in the contract.
         payable(address(this)).transfer(msg.value);
 
-        emit Challenged(claimData.status);
+        emit Challenged(claimData.counteredBy);
 
         return claimData.status;
     }
@@ -355,7 +355,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             claimData.status = ProposalStatus.ChallengedAndValidProofProvided;
         }
 
-        emit Proved(claimData.status);
+        emit Proved(claimData.prover);
 
         return claimData.status;
     }
@@ -370,15 +370,18 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
         // INVARIANT: Cannot resolve a game if the parent game has not been resolved.
-        // Consider the first game's parent game to be considered as `DEFENDER_WINS`.
         IDisputeGame parentGame;
         GameStatus parentGameStatus;
         if (parentIndex() != type(uint32).max) {
             (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
             parentGameStatus = parentGame.status();
-        } else {
+        }
+        // If this is the first dispute game (i.e. parent game index is `uint32.max`),
+        // then the parent game's status is considered as `DEFENDER_WINS`.
+        else {
             parentGameStatus = GameStatus.DEFENDER_WINS;
         }
+
         if (parentGameStatus == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
 
         // INVARIANT: If the parent game's claim is invalid, then the current game's claim is invalid.
@@ -387,10 +390,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Distribute the bond to the parent game's challenger
-            // NOTE(fakedev9999): It is safe to do this because the first game's parent game is always `DEFENDER_WINS`.
-            (, address parentGameChallenger,,,,,) = OPSuccinctFaultDisputeGame(address(parentGame)).claimData();
-            (bool success,) = payable(parentGameChallenger).call{value: address(this).balance}("");
+            // Distribute the bond to the challenger
+            (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
             if (!success) revert BondTransferFailed();
 
             emit Resolved(status);
@@ -406,8 +407,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Distribute the bond back to the proposer
-            (bool success,) = claimData.claimant.call{value: address(this).balance}("");
-            if (!success) revert BondTransferFailed();
+            payable(gameCreator()).transfer(address(this).balance);
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
