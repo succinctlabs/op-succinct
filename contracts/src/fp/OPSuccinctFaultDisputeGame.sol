@@ -71,6 +71,14 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     //                         Events                             //
     ////////////////////////////////////////////////////////////////
 
+    /// @notice Emitted when the game is challenged.
+    /// @param status The status of the game after challenge.
+    event Challenged(ProposalStatus indexed status);
+
+    /// @notice Emitted when the game is proved.
+    /// @param status The status of the game after prove.
+    event Proved(ProposalStatus indexed status);
+
     /// @notice Emitted when the game is resolved.
     /// @param status The status of the game after resolution.
     event Resolved(GameStatus indexed status);
@@ -107,6 +115,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// this verification is the output of converting the [u32; 8] range BabyBear verification key to a [u8; 32] array.
     bytes32 internal immutable RANGE_VKEY_COMMITMENT;
 
+    /// @notice The genesis L2 block number.
+    uint256 internal immutable GENESIS_L2_BLOCK_NUMBER;
+
+    /// @notice The genesis L2 output root.
+    bytes32 internal immutable GENESIS_L2_OUTPUT_ROOT;
+
+    /// @notice The proof reward for the game. This is the amount of the bond that the challenger has to bond to challenge and
+    ///         is the amount of the bond that is distributed to the prover when proven with a valid proof.
+    uint256 internal immutable PROOF_REWARD;
+
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -130,12 +148,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @dev This should match the claim root of the parent game.
     OutputRoot public startingOutputRoot;
 
-    /// @notice The genesis L2 block number.
-    uint256 internal immutable GENESIS_L2_BLOCK_NUMBER;
-
-    /// @notice The genesis L2 block hash.
-    bytes32 internal immutable GENESIS_L2_BLOCK_HASH;
-
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
     /// @param _disputeGameFactory The factory that creates the dispute games.
@@ -145,7 +157,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _aggregationVkey The vkey for the aggregation program.
     /// @param _rangeVkeyCommitment The commitment to the range vkey.
     /// @param _genesisL2BlockNumber The L2 block number of the genesis block.
-    /// @param _genesisL2BlockHash The L2 block hash of the genesis block.
+    /// @param _genesisL2OutputRoot The L2 output root of the genesis block.
+    /// @param _proofReward The proof reward for the game.
     constructor(
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
@@ -156,7 +169,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
         uint256 _genesisL2BlockNumber,
-        bytes32 _genesisL2BlockHash
+        bytes32 _genesisL2OutputRoot,
+        uint256 _proofReward
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -169,7 +183,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         AGGREGATION_VKEY = _aggregationVkey;
         RANGE_VKEY_COMMITMENT = _rangeVkeyCommitment;
         GENESIS_L2_BLOCK_NUMBER = _genesisL2BlockNumber;
-        GENESIS_L2_BLOCK_HASH = _genesisL2BlockHash;
+        GENESIS_L2_OUTPUT_ROOT = _genesisL2OutputRoot;
+        PROOF_REWARD = _proofReward;
     }
 
     /// @notice Initializes the contract.
@@ -215,30 +230,31 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (parentIndex() != type(uint32).max) {
             // For subsequent games, get the parent game's information
             (GameType parentGameType,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+
+            // INVARIANT: The parent game must have the same game type as the current game.
+            if (parentGameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
+
             startingOutputRoot = OutputRoot({
                 l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
                 root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
             });
 
-            // INVARIANT: The parent game must have the same game type as the current game.
-            if (parentGameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
-
             // INVARIANT: The parent game must be a valid game.
             if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
-
-            // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
-            // configured starting block number.
-            if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
-                revert UnexpectedRootClaim(rootClaim());
-            }
         } else {
             startingOutputRoot =
-                OutputRoot({l2BlockNumber: GENESIS_L2_BLOCK_NUMBER, root: Hash.wrap(GENESIS_L2_BLOCK_HASH)});
+                OutputRoot({root: Hash.wrap(GENESIS_L2_OUTPUT_ROOT), l2BlockNumber: GENESIS_L2_BLOCK_NUMBER});
+        }
+
+        // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
+        // configured starting block number.
+        if (l2BlockNumber() <= startingOutputRoot.l2BlockNumber) {
+            revert UnexpectedRootClaim(rootClaim());
         }
 
         // Set the root claim
         claimData = ClaimData({
-            parentIndex: 0,
+            parentIndex: parentIndex(),
             counteredBy: address(0),
             claimant: gameCreator(),
             prover: address(0),
@@ -282,16 +298,15 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Challenges the game.
-    function challenge() external payable {
-        // INVARIANT: Cannot challenge the first game
-        (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(0);
-        if (address(proxy) == address(this)) revert FirstGameCannotBeChallenged();
-
+    function challenge() external payable returns (ProposalStatus) {
         // INVARIANT: Can only challenge a game that has not been challenged yet.
         if (claimData.status != ProposalStatus.Unchallenged) revert ClaimAlreadyChallenged();
 
         // INVARIANT: Cannot challenge a game if the clock has already expired.
         if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
+
+        // If the required bond is not met, revert.
+        if (msg.value != PROOF_REWARD) revert IncorrectBondAmount();
 
         // Update the counteredBy address
         claimData.counteredBy = msg.sender;
@@ -302,15 +317,17 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // Update the clock to the current block timestamp, which marks the start of the challenge.
         claimData.deadline = Timestamp.wrap(uint64(block.timestamp + MAX_PROVE_DURATION.raw()));
 
-        // If the required bond is not met, revert.
-        // TODO(fakedev9999): Have a separate bond for challenging. This might require a change to the factory.
-        if (msg.value != DISPUTE_GAME_FACTORY.initBonds(GAME_TYPE)) revert IncorrectBondAmount();
-
         // Hold the bond in the contract.
         payable(address(this)).transfer(msg.value);
+
+        emit Challenged(claimData.status);
+
+        return claimData.status;
     }
 
-    function prove(bytes calldata proofBytes) external returns (GameStatus status_) {
+    /// @notice Proves the game.
+    /// @param proofBytes The proof bytes to validate the claim.
+    function prove(bytes calldata proofBytes) external returns (ProposalStatus) {
         // INVARIANT: Can only prove a game if the game is challenged.
         if (claimData.status != ProposalStatus.Challenged) revert ClaimNotChallenged();
 
@@ -329,11 +346,15 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, abi.encode(publicValues), proofBytes);
 
+        // Update the prover address
         claimData.prover = msg.sender;
-        claimData.status = ProposalStatus.ChallengedAndValidProofProvided;
-        resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-        emit Resolved(status = status_);
+        // Update the status of the proposal
+        claimData.status = ProposalStatus.ChallengedAndValidProofProvided;
+
+        emit Proved(claimData.status);
+
+        return claimData.status;
     }
 
     /// @notice Resolves the game after the clock expires.
@@ -341,75 +362,79 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ///         or there is a challenge but the prover has provided a valid proof within the `MAX_PROVE_DURATION`.
     ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
     ///         its claim within the `MAX_PROVE_DURATION`.
-    function resolve() external returns (GameStatus status_) {
-        // INVARIANT: First game is always resolved as `DEFENDER_WINS`
-        (,, IDisputeGame firstGame) = DISPUTE_GAME_FACTORY.gameAtIndex(0);
-        if (address(firstGame) == address(this)) {
-            claimData.status = ProposalStatus.Resolved;
-            status_ = GameStatus.DEFENDER_WINS;
-            resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-            emit Resolved(status = status_);
-
-            // Distribute the bond back to the proposer
-            (bool success,) = claimData.claimant.call{value: address(this).balance}("");
-            if (!success) revert BondTransferFailed();
-
-            return status_;
-        }
-
+    function resolve() external returns (GameStatus) {
         // INVARIANT: Resolution cannot occur unless the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
         // INVARIANT: Cannot resolve a game if the parent game has not been resolved.
-        (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
-        if (parentGame.status() == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
+        // Consider the first game's parent game to be considered as `DEFENDER_WINS`.
+        IDisputeGame parentGame;
+        GameStatus parentGameStatus;
+        if (parentIndex() != type(uint32).max) {
+            (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+            parentGameStatus = parentGame.status();
+        } else {
+            parentGameStatus = GameStatus.DEFENDER_WINS;
+        }
+        if (parentGameStatus == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
 
-        // INVARIANT: If the parent game is an invalid game, then the current game is invalid.
-        if (parentGame.status() == GameStatus.CHALLENGER_WINS) {
+        // INVARIANT: If the parent game's claim is invalid, then the current game's claim is invalid.
+        if (parentGameStatus == GameStatus.CHALLENGER_WINS) {
             claimData.status = ProposalStatus.Resolved;
-            status_ = GameStatus.CHALLENGER_WINS;
+            status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-            emit Resolved(status = status_);
 
-            // TODO(fakedev9999): Distribute the bond to the challenger
+            // Distribute the bond to the parent game's challenger
+            // NOTE(fakedev9999): It is safe to do this because the first game's parent game is always `DEFENDER_WINS`.
+            (, address parentGameChallenger,,,,,) = OPSuccinctFaultDisputeGame(address(parentGame)).claimData();
+            (bool success,) = payable(parentGameChallenger).call{value: address(this).balance}("");
+            if (!success) revert BondTransferFailed();
 
-            return status_;
+            emit Resolved(status);
+
+            return status;
         }
 
         if (claimData.status == ProposalStatus.Unchallenged) {
             if (claimData.deadline.raw() >= uint64(block.timestamp)) revert ClockNotExpired();
 
             claimData.status = ProposalStatus.Resolved;
-            status_ = GameStatus.DEFENDER_WINS;
+            status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-            emit Resolved(status = status_);
 
             // Distribute the bond back to the proposer
             (bool success,) = claimData.claimant.call{value: address(this).balance}("");
             if (!success) revert BondTransferFailed();
+
+            emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
             if (claimData.deadline.raw() >= uint64(block.timestamp)) revert ClockNotExpired();
             claimData.status = ProposalStatus.Resolved;
-            status_ = GameStatus.CHALLENGER_WINS;
+            status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-            emit Resolved(status = status_);
 
             // Distribute the bond to the challenger
             (bool success,) = payable(claimData.counteredBy).call{value: address(this).balance}("");
             if (!success) revert BondTransferFailed();
+
+            emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
             claimData.status = ProposalStatus.Resolved;
-            status_ = GameStatus.DEFENDER_WINS;
+            status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-            emit Resolved(status = status_);
 
-            // Distribute the bond to the prover
-            // TODO(fakedev9999): Distribute only the proof reward to the prover. Return the initial bond to the proposer.
-            (bool success,) = claimData.prover.call{value: address(this).balance}("");
-            if (!success) revert BondTransferFailed();
+            // Distribute the proof reward to the prover
+            (bool proofRewardSuccess,) = payable(claimData.prover).call{value: PROOF_REWARD}("");
+            if (!proofRewardSuccess) revert BondTransferFailed();
+
+            // Return the initial bond to the proposer
+            (bool initialBondSuccess,) = payable(gameCreator()).call{value: address(this).balance}("");
+            if (!initialBondSuccess) revert BondTransferFailed();
+
+            emit Resolved(status);
         }
 
-        return status_;
+        return status;
     }
 
     /// @notice Getter for the game type.

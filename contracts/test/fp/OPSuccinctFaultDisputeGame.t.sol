@@ -71,7 +71,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
         uint256 genesisL2BlockNumber = 0;
-        bytes32 genesisL2BlockHash = keccak256("genesis");
+        bytes32 genesisL2OutputRoot = keccak256("genesis");
+        uint256 proofReward = 1 ether;
 
         gameImpl = new OPSuccinctFaultDisputeGame(
             maxChallengeDuration,
@@ -83,7 +84,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             aggregationVkey,
             rangeVkeyCommitment,
             genesisL2BlockNumber,
-            genesisL2BlockHash
+            genesisL2OutputRoot,
+            proofReward
         );
 
         // Set the initial bond
@@ -102,6 +104,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
                 )
             )
         );
+        (,,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
+        vm.warp(parentGameDeadline.raw() + 1 seconds);
         parentGame.resolve();
 
         // Create the second game with parent index 0
@@ -204,8 +208,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
 
         assertEq(address(game).balance, 0);
-        assertEq(proposer.balance, 0);
-        assertEq(prover.balance, 2 ether);
+        assertEq(proposer.balance, 1 ether);
+        assertEq(prover.balance, 1 ether);
         assertEq(challenger.balance, 0);
     }
 }
