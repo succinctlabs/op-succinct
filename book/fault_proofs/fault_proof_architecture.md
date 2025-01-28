@@ -31,11 +31,28 @@ Note that "challenging" a proposal does not require a proof--as we want challeng
 
 ```mermaid
 graph TB
-    A[Genesis State\nBlock: 0\nRoot: 0x123] --> |Parent| B[Proposal 1\nBlock: 1000\nRoot: 0xabc\nState: DEFENDER_WON]
-    B --> |Parent| C[Proposal 2A\nBlock: 2000\nRoot: 0xdef\nState: CHALLENGER_WON]
-    B --> |Parent| D[Proposal 2B\nBlock: 2000\nRoot: 0xff1\nState: Unchallenged]
-    C --> |Parent| E[Proposal 3A\nBlock: 3000\nRoot: 0xbee\nState: Unchallenged]
-    D --> |Parent| F[Proposal 3B\nBlock: 3000\nRoot: 0xfab\nState: ChallengedAndValidProofProvided]
+    A[Genesis State
+    Block: 0
+    Root: 0x123] --> |Parent| B[Proposal 1
+    Block: 1000
+    Root: 0xabc
+    State: DEFENDER_WON]
+    B --> |Parent| C[Proposal 2A
+    Block: 2000
+    Root: 0xdef
+    State: CHALLENGER_WON]
+    B --> |Parent| D[Proposal 2B
+    Block: 2000
+    Root: 0xff1
+    State: Unchallenged]
+    C --> |Parent| E[Proposal 3A
+    Block: 3000
+    Root: 0xbee
+    State: Unchallenged]
+    D --> |Parent| F[Proposal 3B
+    Block: 3000
+    Root: 0xfab
+    State: ChallengedAndValidProofProvided]
 
     classDef genesis fill:#d4edda,stroke:#155724
     classDef defender_won fill:#28a745,stroke:#1e7e34,color:#fff
