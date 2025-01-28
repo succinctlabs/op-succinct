@@ -96,8 +96,29 @@ function initialize() external payable virtual
 Initializes the dispute game with:
 
 - Parent game reference (if any)
+  - First game uses `uint32.max` as parent index
+  - Subsequent games must reference a valid parent game with:
+    - Same game type
+    - Parent game must not have been won by challenger
+    - Parent game's root claim becomes the starting output root
+    - Parent game's l2 block number becomes the starting block number
+
 - Claimed output root
-- Proposer's bond deposit, as enforced by the `DisputeGameFactory` contract
+  - Must correspond to a block number after the starting block
+  - For first game: starts from `GENESIS_L2_OUTPUT_ROOT`
+  - For subsequent games: starts from parent game's l2 output root
+
+- Proposer's bond deposit
+  - Enforced by the `DisputeGameFactory` contract
+  - Held in the dispute game contract until resolution
+
+Additional initialization details:
+- Sets initial status to `ProposalStatus.Unchallenged`
+- Starts `MAX_CHALLENGE_DURATION` timer
+
+Game initialization will revert if:
+- Parent game is invalid or of wrong type
+- Root claim is for same or earlier block than starting block
 
 ### Challenge
 
@@ -107,9 +128,9 @@ function challenge() external payable returns (ProposalStatus)
 
 Allows participants to challenge a proposal by:
 
-- Depositing the challenge bond (the proof reward)
+- Depositing the proof reward (the challenge bond)
 - Setting the proposal deadline to be `+ provingTime` over the current timestamp
-- Updating proposal state to `Challenged`
+- Updating proposal state to `ProposalStatus.Challenged`
 
 ### Proving
 
@@ -117,11 +138,38 @@ Allows participants to challenge a proposal by:
 function prove(bytes calldata proofBytes) external returns (ProposalStatus)
 ```
 
-Validates a proof for a challenged proposal:
+Validates a proof for a proposal:
 
-- Validates proof against the proposal's start output root and claimed l2 block number + output root, and other rollup parameters (like config hash and relevant vkeys)
-- Updates proposal state to `UnchallengedAndValidProofProvided` or `ChallengedAndValidProofProvided`
-- Distributes reward to the prover if there was a challenge
+- Timing Requirements
+  - Must be submitted before the proof deadline
+  - Clock starts when game is created (for unchallenged proofs)
+  - Clock starts when game is challenged (for challenged proofs)
+
+- Proof Verification
+  - Uses SP1 verifier to validate the aggregation proof against public inputs:
+    - L1 head hash (from game creation)
+    - Starting output root (from parent game or genesis)
+    - Claimed output root
+    - Claimed L2 block number
+    - Rollup configuration hash
+    - Range verification key commitment
+  - Uses aggregation verification key to verify the proof
+
+- State Updates
+  - Records the prover's address in `claimData.prover`
+  - Updates proposal status if the proof is valid:
+    - `ProposalStatus.UnchallengedAndValidProofProvided` if there was no challenge
+    - `ProposalStatus.ChallengedAndValidProofProvided` if there was a challenge
+
+- Rewards
+  - No immediate reward distribution
+  - Proof reward is distributed in `resolve()`:
+    - If challenged: prover receives the challenger's bond
+    - If unchallenged: no reward
+
+Proof submission will revert if:
+- Proof deadline has passed
+- Proof verification fails
 
 ### Resolution
 
@@ -136,6 +184,8 @@ Resolves the game by:
 - Ensure that the deadline has passed, and if the proposal is `Unchallenged`, then set `DEFENDER_WON`.
 - Ensure that the deadline has passed, and if the proposal is `Challenged`, then set `CHALLENGER_WON`
 - Distributing bonds based on outcome
+    - If parent game is `CHALLENGER_WON`, then the proposer's bond is distributed to the challenger.
+      But if there was no challenge for the current game, then the proposer's bond is burned.
 
 ## Security Model
 
