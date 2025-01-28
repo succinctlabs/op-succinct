@@ -32,7 +32,6 @@ use tracing::{error, info};
 
 use alloc::vec::Vec;
 use op_succinct_client_utils::{boot::BootInfoStruct, BootInfoWithBytesConfig, InMemoryOracle};
-use serde_json;
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
