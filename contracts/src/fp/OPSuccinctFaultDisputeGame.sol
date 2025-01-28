@@ -62,7 +62,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     struct ClaimData {
         uint32 parentIndex;
         address counteredBy;
-        address claimant;
         address prover;
         Claim claim;
         ProposalStatus status;
@@ -258,7 +257,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         claimData = ClaimData({
             parentIndex: parentIndex(),
             counteredBy: address(0),
-            claimant: gameCreator(),
             prover: address(0),
             claim: rootClaim(),
             status: ProposalStatus.Unchallenged,

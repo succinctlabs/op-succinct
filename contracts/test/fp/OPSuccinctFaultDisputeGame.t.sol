@@ -115,7 +115,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
 
         // We want the parent game to finalize. We'll skip its challenge period.
-        (,,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
+        (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
         vm.warp(parentGameDeadline.raw() + 1 seconds);
         parentGame.resolve();
 
@@ -167,7 +167,6 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         (
             uint32 parentIndex_,
             address counteredBy_,
-            address claimant_,
             address prover_,
             Claim claim_,
             OPSuccinctFaultDisputeGame.ProposalStatus status_,
@@ -176,7 +175,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         assertEq(parentIndex_, 0);
         assertEq(counteredBy_, address(0));
-        assertEq(claimant_, proposer);
+        assertEq(game.gameCreator(), proposer);
         assertEq(prover_, address(0));
         assertEq(claim_.raw(), rootClaim.raw());
         // Initially, the status is Unchallenged
@@ -198,7 +197,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Warp forward past the challenge deadline
-        (,,,,,, Timestamp deadline) = game.claimData();
+        (,,,,, Timestamp deadline) = game.claimData();
         vm.warp(deadline.raw() + 1);
 
         // Expect the Resolved event
@@ -273,7 +272,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(address(game).balance, 2 ether);
 
         // Confirm the proposal is in Challenged state
-        (, address counteredBy_,,,, OPSuccinctFaultDisputeGame.ProposalStatus challStatus,) = game.claimData();
+        (, address counteredBy_,,, OPSuccinctFaultDisputeGame.ProposalStatus challStatus,) = game.claimData();
         assertEq(counteredBy_, challenger);
         assertEq(uint8(challStatus), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.Challenged));
 
@@ -283,7 +282,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.stopPrank();
 
         // Confirm the proposal is now ChallengedAndValidProofProvided
-        (,,,,, challStatus,) = game.claimData();
+        (,,,, challStatus,) = game.claimData();
         assertEq(uint8(challStatus), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.ChallengedAndValidProofProvided));
         assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
 
@@ -315,7 +314,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(address(game).balance, 2 ether);
 
         // We must wait for the prove deadline to pass
-        (,,,,,, Timestamp deadline) = game.claimData();
+        (,,,,, Timestamp deadline) = game.claimData();
         vm.warp(deadline.raw() + 1);
 
         // Now we can resolve, resulting in CHALLENGER_WINS
@@ -336,7 +335,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     // =========================================
     function testCannotChallengeMultipleTimes() public {
         // Initially unchallenged
-        (, address counteredBy_,,,, OPSuccinctFaultDisputeGame.ProposalStatus status_,) = game.claimData();
+        (, address counteredBy_,,, OPSuccinctFaultDisputeGame.ProposalStatus status_,) = game.claimData();
         assertEq(counteredBy_, address(0));
         assertEq(uint8(status_), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.Unchallenged));
 
@@ -362,7 +361,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.stopPrank();
 
         // Move time forward beyond the prove period
-        (,,,,,, Timestamp deadline) = game.claimData();
+        (,,,,, Timestamp deadline) = game.claimData();
         vm.warp(deadline.raw() + 1);
 
         vm.startPrank(prover);
@@ -447,7 +446,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.stopPrank();
 
         // 3) Warp past the prove deadline
-        (,,,,,, Timestamp gameDeadline) = game.claimData();
+        (,,,,, Timestamp gameDeadline) = game.claimData();
         vm.warp(gameDeadline.raw() + 1);
 
         // 4) The game resolves as CHALLENGER_WINS
