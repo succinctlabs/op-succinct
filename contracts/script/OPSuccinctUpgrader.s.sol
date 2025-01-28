@@ -16,7 +16,6 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         // Use implementation address from config
         address OPSuccinctL2OutputOracleImpl = cfg.opSuccinctL2OutputOracleImpl;
-        address proxyAdmin = cfg.proxyAdmin;
 
         // optionally use a different key for deployment
         uint256 deployPk = vm.envOr("DEPLOY_PK", uint256(0));

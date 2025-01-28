@@ -370,7 +370,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
         // INVARIANT: Cannot resolve a game if the parent game has not been resolved.
-        IDisputeGame parentGame;
         GameStatus parentGameStatus;
         if (parentIndex() != type(uint32).max) {
             (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());

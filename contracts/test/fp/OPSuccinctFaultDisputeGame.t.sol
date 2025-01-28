@@ -115,7 +115,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.stopPrank();
     }
 
-    function testInitialization() public {
+    function testInitialization() public view {
         // Test the initialization of the factory
         assertEq(address(factory.owner()), address(this));
         assertEq(address(factory.gameImpls(gameType)), address(gameImpl));
@@ -137,20 +137,20 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Test the claim data
         (
-            uint32 parentIndex,
-            address counteredBy,
-            address claimant,
-            address prover,
-            Claim claim,
-            OPSuccinctFaultDisputeGame.ProposalStatus status,
+            uint32 parentIndex_,
+            address counteredBy_,
+            address claimant_,
+            address prover_,
+            Claim claim_,
+            OPSuccinctFaultDisputeGame.ProposalStatus status_,
         ) = game.claimData();
-        assertEq(parentIndex, 0);
-        assertEq(counteredBy, address(0));
-        assertEq(claimant, proposer);
-        assertEq(prover, address(0));
+        assertEq(parentIndex_, 0);
+        assertEq(counteredBy_, address(0));
+        assertEq(claimant_, proposer);
+        assertEq(prover_, address(0));
         assertEq(address(game).balance, 1 ether);
-        assertEq(claim.raw(), rootClaim.raw());
-        assertEq(uint8(status), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.Unchallenged));
+        assertEq(claim_.raw(), rootClaim.raw());
+        assertEq(uint8(status_), uint8(OPSuccinctFaultDisputeGame.ProposalStatus.Unchallenged));
     }
 
     function testResolveUnchallenged() public {
