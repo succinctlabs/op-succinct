@@ -40,7 +40,7 @@ RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
     cargo build --bin server --release && \
-    cp target/release/server /build/server
+    cp target/release/server /build/server \
 
 # Final stage
 FROM ubuntu:24.04
@@ -72,8 +72,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/server /usr/local/bin/server
-COPY --from=builder /build/range /usr/local/bin/range
-COPY --from=builder /build/native_host_runner /usr/local/bin/native_host_runner
 
 # Expose port based on environment variable or default to 3000
 ENV PORT=${PORT:-3000}

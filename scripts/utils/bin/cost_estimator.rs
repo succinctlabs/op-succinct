@@ -73,8 +73,8 @@ async fn execute_blocks_and_write_stats_csv(
     let prover = ProverClient::builder().cpu().build();
 
     for (host_cli, (range, block_data)) in host_clis.iter().zip(block_data.iter()) {
-        let mem_kv_store = start_server_and_native_client(&host_cli).await.unwrap();
-        let sp1_stdin = get_proof_stdin(&host_cli, mem_kv_store).unwrap();
+        let mem_kv_store = start_server_and_native_client(host_cli).await.unwrap();
+        let sp1_stdin = get_proof_stdin(host_cli, mem_kv_store).unwrap();
 
         // FIXME: Implement retries with a smaller block range if this fails.
         let result = prover.execute(RANGE_ELF, &sp1_stdin).run();
