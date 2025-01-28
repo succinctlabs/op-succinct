@@ -68,6 +68,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         SP1MockVerifier sp1Verifier = new SP1MockVerifier();
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
+        bytes32 rangeVkeyCommitment = bytes32(0);
 
         gameImpl = new OPSuccinctFaultDisputeGame(
             maxChallengeDuration,
@@ -76,7 +77,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             l2ChainId,
             ISP1Verifier(address(sp1Verifier)),
             rollupConfigHash,
-            aggregationVkey
+            aggregationVkey,
+            rangeVkeyCommitment
         );
 
         // Set the initial bond

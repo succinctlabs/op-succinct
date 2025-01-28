@@ -86,6 +86,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The vkey for the aggregation program.
     bytes32 internal immutable AGGREGATION_VKEY;
 
+    /// @notice The 32 byte commitment to the BabyBear representation of the verification key of the range SP1 program. Specifically,
+    /// this verification is the output of converting the [u32; 8] range BabyBear verification key to a [u8; 32] array.
+    bytes32 internal immutable RANGE_VKEY_COMMITMENT;
+
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -122,6 +126,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _sp1Verifier The address of the SP1 verifier that verifies the proof for the aggregation program.
     /// @param _rollupConfigHash The rollup config hash for the L2 network.
     /// @param _aggregationVkey The vkey for the aggregation program.
+    /// @param _rangeVkeyCommitment The commitment to the range vkey.
     constructor(
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
@@ -129,7 +134,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         uint256 _l2ChainId,
         ISP1Verifier _sp1Verifier,
         bytes32 _rollupConfigHash,
-        bytes32 _aggregationVkey
+        bytes32 _aggregationVkey,
+        bytes32 _rangeVkeyCommitment
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -140,6 +146,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         SP1_VERIFIER = _sp1Verifier;
         ROLLUP_CONFIG_HASH = _rollupConfigHash;
         AGGREGATION_VKEY = _aggregationVkey;
+        RANGE_VKEY_COMMITMENT = _rangeVkeyCommitment;
     }
 
     /// @notice Initializes the contract.
@@ -304,39 +311,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         }
 
         // Decode the public values to check the claim root
-        AggregationOutputs memory outputs = abi.decode(publicValues, (AggregationOutputs));
+        AggregationOutputs memory publicValues = AggregationOutputs({
+            l1Head: Hash.unwrap(l1Head()),
+            l2PreRoot: Hash.unwrap(startingOutputRoot.root),
+            claimRoot: rootClaim().raw(),
+            claimBlockNum: l2BlockNumber(),
+            rollupConfigHash: ROLLUP_CONFIG_HASH,
+            rangeVkeyCommitment: RANGE_VKEY_COMMITMENT
+        });
 
-        // The proof must have the same l1 head committed as the game's l1 head
-        if (outputs.l1Head != Hash.unwrap(l1Head())) {
-            revert UnexpectedL1Head(outputs.l1Head);
-        }
-
-        // The proof must have the same starting output root committed as the game's starting output root
-        if (outputs.l2PreRoot != Hash.unwrap(startingOutputRoot.root)) {
-            revert UnexpectedStartingOutputRoot(outputs.l2PreRoot);
-        }
-
-        // The proof must have the same claim block number committed as the starting output root's block number
-        if (outputs.claimBlockNum != l2BlockNumber()) {
-            revert UnexpectedClaimBlockNum(outputs.claimBlockNum);
-        }
-
-        // The proof must show a same claim root from what was originally claimed
-        if (outputs.claimRoot != rootClaim().raw()) {
-            revert UnexpectedRootClaim(Claim.wrap(outputs.claimRoot));
-        }
-
-        // The proof must have the same rollup config hash committed as the game's rollup config hash
-        if (outputs.rollupConfigHash != ROLLUP_CONFIG_HASH) {
-            revert UnexpectedRollupConfigHash(outputs.rollupConfigHash);
-        }
-
-        // The proof must have the same range vkey commitment committed as the game's range vkey commitment
-        if (outputs.rangeVkeyCommitment != AGGREGATION_VKEY) {
-            revert UnexpectedRangeVkeyCommitment(outputs.rangeVkeyCommitment);
-        }
-
-        SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, publicValues, proofBytes);
+        SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, abi.encode(publicValues), proofBytes);
 
         status_ = GameStatus.DEFENDER_WINS;
         resolvedAt = Timestamp.wrap(uint64(block.timestamp));
