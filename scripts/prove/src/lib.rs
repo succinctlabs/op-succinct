@@ -1,7 +1,6 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Ok, Result};
-use kona_host::single::SingleChainHostCli;
 use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 

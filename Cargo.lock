@@ -3511,6 +3511,7 @@ dependencies = [
  "kona-preimage",
  "linked_list_allocator",
  "thiserror 2.0.11",
+ "tracing",
 ]
 
 [[package]]
@@ -4244,12 +4245,15 @@ dependencies = [
  "alloy-transport",
  "alloy-transport-http",
  "anyhow",
+ "async-trait",
  "cargo_metadata",
  "clap",
  "dotenv",
  "futures",
+ "kona-client",
  "kona-host",
  "kona-preimage",
+ "kona-providers-alloy",
  "log",
  "maili-genesis",
  "maili-protocol",

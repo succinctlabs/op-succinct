@@ -35,7 +35,8 @@ alloy-contract = { workspace = true, default-features = false }
 # kona
 kona-host.workspace = true
 kona-preimage.workspace = true
-
+kona-providers-alloy.workspace = true
+kona-client.workspace = true
 # general
 rkyv.workspace = true
 serde_json.workspace = true
@@ -51,3 +52,4 @@ reqwest.workspace = true
 log.workspace = true
 clap.workspace = true
 sysinfo = "0.32.0"
+async-trait.workspace = true

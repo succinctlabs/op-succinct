@@ -66,6 +66,7 @@ kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "2a038e9" }
 
 kona-client = { git = "https://github.com/succinctlabs/kona", rev = "2a038e9" }
 kona-host = { git = "https://github.com/succinctlabs/kona", rev = "2a038e9" }
+kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "2a038e9" }
 
 
 # op-succinct

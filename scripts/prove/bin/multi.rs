@@ -1,96 +1,19 @@
 use anyhow::Result;
-use async_trait::async_trait;
 use clap::Parser;
-use kona_host::{
-    single::SingleChainHostCli, DetachedHostOrchestrator, Fetcher, HostOrchestrator,
-    PreimageServer, SharedKeyValueStore,
-};
-use kona_preimage::{
-    BidirectionalChannel, HintReader, HintWriter, NativeChannel, OracleReader, OracleServer,
-};
 use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin,
+    get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
     ProgramType,
 };
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
-use std::{fs, sync::Arc};
-use tokio::{sync::RwLock, task};
-
-struct OPSuccinctHost {
-    cli: SingleChainHostCli,
-}
-
-/// The host<->client communication channels. The client channels are optional, as the client may
-/// not be running in the same process as the host.
-#[derive(Debug)]
-struct HostComms {
-    /// The host<->client hint channel.
-    pub hint: BidirectionalChannel,
-    /// The host<->client preimage channel.
-    pub preimage: BidirectionalChannel,
-}
-
-#[async_trait]
-impl HostOrchestrator for OPSuccinctHost {
-    type Providers = <SingleChainHostCli as HostOrchestrator>::Providers;
-
-    async fn create_providers(&self) -> Result<Option<Self::Providers>> {
-        self.cli.create_providers().await
-    }
-
-    fn create_key_value_store(&self) -> Result<SharedKeyValueStore> {
-        self.cli.create_key_value_store()
-    }
-
-    fn create_fetcher(
-        &self,
-        providers: Option<Self::Providers>,
-        kv_store: SharedKeyValueStore,
-    ) -> Option<Arc<RwLock<impl Fetcher + Send + Sync + 'static>>> {
-        self.cli.create_fetcher(providers, kv_store)
-    }
-
-    async fn run_client_native(
-        hint_reader: HintWriter<NativeChannel>,
-        oracle_reader: OracleReader<NativeChannel>,
-    ) -> Result<()> {
-        SingleChainHostCli::run_client_native(hint_reader, oracle_reader).await
-    }
-
-    /// Starts the host and client program in-process.
-    async fn start(&self) -> Result<()> {
-        let comms = HostComms {
-            hint: BidirectionalChannel::new()?,
-            preimage: BidirectionalChannel::new()?,
-        };
-        let kv_store = self.create_key_value_store()?;
-        let providers = self.create_providers().await?;
-        let fetcher = self.create_fetcher(providers, kv_store.clone());
-
-        let server_task = task::spawn(
-            PreimageServer::new(
-                OracleServer::new(comms.preimage.host),
-                HintReader::new(comms.hint.host),
-                kv_store,
-                fetcher,
-            )
-            .start(),
-        );
-        let client_task = task::spawn(Self::run_client_native(
-            HintWriter::new(comms.hint.client),
-            OracleReader::new(comms.preimage.client),
-        ));
-
-        let (_, client_result) = tokio::try_join!(server_task, client_task)?;
-
-        Ok(())
-    }
-}
+use std::fs;
+use std::collections::HashMap;
+use bytes::BytesHasherBuilder;
+use to_bytes;
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -116,23 +39,29 @@ async fn main() -> Result<()> {
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
         .await?;
 
-    let host = OPSuccinctHost {
-        cli: host_cli.clone(),
-    };
-
-    println!("Running host CLI");
-
-    host.start().await?;
+    // First start the server and get the KV store
+    let mem_kv_store = start_server_and_native_client(host_cli).await?;
 
     println!("Host CLI finished");
-    drop(host);
 
-    // Get the stdin for the block.
-    let sp1_stdin = get_proof_stdin(&host_cli)?;
+    // Get the stdin using the memory store
+    let sp1_stdin = {
+        let mut stdin = SP1Stdin::new();
+        // Write boot info...
+        
+        let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
+        for (k, v) in mem_kv_store.store {
+            kv_store_map.insert(k.0, v);
+        }
+        
+        let buffer = to_bytes::<rkyv::rancor::Error>(&InMemoryOracleData { map: kv_store_map })?;
+        stdin.write_slice(&buffer.into_vec());
+        stdin
+    };
 
-    let prover = ProverClient::from_env();
-
+    // Use the already obtained stdin
     if args.prove {
+        let prover = ProverClient::from_env();
         // If the prove flag is set, generate a proof.
         let (pk, _) = prover.setup(RANGE_ELF);
 

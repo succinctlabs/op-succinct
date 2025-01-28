@@ -7,7 +7,7 @@ use op_succinct_host_utils::{
     stats::{ExecutionStats, MarkdownExecutionStats},
     ProgramType,
 };
-use op_succinct_prove::{execute_multi, generate_witness, DEFAULT_RANGE, ONE_HOUR};
+use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
 
 mod common;
 
