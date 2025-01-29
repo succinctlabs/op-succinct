@@ -1,3 +1,9 @@
+mod config;
+
+use config::Config;
+
+use std::time::Duration;
+
 use alloy::{
     eips::BlockNumberOrTag,
     primitives::{address, keccak256, Address, FixedBytes, B256, U256},
@@ -11,8 +17,6 @@ use alloy::{
 use anyhow::{bail, Result};
 use op_alloy_network::{primitives::BlockTransactionsKind, EthereumWallet, Optimism};
 use op_alloy_rpc_types::Transaction;
-use std::env;
-use std::time::Duration;
 use tokio::time;
 
 sol! {
@@ -142,47 +146,20 @@ pub async fn compute_output_root_at_block(
 }
 
 struct OPSuccicntProposer {
-    l1_rpc: Url,
-    l2_rpc: Url,
-    #[allow(unused)]
-    l2_node_rpc: Url,
+    config: Config,
     wallet: EthereumWallet,
-    factory_address: Address,
     last_valid_proposal_block_number: u64,
-    proposal_interval_in_blocks: u64,
-    fetch_interval: u64,
-    game_type: u32,
 }
 
 impl OPSuccicntProposer {
     pub async fn new() -> Result<Self> {
-        let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set");
-        let signer: PrivateKeySigner = private_key.parse().expect("Failed to parse private key");
-
-        let l1_rpc = env::var("L1_RPC")
-            .expect("L1_RPC must be set")
-            .parse::<Url>()
-            .unwrap();
-
-        let l2_rpc = env::var("L2_RPC")
-            .expect("L2_RPC must be set")
-            .parse::<Url>()
-            .unwrap();
-
-        let l2_node_rpc = env::var("L2_NODE_RPC")
-            .expect("L2_NODE_RPC must be set")
-            .parse::<Url>()
-            .unwrap();
+        let config = Config::from_env()?;
 
         // Get last valid proposal block number
         // Start from the lastest game and walk back until game's output root is same as the last game's claim
         let provider: RootProvider<Http<Client>> =
-            ProviderBuilder::default().on_http(l1_rpc.clone());
-        let factory_address = env::var("FACTORY_ADDRESS")
-            .expect("FACTORY_ADDRESS must be set")
-            .parse::<Address>()
-            .unwrap();
-        let factory = DisputeGameFactory::new(factory_address, provider.clone());
+            ProviderBuilder::default().on_http(config.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(config.factory_address, provider.clone());
         let mut game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
         let mut block_number;
 
@@ -196,7 +173,8 @@ impl OPSuccicntProposer {
             tracing::info!("Checking if proposal for block {:?} is valid", block_number);
             let game_claim = game.rootClaim().call().await?.rootClaim_;
 
-            let output_root = compute_output_root_at_block(l2_rpc.clone(), block_number).await?;
+            let output_root =
+                compute_output_root_at_block(config.l2_rpc.clone(), block_number).await?;
 
             if output_root == game_claim {
                 break;
@@ -211,34 +189,22 @@ impl OPSuccicntProposer {
         tracing::info!("Last valid proposal block number: {:?}", block_number);
 
         Ok(Self {
-            l1_rpc,
-            l2_rpc,
-            l2_node_rpc,
-            wallet: EthereumWallet::from(signer),
-            factory_address: env::var("FACTORY_ADDRESS")
-                .expect("FACTORY_ADDRESS must be set")
-                .parse::<Address>()
-                .unwrap(),
+            config: config.clone(),
+            wallet: EthereumWallet::from(
+                config
+                    .clone()
+                    .private_key
+                    .parse::<PrivateKeySigner>()
+                    .unwrap(),
+            ),
             last_valid_proposal_block_number: block_number.to::<u64>(),
-            proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
-                .unwrap_or("1000".to_string())
-                .parse::<u64>()
-                .unwrap(),
-            fetch_interval: env::var("FETCH_INTERVAL")
-                .unwrap_or("30".to_string())
-                .parse::<u64>()
-                .unwrap(),
-            game_type: env::var("GAME_TYPE")
-                .unwrap_or("42".to_string())
-                .parse::<u32>()
-                .unwrap(),
         })
     }
 
     async fn fetch_last_game_index(&self) -> Result<U256> {
         let l1_provider: RootProvider<Http<Client>> =
-            ProviderBuilder::default().on_http(self.l1_rpc.clone());
-        let factory = DisputeGameFactory::new(self.factory_address, l1_provider.clone());
+            ProviderBuilder::default().on_http(self.config.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(self.config.factory_address, l1_provider.clone());
         let game_count = factory.gameCount().call().await?;
         let last_game_index = game_count.gameCount_ - U256::from(1);
         Ok(last_game_index)
@@ -246,9 +212,9 @@ impl OPSuccicntProposer {
 
     async fn fetch_init_bond(&self) -> Result<U256> {
         let l1_provider: RootProvider<Http<Client>> =
-            ProviderBuilder::default().on_http(self.l1_rpc.clone());
-        let factory = DisputeGameFactory::new(self.factory_address, l1_provider.clone());
-        let init_bond = factory.initBonds(self.game_type).call().await?;
+            ProviderBuilder::default().on_http(self.config.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(self.config.factory_address, l1_provider.clone());
+        let init_bond = factory.initBonds(self.config.game_type).call().await?;
         Ok(init_bond._0)
     }
 
@@ -256,8 +222,8 @@ impl OPSuccicntProposer {
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(self.wallet.clone())
-            .on_http(self.l1_rpc.clone());
-        let contract = DisputeGameFactory::new(self.factory_address, provider.clone());
+            .on_http(self.config.l1_rpc.clone());
+        let contract = DisputeGameFactory::new(self.config.factory_address, provider.clone());
 
         let last_game = contract
             .gameAtIndex(self.fetch_last_game_index().await?)
@@ -275,7 +241,7 @@ impl OPSuccicntProposer {
         );
 
         let l2_block_number =
-            last_valid_proposal_block_number + U256::from(self.proposal_interval_in_blocks);
+            last_valid_proposal_block_number + U256::from(self.config.proposal_interval_in_blocks);
         Ok(l2_block_number)
     }
 
@@ -286,8 +252,8 @@ impl OPSuccicntProposer {
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(self.wallet.clone())
-            .on_http(self.l1_rpc.clone());
-        let contract = DisputeGameFactory::new(self.factory_address, provider.clone());
+            .on_http(self.config.l1_rpc.clone());
+        let contract = DisputeGameFactory::new(self.config.factory_address, provider.clone());
 
         let last_game_index_u256 = self.fetch_last_game_index().await?;
         tracing::info!("Last game index: {:?}", last_game_index_u256);
@@ -296,7 +262,7 @@ impl OPSuccicntProposer {
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, last_game_index_u32));
 
         let receipt = contract
-            .create(self.game_type, B256::ZERO, extra_data.into())
+            .create(self.config.game_type, B256::ZERO, extra_data.into())
             .value(self.fetch_init_bond().await?)
             .send()
             .await?
@@ -314,15 +280,11 @@ impl OPSuccicntProposer {
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(self.wallet.clone())
-            .on_http(self.l1_rpc.clone());
-        let factory = DisputeGameFactory::new(self.factory_address, provider.clone());
+            .on_http(self.config.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(self.config.factory_address, provider.clone());
 
         // Find latest game index
         let latest_game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
-        let max_games_to_check_for_resolution = env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-            .unwrap_or("100".to_string())
-            .parse::<u64>()
-            .unwrap();
 
         // Get current block timestamp
         let current_block = provider.get_block_number().await?;
@@ -333,14 +295,13 @@ impl OPSuccicntProposer {
         let current_timestamp = block.header.timestamp;
 
         // If the oldest game we're checking is not resolved, we'll not attempt resolution
-        let oldest_game_index =
-            latest_game_index.saturating_sub(U256::from(max_games_to_check_for_resolution));
-        let games_to_check = latest_game_index.min(U256::from(max_games_to_check_for_resolution));
+        let oldest_game_index = latest_game_index
+            .saturating_sub(U256::from(self.config.max_games_to_check_for_resolution));
+        let games_to_check =
+            latest_game_index.min(U256::from(self.config.max_games_to_check_for_resolution));
         let oldest_game_address = factory.gameAtIndex(oldest_game_index).call().await?.proxy;
         let oldest_game = OPSuccinctFaultDisputeGame::new(oldest_game_address, provider.clone());
-        if oldest_game_index > U256::from(0)
-            && oldest_game.status().call().await?.status_ == GameStatus::IN_PROGRESS
-        {
+        if oldest_game.status().call().await?.status_ == GameStatus::IN_PROGRESS {
             tracing::info!(
                 "Oldest game {:?} at index {:?} is still in progress, not attempting resolution",
                 oldest_game_address,
@@ -380,23 +341,23 @@ impl OPSuccicntProposer {
     }
 
     async fn run(&mut self) -> Result<()> {
-        let mut interval = time::interval(Duration::from_secs(self.fetch_interval));
+        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         loop {
             interval.tick().await;
 
             let safe_l2_head_block_number =
-                get_l2_block_by_number(self.l2_rpc.clone(), BlockNumberOrTag::Safe)
+                get_l2_block_by_number(self.config.l2_rpc.clone(), BlockNumberOrTag::Safe)
                     .await?
                     .header
                     .number;
             tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
             if safe_l2_head_block_number
-                > self.last_valid_proposal_block_number + self.proposal_interval_in_blocks
+                > self.last_valid_proposal_block_number + self.config.proposal_interval_in_blocks
             {
                 self.create_game().await?;
-                self.last_valid_proposal_block_number += self.proposal_interval_in_blocks;
+                self.last_valid_proposal_block_number += self.config.proposal_interval_in_blocks;
             }
 
             // Try to resolve any unchallenged games
