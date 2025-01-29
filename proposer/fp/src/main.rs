@@ -42,6 +42,40 @@ sol! {
     contract OPSuccinctFaultDisputeGame {
         function l2BlockNumber() public pure returns (uint256 l2BlockNumber_);
         function rootClaim() public pure returns (Claim rootClaim_);
+        function status() public view returns (GameStatus status_);
+        function claimData() public view returns (ClaimData memory claimData_);
+        function resolve() external returns (GameStatus status_);
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum GameStatus {
+        IN_PROGRESS,
+        DEFENDER_WINS,
+        CHALLENGER_WINS
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum ProposalStatus {
+        Unchallenged,
+        Challenged,
+        UnchallengedAndValidProofProvided,
+        ChallengedAndValidProofProvided,
+        Resolved
+    }
+
+    #[derive(Debug)]
+    struct ClaimData {
+        uint32 parentIndex;
+        address counteredBy;
+        address prover;
+        Claim claim;
+        ProposalStatus status;
+        uint64 deadline;
+    }
+
+    #[allow(missing_docs)]
+    library LibGameType {
+        function raw(GameType _gametype) internal pure returns (uint32 gametype_);
     }
 }
 
@@ -241,6 +275,75 @@ impl OPSuccicntProposer {
         Ok(())
     }
 
+    async fn resolve_unchallenged_games(&self) -> Result<()> {
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(self.wallet.clone())
+            .on_http(self.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(self.factory_address, provider.clone());
+
+        // Find latest game index
+        let latest_game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
+        let max_games_to_check_for_resolution = env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
+            .unwrap_or("100".to_string())
+            .parse::<u64>()
+            .unwrap();
+
+        // Get current block timestamp
+        let current_block = provider.get_block_number().await?;
+        let block = provider
+            .get_block(current_block.into(), BlockTransactionsKind::Hashes)
+            .await?
+            .unwrap();
+        let current_timestamp = block.header.timestamp;
+
+        // If the oldest game we're checking is not resolved, we'll not attempt resolution
+        let oldest_game_index =
+            latest_game_index.saturating_sub(U256::from(max_games_to_check_for_resolution));
+        let games_to_check = latest_game_index.min(U256::from(max_games_to_check_for_resolution));
+        let oldest_game_address = factory.gameAtIndex(oldest_game_index).call().await?.proxy;
+        let oldest_game = OPSuccinctFaultDisputeGame::new(oldest_game_address, provider.clone());
+        if oldest_game_index > U256::from(0)
+            && oldest_game.status().call().await?.status_ == GameStatus::IN_PROGRESS
+        {
+            tracing::info!(
+                "Oldest game {:?} at index {:?} is still in progress, not attempting resolution",
+                oldest_game_address,
+                oldest_game_index
+            );
+            return Ok(());
+        }
+
+        for i in 0..games_to_check.to::<u64>() {
+            let index = oldest_game_index + U256::from(i);
+            let game_address = factory.gameAtIndex(index).call().await?.proxy;
+            let game = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
+
+            // Try to resolve if game is still in progress
+            if game.status().call().await?.status_ == GameStatus::IN_PROGRESS {
+                // Get claim data to check if it's unchallenged
+                let claim_data = game.claimData().call().await?.claimData_;
+
+                // Only try to resolve if unchallenged
+                if claim_data.status == ProposalStatus::Unchallenged {
+                    // Check if deadline has passed
+                    let deadline = U256::from(claim_data.deadline);
+                    if deadline < U256::from(current_timestamp) {
+                        let receipt = game.resolve().send().await?.get_receipt().await?;
+                        tracing::info!(
+                            "Successfully resolved unchallenged game {:?} at index {:?} with tx {:?}",
+                            game_address,
+                            index,
+                            receipt.transaction_hash
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     async fn run(&mut self) -> Result<()> {
         let mut interval = time::interval(Duration::from_secs(self.fetch_interval));
 
@@ -255,6 +358,12 @@ impl OPSuccicntProposer {
             {
                 self.create_game().await?;
                 self.last_valid_proposal_block_number += self.proposal_interval_in_blocks;
+            }
+
+            // Try to resolve any unchallenged games
+            // TODO(fakedev9999): Add a flag to disable this
+            if let Err(e) = self.resolve_unchallenged_games().await {
+                tracing::warn!("Failed to resolve unchallenged games: {:?}", e);
             }
         }
     }
