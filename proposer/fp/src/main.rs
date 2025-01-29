@@ -1,25 +1,16 @@
 use alloy::{
     consensus::Header,
     eips::BlockNumberOrTag,
-    network::Ethereum,
     primitives::{Address, B256, U256},
-    providers::{
-        fillers::{
-            BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller,
-            WalletFiller,
-        },
-        Identity, Provider, ProviderBuilder, RootProvider,
-    },
+    providers::{Provider, ProviderBuilder, RootProvider},
     signers::local::PrivateKeySigner,
     sol,
     sol_types::SolValue,
     transports::http::{reqwest::Url, Client, Http},
 };
-// use alloy_sol_types::{sol_data::Uint, SolType};
 use anyhow::{bail, Result};
 use op_alloy_network::{primitives::BlockTransactionsKind, EthereumWallet, Optimism};
 use std::env;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::time;
 
@@ -77,6 +68,7 @@ pub async fn fetch_output_root_at_block(l2_node_rpc: Url, l2_block_number: U256)
 struct OPSuccicntProposer {
     l1_rpc: Url,
     l2_rpc: Url,
+    #[allow(unused)]
     l2_node_rpc: Url,
     wallet: EthereumWallet,
     factory_address: Address,
@@ -187,7 +179,7 @@ impl OPSuccicntProposer {
         let l1_provider: RootProvider<Http<Client>> =
             ProviderBuilder::default().on_http(self.l1_rpc.clone());
         let factory = DisputeGameFactory::new(self.factory_address, l1_provider.clone());
-        let init_bond = factory.initBonds(self.game_type.into()).call().await?;
+        let init_bond = factory.initBonds(self.game_type).call().await?;
         Ok(init_bond._0)
     }
 
@@ -235,7 +227,7 @@ impl OPSuccicntProposer {
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, last_game_index_u32));
 
         let receipt = contract
-            .create(self.game_type.into(), B256::ZERO, extra_data.into())
+            .create(self.game_type, B256::ZERO, extra_data.into())
             .value(self.fetch_init_bond().await?)
             .send()
             .await?
@@ -265,13 +257,11 @@ impl OPSuccicntProposer {
                 self.last_valid_proposal_block_number += self.proposal_interval_in_blocks;
             }
         }
-
-        Ok(())
     }
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     // Initialize logging with default level info
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -282,6 +272,6 @@ async fn main() -> Result<()> {
 
     dotenv::dotenv().ok();
 
-    let mut proposer = OPSuccicntProposer::new().await?;
-    proposer.run().await
+    let mut proposer = OPSuccicntProposer::new().await.unwrap();
+    proposer.run().await.expect("Runs in an infinite loop");
 }
