@@ -276,6 +276,74 @@ impl OPSuccicntProposer {
         Ok(())
     }
 
+    async fn should_attempt_resolution(&self, oldest_game_index: U256) -> Result<(bool, Address)> {
+        let provider = ProviderBuilder::new().on_http(self.config.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(self.config.factory_address, provider.clone());
+        let oldest_game_address = factory.gameAtIndex(oldest_game_index).call().await?.proxy;
+        let oldest_game = OPSuccinctFaultDisputeGame::new(oldest_game_address, provider);
+
+        Ok((
+            oldest_game.status().call().await?.status_ != GameStatus::IN_PROGRESS,
+            oldest_game_address,
+        ))
+    }
+
+    async fn try_resolve_unchallenged_game(&self, index: U256) -> Result<()> {
+        let provider = ProviderBuilder::new()
+            .with_recommended_fillers()
+            .wallet(self.wallet.clone())
+            .on_http(self.config.l1_rpc.clone());
+        let factory = DisputeGameFactory::new(self.config.factory_address, provider.clone());
+        let game_address = factory.gameAtIndex(index).call().await?.proxy;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
+
+        if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
+            tracing::info!(
+                "Game {:?} at index {:?} is not in progress, not attempting resolution",
+                game_address,
+                index
+            );
+            return Ok(());
+        }
+
+        let claim_data = game.claimData().call().await?.claimData_;
+        if claim_data.status != ProposalStatus::Unchallenged {
+            tracing::info!(
+                "Game {:?} at index {:?} is not unchallenged, not attempting resolution",
+                game_address,
+                index
+            );
+            return Ok(());
+        }
+
+        let current_block_number = provider.get_block_number().await?;
+        let current_timestamp = provider
+            .get_block(current_block_number.into(), BlockTransactionsKind::Hashes)
+            .await?
+            .unwrap()
+            .header
+            .timestamp;
+        let deadline = U256::from(claim_data.deadline).to::<u64>();
+        if deadline >= current_timestamp {
+            tracing::info!(
+                "Game {:?} at index {:?} deadline {:?} has not passed, not attempting resolution",
+                game_address,
+                index,
+                deadline
+            );
+            return Ok(());
+        }
+
+        let receipt = game.resolve().send().await?.get_receipt().await?;
+        tracing::info!(
+            "Successfully resolved unchallenged game {:?} at index {:?} with tx {:?}",
+            game_address,
+            index,
+            receipt.transaction_hash
+        );
+        Ok(())
+    }
+
     async fn resolve_unchallenged_games(&self) -> Result<()> {
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
@@ -286,55 +354,26 @@ impl OPSuccicntProposer {
         // Find latest game index
         let latest_game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
 
-        // Get current block timestamp
-        let current_block = provider.get_block_number().await?;
-        let block = provider
-            .get_block(current_block.into(), BlockTransactionsKind::Hashes)
-            .await?
-            .unwrap();
-        let current_timestamp = block.header.timestamp;
-
         // If the oldest game we're checking is not resolved, we'll not attempt resolution
         let oldest_game_index = latest_game_index
             .saturating_sub(U256::from(self.config.max_games_to_check_for_resolution));
         let games_to_check =
             latest_game_index.min(U256::from(self.config.max_games_to_check_for_resolution));
-        let oldest_game_address = factory.gameAtIndex(oldest_game_index).call().await?.proxy;
-        let oldest_game = OPSuccinctFaultDisputeGame::new(oldest_game_address, provider.clone());
-        if oldest_game.status().call().await?.status_ == GameStatus::IN_PROGRESS {
+
+        let (should_attempt_resolution, game_address) =
+            self.should_attempt_resolution(oldest_game_index).await?;
+
+        if should_attempt_resolution {
+            for i in 0..games_to_check.to::<u64>() {
+                let index = oldest_game_index + U256::from(i);
+                self.try_resolve_unchallenged_game(index).await?;
+            }
+        } else {
             tracing::info!(
-                "Oldest game {:?} at index {:?} is still in progress, not attempting resolution",
-                oldest_game_address,
+                "Oldest game {:?} at index {:?} is not resolved, not attempting resolution",
+                game_address,
                 oldest_game_index
             );
-            return Ok(());
-        }
-
-        for i in 0..games_to_check.to::<u64>() {
-            let index = oldest_game_index + U256::from(i);
-            let game_address = factory.gameAtIndex(index).call().await?.proxy;
-            let game = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
-
-            // Try to resolve if game is still in progress
-            if game.status().call().await?.status_ == GameStatus::IN_PROGRESS {
-                // Get claim data to check if it's unchallenged
-                let claim_data = game.claimData().call().await?.claimData_;
-
-                // Only try to resolve if unchallenged
-                if claim_data.status == ProposalStatus::Unchallenged {
-                    // Check if deadline has passed
-                    let deadline = U256::from(claim_data.deadline);
-                    if deadline < U256::from(current_timestamp) {
-                        let receipt = game.resolve().send().await?.get_receipt().await?;
-                        tracing::info!(
-                            "Successfully resolved unchallenged game {:?} at index {:?} with tx {:?}",
-                            game_address,
-                            index,
-                            receipt.transaction_hash
-                        );
-                    }
-                }
-            }
         }
 
         Ok(())
