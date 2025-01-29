@@ -1,35 +1,29 @@
 //! Contains the host <-> client communication utilities.
 
 use crate::BytesHasherBuilder;
-use alloy_primitives::{keccak256, FixedBytes, B256};
+use alloy_primitives::{keccak256, map::HashMap, FixedBytes};
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
 use itertools::Itertools;
 use kona_preimage::{
-    errors::PreimageOracleError, HintWriterClient, PreimageKey, PreimageKeyType,
-    PreimageOracleClient,
+    errors::{PreimageOracleError, PreimageOracleResult},
+    HintWriterClient, PreimageKey, PreimageKeyType, PreimageOracleClient,
 };
 use kona_proof::FlushableCache;
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
-use rkyv::{from_bytes, Archive, Deserialize, Serialize};
+use rkyv::{from_bytes, Archive};
 use sha2::{Digest, Sha256};
-use spin::mutex::Mutex;
-use std::{collections::HashMap, sync::Arc};
-
-type LockableMap = Arc<Mutex<HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>>>;
-
-#[derive(Archive, Serialize, Deserialize)]
-pub struct InMemoryOracleData {
-    pub map: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
-}
 
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
 /// Rather than relying on a trusted host for data, the data in this oracle
 /// is verified with the `verify()` function, and then is trusted for
 /// the remainder of execution.
-#[derive(Debug, Clone)]
+/// TODO: We use [u8; 32] as the key type, as serializing and deserializing PreimageKey is expensive. How can we get around this?
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, Archive, rkyv::Serialize, rkyv::Deserialize,
+)]
 pub struct InMemoryOracle {
-    cache: LockableMap,
+    pub cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
 }
 
 impl InMemoryOracle {
@@ -37,49 +31,27 @@ impl InMemoryOracle {
     /// These values are deserialized using rkyv for zero copy deserialization.
     pub fn from_raw_bytes(input: Vec<u8>) -> Self {
         println!("cycle-tracker-start: in-memory-oracle-from-raw-bytes-deserialize");
-        let deserialized: InMemoryOracleData =
-            from_bytes::<InMemoryOracleData, rkyv::rancor::Error>(&input)
+        let deserialized: InMemoryOracle =
+            from_bytes::<InMemoryOracle, rkyv::rancor::Error>(&input)
                 .expect("failed to deserialize");
         println!("cycle-tracker-end: in-memory-oracle-from-raw-bytes-deserialize");
 
-        Self::from_in_memory_oracle_data(deserialized)
-    }
-
-    pub fn from_in_memory_oracle_data(data: InMemoryOracleData) -> Self {
-        Self {
-            cache: Arc::new(Mutex::new(data.map)),
-        }
-    }
-
-    /// Creates a new [InMemoryOracle] from a HashMap of B256 keys and Vec<u8> values.
-    pub fn from_b256_hashmap(data: HashMap<B256, Vec<u8>>) -> Self {
-        let cache = data
-            .into_iter()
-            .map(|(k, v)| (k.0, v))
-            .collect::<HashMap<_, _, BytesHasherBuilder>>();
-        Self {
-            cache: Arc::new(Mutex::new(cache)),
-        }
+        deserialized
     }
 }
 
 #[async_trait]
 impl PreimageOracleClient for InMemoryOracle {
     async fn get(&self, key: PreimageKey) -> Result<Vec<u8>, PreimageOracleError> {
-        let lookup_key: [u8; 32] = key.into();
+        let key_bytes: [u8; 32] = key.into();
         self.cache
-            .lock()
-            .get(&lookup_key)
+            .get(&key_bytes)
             .cloned()
             .ok_or_else(|| PreimageOracleError::KeyNotFound)
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
-        let lookup_key: [u8; 32] = key.into();
-        let cache = self.cache.lock();
-        let value = cache
-            .get(&lookup_key)
-            .ok_or(PreimageOracleError::KeyNotFound)?;
+        let value = self.get(key).await?;
         buf.copy_from_slice(value.as_slice());
         Ok(())
     }
@@ -93,9 +65,7 @@ impl HintWriterClient for InMemoryOracle {
 }
 
 impl FlushableCache for InMemoryOracle {
-    fn flush(&self) {
-        self.cache.lock().clear();
-    }
+    fn flush(&self) {}
 }
 
 /// A data structure representing a blob. This data is held in memory for future verification.
@@ -109,74 +79,73 @@ struct Blob {
     kzg_proof: FixedBytes<48>,
 }
 
+pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<()> {
+    let key_type = key.key_type();
+    let preimage = match key_type {
+        PreimageKeyType::Keccak256 => Some(keccak256(value).0),
+        PreimageKeyType::Sha256 => Some(Sha256::digest(value).into()),
+        PreimageKeyType::Precompile | PreimageKeyType::Blob => unimplemented!(),
+        PreimageKeyType::Local | PreimageKeyType::GlobalGeneric => None,
+    };
+
+    if let Some(preimage) = preimage {
+        if key != &PreimageKey::new(preimage, key_type) {
+            return Err(PreimageOracleError::InvalidPreimageKey);
+        }
+    }
+
+    Ok(())
+}
+
 impl InMemoryOracle {
     /// Verifies all data in the oracle. Once the function has been called, all data in the
     /// oracle can be trusted for the remainder of execution.
     pub fn verify(&self) -> AnyhowResult<()> {
         let mut blobs: HashMap<FixedBytes<48>, Blob> = HashMap::new();
-        let cache = self.cache.lock();
 
-        for (key, value) in cache.iter() {
-            let key: PreimageKey = <[u8; 32] as TryInto<PreimageKey>>::try_into(*key).unwrap();
-            match key.key_type() {
-                PreimageKeyType::Local => {}
-                PreimageKeyType::Keccak256 => {
-                    let derived_key =
-                        PreimageKey::new(keccak256(value).into(), PreimageKeyType::Keccak256);
-                    assert_eq!(key, derived_key, "zkvm keccak constraint failed!");
-                }
-                PreimageKeyType::GlobalGeneric => {
-                    unimplemented!();
-                }
-                PreimageKeyType::Sha256 => {
-                    let derived_key: [u8; 32] = Sha256::digest(value).into();
-                    let derived_key = PreimageKey::new(derived_key, PreimageKeyType::Sha256);
-                    assert_eq!(key, derived_key, "zkvm sha256 constraint failed!");
-                }
-                // Aggregate blobs and proofs in memory and verify after loop.
-                PreimageKeyType::Blob => {
-                    let blob_data_key: [u8; 32] =
-                        PreimageKey::new(key.into(), PreimageKeyType::Keccak256).into();
+        for (key, value) in self.cache.iter() {
+            let preimage_key = PreimageKey::try_from(*key).unwrap();
+            // TODO: Switch to using the Blob provider.
+            if preimage_key.key_type() == PreimageKeyType::Blob {
+                let blob_data_key: [u8; 32] =
+                    PreimageKey::new((*key).into(), PreimageKeyType::Keccak256).into();
 
-                    if let Some(blob_data) = cache.get(&blob_data_key) {
-                        let commitment: FixedBytes<48> = blob_data[..48].try_into().unwrap();
-                        let element_idx_bytes: [u8; 8] = blob_data[72..].try_into().unwrap();
-                        let element_idx: u64 = u64::from_be_bytes(element_idx_bytes);
+                if let Some(blob_data) = self.cache.get(&blob_data_key) {
+                    let commitment: FixedBytes<48> = blob_data[..48].try_into().unwrap();
+                    let element_idx_bytes: [u8; 8] = blob_data[72..].try_into().unwrap();
+                    let element_idx: u64 = u64::from_be_bytes(element_idx_bytes);
 
-                        // Blob is stored as one 48 byte element.
-                        if element_idx == 4096 {
-                            blobs
-                                .entry(commitment)
-                                .or_default()
-                                .kzg_proof
-                                .copy_from_slice(value);
-                            continue;
-                        }
-
-                        // Add the 32 bytes of blob data into the correct spot in the blob.
+                    // Blob is stored as one 48 byte element.
+                    if element_idx == 4096 {
                         blobs
                             .entry(commitment)
                             .or_default()
-                            .data
-                            .get_mut((element_idx as usize) << 5..(element_idx as usize + 1) << 5)
-                            .map(|slice| {
-                                if slice.iter().all(|&byte| byte == 0) {
-                                    slice.copy_from_slice(value);
-                                    Ok(())
-                                } else {
-                                    Err(anyhow!("trying to overwrite existing blob data"))
-                                }
-                            });
-                    } else {
-                        return Err(anyhow!("blob data not found"));
+                            .kzg_proof
+                            .copy_from_slice(value);
+                        continue;
                     }
+
+                    // Add the 32 bytes of blob data into the correct spot in the blob.
+                    blobs
+                        .entry(commitment)
+                        .or_default()
+                        .data
+                        .get_mut((element_idx as usize) << 5..(element_idx as usize + 1) << 5)
+                        .map(|slice| {
+                            if slice.iter().all(|&byte| byte == 0) {
+                                slice.copy_from_slice(value);
+                                Ok(())
+                            } else {
+                                Err(anyhow!("trying to overwrite existing blob data"))
+                            }
+                        });
                 }
-                PreimageKeyType::Precompile => {
-                    unimplemented!();
-                }
+            } else {
+                verify_preimage(&preimage_key, value)?;
             }
         }
 
+        // TODO: Figure out how to use the Blob provider to verify this.
         println!("cycle-tracker-report-start: blob-verification");
         let commitments: Vec<Bytes48> = blobs
             .keys()

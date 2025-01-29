@@ -19,9 +19,9 @@ use kona_preimage::OracleReader;
 use kona_preimage::OracleServer;
 use log::info;
 use maili_genesis::RollupConfig;
+use op_succinct_client_utils::InMemoryOracle;
 use op_succinct_client_utils::{
     boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
-    InMemoryOracleData,
 };
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
@@ -83,13 +83,18 @@ pub fn get_proof_stdin(
     stdin.write(&boot_info);
 
     // Convert the memory KV store to a HashMap<[u8;32], Vec<u8>>.
-    let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
+    let mut kv_store_map: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> =
+        HashMap::with_hasher(BytesHasherBuilder);
     for (k, v) in mem_kv_store.store {
         kv_store_map.insert(k.0, v);
     }
 
+    let in_memory_oracle = InMemoryOracle {
+        cache: kv_store_map,
+    };
+
     // Serialize the underlying KV store.
-    let buffer = to_bytes::<rkyv::rancor::Error>(&InMemoryOracleData { map: kv_store_map })?;
+    let buffer = to_bytes::<rkyv::rancor::Error>(&in_memory_oracle)?;
 
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
