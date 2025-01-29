@@ -9,7 +9,7 @@ alloy = { version = "0.9" , features = ["full"]}
 
 # op-alloy
 op-alloy-network = { version = "0.9", default-features = false }
-
+op-alloy-rpc-types = { version = "0.9", default-features = false }
 # general
 anyhow.workspace = true
 dotenv.workspace = true

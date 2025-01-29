@@ -1,8 +1,8 @@
 use alloy::{
-    consensus::Header,
     eips::BlockNumberOrTag,
-    primitives::{Address, B256, U256},
+    primitives::{address, keccak256, Address, FixedBytes, B256, U256},
     providers::{Provider, ProviderBuilder, RootProvider},
+    rpc::types::eth::Block,
     signers::local::PrivateKeySigner,
     sol,
     sol_types::SolValue,
@@ -10,6 +10,7 @@ use alloy::{
 };
 use anyhow::{bail, Result};
 use op_alloy_network::{primitives::BlockTransactionsKind, EthereumWallet, Optimism};
+use op_alloy_rpc_types::Transaction;
 use std::env;
 use std::time::Duration;
 use tokio::time;
@@ -72,26 +73,72 @@ sol! {
         ProposalStatus status;
         uint64 deadline;
     }
+
+    struct L2Output {
+        uint64 zero;
+        bytes32 l2_state_root;
+        bytes32 l2_storage_hash;
+        bytes32 l2_claim_hash;
+    }
 }
 
-pub async fn fetch_output_root_at_block(l2_node_rpc: Url, l2_block_number: U256) -> Result<B256> {
-    let l2_node_provider: RootProvider<Http<Client>, Optimism> =
-        ProviderBuilder::default().on_http(l2_node_rpc.clone());
-    let output_root: serde_json::Value = l2_node_provider
-        .raw_request(
-            "optimism_outputAtBlock".into(),
-            vec![serde_json::json!(format!("0x{:x}", l2_block_number))],
-        )
+pub async fn get_l2_block_by_number(
+    l2_rpc: Url,
+    block_number: BlockNumberOrTag,
+) -> Result<Block<Transaction>> {
+    let l2_provider: RootProvider<Http<Client>, Optimism> =
+        ProviderBuilder::default().on_http(l2_rpc.clone());
+    let block = l2_provider
+        .get_block_by_number(block_number, BlockTransactionsKind::Hashes)
         .await?;
+    if let Some(block) = block {
+        Ok(block)
+    } else {
+        bail!("Failed to get L2 block by number");
+    }
+}
 
-    // The output is likely nested in the JSON response
-    // Extract the output root string from the response
-    let output_root_str = output_root["outputRoot"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("Failed to get outputRoot string"))?;
+pub async fn get_l2_storage_root(
+    l2_rpc: Url,
+    address: Address,
+    block_number: BlockNumberOrTag,
+) -> Result<B256> {
+    let l2_provider: RootProvider<Http<Client>, Optimism> =
+        ProviderBuilder::default().on_http(l2_rpc.clone());
+    let storage_root = l2_provider
+        .get_proof(address, Vec::new())
+        .block_id(block_number.into())
+        .await?
+        .storage_hash;
+    Ok(storage_root)
+}
 
-    // Parse the hex string into B256
-    Ok(output_root_str.parse()?)
+pub async fn compute_output_root_at_block(
+    l2_rpc: Url,
+    l2_block_number: U256,
+) -> Result<FixedBytes<32>> {
+    let l2_block = get_l2_block_by_number(
+        l2_rpc.clone(),
+        BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
+    )
+    .await?;
+    let l2_state_root = l2_block.header.state_root;
+    let l2_claim_hash = l2_block.header.hash;
+    let l2_storage_root = get_l2_storage_root(
+        l2_rpc.clone(),
+        address!("0x4200000000000000000000000000000000000016"),
+        BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
+    )
+    .await?;
+
+    let l2_claim_encoded = L2Output {
+        zero: 0,
+        l2_state_root: l2_state_root.0.into(),
+        l2_storage_hash: l2_storage_root.0.into(),
+        l2_claim_hash: l2_claim_hash.0.into(),
+    };
+    let l2_output_root = keccak256(l2_claim_encoded.abi_encode());
+    Ok(l2_output_root)
 }
 
 struct OPSuccicntProposer {
@@ -117,14 +164,18 @@ impl OPSuccicntProposer {
             .parse::<Url>()
             .unwrap();
 
+        let l2_rpc = env::var("L2_RPC")
+            .expect("L2_RPC must be set")
+            .parse::<Url>()
+            .unwrap();
+
         let l2_node_rpc = env::var("L2_NODE_RPC")
             .expect("L2_NODE_RPC must be set")
             .parse::<Url>()
             .unwrap();
 
-        // Get last proposed block number
-        // Go through a while loop to get the last proposed block number
-        // Start from the last game and walk back until game's output root is same as the last game's claim
+        // Get last valid proposal block number
+        // Start from the lastest game and walk back until game's output root is same as the last game's claim
         let provider: RootProvider<Http<Client>> =
             ProviderBuilder::default().on_http(l1_rpc.clone());
         let factory_address = env::var("FACTORY_ADDRESS")
@@ -133,7 +184,8 @@ impl OPSuccicntProposer {
             .unwrap();
         let factory = DisputeGameFactory::new(factory_address, provider.clone());
         let mut game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
-        let mut block_number: U256;
+        let mut block_number;
+
         loop {
             let game_address = factory.gameAtIndex(game_index).call().await?.proxy;
             let game: OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<
@@ -144,22 +196,23 @@ impl OPSuccicntProposer {
             tracing::info!("Checking if proposal for block {:?} is valid", block_number);
             let game_claim = game.rootClaim().call().await?.rootClaim_;
 
-            let output_root = fetch_output_root_at_block(l2_node_rpc.clone(), block_number).await?;
+            let output_root = compute_output_root_at_block(l2_rpc.clone(), block_number).await?;
 
             if output_root == game_claim {
                 break;
             }
+            tracing::info!(
+                "Output root {:?} is not same as game claim {:?}",
+                output_root,
+                game_claim
+            );
             game_index -= U256::from(1);
         }
-
         tracing::info!("Last valid proposal block number: {:?}", block_number);
 
         Ok(Self {
             l1_rpc,
-            l2_rpc: env::var("L2_RPC")
-                .expect("L2_RPC must be set")
-                .parse::<Url>()
-                .unwrap(),
+            l2_rpc,
             l2_node_rpc,
             wallet: EthereumWallet::from(signer),
             factory_address: env::var("FACTORY_ADDRESS")
@@ -180,19 +233,6 @@ impl OPSuccicntProposer {
                 .parse::<u32>()
                 .unwrap(),
         })
-    }
-
-    pub async fn get_safe_l2_head(&self) -> Result<Header> {
-        let l2_provider: RootProvider<Http<Client>, Optimism> =
-            ProviderBuilder::default().on_http(self.l2_rpc.clone());
-        let block = l2_provider
-            .get_block_by_number(BlockNumberOrTag::Safe, BlockTransactionsKind::Hashes)
-            .await?;
-        if let Some(block) = block {
-            Ok(block.header.inner)
-        } else {
-            bail!("Failed to get safe L2 head");
-        }
     }
 
     async fn fetch_last_game_index(&self) -> Result<U256> {
@@ -345,7 +385,11 @@ impl OPSuccicntProposer {
         loop {
             interval.tick().await;
 
-            let safe_l2_head_block_number = self.get_safe_l2_head().await?.number;
+            let safe_l2_head_block_number =
+                get_l2_block_by_number(self.l2_rpc.clone(), BlockNumberOrTag::Safe)
+                    .await?
+                    .header
+                    .number;
             tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
             if safe_l2_head_block_number

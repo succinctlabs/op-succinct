@@ -4541,6 +4541,7 @@ dependencies = [
  "dotenv",
  "log",
  "op-alloy-network 0.9.6",
+ "op-alloy-rpc-types 0.9.6",
  "serde_json",
  "tokio",
  "tracing",
