@@ -72,11 +72,6 @@ sol! {
         ProposalStatus status;
         uint64 deadline;
     }
-
-    #[allow(missing_docs)]
-    library LibGameType {
-        function raw(GameType _gametype) internal pure returns (uint32 gametype_);
-    }
 }
 
 pub async fn fetch_output_root_at_block(l2_node_rpc: Url, l2_block_number: U256) -> Result<B256> {
