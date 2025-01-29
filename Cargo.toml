@@ -1,11 +1,11 @@
 [workspace]
-members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct"]
+members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct", "fault_proof"]
 resolver = "2"
 
 [workspace.package]
 license = "MIT"
 edition = "2021"
-authors = ["ratankaliani", "zachobront"]
+authors = ["ratankaliani", "zachobront", "fakedev9999"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
 
