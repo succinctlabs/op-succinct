@@ -145,6 +145,44 @@ pub async fn compute_output_root_at_block(
     Ok(l2_output_root)
 }
 
+pub async fn get_last_valid_proposal_block_number(
+    l1_rpc: Url,
+    l2_rpc: Url,
+    factory_address: Address,
+) -> Result<U256> {
+    // Get last valid proposal block number
+    // Start from the lastest game and walk back until game's output root is same as the last game's claim
+    let provider: RootProvider<Http<Client>> = ProviderBuilder::default().on_http(l1_rpc.clone());
+    let factory = DisputeGameFactory::new(factory_address, provider.clone());
+    let mut game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
+    let mut block_number;
+
+    loop {
+        let game_address = factory.gameAtIndex(game_index).call().await?.proxy;
+        let game: OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<
+            Http<Client>,
+            RootProvider<Http<Client>>,
+        > = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
+        block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
+        tracing::info!("Checking if proposal for block {:?} is valid", block_number);
+        let game_claim = game.rootClaim().call().await?.rootClaim_;
+
+        let output_root = compute_output_root_at_block(l2_rpc.clone(), block_number).await?;
+
+        if output_root == game_claim {
+            break;
+        }
+        tracing::info!(
+            "Output root {:?} is not same as game claim {:?}",
+            output_root,
+            game_claim
+        );
+        game_index -= U256::from(1);
+    }
+    tracing::info!("Last valid proposal block number: {:?}", block_number);
+    Ok(block_number)
+}
+
 struct OPSuccicntProposer {
     config: Config,
     wallet: EthereumWallet,
@@ -155,39 +193,6 @@ impl OPSuccicntProposer {
     pub async fn new() -> Result<Self> {
         let config = Config::from_env()?;
 
-        // Get last valid proposal block number
-        // Start from the lastest game and walk back until game's output root is same as the last game's claim
-        let provider: RootProvider<Http<Client>> =
-            ProviderBuilder::default().on_http(config.l1_rpc.clone());
-        let factory = DisputeGameFactory::new(config.factory_address, provider.clone());
-        let mut game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
-        let mut block_number;
-
-        loop {
-            let game_address = factory.gameAtIndex(game_index).call().await?.proxy;
-            let game: OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<
-                Http<Client>,
-                RootProvider<Http<Client>>,
-            > = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
-            block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
-            tracing::info!("Checking if proposal for block {:?} is valid", block_number);
-            let game_claim = game.rootClaim().call().await?.rootClaim_;
-
-            let output_root =
-                compute_output_root_at_block(config.l2_rpc.clone(), block_number).await?;
-
-            if output_root == game_claim {
-                break;
-            }
-            tracing::info!(
-                "Output root {:?} is not same as game claim {:?}",
-                output_root,
-                game_claim
-            );
-            game_index -= U256::from(1);
-        }
-        tracing::info!("Last valid proposal block number: {:?}", block_number);
-
         Ok(Self {
             config: config.clone(),
             wallet: EthereumWallet::from(
@@ -197,7 +202,13 @@ impl OPSuccicntProposer {
                     .parse::<PrivateKeySigner>()
                     .unwrap(),
             ),
-            last_valid_proposal_block_number: block_number.to::<u64>(),
+            last_valid_proposal_block_number: get_last_valid_proposal_block_number(
+                config.l1_rpc.clone(),
+                config.l2_rpc.clone(),
+                config.factory_address,
+            )
+            .await?
+            .to::<u64>(),
         })
     }
 
