@@ -231,8 +231,8 @@ Validates a proof for a proposal:
     - If challenged: prover receives the challenger's bond
     - If unchallenged: no reward but can have fast finality
 
-Proving will revert if:
-- Proof is not submitted before the deadline
+Attempting to submit a proof will revert if:
+- Proof is not submitted before the proof deadline
 - Proof is not valid
 - If a prover tries to prove a game that has already been proven
 
