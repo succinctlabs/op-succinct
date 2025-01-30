@@ -16,12 +16,9 @@ use tokio::time;
 
 use fault_proof::{
     config::ProposerConfig,
-    contract::{
-        DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus,
-        OPSuccinctFaultDisputeGame, ProposalStatus,
-    },
+    contract::{DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance},
     utils::setup_logging,
-    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait,
+    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode,
 };
 
 #[derive(Parser)]
@@ -100,130 +97,6 @@ where
         Ok(())
     }
 
-    /// Determines if we should attempt resolution or not. The `oldest_game_index` is configured
-    /// to be `latest_game_index`` - `max_games_to_check_for_resolution`.
-    ///
-    /// If the oldest game has no parent (i.e., it's a first game), we always attempt resolution.
-    /// For other games, we only attempt resolution if the parent game is not in progress.
-    ///
-    /// NOTE(fakedev9999): Needs to be updated considering more complex cases where there are
-    ///                    multiple branches of games.
-    async fn should_attempt_resolution(&self, oldest_game_index: U256) -> Result<(bool, Address)> {
-        let oldest_game_address = self
-            .factory
-            .fetch_game_address_by_index(oldest_game_index)
-            .await?;
-        let oldest_game =
-            OPSuccinctFaultDisputeGame::new(oldest_game_address, self.l1_provider.clone());
-        let parent_game_index = oldest_game.claimData().call().await?.claimData_.parentIndex;
-
-        // Always attempt resolution for first games (those with parent_game_index == u32::MAX)
-        // For other games, only attempt if the oldest game's parent game is resolved
-        if parent_game_index == u32::MAX {
-            Ok((true, oldest_game_address))
-        } else {
-            let parent_game_address = self
-                .factory
-                .fetch_game_address_by_index(U256::from(parent_game_index))
-                .await?;
-            let parent_game =
-                OPSuccinctFaultDisputeGame::new(parent_game_address, self.l1_provider.clone());
-
-            Ok((
-                parent_game.status().call().await?.status_ != GameStatus::IN_PROGRESS,
-                oldest_game_address,
-            ))
-        }
-    }
-
-    /// Attempts to resolve an unchallenged game.
-    ///
-    /// This function checks if the game is in progress and unchallenged, and if so, attempts to resolve it.
-    async fn try_resolve_unchallenged_game(&self, index: U256) -> Result<()> {
-        let game_address = self.factory.fetch_game_address_by_index(index).await?;
-        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-        if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
-            tracing::info!(
-                "Game {:?} at index {:?} is not in progress, not attempting resolution",
-                game_address,
-                index
-            );
-            return Ok(());
-        }
-
-        let claim_data = game.claimData().call().await?.claimData_;
-        if claim_data.status != ProposalStatus::Unchallenged {
-            tracing::info!(
-                "Game {:?} at index {:?} is not unchallenged, not attempting resolution",
-                game_address,
-                index
-            );
-            return Ok(());
-        }
-
-        let current_timestamp = self
-            .l2_provider
-            .get_l2_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .header
-            .timestamp;
-        let deadline = U256::from(claim_data.deadline).to::<u64>();
-        if deadline >= current_timestamp {
-            tracing::info!(
-                "Game {:?} at index {:?} deadline {:?} has not passed, not attempting resolution",
-                game_address,
-                index,
-                deadline
-            );
-            return Ok(());
-        }
-
-        let contract =
-            OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider_with_wallet.clone());
-        let receipt = contract.resolve().send().await?.get_receipt().await?;
-        tracing::info!(
-            "Successfully resolved unchallenged game {:?} at index {:?} with tx {:?}",
-            game_address,
-            index,
-            receipt.transaction_hash
-        );
-        Ok(())
-    }
-
-    /// Attempts to resolve all unchallenged games, up to `max_games_to_check_for_resolution`.
-    async fn resolve_unchallenged_games(&self) -> Result<()> {
-        // Find latest game index, return early if no games exist
-        let Some(latest_game_index) = self.factory.fetch_latest_game_index().await? else {
-            tracing::info!("No games exist, skipping resolution");
-            return Ok(());
-        };
-
-        // If the oldest game's parent game is not resolved, we'll not attempt resolution.
-        // Except for the game without a parent, which are first games.
-        let oldest_game_index = latest_game_index
-            .saturating_sub(U256::from(self.config.max_games_to_check_for_resolution));
-        let games_to_check =
-            latest_game_index.min(U256::from(self.config.max_games_to_check_for_resolution));
-
-        let (should_attempt_resolution, game_address) =
-            self.should_attempt_resolution(oldest_game_index).await?;
-
-        if should_attempt_resolution {
-            for i in 0..games_to_check.to::<u64>() {
-                let index = oldest_game_index + U256::from(i);
-                self.try_resolve_unchallenged_game(index).await?;
-            }
-        } else {
-            tracing::info!(
-                "Oldest game {:?} at index {:?} is not resolved, not attempting resolution",
-                game_address,
-                oldest_game_index
-            );
-        }
-
-        Ok(())
-    }
-
     /// Handles the creation of a new game if conditions are met
     async fn handle_game_creation(&self) -> Result<()> {
         let _span = tracing::info_span!("[[Proposing]]").entered();
@@ -291,7 +164,15 @@ where
         }
 
         let _span = tracing::info_span!("[[Resolving]]").entered();
-        self.resolve_unchallenged_games().await
+
+        self.factory
+            .resolve_games(
+                Mode::Proposer,
+                self.config.max_games_to_check_for_resolution,
+                self.l1_provider_with_wallet.clone(),
+                self.l2_provider.clone(),
+            )
+            .await
     }
 
     /// Runs the proposer indefinitely.

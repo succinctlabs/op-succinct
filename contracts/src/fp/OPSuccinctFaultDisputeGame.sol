@@ -526,4 +526,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     function genesisL2BlockNumber() external view returns (uint256 genesisL2BlockNumber_) {
         genesisL2BlockNumber_ = GENESIS_L2_BLOCK_NUMBER;
     }
+
+    /// @notice Returns the proof reward.
+    function proofReward() external view returns (uint256 proofReward_) {
+        proofReward_ = PROOF_REWARD;
+    }
 }
