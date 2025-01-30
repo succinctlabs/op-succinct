@@ -15,7 +15,7 @@ use alloy::{
     transports::http::reqwest::Url,
 };
 use anyhow::Result;
-use op_alloy_network::{primitives::BlockTransactionsKind, EthereumWallet};
+use op_alloy_network::EthereumWallet;
 use tokio::time;
 
 #[derive(Debug, Clone)]
@@ -306,6 +306,6 @@ async fn main() {
 
     dotenv::dotenv().ok();
 
-    let mut proposer = OPSuccicntProposer::new().await.unwrap();
+    let proposer = OPSuccicntProposer::new().await.unwrap();
     proposer.run().await.expect("Runs in an infinite loop");
 }
