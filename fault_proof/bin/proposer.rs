@@ -1,9 +1,9 @@
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use fp::{
-    compute_output_root_at_block, config::Config, fetch_game_address_by_index,
-    fetch_latest_game_index, get_l2_block_by_number, get_latest_valid_proposal, DisputeGameFactory,
-    GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
+    compute_output_root_at_block, fetch_game_address_by_index, fetch_latest_game_index,
+    get_l2_block_by_number, get_latest_valid_proposal, DisputeGameFactory, GameStatus,
+    OPSuccinctFaultDisputeGame, ProposalStatus,
 };
 
 use alloy::{
@@ -12,20 +12,59 @@ use alloy::{
     providers::{Provider, ProviderBuilder, RootProvider},
     signers::local::PrivateKeySigner,
     sol_types::SolValue,
-    transports::http::{Client, Http},
+    transports::http::{reqwest::Url, Client, Http},
 };
 use anyhow::Result;
 use op_alloy_network::{primitives::BlockTransactionsKind, EthereumWallet};
 use tokio::time;
 
+#[derive(Debug, Clone)]
+pub struct ProposerConfig {
+    pub l1_rpc: Url,
+    pub l2_rpc: Url,
+    pub factory_address: Address,
+    pub private_key: String,
+    pub proposal_interval_in_blocks: u64,
+    pub fetch_interval: u64,
+    pub game_type: u32,
+    pub enable_game_resolution: bool,
+    pub max_games_to_check_for_resolution: u64,
+}
+
+impl ProposerConfig {
+    pub fn from_env() -> Result<Self> {
+        Ok(Self {
+            l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
+            l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
+            factory_address: env::var("FACTORY_ADDRESS")?
+                .parse()
+                .expect("FACTORY_ADDRESS not set"),
+            private_key: env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set"),
+            proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
+                .unwrap_or("1000".to_string())
+                .parse()?,
+            fetch_interval: env::var("FETCH_INTERVAL")
+                .unwrap_or("30".to_string())
+                .parse()?,
+            game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
+            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
+                .unwrap_or("false".to_string())
+                .parse()?,
+            max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
+                .unwrap_or("100".to_string())
+                .parse()?,
+        })
+    }
+}
+
 struct OPSuccicntProposer {
-    config: Config,
+    config: ProposerConfig,
     wallet: EthereumWallet,
 }
 
 impl OPSuccicntProposer {
     pub async fn new() -> Result<Self> {
-        let config = Config::from_env()?;
+        let config = ProposerConfig::from_env()?;
 
         Ok(Self {
             config: config.clone(),
@@ -213,7 +252,7 @@ impl OPSuccicntProposer {
             interval.tick().await;
 
             let safe_l2_head_block_number =
-                get_l2_block_by_number(self.config.l2_rpc.clone(), BlockNumberOrTag::Finalized)
+                get_l2_block_by_number(self.config.l2_rpc.clone(), BlockNumberOrTag::Safe)
                     .await?
                     .header
                     .number;

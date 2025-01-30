@@ -1,5 +1,3 @@
-pub mod config;
-
 use alloy::{
     eips::BlockNumberOrTag,
     primitives::{address, keccak256, Address, FixedBytes, B256, U256},
