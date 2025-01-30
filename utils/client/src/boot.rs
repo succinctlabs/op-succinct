@@ -3,6 +3,7 @@
 
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
+use kona_proof::BootInfo;
 use maili_genesis::RollupConfig;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -35,6 +36,18 @@ sol! {
         bytes32 l2PostRoot;
         uint64 l2BlockNumber;
         bytes32 rollupConfigHash;
+    }
+}
+
+impl From<BootInfo> for BootInfoStruct {
+    fn from(boot_info: BootInfo) -> Self {
+        BootInfoStruct {
+            l1Head: boot_info.l1_head,
+            l2PreRoot: boot_info.agreed_l2_output_root,
+            l2PostRoot: boot_info.claimed_l2_output_root,
+            l2BlockNumber: boot_info.claimed_l2_block_number,
+            rollupConfigHash: hash_rollup_config(&boot_info.rollup_config),
+        }
     }
 }
 

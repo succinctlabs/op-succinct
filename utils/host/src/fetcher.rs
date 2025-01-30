@@ -10,6 +10,7 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
+// TODO: Switch to using HostCli, once it's exposed from Kona.
 use kona_host::single::SingleChainHostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;

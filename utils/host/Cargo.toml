@@ -21,6 +21,7 @@ maili-rpc.workspace = true
 op-alloy-consensus.workspace = true
 
 # alloy
+alloy-rpc-client = { workspace = true, default-features = false }
 alloy-signer-local = { workspace = true, default-features = false }
 alloy-provider = { workspace = true, default-features = false }
 alloy-transport = { workspace = true, default-features = true }
@@ -37,6 +38,7 @@ kona-host.workspace = true
 kona-preimage.workspace = true
 kona-providers-alloy.workspace = true
 kona-client.workspace = true
+kona-proof.workspace = true
 # general
 rkyv.workspace = true
 serde_json.workspace = true

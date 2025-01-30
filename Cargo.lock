@@ -473,9 +473,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rlp"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f542548a609dca89fcd72b3b9f355928cf844d4363c5eed9c5273a3dd225e097"
+checksum = "3d6c1d995bff8d011f7cd6c81820d51825e6e06d6db73914c1630ecf544d83d6"
 dependencies = [
  "alloy-rlp-derive",
  "arrayvec",
@@ -484,9 +484,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-rlp-derive"
-version = "0.3.10"
+version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a833d97bf8a5f0f878daf2c8451fff7de7f9de38baa5a45d936ec718d81255a"
+checksum = "a40e1ef334153322fd878d07e86af7a529bcb86b2439525920a88eba87bcf943"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3227,7 +3227,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3262,7 +3262,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3272,6 +3272,7 @@ dependencies = [
  "async-trait",
  "maili-genesis",
  "maili-protocol",
+ "maili-rpc",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",
  "thiserror 2.0.11",
@@ -3281,15 +3282,17 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-primitives",
  "alloy-rlp",
  "async-trait",
  "kona-derive",
+ "kona-executor",
  "maili-genesis",
  "maili-protocol",
+ "maili-rpc",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",
  "spin",
@@ -3300,12 +3303,13 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-trie",
  "kona-mpt",
  "maili-genesis",
  "op-alloy-consensus",
@@ -3318,7 +3322,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3344,6 +3348,7 @@ dependencies = [
  "maili-genesis",
  "maili-protocol",
  "maili-registry",
+ "maili-rpc",
  "op-alloy-rpc-types-engine",
  "reqwest",
  "revm",
@@ -3358,7 +3363,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-primitives",
@@ -3373,7 +3378,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3385,7 +3390,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.2.1"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -3399,7 +3404,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3415,6 +3420,7 @@ dependencies = [
  "maili-genesis",
  "maili-protocol",
  "maili-registry",
+ "maili-rpc",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",
  "serde",
@@ -3428,7 +3434,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3451,7 +3457,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3475,7 +3481,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -3488,7 +3494,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=2a038e9#2a038e9025228e513b7d58e6c47ed45bc3f55203"
+source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
@@ -3642,45 +3648,42 @@ dependencies = [
 ]
 
 [[package]]
-name = "maili-consensus"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6c278346ab9cfef7688510e28a042d8a23c953380e7361a1286920ccbd0d847"
-dependencies = [
- "alloy-consensus 0.9.2",
- "alloy-eips 0.9.2",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-serde 0.9.2",
- "serde",
-]
-
-[[package]]
-name = "maili-flz"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6900ede45d18362a5b2878bd0b5266f885b694c620320fc90fc030a591f445c4"
-
-[[package]]
 name = "maili-genesis"
-version = "0.1.6"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a5680e0bb4c77bb98e8e9534dffd511ddd0d6ab7632514b54f2a09220d9337e"
+checksum = "b247c993ac2d89a7171eac22086cf18e2d6e5a0a654d6902d9ee834772af1b25"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
  "alloy-primitives",
  "alloy-sol-types",
+ "maili-serde",
  "serde",
  "serde_repr",
  "thiserror 2.0.11",
 ]
 
 [[package]]
-name = "maili-protocol"
-version = "0.1.6"
+name = "maili-interop"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "262e3f2fc12df09d50db07e01b39d57fe25414bd42ede500d053c25fb7f0afcb"
+checksum = "b077fd7f4fbf10e24e0bb340495cde33fc430451fdc8ad0eb0a2b3cd50f1ca10"
+dependencies = [
+ "alloy-consensus 0.9.2",
+ "alloy-eips 0.9.2",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-sol-types",
+ "derive_more",
+ "serde",
+ "thiserror 2.0.11",
+]
+
+[[package]]
+name = "maili-protocol"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a7d7fdcf313d5671a931c7c5a7969dfa8c4d6d3fb34da29ea731eb2364560c9"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus 0.9.2",
@@ -3692,39 +3695,68 @@ dependencies = [
  "async-trait",
  "brotli",
  "derive_more",
- "maili-consensus",
- "maili-flz",
  "maili-genesis",
  "miniz_oxide",
+ "op-alloy-consensus",
+ "op-alloy-flz",
  "rand",
  "serde",
  "thiserror 2.0.11",
  "tracing",
+ "tracing-subscriber",
  "unsigned-varint",
 ]
 
 [[package]]
 name = "maili-registry"
-version = "0.1.6"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c03aaeec37e2aa101dda748bd48b2d74726f9ea8ee4dc74782ac6f8934ae84c4"
+checksum = "c2b4709306d9532c7a0c84de7765f4bc5ed7068350e54444e28aaad4d7c88dc2"
 dependencies = [
  "alloy-primitives",
  "lazy_static",
  "maili-genesis",
+ "maili-superchain",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "maili-rpc"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79c62dbe6d8b8765d5dda1a798cefb702bebd59038a8eb95a9e2275db973589e"
+dependencies = [
+ "alloy-eips 0.9.2",
+ "alloy-primitives",
+ "derive_more",
+ "maili-genesis",
+ "maili-interop",
+ "maili-protocol",
+ "op-alloy-rpc-types-engine",
+ "serde",
+]
+
+[[package]]
+name = "maili-serde"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "908a6a1352249f55d8c982dbf868d54c86e2aa461c94d56c4e1bd0f74cae9714"
+dependencies = [
+ "alloy-primitives",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "maili-rpc"
-version = "0.1.6"
+name = "maili-superchain"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c23e579fce3c019aa9291f0184d5c10b59718da7b4b5cd23dd6a8c53aaef78f"
+checksum = "552cbfa042beb2ee9b283ac54d97f8ec0cb38d929fe2ec60c329e84cfe8181c4"
 dependencies = [
- "alloy-eips 0.9.2",
  "alloy-primitives",
- "derive_more",
+ "maili-genesis",
  "serde",
 ]
 
@@ -4081,9 +4113,9 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "op-alloy-consensus"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e51ae52013aca0aa1ca3df7ecf0d276eb4214ec44aeb9c48651333e1459b3b5"
+checksum = "e28dc4e397dd8969f7f98ea6454a5c531349a58c76e12448b0c2de6581df7b8c"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -4091,16 +4123,21 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde 0.9.2",
  "derive_more",
- "maili-consensus",
  "serde",
  "thiserror 2.0.11",
 ]
 
 [[package]]
-name = "op-alloy-network"
-version = "0.9.5"
+name = "op-alloy-flz"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcf7b02d55799cfb1f23a2ec4a77d79f4d648622edfb1c9f7629963be35f9e57"
+checksum = "76b44f5edbd5293636934a88ec38d683ee2075bfce43658d1033d76191e7aff6"
+
+[[package]]
+name = "op-alloy-network"
+version = "0.9.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "818a4ea62c0968fbf4e3bee2aa1349ad7ae6504b8aba73889a40160bebaa6818"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-network 0.9.2",
@@ -4113,9 +4150,9 @@ dependencies = [
 
 [[package]]
 name = "op-alloy-rpc-types"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "071c64a4fa84544f60e2bc118f963dbb1976aa33509f185bee1b8a1a2842123c"
+checksum = "4b9c83c664b953d474d6b58825800b6ff1d61876a686407e646cbf76891c1f9b"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -4124,7 +4161,6 @@ dependencies = [
  "alloy-rpc-types-eth 0.9.2",
  "alloy-serde 0.9.2",
  "derive_more",
- "maili-consensus",
  "op-alloy-consensus",
  "serde",
  "serde_json",
@@ -4132,15 +4168,14 @@ dependencies = [
 
 [[package]]
 name = "op-alloy-rpc-types-engine"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4265ced2d43294a2e369f3a627ab700b11472bb3fe01a823357f7c077093db70"
+checksum = "e8d05b5b5b3cff7f24eec2bc366f86a7ff0934678b1bda36d0ecaadba9504170"
 dependencies = [
  "alloy-eips 0.9.2",
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "alloy-serde 0.9.2",
- "maili-protocol",
  "op-alloy-consensus",
  "serde",
  "thiserror 2.0.11",
@@ -4211,6 +4246,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
+ "alloy-rpc-client",
  "alloy-signer-local 0.9.2",
  "alloy-sol-types",
  "alloy-transport",
@@ -4224,6 +4260,7 @@ dependencies = [
  "kona-client",
  "kona-host",
  "kona-preimage",
+ "kona-proof",
  "kona-providers-alloy",
  "log",
  "maili-genesis",
@@ -7238,6 +7275,7 @@ dependencies = [
  "nu-ansi-term",
  "once_cell",
  "regex",
+ "serde",
  "sharded-slab",
  "smallvec",
  "thread_local",

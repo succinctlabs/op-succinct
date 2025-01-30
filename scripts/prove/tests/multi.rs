@@ -30,10 +30,10 @@ async fn execute_batch() -> Result<()> {
         )
         .await?;
 
-    let mem_kv_store = start_server_and_native_client(&host_cli).await?;
+    let oracle = start_server_and_native_client(&host_cli).await?;
 
     // Get the stdin for the block.
-    let sp1_stdin = get_proof_stdin(&host_cli, mem_kv_store)?;
+    let sp1_stdin = get_proof_stdin(oracle)?;
 
     let (block_data, report, execution_duration) =
         execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;

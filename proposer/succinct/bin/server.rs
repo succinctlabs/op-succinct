@@ -171,7 +171,7 @@ async fn request_span_proof(
 
     let mem_kv_store = start_server_and_native_client(&host_cli).await?;
 
-    let sp1_stdin = match get_proof_stdin(&host_cli, mem_kv_store) {
+    let sp1_stdin = match get_proof_stdin(mem_kv_store) {
         Ok(stdin) => stdin,
         Err(e) => {
             error!("Failed to get proof stdin: {}", e);
@@ -344,9 +344,9 @@ async fn request_mock_span_proof(
         }
     };
 
-    let mem_kv_store = start_server_and_native_client(&host_cli).await?;
+    let oracle = start_server_and_native_client(&host_cli).await?;
 
-    let sp1_stdin = match get_proof_stdin(&host_cli, mem_kv_store) {
+    let sp1_stdin = match get_proof_stdin(oracle) {
         Ok(stdin) => stdin,
         Err(e) => {
             error!("Failed to get proof stdin: {}", e);
