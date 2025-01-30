@@ -1,23 +1,7 @@
 [package]
-name = "op-succinct-fp"
+name = "op-fp-challenger"
 version = "0.1.0"
-edition.workspace = true
-license.workspace = true
-authors.workspace = true
-repository.workspace = true
-homepage.workspace = true
-
-[lib]
-name = "fault_proof"
-path = "src/lib.rs"
-
-[[bin]]
-name = "proposer"
-path = "bin/proposer.rs"
-
-[[bin]]
-name = "challenger"
-path = "bin/challenger.rs"
+edition = "2021"
 
 [dependencies]
 # alloy
@@ -29,7 +13,6 @@ op-alloy-rpc-types = { version = "0.9", default-features = false }
 
 # general
 anyhow.workspace = true
-async-trait.workspace = true
 dotenv.workspace = true
 log.workspace = true
 tokio.workspace = true

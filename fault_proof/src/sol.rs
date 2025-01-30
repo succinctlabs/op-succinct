@@ -31,8 +31,10 @@ sol! {
         function rootClaim() public pure returns (Claim rootClaim_);
         function status() public view returns (GameStatus status_);
         function claimData() public view returns (ClaimData memory claimData_);
+        function challenge() external payable returns (ProposalStatus);
         function resolve() external returns (GameStatus status_);
         function genesisL2BlockNumber() external view returns (uint256 genesisL2BlockNumber_);
+        function proofReward() external view returns (uint256 proofReward_);
     }
 
     #[derive(Debug, PartialEq)]
