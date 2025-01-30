@@ -12,7 +12,9 @@ use maili_protocol::BlockInfo;
 
 /// An oracle-backed blob provider. Modified from the original `OracleBlobProvider` to request for
 /// the Keccak256 preimage of the blob commitment and field elements as well as the KZG proof.
-/// 
+///
+/// https://github.com/op-rs/kona/blob/main/crates/proof-sdk/proof/src/l1/blob_provider.rs
+///
 /// TODO: Switch to saving the witness with the blob provider.
 #[derive(Debug, Clone)]
 pub struct OPSuccinctOracleBlobProvider<T: CommsClient> {
@@ -76,6 +78,7 @@ impl<T: CommsClient> OPSuccinctOracleBlobProvider<T> {
                 .await
                 .map_err(OracleProviderError::Preimage)?;
 
+            // Note: This is only necessary for ensuring that the preimage is stored in the cache.
             let mut field_element = [0u8; 32];
             self.oracle
                 .get_exact(
@@ -90,6 +93,7 @@ impl<T: CommsClient> OPSuccinctOracleBlobProvider<T> {
         // Get the KZG proof.
         field_element_key[72..].copy_from_slice((FIELD_ELEMENTS_PER_BLOB).to_be_bytes().as_ref());
 
+        // Note: This is only necessary for ensuring that the preimage is stored in the cache.
         let mut blob_key = [0u8; 80];
         self.oracle
             .get_exact(
@@ -99,6 +103,7 @@ impl<T: CommsClient> OPSuccinctOracleBlobProvider<T> {
             .await
             .map_err(OracleProviderError::Preimage)?;
 
+        // Note: This is only necessary for ensuring that the preimage is stored in the cache.
         let mut kzg_proof = [0u8; 48];
         self.oracle
             .get_exact(
