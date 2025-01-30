@@ -86,6 +86,30 @@ sol! {
     }
 }
 
+async fn fetch_latest_game_index(l1_rpc: Url, factory_address: Address) -> Result<U256> {
+    let l1_provider: RootProvider<Http<Client>> =
+        ProviderBuilder::default().on_http(l1_rpc.clone());
+    let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
+    let game_count = factory.gameCount().call().await?;
+    let latest_game_index = game_count.gameCount_ - U256::from(1);
+
+    tracing::info!("Latest game index: {:?}", latest_game_index);
+
+    Ok(latest_game_index)
+}
+
+async fn fetch_game_address(
+    l1_rpc: Url,
+    factory_address: Address,
+    game_index: U256,
+) -> Result<Address> {
+    let l1_provider: RootProvider<Http<Client>> =
+        ProviderBuilder::default().on_http(l1_rpc.clone());
+    let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
+    let game = factory.gameAtIndex(game_index).call().await?;
+    Ok(game.proxy)
+}
+
 pub async fn get_l2_block_by_number(
     l2_rpc: Url,
     block_number: BlockNumberOrTag,
@@ -145,24 +169,20 @@ pub async fn compute_output_root_at_block(
     Ok(l2_output_root)
 }
 
-pub async fn get_last_valid_proposal_block_number(
+pub async fn get_latest_valid_proposal(
     l1_rpc: Url,
     l2_rpc: Url,
     factory_address: Address,
-) -> Result<U256> {
-    // Get last valid proposal block number
-    // Start from the lastest game and walk back until game's output root is same as the last game's claim
+) -> Result<(U256, U256)> {
+    // Get latest valid proposal block number
+    // Start from the lastest game and walk back until game's output root is same as the game's claim
     let provider: RootProvider<Http<Client>> = ProviderBuilder::default().on_http(l1_rpc.clone());
-    let factory = DisputeGameFactory::new(factory_address, provider.clone());
-    let mut game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
+    let mut game_index = fetch_latest_game_index(l1_rpc.clone(), factory_address).await?;
     let mut block_number;
 
     loop {
-        let game_address = factory.gameAtIndex(game_index).call().await?.proxy;
-        let game: OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<
-            Http<Client>,
-            RootProvider<Http<Client>>,
-        > = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
+        let game_address = fetch_game_address(l1_rpc.clone(), factory_address, game_index).await?;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
         block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
         tracing::info!("Checking if proposal for block {:?} is valid", block_number);
         let game_claim = game.rootClaim().call().await?.rootClaim_;
@@ -179,14 +199,17 @@ pub async fn get_last_valid_proposal_block_number(
         );
         game_index -= U256::from(1);
     }
-    tracing::info!("Last valid proposal block number: {:?}", block_number);
-    Ok(block_number)
+    tracing::info!(
+        "Latest valid proposal at game index {:?} with l2 block number: {:?}",
+        game_index,
+        block_number
+    );
+    Ok((block_number, game_index))
 }
 
 struct OPSuccicntProposer {
     config: Config,
     wallet: EthereumWallet,
-    last_valid_proposal_block_number: u64,
 }
 
 impl OPSuccicntProposer {
@@ -202,23 +225,7 @@ impl OPSuccicntProposer {
                     .parse::<PrivateKeySigner>()
                     .unwrap(),
             ),
-            last_valid_proposal_block_number: get_last_valid_proposal_block_number(
-                config.l1_rpc.clone(),
-                config.l2_rpc.clone(),
-                config.factory_address,
-            )
-            .await?
-            .to::<u64>(),
         })
-    }
-
-    async fn fetch_last_game_index(&self) -> Result<U256> {
-        let l1_provider: RootProvider<Http<Client>> =
-            ProviderBuilder::default().on_http(self.config.l1_rpc.clone());
-        let factory = DisputeGameFactory::new(self.config.factory_address, l1_provider.clone());
-        let game_count = factory.gameCount().call().await?;
-        let last_game_index = game_count.gameCount_ - U256::from(1);
-        Ok(last_game_index)
     }
 
     async fn fetch_init_bond(&self) -> Result<U256> {
@@ -229,34 +236,7 @@ impl OPSuccicntProposer {
         Ok(init_bond._0)
     }
 
-    async fn fetch_l2_block_number(&self) -> Result<U256> {
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .wallet(self.wallet.clone())
-            .on_http(self.config.l1_rpc.clone());
-        let contract = DisputeGameFactory::new(self.config.factory_address, provider.clone());
-
-        let last_game = contract
-            .gameAtIndex(self.fetch_last_game_index().await?)
-            .call()
-            .await?;
-
-        let last_game_address = last_game.proxy;
-        tracing::info!("Last game proxy: {:?}", last_game_address);
-        let last_game_proxy = OPSuccinctFaultDisputeGame::new(last_game_address, provider.clone());
-        let last_valid_proposal_block_number =
-            last_game_proxy.l2BlockNumber().call().await?.l2BlockNumber_;
-        tracing::info!(
-            "Last game l2 block number: {:?}",
-            last_valid_proposal_block_number
-        );
-
-        let l2_block_number =
-            last_valid_proposal_block_number + U256::from(self.config.proposal_interval_in_blocks);
-        Ok(l2_block_number)
-    }
-
-    async fn create_game(&self) -> Result<()> {
+    async fn create_game(&self, l2_block_number: U256, parent_game_index: u32) -> Result<()> {
         const NUM_CONFIRMATIONS: u64 = 3;
         const TIMEOUT_SECONDS: u64 = 60;
 
@@ -266,11 +246,7 @@ impl OPSuccicntProposer {
             .on_http(self.config.l1_rpc.clone());
         let contract = DisputeGameFactory::new(self.config.factory_address, provider.clone());
 
-        let last_game_index_u256 = self.fetch_last_game_index().await?;
-        tracing::info!("Last game index: {:?}", last_game_index_u256);
-        let l2_block_number = self.fetch_l2_block_number().await?;
-        let last_game_index_u32 = last_game_index_u256.to::<u32>();
-        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, last_game_index_u32));
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
         let receipt = contract
             .create(self.config.game_type, B256::ZERO, extra_data.into())
@@ -356,14 +332,10 @@ impl OPSuccicntProposer {
     }
 
     async fn resolve_unchallenged_games(&self) -> Result<()> {
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .wallet(self.wallet.clone())
-            .on_http(self.config.l1_rpc.clone());
-        let factory = DisputeGameFactory::new(self.config.factory_address, provider.clone());
-
         // Find latest game index
-        let latest_game_index = factory.gameCount().call().await?.gameCount_ - U256::from(1);
+        let latest_game_index =
+            fetch_latest_game_index(self.config.l1_rpc.clone(), self.config.factory_address)
+                .await?;
 
         // If the oldest game we're checking is not resolved, we'll not attempt resolution
         let oldest_game_index = latest_game_index
@@ -403,11 +375,23 @@ impl OPSuccicntProposer {
                     .number;
             tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
-            if safe_l2_head_block_number
-                > self.last_valid_proposal_block_number + self.config.proposal_interval_in_blocks
-            {
-                self.create_game().await?;
-                self.last_valid_proposal_block_number += self.config.proposal_interval_in_blocks;
+            let (latest_valid_proposal_block_number, latest_valid_proposal_game_index) =
+                get_latest_valid_proposal(
+                    self.config.l1_rpc.clone(),
+                    self.config.l2_rpc.clone(),
+                    self.config.factory_address,
+                )
+                .await?;
+
+            let next_l2_block_number_for_proposal = latest_valid_proposal_block_number
+                + U256::from(self.config.proposal_interval_in_blocks);
+
+            if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
+                self.create_game(
+                    next_l2_block_number_for_proposal,
+                    latest_valid_proposal_game_index.to::<u32>(),
+                )
+                .await?;
             }
 
             // Try to resolve any unchallenged games
