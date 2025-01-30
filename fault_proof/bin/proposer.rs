@@ -8,11 +8,15 @@ use fp::{
 
 use alloy::{
     eips::BlockNumberOrTag,
+    network::Ethereum,
     primitives::{Address, U256},
-    providers::ProviderBuilder,
+    providers::{
+        fillers::{FillProvider, TxFiller},
+        Provider, ProviderBuilder,
+    },
     signers::local::PrivateKeySigner,
     sol_types::SolValue,
-    transports::http::reqwest::Url,
+    transports::{http::reqwest::Url, Transport},
 };
 use anyhow::Result;
 use op_alloy_network::EthereumWallet;
@@ -23,7 +27,6 @@ pub struct ProposerConfig {
     pub l1_rpc: Url,
     pub l2_rpc: Url,
     pub factory_address: Address,
-    pub private_key: String,
     pub proposal_interval_in_blocks: u64,
     pub fetch_interval: u64,
     pub game_type: u32,
@@ -39,7 +42,6 @@ impl ProposerConfig {
             factory_address: env::var("FACTORY_ADDRESS")?
                 .parse()
                 .expect("FACTORY_ADDRESS not set"),
-            private_key: env::var("PRIVATE_KEY").expect("PRIVATE_KEY not set"),
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
                 .unwrap_or("1000".to_string())
                 .parse()?,
@@ -57,20 +59,32 @@ impl ProposerConfig {
     }
 }
 
-struct OPSuccinctProposer {
+struct OPSuccinctProposer<F, P, T>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
     config: ProposerConfig,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
+    l1_provider_with_wallet: FillProvider<F, P, T, Ethereum>,
 }
 
-impl OPSuccinctProposer {
-    pub async fn new() -> Result<Self> {
+impl<F, P, T> OPSuccinctProposer<F, P, T>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
+    pub async fn new(fill_provider: FillProvider<F, P, T, Ethereum>) -> Result<Self> {
         let config = ProposerConfig::from_env()?;
 
         Ok(Self {
             config: config.clone(),
-            l1_provider: ProviderBuilder::default().on_http(config.l1_rpc),
+            l1_provider: ProviderBuilder::default().on_http(config.l1_rpc.clone()),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
+            l1_provider_with_wallet: fill_provider,
         })
     }
 
@@ -82,14 +96,10 @@ impl OPSuccinctProposer {
     }
 
     async fn create_game(&self, l2_block_number: U256, parent_game_index: u32) -> Result<()> {
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .wallet(EthereumWallet::from(
-                self.config.private_key.parse::<PrivateKeySigner>().unwrap(),
-            ))
-            .on_http(self.config.l1_rpc.clone());
-
-        let contract = DisputeGameFactory::new(self.config.factory_address, provider);
+        let contract = DisputeGameFactory::new(
+            self.config.factory_address,
+            self.l1_provider_with_wallet.clone(),
+        );
 
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
@@ -185,13 +195,8 @@ impl OPSuccinctProposer {
             return Ok(());
         }
 
-        let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
-            .wallet(EthereumWallet::from(
-                self.config.private_key.parse::<PrivateKeySigner>().unwrap(),
-            ))
-            .on_http(self.config.l1_rpc.clone());
-        let contract = OPSuccinctFaultDisputeGame::new(game_address, provider);
+        let contract =
+            OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider_with_wallet.clone());
         let receipt = contract.resolve().send().await?.get_receipt().await?;
         tracing::info!(
             "Successfully resolved unchallenged game {:?} at index {:?} with tx {:?}",
@@ -301,6 +306,20 @@ async fn main() {
 
     dotenv::dotenv().ok();
 
-    let proposer = OPSuccinctProposer::new().await.unwrap();
+    let wallet = EthereumWallet::from(
+        env::var("PRIVATE_KEY")
+            .unwrap()
+            .parse::<PrivateKeySigner>()
+            .unwrap(),
+    );
+
+    let l1_provider_with_wallet = ProviderBuilder::new()
+        .with_recommended_fillers()
+        .wallet(wallet.clone())
+        .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
+
+    let proposer = OPSuccinctProposer::new(l1_provider_with_wallet)
+        .await
+        .unwrap();
     proposer.run().await.expect("Runs in an infinite loop");
 }
