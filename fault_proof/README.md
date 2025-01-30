@@ -51,14 +51,8 @@ MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100  # Maximum number of games to check for re
 ## Running
 
 To run the proposer:
-
-1. Build the project:
    ```bash
-   cargo build --release
-   ```
-
-2. Run the proposer:
-   ```bash
+   cd fault_proof
    cargo run --bin proposer
    ```
 

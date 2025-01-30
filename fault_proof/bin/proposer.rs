@@ -246,6 +246,7 @@ impl OPSuccicntProposer {
     }
 
     async fn run(&mut self) -> Result<()> {
+        tracing::debug!("Some debug message");
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         loop {
@@ -296,11 +297,13 @@ impl OPSuccicntProposer {
 
 #[tokio::main]
 async fn main() {
-    // Initialize logging with default level info
+    // Initialize logging using RUST_LOG environment variable, defaulting to INFO level
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
+            tracing_subscriber::EnvFilter::try_from_env("RUST_LOG").unwrap_or_else(|_| {
+                tracing_subscriber::EnvFilter::from_default_env()
+                    .add_directive(tracing::Level::INFO.into())
+            }),
         )
         .init();
 
