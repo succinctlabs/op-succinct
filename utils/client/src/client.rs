@@ -101,9 +101,15 @@ where
     let mut driver = Driver::new(cursor, executor, pipeline);
     // Run the derivation pipeline until we are able to produce the output root of the claimed
     // L2 block.
+
+    // TODO: Replace advance_to_target to get a more refined cycle count.
+    #[cfg(target_os = "zkvm")]
+    println!("cycle-tracker-report-start: block-execution-and-derivation");
     let (safe_head, output_root) = driver
         .advance_to_target(&boot.rollup_config, Some(boot.claimed_l2_block_number))
         .await?;
+    #[cfg(target_os = "zkvm")]
+    println!("cycle-tracker-report-end: block-execution-and-derivation");
 
     ////////////////////////////////////////////////////////////////
     //                          EPILOGUE                          //
