@@ -1,6 +1,5 @@
 pub mod block_range;
 pub mod fetcher;
-pub mod helpers;
 pub mod rollup_config;
 pub mod stats;
 
@@ -145,7 +144,7 @@ pub async fn start_server_and_native_client(
     info!("Starting preimage server and client program.");
     let _ = tokio::select! {
         r = server_task => {
-            r?;
+            let _ = r?;
             return Err(anyhow!("Server task completed before program task"));
         },
         r = program_task => r??,

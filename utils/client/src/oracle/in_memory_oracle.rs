@@ -1,5 +1,5 @@
-use crate::BytesHasherBuilder;
-use alloy_primitives::{keccak256, map::HashMap, FixedBytes};
+use alloy_primitives::{keccak256, FixedBytes};
+use anyhow::Result;
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
 use itertools::Itertools;
@@ -11,6 +11,7 @@ use kona_proof::FlushableCache;
 use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{from_bytes, Archive};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 use super::StoreOracle;
 
@@ -23,7 +24,7 @@ use super::StoreOracle;
     Debug, Clone, serde::Serialize, serde::Deserialize, Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 pub struct InMemoryOracle {
-    pub cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
+    pub cache: HashMap<[u8; 32], Vec<u8>>,
 }
 
 impl InMemoryOracle {
@@ -40,15 +41,12 @@ impl InMemoryOracle {
     }
 
     /// Populates the InMemoryOracle with data from a StoreOracle.
-    pub fn populate_from_store<OR, HW>(
-        store_oracle: &StoreOracle<OR, HW>,
-    ) -> Result<Self, Box<dyn std::error::Error>>
+    pub fn populate_from_store<OR, HW>(store_oracle: &StoreOracle<OR, HW>) -> Result<Self>
     where
         OR: PreimageOracleClient,
         HW: HintWriterClient,
     {
-        let mut cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> =
-            HashMap::with_hasher(BytesHasherBuilder);
+        let mut cache: HashMap<[u8; 32], Vec<u8>> = HashMap::new();
         // Lock the cache for safe access
         let cache_guard = store_oracle.cache.lock();
 
@@ -64,6 +62,9 @@ impl InMemoryOracle {
 #[async_trait]
 impl PreimageOracleClient for InMemoryOracle {
     async fn get(&self, key: PreimageKey) -> Result<Vec<u8>, PreimageOracleError> {
+        if key.key_type() == PreimageKeyType::Blob {
+            // println!("Blob key type");
+        }
         let key_bytes: [u8; 32] = key.into();
         self.cache
             .get(&key_bytes)
@@ -72,6 +73,9 @@ impl PreimageOracleClient for InMemoryOracle {
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
+        if key.key_type() == PreimageKeyType::Blob {
+            // println!("Blob key type");
+        }
         let value = self.get(key).await?;
         buf.copy_from_slice(value.as_slice());
         Ok(())
@@ -122,16 +126,15 @@ impl InMemoryOracle {
     /// Verifies all data in the oracle. Once the function has been called, all data in the
     /// oracle can be trusted for the remainder of execution.
     pub fn verify(&self) -> AnyhowResult<()> {
-        let mut blobs: HashMap<FixedBytes<48>, Blob, BytesHasherBuilder> =
-            HashMap::with_hasher(BytesHasherBuilder);
+        let mut blobs: HashMap<FixedBytes<48>, Blob> = HashMap::new();
 
         for (key, value) in self.cache.iter() {
-            let preimage_key = PreimageKey::try_from(*key).unwrap();
+            let preimage_key = PreimageKey::try_from(key.clone()).unwrap();
             // TODO: Switch to using the Blob provider.
             if preimage_key.key_type() == PreimageKeyType::Blob {
+                // We should verify the keys using the Blob provider.
                 let blob_data_key: [u8; 32] =
-                    PreimageKey::new((*key).into(), PreimageKeyType::Keccak256).into();
-
+                    PreimageKey::new(key.clone(), PreimageKeyType::Keccak256).into();
                 if let Some(blob_data) = self.cache.get(&blob_data_key) {
                     let commitment: FixedBytes<48> = blob_data[..48].try_into().unwrap();
                     let element_idx_bytes: [u8; 8] = blob_data[72..].try_into().unwrap();

@@ -6,7 +6,6 @@ use kona_executor::{KonaHandleRegister, TrieDBProvider};
 use kona_preimage::{CommsClient, PreimageKeyType};
 use kona_proof::errors::OracleProviderError;
 use kona_proof::executor::KonaExecutor;
-use kona_proof::l1::OracleBlobProvider;
 use kona_proof::l1::{OracleL1ChainProvider, OraclePipeline};
 use kona_proof::l2::OracleL2ChainProvider;
 use kona_proof::sync::new_pipeline_cursor;
@@ -14,6 +13,8 @@ use kona_proof::{BootInfo, FlushableCache, HintType};
 use std::fmt::Debug;
 use std::sync::Arc;
 use tracing::info;
+
+use crate::oracle::OPSuccinctOracleBlobProvider;
 
 // Sourced from https://github.com/op-rs/kona/tree/main/bin/client/src/single.rs
 pub async fn run_opsuccinct_client<O>(
@@ -41,7 +42,7 @@ where
     let mut l1_provider = OracleL1ChainProvider::new(boot.l1_head, oracle.clone());
     let mut l2_provider =
         OracleL2ChainProvider::new(safe_head_hash, boot.rollup_config.clone(), oracle.clone());
-    let beacon = OracleBlobProvider::new(oracle.clone());
+    let beacon = OPSuccinctOracleBlobProvider::new(oracle.clone());
 
     // Fetch the safe head's block header.
     let safe_head = l2_provider
