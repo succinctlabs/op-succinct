@@ -1,6 +1,7 @@
 pub mod block_range;
 pub mod fetcher;
 pub mod rollup_config;
+pub mod single;
 pub mod stats;
 
 use alloy_consensus::Header;
@@ -8,7 +9,6 @@ use alloy_primitives::B256;
 use alloy_sol_types::sol;
 use anyhow::anyhow;
 use anyhow::Result;
-use kona_host::single::SingleChainHostCli;
 use kona_host::HostOrchestrator;
 use kona_host::PreimageServer;
 use kona_preimage::BidirectionalChannel;
@@ -23,6 +23,7 @@ use op_succinct_client_utils::InMemoryOracle;
 use op_succinct_client_utils::StoreOracle;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use rkyv::to_bytes;
+use single::SingleChainHostCli;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::sync::Arc;
 use tokio::task;
@@ -123,13 +124,7 @@ pub async fn start_server_and_native_client(
     //                          PROLOGUE                          //
     ////////////////////////////////////////////////////////////////
 
-    // TODO: Switch back to caching oracle once we create a struct that wraps it that can save data.
-    // const LRU_SIZE: usize = 1024_1024_1024;
-    // let oracle = Arc::new(CachingOracle::new(
-    //     LRU_SIZE,
-    //     OracleReader::new(preimage_chan.client),
-    //     HintWriter::new(hint_chan.client),
-    // ));
+    // TODO: Confirm that store oracle is as fast as the caching oracle.
     let oracle = Arc::new(StoreOracle::new(
         OracleReader::new(preimage_chan.client),
         HintWriter::new(hint_chan.client),
@@ -152,6 +147,5 @@ pub async fn start_server_and_native_client(
 
     let in_memory_oracle = InMemoryOracle::populate_from_store(&oracle).unwrap();
 
-    // Convert to MemoryKeyValueStore and return it
     Ok(in_memory_oracle)
 }

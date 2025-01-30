@@ -1,17 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
-use kona_host::single::SingleChainHostCli;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
         split_range_basic, SpanBatchRange,
-    },
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin, start_server_and_native_client,
-    stats::ExecutionStats,
-    ProgramType,
+    }, fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext}, get_proof_stdin, single::SingleChainHostCli, start_server_and_native_client, stats::ExecutionStats, ProgramType
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};

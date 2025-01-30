@@ -42,34 +42,19 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
-# Note: Switch to latest version of kona once the std::process::Command issue is resolved.
-# Branch: patch-kona-proof-v0.1.0
-# kona-mpt = { path = "../kona/crates/mpt", default-features = false }
-# kona-derive = { path = "../kona/crates/derive", default-features = false }
-# kona-driver = { path = "../kona/crates/driver", default-features = false }
-# kona-preimage = { path = "../kona/crates/proof-sdk/preimage", features = [
-#     "rkyv",
-#     "serde",
-# ], default-features = false }
-# kona-executor = { path = "../kona/crates/executor", default-features = false }
-# kona-proof = { path = "../kona/crates/proof-sdk/proof", default-features = false }
-
-# kona-client = { path = "../kona/bin/client", default-features = false }
-# kona-host = { path = "../kona/bin/host", default-features = false }
-# kona-providers-alloy = { path = "../kona/crates/providers-alloy", default-features = false }
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "103f06ba054fd97587d13d8d8c6c3b7c63ed63f1" }
+kona-client = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "71a02cc9bd87df13dd39e9930ca1003d90d51093" }
 
 
 # op-succinct
@@ -111,7 +96,9 @@ maili-consensus = { version = "0.1.6", default-features = false }
 maili-protocol = { version = "0.1.6", default-features = false }
 maili-registry = { version = "0.1.6", default-features = false }
 maili-genesis = { version = "0.1.6", default-features = false }
-maili-rpc = { version = "0.1.6", default-features = false, features = ["serde"] }
+maili-rpc = { version = "0.1.6", default-features = false, features = [
+    "serde",
+] }
 
 # Revm
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }

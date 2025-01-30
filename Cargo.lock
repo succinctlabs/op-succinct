@@ -3227,7 +3227,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3262,7 +3262,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3282,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-primitives",
@@ -3303,7 +3303,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3322,7 +3322,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3363,7 +3363,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-primitives",
@@ -3378,7 +3378,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3390,7 +3390,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.2.1"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -3404,7 +3404,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3434,7 +3434,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3457,7 +3457,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "alloy-consensus 0.9.2",
  "alloy-eips 0.9.2",
@@ -3481,7 +3481,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -3494,7 +3494,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=103f06ba054fd97587d13d8d8c6c3b7c63ed63f1#103f06ba054fd97587d13d8d8c6c3b7c63ed63f1"
+source = "git+https://github.com/op-rs/kona?rev=71a02cc9bd87df13dd39e9930ca1003d90d51093#71a02cc9bd87df13dd39e9930ca1003d90d51093"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
@@ -4247,6 +4247,7 @@ dependencies = [
  "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-client",
+ "alloy-rpc-types",
  "alloy-signer-local 0.9.2",
  "alloy-sol-types",
  "alloy-transport",
@@ -4259,6 +4260,7 @@ dependencies = [
  "futures",
  "kona-client",
  "kona-host",
+ "kona-mpt",
  "kona-preimage",
  "kona-proof",
  "kona-providers-alloy",
@@ -4270,8 +4272,10 @@ dependencies = [
  "op-alloy-consensus",
  "op-alloy-network",
  "op-alloy-rpc-types",
+ "op-alloy-rpc-types-engine",
  "op-succinct-client-utils",
  "reqwest",
+ "revm",
  "rkyv",
  "serde",
  "serde_cbor",
@@ -4279,6 +4283,7 @@ dependencies = [
  "sp1-sdk",
  "sysinfo 0.32.1",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

@@ -10,8 +10,6 @@ use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
-// TODO: Switch to using HostCli, once it's exposed from Kona.
-use kona_host::single::SingleChainHostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
 use maili_protocol::L2BlockInfo;
@@ -36,6 +34,7 @@ use std::{
 
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
+use crate::single::SingleChainHostCli;
 use crate::L2Output;
 use crate::{
     rollup_config::{get_rollup_config_path, merge_rollup_config},
@@ -782,7 +781,7 @@ impl OPSuccinctDataFetcher {
         // witness data.
         fs::create_dir_all(&data_directory)?;
 
-        Ok(kona_host::single::SingleChainHostCli {
+        Ok(SingleChainHostCli {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
             agreed_l2_head_hash,
