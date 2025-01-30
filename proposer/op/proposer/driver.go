@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/slack-go/slack"
 
 	// Original Optimism Bindings
 
@@ -300,60 +299,6 @@ func (l *L2OutputSubmitter) GetProposerMetrics(ctx context.Context) (opsuccinctm
 	}
 
 	return metrics, nil
-}
-
-// SendSlackNotification sends a Slack notification with the proposer metrics.
-func (l *L2OutputSubmitter) SendSlackNotification(proposerMetrics opsuccinctmetrics.ProposerMetrics) error {
-	if l.Cfg.SlackToken == "" {
-		l.Log.Info("Slack notifications disabled, token not set")
-		return nil // Slack notifications disabled if token not set
-	}
-
-	api := slack.New(l.Cfg.SlackToken)
-	channelID := "op-succinct-tests"
-
-	ctx, cancel := context.WithTimeout(l.ctx, l.Cfg.NetworkTimeout)
-	defer cancel()
-
-	rollupClient, err := l.RollupProvider.RollupClient(ctx)
-	if err != nil {
-		return fmt.Errorf("getting rollup client: %w", err)
-	}
-	cfg, err := rollupClient.RollupConfig(ctx)
-	if err != nil {
-		return fmt.Errorf("getting rollup config: %w", err)
-	}
-	l2BlockTime := cfg.BlockTime
-
-	// Get the number of minutes behind the L2 finalized block the contract is.
-	minutesBehind := (proposerMetrics.L2FinalizedBlock - proposerMetrics.LatestContractL2Block) * l2BlockTime / 60
-
-	message := fmt.Sprintf("*Chain %d Proposer Metrics*:\n"+
-		"Contract is %d minutes behind L2 Finalized\n"+
-		"| L2 Unsafe | L2 Finalized | Contract L2 | Proven L2 | Min to Agg |\n"+
-		"| %-9d | %-12d | %-11d | %-9d | %-9d |\n"+
-		"| Proving   | Witness Gen | Unrequested |\n"+
-		"| %-9d | %-11d | %-11d |",
-		l.Cfg.L2ChainID,
-		minutesBehind,
-		proposerMetrics.L2UnsafeHeadBlock,
-		proposerMetrics.L2FinalizedBlock,
-		proposerMetrics.LatestContractL2Block,
-		proposerMetrics.HighestProvenContiguousL2Block,
-		proposerMetrics.MinBlockToProveToAgg,
-		proposerMetrics.NumProving,
-		proposerMetrics.NumWitnessgen,
-		proposerMetrics.NumUnrequested)
-
-	_, _, err = api.PostMessage(
-		channelID,
-		slack.MsgOptionText(message, false),
-	)
-	if err != nil {
-		return fmt.Errorf("error sending Slack notification: %w", err)
-	}
-
-	return nil
 }
 
 func (l *L2OutputSubmitter) SubmitAggProofs(ctx context.Context) error {
@@ -690,16 +635,6 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 			if err != nil {
 				l.Log.Error("failed to submit agg proofs", "err", err)
 			}
-		case <-slackMetricsTicker.C:
-			metrics, err := l.GetProposerMetrics(ctx)
-			if err != nil {
-				l.Log.Error("failed to get metrics for Slack notification", "err", err)
-				continue
-			}
-			err = l.SendSlackNotification(metrics)
-			if err != nil {
-				l.Log.Error("failed to send Slack notification", "err", err)
-			}
 		case <-l.done:
 			return
 		}
@@ -749,22 +684,6 @@ func (l *L2OutputSubmitter) checkpointBlockHash(ctx context.Context) (uint64, co
 	blockHash := header.Hash()
 	blockNumber := header.Number
 
-	// Check if the block hash has ALREADY been checkpointed on the L2OO contract.
-	// If it has, we can skip the checkpointing step.
-	contract, err := opsuccinctbindings.NewOPSuccinctL2OutputOracleCaller(*l.Cfg.L2OutputOracleAddr, l.L1Client)
-	if err != nil {
-		return 0, common.Hash{}, err
-	}
-	maybeBlockHash, err := contract.HistoricBlockHashes(&bind.CallOpts{Context: cCtx}, blockNumber)
-	if err != nil {
-		return 0, common.Hash{}, err
-	}
-	if maybeBlockHash != (common.Hash{}) {
-		l.Log.Info("Block hash already checkpointed on L2OO contract", "block_number", blockNumber, "block_hash", blockHash)
-		return blockNumber.Uint64(), blockHash, nil
-	}
-
-	// If not, send a transaction to checkpoint the blockhash on the L2OO contract.
 	var receipt *types.Receipt
 	data, err := l.CheckpointBlockHashTxData(blockNumber)
 	if err != nil {

@@ -148,18 +148,37 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 
 	if nextProofToRequest.Type == proofrequest.TypeAGG {
 		if nextProofToRequest.L1BlockHash == "" {
-			blockNumber, blockHash, err := l.checkpointBlockHash(ctx)
+			// Check if there's an existing agg proof with the same block range and a checkpointed L1BlockHash
+			existingProofs, err := l.db.GetProofRequestsWithBlockRangeAndStatus(proofrequest.TypeAGG, nextProofToRequest.StartBlock, nextProofToRequest.EndBlock, proofrequest.StatusFAILED)
 			if err != nil {
-				l.Log.Error("failed to checkpoint block hash", "err", err)
+				l.Log.Error("failed to check for existing agg proof", "err", err)
 				return err
 			}
-			nextProofToRequest, err = l.db.AddL1BlockInfoToAggRequest(nextProofToRequest.StartBlock, nextProofToRequest.EndBlock, blockNumber, blockHash.Hex())
-			if err != nil {
-				l.Log.Error("failed to add L1 block info to AGG request", "err", err)
+			// Loop over existing proofs and if any of them have a checkpointed L1BlockHash, add it to the next proof to request.
+			for _, proof := range existingProofs {
+				if proof.L1BlockHash != "" {
+					nextProofToRequest, err = l.db.AddL1BlockInfoToAggRequest(nextProofToRequest.StartBlock, nextProofToRequest.EndBlock, proof.L1BlockNumber, proof.L1BlockHash)
+					if err != nil {
+						l.Log.Error("failed to add L1 block info from existing checkpointed proof to AGG request", "err", err)
+						return err
+					}
+					break
+				}
 			}
 
-			// wait for the next loop so that we have the version with the block info added
-			return nil
+			// If the proof still doesn't have a L1BlockHash, checkpoint the block hash and add it to the request.
+			if nextProofToRequest.L1BlockHash == "" {
+				blockNumber, blockHash, err := l.checkpointBlockHash(ctx)
+				if err != nil {
+					l.Log.Error("failed to checkpoint block hash", "err", err)
+					return err
+				}
+				nextProofToRequest, err = l.db.AddL1BlockInfoToAggRequest(nextProofToRequest.StartBlock, nextProofToRequest.EndBlock, blockNumber, blockHash.Hex())
+				if err != nil {
+					l.Log.Error("failed to add L1 block info to AGG request", "err", err)
+					return err
+				}
+			}
 		} else {
 			l.Log.Info("found agg proof with already checkpointed l1 block info")
 		}
