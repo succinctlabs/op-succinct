@@ -12,6 +12,7 @@ pub struct Config {
     pub proposal_interval_in_blocks: u64,
     pub fetch_interval: u64,
     pub game_type: u32,
+    pub enable_game_resolution: bool,
     pub max_games_to_check_for_resolution: u64,
 }
 
@@ -31,6 +32,9 @@ impl Config {
                 .unwrap_or("30".to_string())
                 .parse()?,
             game_type: env::var("GAME_TYPE").unwrap_or("42".to_string()).parse()?,
+            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
+                .unwrap_or("false".to_string())
+                .parse()?,
             max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
                 .unwrap_or("100".to_string())
                 .parse()?,

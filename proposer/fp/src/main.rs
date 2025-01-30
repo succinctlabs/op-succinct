@@ -424,10 +424,11 @@ impl OPSuccicntProposer {
                     .await?;
             }
 
-            // Try to resolve any unchallenged games
-            // TODO(fakedev9999): Add a flag to disable this
-            if let Err(e) = self.resolve_unchallenged_games().await {
-                tracing::warn!("Failed to resolve unchallenged games: {:?}", e);
+            // Only attempt game resolution if enabled
+            if self.config.enable_game_resolution {
+                if let Err(e) = self.resolve_unchallenged_games().await {
+                    tracing::warn!("Failed to resolve unchallenged games: {:?}", e);
+                }
             }
         }
     }
