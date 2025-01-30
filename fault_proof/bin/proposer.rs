@@ -82,9 +82,6 @@ impl OPSuccinctProposer {
     }
 
     async fn create_game(&self, l2_block_number: U256, parent_game_index: u32) -> Result<()> {
-        const NUM_CONFIRMATIONS: u64 = 3;
-        const TIMEOUT_SECONDS: u64 = 60;
-
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()
             .wallet(EthereumWallet::from(
@@ -105,8 +102,6 @@ impl OPSuccinctProposer {
             .value(self.fetch_init_bond().await?)
             .send()
             .await?
-            .with_required_confirmations(NUM_CONFIRMATIONS)
-            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
             .get_receipt()
             .await?;
 
