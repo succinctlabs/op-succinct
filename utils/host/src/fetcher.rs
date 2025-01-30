@@ -749,10 +749,14 @@ impl OPSuccinctDataFetcher {
 
         // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block.
         let l1_head_number = l1_head_number + 20;
-        // The new L1 header requested should not be greater than the latest L1 header.
+        // The new L1 header requested should not be greater than the latest L1 header minus 10 blocks.
         let latest_l1_header = self.get_l1_header(BlockId::latest()).await?;
-        let l1_head_hash = match l1_head_number > latest_l1_header.number {
-            true => latest_l1_header.hash_slow(),
+
+        // To avoid re-orgs, we require that the L1 head selected is at least 10 blocks (2 minutes) behind the latest L1 header.
+        const REQUIRED_CONFIRMATIONS: u64 = 10;
+        let max_usable_number = latest_l1_header.number.saturating_sub(REQUIRED_CONFIRMATIONS);
+        let l1_head_hash = match l1_head_number > max_usable_number {
+            true => self.get_l1_header(max_usable_number.into()).await?.hash_slow(),
             false => self.get_l1_header(l1_head_number.into()).await?.hash_slow(),
         };
 
