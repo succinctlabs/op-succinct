@@ -268,7 +268,11 @@ impl OPSuccicntProposer {
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
         let receipt = contract
-            .create(self.config.game_type, B256::ZERO, extra_data.into())
+            .create(
+                self.config.game_type,
+                compute_output_root_at_block(self.config.l2_rpc.clone(), l2_block_number).await?,
+                extra_data.into(),
+            )
             .value(self.fetch_init_bond().await?)
             .send()
             .await?
