@@ -4533,22 +4533,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-fp-proposer"
-version = "0.1.0"
-dependencies = [
- "alloy 0.9.2",
- "anyhow",
- "dotenv",
- "log",
- "op-alloy-network 0.9.6",
- "op-alloy-rpc-types 0.9.6",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "op-succinct-build-utils"
 version = "0.1.0"
 dependencies = [
@@ -4603,6 +4587,22 @@ dependencies = [
  "dotenv",
  "op-succinct-host-utils",
  "tokio",
+]
+
+[[package]]
+name = "op-succinct-fp"
+version = "0.1.0"
+dependencies = [
+ "alloy 0.9.2",
+ "anyhow",
+ "dotenv",
+ "log",
+ "op-alloy-network 0.9.6",
+ "op-alloy-rpc-types 0.9.6",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

@@ -1,7 +1,19 @@
 [package]
-name = "op-fp-proposer"
+name = "op-succinct-fp"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+name = "fp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "proposer"
+path = "bin/proposer.rs"
 
 [dependencies]
 # alloy
@@ -10,6 +22,7 @@ alloy = { version = "0.9" , features = ["full"]}
 # op-alloy
 op-alloy-network = { version = "0.9", default-features = false }
 op-alloy-rpc-types = { version = "0.9", default-features = false }
+
 # general
 anyhow.workspace = true
 dotenv.workspace = true
