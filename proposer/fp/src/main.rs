@@ -290,12 +290,27 @@ impl OPSuccicntProposer {
         let provider = ProviderBuilder::new().on_http(self.config.l1_rpc.clone());
         let factory = DisputeGameFactory::new(self.config.factory_address, provider.clone());
         let oldest_game_address = factory.gameAtIndex(oldest_game_index).call().await?.proxy;
-        let oldest_game = OPSuccinctFaultDisputeGame::new(oldest_game_address, provider);
+        let oldest_game = OPSuccinctFaultDisputeGame::new(oldest_game_address, provider.clone());
+        let parent_game_index = oldest_game.claimData().call().await?.claimData_.parentIndex;
 
-        Ok((
-            oldest_game.status().call().await?.status_ != GameStatus::IN_PROGRESS,
-            oldest_game_address,
-        ))
+        // Always attempt resolution for first games (those with parent_game_index == u32::MAX)
+        // For other games, only attempt if the oldest game's parent game is resolved
+        if parent_game_index == u32::MAX {
+            Ok((true, oldest_game_address))
+        } else {
+            let parent_game_address = factory
+                .gameAtIndex(U256::from(parent_game_index))
+                .call()
+                .await?
+                .proxy;
+            let parent_game =
+                OPSuccinctFaultDisputeGame::new(parent_game_address, provider.clone());
+
+            Ok((
+                parent_game.status().call().await?.status_ != GameStatus::IN_PROGRESS,
+                oldest_game_address,
+            ))
+        }
     }
 
     async fn try_resolve_unchallenged_game(&self, index: U256) -> Result<()> {
@@ -364,7 +379,8 @@ impl OPSuccicntProposer {
             return Ok(());
         };
 
-        // If the oldest game we're checking is not resolved, we'll not attempt resolution
+        // If the oldest game's parent game is not resolved, we'll not attempt resolution.
+        // Except for the game without a parent, which are first games.
         let oldest_game_index = latest_game_index
             .saturating_sub(U256::from(self.config.max_games_to_check_for_resolution));
         let games_to_check =
@@ -396,7 +412,7 @@ impl OPSuccicntProposer {
             interval.tick().await;
 
             let safe_l2_head_block_number =
-                get_l2_block_by_number(self.config.l2_rpc.clone(), BlockNumberOrTag::Safe)
+                get_l2_block_by_number(self.config.l2_rpc.clone(), BlockNumberOrTag::Finalized)
                     .await?
                     .header
                     .number;
