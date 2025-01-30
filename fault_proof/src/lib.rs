@@ -102,6 +102,7 @@ impl L2ProviderTrait for L2Provider {
 #[async_trait]
 pub trait FactoryTrait<F, P, T> {
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256>;
+    async fn fetch_proof_reward(&self, game_type: u32, l1_provider: L1Provider) -> Result<U256>;
     async fn fetch_latest_game_index(&self) -> Result<Option<U256>>;
     async fn fetch_game_address_by_index(&self, game_index: U256) -> Result<Address>;
     async fn get_latest_valid_proposal(
@@ -127,6 +128,13 @@ where
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256> {
         let init_bond = self.initBonds(game_type).call().await?;
         Ok(init_bond._0)
+    }
+
+    async fn fetch_proof_reward(&self, game_type: u32, l1_provider: L1Provider) -> Result<U256> {
+        let game_impl_address = self.gameImpls(game_type).call().await?._0;
+        let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider);
+        let proof_reward = game_impl.proofReward().call().await?;
+        Ok(proof_reward.proofReward_)
     }
 
     /// Fetches the latest game index
