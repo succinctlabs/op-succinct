@@ -754,9 +754,14 @@ impl OPSuccinctDataFetcher {
 
         // To avoid re-orgs, we require that the L1 head selected is at least 10 blocks (2 minutes) behind the latest L1 header.
         const REQUIRED_CONFIRMATIONS: u64 = 10;
-        let max_usable_number = latest_l1_header.number.saturating_sub(REQUIRED_CONFIRMATIONS);
+        let max_usable_number = latest_l1_header
+            .number
+            .saturating_sub(REQUIRED_CONFIRMATIONS);
         let l1_head_hash = match l1_head_number > max_usable_number {
-            true => self.get_l1_header(max_usable_number.into()).await?.hash_slow(),
+            true => self
+                .get_l1_header(max_usable_number.into())
+                .await?
+                .hash_slow(),
             false => self.get_l1_header(l1_head_number.into()).await?.hash_slow(),
         };
 
