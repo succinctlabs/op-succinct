@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
 import {LibCWIA} from "@solady-v0.0.281/utils/legacy/LibCWIA.sol";
-import {ISemver} from "@optimism/src/universal/interfaces/ISemver.sol";
+import {ISemver} from "@optimism/src/universal/ISemver.sol";
 
 contract OPSuccinctDisputeGameFactory is ISemver {
     using LibCWIA for address;
@@ -23,7 +23,10 @@ contract OPSuccinctDisputeGameFactory is ISemver {
     ////////////////////////////////////////////////////////////
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "OPSuccinctDisputeGameFactory: caller is not the owner");
+        require(
+            msg.sender == owner,
+            "OPSuccinctDisputeGameFactory: caller is not the owner"
+        );
         _;
     }
 
@@ -38,13 +41,20 @@ contract OPSuccinctDisputeGameFactory is ISemver {
     }
 
     /// @notice Creates a new DisputeGame proxy contract.
-    function create(bytes32 _rootClaim, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
-        external
-        payable
-    {
+    function create(
+        bytes32 _rootClaim,
+        uint256 _l2BlockNumber,
+        uint256 _l1BlockNumber,
+        bytes memory _proof
+    ) external payable {
         IDisputeGame game = IDisputeGame(
             gameImpl.clone(
-                abi.encodePacked(msg.sender, _rootClaim, bytes32(0), abi.encode(_l2BlockNumber, _l1BlockNumber, _proof))
+                abi.encodePacked(
+                    msg.sender,
+                    _rootClaim,
+                    bytes32(0),
+                    abi.encode(_l2BlockNumber, _l1BlockNumber, _proof)
+                )
             )
         );
 

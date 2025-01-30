@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {OPSuccinctL2OutputOracle} from "./OPSuccinctL2OutputOracle.sol";
 import {CWIA} from "@solady-v0.0.281/utils/legacy/CWIA.sol";
 import {LibBytes} from "@solady-v0.0.281/utils/LibBytes.sol";
-import {ISemver} from "@optimism/src/universal/interfaces/ISemver.sol";
+import {ISemver} from "@optimism/src/universal/ISemver.sol";
 import {IDisputeGame} from "@optimism/src/dispute/interfaces/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
@@ -40,10 +40,15 @@ contract OPSuccinctDisputeGame is ISemver, CWIA, IDisputeGame {
         createdAt = Timestamp.wrap(uint64(block.timestamp));
         status = GameStatus.IN_PROGRESS;
 
-        (uint256 l2BlockNumber, uint256 l1BlockNumber, bytes memory proof) =
-            abi.decode(extraData(), (uint256, uint256, bytes));
+        (uint256 l2BlockNumber, uint256 l1BlockNumber, bytes memory proof) = abi
+            .decode(extraData(), (uint256, uint256, bytes));
 
-        OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(rootClaim().raw(), l2BlockNumber, l1BlockNumber, proof);
+        OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(
+            rootClaim().raw(),
+            l2BlockNumber,
+            l1BlockNumber,
+            proof
+        );
 
         this.resolve();
     }
@@ -111,7 +116,11 @@ contract OPSuccinctDisputeGame is ISemver, CWIA, IDisputeGame {
     /// @return gameType_ The type of proof system being used.
     /// @return rootClaim_ The root claim of the DisputeGame.
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
+    function gameData()
+        external
+        pure
+        returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_)
+    {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();

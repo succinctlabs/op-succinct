@@ -30,7 +30,7 @@ import "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Interfaces
-import {ISemver} from "src/universal/interfaces/ISemver.sol";
+import {ISemver} from "src/universal/ISemver.sol";
 import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
 import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
