@@ -86,16 +86,21 @@ sol! {
     }
 }
 
-async fn fetch_latest_game_index(l1_rpc: Url, factory_address: Address) -> Result<U256> {
+async fn fetch_latest_game_index(l1_rpc: Url, factory_address: Address) -> Result<Option<U256>> {
     let l1_provider: RootProvider<Http<Client>> =
         ProviderBuilder::default().on_http(l1_rpc.clone());
     let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
     let game_count = factory.gameCount().call().await?;
-    let latest_game_index = game_count.gameCount_ - U256::from(1);
 
+    if game_count.gameCount_ == U256::ZERO {
+        tracing::info!("No games exist yet");
+        return Ok(None);
+    }
+
+    let latest_game_index = game_count.gameCount_ - U256::from(1);
     tracing::info!("Latest game index: {:?}", latest_game_index);
 
-    Ok(latest_game_index)
+    Ok(Some(latest_game_index))
 }
 
 async fn fetch_game_address(
@@ -173,11 +178,16 @@ pub async fn get_latest_valid_proposal(
     l1_rpc: Url,
     l2_rpc: Url,
     factory_address: Address,
-) -> Result<(U256, U256)> {
-    // Get latest valid proposal block number
-    // Start from the lastest game and walk back until game's output root is same as the game's claim
+) -> Result<Option<(U256, U256)>> {
     let provider: RootProvider<Http<Client>> = ProviderBuilder::default().on_http(l1_rpc.clone());
-    let mut game_index = fetch_latest_game_index(l1_rpc.clone(), factory_address).await?;
+
+    // Get latest game index, return None if no games exist
+    let Some(mut game_index) = fetch_latest_game_index(l1_rpc.clone(), factory_address).await?
+    else {
+        tracing::info!("No games exist yet");
+        return Ok(None);
+    };
+
     let mut block_number;
 
     loop {
@@ -197,14 +207,23 @@ pub async fn get_latest_valid_proposal(
             output_root,
             game_claim
         );
+
+        // If we've reached index 0 and still haven't found a valid proposal
+        if game_index == U256::ZERO {
+            tracing::warn!("No valid proposals found after checking all games");
+            return Ok(None);
+        }
+
         game_index -= U256::from(1);
     }
+
     tracing::info!(
         "Latest valid proposal at game index {:?} with l2 block number: {:?}",
         game_index,
         block_number
     );
-    Ok((block_number, game_index))
+
+    Ok(Some((block_number, game_index)))
 }
 
 struct OPSuccicntProposer {
@@ -332,10 +351,14 @@ impl OPSuccicntProposer {
     }
 
     async fn resolve_unchallenged_games(&self) -> Result<()> {
-        // Find latest game index
-        let latest_game_index =
+        // Find latest game index, return early if no games exist
+        let Some(latest_game_index) =
             fetch_latest_game_index(self.config.l1_rpc.clone(), self.config.factory_address)
-                .await?;
+                .await?
+        else {
+            tracing::info!("No games exist, skipping resolution");
+            return Ok(());
+        };
 
         // If the oldest game we're checking is not resolved, we'll not attempt resolution
         let oldest_game_index = latest_game_index
@@ -375,23 +398,30 @@ impl OPSuccicntProposer {
                     .number;
             tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
-            let (latest_valid_proposal_block_number, latest_valid_proposal_game_index) =
-                get_latest_valid_proposal(
-                    self.config.l1_rpc.clone(),
-                    self.config.l2_rpc.clone(),
-                    self.config.factory_address,
-                )
-                .await?;
+            let latest_valid_proposal = get_latest_valid_proposal(
+                self.config.l1_rpc.clone(),
+                self.config.l2_rpc.clone(),
+                self.config.factory_address,
+            )
+            .await?;
 
-            let next_l2_block_number_for_proposal = latest_valid_proposal_block_number
-                + U256::from(self.config.proposal_interval_in_blocks);
+            let (next_l2_block_number_for_proposal, parent_game_index) = match latest_valid_proposal
+            {
+                Some((latest_block, latest_game_idx)) => (
+                    latest_block + U256::from(self.config.proposal_interval_in_blocks),
+                    latest_game_idx.to::<u32>(),
+                ),
+                None => (
+                    // For first game, start from safe head minus proposal interval
+                    U256::from(safe_l2_head_block_number)
+                        .saturating_sub(U256::from(self.config.proposal_interval_in_blocks)),
+                    u32::MAX, // Use max value for first game's parent index
+                ),
+            };
 
             if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
-                self.create_game(
-                    next_l2_block_number_for_proposal,
-                    latest_valid_proposal_game_index.to::<u32>(),
-                )
-                .await?;
+                self.create_game(next_l2_block_number_for_proposal, parent_game_index)
+                    .await?;
             }
 
             // Try to resolve any unchallenged games
