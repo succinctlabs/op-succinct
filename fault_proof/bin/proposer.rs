@@ -57,13 +57,13 @@ impl ProposerConfig {
     }
 }
 
-struct OPSuccicntProposer {
+struct OPSuccinctProposer {
     config: ProposerConfig,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
 }
 
-impl OPSuccicntProposer {
+impl OPSuccinctProposer {
     pub async fn new() -> Result<Self> {
         let config = ProposerConfig::from_env()?;
 
@@ -306,6 +306,6 @@ async fn main() {
 
     dotenv::dotenv().ok();
 
-    let proposer = OPSuccicntProposer::new().await.unwrap();
+    let proposer = OPSuccinctProposer::new().await.unwrap();
     proposer.run().await.expect("Runs in an infinite loop");
 }
