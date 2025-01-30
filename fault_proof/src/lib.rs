@@ -1,11 +1,12 @@
 use alloy::{
     eips::BlockNumberOrTag,
+    network::Ethereum,
     primitives::{address, keccak256, Address, FixedBytes, B256, U256},
-    providers::{Provider, ProviderBuilder, RootProvider},
+    providers::{Provider, RootProvider},
     rpc::types::eth::Block,
     sol,
     sol_types::SolValue,
-    transports::http::{reqwest::Url, Client, Http},
+    transports::http::{Client, Http},
 };
 use anyhow::{bail, Result};
 use op_alloy_network::{primitives::BlockTransactionsKind, Optimism};
@@ -78,12 +79,13 @@ sol! {
     }
 }
 
+pub type L1Provider = RootProvider<Http<Client>, Ethereum>;
+pub type L2Provider = RootProvider<Http<Client>, Optimism>;
+
 pub async fn fetch_latest_game_index(
-    l1_rpc: Url,
+    l1_provider: L1Provider,
     factory_address: Address,
 ) -> Result<Option<U256>> {
-    let l1_provider: RootProvider<Http<Client>> =
-        ProviderBuilder::default().on_http(l1_rpc.clone());
     let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
     let game_count = factory.gameCount().call().await?;
 
@@ -99,23 +101,19 @@ pub async fn fetch_latest_game_index(
 }
 
 pub async fn fetch_game_address_by_index(
-    l1_rpc: Url,
+    l1_provider: L1Provider,
     factory_address: Address,
     game_index: U256,
 ) -> Result<Address> {
-    let l1_provider: RootProvider<Http<Client>> =
-        ProviderBuilder::default().on_http(l1_rpc.clone());
     let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
     let game = factory.gameAtIndex(game_index).call().await?;
     Ok(game.proxy)
 }
 
 pub async fn get_l2_block_by_number(
-    l2_rpc: Url,
+    l2_provider: L2Provider,
     block_number: BlockNumberOrTag,
 ) -> Result<Block<Transaction>> {
-    let l2_provider: RootProvider<Http<Client>, Optimism> =
-        ProviderBuilder::default().on_http(l2_rpc.clone());
     let block = l2_provider
         .get_block_by_number(block_number, BlockTransactionsKind::Hashes)
         .await?;
@@ -127,12 +125,10 @@ pub async fn get_l2_block_by_number(
 }
 
 pub async fn get_l2_storage_root(
-    l2_rpc: Url,
+    l2_provider: L2Provider,
     address: Address,
     block_number: BlockNumberOrTag,
 ) -> Result<B256> {
-    let l2_provider: RootProvider<Http<Client>, Optimism> =
-        ProviderBuilder::default().on_http(l2_rpc.clone());
     let storage_root = l2_provider
         .get_proof(address, Vec::new())
         .block_id(block_number.into())
@@ -142,18 +138,18 @@ pub async fn get_l2_storage_root(
 }
 
 pub async fn compute_output_root_at_block(
-    l2_rpc: Url,
+    l2_provider: L2Provider,
     l2_block_number: U256,
 ) -> Result<FixedBytes<32>> {
     let l2_block = get_l2_block_by_number(
-        l2_rpc.clone(),
+        l2_provider.clone(),
         BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
     )
     .await?;
     let l2_state_root = l2_block.header.state_root;
     let l2_claim_hash = l2_block.header.hash;
     let l2_storage_root = get_l2_storage_root(
-        l2_rpc.clone(),
+        l2_provider.clone(),
         address!("0x4200000000000000000000000000000000000016"),
         BlockNumberOrTag::Number(l2_block_number.to::<u64>()),
     )
@@ -170,14 +166,13 @@ pub async fn compute_output_root_at_block(
 }
 
 pub async fn get_latest_valid_proposal(
-    l1_rpc: Url,
-    l2_rpc: Url,
+    l1_provider: L1Provider,
+    l2_provider: L2Provider,
     factory_address: Address,
 ) -> Result<Option<(U256, U256)>> {
-    let provider: RootProvider<Http<Client>> = ProviderBuilder::default().on_http(l1_rpc.clone());
-
     // Get latest game index, return None if no games exist
-    let Some(mut game_index) = fetch_latest_game_index(l1_rpc.clone(), factory_address).await?
+    let Some(mut game_index) =
+        fetch_latest_game_index(l1_provider.clone(), factory_address).await?
     else {
         tracing::info!("No games exist yet");
         return Ok(None);
@@ -187,13 +182,13 @@ pub async fn get_latest_valid_proposal(
 
     loop {
         let game_address =
-            fetch_game_address_by_index(l1_rpc.clone(), factory_address, game_index).await?;
-        let game = OPSuccinctFaultDisputeGame::new(game_address, provider.clone());
+            fetch_game_address_by_index(l1_provider.clone(), factory_address, game_index).await?;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
         block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
         tracing::info!("Checking if proposal for block {:?} is valid", block_number);
         let game_claim = game.rootClaim().call().await?.rootClaim_;
 
-        let output_root = compute_output_root_at_block(l2_rpc.clone(), block_number).await?;
+        let output_root = compute_output_root_at_block(l2_provider.clone(), block_number).await?;
 
         if output_root == game_claim {
             break;
