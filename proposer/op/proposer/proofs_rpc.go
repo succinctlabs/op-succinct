@@ -33,7 +33,7 @@ func GetProofsAPI(api *ProofsAPI) gethrpc.API {
 	}
 }
 
-func (pa *ProofsAPI) GetSpanProof(ctx context.Context, startBlock, endBlock uint64) ([]*ent.ProofRequest, error) {
+func (pa *ProofsAPI) GetSpanProofs(ctx context.Context, startBlock, endBlock uint64) ([]*ent.ProofRequest, error) {
 	preqs, err := pa.db.GetProofRequestsWithBlockRangeAndStatus(proofrequest.TypeSPAN, startBlock, endBlock, proofrequest.StatusCOMPLETE)
 	if err != nil {
 		return nil, err
