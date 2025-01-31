@@ -7,10 +7,6 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
-[lib]
-name = "fp"
-path = "src/lib.rs"
-
 [[bin]]
 name = "proposer"
 path = "bin/proposer.rs"
