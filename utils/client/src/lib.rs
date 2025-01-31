@@ -1,5 +1,3 @@
-#![feature(trivial_bounds)]
-
 mod hasher;
 pub use hasher::BytesHasherBuilder;
 
