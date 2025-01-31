@@ -34,7 +34,7 @@ path = "bin/gen_sp1_test_artifacts.rs"
 [dependencies]
 
 # workspace
-alloy-primitives = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true }
 alloy-sol-types = { workspace = true }
 alloy-signer-local = { workspace = true }
 alloy-eips = { workspace = true }

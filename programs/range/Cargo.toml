@@ -14,25 +14,28 @@ log.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 
-# workspace (ethereum)
-op-alloy-consensus.workspace = true
-op-alloy-rpc-types-engine.workspace = true
-maili-protocol.workspace = true
-maili-genesis.workspace = true
-
+# alloy
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-rlp.workspace = true
-alloy-primitives = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true }
 
-# sp1
-sp1-zkvm.workspace = true
+# op alloy
+op-alloy-consensus.workspace = true
+op-alloy-rpc-types-engine.workspace = true
+
+# maili
+maili-protocol.workspace = true
+maili-genesis.workspace = true
 
 # kona
 kona-proof.workspace = true
 kona-driver.workspace = true
 kona-executor.workspace = true
 kona-preimage.workspace = true
+
+# sp1
+sp1-zkvm.workspace = true
 
 # op-succinct
 op-succinct-client-utils.workspace = true

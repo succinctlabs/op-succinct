@@ -16,7 +16,7 @@ op-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips.workspace = true
-alloy-primitives = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true }
 alloy-sol-types.workspace = true
 revm.workspace = true
 

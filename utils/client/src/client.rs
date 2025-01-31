@@ -29,6 +29,7 @@ use op_alloy_consensus::OpBlock;
 use op_alloy_consensus::OpTxEnvelope;
 use op_alloy_consensus::OpTxType;
 use std::fmt::Debug;
+use std::mem::forget;
 use std::sync::Arc;
 use tracing::error;
 use tracing::info;
@@ -154,6 +155,12 @@ where
         number = safe_head.block_info.number,
         output_root = output_root
     );
+
+    forget(driver);
+    forget(l1_provider);
+    forget(boot_arc);
+    forget(oracle);
+    forget(rollup_config);
 
     Ok(boot_clone)
 }
@@ -329,7 +336,10 @@ where
         );
 
         // Advance the derivation pipeline cursor
-        drop(pipeline_cursor);
+        forget(pipeline_cursor);
         driver.cursor.write().advance(origin, tip_cursor);
+
+        // Add forget calls to save cycles
+        forget(block);
     }
 }

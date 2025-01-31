@@ -344,7 +344,9 @@ async fn request_mock_span_proof(
         }
     };
 
+    let start_time = Instant::now();
     let oracle = start_server_and_native_client(&host_cli).await?;
+    let witness_generation_duration = start_time.elapsed();
 
     let sp1_stdin = match get_proof_stdin(oracle) {
         Ok(stdin) => stdin,
@@ -370,7 +372,7 @@ async fn request_mock_span_proof(
         l1_block_number,
         &block_data,
         &report,
-        l1_block_number,
+        witness_generation_duration.as_secs(),
         execution_duration.as_secs(),
     );
 

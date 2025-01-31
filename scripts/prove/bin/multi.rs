@@ -10,7 +10,7 @@ use op_succinct_host_utils::{
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
-use std::fs;
+use std::{fs, time::Instant};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -36,7 +36,9 @@ async fn main() -> Result<()> {
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
         .await?;
 
+    let start_time = Instant::now();
     let oracle = start_server_and_native_client(&host_cli).await?;
+    let witness_generation_duration = start_time.elapsed();
 
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(oracle)?;
@@ -80,7 +82,7 @@ async fn main() -> Result<()> {
             l1_block_number,
             &block_data,
             &report,
-            0,
+            witness_generation_duration.as_secs(),
             execution_duration.as_secs(),
         );
 

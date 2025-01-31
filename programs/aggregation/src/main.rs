@@ -5,15 +5,14 @@
 sp1_zkvm::entrypoint!(main);
 
 use alloy_consensus::Header;
-use alloy_primitives::map::HashMap;
 use alloy_primitives::B256;
 use alloy_sol_types::SolValue;
-
 use op_succinct_client_utils::{
     boot::BootInfoStruct,
     types::{u32_to_u8, AggregationInputs, AggregationOutputs},
 };
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 pub fn main() {
     // Read in the public values corresponding to each range proof.

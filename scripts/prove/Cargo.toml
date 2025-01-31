@@ -36,7 +36,7 @@ op-succinct-scripts = { path = "../utils" }
 async-trait = "0.1.85"
 
 # alloy
-alloy-primitives = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true }
 
 # sp1
 sp1-sdk = { workspace = true }
