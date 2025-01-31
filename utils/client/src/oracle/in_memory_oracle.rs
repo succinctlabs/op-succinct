@@ -122,7 +122,7 @@ pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<
 impl InMemoryOracle {
     /// Verifies all data in the oracle. Once the function has been called, all data in the
     /// oracle can be trusted for the remainder of execution.
-    /// 
+    ///
     /// TODO(r): Switch to using the BlobProvider to save the witness and verify this.
     pub fn verify(&self) -> AnyhowResult<()> {
         let mut blobs: HashMap<FixedBytes<48>, Blob, BytesHasherBuilder> =
