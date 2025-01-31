@@ -250,6 +250,7 @@ where
         driver
             .executor
             .update_safe_head(tip_cursor.l2_safe_head_header.clone());
+
         println!("cycle-tracker-report-start: block-execution");
         let execution_result = match driver.executor.execute_payload(attributes.clone()).await {
             Ok(header) => header,

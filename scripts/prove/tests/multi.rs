@@ -43,7 +43,13 @@ async fn execute_batch() -> Result<()> {
         .await
         .unwrap()
         .number;
-    let stats = ExecutionStats::new(l1_block_number, &block_data, &report, 0, execution_duration.as_secs());
+    let stats = ExecutionStats::new(
+        l1_block_number,
+        &block_data,
+        &report,
+        0,
+        execution_duration.as_secs(),
+    );
 
     println!("Execution Stats: \n{:?}", stats.to_string());
 

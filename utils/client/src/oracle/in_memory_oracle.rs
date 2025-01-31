@@ -1,3 +1,4 @@
+use crate::BytesHasherBuilder;
 use alloy_primitives::{keccak256, FixedBytes};
 use anyhow::Result;
 use anyhow::{anyhow, Result as AnyhowResult};
@@ -19,12 +20,13 @@ use super::StoreOracle;
 /// Rather than relying on a trusted host for data, the data in this oracle
 /// is verified with the `verify()` function, and then is trusted for
 /// the remainder of execution.
-/// TODO: We use [u8; 32] as the key type, as serializing and deserializing PreimageKey is expensive. How can we get around this?
+///
+/// Note: [u8; 32] is the key type, as serializing and deserializing PreimageKey is expensive.
 #[derive(
     Debug, Clone, serde::Serialize, serde::Deserialize, Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
 pub struct InMemoryOracle {
-    pub cache: HashMap<[u8; 32], Vec<u8>>,
+    pub cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder>,
 }
 
 impl InMemoryOracle {
@@ -46,7 +48,8 @@ impl InMemoryOracle {
         OR: PreimageOracleClient,
         HW: HintWriterClient,
     {
-        let mut cache: HashMap<[u8; 32], Vec<u8>> = HashMap::new();
+        let mut cache: HashMap<[u8; 32], Vec<u8>, BytesHasherBuilder> =
+            HashMap::with_hasher(BytesHasherBuilder);
         // Lock the cache for safe access
         let cache_guard = store_oracle.cache.lock();
 
@@ -120,7 +123,8 @@ impl InMemoryOracle {
     /// Verifies all data in the oracle. Once the function has been called, all data in the
     /// oracle can be trusted for the remainder of execution.
     pub fn verify(&self) -> AnyhowResult<()> {
-        let mut blobs: HashMap<FixedBytes<48>, Blob> = HashMap::new();
+        let mut blobs: HashMap<FixedBytes<48>, Blob, BytesHasherBuilder> =
+            HashMap::with_hasher(BytesHasherBuilder);
 
         for (key, value) in self.cache.iter() {
             let preimage_key = PreimageKey::try_from(key.clone()).unwrap();

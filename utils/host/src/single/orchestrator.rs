@@ -6,7 +6,8 @@ use alloy_provider::ReqwestProvider;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kona_host::{
-    DetachedHostOrchestrator, DiskKeyValueStore, Fetcher, MemoryKeyValueStore, SharedKeyValueStore, SplitKeyValueStore
+    DetachedHostOrchestrator, DiskKeyValueStore, Fetcher, MemoryKeyValueStore, SharedKeyValueStore,
+    SplitKeyValueStore,
 };
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_providers_alloy::{OnlineBeaconClient, OnlineBlobProvider};
