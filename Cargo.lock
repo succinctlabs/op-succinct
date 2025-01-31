@@ -4066,7 +4066,7 @@ version = "0.1.0"
 dependencies = [
  "cargo_metadata",
  "chrono",
- "sp1-build 4.0.0",
+ "sp1-build",
 ]
 
 [[package]]
@@ -6022,19 +6022,6 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e2e8eaf2d29f8e7170c1d901e7c0133399c7fe557aedea659f171a86f34a9f9"
-dependencies = [
- "anyhow",
- "cargo_metadata",
- "chrono",
- "clap",
- "dirs",
-]
-
-[[package]]
-name = "sp1-build"
 version = "4.0.1"
 source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
@@ -6433,7 +6420,7 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "sp1-build 4.0.1",
+ "sp1-build",
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-cuda",
