@@ -4,7 +4,7 @@ mod hasher;
 pub use hasher::BytesHasherBuilder;
 
 pub mod boot;
-pub use boot::{BootInfoWithBytesConfig, AGGREGATION_OUTPUTS_SIZE};
+pub use boot::AGGREGATION_OUTPUTS_SIZE;
 
 mod oracle;
 pub use oracle::{InMemoryOracle, StoreOracle};
