@@ -224,6 +224,7 @@ where
             }
         }
 
+        #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: payload-derivation");
         let OpAttributesWithParent { mut attributes, .. } = match driver
             .pipeline
@@ -253,12 +254,14 @@ where
                 return Err(DriverError::Pipeline(e));
             }
         };
+        #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-end: payload-derivation");
 
         driver
             .executor
             .update_safe_head(tip_cursor.l2_safe_head_header.clone());
 
+        #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: block-execution");
         let execution_result = match driver.executor.execute_payload(attributes.clone()).await {
             Ok(header) => header,
@@ -302,6 +305,7 @@ where
                 }
             }
         };
+        #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-end: block-execution");
 
         // Construct the block.
