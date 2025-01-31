@@ -14,6 +14,7 @@ use op_succinct_host_utils::{
     ProgramType,
 };
 use op_succinct_scripts::HostExecutorArgs;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use sp1_sdk::{utils, ProverClient};
 use std::{
     cmp::{max, min},
@@ -72,33 +73,36 @@ async fn execute_blocks_and_write_stats_csv(
 
     let prover = ProverClient::builder().cpu().build();
 
-    for (host_cli, (range, block_data)) in host_clis.iter().zip(block_data.iter()) {
-        let oracle = start_server_and_native_client(host_cli).await.unwrap();
-        let sp1_stdin = get_proof_stdin(oracle).unwrap();
+    println!("Getting stdin for each host CLI in parallel...");
+    // Get the stdin for each host CLI in parallel.
+    let stdins = futures::stream::iter(host_clis)
+        .map(|host_cli| async {
+            let oracle = start_server_and_native_client(host_cli).await.unwrap();
+            get_proof_stdin(oracle).unwrap()
+        })
+        .buffered(5)
+        .collect::<Vec<_>>()
+        .await;
 
-        // FIXME: Implement retries with a smaller block range if this fails.
-        let result = prover.execute(RANGE_ELF, &sp1_stdin).run();
+    let execution_inputs = stdins.iter().zip(block_data.iter()).collect::<Vec<_>>();
 
-        // If the execution fails, skip this block range and log the error.
+    // Execute the program for each block range in parallel.
+    execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
+        let result = prover.execute(RANGE_ELF, sp1_stdin).run();
+
         if let Some(err) = result.as_ref().err() {
             log::warn!(
-                            "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
-                            range.start,
-                            range.end,
-                            err
-                        );
+                "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
+                range.start,
+                range.end,
+                err
+            );
             return;
         }
 
         let (_, report) = result.unwrap();
 
-        // Get the existing execution stats and modify it in place.
-        let l1_block_number = data_fetcher
-            .get_l1_header(host_cli.l1_head.into())
-            .await
-            .unwrap()
-            .number;
-        let execution_stats = ExecutionStats::new(l1_block_number, block_data, &report, 0, 0);
+        let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
 
         let mut file = OpenOptions::new()
             .read(true)
@@ -117,7 +121,7 @@ async fn execute_blocks_and_write_stats_csv(
             .serialize(execution_stats.clone())
             .expect("Failed to write execution stats to CSV.");
         csv_writer.flush().expect("Failed to flush CSV writer.");
-    }
+    });
 
     info!("Execution is complete.");
 }
