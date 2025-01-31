@@ -42,6 +42,7 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
+# Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
 kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
 kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
 kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
