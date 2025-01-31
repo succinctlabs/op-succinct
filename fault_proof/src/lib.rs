@@ -1,3 +1,5 @@
+pub mod config;
+
 use alloy::{
     eips::BlockNumberOrTag,
     network::Ethereum,
@@ -34,10 +36,12 @@ sol! {
 
         function gameCount() external view returns (uint256 gameCount_);
 
+        function games(GameType _gameType, Claim _rootClaim, bytes calldata _extraData) external view returns (IDisputeGame proxy_, Timestamp timestamp_);
+
         function gameAtIndex(uint256 _index) external view returns (GameType gameType, Timestamp timestamp, IDisputeGame proxy);
 
         // extraData is a bytes array that contains the l2BlockNumber and parentIndex, and has length of 32 bytes and 4 bytes respectively
-        function create(GameType gameType, Claim rootClaim, bytes extraData) external;
+        function create(GameType gameType, Claim rootClaim, bytes extraData) external returns (IDisputeGame proxy_);
     }
 
     #[allow(missing_docs)]
@@ -53,7 +57,7 @@ sol! {
         function claimData() public view returns (ClaimData memory claimData_);
         function challenge() external payable returns (ProposalStatus);
         function resolve() external returns (GameStatus status_);
-        function genesisL2BlockNumber() external view returns (uint256 genesisL2BlockNumber_);
+        function challenge() external payable returns (ProposalStatus);
         function proofReward() external view returns (uint256 proofReward_);
     }
 

@@ -7,6 +7,7 @@ use fp::{
 };
 
 use alloy::{
+    eips::BlockNumberOrTag,
     network::Ethereum,
     primitives::{Address, U256},
     providers::{fillers::TxFiller, Provider, ProviderBuilder},
@@ -130,11 +131,31 @@ where
             let claim_data = game.claimData().call().await?.claimData_;
             if claim_data.status != ProposalStatus::Unchallenged {
                 tracing::info!(
-                    "Game {:?} at index {:?} is not unchallenged, not attempting challenge",
+                    "Game {:?} at index {:?} is not unchallenged, not attempting to challenge",
                     game_address,
                     game_index
                 );
-                return Ok(None);
+                // return Ok(None);
+                game_index += U256::from(1);
+                continue;
+            }
+
+            // Check if the the game is still in the challenge window
+            let current_timestamp =
+                get_l2_block_by_number(self.l2_provider.clone(), BlockNumberOrTag::Latest)
+                    .await?
+                    .header
+                    .timestamp;
+            let deadline = U256::from(claim_data.deadline).to::<u64>();
+            if deadline < current_timestamp {
+                tracing::info!(
+                    "Game {:?} at index {:?} deadline {:?} has passed, not attempting to challenge",
+                    game_address,
+                    game_index,
+                    deadline
+                );
+                game_index += U256::from(1);
+                continue;
             }
 
             block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
@@ -159,7 +180,7 @@ where
                 break;
             }
 
-            // If we've reached index 0 and still haven't found a valid proposal
+            // If we've reached last index and still haven't found a valid proposal
             if game_index == latest_game_index {
                 tracing::warn!("No invalid proposals found after checking all games");
                 return Ok(None);
