@@ -73,7 +73,6 @@ async fn execute_blocks_and_write_stats_csv(
 
     let prover = ProverClient::builder().cpu().build();
 
-    println!("Getting stdin for each host CLI in parallel...");
     // Get the stdin for each host CLI in parallel.
     let mut stdins = Vec::new();
     // TODO(r): Do this in parallel. Naively streaming did not work.
