@@ -336,7 +336,7 @@ where
         );
 
         // Advance the derivation pipeline cursor
-        forget(pipeline_cursor);
+        drop(pipeline_cursor);
         driver.cursor.write().advance(origin, tip_cursor);
 
         // Add forget calls to save cycles

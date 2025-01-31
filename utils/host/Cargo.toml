@@ -24,18 +24,18 @@ op-alloy-rpc-types-engine.workspace = true
 # revm
 revm.workspace = true
 # alloy
-alloy-rpc-client = { workspace = true }
-alloy-rpc-types = { workspace = true }
-alloy-signer-local = { workspace = true }
-alloy-provider = { workspace = true }
+alloy-rpc-client.workspace = true
+alloy-rpc-types.workspace = true
+alloy-signer-local.workspace = true
+alloy-provider.workspace = true
 alloy-transport = { workspace = true, default-features = true }
 alloy-transport-http = { workspace = true, default-features = true }
-alloy-rlp = { workspace = true }
-alloy-primitives = { workspace = true }
-alloy-consensus = { workspace = true }
-alloy-sol-types = { workspace = true }
-alloy-eips = { workspace = true }
-alloy-contract = { workspace = true }
+alloy-rlp.workspace = true
+alloy-primitives.workspace = true
+alloy-consensus.workspace = true
+alloy-sol-types.workspace = true
+alloy-eips.workspace = true
+alloy-contract.workspace = true
 
 # kona
 kona-host.workspace = true
