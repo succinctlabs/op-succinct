@@ -5,11 +5,6 @@
 
 # Currently, configured to generate a proof once per minute.
 
-# Required environment variables:
-# L2_NODE_RPC: The RPC endpoint of the L2 node.
-# DB_PATH: The path to the database.
-/usr/local/bin/op-proposer-server &
-
 /usr/local/bin/op-proposer \
     --poll-interval=${POLL_INTERVAL:-20s} \
     --rollup-rpc=${L2_NODE_RPC} \

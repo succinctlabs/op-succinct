@@ -1,21 +1,15 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/succinctlabs/op-succinct-go/proposer/db"
-	"github.com/succinctlabs/op-succinct-go/proposer/db/ent"
-	"github.com/succinctlabs/op-succinct-go/proposer/db/ent/proofrequest"
 	"github.com/succinctlabs/op-succinct-go/proposer/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -38,63 +32,12 @@ type SpanBatchResponse struct {
 	Ranges []utils.SpanBatchRange `json:"ranges"`
 }
 
-// Span batch request is a request to find all span batches in a given block range.
-type FetchSpanProofRequest struct {
-	StartBlock uint64 `json:"startBlock"`
-	EndBlock   uint64 `json:"endBlock"`
-}
-
-// Span batch request is a request to find all span batches in a given block range.
-type FetchSpanProofResponse struct {
-	Proofs []*ent.ProofRequest `json:"proofs"`
-}
-
-type server struct {
-	db *db.ProofDB
-}
-
 func main() {
-	s, err := newServer()
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	r := mux.NewRouter()
 	r.HandleFunc("/span-batch-ranges", handleSpanBatchRanges).Methods("POST")
-	r.HandleFunc("/fetch-span-proofs", s.handleFetchSpanProofs).Methods("POST")
 
 	fmt.Println("Server is running on :8089")
 	log.Fatal(http.ListenAndServe(":8089", r))
-}
-
-func newServer() (*server, error) {
-	ctx := context.Background()
-
-	// Load environment variables
-	l2rpc := os.Getenv("L2_RPC")
-	dbPath := os.Getenv("DB_PATH")
-
-	// Get the L2 chain ID from the rollup config
-	rollupClient, err := dial.DialRollupClientWithTimeout(ctx, dial.DefaultDialTimeout, nil, l2rpc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	rollupConfig, err := rollupClient.RollupConfig(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	dbPath = filepath.Join(dbPath, fmt.Sprintf("%d", rollupConfig.L2ChainID.Uint64()), "proofs.db")
-
-	db, err := db.InitDB(dbPath, false)
-	if err != nil {
-		return nil, err
-	}
-
-	return &server{
-		db: db,
-	}, nil
 }
 
 // Return all of the span batches in a given L2 block range.
@@ -151,30 +94,6 @@ func handleSpanBatchRanges(w http.ResponseWriter, r *http.Request) {
 
 	response := SpanBatchResponse{
 		Ranges: ranges,
-	}
-
-	fmt.Printf("Response: %v\n", response)
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// Return the requested span proofs from the DB.
-func (s *server) handleFetchSpanProofs(w http.ResponseWriter, r *http.Request) {
-	var req FetchSpanProofRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	preqs, err := s.db.GetProofRequestsWithBlockRangeAndStatus(proofrequest.TypeSPAN, req.StartBlock, req.EndBlock, proofrequest.StatusCOMPLETE)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	response := FetchSpanProofResponse{
-		Proofs: preqs,
 	}
 
 	fmt.Printf("Response: %v\n", response)
