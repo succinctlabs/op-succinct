@@ -17,8 +17,7 @@ use kona_preimage::HintWriter;
 use kona_preimage::OracleReader;
 use kona_preimage::OracleServer;
 use log::info;
-use op_succinct_client_utils::client::run_opsuccinct_client;
-use op_succinct_client_utils::precompiles::zkvm_handle_register;
+use op_succinct_client_utils::client::run_witnessgen_client;
 use op_succinct_client_utils::InMemoryOracle;
 use op_succinct_client_utils::StoreOracle;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
@@ -98,7 +97,7 @@ pub fn get_agg_proof_stdin(
     Ok(stdin)
 }
 
-/// TODO: Can we run many program tasks in parallel?
+/// TODO(r): Can we run many program tasks in parallel?
 pub async fn start_server_and_native_client(
     cfg: &SingleChainHostCli,
 ) -> Result<InMemoryOracle, anyhow::Error> {
@@ -119,32 +118,14 @@ pub async fn start_server_and_native_client(
         .start(),
     );
 
-    ////////////////////////////////////////////////////////////////
-    //                          PROLOGUE                          //
-    ////////////////////////////////////////////////////////////////
-
-    // TODO: Confirm that store oracle is as fast as the caching oracle.
     let oracle = Arc::new(StoreOracle::new(
         OracleReader::new(preimage_chan.client),
         HintWriter::new(hint_chan.client),
     ));
 
-    let program_task = task::spawn(run_opsuccinct_client(
-        oracle.clone(),
-        Some(zkvm_handle_register),
-    ));
-
-    // TODO: Clean this up.
     info!("Starting preimage server and client program.");
-    let _ = tokio::select! {
-        r = server_task => {
-            let _ = r?;
-            return Err(anyhow!("Server task completed before program task"));
-        },
-        r = program_task => r??,
-    };
+    let in_memory_oracle = run_witnessgen_client(oracle).await?;
 
-    let in_memory_oracle = InMemoryOracle::populate_from_store(&oracle).unwrap();
-
+    server_task.abort();
     Ok(in_memory_oracle)
 }

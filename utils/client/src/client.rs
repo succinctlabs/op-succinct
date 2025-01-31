@@ -15,6 +15,8 @@ use kona_driver::DriverResult;
 use kona_driver::Executor;
 use kona_driver::TipCursor;
 use kona_executor::{KonaHandleRegister, TrieDBProvider};
+use kona_preimage::HintWriterClient;
+use kona_preimage::PreimageOracleClient;
 use kona_preimage::{CommsClient, PreimageKeyType};
 use kona_proof::errors::OracleProviderError;
 use kona_proof::executor::KonaExecutor;
@@ -36,6 +38,22 @@ use tracing::info;
 use tracing::warn;
 
 use crate::oracle::OPSuccinctOracleBlobProvider;
+use crate::precompiles::zkvm_handle_register;
+use crate::InMemoryOracle;
+use crate::StoreOracle;
+
+pub async fn run_witnessgen_client<OR, HW>(
+    oracle: Arc<StoreOracle<OR, HW>>,
+) -> Result<InMemoryOracle>
+where
+    OR: PreimageOracleClient + Send + Sync + Debug + Clone,
+    HW: HintWriterClient + Send + Sync + Debug + Clone,
+{
+    let _ = run_opsuccinct_client(oracle.clone(), Some(zkvm_handle_register)).await?;
+    let in_memory_oracle = InMemoryOracle::populate_from_store(oracle.as_ref())?;
+    drop(oracle);
+    Ok(in_memory_oracle)
+}
 
 // Sourced from https://github.com/op-rs/kona/tree/main/bin/client/src/single.rs
 pub async fn run_opsuccinct_client<O>(
@@ -124,7 +142,7 @@ where
     // Run the derivation pipeline until we are able to produce the output root of the claimed
     // L2 block.
 
-    // TODO: Replace advance_to_target to get a more refined cycle count.
+    // Use custom advance to target with cycle tracking.
     #[cfg(target_os = "zkvm")]
     println!("cycle-tracker-report-start: block-execution-and-derivation");
     let (safe_head, output_root) = advance_to_target(

@@ -14,8 +14,6 @@ use maili_protocol::BlockInfo;
 /// the Keccak256 preimage of the blob commitment and field elements as well as the KZG proof.
 ///
 /// https://github.com/op-rs/kona/blob/main/crates/proof-sdk/proof/src/l1/blob_provider.rs
-///
-/// TODO: Switch to saving the witness with the blob provider.
 #[derive(Debug, Clone)]
 pub struct OPSuccinctOracleBlobProvider<T: CommsClient> {
     oracle: Arc<T>,

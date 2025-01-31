@@ -122,13 +122,14 @@ pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<
 impl InMemoryOracle {
     /// Verifies all data in the oracle. Once the function has been called, all data in the
     /// oracle can be trusted for the remainder of execution.
+    /// 
+    /// TODO(r): Switch to using the BlobProvider to save the witness and verify this.
     pub fn verify(&self) -> AnyhowResult<()> {
         let mut blobs: HashMap<FixedBytes<48>, Blob, BytesHasherBuilder> =
             HashMap::with_hasher(BytesHasherBuilder);
 
         for (key, value) in self.cache.iter() {
             let preimage_key = PreimageKey::try_from(*key).unwrap();
-            // TODO: Switch to using the Blob provider.
             if preimage_key.key_type() == PreimageKeyType::Blob {
                 // We should verify the keys using the Blob provider.
                 let blob_data_key: [u8; 32] =
@@ -168,7 +169,6 @@ impl InMemoryOracle {
             }
         }
 
-        // TODO: Figure out how to use the Blob provider to verify this.
         println!("cycle-tracker-report-start: blob-verification");
         let commitments: Vec<Bytes48> = blobs
             .keys()
