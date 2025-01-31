@@ -96,14 +96,14 @@ where
     }
 
     async fn create_game(&self, l2_block_number: U256, parent_game_index: u32) -> Result<()> {
-        let contract = DisputeGameFactory::new(
+        let factory = DisputeGameFactory::new(
             self.config.factory_address,
             self.l1_provider_with_wallet.clone(),
         );
 
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
-        let receipt = contract
+        let receipt = factory
             .create(
                 self.config.game_type,
                 compute_output_root_at_block(self.l2_provider.clone(), l2_block_number).await?,
