@@ -399,10 +399,16 @@ async fn request_mock_span_proof(
         .get_l2_block_data_range(payload.start, payload.end)
         .await?;
 
+    let l1_block_number = fetcher
+        .get_l1_header(host_cli.l1_head.into())
+        .await
+        .unwrap()
+        .number;
     let stats = ExecutionStats::new(
+        l1_block_number,
         &block_data,
         &report,
-        witness_generation_time_sec.as_secs(),
+        0,
         execution_duration.as_secs(),
     );
 

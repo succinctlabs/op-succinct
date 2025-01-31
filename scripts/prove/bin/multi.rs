@@ -76,7 +76,13 @@ async fn main() -> Result<()> {
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
+        let l1_block_number = data_fetcher
+            .get_l1_header(host_cli.l1_head.into())
+            .await
+            .unwrap()
+            .number;
         let stats = ExecutionStats::new(
+            l1_block_number,
             &block_data,
             &report,
             witness_generation_time_sec.as_secs(),
