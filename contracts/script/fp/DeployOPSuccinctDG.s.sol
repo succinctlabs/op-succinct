@@ -37,8 +37,8 @@ contract DeployOPSuccinctDG is Script {
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
-        uint256 genesisL2BlockNumber = uint256(0);
-        bytes32 genesisL2OutputRoot = bytes32(0);
+        uint256 genesisL2BlockNumber = uint256(vm.envUint("GENESIS_L2_BLOCK_NUMBER"));
+        bytes32 genesisL2OutputRoot = bytes32(vm.envBytes32("GENESIS_L2_OUTPUT_ROOT"));
         uint256 proofReward = 0.01 ether;
 
         OPSuccinctFaultDisputeGame gameImpl = new OPSuccinctFaultDisputeGame(

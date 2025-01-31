@@ -2,9 +2,9 @@ use std::{env, time::Duration};
 
 use fp::{
     compute_output_root_at_block, fetch_game_address_by_index, fetch_latest_game_index,
-    get_l2_block_by_number, get_latest_valid_proposal, DisputeGameFactory,
-    DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L1Provider, L1ProviderWithWallet,
-    L2Provider, OPSuccinctFaultDisputeGame, ProposalStatus,
+    get_genesis_l2_block_number, get_l2_block_by_number, get_latest_valid_proposal,
+    DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L1Provider,
+    L1ProviderWithWallet, L2Provider, OPSuccinctFaultDisputeGame, ProposalStatus,
 };
 
 use alloy::{
@@ -252,12 +252,22 @@ where
                     latest_block + U256::from(self.config.proposal_interval_in_blocks),
                     latest_game_idx.to::<u32>(),
                 ),
-                None => (
-                    // For first game, start from safe head minus proposal interval
-                    U256::from(safe_l2_head_block_number)
-                        .saturating_sub(U256::from(self.config.proposal_interval_in_blocks)),
-                    u32::MAX, // Use max value for first game's parent index
-                ),
+                None => {
+                    // For first game, start from genesis L2 block number + proposal interval
+                    let genesis_l2_block_number = get_genesis_l2_block_number(
+                        self.factory.clone(),
+                        self.config.game_type,
+                        self.l1_provider.clone(),
+                    )
+                    .await?;
+
+                    (
+                        genesis_l2_block_number
+                            .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                            .unwrap(),
+                        u32::MAX, // Use max value for first game's parent index
+                    )
+                }
             };
 
             if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {

@@ -29,6 +29,7 @@ sol! {
     #[sol(rpc)]
     #[derive(Debug)]
     contract DisputeGameFactory {
+        mapping(GameType => IDisputeGame) public gameImpls;
         mapping(GameType => uint256) public initBonds;
 
         function gameCount() external view returns (uint256 gameCount_);
@@ -51,6 +52,7 @@ sol! {
         function status() public view returns (GameStatus status_);
         function claimData() public view returns (ClaimData memory claimData_);
         function resolve() external returns (GameStatus status_);
+        function genesisL2BlockNumber() external view returns (uint256 genesisL2BlockNumber_);
     }
 
     #[derive(Debug, PartialEq)]
@@ -123,6 +125,26 @@ where
 {
     let game = factory.gameAtIndex(game_index).call().await?;
     Ok(game.proxy)
+}
+
+pub async fn get_genesis_l2_block_number<F, P, T>(
+    factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
+    game_type: u32,
+    l1_provider: L1Provider,
+) -> Result<U256>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
+    let game_impl_address = factory.gameImpls(game_type).call().await?._0;
+    let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider);
+    let genesis_l2_block_number = game_impl
+        .genesisL2BlockNumber()
+        .call()
+        .await?
+        .genesisL2BlockNumber_;
+    Ok(genesis_l2_block_number)
 }
 
 pub async fn get_l2_block_by_number(
