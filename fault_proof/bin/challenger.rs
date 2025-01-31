@@ -1,17 +1,15 @@
 use std::{env, time::Duration};
 
 use fp::{
-    compute_output_root_at_block, fetch_game_address_by_index, fetch_latest_game_index, L1Provider,
-    L2Provider, OPSuccinctFaultDisputeGame, ProposalStatus,
+    compute_output_root_at_block, fetch_game_address_by_index, fetch_latest_game_index,
+    DisputeGameFactory::DisputeGameFactoryInstance, L1Provider, L1ProviderWithWallet, L2Provider,
+    OPSuccinctFaultDisputeGame, ProposalStatus,
 };
 
 use alloy::{
     network::Ethereum,
     primitives::{Address, U256},
-    providers::{
-        fillers::{FillProvider, TxFiller},
-        Provider, ProviderBuilder,
-    },
+    providers::{fillers::TxFiller, Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
     transports::{http::reqwest::Url, Transport},
 };
@@ -55,7 +53,8 @@ where
     config: ChallengerConfig,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
-    l1_provider_with_wallet: FillProvider<F, P, T, Ethereum>,
+    l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+    factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
 }
 
 impl<F, P, T> OPSuccicntChallenger<F, P, T>
@@ -64,7 +63,10 @@ where
     P: Provider<T, Ethereum> + Clone,
     T: Transport + Clone,
 {
-    pub async fn new(l1_provider_with_wallet: FillProvider<F, P, T, Ethereum>) -> Result<Self> {
+    pub async fn new(
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+        factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
+    ) -> Result<Self> {
         let config = ChallengerConfig::from_env()?;
 
         Ok(Self {
@@ -72,6 +74,7 @@ where
             l1_provider: ProviderBuilder::default().on_http(config.l1_rpc.clone()),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc.clone()),
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
+            factory,
         })
     }
 
@@ -109,9 +112,7 @@ where
 
     pub async fn get_oldest_unchallenged_invalid_game(&self) -> Result<Option<Address>> {
         // Get latest game index, return None if no games exist
-        let Some(latest_game_index) =
-            fetch_latest_game_index(self.l1_provider.clone(), self.config.factory_address).await?
-        else {
+        let Some(latest_game_index) = fetch_latest_game_index(self.factory.clone()).await? else {
             tracing::info!("No games exist yet");
             return Ok(None);
         };
@@ -123,12 +124,7 @@ where
         let mut block_number;
 
         loop {
-            game_address = fetch_game_address_by_index(
-                self.l1_provider.clone(),
-                self.config.factory_address,
-                game_index,
-            )
-            .await?;
+            game_address = fetch_game_address_by_index(self.factory.clone(), game_index).await?;
             let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
             let claim_data = game.claimData().call().await?.claimData_;
@@ -208,11 +204,11 @@ async fn main() {
         )
         .init();
 
-    dotenv::dotenv().ok();
+    dotenv::from_filename(".env.challenger").ok();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")
-            .unwrap()
+            .expect("PRIVATE_KEY not set")
             .parse::<PrivateKeySigner>()
             .unwrap(),
     );
@@ -222,7 +218,15 @@ async fn main() {
         .wallet(wallet.clone())
         .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
-    let mut challenger = OPSuccicntChallenger::new(l1_provider_with_wallet)
+    let factory = DisputeGameFactoryInstance::new(
+        env::var("FACTORY_ADDRESS")
+            .expect("FACTORY_ADDRESS not set")
+            .parse::<Address>()
+            .unwrap(),
+        l1_provider_with_wallet.clone(),
+    );
+
+    let mut challenger = OPSuccicntChallenger::new(l1_provider_with_wallet, factory)
         .await
         .unwrap();
     challenger.run().await.expect("Runs in an infinite loop");
