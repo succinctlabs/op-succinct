@@ -4,12 +4,11 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
-use alloy_transport::Transport;
-use alloy_transport_http::Http;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
+use kona_host::single::SingleChainHostCli;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
 use maili_protocol::L2BlockInfo;
@@ -21,7 +20,7 @@ use op_alloy_network::{
 };
 use op_alloy_rpc_types::OpTransactionReceipt;
 use op_succinct_client_utils::boot::BootInfoStruct;
-use reqwest::{Client, Url};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -34,7 +33,6 @@ use std::{
 
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
-use crate::single::SingleChainHostCli;
 use crate::L2Output;
 use crate::{
     rollup_config::{get_rollup_config_path, merge_rollup_config},
@@ -47,8 +45,8 @@ use crate::{
 /// FIXME: Add retries for all requests (3 retries).
 pub struct OPSuccinctDataFetcher {
     pub rpc_config: RPCConfig,
-    pub l1_provider: Arc<RootProvider<Http<Client>>>,
-    pub l2_provider: Arc<RootProvider<Http<Client>, Optimism>>,
+    pub l1_provider: Arc<RootProvider>,
+    pub l2_provider: Arc<RootProvider<Optimism>>,
     pub rollup_config: Option<RollupConfig>,
     pub run_context: RunContext,
 }
@@ -434,14 +432,12 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Finds the block at the provided timestamp, using the provided provider.
-    async fn find_block_by_timestamp<P, T, N>(
+    async fn find_block_by_timestamp<N>(
         &self,
-        provider: &P,
+        provider: &RootProvider<N>,
         target_timestamp: u64,
     ) -> Result<(B256, u64)>
     where
-        P: Provider<T, N>,
-        T: Transport + Clone,
         N: Network,
     {
         let latest_block = provider

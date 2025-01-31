@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
+use kona_host::single::SingleChainHostCli;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
@@ -9,7 +10,6 @@ use op_succinct_host_utils::{
     },
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin,
-    single::SingleChainHostCli,
     start_server_and_native_client,
     stats::ExecutionStats,
     ProgramType,

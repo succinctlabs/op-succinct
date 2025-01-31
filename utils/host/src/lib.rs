@@ -1,7 +1,6 @@
 pub mod block_range;
 pub mod fetcher;
 pub mod rollup_config;
-pub mod single;
 pub mod stats;
 
 use alloy_consensus::Header;
@@ -9,6 +8,7 @@ use alloy_primitives::B256;
 use alloy_sol_types::sol;
 use anyhow::anyhow;
 use anyhow::Result;
+use kona_host::single::SingleChainHostCli;
 use kona_host::HostOrchestrator;
 use kona_host::PreimageServer;
 use kona_preimage::BidirectionalChannel;
@@ -23,7 +23,6 @@ use op_succinct_client_utils::InMemoryOracle;
 use op_succinct_client_utils::StoreOracle;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use rkyv::to_bytes;
-use single::SingleChainHostCli;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::sync::Arc;
 use tokio::task;

@@ -55,13 +55,15 @@ where
         }
     };
 
-    let boot_arc = Arc::new(boot.clone());
+    let boot_clone = boot.clone();
 
+    let boot_arc = Arc::new(boot.clone());
+    let rollup_config = Arc::new(boot.rollup_config);
     let safe_head_hash = fetch_safe_head_hash(oracle.as_ref(), boot_arc.as_ref()).await?;
 
     let mut l1_provider = OracleL1ChainProvider::new(boot.l1_head, oracle.clone());
     let mut l2_provider =
-        OracleL2ChainProvider::new(safe_head_hash, boot.rollup_config.clone(), oracle.clone());
+        OracleL2ChainProvider::new(safe_head_hash, rollup_config.clone(), oracle.clone());
     let beacon = OPSuccinctOracleBlobProvider::new(oracle.clone());
 
     // Fetch the safe head's block header.
@@ -86,7 +88,7 @@ where
             target: "client",
             "Trace extension detected. State transition is already agreed upon.",
         );
-        return Ok(boot.clone());
+        return Ok(boot_clone);
     }
     ////////////////////////////////////////////////////////////////
     //                   DERIVATION & EXECUTION                   //
@@ -94,7 +96,7 @@ where
 
     // Create a new derivation driver with the given boot information and oracle.
     let cursor = new_pipeline_cursor(
-        &boot.rollup_config,
+        &rollup_config.as_ref(),
         safe_head,
         &mut l1_provider,
         &mut l2_provider,
@@ -102,9 +104,8 @@ where
     .await?;
     l2_provider.set_cursor(cursor.clone());
 
-    let cfg = Arc::new(boot.rollup_config.clone());
     let pipeline = OraclePipeline::new(
-        cfg.clone(),
+        rollup_config.clone(),
         cursor.clone(),
         oracle.clone(),
         beacon,
@@ -112,7 +113,7 @@ where
         l2_provider.clone(),
     );
     let executor = KonaExecutor::new(
-        &cfg,
+        &rollup_config,
         l2_provider.clone(),
         l2_provider,
         handle_register,
@@ -127,7 +128,7 @@ where
     println!("cycle-tracker-report-start: block-execution-and-derivation");
     let (safe_head, output_root) = advance_to_target(
         &mut driver,
-        &boot.rollup_config,
+        &rollup_config.as_ref(),
         Some(boot.claimed_l2_block_number),
     )
     .await?;
@@ -154,7 +155,7 @@ where
         output_root = output_root
     );
 
-    Ok(boot)
+    Ok(boot_clone)
 }
 
 /// Fetches the safe head hash of the L2 chain based on the agreed upon L2 output root in the
