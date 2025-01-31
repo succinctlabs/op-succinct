@@ -2,7 +2,8 @@ use std::{env, time::Duration};
 
 use fp::{
     compute_output_root_at_block, fetch_game_address_by_index, fetch_latest_game_index,
-    get_l2_block_by_number, get_latest_valid_proposal, DisputeGameFactory, GameStatus, L1Provider,
+    get_l2_block_by_number, get_latest_valid_proposal, DisputeGameFactory,
+    DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L1Provider, L1ProviderWithWallet,
     L2Provider, OPSuccinctFaultDisputeGame, ProposalStatus,
 };
 
@@ -10,10 +11,7 @@ use alloy::{
     eips::BlockNumberOrTag,
     network::Ethereum,
     primitives::{Address, U256},
-    providers::{
-        fillers::{FillProvider, TxFiller},
-        Provider, ProviderBuilder,
-    },
+    providers::{fillers::TxFiller, Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
     sol_types::SolValue,
     transports::{http::reqwest::Url, Transport},
@@ -68,7 +66,8 @@ where
     config: ProposerConfig,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
-    l1_provider_with_wallet: FillProvider<F, P, T, Ethereum>,
+    l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+    factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
 }
 
 impl<F, P, T> OPSuccinctProposer<F, P, T>
@@ -77,7 +76,10 @@ where
     P: Provider<T, Ethereum> + Clone,
     T: Transport + Clone,
 {
-    pub async fn new(fill_provider: FillProvider<F, P, T, Ethereum>) -> Result<Self> {
+    pub async fn new(
+        fill_provider: L1ProviderWithWallet<F, P, T>,
+        factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
+    ) -> Result<Self> {
         let config = ProposerConfig::from_env()?;
 
         Ok(Self {
@@ -85,25 +87,20 @@ where
             l1_provider: ProviderBuilder::default().on_http(config.l1_rpc.clone()),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
             l1_provider_with_wallet: fill_provider,
+            factory,
         })
     }
 
     async fn fetch_init_bond(&self) -> Result<U256> {
-        let factory =
-            DisputeGameFactory::new(self.config.factory_address, self.l1_provider.clone());
-        let init_bond = factory.initBonds(self.config.game_type).call().await?;
+        let init_bond = self.factory.initBonds(self.config.game_type).call().await?;
         Ok(init_bond._0)
     }
 
     async fn create_game(&self, l2_block_number: U256, parent_game_index: u32) -> Result<()> {
-        let factory = DisputeGameFactory::new(
-            self.config.factory_address,
-            self.l1_provider_with_wallet.clone(),
-        );
-
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
-        let receipt = factory
+        let receipt = self
+            .factory
             .create(
                 self.config.game_type,
                 compute_output_root_at_block(self.l2_provider.clone(), l2_block_number).await?,
@@ -121,12 +118,8 @@ where
     }
 
     async fn should_attempt_resolution(&self, oldest_game_index: U256) -> Result<(bool, Address)> {
-        let oldest_game_address = fetch_game_address_by_index(
-            self.l1_provider.clone(),
-            self.config.factory_address,
-            oldest_game_index,
-        )
-        .await?;
+        let oldest_game_address =
+            fetch_game_address_by_index(self.factory.clone(), oldest_game_index).await?;
         let oldest_game =
             OPSuccinctFaultDisputeGame::new(oldest_game_address, self.l1_provider.clone());
         let parent_game_index = oldest_game.claimData().call().await?.claimData_.parentIndex;
@@ -136,12 +129,9 @@ where
         if parent_game_index == u32::MAX {
             Ok((true, oldest_game_address))
         } else {
-            let parent_game_address = fetch_game_address_by_index(
-                self.l1_provider.clone(),
-                self.config.factory_address,
-                U256::from(parent_game_index),
-            )
-            .await?;
+            let parent_game_address =
+                fetch_game_address_by_index(self.factory.clone(), U256::from(parent_game_index))
+                    .await?;
             let parent_game =
                 OPSuccinctFaultDisputeGame::new(parent_game_address, self.l1_provider.clone());
 
@@ -153,12 +143,7 @@ where
     }
 
     async fn try_resolve_unchallenged_game(&self, index: U256) -> Result<()> {
-        let game_address = fetch_game_address_by_index(
-            self.l1_provider.clone(),
-            self.config.factory_address,
-            index,
-        )
-        .await?;
+        let game_address = fetch_game_address_by_index(self.factory.clone(), index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
         if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
             tracing::info!(
@@ -209,9 +194,7 @@ where
 
     async fn resolve_unchallenged_games(&self) -> Result<()> {
         // Find latest game index, return early if no games exist
-        let Some(latest_game_index) =
-            fetch_latest_game_index(self.l1_provider.clone(), self.config.factory_address).await?
-        else {
+        let Some(latest_game_index) = fetch_latest_game_index(self.factory.clone()).await? else {
             tracing::info!("No games exist, skipping resolution");
             return Ok(());
         };
@@ -257,9 +240,9 @@ where
             tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
             let latest_valid_proposal = get_latest_valid_proposal(
+                self.factory.clone(),
                 self.l1_provider.clone(),
                 self.l2_provider.clone(),
-                self.config.factory_address,
             )
             .await?;
 
@@ -318,7 +301,15 @@ async fn main() {
         .wallet(wallet.clone())
         .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
-    let proposer = OPSuccinctProposer::new(l1_provider_with_wallet)
+    let factory = DisputeGameFactory::new(
+        env::var("FACTORY_ADDRESS")
+            .unwrap()
+            .parse::<Address>()
+            .unwrap(),
+        l1_provider_with_wallet.clone(),
+    );
+
+    let proposer = OPSuccinctProposer::new(l1_provider_with_wallet, factory)
         .await
         .unwrap();
     proposer.run().await.expect("Runs in an infinite loop");

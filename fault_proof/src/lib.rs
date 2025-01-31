@@ -2,15 +2,23 @@ use alloy::{
     eips::BlockNumberOrTag,
     network::Ethereum,
     primitives::{address, keccak256, Address, FixedBytes, B256, U256},
-    providers::{Provider, RootProvider},
+    providers::{
+        fillers::{FillProvider, TxFiller},
+        Provider, RootProvider,
+    },
     rpc::types::eth::Block,
     sol,
     sol_types::SolValue,
-    transports::http::{Client, Http},
+    transports::{
+        http::{Client, Http},
+        Transport,
+    },
 };
 use anyhow::{bail, Result};
 use op_alloy_network::{primitives::BlockTransactionsKind, Optimism};
 use op_alloy_rpc_types::Transaction;
+
+use crate::DisputeGameFactory::DisputeGameFactoryInstance;
 
 sol! {
     type GameType is uint32;
@@ -81,12 +89,16 @@ sol! {
 
 pub type L1Provider = RootProvider<Http<Client>, Ethereum>;
 pub type L2Provider = RootProvider<Http<Client>, Optimism>;
+pub type L1ProviderWithWallet<F, P, T> = FillProvider<F, P, T, Ethereum>;
 
-pub async fn fetch_latest_game_index(
-    l1_provider: L1Provider,
-    factory_address: Address,
-) -> Result<Option<U256>> {
-    let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
+pub async fn fetch_latest_game_index<F, P, T>(
+    factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
+) -> Result<Option<U256>>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
     let game_count = factory.gameCount().call().await?;
 
     if game_count.gameCount_ == U256::ZERO {
@@ -100,12 +112,15 @@ pub async fn fetch_latest_game_index(
     Ok(Some(latest_game_index))
 }
 
-pub async fn fetch_game_address_by_index(
-    l1_provider: L1Provider,
-    factory_address: Address,
+pub async fn fetch_game_address_by_index<F, P, T>(
+    factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
     game_index: U256,
-) -> Result<Address> {
-    let factory = DisputeGameFactory::new(factory_address, l1_provider.clone());
+) -> Result<Address>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
     let game = factory.gameAtIndex(game_index).call().await?;
     Ok(game.proxy)
 }
@@ -165,15 +180,18 @@ pub async fn compute_output_root_at_block(
     Ok(l2_output_root)
 }
 
-pub async fn get_latest_valid_proposal(
+pub async fn get_latest_valid_proposal<F, P, T>(
+    factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
-    factory_address: Address,
-) -> Result<Option<(U256, U256)>> {
+) -> Result<Option<(U256, U256)>>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
     // Get latest game index, return None if no games exist
-    let Some(mut game_index) =
-        fetch_latest_game_index(l1_provider.clone(), factory_address).await?
-    else {
+    let Some(mut game_index) = fetch_latest_game_index(factory.clone()).await? else {
         tracing::info!("No games exist yet");
         return Ok(None);
     };
@@ -181,8 +199,7 @@ pub async fn get_latest_valid_proposal(
     let mut block_number;
 
     loop {
-        let game_address =
-            fetch_game_address_by_index(l1_provider.clone(), factory_address, game_index).await?;
+        let game_address = fetch_game_address_by_index(factory.clone(), game_index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
         block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
         tracing::info!("Checking if proposal for block {:?} is valid", block_number);
