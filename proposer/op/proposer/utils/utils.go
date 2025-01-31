@@ -36,6 +36,9 @@ type SpanBatchRange struct {
 	End   uint64 `json:"end"`
 }
 
+type RequestSpanProofsResponse struct {
+}
+
 // BatchDecoderConfig is a struct that holds the configuration for the batch decoder.
 type BatchDecoderConfig struct {
 	L2GenesisTime     uint64
