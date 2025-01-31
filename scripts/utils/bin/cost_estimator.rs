@@ -9,8 +9,7 @@ use op_succinct_host_utils::{
         split_range_basic, SpanBatchRange,
     },
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin,
-    start_server_and_native_client,
+    get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
     ProgramType,
 };
