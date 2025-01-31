@@ -98,7 +98,7 @@ async fn execute_blocks_and_write_stats_csv(
             .await
             .unwrap()
             .number;
-        let execution_stats = ExecutionStats::new(l1_block_number, &block_data, &report, 0, 0);
+        let execution_stats = ExecutionStats::new(l1_block_number, block_data, &report, 0, 0);
 
         let mut file = OpenOptions::new()
             .read(true)

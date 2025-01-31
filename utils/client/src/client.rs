@@ -97,7 +97,7 @@ where
 
     // Create a new derivation driver with the given boot information and oracle.
     let cursor = new_pipeline_cursor(
-        &rollup_config.as_ref(),
+        rollup_config.as_ref(),
         safe_head,
         &mut l1_provider,
         &mut l2_provider,
@@ -129,7 +129,7 @@ where
     println!("cycle-tracker-report-start: block-execution-and-derivation");
     let (safe_head, output_root) = advance_to_target(
         &mut driver,
-        &rollup_config.as_ref(),
+        rollup_config.as_ref(),
         Some(boot.claimed_l2_block_number),
     )
     .await?;

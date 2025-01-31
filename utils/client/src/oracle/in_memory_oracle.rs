@@ -127,12 +127,12 @@ impl InMemoryOracle {
             HashMap::with_hasher(BytesHasherBuilder);
 
         for (key, value) in self.cache.iter() {
-            let preimage_key = PreimageKey::try_from(key.clone()).unwrap();
+            let preimage_key = PreimageKey::try_from(*key).unwrap();
             // TODO: Switch to using the Blob provider.
             if preimage_key.key_type() == PreimageKeyType::Blob {
                 // We should verify the keys using the Blob provider.
                 let blob_data_key: [u8; 32] =
-                    PreimageKey::new(key.clone(), PreimageKeyType::Keccak256).into();
+                    PreimageKey::new(*key, PreimageKeyType::Keccak256).into();
                 if let Some(blob_data) = self.cache.get(&blob_data_key) {
                     let commitment: FixedBytes<48> = blob_data[..48].try_into().unwrap();
                     let element_idx_bytes: [u8; 8] = blob_data[72..].try_into().unwrap();
