@@ -6,7 +6,13 @@ use op_succinct_host_utils::{
     block_range::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
         split_range_basic, SpanBatchRange,
-    }, fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext}, get_proof_stdin, single::SingleChainHostCli, start_server_and_native_client, stats::ExecutionStats, ProgramType
+    },
+    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
+    get_proof_stdin,
+    single::SingleChainHostCli,
+    start_server_and_native_client,
+    stats::ExecutionStats,
+    ProgramType,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
@@ -88,7 +94,12 @@ async fn execute_blocks_and_write_stats_csv(
         let (_, report) = result.unwrap();
 
         // Get the existing execution stats and modify it in place.
-        let execution_stats = ExecutionStats::new(block_data, &report, 0, 0);
+        let l1_block_number = data_fetcher
+            .get_l1_header(host_cli.l1_head.into())
+            .await
+            .unwrap()
+            .number;
+        let execution_stats = ExecutionStats::new(l1_block_number, &block_data, &report, 0, 0);
 
         let mut file = OpenOptions::new()
             .read(true)

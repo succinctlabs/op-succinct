@@ -117,9 +117,10 @@ where
 
     if output_root != boot.claimed_l2_output_root {
         return Err(anyhow!(
-            "Failed to validate L2 block #{number} with output root {output_root}",
+            "Failed to validate L2 block #{number} with claimed output root {claimed_output_root}. Got {output_root} instead",
             number = safe_head.block_info.number,
-            output_root = output_root
+            output_root = output_root,
+            claimed_output_root = boot.claimed_l2_output_root,
         ));
     }
 

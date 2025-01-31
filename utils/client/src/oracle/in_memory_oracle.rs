@@ -62,9 +62,6 @@ impl InMemoryOracle {
 #[async_trait]
 impl PreimageOracleClient for InMemoryOracle {
     async fn get(&self, key: PreimageKey) -> Result<Vec<u8>, PreimageOracleError> {
-        if key.key_type() == PreimageKeyType::Blob {
-            // println!("Blob key type");
-        }
         let key_bytes: [u8; 32] = key.into();
         self.cache
             .get(&key_bytes)
@@ -73,9 +70,6 @@ impl PreimageOracleClient for InMemoryOracle {
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
-        if key.key_type() == PreimageKeyType::Blob {
-            // println!("Blob key type");
-        }
         let value = self.get(key).await?;
         buf.copy_from_slice(value.as_slice());
         Ok(())

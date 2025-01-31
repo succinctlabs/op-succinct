@@ -363,7 +363,16 @@ async fn request_mock_span_proof(
         .get_l2_block_data_range(payload.start, payload.end)
         .await?;
 
-    let stats = ExecutionStats::new(&block_data, &report, 0, execution_duration.as_secs());
+    let l1_head = host_cli.l1_head;
+    // Get the L1 block number from the L1 head.
+    let l1_block_number = fetcher.get_l1_header(l1_head.into()).await?.number;
+    let stats = ExecutionStats::new(
+        l1_block_number,
+        &block_data,
+        &report,
+        l1_block_number,
+        execution_duration.as_secs(),
+    );
 
     let l2_chain_id = fetcher.get_l2_chain_id().await?;
     // Save the report to disk.
