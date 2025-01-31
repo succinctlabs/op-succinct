@@ -77,8 +77,7 @@ async fn execute_blocks_and_write_stats_csv(
     let stdins = futures::stream::iter(host_clis)
         .map(|host_cli| async {
             let oracle = start_server_and_native_client(host_cli).await.unwrap();
-            let stdin = get_proof_stdin(oracle).unwrap();
-            stdin
+            get_proof_stdin(oracle).unwrap()
         })
         .buffered(15)
         .collect::<Vec<_>>()
