@@ -75,14 +75,13 @@ async fn execute_blocks_and_write_stats_csv(
 
     println!("Getting stdin for each host CLI in parallel...");
     // Get the stdin for each host CLI in parallel.
-    let stdins = futures::stream::iter(host_clis)
-        .map(|host_cli| async {
-            let oracle = start_server_and_native_client(host_cli).await.unwrap();
-            get_proof_stdin(oracle).unwrap()
-        })
-        .buffered(5)
-        .collect::<Vec<_>>()
-        .await;
+    let mut stdins = Vec::new();
+    // TODO(r): Do this in parallel. Naively streaming did not work.
+    for host_cli in host_clis {
+        let oracle = start_server_and_native_client(host_cli).await.unwrap();
+        let stdin = get_proof_stdin(oracle).unwrap();
+        stdins.push(stdin);
+    }
 
     let execution_inputs = stdins.iter().zip(block_data.iter()).collect::<Vec<_>>();
 
