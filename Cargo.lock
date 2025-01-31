@@ -4212,6 +4212,7 @@ dependencies = [
  "log",
  "maili-genesis",
  "maili-protocol",
+ "maili-rpc",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",
  "revm",

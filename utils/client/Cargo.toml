@@ -22,6 +22,7 @@ revm.workspace = true
 
 # workspace (op-alloy)
 maili-genesis.workspace = true
+maili-rpc.workspace = true
 maili-protocol.workspace = true
 op-alloy-rpc-types-engine.workspace = true
 
