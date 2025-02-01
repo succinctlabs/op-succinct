@@ -37,5 +37,7 @@ base64.workspace = true
 tower-http.workspace = true
 serde_repr = "0.1.19"
 
+rand.workspace = true
+
 [build-dependencies]
 op-succinct-build-utils.workspace = true
