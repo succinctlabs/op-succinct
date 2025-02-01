@@ -5064,25 +5064,14 @@ dependencies = [
 name = "range"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus",
- "alloy-eips",
  "alloy-primitives",
- "alloy-rlp",
  "anyhow",
- "cfg-if",
- "kona-driver",
- "kona-executor",
  "kona-preimage",
  "kona-proof",
- "log",
- "maili-genesis",
- "maili-protocol",
  "op-alloy-consensus",
  "op-alloy-rpc-types-engine",
  "op-succinct-client-utils",
- "serde_json",
  "sp1-zkvm",
- "thiserror 2.0.11",
  "tracing",
  "tracing-subscriber",
 ]

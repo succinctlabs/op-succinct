@@ -126,6 +126,8 @@ pub async fn start_server_and_native_client(
     info!("Starting preimage server and client program.");
     let in_memory_oracle = run_witnessgen_client(oracle).await?;
 
+    info!("Preimage server and client program finished.");
+
     server_task.abort();
     Ok(in_memory_oracle)
 }
