@@ -97,7 +97,7 @@ pub fn get_agg_proof_stdin(
     Ok(stdin)
 }
 
-/// TODO(r): Can we run many program tasks in parallel?
+/// Start the server and native client. Each server is tied to a single client.
 pub async fn start_server_and_native_client(
     cfg: &SingleChainHostCli,
 ) -> Result<InMemoryOracle, anyhow::Error> {
@@ -125,8 +125,6 @@ pub async fn start_server_and_native_client(
 
     info!("Starting preimage server and client program.");
     let in_memory_oracle = run_witnessgen_client(oracle.clone()).await?;
-
-    info!("Preimage server and client program finished.");
 
     server_task.abort();
     Ok(in_memory_oracle)
