@@ -73,15 +73,19 @@ async fn execute_blocks_and_write_stats_csv(
 
     let prover = ProverClient::builder().cpu().build();
 
-    // TODO(r): Do this in parallel. Naively streaming did not work.
-    let stdins = futures::stream::iter(host_clis)
-        .map(|host_cli| async {
-            let oracle = start_server_and_native_client(host_cli).await.unwrap();
+    // Use futures::future::join_all to run the server and client in parallel. Note: stream::iter did not work here, possibly
+    // because the server and client are long-lived tasks.
+    let handles = host_clis.iter().cloned().map(|host_cli| {
+        tokio::spawn(async move {
+            let oracle = start_server_and_native_client(&host_cli).await.unwrap();
             get_proof_stdin(oracle).unwrap()
         })
-        .buffered(15)
-        .collect::<Vec<_>>()
-        .await;
+    });
+    let stdins = futures::future::join_all(handles)
+        .await
+        .into_iter()
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
 
     let execution_inputs = stdins.iter().zip(block_data.iter()).collect::<Vec<_>>();
 
