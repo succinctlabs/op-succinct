@@ -48,6 +48,7 @@ type OPSuccinctMetrics struct {
 	LatestContractL2Block          prometheus.Gauge
 	HighestProvenContiguousL2Block prometheus.Gauge
 	MinBlockToProveToAgg           prometheus.Gauge
+	LatestProvenTx                 prometheus.Gauge
 
 	ErrorCount         *prometheus.CounterVec
 	ProveFailures      *prometheus.CounterVec
@@ -121,6 +122,11 @@ func NewMetrics(procName string) *OPSuccinctMetrics {
 			Name:      "min_block_to_prove_to_agg",
 			Help:      "Minimum L2 block number to prove to generate an AGG proof",
 		}),
+		LatestProvenTx: factory.NewGauge(prometheus.GaugeOpts{
+			Namespace: ns,
+			Name:      "latest_proven_tx",
+			Help:      "Latest proven transaction block number",
+		}),
 		ErrorCount: factory.NewCounterVec(prometheus.CounterOpts{
 			Namespace: ns,
 			Name:      "error_count",
@@ -189,13 +195,14 @@ func (m *OPSuccinctMetrics) RecordWitnessGenFailure(reason string) {
 
 // RecordProposerStatus sets the proposer Prometheus metrics to the given values.
 func (m *OPSuccinctMetrics) RecordProposerStatus(metrics ProposerMetrics) {
-	m.NumProving.Set(float64(metrics.NumProving))
-	m.NumWitnessGen.Set(float64(metrics.NumWitnessgen))
-	m.NumUnrequested.Set(float64(metrics.NumUnrequested))
 	m.L2FinalizedBlock.Set(float64(metrics.L2FinalizedBlock))
 	m.LatestContractL2Block.Set(float64(metrics.LatestContractL2Block))
 	m.HighestProvenContiguousL2Block.Set(float64(metrics.HighestProvenContiguousL2Block))
 	m.MinBlockToProveToAgg.Set(float64(metrics.MinBlockToProveToAgg))
+	m.NumProving.Set(float64(metrics.NumProving))
+	m.NumWitnessGen.Set(float64(metrics.NumWitnessgen))
+	m.NumUnrequested.Set(float64(metrics.NumUnrequested))
+	m.LatestProvenTx.Set(float64(metrics.LatestProvenTx))
 }
 
 type ProposerMetrics struct {
@@ -207,4 +214,5 @@ type ProposerMetrics struct {
 	NumProving                     uint64
 	NumWitnessgen                  uint64
 	NumUnrequested                 uint64
+	LatestProvenTx                 uint64
 }
