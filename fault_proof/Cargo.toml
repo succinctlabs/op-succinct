@@ -1,0 +1,25 @@
+[package]
+name = "op-succinct-fp"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+# alloy
+alloy = { version = "0.9" , features = ["full"]}
+
+# op-alloy
+op-alloy-network = { version = "0.9", default-features = false }
+op-alloy-rpc-types = { version = "0.9", default-features = false }
+
+# general
+anyhow.workspace = true
+dotenv.workspace = true
+log.workspace = true
+tokio.workspace = true
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json.workspace = true
+tracing.workspace = true
