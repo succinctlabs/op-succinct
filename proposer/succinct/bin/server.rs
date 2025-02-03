@@ -313,7 +313,7 @@ async fn request_agg_proof(
 
     let proof_id = match prover
         .prove(&state.agg_pk, &stdin)
-        .groth16()
+        .compressed()
         .strategy(state.agg_proof_strategy)
         .request_async()
         .await
