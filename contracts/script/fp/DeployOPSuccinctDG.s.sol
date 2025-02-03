@@ -28,8 +28,20 @@ contract DeployOPSuccinctDG is Script {
         // Setup starting anchor roots
         GameType gameType = GameType.wrap(uint32(vm.envUint("GAME_TYPE")));
 
-        // Deploy SP1 mock verifier
-        SP1MockVerifier sp1Verifier = new SP1MockVerifier();
+        // Get or deploy SP1 verifier based on environment variable
+        address sp1VerifierAddress;
+        bool useMockVerifier = vm.envOr("USE_SP1_MOCK_VERIFIER", false);
+
+        if (useMockVerifier) {
+            // Deploy mock verifier for testing
+            SP1MockVerifier sp1Verifier = new SP1MockVerifier();
+            sp1VerifierAddress = address(sp1Verifier);
+            console.log("Using SP1 Mock Verifier:", address(sp1Verifier));
+        } else {
+            // Use provided verifier address for production
+            sp1VerifierAddress = vm.envAddress("SP1_VERIFIER_GATEWAY");
+            console.log("Using SP1 Verifier Gateway:", sp1VerifierAddress);
+        }
 
         // Deploy game implementation
         uint64 maxChallengeDuration = uint64(vm.envUint("MAX_CHALLENGE_DURATION"));
@@ -45,7 +57,7 @@ contract DeployOPSuccinctDG is Script {
             Duration.wrap(maxChallengeDuration),
             Duration.wrap(maxProveDuration),
             IDisputeGameFactory(address(factory)),
-            ISP1Verifier(address(sp1Verifier)),
+            ISP1Verifier(sp1VerifierAddress),
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
@@ -63,6 +75,6 @@ contract DeployOPSuccinctDG is Script {
         // Log deployed addresses
         console.log("Factory Proxy:", address(factoryProxy));
         console.log("Game Implementation:", address(gameImpl));
-        console.log("SP1 Verifier:", address(sp1Verifier));
+        console.log("SP1 Verifier:", sp1VerifierAddress);
     }
 }

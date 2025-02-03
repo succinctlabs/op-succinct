@@ -1,12 +1,5 @@
 use std::{env, time::Duration};
 
-use fp::{
-    compute_output_root_at_block, fetch_game_address_by_index, fetch_latest_game_index,
-    get_genesis_l2_block_number, get_l2_block_by_number, get_latest_valid_proposal,
-    DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L1Provider,
-    L1ProviderWithWallet, L2Provider, OPSuccinctFaultDisputeGame, ProposalStatus,
-};
-
 use alloy::{
     eips::BlockNumberOrTag,
     network::Ethereum,
@@ -20,42 +13,17 @@ use anyhow::Result;
 use op_alloy_network::EthereumWallet;
 use tokio::time;
 
-#[derive(Debug, Clone)]
-pub struct ProposerConfig {
-    pub l1_rpc: Url,
-    pub l2_rpc: Url,
-    pub factory_address: Address,
-    pub proposal_interval_in_blocks: u64,
-    pub fetch_interval: u64,
-    pub game_type: u32,
-    pub enable_game_resolution: bool,
-    pub max_games_to_check_for_resolution: u64,
-}
-
-impl ProposerConfig {
-    pub fn from_env() -> Result<Self> {
-        Ok(Self {
-            l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
-            l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
-            factory_address: env::var("FACTORY_ADDRESS")?
-                .parse()
-                .expect("FACTORY_ADDRESS not set"),
-            proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
-                .unwrap_or("1000".to_string())
-                .parse()?,
-            fetch_interval: env::var("FETCH_INTERVAL")
-                .unwrap_or("30".to_string())
-                .parse()?,
-            game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
-            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("false".to_string())
-                .parse()?,
-            max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-                .unwrap_or("100".to_string())
-                .parse()?,
-        })
-    }
-}
+use fault_proof::{
+    compute_output_root_at_block,
+    config::ProposerConfig,
+    fetch_game_address_by_index, fetch_init_bond, fetch_latest_game_index,
+    get_genesis_l2_block_number, get_l2_block_by_number, get_latest_valid_proposal,
+    sol::{
+        DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus,
+        OPSuccinctFaultDisputeGame, ProposalStatus,
+    },
+    L1Provider, L1ProviderWithWallet, L2Provider,
+};
 
 struct OPSuccinctProposer<F, P, T>
 where
@@ -68,6 +36,7 @@ where
     l2_provider: L2Provider,
     l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
     factory: DisputeGameFactoryInstance<T, L1ProviderWithWallet<F, P, T>>,
+    init_bond: U256,
 }
 
 impl<F, P, T> OPSuccinctProposer<F, P, T>
@@ -88,14 +57,9 @@ where
             l1_provider: ProviderBuilder::default().on_http(config.l1_rpc.clone()),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
-            factory,
+            factory: factory.clone(),
+            init_bond: fetch_init_bond(factory, config.game_type).await?,
         })
-    }
-
-    /// Fetches the bond required to create a game
-    async fn fetch_init_bond(&self) -> Result<U256> {
-        let init_bond = self.factory.initBonds(self.config.game_type).call().await?;
-        Ok(init_bond._0)
     }
 
     /// Creates a new game with the given parameters.
@@ -112,7 +76,7 @@ where
                 compute_output_root_at_block(self.l2_provider.clone(), l2_block_number).await?,
                 extra_data.into(),
             )
-            .value(self.fetch_init_bond().await?)
+            .value(self.init_bond)
             .send()
             .await?
             .get_receipt()
@@ -316,7 +280,7 @@ async fn main() {
         )
         .init();
 
-    dotenv::dotenv().ok();
+    dotenv::from_filename(".env.proposer").ok();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")
