@@ -8,7 +8,8 @@ use op_succinct_host_utils::{
     get_proof_stdin, start_server_and_native_client, ProgramType,
 };
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::utils;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use sp1_sdk::{utils, ProverClient};
 use std::{
     fs::{self},
     path::PathBuf,
@@ -54,12 +55,29 @@ async fn main() -> Result<()> {
         .collect::<Vec<_>>()
         .await;
 
-    let mut successful_ranges = Vec::new();
-    for (range, host_cli) in split_ranges.iter().zip(host_clis.iter()) {
-        let oracle = start_server_and_native_client(host_cli).await.unwrap();
-        let sp1_stdin = get_proof_stdin(oracle).unwrap();
-        successful_ranges.push((sp1_stdin, range.clone()));
-    }
+    // Use futures::future::join_all to run the server and client in parallel. Note: stream::iter did not work here, possibly
+    // because the server and client are long-lived tasks.
+    let handles = host_clis.iter().cloned().map(|host_cli| {
+        tokio::spawn(async move {
+            let oracle = start_server_and_native_client(&host_cli).await.unwrap();
+            get_proof_stdin(oracle).unwrap()
+        })
+    });
+    let stdins = futures::future::join_all(handles)
+        .await
+        .into_iter()
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+
+    let prover = ProverClient::builder().cpu().build();
+
+    // Execute the program for each block range in parallel.
+    stdins.par_iter().for_each(|sp1_stdin| {
+        prover
+            .execute(RANGE_ELF, sp1_stdin)
+            .run()
+            .expect("Failed to execute program");
+    });
 
     // Now, write the successful ranges to /sp1-testing-suite-artifacts/op-succinct-chain-{l2_chain_id}-{start}-{end}
     // The folders should each have the RANGE_ELF as program.bin, and the serialized stdin should be
@@ -69,7 +87,7 @@ async fn main() -> Result<()> {
 
     let dir_name = root_dir.join(format!("op-succinct-chain-{}", l2_chain_id));
     info!("Writing artifacts to {:?}", dir_name);
-    for (sp1_stdin, range) in successful_ranges {
+    for (sp1_stdin, range) in stdins.iter().zip(split_ranges.iter()) {
         let program_dir = PathBuf::from(format!(
             "{}-{}-{}",
             dir_name.to_string_lossy(),
