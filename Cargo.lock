@@ -4615,6 +4615,7 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "anyhow",
+ "async-trait",
  "dotenv",
  "log",
  "op-alloy-network 0.9.6",
