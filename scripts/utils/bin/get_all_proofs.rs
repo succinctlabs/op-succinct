@@ -1,4 +1,4 @@
-use std::{env, sync::Arc};
+use std::{env, io::Read, sync::Arc};
 
 use alloy_primitives::Address;
 use anyhow::anyhow;
@@ -8,6 +8,12 @@ use sp1_sdk::{
     network::{proto::network::ProofMode, NetworkClient},
     ProverClient, SP1Stdin,
 };
+
+fn get_agreed_l2_block_number(claimed_l2_block_number: u64, agreed_l2_output_root: B256) -> u64 {
+    const DEFAULT_DISTANCE: u64 = 60;
+
+    claimed_l2_block_number
+}
 
 #[tokio::main]
 async fn main() {
@@ -102,8 +108,29 @@ async fn main() {
     for proof in proofs {
         if proof.mode == ProofMode::Compressed as i32 {
             let stdin_uri = proof.stdin_uri;
-            let stdin = client.download_artifact(&stdin_uri).await.unwrap();
-            let mut stdin: SP1Stdin = bincode::deserialize(&stdin).unwrap();
+            // let stdin = client.download_artifact(&stdin_uri).await.unwrap();
+
+            // run aws s3 cp command with stdin_uri as input
+            let mut cmd = std::process::Command::new("aws");
+            let mut child = cmd
+                .arg("s3")
+                .arg("cp")
+                .arg(stdin_uri)
+                .arg("-")
+                // .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .expect("failed to execute process");
+
+            println!("child pid: {}", child.id());
+            child.wait().unwrap();
+            println!("child exited with status: {:?}", child);
+            let mut stdout = child.stdout.unwrap();
+            let mut stdout_bytes = vec![];
+            stdout.read_to_end(&mut stdout_bytes).unwrap();
+            println!("downloaded {} bytes", stdout_bytes.len());
+
+            let mut stdin: SP1Stdin = bincode::deserialize(&stdout_bytes).unwrap();
             // Check if the proof mode is Compressed.
             let mut buf = vec![];
             stdin.read_slice(&mut buf);
@@ -117,8 +144,9 @@ async fn main() {
                     panic!("Failed to load boot info: {:?}", e);
                 }
             };
+            println!("Boot Claim: {:?}", boot.claimed_l2_block_number);
 
-            println!("Boot info: {:?}", boot);
+            // println!("Boot info: {:?}", boot);
         }
     }
 }
