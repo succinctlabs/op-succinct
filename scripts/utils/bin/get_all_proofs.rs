@@ -308,7 +308,7 @@ async fn main() -> Result<()> {
 
     // Create the table if it doesn't exist.
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS proof_request (
+        "CREATE TABLE IF NOT EXISTS proof_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 type TEXT,
                 start_block INTEGER NOT NULL,
