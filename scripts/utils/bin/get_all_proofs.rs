@@ -1,6 +1,6 @@
 use std::{env, io::Read, sync::Arc};
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, B256};
 use anyhow::anyhow;
 use kona_proof::BootInfo;
 use op_succinct_client_utils::InMemoryOracle;
