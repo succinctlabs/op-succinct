@@ -66,6 +66,7 @@ op-succinct-client-utils.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
+rusqlite = "0.33.0"
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
