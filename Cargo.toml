@@ -1,5 +1,6 @@
 [workspace]
 members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct"]
+exclude = ["scripts/files"]
 resolver = "2"
 
 [workspace.package]
