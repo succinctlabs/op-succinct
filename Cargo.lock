@@ -4066,7 +4066,7 @@ version = "0.1.0"
 dependencies = [
  "cargo_metadata",
  "chrono",
- "sp1-build",
+ "sp1-build 4.0.1 (git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy)",
 ]
 
 [[package]]
@@ -4228,6 +4228,7 @@ dependencies = [
  "dotenv",
  "futures",
  "kona-host",
+ "kona-proof",
  "log",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
@@ -6012,6 +6013,17 @@ dependencies = [
 [[package]]
 name = "sp1-build"
 version = "4.0.1"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "chrono",
+ "clap",
+ "dirs",
+]
+
+[[package]]
+name = "sp1-build"
+version = "4.0.1"
 source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "anyhow",
@@ -6024,7 +6036,6 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -6062,7 +6073,6 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "bincode",
  "cbindgen",
@@ -6118,7 +6128,6 @@ dependencies = [
 [[package]]
 name = "sp1-cuda"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "bincode",
  "ctrlc",
@@ -6134,7 +6143,6 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "cfg-if",
  "dashu",
@@ -6155,7 +6163,6 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6193,7 +6200,6 @@ dependencies = [
 [[package]]
 name = "sp1-primitives"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "bincode",
  "hex",
@@ -6210,7 +6216,6 @@ dependencies = [
 [[package]]
 name = "sp1-prover"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6252,7 +6257,6 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -6286,7 +6290,6 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -6307,7 +6310,6 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -6349,7 +6351,6 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -6358,7 +6359,6 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "anyhow",
  "bincode",
@@ -6383,7 +6383,6 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -6409,7 +6408,7 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "sp1-build",
+ "sp1-build 4.0.1",
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-cuda",
@@ -6430,7 +6429,6 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "4.0.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=ratan%2Fbump-alloy#66bec54aa67cc81efe79f911502c448811253f4c"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",

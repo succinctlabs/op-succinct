@@ -31,6 +31,10 @@ path = "bin/fetch_rollup_config.rs"
 name = "gen-sp1-test-artifacts"
 path = "bin/gen_sp1_test_artifacts.rs"
 
+[[bin]]
+name = "get-all-proofs"
+path = "bin/get_all_proofs.rs"
+
 [dependencies]
 
 # workspace
@@ -54,6 +58,7 @@ serde_json.workspace = true
 
 # kona
 kona-host.workspace = true
+kona-proof.workspace = true
 
 # local
 op-succinct-host-utils.workspace = true
