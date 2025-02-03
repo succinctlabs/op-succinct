@@ -14,15 +14,12 @@ use op_alloy_network::EthereumWallet;
 use tokio::time;
 
 use fault_proof::{
-    compute_output_root_at_block,
     config::ProposerConfig,
-    fetch_game_address_by_index, fetch_init_bond, fetch_latest_game_index,
-    get_genesis_l2_block_number, get_l2_block_by_number, get_latest_valid_proposal,
     sol::{
         DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus,
         OPSuccinctFaultDisputeGame, ProposalStatus,
     },
-    L1Provider, L1ProviderWithWallet, L2Provider,
+    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait,
 };
 
 struct OPSuccinctProposer<F, P, T>
@@ -58,7 +55,7 @@ where
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
             factory: factory.clone(),
-            init_bond: fetch_init_bond(factory, config.game_type).await?,
+            init_bond: factory.fetch_init_bond(config.game_type).await?,
         })
     }
 
@@ -73,7 +70,9 @@ where
             .factory
             .create(
                 self.config.game_type,
-                compute_output_root_at_block(self.l2_provider.clone(), l2_block_number).await?,
+                self.l2_provider
+                    .compute_output_root_at_block(l2_block_number)
+                    .await?,
                 extra_data.into(),
             )
             .value(self.init_bond)
@@ -96,8 +95,10 @@ where
     /// NOTE(fakedev9999): Needs to be updated considering more complex cases where there are
     ///                    multiple branches of games.
     async fn should_attempt_resolution(&self, oldest_game_index: U256) -> Result<(bool, Address)> {
-        let oldest_game_address =
-            fetch_game_address_by_index(self.factory.clone(), oldest_game_index).await?;
+        let oldest_game_address = self
+            .factory
+            .fetch_game_address_by_index(oldest_game_index)
+            .await?;
         let oldest_game =
             OPSuccinctFaultDisputeGame::new(oldest_game_address, self.l1_provider.clone());
         let parent_game_index = oldest_game.claimData().call().await?.claimData_.parentIndex;
@@ -107,9 +108,10 @@ where
         if parent_game_index == u32::MAX {
             Ok((true, oldest_game_address))
         } else {
-            let parent_game_address =
-                fetch_game_address_by_index(self.factory.clone(), U256::from(parent_game_index))
-                    .await?;
+            let parent_game_address = self
+                .factory
+                .fetch_game_address_by_index(U256::from(parent_game_index))
+                .await?;
             let parent_game =
                 OPSuccinctFaultDisputeGame::new(parent_game_address, self.l1_provider.clone());
 
@@ -124,7 +126,7 @@ where
     ///
     /// This function checks if the game is in progress and unchallenged, and if so, attempts to resolve it.
     async fn try_resolve_unchallenged_game(&self, index: U256) -> Result<()> {
-        let game_address = fetch_game_address_by_index(self.factory.clone(), index).await?;
+        let game_address = self.factory.fetch_game_address_by_index(index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
         if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
             tracing::info!(
@@ -145,11 +147,12 @@ where
             return Ok(());
         }
 
-        let current_timestamp =
-            get_l2_block_by_number(self.l2_provider.clone(), BlockNumberOrTag::Latest)
-                .await?
-                .header
-                .timestamp;
+        let current_timestamp = self
+            .l2_provider
+            .get_l2_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .header
+            .timestamp;
         let deadline = U256::from(claim_data.deadline).to::<u64>();
         if deadline >= current_timestamp {
             tracing::info!(
@@ -176,7 +179,7 @@ where
     /// Attempts to resolve all unchallenged games, up to `max_games_to_check_for_resolution`.
     async fn resolve_unchallenged_games(&self) -> Result<()> {
         // Find latest game index, return early if no games exist
-        let Some(latest_game_index) = fetch_latest_game_index(self.factory.clone()).await? else {
+        let Some(latest_game_index) = self.factory.fetch_latest_game_index().await? else {
             tracing::info!("No games exist, skipping resolution");
             return Ok(());
         };
@@ -215,19 +218,18 @@ where
         loop {
             interval.tick().await;
 
-            let safe_l2_head_block_number =
-                get_l2_block_by_number(self.l2_provider.clone(), BlockNumberOrTag::Safe)
-                    .await?
-                    .header
-                    .number;
+            let safe_l2_head_block_number = self
+                .l2_provider
+                .get_l2_block_by_number(BlockNumberOrTag::Safe)
+                .await?
+                .header
+                .number;
             tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
-            let latest_valid_proposal = get_latest_valid_proposal(
-                self.factory.clone(),
-                self.l1_provider.clone(),
-                self.l2_provider.clone(),
-            )
-            .await?;
+            let latest_valid_proposal = self
+                .factory
+                .get_latest_valid_proposal(self.l1_provider.clone(), self.l2_provider.clone())
+                .await?;
 
             let (next_l2_block_number_for_proposal, parent_game_index) = match latest_valid_proposal
             {
@@ -237,12 +239,13 @@ where
                 ),
                 None => {
                     // For first game, start from genesis L2 block number + proposal interval
-                    let genesis_l2_block_number = get_genesis_l2_block_number(
-                        self.factory.clone(),
-                        self.config.game_type,
-                        self.l1_provider.clone(),
-                    )
-                    .await?;
+                    let genesis_l2_block_number = self
+                        .factory
+                        .get_genesis_l2_block_number(
+                            self.config.game_type,
+                            self.l1_provider.clone(),
+                        )
+                        .await?;
 
                     (
                         genesis_l2_block_number

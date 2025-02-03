@@ -25,6 +25,7 @@ op-alloy-rpc-types = { version = "0.9", default-features = false }
 
 # general
 anyhow.workspace = true
+async-trait.workspace = true
 dotenv.workspace = true
 log.workspace = true
 tokio.workspace = true
