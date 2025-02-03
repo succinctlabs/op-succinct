@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [lib]
-name = "fp"
+name = "fault_proof"
 path = "src/lib.rs"
 
 [[bin]]

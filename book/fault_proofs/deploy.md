@@ -6,7 +6,7 @@ This guide explains how to deploy the OP Succinct Fault Dispute Game contracts u
 
 The deployment script performs the following actions:
 1. Deploys the `DisputeGameFactory` implementation and proxy
-2. Deploys a mock SP1 verifier for testing
+2. Deploys a mock SP1 verifier for testing or use a SP1 Verifier Gateway set in the environment variable `SP1_VERIFIER_GATEWAY` for production
 3. Deploys the `OPSuccinctFaultDisputeGame` implementation
 4. Configures the factory with initial bond and game implementation
 
@@ -25,6 +25,11 @@ Create a `.env` file in the contracts directory with the following variables:
 GAME_TYPE=42                     # Unique identifier for the game type (uint32)
 MAX_CHALLENGE_DURATION=604800    # Maximum duration for challenges in seconds
 MAX_PROVE_DURATION=86400         # Maximum duration for proving in seconds
+
+# SP1 Verifier Configuration (choose one)
+USE_SP1_MOCK_VERIFIER=true       # Set to true to deploy a mock verifier for testing
+# OR
+SP1_VERIFIER_GATEWAY=0x...       # Address of the SP1 verifier gateway for production
 ```
 
 ## Deployment
@@ -75,7 +80,8 @@ Save these addresses for future reference and configuration of other components 
 
 - The deployer address will be set as the factory owner
 - Initial parameters are set for testing - adjust for production
-- The mock SP1 verifier should be replaced with a real verifier in production
+- The mock SP1 verifier (SP1_MOCK_VERIFIER=true) should ONLY be used for testing
+- For production deployments, always provide a valid SP1_VERIFIER_GATEWAY address. Contract addresses for SP1 Verifier Gateways can be found [here](https://docs.succinct.xyz/docs/verification/onchain/contract-addresses).
 - Review and adjust the bond and reward values based on network economics
 
 ## Troubleshooting
