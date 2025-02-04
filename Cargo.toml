@@ -87,7 +87,6 @@ alloy-rpc-types-beacon = { version = "0.11.0", default-features = false }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
 alloy-primitives = { version = "0.8.19", default-features = false }
-# alloy-primitives = { version = "0.8.19", default-features = false, features = ["sha3-keccak"] }
 alloy-sol-types = { version = "0.8.19", default-features = false }
 
 # OP Alloy
@@ -112,8 +111,7 @@ sp1-lib = { version = "4.0.0", features = ["verify"] }
 # sp1-sdk = { version = "4.0.0" }
 # TODO: Switch back to version tag once the alloy bump is merged
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "ratan/bump-alloy" }
-# sp1-zkvm = { version = "4.0.0", features = ["verify", "embedded"] }
-sp1-zkvm = { version = "4.0.0", features = ["verify"] }
+sp1-zkvm = { version = "4.0.0", features = ["verify", "embedded"] }
 
 # TODO: Switch back to version tag once the Docker workspace directory change is merged.
 sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "ratan/bump-alloy" }
