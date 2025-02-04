@@ -24,6 +24,7 @@ cargo_metadata.workspace = true
 anyhow.workspace = true
 dotenv.workspace = true
 csv.workspace = true
+bincode.workspace = true
 
 # kona
 kona-host.workspace = true

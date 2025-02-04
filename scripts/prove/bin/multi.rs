@@ -10,7 +10,7 @@ use op_succinct_host_utils::{
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
-use std::{fs, time::Instant};
+use std::{fs::{self, File}, time::Instant};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -42,6 +42,16 @@ async fn main() -> Result<()> {
 
     // Get the stdin for the block.
     let sp1_stdin = get_proof_stdin(oracle)?;
+
+    // Write the bincode serialized stdin to a file.
+    let stdin_path = format!(
+        "stdin-chain-{}-start-{}-end-{}.bin",
+        data_fetcher.get_l2_chain_id().await.unwrap(),
+        l2_start_block,
+        l2_end_block
+    );
+    let mut file = File::create(stdin_path)?;
+    bincode::serialize_into(&mut file, &sp1_stdin)?;
 
     let prover = ProverClient::from_env();
 

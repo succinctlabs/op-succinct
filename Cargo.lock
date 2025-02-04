@@ -4197,6 +4197,7 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
+ "bincode",
  "cargo_metadata",
  "clap",
  "csv",
