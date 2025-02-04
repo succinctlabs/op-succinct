@@ -1,5 +1,6 @@
 pub mod config;
 pub mod sol;
+pub mod utils;
 
 use alloy::{
     eips::BlockNumberOrTag,
@@ -165,7 +166,11 @@ where
             let game_address = self.fetch_game_address_by_index(game_index).await?;
             let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
             block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
-            tracing::info!("Checking if proposal for block {:?} is valid", block_number);
+            tracing::debug!(
+                "Checking if game {:?} at block {:?} is valid",
+                game_address,
+                block_number
+            );
             let game_claim = game.rootClaim().call().await?.rootClaim_;
 
             let output_root = l2_provider
@@ -183,7 +188,7 @@ where
 
             // If we've reached index 0 and still haven't found a valid proposal
             if game_index == U256::ZERO {
-                tracing::warn!("No valid proposals found after checking all games");
+                tracing::info!("No valid proposals found after checking all games");
                 return Ok(None);
             }
 

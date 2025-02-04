@@ -19,6 +19,7 @@ use fault_proof::{
         DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus,
         OPSuccinctFaultDisputeGame, ProposalStatus,
     },
+    utils::setup_logging,
     FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait,
 };
 
@@ -81,7 +82,15 @@ where
             .get_receipt()
             .await?;
 
-        tracing::info!("New game created at tx: {:?}", receipt.transaction_hash);
+        let game_address = receipt.inner.logs()[0].address();
+
+        tracing::info!(
+            "New game \x1B]8;;https://sepolia.etherscan.io/address/{:?}\x07{:?}\x1B]8;;\x07 created: \x1B]8;;https://sepolia.etherscan.io/tx/{:?}\x07{:?}\x1B]8;;\x07",
+            game_address,
+            game_address,
+            receipt.transaction_hash,
+            receipt.transaction_hash
+        );
 
         Ok(())
     }
@@ -218,13 +227,15 @@ where
         loop {
             interval.tick().await;
 
+            let _span = tracing::info_span!("[[Proposing]]").entered();
+
             let safe_l2_head_block_number = self
                 .l2_provider
                 .get_l2_block_by_number(BlockNumberOrTag::Safe)
                 .await?
                 .header
                 .number;
-            tracing::info!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
+            tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
             let latest_valid_proposal = self
                 .factory
@@ -261,11 +272,17 @@ where
                     .await?;
             }
 
+            drop(_span);
+
             // Only attempt game resolution if enabled
             if self.config.enable_game_resolution {
+                let _span = tracing::info_span!("[[Resolving]]").entered();
+
                 if let Err(e) = self.resolve_unchallenged_games().await {
                     tracing::warn!("Failed to resolve unchallenged games: {:?}", e);
                 }
+
+                drop(_span);
             }
         }
     }
@@ -273,15 +290,7 @@ where
 
 #[tokio::main]
 async fn main() {
-    // Initialize logging using RUST_LOG environment variable, defaulting to INFO level
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_env("RUST_LOG").unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::from_default_env()
-                    .add_directive(tracing::Level::INFO.into())
-            }),
-        )
-        .init();
+    setup_logging();
 
     dotenv::from_filename(".env.proposer").ok();
 
