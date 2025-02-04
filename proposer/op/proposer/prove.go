@@ -149,7 +149,7 @@ func (l *L2OutputSubmitter) RequestQueuedProofs(ctx context.Context) error {
 
 	if nextProofToRequest.Type == proofrequest.TypeAGG {
 		if nextProofToRequest.L1BlockHash == "" {
-			// Check if there's an existing agg proof with the same block range and a checkpointed L1BlockHash
+			// Check if there's an existing agg proof with the same block range that's already failed.
 			existingProofs, err := l.db.GetProofRequestsWithBlockRangeAndStatus(proofrequest.TypeAGG, nextProofToRequest.StartBlock, nextProofToRequest.EndBlock, proofrequest.StatusFAILED)
 			if err != nil {
 				l.Log.Error("failed to check for existing agg proof", "err", err)
