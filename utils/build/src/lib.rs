@@ -17,9 +17,9 @@ fn build_zkvm_program(program: &str) {
         BuildArgs {
             elf_name: Some(format!("{}-elf", program)),
             output_directory: Some("../../elf".to_string()),
-            // docker: true,
-            // tag: "v4.0.0-rc.10".to_string(),
-            // workspace_directory: Some("../../".to_string()),
+            docker: true,
+            tag: "v4.0.0-rc.10".to_string(),
+            workspace_directory: Some("../../".to_string()),
             ..Default::default()
         },
     );
@@ -29,7 +29,7 @@ fn build_zkvm_program(program: &str) {
 /// programs.
 pub fn build_all() {
     // Build range program.
-    build_zkvm_program("range");
+    // build_zkvm_program("range");
 
     // Build aggregation program.
     // build_zkvm_program("aggregation");
