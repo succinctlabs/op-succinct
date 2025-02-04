@@ -1,30 +1,18 @@
 use anyhow::Result;
-use std::{env, process::Command};
-use tokio::{
-    process::Command as TokioCommand,
-    spawn,
-    time::{sleep, Duration},
-};
+use std::env;
+use tokio::{process::Command as TokioCommand, time::Duration};
 
 use alloy::{
-    eips::BlockNumberOrTag,
-    network::Ethereum,
-    primitives::{keccak256, Address, FixedBytes, U256},
-    providers::{Provider, ProviderBuilder},
+    primitives::{FixedBytes, U256},
+    providers::ProviderBuilder,
     signers::local::PrivateKeySigner,
     sol_types::SolValue,
-    transports::http::reqwest::Url,
 };
 use fault_proof::{
     config::ProposerConfig,
-    sol::{
-        DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance,
-        OPSuccinctFaultDisputeGame, ProposalStatus,
-    },
-    L1Provider, L2Provider,
+    sol::{DisputeGameFactory, OPSuccinctFaultDisputeGame, ProposalStatus},
 };
-use op_alloy_network::{EthereumWallet, NetworkWallet};
-use rand::Rng;
+use op_alloy_network::EthereumWallet;
 
 #[tokio::test]
 async fn test_e2e_challenger_wins() -> Result<()> {
@@ -35,6 +23,12 @@ async fn test_e2e_challenger_wins() -> Result<()> {
                 .add_directive(tracing::Level::INFO.into()),
         )
         .init();
+
+    // Spawn the challenger
+    let mut challenger_process = TokioCommand::new("cargo")
+        .args(["run", "--bin", "challenger"])
+        .spawn()
+        .expect("Failed to spawn challenger");
 
     // Propose a faulty proposal
     let proposer_config = ProposerConfig::from_env()?;
@@ -69,11 +63,10 @@ async fn test_e2e_challenger_wins() -> Result<()> {
         .await?
         .genesisL2BlockNumber_
         + U256::from(proposer_config.proposal_interval_in_blocks);
-    tracing::info!("L2 block number: {}", l2_block_number);
     let parent_game_index = u32::MAX;
 
     let mut game_addresses = Vec::new();
-    for i in 0..2 {
+    for _ in 0..3 {
         let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
         const NUM_CONFIRMATIONS: u64 = 1;
@@ -98,8 +91,10 @@ async fn test_e2e_challenger_wins() -> Result<()> {
         let game_address = receipt.inner.logs()[0].address();
 
         tracing::info!(
-            "Game {:?} created with tx: {:?}",
+            "Game \x1B]8;;https://sepolia.etherscan.io/address/{:?}\x07{:?}\x1B]8;;\x07 created with tx: \x1B]8;;https://sepolia.etherscan.io/tx/{:?}\x07{:?}\x1B]8;;\x07",
             game_address,
+            game_address,
+            receipt.transaction_hash,
             receipt.transaction_hash
         );
 
@@ -108,17 +103,9 @@ async fn test_e2e_challenger_wins() -> Result<()> {
         l2_block_number += U256::from(proposer_config.proposal_interval_in_blocks);
     }
 
-    // Spawn the challenger
-    let mut challenger_process = TokioCommand::new("cargo")
-        .args(&["run", "--bin", "challenger"])
-        .spawn()
-        .expect("Failed to spawn challenger");
-
     let mut done = false;
     let max_wait = Duration::from_secs(120); // 2 minutes total wait
     let start = tokio::time::Instant::now();
-
-    tracing::info!("Game addresses: {:?}", game_addresses);
 
     while !done && (tokio::time::Instant::now() - start) < max_wait {
         // Sleep some seconds between checks
@@ -141,7 +128,7 @@ async fn test_e2e_challenger_wins() -> Result<()> {
 
         if all_challenged {
             done = true;
-            println!("[TEST] Challenge successful");
+            println!("[TEST] Successfully challenged all faulty games");
         }
     }
 
