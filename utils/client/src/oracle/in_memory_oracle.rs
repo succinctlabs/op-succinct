@@ -69,10 +69,7 @@ impl PreimageOracleClient for InMemoryOracle {
         self.cache
             .get(&key_bytes)
             .cloned()
-            .ok_or_else(|| {
-                println!("INMEMORYORACLE: key not found: {:?}", key);
-                PreimageOracleError::KeyNotFound
-            })
+            .ok_or_else(|| PreimageOracleError::KeyNotFound)
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
