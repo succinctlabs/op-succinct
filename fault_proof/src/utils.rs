@@ -1,6 +1,5 @@
 use tracing_subscriber::{fmt, EnvFilter};
 
-// In your main function or setup:
 pub fn setup_logging() {
     let format = fmt::format()
         .with_level(true)

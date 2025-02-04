@@ -26,6 +26,25 @@ The proposer performs several key functions:
 
 The proposer is configured through various environment variables. Create a `.env` file in the root directory:
 
+### Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `L1_RPC` | L1 RPC endpoint URL |
+| `L2_RPC` | L2 RPC endpoint URL |
+| `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
+| `GAME_TYPE` | Type identifier for the dispute game |
+| `PRIVATE_KEY` | Private key for transaction signing |
+
+### Optional Environment Variables
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1000` |
+| `FETCH_INTERVAL` | Polling interval in seconds | `30` |
+| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `false` |
+| `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
+
 ```env
 # Required Configuration
 L1_RPC=                  # L1 RPC endpoint URL

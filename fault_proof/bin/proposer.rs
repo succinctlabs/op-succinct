@@ -15,7 +15,7 @@ use tokio::time;
 
 use fault_proof::{
     config::ProposerConfig,
-    sol::{
+    contract::{
         DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus,
         OPSuccinctFaultDisputeGame, ProposalStatus,
     },
@@ -85,10 +85,8 @@ where
         let game_address = receipt.inner.logs()[0].address();
 
         tracing::info!(
-            "New game \x1B]8;;https://sepolia.etherscan.io/address/{:?}\x07{:?}\x1B]8;;\x07 created: \x1B]8;;https://sepolia.etherscan.io/tx/{:?}\x07{:?}\x1B]8;;\x07",
+            "New game {:?} created with tx {:?}",
             game_address,
-            game_address,
-            receipt.transaction_hash,
             receipt.transaction_hash
         );
 

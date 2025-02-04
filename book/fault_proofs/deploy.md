@@ -5,10 +5,10 @@ This guide explains how to deploy the OP Succinct Fault Dispute Game contracts u
 ## Overview
 
 The deployment script performs the following actions:
-1. Deploys the `DisputeGameFactory` implementation and proxy
-2. Deploys a mock SP1 verifier for testing or use a SP1 Verifier Gateway set in the environment variable `SP1_VERIFIER_GATEWAY` for production
-3. Deploys the `OPSuccinctFaultDisputeGame` implementation
-4. Configures the factory with initial bond and game implementation
+1. Deploys the `DisputeGameFactory` implementation and proxy.
+2. Deploys a mock SP1 verifier for testing or use a SP1 Verifier Gateway set in the environment variable `SP1_VERIFIER_GATEWAY` for production.
+3. Deploys the `OPSuccinctFaultDisputeGame` implementation.
+4. Configures the factory with initial bond and game implementation.
 
 ## Prerequisites
 
@@ -20,17 +20,21 @@ The deployment script performs the following actions:
 
 Create a `.env` file in the contracts directory with the following variables:
 
-```env
-# Required Environment Variables for Game Configuration
-GAME_TYPE=42                     # Unique identifier for the game type (uint32)
-MAX_CHALLENGE_DURATION=604800    # Maximum duration for challenges in seconds
-MAX_PROVE_DURATION=86400         # Maximum duration for proving in seconds
+### Required Environment Variables
 
-# SP1 Verifier Configuration (choose one)
-USE_SP1_MOCK_VERIFIER=true       # Set to true to deploy a mock verifier for testing
-# OR
-SP1_VERIFIER_GATEWAY=0x...       # Address of the SP1 verifier gateway for production
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GAME_TYPE` | Unique identifier for the game type (uint32) | `42` |
+| `MAX_CHALLENGE_DURATION` | Maximum duration for challenges in seconds | `604800` for 7 days |
+| `MAX_PROVE_DURATION` | Maximum duration for proving in seconds | `86400` for 1 day |
+
+### SP1 Verifier Configuration
+Choose one of the following:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `USE_SP1_MOCK_VERIFIER` | Set to true to deploy a mock verifier for testing | `true` |
+| `SP1_VERIFIER_GATEWAY` | Address of the SP1 verifier gateway for production | `0x...` |
 
 ## Deployment
 
@@ -56,16 +60,16 @@ SP1_VERIFIER_GATEWAY=0x...       # Address of the SP1 verifier gateway for produ
 
 ## Contract Parameters
 
-The deployment script sets up the following parameters:
+The deployment script deploys the contract with the following parameters:
 
 - **Initial Bond**: 0.01 ETH (configurable in the script)
 - **Proof Reward**: 0.01 ETH (configurable in the script)
 - **Genesis Parameters**:
-  - `rollupConfigHash`
-  - `aggregationVkey`
-  - `rangeVkeyCommitment`
-  - `genesisL2BlockNumber`
-  - `genesisL2OutputRoot`
+  - `rollupConfigHash`: The hash of the rollup configuration.
+  - `aggregationVkey`: The vkey for the aggregation program.
+  - `rangeVkeyCommitment`: The 32 byte commitment to the BabyBear representation of the verification key of the range SP1 program.
+  - `genesisL2BlockNumber`: The genesis L2 block number of the game.
+  - `genesisL2OutputRoot`: The genesis L2 output root of the game.
 
 ## Post-Deployment
 
@@ -89,7 +93,7 @@ Save these addresses for future reference and configuration of other components 
 Common issues and solutions:
 
 1. **Compilation Errors**:
-   - Ensure Foundry is up to date
+   - Ensure Foundry is up to date (run `foundryup` to update)
    - Run `forge clean && forge build`
 
 2. **Deployment Failures**:

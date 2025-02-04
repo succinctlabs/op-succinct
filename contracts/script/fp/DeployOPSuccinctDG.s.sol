@@ -39,7 +39,7 @@ contract DeployOPSuccinctDG is Script {
             console.log("Using SP1 Mock Verifier:", address(sp1Verifier));
         } else {
             // Use provided verifier address for production
-            sp1VerifierAddress = vm.envAddress("SP1_VERIFIER_GATEWAY");
+            sp1VerifierAddress = vm.envAddress("VERIFIER_ADDRESS");
             console.log("Using SP1 Verifier Gateway:", sp1VerifierAddress);
         }
 

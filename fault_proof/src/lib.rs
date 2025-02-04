@@ -1,5 +1,5 @@
 pub mod config;
-pub mod sol;
+pub mod contract;
 pub mod utils;
 
 use alloy::{
@@ -22,7 +22,7 @@ use async_trait::async_trait;
 use op_alloy_network::{primitives::BlockTransactionsKind, Optimism};
 use op_alloy_rpc_types::Transaction;
 
-use crate::sol::{
+use crate::contract::{
     DisputeGameFactory::DisputeGameFactoryInstance, L2Output, OPSuccinctFaultDisputeGame,
 };
 
@@ -32,17 +32,20 @@ pub type L1ProviderWithWallet<F, P, T> = FillProvider<F, P, T, Ethereum>;
 
 #[async_trait]
 pub trait L2ProviderTrait {
+    /// Get the L2 block by number
     async fn get_l2_block_by_number(
         &self,
         block_number: BlockNumberOrTag,
     ) -> Result<Block<Transaction>>;
 
+    /// Get the L2 storage root for an address at a given block number
     async fn get_l2_storage_root(
         &self,
         address: Address,
         block_number: BlockNumberOrTag,
     ) -> Result<B256>;
 
+    /// Compute the output root at a given L2 block number
     async fn compute_output_root_at_block(&self, l2_block_number: U256) -> Result<FixedBytes<32>>;
 }
 
@@ -101,14 +104,27 @@ impl L2ProviderTrait for L2Provider {
 
 #[async_trait]
 pub trait FactoryTrait<F, P, T> {
+    /// Fetches the bond required to create a game
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256>;
+
+    /// Fetches the latest game index
     async fn fetch_latest_game_index(&self) -> Result<Option<U256>>;
+
+    /// Fetches the game address by index
     async fn fetch_game_address_by_index(&self, game_index: U256) -> Result<Address>;
+
+    /// Get the latest valid proposal
+    ///
+    /// This function checks from the latest game to the earliest game, returning the latest valid proposal.
     async fn get_latest_valid_proposal(
         &self,
         l1_provider: L1Provider,
         l2_provider: L2Provider,
     ) -> Result<Option<(U256, U256)>>;
+
+    /// Get the genesis L2 block number
+    ///
+    /// This function returns the L2 block number of the genesis block for a given game type.
     async fn get_genesis_l2_block_number(
         &self,
         game_type: u32,
