@@ -43,6 +43,7 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
+# rev = "845c5c0" is the latest commit on the `taehoon/fix-kona-type-annotation` branch.
 kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
 kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0", default-features = false }
 kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }

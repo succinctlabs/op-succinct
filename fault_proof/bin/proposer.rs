@@ -10,6 +10,7 @@ use alloy::{
     transports::{http::reqwest::Url, Transport},
 };
 use anyhow::Result;
+use clap::Parser;
 use op_alloy_network::EthereumWallet;
 use tokio::time;
 
@@ -22,6 +23,12 @@ use fault_proof::{
     utils::setup_logging,
     FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait,
 };
+
+#[derive(Parser)]
+struct Args {
+    #[clap(long, default_value = ".env.proposer")]
+    env_file: String,
+}
 
 struct OPSuccinctProposer<F, P, T>
 where
@@ -290,7 +297,8 @@ where
 async fn main() {
     setup_logging();
 
-    dotenv::from_filename(".env.proposer").ok();
+    let args = Args::parse();
+    dotenv::from_filename(args.env_file).ok();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")

@@ -24,7 +24,7 @@ The proposer performs several key functions:
 
 ## Configuration
 
-The proposer is configured through various environment variables. Create a `.env` file in the root directory:
+The proposer is configured through various environment variables. Create a `.env.proposer` file in the root directory:
 
 ### Required Environment Variables
 
@@ -71,7 +71,6 @@ MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100  # Maximum number of games to check for re
 
 To run the proposer:
    ```bash
-   cd fault_proof
    cargo run --bin proposer
    ```
 

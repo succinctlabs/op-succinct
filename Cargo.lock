@@ -4616,6 +4616,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
+ "clap",
  "dotenv",
  "log",
  "op-alloy-network 0.9.6",
