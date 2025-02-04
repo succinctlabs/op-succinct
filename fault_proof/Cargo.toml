@@ -31,7 +31,9 @@ op-alloy-rpc-types = { version = "0.9", default-features = false }
 anyhow.workspace = true
 async-trait.workspace = true
 dotenv.workspace = true
+futures.workspace = true
 log.workspace = true
+rand = "0.9"
 tokio.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_json.workspace = true
