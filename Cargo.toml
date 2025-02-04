@@ -44,19 +44,33 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
+# kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
+# kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
+#     "rkyv",
+#     "serde",
+# ] }
+# kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+
+# kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+
+kona-mpt = { path = "../kona/crates/mpt" }
+kona-derive = { path = "../kona/crates/derive", default-features = false }
+kona-driver = { path = "../kona/crates/driver" }
+kona-preimage = { path = "../kona/crates/proof-sdk/preimage", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-executor = { path = "../kona/crates/executor" }
+kona-proof = { path = "../kona/crates/proof-sdk/proof" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-client = { path = "../kona/bin/client" }
+kona-host = { path = "../kona/bin/host" }
+kona-providers-alloy = { path = "../kona/crates/providers-alloy" }
 
 
 # op-succinct
@@ -86,7 +100,7 @@ alloy-rpc-types-engine = { version = "0.11.0", default-features = false }
 alloy-rpc-types-beacon = { version = "0.11.0", default-features = false }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
-alloy-primitives = { version = "0.8.19", default-features = false }
+alloy-primitives = { version = "0.8.19", default-features = false, features = ["sha3-keccak"] }
 alloy-sol-types = { version = "0.8.19", default-features = false }
 
 # OP Alloy
@@ -110,11 +124,12 @@ revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
 sp1-lib = { version = "4.0.0", features = ["verify"] }
 # sp1-sdk = { version = "4.0.0" }
 # TODO: Switch back to version tag once the alloy bump is merged
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "ratan/bump-alloy" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
 sp1-zkvm = { version = "4.0.0", features = ["verify", "embedded"] }
+# sp1-zkvm = { version = "4.0.0", features = ["verify"] }
 
 # TODO: Switch back to version tag once the Docker workspace directory change is merged.
-sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "ratan/bump-alloy" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
 
 [profile.release-client-lto]
 inherits = "release"
@@ -127,4 +142,4 @@ tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
 ecdsa = { git = "https://github.com/sp1-patches/signatures", tag = "patch-0.16.9-sp1-4.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0" }
-# sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
+sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
