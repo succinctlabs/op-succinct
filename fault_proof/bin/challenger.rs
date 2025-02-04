@@ -7,7 +7,7 @@ use fault_proof::{
         OPSuccinctFaultDisputeGame, ProposalStatus,
     },
     utils::setup_logging,
-    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait,
+    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode,
 };
 
 use alloy::{
@@ -187,9 +187,31 @@ where
         loop {
             interval.tick().await;
 
+            let _span = tracing::info_span!("[[Challenging]]").entered();
             if let Some(game_address) = self.get_oldest_challengable_game_address().await? {
                 tracing::info!("Attempting to challenge game {:?}", game_address);
                 self.challenge_game(game_address).await?;
+            }
+            drop(_span);
+
+            // Only attempt game resolution if enabled
+            if self.config.enable_game_resolution {
+                let _span = tracing::info_span!("[[Resolving]]").entered();
+
+                if let Err(e) = self
+                    .factory
+                    .resolve_games(
+                        Mode::Challenger,
+                        self.config.max_games_to_check_for_resolution,
+                        self.l1_provider_with_wallet.clone(),
+                        self.l2_provider.clone(),
+                    )
+                    .await
+                {
+                    tracing::warn!("Failed to resolve challenged games: {:?}", e);
+                }
+
+                drop(_span);
             }
         }
     }
