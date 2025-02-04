@@ -196,7 +196,7 @@ async fn request_span_proof(
         .network()
         .private_key(&private_key)
         .build();
-    
+
     let proof_id = client
         .prove(&state.range_pk, &sp1_stdin)
         .compressed()
