@@ -7,7 +7,9 @@ use op_succinct_host_utils::{
     stats::ExecutionStats,
     ProgramType,
 };
-use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
+use op_succinct_prove::{
+    execute_multi, DEFAULT_RANGE, RANGE_ELF, RANGE_ELF_BUMP, RANGE_ELF_EMBEDDED,
+};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
 use std::{fs, time::Instant};
@@ -30,7 +32,7 @@ async fn main() -> Result<()> {
 
     // If the end block is provided, check that it is less than the latest finalized block. If the end block is not provided, use the latest finalized block.
     let (l2_start_block, l2_end_block) =
-        get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?;
+        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?;
 
     let host_cli = data_fetcher
         .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
@@ -68,41 +70,27 @@ async fn main() -> Result<()> {
             ))
             .expect("saving proof failed");
     } else {
-        let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
+        let prover = ProverClient::builder().mock().build();
 
-        let (block_data, report, execution_duration) =
-            execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
-
-        let l1_block_number = data_fetcher
-            .get_l1_header(host_cli.l1_head.into())
-            .await
-            .unwrap()
-            .number;
-        let stats = ExecutionStats::new(
-            l1_block_number,
-            &block_data,
-            &report,
-            witness_generation_duration.as_secs(),
-            execution_duration.as_secs(),
+        // Execute the embedded ELF and the bump ELF in parallel. Show the difference between the execution report for both.
+        let (embedded_result, bump_result) = rayon::join(
+            || prover.execute(RANGE_ELF_EMBEDDED, &sp1_stdin).run(),
+            || prover.execute(RANGE_ELF_BUMP, &sp1_stdin).run(),
         );
 
-        println!("Execution Stats: \n{:?}", stats);
+        let ((_, report_embedded), (_, report_bump)) =
+            (embedded_result.unwrap(), bump_result.unwrap());
 
-        // Create the report directory if it doesn't exist.
-        let report_dir = format!("execution-reports/multi/{}", l2_chain_id);
-        if !std::path::Path::new(&report_dir).exists() {
-            fs::create_dir_all(&report_dir)?;
-        }
-
-        let report_path = format!(
-            "execution-reports/multi/{}/{}-{}.csv",
-            l2_chain_id, l2_start_block, l2_end_block
+        println!(
+            "Embedded ELF Cycle Tracker: \n{:?}. Total Cycles: {}",
+            report_embedded.cycle_tracker,
+            report_embedded.total_instruction_count()
         );
-
-        // Write to CSV.
-        let mut csv_writer = csv::Writer::from_path(report_path)?;
-        csv_writer.serialize(&stats)?;
-        csv_writer.flush()?;
+        println!(
+            "Bump ELF Cycle Tracker: \n{:?}. Total Cycles: {}",
+            report_bump.cycle_tracker,
+            report_bump.total_instruction_count()
+        );
     }
 
     Ok(())
