@@ -244,11 +244,22 @@ where
                     .number;
                 tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
+                // Get the latest valid proposal
                 let latest_valid_proposal = self
                     .factory
                     .get_latest_valid_proposal(self.l1_provider.clone(), self.l2_provider.clone())
                     .await?;
 
+                // Determine the next L2 block number and parent game index for the new proposal
+                //
+                // Two cases based on the result of `get_latest_valid_proposal`:
+                // 1. With existing valid proposal:
+                //    - Block number = latest valid proposal's block + proposal interval
+                //    - Parent = latest valid game's index
+                //
+                // 2. Without valid proposal (first game or all existing games being faulty):
+                //    - Block number = genesis block + proposal interval
+                //    - Parent = u32::MAX (special value indicating no parent)
                 let (next_l2_block_number_for_proposal, parent_game_index) =
                     match latest_valid_proposal {
                         Some((latest_block, latest_game_idx)) => (
@@ -256,7 +267,6 @@ where
                             latest_game_idx.to::<u32>(),
                         ),
                         None => {
-                            // For first game, start from genesis L2 block number + proposal interval
                             let genesis_l2_block_number = self
                                 .factory
                                 .get_genesis_l2_block_number(
@@ -271,11 +281,13 @@ where
                                         self.config.proposal_interval_in_blocks,
                                     ))
                                     .unwrap(),
-                                u32::MAX, // Use max value for first game's parent index
+                                u32::MAX,
                             )
                         }
                     };
 
+                // There's always a new game to propose, as the chain is always moving forward from the genesis block set for the game type
+                // Only create a new game if the safe L2 head block number is greater than the next L2 block number for proposal
                 if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
                     self.create_game(next_l2_block_number_for_proposal, parent_game_index)
                         .await?;

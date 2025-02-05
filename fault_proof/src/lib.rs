@@ -28,6 +28,7 @@ use crate::contract::{
 
 pub type L1Provider = RootProvider<Http<Client>, Ethereum>;
 pub type L2Provider = RootProvider<Http<Client>, Optimism>;
+pub type L2NodeProvider = RootProvider<Http<Client>, Optimism>;
 pub type L1ProviderWithWallet<F, P, T> = FillProvider<F, P, T, Ethereum>;
 
 #[async_trait]
@@ -51,6 +52,7 @@ pub trait L2ProviderTrait {
 
 #[async_trait]
 impl L2ProviderTrait for L2Provider {
+    /// Get the L2 block by number
     async fn get_l2_block_by_number(
         &self,
         block_number: BlockNumberOrTag,
@@ -65,6 +67,7 @@ impl L2ProviderTrait for L2Provider {
         }
     }
 
+    /// Get the L2 storage root for an address at a given block number
     async fn get_l2_storage_root(
         &self,
         address: Address,
@@ -78,6 +81,12 @@ impl L2ProviderTrait for L2Provider {
         Ok(storage_root)
     }
 
+    /// Compute the output root at a given L2 block number
+    ///
+    /// Local implementation is used because the RPC method `optimism_outputAtBlock` can fail for older
+    /// blocks if the L2 node isn't fully synced or has pruned historical state data.
+    ///
+    /// Common error: "missing trie node ... state is not available"
     async fn compute_output_root_at_block(&self, l2_block_number: U256) -> Result<FixedBytes<32>> {
         let l2_block = self
             .get_l2_block_by_number(BlockNumberOrTag::Number(l2_block_number.to::<u64>()))
@@ -160,11 +169,15 @@ where
         Ok(Some(latest_game_index))
     }
 
+    /// Fetches the game address by index
     async fn fetch_game_address_by_index(&self, game_index: U256) -> Result<Address> {
         let game = self.gameAtIndex(game_index).call().await?;
         Ok(game.proxy)
     }
 
+    /// Get the latest valid proposal
+    ///
+    /// This function checks from the latest game to the earliest game, returning the latest valid proposal.
     async fn get_latest_valid_proposal(
         &self,
         l1_provider: L1Provider,
@@ -178,36 +191,48 @@ where
 
         let mut block_number;
 
+        // Loop through games in reverse order (latest to earliest) to find the most recent valid game
         loop {
+            // Get the game contract for the current index
             let game_address = self.fetch_game_address_by_index(game_index).await?;
             let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
+
+            // Get the L2 block number the game is proposing output for
             block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
             tracing::debug!(
                 "Checking if game {:?} at block {:?} is valid",
                 game_address,
                 block_number
             );
+
+            // Get the output root the game is proposing
             let game_claim = game.rootClaim().call().await?.rootClaim_;
 
+            // Compute the actual output root at the L2 block number
             let output_root = l2_provider
                 .compute_output_root_at_block(block_number)
                 .await?;
 
+            // If the output root matches the game claim, we've found the latest valid proposal
             if output_root == game_claim {
                 break;
             }
+
+            // If the output root doesn't match the game claim, we need to find earlier games
             tracing::info!(
                 "Output root {:?} is not same as game claim {:?}",
                 output_root,
                 game_claim
             );
 
-            // If we've reached index 0 and still haven't found a valid proposal
+            // If we've reached index 0 (the earliest game) and still haven't found a valid proposal
+            // Return None as no valid proposals were found
             if game_index == U256::ZERO {
                 tracing::info!("No valid proposals found after checking all games");
                 return Ok(None);
             }
 
+            // Decrement the game index to check the previous game
             game_index -= U256::from(1);
         }
 
@@ -220,6 +245,9 @@ where
         Ok(Some((block_number, game_index)))
     }
 
+    /// Get the genesis L2 block number
+    ///
+    /// This function returns the L2 block number of the genesis block for a given game type.
     async fn get_genesis_l2_block_number(
         &self,
         game_type: u32,
