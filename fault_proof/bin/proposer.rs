@@ -232,52 +232,55 @@ where
         loop {
             interval.tick().await;
 
-            let _span = tracing::info_span!("[[Proposing]]").entered();
-
-            let safe_l2_head_block_number = self
-                .l2_provider
-                .get_l2_block_by_number(BlockNumberOrTag::Safe)
-                .await?
-                .header
-                .number;
-            tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
-
-            let latest_valid_proposal = self
-                .factory
-                .get_latest_valid_proposal(self.l1_provider.clone(), self.l2_provider.clone())
-                .await?;
-
-            let (next_l2_block_number_for_proposal, parent_game_index) = match latest_valid_proposal
+            // Propose a new game
             {
-                Some((latest_block, latest_game_idx)) => (
-                    latest_block + U256::from(self.config.proposal_interval_in_blocks),
-                    latest_game_idx.to::<u32>(),
-                ),
-                None => {
-                    // For first game, start from genesis L2 block number + proposal interval
-                    let genesis_l2_block_number = self
-                        .factory
-                        .get_genesis_l2_block_number(
-                            self.config.game_type,
-                            self.l1_provider.clone(),
-                        )
-                        .await?;
+                let _span = tracing::info_span!("[[Proposing]]").entered();
 
-                    (
-                        genesis_l2_block_number
-                            .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                            .unwrap(),
-                        u32::MAX, // Use max value for first game's parent index
-                    )
-                }
-            };
+                let safe_l2_head_block_number = self
+                    .l2_provider
+                    .get_l2_block_by_number(BlockNumberOrTag::Safe)
+                    .await?
+                    .header
+                    .number;
+                tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
 
-            if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
-                self.create_game(next_l2_block_number_for_proposal, parent_game_index)
+                let latest_valid_proposal = self
+                    .factory
+                    .get_latest_valid_proposal(self.l1_provider.clone(), self.l2_provider.clone())
                     .await?;
-            }
 
-            drop(_span);
+                let (next_l2_block_number_for_proposal, parent_game_index) =
+                    match latest_valid_proposal {
+                        Some((latest_block, latest_game_idx)) => (
+                            latest_block + U256::from(self.config.proposal_interval_in_blocks),
+                            latest_game_idx.to::<u32>(),
+                        ),
+                        None => {
+                            // For first game, start from genesis L2 block number + proposal interval
+                            let genesis_l2_block_number = self
+                                .factory
+                                .get_genesis_l2_block_number(
+                                    self.config.game_type,
+                                    self.l1_provider.clone(),
+                                )
+                                .await?;
+
+                            (
+                                genesis_l2_block_number
+                                    .checked_add(U256::from(
+                                        self.config.proposal_interval_in_blocks,
+                                    ))
+                                    .unwrap(),
+                                u32::MAX, // Use max value for first game's parent index
+                            )
+                        }
+                    };
+
+                if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
+                    self.create_game(next_l2_block_number_for_proposal, parent_game_index)
+                        .await?;
+                }
+            }
 
             // Only attempt game resolution if enabled
             if self.config.enable_game_resolution {
@@ -286,8 +289,6 @@ where
                 if let Err(e) = self.resolve_unchallenged_games().await {
                     tracing::warn!("Failed to resolve unchallenged games: {:?}", e);
                 }
-
-                drop(_span);
             }
         }
     }
