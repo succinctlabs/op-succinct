@@ -4170,6 +4170,7 @@ dependencies = [
  "clap",
  "csv",
  "dotenv",
+ "futures",
  "kona-host",
  "kona-preimage",
  "op-succinct-build-utils",

@@ -12,7 +12,8 @@ use op_succinct_prove::{
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
-use std::{fs, time::Instant};
+use std::{collections::HashMap, fs, sync::Arc, time::Instant};
+use tokio::sync::Semaphore;
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -30,67 +31,120 @@ async fn main() -> Result<()> {
         CacheMode::DeleteCache
     };
 
-    // If the end block is provided, check that it is less than the latest finalized block. If the end block is not provided, use the latest finalized block.
-    let (l2_start_block, l2_end_block) =
-        get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?;
+    let sizes = [5, 100, 300, 1000];
 
-    let host_cli = data_fetcher
-        .get_host_cli_args(l2_start_block, l2_end_block, ProgramType::Multi, cache_mode)
-        .await?;
+    // Get block ranges and execute ELFs in parallel
+    let mut handles = Vec::new();
+    let semaphore = Arc::new(Semaphore::new(sizes.len()));
 
-    let start_time = Instant::now();
-    let oracle = start_server_and_native_client(&host_cli).await?;
-    let witness_generation_duration = start_time.elapsed();
+    for size in sizes {
+        let (start, end) = get_validated_block_range(&data_fetcher, None, None, size).await?;
+        let host_cli = data_fetcher
+            .get_host_cli_args(start, end, ProgramType::Multi, cache_mode)
+            .await?;
 
-    // Get the stdin for the block.
-    let sp1_stdin = get_proof_stdin(oracle)?;
+        let semaphore = Arc::clone(&semaphore);
+        let handle = tokio::spawn(async move {
+            let _permit = semaphore.acquire().await?;
+            start_server_and_native_client(&host_cli).await
+        });
+        handles.push(handle);
+    }
 
-    let prover = ProverClient::from_env();
+    let results = futures::future::join_all(handles).await;
+    let (oracle_5, oracle_100, oracle_300, oracle_1000) = (
+        results[0].as_ref().unwrap().as_ref().unwrap(),
+        results[1].as_ref().unwrap().as_ref().unwrap(),
+        results[2].as_ref().unwrap().as_ref().unwrap(),
+        results[3].as_ref().unwrap().as_ref().unwrap(),
+    );
 
-    if args.prove {
-        // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(RANGE_ELF);
+    let elfs = [(RANGE_ELF_BUMP, "bump"), (RANGE_ELF_EMBEDDED, "embedded")];
 
-        // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+    let reports = {
+        let mut reports = Vec::new();
+        let (tx, rx) = std::sync::mpsc::channel();
 
-        // Create a proof directory for the chain ID if it doesn't exist.
-        let proof_dir = format!(
-            "data/{}/proofs",
-            data_fetcher.get_l2_chain_id().await.unwrap()
-        );
-        if !std::path::Path::new(&proof_dir).exists() {
-            fs::create_dir_all(&proof_dir).unwrap();
+        rayon::scope(|s| {
+            for (oracle, size) in [
+                (oracle_5, 5),
+                (oracle_100, 100),
+                (oracle_300, 300),
+                (oracle_1000, 1000),
+            ] {
+                for (elf, name) in elfs {
+                    let tx = tx.clone();
+                    let oracle = oracle.clone();
+                    s.spawn(move |_| {
+                        let prover = ProverClient::builder().mock().build();
+                        let start = Instant::now();
+                        let stdin = get_proof_stdin(oracle).unwrap();
+                        let (_, report) = prover.execute(elf, &stdin).run().unwrap();
+
+                        let elapsed = start.elapsed();
+                        println!(
+                            "{name} {size} blocks: {:?}, cycles: {:?}, instructions: {}",
+                            elapsed,
+                            report.cycle_tracker,
+                            report.total_instruction_count()
+                        );
+                        tx.send((size, name, report)).unwrap();
+                    });
+                }
+            }
+        });
+
+        drop(tx);
+        for result in rx {
+            reports.push(result);
         }
-        // Save the proof to the proof directory corresponding to the chain ID.
-        proof
-            .save(format!(
-                "{}/{}-{}.bin",
-                proof_dir, l2_start_block, l2_end_block
-            ))
-            .expect("saving proof failed");
-    } else {
-        let prover = ProverClient::builder().mock().build();
+        reports
+    };
 
-        // Execute the embedded ELF and the bump ELF in parallel. Show the difference between the execution report for both.
-        let (embedded_result, bump_result) = rayon::join(
-            || prover.execute(RANGE_ELF_EMBEDDED, &sp1_stdin).run(),
-            || prover.execute(RANGE_ELF_BUMP, &sp1_stdin).run(),
-        );
+    // Group reports by block size
+    let mut grouped_reports: HashMap<u64, Vec<(&str, _)>> = HashMap::new();
+    for (size, name, report) in reports {
+        grouped_reports
+            .entry(size)
+            .or_default()
+            .push((name, report));
+    }
 
-        let ((_, report_embedded), (_, report_bump)) =
-            (embedded_result.unwrap(), bump_result.unwrap());
+    // Print results for each block size
+    for size in [5, 100, 300, 1000] {
+        if let Some(reports) = grouped_reports.get(&size) {
+            println!("\nResults for {} blocks:", size);
+            println!("| Metric | bump | embedded | % diff |");
+            println!("|--------|------|----------|--------|");
 
-        println!(
-            "Embedded ELF Cycle Tracker: \n{:?}. Total Cycles: {}",
-            report_embedded.cycle_tracker,
-            report_embedded.total_instruction_count()
-        );
-        println!(
-            "Bump ELF Cycle Tracker: \n{:?}. Total Cycles: {}",
-            report_bump.cycle_tracker,
-            report_bump.total_instruction_count()
-        );
+            let (bump_report, embedded_report) = if reports[0].0 == "bump" {
+                (&reports[0].1, &reports[1].1)
+            } else {
+                (&reports[1].1, &reports[0].1)
+            };
+
+            // Print cycle tracker metrics
+            for (metric, bump_val) in bump_report.cycle_tracker.iter() {
+                if let Some(embedded_val) = embedded_report.cycle_tracker.get(metric) {
+                    let diff_pct =
+                        ((*embedded_val as f64 - *bump_val as f64) / *bump_val as f64) * 100.0;
+                    println!(
+                        "| {} | {} | {} | {:.2}% |",
+                        metric, bump_val, embedded_val, diff_pct
+                    );
+                }
+            }
+
+            // Print total instruction count
+            let bump_instr = bump_report.total_instruction_count();
+            let embedded_instr = embedded_report.total_instruction_count();
+            let instr_diff_pct =
+                ((embedded_instr as f64 - bump_instr as f64) / bump_instr as f64) * 100.0;
+            println!(
+                "| Total Instructions | {} | {} | {:.2}% |",
+                bump_instr, embedded_instr, instr_diff_pct
+            );
+        }
     }
 
     Ok(())
