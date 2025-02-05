@@ -45,6 +45,9 @@ type RequestAggProofResponse struct {
 func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
 	pa.l.Info("requesting agg proof from server", "start", startBlock, "max end", maxBlock)
 
+	// Return the proof request ID or the mock proof request ID
+	proofRequestID := "mock_proof_request_id"
+
 	// Store an Agg proof creation entry in the DB using the start block and the minTo block
 	// We'll need to check here that the end block lower than
 	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(startBlock, maxBlock)
@@ -83,26 +86,30 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context cancelled")
 		case <-ticker.C:
-			preqs, err = pa.db.GetProofRequestsWithBlockRangeAndStatus(proofrequest.TypeAGG, startBlock, endBlock, proofrequest.StatusPROVING)
+			preqs, err = pa.db.GetProofRequestsWithBlockRange(proofrequest.TypeAGG, startBlock, endBlock)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get proof request with block range and status: %w", err)
+				return nil, fmt.Errorf("failed to get proof request with block range: %w", err)
 			}
 
-			// If we can't find a proof request with status PROVING, we'll try to find one with status COMPLETE
-			if len(preqs) == 0 {
-				preqs, err = pa.db.GetProofRequestsWithBlockRangeAndStatus(proofrequest.TypeAGG, startBlock, endBlock, proofrequest.StatusCOMPLETE)
-				if err != nil {
-					return nil, fmt.Errorf("failed to get proof request with block range and status: %w", err)
+			for _, preq := range preqs {
+				if !pa.mock {
+					// If we're not mocking, then we should return the proof request ID
+					proofRequestID = preq.ProverRequestID
+				}
+
+				switch preq.Status {
+				case proofrequest.StatusPROVING:
+					pa.l.Info("agg proof request is still proving", "proof_request_id", proofRequestID)
+				case proofrequest.StatusCOMPLETE:
+					pa.l.Info("agg proof request is complete", "proof_request_id", proofRequestID)
+				case proofrequest.StatusFAILED:
+					return nil, fmt.Errorf("agg proof request failed")
 				}
 			}
 		}
 	}
 
-	// Return the proof request ID or the mock proof request ID
-	var proofRequestID string
-	if pa.mock {
-		proofRequestID = "mock_proof_request_id"
-	} else {
+	if !pa.mock {
 		proofRequestID = preqs[0].ProverRequestID
 	}
 

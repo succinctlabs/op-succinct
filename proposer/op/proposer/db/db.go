@@ -423,10 +423,15 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo uint64) (boo
 		return false, 0, nil
 	}
 
-	// Get the longest contiguous span proof chain we have with an end block <= maxTo.
+	// Get the limited contiguous span proof chain we have with an end block <= maxTo.
 	maxContigousEnd, err := db.GetLimitContiguousSpanProofRange(from, maxTo)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
+	}
+
+	if maxContigousEnd == 0 {
+		// There's no contiguous span proof chain that ends before maxTo, so we can't create an AGG proof.
+		return false, 0, nil
 	}
 
 	// Create a new AGG proof request
@@ -524,6 +529,21 @@ func (db *ProofDB) GetProofRequestsWithBlockRangeAndStatus(proofType proofreques
 		All(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query proofs with block range and status: %w", err)
+	}
+	return proofs, nil
+}
+
+// Get the proofs with start block and end block.
+func (db *ProofDB) GetProofRequestsWithBlockRange(proofType proofrequest.Type, startBlock, endBlock uint64) ([]*ent.ProofRequest, error) {
+	proofs, err := db.readClient.ProofRequest.Query().
+		Where(
+			proofrequest.TypeEQ(proofType),
+			proofrequest.StartBlockEQ(startBlock),
+			proofrequest.EndBlockEQ(endBlock),
+		).
+		All(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query proofs with block range: %w", err)
 	}
 	return proofs, nil
 }
