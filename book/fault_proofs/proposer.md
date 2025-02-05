@@ -24,7 +24,7 @@ The proposer performs several key functions:
 
 ## Configuration
 
-The proposer is configured through various environment variables. Create a `.env.proposer` file in the root directory:
+The proposer is configured through various environment variables. Create a `.env.proposer` file in the fault_proof directory:
 
 ### Required Environment Variables
 
