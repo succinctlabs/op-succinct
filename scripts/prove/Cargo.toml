@@ -15,6 +15,10 @@ path = "bin/multi.rs"
 name = "agg"
 path = "bin/agg.rs"
 
+[[bin]]
+name = "compare_alloc"
+path = "bin/compare_alloc.rs"
+
 [dependencies]
 
 # workspace
