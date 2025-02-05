@@ -419,7 +419,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo uint64) (boo
 		return false, 0, fmt.Errorf("failed to query DB for AGG proof with start block %d: %w", from, err)
 	}
 	if count > 0 {
-		// There's already an AGG proof in progress with the same start block.
+		// There's already an AGG proof in progress/completed with the same start block.
 		return false, 0, nil
 	}
 
