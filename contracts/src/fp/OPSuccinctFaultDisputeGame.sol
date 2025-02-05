@@ -188,7 +188,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice Initializes the contract.
     /// @dev This function may only be called once.
-    function initialize() external payable virtual {
+    function initialize() public payable virtual {
         // SAFETY: Any revert in this function will bubble up to the DisputeGameFactory and
         // prevent the game from being created.
         //
@@ -293,7 +293,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Challenges the game.
-    function challenge() external payable returns (ProposalStatus) {
+    function challenge() public payable virtual returns (ProposalStatus) {
         // INVARIANT: Can only challenge a game that has not been challenged yet.
         if (claimData.status != ProposalStatus.Unchallenged) revert ClaimAlreadyChallenged();
 
@@ -319,7 +319,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice Proves the game.
     /// @param proofBytes The proof bytes to validate the claim.
-    function prove(bytes calldata proofBytes) external returns (ProposalStatus) {
+    function prove(bytes calldata proofBytes) public virtual returns (ProposalStatus) {
         // INVARIANT: Cannot prove a game if the clock has timed out.
         if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
 
@@ -358,7 +358,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ///         or there is a challenge but the prover has provided a valid proof within the `MAX_PROVE_DURATION`.
     ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
     ///         its claim within the `MAX_PROVE_DURATION`.
-    function resolve() external returns (GameStatus) {
+    function resolve() public virtual returns (GameStatus) {
         // INVARIANT: Resolution cannot occur unless the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
