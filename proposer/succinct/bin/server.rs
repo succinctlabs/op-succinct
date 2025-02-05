@@ -22,6 +22,7 @@ use op_succinct_proposer::{
     AggProofRequest, ProofResponse, ProofStatus, SpanProofRequest, SuccinctProposerConfig,
     ValidateConfigRequest, ValidateConfigResponse,
 };
+use rand::Rng;
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
