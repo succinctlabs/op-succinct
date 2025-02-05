@@ -224,6 +224,76 @@ where
         Ok(())
     }
 
+    /// Handles the creation of a new game if conditions are met
+    async fn handle_game_creation(&self) -> Result<()> {
+        let _span = tracing::info_span!("[[Proposing]]").entered();
+
+        // Get the safe L2 head block number
+        let safe_l2_head_block_number = self
+            .l2_provider
+            .get_l2_block_by_number(BlockNumberOrTag::Safe)
+            .await?
+            .header
+            .number;
+        tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
+
+        // Get the latest valid proposal
+        let latest_valid_proposal = self
+            .factory
+            .get_latest_valid_proposal(self.l1_provider.clone(), self.l2_provider.clone())
+            .await?;
+
+        // Determine next block number and parent game index
+        //
+        // Two cases based on the result of `get_latest_valid_proposal`:
+        // 1. With existing valid proposal:
+        //    - Block number = latest valid proposal's block + proposal interval
+        //    - Parent = latest valid game's index
+        //
+        // 2. Without valid proposal (first game or all existing games being faulty):
+        //    - Block number = genesis block + proposal interval
+        //    - Parent = u32::MAX (special value indicating no parent)
+        let (next_l2_block_number_for_proposal, parent_game_index) = match latest_valid_proposal {
+            Some((latest_block, latest_game_idx)) => (
+                latest_block + U256::from(self.config.proposal_interval_in_blocks),
+                latest_game_idx.to::<u32>(),
+            ),
+            None => {
+                let genesis_l2_block_number = self
+                    .factory
+                    .get_genesis_l2_block_number(self.config.game_type, self.l1_provider.clone())
+                    .await?;
+
+                (
+                    genesis_l2_block_number
+                        .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                        .unwrap(),
+                    u32::MAX,
+                )
+            }
+        };
+
+        // There's always a new game to propose, as the chain is always moving forward from the genesis block set for the game type
+        // Only create a new game if the safe L2 head block number is greater than the next L2 block number for proposal
+        if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
+            self.create_game(next_l2_block_number_for_proposal, parent_game_index)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Handles the resolution of all eligible unchallenged games
+    async fn handle_game_resolution(&self) -> Result<()> {
+        // Only resolve games if the config is enabled
+        if !self.config.enable_game_resolution {
+            return Ok(());
+        }
+
+        let _span = tracing::info_span!("[[Resolving]]").entered();
+        self.resolve_unchallenged_games().await
+    }
+
     /// Runs the proposer indefinitely.
     async fn run(&self) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
@@ -232,75 +302,12 @@ where
         loop {
             interval.tick().await;
 
-            // Propose a new game
-            {
-                let _span = tracing::info_span!("[[Proposing]]").entered();
-
-                let safe_l2_head_block_number = self
-                    .l2_provider
-                    .get_l2_block_by_number(BlockNumberOrTag::Safe)
-                    .await?
-                    .header
-                    .number;
-                tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
-
-                // Get the latest valid proposal
-                let latest_valid_proposal = self
-                    .factory
-                    .get_latest_valid_proposal(self.l1_provider.clone(), self.l2_provider.clone())
-                    .await?;
-
-                // Determine the next L2 block number and parent game index for the new proposal
-                //
-                // Two cases based on the result of `get_latest_valid_proposal`:
-                // 1. With existing valid proposal:
-                //    - Block number = latest valid proposal's block + proposal interval
-                //    - Parent = latest valid game's index
-                //
-                // 2. Without valid proposal (first game or all existing games being faulty):
-                //    - Block number = genesis block + proposal interval
-                //    - Parent = u32::MAX (special value indicating no parent)
-                let (next_l2_block_number_for_proposal, parent_game_index) =
-                    match latest_valid_proposal {
-                        Some((latest_block, latest_game_idx)) => (
-                            latest_block + U256::from(self.config.proposal_interval_in_blocks),
-                            latest_game_idx.to::<u32>(),
-                        ),
-                        None => {
-                            let genesis_l2_block_number = self
-                                .factory
-                                .get_genesis_l2_block_number(
-                                    self.config.game_type,
-                                    self.l1_provider.clone(),
-                                )
-                                .await?;
-
-                            (
-                                genesis_l2_block_number
-                                    .checked_add(U256::from(
-                                        self.config.proposal_interval_in_blocks,
-                                    ))
-                                    .unwrap(),
-                                u32::MAX,
-                            )
-                        }
-                    };
-
-                // There's always a new game to propose, as the chain is always moving forward from the genesis block set for the game type
-                // Only create a new game if the safe L2 head block number is greater than the next L2 block number for proposal
-                if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
-                    self.create_game(next_l2_block_number_for_proposal, parent_game_index)
-                        .await?;
-                }
+            if let Err(e) = self.handle_game_creation().await {
+                tracing::warn!("Failed to handle game creation: {:?}", e);
             }
 
-            // Only attempt game resolution if enabled
-            if self.config.enable_game_resolution {
-                let _span = tracing::info_span!("[[Resolving]]").entered();
-
-                if let Err(e) = self.resolve_unchallenged_games().await {
-                    tracing::warn!("Failed to resolve unchallenged games: {:?}", e);
-                }
+            if let Err(e) = self.handle_game_resolution().await {
+                tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
         }
     }
