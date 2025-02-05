@@ -23,6 +23,7 @@
   - [Update Contract Parameters](./contracts/update-parameters.md)
   - [Modifications to Original `L2OutputOracle`](./contracts/modifications.md)
 - [Fault Proofs](./fault_proofs/fault_proof_architecture.md)
+  - [Permissioned Game](./fault_proofs/permissioned_game.md)
 - [Experimental](./experimental/intro.md)
   - [OptimismPortalV2](./experimental/optimism-portal-v2.md)
 - [FAQ](./faq.md)
