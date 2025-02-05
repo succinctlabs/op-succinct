@@ -1,11 +1,11 @@
 [workspace]
-members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct"]
+members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct", "fault_proof"]
 resolver = "2"
 
 [workspace.package]
 license = "MIT"
 edition = "2021"
-authors = ["ratankaliani", "zachobront"]
+authors = ["ratankaliani", "zachobront", "fakedev9999"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
 
@@ -43,19 +43,20 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
+# rev = "845c5c0" is the latest commit on the `taehoon/fix-kona-type-annotation` branch.
+kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0", default-features = false }
+kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-client = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
+kona-host = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
+kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "845c5c0" }
 
 
 # op-succinct

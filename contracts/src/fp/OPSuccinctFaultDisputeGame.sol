@@ -521,4 +521,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     function disputeGameFactory() external view returns (IDisputeGameFactory disputeGameFactory_) {
         disputeGameFactory_ = DISPUTE_GAME_FACTORY;
     }
+
+    /// @notice Returns the genesis L2 block number.
+    function genesisL2BlockNumber() external view returns (uint256 genesisL2BlockNumber_) {
+        genesisL2BlockNumber_ = GENESIS_L2_BLOCK_NUMBER;
+    }
 }
