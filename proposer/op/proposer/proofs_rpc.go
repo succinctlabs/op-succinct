@@ -45,16 +45,17 @@ type RequestAggProofResponse struct {
 	ProofRequestID string `json:"proof_request_id"`
 }
 
-func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, endBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
-	pa.l.Info("requesting agg proof from server", "start", startBlock, "end", endBlock)
+func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
+	pa.l.Info("requesting agg proof from server", "start", startBlock, "max end", maxBlock)
 
-	// Store an Agg proof creation entry in the DB
-	created, end, err := pa.db.TryCreateAggProofFromSpanProofs(startBlock, endBlock)
+	// Store an Agg proof creation entry in the DB using the start block and the minTo block
+	// We'll need to check here that the end block lower than
+	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(startBlock, maxBlock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: %w", err)
 	}
 	if created {
-		pa.l.Info("created new AGG proof", "from", startBlock, "to", end)
+		pa.l.Info("created new AGG proof", "from", startBlock, "to", endBlock)
 	}
 
 	_, err = pa.db.AddL1BlockInfoToAggRequest(startBlock, endBlock, l1BlockNumber, l1BlockHash.Hex())
