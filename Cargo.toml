@@ -43,6 +43,7 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
+# The rev is the latest commit on the `taehoon/patch-maili` branch.
 kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "ace1352" }
 kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "ace1352", default-features = false }
 kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "ace1352" }
@@ -95,6 +96,7 @@ op-alloy-rpc-types-engine = { version = "0.10.0", default-features = false }
 op-alloy-network = { version = "0.10.0", default-features = false }
 
 # Maili
+# The rev is the latest commit on the `taehoon/remove-build-scripts` branch.
 maili-consensus = { git = "https://github.com/succinctlabs/maili", rev = "56a0afb", default-features = false }
 maili-rpc = { git = "https://github.com/succinctlabs/maili", rev = "56a0afb", default-features = false, features = ["serde"] }
 maili-protocol = { git = "https://github.com/succinctlabs/maili", rev = "56a0afb", default-features = false }
