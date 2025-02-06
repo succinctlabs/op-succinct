@@ -20,8 +20,8 @@ async fn main() -> Result<()> {
     let (data_fetcher, cache_mode) = init_env(&args).await?;
 
     // let sizes = [5, 100, 300, 1000];
-    // let sizes = [5, 100, 300];
-    let sizes = [5];
+    let sizes = [5, 10, 20, 30];
+    // let sizes = [5];
     let oracles = fetch_oracles(&data_fetcher, None, None, &sizes, cache_mode).await?;
 
     let elfs = [
