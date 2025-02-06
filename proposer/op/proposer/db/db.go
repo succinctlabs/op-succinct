@@ -451,7 +451,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 		return false, 0, nil
 	}
 
-	// Get the limited contiguous span proof chain we have with an end block <= maxTo.
+	// Get the limited contiguous span proof chain we have with an end block <= maxTo and an l1BlockNumber.
 	maxContigousEnd, err := db.GetLimitContiguousSpanProofRange(from, maxTo)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to get max contiguous span proof range: %w", err)

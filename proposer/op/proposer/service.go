@@ -286,7 +286,7 @@ func (ps *ProposerService) initRPCServer(cfg *CLIConfig) error {
 	}
 
 	// Instantiate a new proofs API	and add it to the server
-	proofsAPI, err := NewProofsAPI(ps.driver.db, ps.Log, cfg.Mock)
+	proofsAPI, err := NewProofsAPI(ps.driver.db, ps.Log, cfg.Mock, ps.driver)
 	if err != nil {
 		return fmt.Errorf("failed to create ProofsAPI: %w", err)
 	}

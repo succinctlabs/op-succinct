@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
@@ -15,16 +16,18 @@ import (
 
 // Define a new Proofs API that will provider the Proofs API to the RPC server
 type ProofsAPI struct {
-	l    log.Logger
-	db   db.ProofDB
-	mock bool
+	logger log.Logger
+	db     db.ProofDB
+	mock   bool
+	driver *L2OutputSubmitter
 }
 
-func NewProofsAPI(db db.ProofDB, l log.Logger, mock bool) (*ProofsAPI, error) {
+func NewProofsAPI(db db.ProofDB, logger log.Logger, mock bool, driver *L2OutputSubmitter) (*ProofsAPI, error) {
 	return &ProofsAPI{
-		l:    l,
-		db:   db,
-		mock: mock,
+		logger: logger,
+		db:     db,
+		mock:   mock,
+		driver: driver,
 	}, nil
 }
 
@@ -43,10 +46,31 @@ type RequestAggProofResponse struct {
 }
 
 func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
-	pa.l.Info("requesting agg proof from server", "start", startBlock, "max end", maxBlock)
+	pa.logger.Info("requesting agg proof from server", "start", startBlock, "max end", maxBlock)
 
 	// Return the proof request ID or the mock proof request ID
 	proofRequestID := "mock_proof_request_id"
+
+	// Get the L1 head for the L2 block
+	rollupClient, err := dial.DialRollupClientWithTimeout(ctx, dial.DefaultDialTimeout, pa.logger, pa.driver.Cfg.RollupRpc)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the L1 head corresponding to the maxBlock is higher than the L1 block number,
+	// we need to decrease the maxBlock and query the L1 head again until we find an L1 head,
+	// that is lower or equal to the L1 block number.
+	maxL1Block, err := pa.driver.GetL1HeadForL2Block(ctx, rollupClient, maxBlock)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get l1 head for l2 block: %w", err)
+	}
+
+	for ; maxL1Block > l1BlockNumber; maxBlock-- {
+		maxL1Block, err = pa.driver.GetL1HeadForL2Block(ctx, rollupClient, maxBlock)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get l1 head for l2 block: %w", err)
+		}
+	}
 
 	// Store an Agg proof creation entry in the DB using the start block and the max block
 	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(startBlock, maxBlock, l1BlockNumber, l1BlockHash.Hex())
@@ -55,7 +79,7 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 	}
 
 	if created {
-		pa.l.Info("created new AGG proof", "from", startBlock, "to", endBlock)
+		pa.logger.Info("created new AGG proof", "from", startBlock, "to", endBlock)
 	} else {
 		// Return an error or mock
 		if pa.mock {
@@ -93,9 +117,9 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 
 				switch preq.Status {
 				case proofrequest.StatusPROVING:
-					pa.l.Info("agg proof request is still proving", "proof_request_id", proofRequestID)
+					pa.logger.Info("agg proof request is still proving", "proof_request_id", proofRequestID)
 				case proofrequest.StatusCOMPLETE:
-					pa.l.Info("agg proof request is complete", "proof_request_id", proofRequestID)
+					pa.logger.Info("agg proof request is complete", "proof_request_id", proofRequestID)
 				case proofrequest.StatusFAILED:
 					return nil, fmt.Errorf("agg proof request failed")
 				}
