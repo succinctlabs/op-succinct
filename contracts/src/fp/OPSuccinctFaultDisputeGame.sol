@@ -124,6 +124,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ///         is the amount of the bond that is distributed to the prover when proven with a valid proof.
     uint256 internal immutable PROOF_REWARD;
 
+    /// @notice The address of the entry point contract for the game.
+    address internal immutable ENTRY_POINT;
+
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -160,6 +163,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _genesisL2BlockNumber The L2 block number of the genesis block.
     /// @param _genesisL2OutputRoot The L2 output root of the genesis block.
     /// @param _proofReward The proof reward for the game.
+    /// @param _entryPoint The address of the entry point contract for the game.
     constructor(
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
@@ -170,7 +174,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _rangeVkeyCommitment,
         uint256 _genesisL2BlockNumber,
         bytes32 _genesisL2OutputRoot,
-        uint256 _proofReward
+        uint256 _proofReward,
+        address _entryPoint
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -184,6 +189,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         GENESIS_L2_BLOCK_NUMBER = _genesisL2BlockNumber;
         GENESIS_L2_OUTPUT_ROOT = _genesisL2OutputRoot;
         PROOF_REWARD = _proofReward;
+        ENTRY_POINT = _entryPoint;
     }
 
     /// @notice Initializes the contract.
@@ -203,6 +209,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // INVARIANT: The game must not have already been initialized.
         if (initialized) revert AlreadyInitialized();
 
+        // INVARIANT: Games can only be created through the entry point contract.
+        require(msg.sender == ENTRY_POINT, "Games can only be created through the entry point contract");
+
         // Revert if the calldata size is not the expected length.
         //
         // This is to prevent adding extra or omitting bytes from to `extraData` that result in a different game UUID
@@ -216,9 +225,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // - 0x20 l1 head
         // - 0x20 extraData (l2BlockNumber)
         // - 0x04 extraData (parentIndex)
+        // - 0x14 extraData (entryPoint)
         // - 0x02 CWIA bytes
         assembly {
-            if iszero(eq(calldatasize(), 0x7E)) {
+            if iszero(eq(calldatasize(), 0x92)) {
                 // Store the selector for `BadExtraData()` & revert
                 mstore(0x00, 0x9824bdab)
                 revert(0x1C, 0x04)
