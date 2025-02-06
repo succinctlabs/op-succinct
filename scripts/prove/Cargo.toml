@@ -16,7 +16,7 @@ name = "agg"
 path = "bin/agg.rs"
 
 [[bin]]
-name = "compare_alloc"
+name = "compare-alloc"
 path = "bin/compare_alloc.rs"
 
 [dependencies]

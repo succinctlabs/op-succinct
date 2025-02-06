@@ -19,9 +19,8 @@ async fn main() -> Result<()> {
     let args = HostExecutorArgs::parse();
     let (data_fetcher, cache_mode) = init_env(&args).await?;
 
-    // let sizes = [5, 100, 300, 1000];
     let sizes = [5, 100, 300, 1000];
-    let oracles = fetch_oracles(&data_fetcher, &sizes, cache_mode).await?;
+    let oracles = fetch_oracles(&data_fetcher, None, None, &sizes, cache_mode).await?;
 
     let elfs = [
         (RANGE_ELF_BUMP, "bump".to_string()),
@@ -53,6 +52,8 @@ async fn init_env(args: &HostExecutorArgs) -> Result<(OPSuccinctDataFetcher, Cac
 /// `start_server_and_native_client` returns.
 async fn fetch_oracles(
     data_fetcher: &OPSuccinctDataFetcher,
+    start_block: Option<u64>,
+    end_block: Option<u64>,
     sizes: &[u64],
     cache_mode: CacheMode,
 ) -> Result<HashMap<u64, InMemoryOracle>> {
@@ -60,7 +61,7 @@ async fn fetch_oracles(
     let mut handles = Vec::new();
 
     for &size in sizes {
-        let (start, end) = get_validated_block_range(data_fetcher, None, None, size).await?;
+        let (start, end) = get_validated_block_range(data_fetcher, start_block, end_block, size).await?;
         let host_cli = data_fetcher
             .get_host_cli_args(start, end, ProgramType::Multi, cache_mode)
             .await?;

@@ -11,7 +11,6 @@ optimism_package:
         name: "op-kurtosis"
         fjord_time_offset: 0
         granite_time_offset: 0
-        holocene_time_offset: 0
         fund_dev_accounts: true
       # Default batcher configuration
       batcher_params:
@@ -19,7 +18,8 @@ optimism_package:
         image: ""
 
         # A list of optional extra params that will be passed to the batcher container for modifying its behaviour
-        extra_params: ["--batch-type=1"]
+        # 450 L1 blocks is 90 minutes.
+        extra_params: ["--batch-type=1", "--max-channel-duration=450"]
   global_log_level: "info"
   global_node_selectors: {}
   global_tolerations: []
