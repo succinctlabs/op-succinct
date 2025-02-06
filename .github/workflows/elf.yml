@@ -34,6 +34,9 @@ jobs:
           ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v4.0.0-rc.10 --output-directory ../../elf
           cd ../../
 
+          # Print the shasum of the range-elf file
+          shasum -a 512 ../../elf/range-elf
+
           # Check for any changes in the elf directory
           if [ -n "$(git status --porcelain elf/)" ]; then
             echo "❌ ELF files changed during build!"
