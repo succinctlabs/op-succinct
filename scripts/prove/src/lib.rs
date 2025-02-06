@@ -12,6 +12,8 @@ pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 pub const RANGE_ELF_BUMP: &[u8] = include_bytes!("../../../elf/range-elf-bump");
 pub const RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
+pub const RANGE_ELF_EMBEDDED_TLSF: &[u8] = include_bytes!("../../../elf/range-elf-tlsf-embedded");
+pub const RANGE_ELF_EMBEDDED_LLSF: &[u8] = include_bytes!("../../../elf/range-elf-llsf-embedded");
 
 pub async fn execute_multi(
     data_fetcher: &OPSuccinctDataFetcher,

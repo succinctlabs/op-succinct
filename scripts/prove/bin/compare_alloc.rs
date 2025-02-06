@@ -6,7 +6,7 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin, start_server_and_native_client, ProgramType,
 };
-use op_succinct_prove::{RANGE_ELF_BUMP, RANGE_ELF_EMBEDDED};
+use op_succinct_prove::{RANGE_ELF_BUMP, RANGE_ELF_EMBEDDED_LLSF, RANGE_ELF_EMBEDDED_TLSF};
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::prelude::*;
 use sp1_sdk::{utils, ExecutionReport, ProverClient};
@@ -19,12 +19,15 @@ async fn main() -> Result<()> {
     let args = HostExecutorArgs::parse();
     let (data_fetcher, cache_mode) = init_env(&args).await?;
 
-    let sizes = [5, 100, 300, 1000];
+    // let sizes = [5, 100, 300, 1000];
+    // let sizes = [5, 100, 300];
+    let sizes = [5];
     let oracles = fetch_oracles(&data_fetcher, None, None, &sizes, cache_mode).await?;
 
     let elfs = [
         (RANGE_ELF_BUMP, "bump".to_string()),
-        (RANGE_ELF_EMBEDDED, "embedded".to_string()),
+        (RANGE_ELF_EMBEDDED_LLSF, "embedded-llsf".to_string()),
+        (RANGE_ELF_EMBEDDED_TLSF, "embedded-tlsf".to_string()),
     ];
 
     let reports = run_prover_tests(&oracles, &sizes, &elfs);
@@ -61,7 +64,8 @@ async fn fetch_oracles(
     let mut handles = Vec::new();
 
     for &size in sizes {
-        let (start, end) = get_validated_block_range(data_fetcher, start_block, end_block, size).await?;
+        let (start, end) =
+            get_validated_block_range(data_fetcher, start_block, end_block, size).await?;
         let host_cli = data_fetcher
             .get_host_cli_args(start, end, ProgramType::Multi, cache_mode)
             .await?;
@@ -90,16 +94,17 @@ async fn fetch_oracles(
 fn run_prover_tests(
     oracles: &HashMap<u64, InMemoryOracle>,
     sizes: &[u64],
-    elfs: &[(&[u8], String); 2],
+    elfs: &[(&[u8], String); 3],
 ) -> Vec<(u64, String, ExecutionReport)> {
-    sizes
+    let combinations: Vec<_> = elfs
+        .iter()
+        .flat_map(|(elf, name)| sizes.iter().map(move |size| (size, elf, name.clone())))
+        .collect();
+
+    combinations
         .par_iter()
-        .flat_map_iter(|size| {
-            elfs.iter()
-                .map(|(elf, name)| (size.clone(), elf, name.clone()))
-        })
         .filter_map(|(size, elf, name)| {
-            let oracle = oracles.get(&size)?.clone();
+            let oracle = oracles.get(size)?.clone();
             let prover = ProverClient::builder().mock().build();
             let start = Instant::now();
             let stdin = get_proof_stdin(oracle).ok()?;
@@ -111,7 +116,7 @@ fn run_prover_tests(
                     report.cycle_tracker,
                     report.total_instruction_count()
                 );
-                Some((size, name, report))
+                Some((**size, name.clone(), report))
             } else {
                 None
             }
@@ -133,46 +138,48 @@ fn print_comparison_results(reports: &[(u64, String, ExecutionReport)], sizes: &
     for &size in sizes {
         if let Some(reps) = grouped_reports.get(&size) {
             println!("\nResults for {} blocks:", size);
-            println!("| Metric | bump | embedded | % diff |");
-            println!("|--------|------|----------|--------|");
+            println!("| Metric | bump | llsf | tlsf | % diff (llsf/bump) | % diff (tlsf/bump) |");
+            println!("|--------|------|------|------|--------------|--------------|");
 
-            if reps.len() == 2 {
+            if reps.len() == 3 {
                 // Determine which report corresponds to which ELF.
-                let (bump_report, embedded_report) = if reps[0].0 == "bump" {
-                    (&reps[0].1, &reps[1].1)
+                let (bump_report, llsf_report, tlsf_report) = if reps[0].0 == "bump" {
+                    (&reps[0].1, &reps[1].1, &reps[2].1)
+                } else if reps[1].0 == "bump" {
+                    (&reps[1].1, &reps[0].1, &reps[2].1)
+                } else if reps[2].0 == "bump" {
+                    (&reps[2].1, &reps[0].1, &reps[1].1)
                 } else {
-                    (&reps[1].1, &reps[0].1)
+                    panic!("Invalid reports");
                 };
 
                 // Compare cycle tracker metrics.
                 for (metric, bump_val) in bump_report.cycle_tracker.iter() {
-                    if let Some(embedded_val) = embedded_report.cycle_tracker.get(metric) {
-                        let diff_pct =
-                            ((*embedded_val as f64 - *bump_val as f64) / *bump_val as f64) * 100.0;
-                        println!(
-                            "| {} | {} | {} | {:.2}% |",
-                            metric, bump_val, embedded_val, diff_pct
-                        );
+                    if let Some(llsf_val) = llsf_report.cycle_tracker.get(metric) {
+                        if let Some(tlsf_val) = tlsf_report.cycle_tracker.get(metric) {
+                            let llsf_diff_pct =
+                                ((*llsf_val as f64 - *bump_val as f64) / *bump_val as f64) * 100.0;
+                            let tlsf_diff_pct =
+                                ((*tlsf_val as f64 - *bump_val as f64) / *bump_val as f64) * 100.0;
+                            println!(
+                                "| {} | {} | {} | {} | {:.2}% | {:.2}% |",
+                                metric, bump_val, llsf_val, tlsf_val, llsf_diff_pct, tlsf_diff_pct
+                            );
+                        }
                     }
                 }
-
                 // Compare total instruction counts.
                 let bump_instr = bump_report.total_instruction_count();
-                let embedded_instr = embedded_report.total_instruction_count();
-                let instr_diff_pct =
-                    ((embedded_instr as f64 - bump_instr as f64) / bump_instr as f64) * 100.0;
+                let llsf_instr = llsf_report.total_instruction_count();
+                let tlsf_instr = tlsf_report.total_instruction_count();
+                let llsf_instr_diff_pct =
+                    ((llsf_instr as f64 - bump_instr as f64) / bump_instr as f64) * 100.0;
+                let tlsf_instr_diff_pct =
+                    ((tlsf_instr as f64 - bump_instr as f64) / bump_instr as f64) * 100.0;
                 println!(
-                    "| Total Instructions | {} | {} | {:.2}% |",
-                    bump_instr, embedded_instr, instr_diff_pct
+                    "| Total Instructions | {} | {} | {} | {:.2}% | {:.2}% |",
+                    bump_instr, llsf_instr, tlsf_instr, llsf_instr_diff_pct, tlsf_instr_diff_pct
                 );
-            } else if reps.len() == 1 && reps[0].0 == "embedded" {
-                let embedded_report = &reps[0].1;
-                for (metric, embedded_val) in embedded_report.cycle_tracker.iter() {
-                    println!("| {} | N/A | {} | 0% |", metric, embedded_val);
-                }
-
-                let embedded_instr = embedded_report.total_instruction_count();
-                println!("| Total Instructions | N/A | {} | 0% |", embedded_instr);
             }
         }
     }
