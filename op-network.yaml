@@ -19,6 +19,7 @@ optimism_package:
 
         # A list of optional extra params that will be passed to the batcher container for modifying its behaviour
         # 450 L1 blocks is 90 minutes.
+        # https://docs.optimism.io/builders/chain-operators/configuration/batcher#set-your---batch-type1-to-use-span-batches
         extra_params: ["--batch-type=1", "--max-channel-duration=450"]
   global_log_level: "info"
   global_node_selectors: {}
