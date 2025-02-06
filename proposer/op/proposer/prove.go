@@ -109,7 +109,7 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 	//
 	// If the embedded allocator is enabled, the proof will never be unexecutable. Instead, the issue is because there's a limit on the number
 	// of shards in V4. This will be fixed in V5 when the cycle limit is removed.
-	// 
+	//
 	// If the embedded allocator is not enabled, the trigger for unexecutable is the SP1 OOM.
 	//
 	// The reason why we only split with multiple failed requests is to avoid transient errors causing unnecessary splits.
@@ -127,8 +127,15 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
+		// TODO: Conditional for normal operation
 		// Retry the same request.
-		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+		err = l.db.NewEntryWithL1BlockInfo(
+			req.Type,
+			req.StartBlock,
+			req.EndBlock,
+			req.L1BlockNumber,
+			req.L1BlockHash,
+		)
 		if err != nil {
 			l.Log.Error("failed to retry proof request", "err", err)
 			return err
@@ -369,7 +376,7 @@ func (l *L2OutputSubmitter) makeProofRequest(proofType proofrequest.Type, jsonBo
 				"status", resp.StatusCode,
 				"error", errResp.Error)
 		} else {
-			l.Log.Error("Witness generation request failed", 
+			l.Log.Error("Witness generation request failed",
 				"status", resp.StatusCode,
 				"body", string(body))
 		}
@@ -423,7 +430,7 @@ func (l *L2OutputSubmitter) GetProofStatus(proofId string) (ProofStatusResponse,
 				"status", resp.StatusCode,
 				"error", errResp.Error)
 		} else {
-			l.Log.Error("Failed to get unmarshal proof status error message", 
+			l.Log.Error("Failed to get unmarshal proof status error message",
 				"status", resp.StatusCode,
 				"body", body)
 		}

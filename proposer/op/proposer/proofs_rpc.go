@@ -48,16 +48,16 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 	// Return the proof request ID or the mock proof request ID
 	proofRequestID := "mock_proof_request_id"
 
-	// Store an Agg proof creation entry in the DB using the start block and the minTo block
-	// We'll need to check here that the end block lower than
-	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(startBlock, maxBlock)
+	// Store an Agg proof creation entry in the DB using the start block and the max block
+	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(startBlock, maxBlock, l1BlockNumber, l1BlockHash.Hex())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: %w", err)
 	}
+
 	if created {
 		pa.l.Info("created new AGG proof", "from", startBlock, "to", endBlock)
 	} else {
-		// Return the an error or mock
+		// Return an error or mock
 		if pa.mock {
 			return &RequestAggProofResponse{
 				StartBlock:     startBlock,
@@ -66,14 +66,8 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 			}, nil
 		}
 
-		// TODO: Should we retutn here the proof request ID or the proof?
+		// TODO: Should we return here the proof request ID or the proof?
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: already exists")
-	}
-
-	// TODO: Possible gotcha here, in case it's requested before this call
-	_, err = pa.db.AddL1BlockInfoToAggRequest(startBlock, endBlock, l1BlockNumber, l1BlockHash.Hex())
-	if err != nil {
-		pa.l.Error("failed to add L1 block info to AGG request", "err", err)
 	}
 
 	// Poll with a ticker for the aggproof request ID creation or the proof itself if it's a mock proof

@@ -106,6 +106,34 @@ func (db *ProofDB) NewEntry(proofType proofrequest.Type, start, end uint64) erro
 	return nil
 }
 
+// NewEntry creates a new proof request entry in the database.
+func (db *ProofDB) NewEntryWithL1BlockInfo(
+	proofType proofrequest.Type,
+	start,
+	end uint64,
+	l1BlockNumber uint64,
+	l1BlockHash string,
+) error {
+	now := uint64(time.Now().Unix())
+	_, err := db.writeClient.ProofRequest.
+		Create().
+		SetType(proofType).
+		SetStartBlock(start).
+		SetEndBlock(end).
+		SetL1BlockNumber(l1BlockNumber).
+		SetL1BlockHash(l1BlockHash).
+		SetStatus(proofrequest.StatusUNREQ).
+		SetRequestAddedTime(now).
+		SetLastUpdatedTime(now).
+		Save(context.Background())
+
+	if err != nil {
+		return fmt.Errorf("failed to create new entry: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateProofStatus updates the status of a proof request in the database.
 func (db *ProofDB) UpdateProofStatus(id int, proofStatus proofrequest.Status) error {
 	_, err := db.writeClient.ProofRequest.Update().
@@ -406,7 +434,7 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 
 // TryCreateAggProofFromSpanProofsLimit tries to create an AGG proof from the span proofs that cover the range [from, maxTo).
 // Returns true if a new AGG proof was created, false otherwise.
-func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo uint64) (bool, uint64, error) {
+func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumber uint64, l1BlockHash string) (bool, uint64, error) {
 	// If there's already an AGG proof in progress/completed with the same start block, return.
 	count, err := db.readClient.ProofRequest.Query().
 		Where(
@@ -435,7 +463,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo uint64) (boo
 	}
 
 	// Create a new AGG proof request
-	err = db.NewEntry("AGG", from, maxContigousEnd)
+	err = db.NewEntryWithL1BlockInfo("AGG", from, maxContigousEnd, l1BlockNumber, l1BlockHash)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to insert AGG proof request: %w", err)
 	}
