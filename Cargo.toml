@@ -85,7 +85,9 @@ alloy-rpc-types-engine = { version = "0.11.0", default-features = false }
 alloy-rpc-types-beacon = { version = "0.11.0", default-features = false }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
-alloy-primitives = { version = "0.8.19", default-features = false, features = ["sha3-keccak"] }
+alloy-primitives = { version = "0.8.19", default-features = false, features = [
+    "sha3-keccak",
+] }
 alloy-sol-types = { version = "0.8.19", default-features = false }
 
 # OP Alloy
@@ -96,9 +98,10 @@ op-alloy-network = { version = "0.10.0", default-features = false }
 
 # Maili
 maili-consensus = { version = "0.1.6", default-features = false }
-maili-rpc = { version = "0.2.0", default-features = false, features = ["serde"] }
+maili-rpc = { version = "0.2.0", default-features = false, features = [
+    "serde",
+] }
 maili-protocol = { version = "0.2.0", default-features = false }
-maili-registry = { version = "0.2.0", default-features = false }
 maili-genesis = { version = "0.2.0", default-features = false }
 
 # Revm
