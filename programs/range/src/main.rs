@@ -13,9 +13,6 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use alloy_primitives::B256;
-use kona_preimage::{CommsClient, PreimageKeyType};
-use kona_proof::{errors::OracleProviderError, BootInfo, HintType};
 use op_succinct_client_utils::{
     boot::BootInfoStruct, client::run_opsuccinct_client, precompiles::zkvm_handle_register,
 };
