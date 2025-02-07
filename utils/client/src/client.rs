@@ -198,10 +198,15 @@ where
         .send(caching_oracle)
         .await?;
     caching_oracle
-        .get_exact(PreimageKey::new_keccak256(*agreed_l2_output_root), output_preimage.as_mut())
+        .get_exact(
+            PreimageKey::new_keccak256(*agreed_l2_output_root),
+            output_preimage.as_mut(),
+        )
         .await?;
 
-    output_preimage[96..128].try_into().map_err(OracleProviderError::SliceConversion)
+    output_preimage[96..128]
+        .try_into()
+        .map_err(OracleProviderError::SliceConversion)
 }
 
 // Sourced from kona/crates/driver/src/core.rs with modifications to use the L2 provider's caching system.
