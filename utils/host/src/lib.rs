@@ -93,13 +93,14 @@ pub fn get_agg_proof_stdin(
 }
 
 /// Start the server and native client. Each server is tied to a single client.
+/// TODO: Create your own host.
 pub async fn start_server_and_native_client(
     cfg: SingleChainHost,
 ) -> Result<InMemoryOracle, anyhow::Error> {
     let hint_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
     let preimage_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
 
-    cfg.start().await?;
+    let handle = tokio::task::spawn(cfg.start());
 
     let oracle = Arc::new(StoreOracle::new(
         OracleReader::new(preimage_chan.client),
@@ -108,6 +109,8 @@ pub async fn start_server_and_native_client(
 
     info!("Starting preimage server and client program.");
     let in_memory_oracle = run_witnessgen_client(oracle.clone()).await?;
+
+    handle.await??;
 
     Ok(in_memory_oracle)
 }

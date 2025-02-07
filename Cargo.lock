@@ -3101,7 +3101,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3137,7 +3137,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.2.3"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3157,7 +3157,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.2.3"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3178,7 +3178,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.2.3"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3197,7 +3197,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3241,7 +3241,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.1.1"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3257,7 +3257,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3269,7 +3269,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.2.1"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -3283,7 +3283,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.2.3"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3313,7 +3313,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.1.1"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3340,7 +3340,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.1.0"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3364,7 +3364,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -3377,7 +3377,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=2e37ea5#2e37ea56aa41cc7e68f9e84d3f8e066b97f6b784"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Ffix-const-mut-1.81#c198fb896972a9b9b8f013609344ec108f4c46f7"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",

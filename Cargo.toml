@@ -43,33 +43,34 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
-# kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-# kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
-# kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-# kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
-#     "rkyv",
-#     "serde",
-# ] }
-# kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-# kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-
-# kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-# kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-# kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-
-kona-mpt = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-kona-derive = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-kona-preimage = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", features = [
+kona-mpt = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81", default-features = false }
+kona-driver = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-kona-proof = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-executor = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
 
-kona-client = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-kona-host = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-client = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+kona-host = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+
+# TODO: Switch back to main Kona once https://github.com/op-rs/kona/pull/1016 + https://github.com/op-rs/kona/pull/1018 is merged.
+# kona-mpt = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+# kona-derive = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", default-features = false }
+# kona-driver = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+# kona-preimage = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", features = [
+#     "rkyv",
+#     "serde",
+# ] }
+# kona-executor = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+# kona-proof = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+
+# kona-client = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+# kona-host = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+# kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
 
 
 # op-succinct
