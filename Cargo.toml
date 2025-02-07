@@ -43,19 +43,33 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
+# kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
+# kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
+#     "rkyv",
+#     "serde",
+# ] }
+# kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+
+# kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+# kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-client = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
 
 
 # op-succinct
@@ -105,14 +119,11 @@ maili-genesis = { version = "0.2.0", default-features = false }
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
 
 
-# sp1
-sp1-lib = { version = "4.0.0", features = ["verify"] }
-# sp1-sdk = { version = "4.0.0" }
-# TODO: Switch back to version tag once the alloy bump is merged
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
-sp1-zkvm = { version = "4.0.0", features = ["verify", "embedded"] }
-# TODO: Switch back to version tag once the Docker workspace directory change is merged.
-sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
+# sp1: Switch to 4.1.0 once it's merged.
+sp1-lib = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee", features = ["verify"] }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee", features = ["verify", "embedded"] }
+sp1-build = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee" }
 
 [profile.release-client-lto]
 inherits = "release"

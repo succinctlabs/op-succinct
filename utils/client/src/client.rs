@@ -17,7 +17,7 @@ use kona_driver::TipCursor;
 use kona_executor::{KonaHandleRegister, TrieDBProvider};
 use kona_preimage::HintWriterClient;
 use kona_preimage::PreimageOracleClient;
-use kona_preimage::{CommsClient, PreimageKeyType};
+use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::errors::OracleProviderError;
 use kona_proof::executor::KonaExecutor;
 use kona_proof::l1::{OracleL1ChainProvider, OraclePipeline};
@@ -78,7 +78,7 @@ where
 
     let boot_arc = Arc::new(boot.clone());
     let rollup_config = Arc::new(boot.rollup_config);
-    let safe_head_hash = fetch_safe_head_hash(oracle.as_ref(), boot_arc.as_ref()).await?;
+    let safe_head_hash = fetch_safe_head_hash(oracle.as_ref(), boot.agreed_l2_output_root).await?;
 
     let mut l1_provider = OracleL1ChainProvider::new(boot.l1_head, oracle.clone());
     let mut l2_provider =
@@ -185,26 +185,23 @@ where
 
 /// Fetches the safe head hash of the L2 chain based on the agreed upon L2 output root in the
 /// [BootInfo].
-async fn fetch_safe_head_hash<O>(
+pub async fn fetch_safe_head_hash<O>(
     caching_oracle: &O,
-    boot_info: &BootInfo,
+    agreed_l2_output_root: B256,
 ) -> Result<B256, OracleProviderError>
 where
     O: CommsClient,
 {
     let mut output_preimage = [0u8; 128];
     HintType::StartingL2Output
-        .get_exact_preimage(
-            caching_oracle,
-            boot_info.agreed_l2_output_root,
-            PreimageKeyType::Keccak256,
-            &mut output_preimage,
-        )
+        .with_data(&[agreed_l2_output_root.as_ref()])
+        .send(caching_oracle)
+        .await?;
+    caching_oracle
+        .get_exact(PreimageKey::new_keccak256(*agreed_l2_output_root), output_preimage.as_mut())
         .await?;
 
-    output_preimage[96..128]
-        .try_into()
-        .map_err(OracleProviderError::SliceConversion)
+    output_preimage[96..128].try_into().map_err(OracleProviderError::SliceConversion)
 }
 
 // Sourced from kona/crates/driver/src/core.rs with modifications to use the L2 provider's caching system.

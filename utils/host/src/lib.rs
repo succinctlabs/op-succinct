@@ -8,14 +8,10 @@ use alloy_primitives::B256;
 use alloy_sol_types::sol;
 use anyhow::anyhow;
 use anyhow::Result;
-use kona_host::single::SingleChainHostCli;
-use kona_host::HostOrchestrator;
-use kona_host::PreimageServer;
+use kona_host::single::SingleChainHost;
 use kona_preimage::BidirectionalChannel;
-use kona_preimage::HintReader;
 use kona_preimage::HintWriter;
 use kona_preimage::OracleReader;
-use kona_preimage::OracleServer;
 use log::info;
 use op_succinct_client_utils::client::run_witnessgen_client;
 use op_succinct_client_utils::InMemoryOracle;
@@ -24,7 +20,6 @@ use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::sync::Arc;
-use tokio::task;
 
 sol! {
     #[allow(missing_docs)]
@@ -99,24 +94,12 @@ pub fn get_agg_proof_stdin(
 
 /// Start the server and native client. Each server is tied to a single client.
 pub async fn start_server_and_native_client(
-    cfg: &SingleChainHostCli,
+    cfg: SingleChainHost,
 ) -> Result<InMemoryOracle, anyhow::Error> {
     let hint_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
     let preimage_chan = BidirectionalChannel::new().map_err(|e| anyhow!(e))?;
 
-    let kv_store = cfg.create_key_value_store()?;
-    let providers = cfg.create_providers().await?;
-    let fetcher = cfg.create_fetcher(providers, kv_store.clone());
-
-    let server_task = task::spawn(
-        PreimageServer::new(
-            OracleServer::new(preimage_chan.host),
-            HintReader::new(hint_chan.host),
-            kv_store.clone(),
-            fetcher,
-        )
-        .start(),
-    );
+    cfg.start().await?;
 
     let oracle = Arc::new(StoreOracle::new(
         OracleReader::new(preimage_chan.client),
@@ -126,6 +109,5 @@ pub async fn start_server_and_native_client(
     info!("Starting preimage server and client program.");
     let in_memory_oracle = run_witnessgen_client(oracle.clone()).await?;
 
-    server_task.abort();
     Ok(in_memory_oracle)
 }
