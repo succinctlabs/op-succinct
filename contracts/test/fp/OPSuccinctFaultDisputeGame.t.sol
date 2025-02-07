@@ -76,11 +76,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
-        uint256 genesisL2BlockNumber = 0;
-        bytes32 genesisL2OutputRoot = keccak256("genesis");
         uint256 proofReward = 1 ether;
         // FIXME(fakedev9999): Fix this when we have an entry point integrated into the test
         address entryPoint = address(0x123);
+        address anchorStateRegistry = address(0x456);
 
         // Deploy the reference implementation of OPSuccinctFaultDisputeGame
         gameImpl = new OPSuccinctFaultDisputeGame(
@@ -91,10 +90,9 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
-            genesisL2BlockNumber,
-            genesisL2OutputRoot,
             proofReward,
-            entryPoint
+            entryPoint,
+            anchorStateRegistry
         );
 
         // Set the init bond on the factory for our specific GameType
