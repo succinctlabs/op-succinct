@@ -43,19 +43,20 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b", features = [
+# rev is currently the latest commit on the `taehoon/patch-maili-remove-pre-release-hook` branch.
+kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba", default-features = false }
+kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b91da21b" }
+kona-client = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
+kona-host = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
+kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "65f19ba" }
 
 
 # op-succinct
@@ -95,11 +96,12 @@ op-alloy-rpc-types-engine = { version = "0.10.0", default-features = false }
 op-alloy-network = { version = "0.10.0", default-features = false }
 
 # Maili
-maili-consensus = { version = "0.1.6", default-features = false }
-maili-rpc = { version = "0.2.0", default-features = false, features = ["serde"] }
-maili-protocol = { version = "0.2.0", default-features = false }
-maili-registry = { version = "0.2.0", default-features = false }
-maili-genesis = { version = "0.2.0", default-features = false }
+# rev is currently the latest commit on the `taehoon/remove-pre-release-hook` branch.
+maili-consensus = { git = "https://github.com/succinctlabs/maili", rev = "140e3c7", default-features = false }
+maili-rpc = { git = "https://github.com/succinctlabs/maili", rev = "140e3c7", default-features = false, features = ["serde"] }
+maili-protocol = { git = "https://github.com/succinctlabs/maili", rev = "140e3c7", default-features = false }
+maili-registry = { git = "https://github.com/succinctlabs/maili", rev = "140e3c7", default-features = false }
+maili-genesis = { git = "https://github.com/succinctlabs/maili", rev = "140e3c7", default-features = false }
 
 # Revm
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
