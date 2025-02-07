@@ -55,30 +55,3 @@ fn main() {
         sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
     });
 }
-
-/// Fetches the safe head hash of the L2 chain based on the agreed upon L2 output root in the
-/// [BootInfo].
-///
-/// Sourced from Kona until it's exposed nicely from a crate that doesn't depend on kona-std-fpvm, which can compile in zkVM mode.
-/// https://github.com/op-rs/kona/blob/a59f643d0627320efff49f40f4803741ae9194f1/bin/client/src/single.rs#L153-L155.
-pub async fn fetch_safe_head_hash<O>(
-    caching_oracle: &O,
-    boot_info: &BootInfo,
-) -> Result<B256, OracleProviderError>
-where
-    O: CommsClient,
-{
-    let mut output_preimage = [0u8; 128];
-    HintType::StartingL2Output
-        .get_exact_preimage(
-            caching_oracle,
-            boot_info.agreed_l2_output_root,
-            PreimageKeyType::Keccak256,
-            &mut output_preimage,
-        )
-        .await?;
-
-    output_preimage[96..128]
-        .try_into()
-        .map_err(OracleProviderError::SliceConversion)
-}
