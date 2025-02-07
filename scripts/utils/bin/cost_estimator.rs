@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
-use kona_host::single::SingleChainHostCli;
+use kona_host::single::SingleChainHost;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
@@ -31,7 +31,7 @@ const TWELVE_HOURS: Duration = Duration::from_secs(60 * 60 * 12);
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
 async fn execute_blocks_and_write_stats_csv(
-    host_clis: &[SingleChainHostCli],
+    host_clis: &[SingleChainHost],
     ranges: Vec<SpanBatchRange>,
     l2_chain_id: u64,
     start: u64,
@@ -77,7 +77,7 @@ async fn execute_blocks_and_write_stats_csv(
     // because the server and client are long-lived tasks.
     let handles = host_clis.iter().cloned().map(|host_cli| {
         tokio::spawn(async move {
-            let oracle = start_server_and_native_client(&host_cli).await.unwrap();
+            let oracle = start_server_and_native_client(host_cli).await.unwrap();
             get_proof_stdin(oracle).unwrap()
         })
     });
