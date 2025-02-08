@@ -26,7 +26,7 @@ use std::{
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
-const TWELVE_HOURS: Duration = Duration::from_secs(60 * 60 * 12);
+const ONE_WEEK: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
@@ -195,7 +195,7 @@ async fn main() -> Result<()> {
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
     let (l2_start_block, l2_end_block) = if args.rolling {
-        get_rolling_block_range(&data_fetcher, TWELVE_HOURS, args.default_range).await?
+        get_rolling_block_range(&data_fetcher, ONE_WEEK, args.default_range).await?
     } else {
         get_validated_block_range(&data_fetcher, args.start, args.end, args.default_range).await?
     };

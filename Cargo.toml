@@ -103,7 +103,7 @@ maili-genesis = { version = "0.2.0", default-features = false }
 # Revm
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
 
-# sp1: Switch to 4.1.0 once it's merged.
+# SP1
 sp1-lib = { version = "4.1.0", features = ["verify"] }
 sp1-sdk = { version = "4.1.0" }
 sp1-zkvm = { version = "4.1.0", features = ["verify", "embedded"] }
