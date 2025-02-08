@@ -146,6 +146,17 @@ where
         l2_provider: L2Provider,
     ) -> Result<Option<(U256, U256)>>;
 
+    /// Get the oldest challengable game address
+    ///
+    /// This function checks a window of recent games, starting from
+    /// (latest_game_index - max_games_to_check_for_challenge) up to latest_game_index
+    async fn get_oldest_challengable_game_address(
+        &self,
+        max_games_to_check_for_challenge: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Option<Address>>;
+
     /// Get the genesis L2 block number
     ///
     /// This function returns the L2 block number of the genesis block for a given game type.
@@ -154,11 +165,24 @@ where
         game_type: u32,
         l1_provider: L1Provider,
     ) -> Result<U256>;
+
+    /// Determines if we should attempt resolution or not. The `oldest_game_index` is configured
+    /// to be `latest_game_index` - `max_games_to_check_for_resolution`.
+    ///
+    /// If the oldest game has no parent (i.e., it's a first game), we always attempt resolution.
+    /// For other games, we only attempt resolution if the parent game is not in progress.
+    ///
+    /// NOTE(fakedev9999): Needs to be updated considering more complex cases where there are
+    ///                    multiple branches of games.
     async fn should_attempt_resolution(
         &self,
         oldest_game_index: U256,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
     ) -> Result<(bool, Address)>;
+
+    /// Attempts to resolve a challenged game.
+    ///
+    /// This function checks if the game is in progress and challenged, and if so, attempts to resolve it.
     async fn try_resolve_games(
         &self,
         index: U256,
@@ -166,6 +190,8 @@ where
         l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
         l2_provider: L2Provider,
     ) -> Result<()>;
+
+    /// Attempts to resolve all challenged games that the challenger won, up to `max_games_to_check_for_resolution`.
     async fn resolve_games(
         &self,
         mode: Mode,
@@ -284,6 +310,104 @@ where
         );
 
         Ok(Some((block_number, game_index)))
+    }
+
+    /// Get the oldest challengable game address
+    ///
+    /// This function checks a window of recent games, starting from
+    /// (latest_game_index - max_games_to_check_for_challenge) up to latest_game_index
+    async fn get_oldest_challengable_game_address(
+        &self,
+        max_games_to_check_for_challenge: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Option<Address>> {
+        // Get latest game index, return None if no games exist
+        let Some(latest_game_index) = self.fetch_latest_game_index().await? else {
+            tracing::info!("No games exist yet");
+            return Ok(None);
+        };
+
+        // Start from the latest game index - max_games_to_check_for_challenge
+        let mut game_index =
+            latest_game_index.saturating_sub(U256::from(max_games_to_check_for_challenge));
+        let mut game_address;
+        let mut block_number;
+
+        loop {
+            // If we've reached last index and still haven't found a valid proposal
+            if game_index > latest_game_index {
+                tracing::info!("No invalid proposals found after checking all games");
+                return Ok(None);
+            }
+
+            game_address = self.fetch_game_address_by_index(game_index).await?;
+            let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
+
+            let claim_data = game.claimData().call().await?.claimData_;
+            if claim_data.status != ProposalStatus::Unchallenged {
+                tracing::info!(
+                    "Game {:?} at index {:?} is not unchallenged, not attempting to challenge",
+                    game_address,
+                    game_index
+                );
+
+                game_index += U256::from(1);
+                continue;
+            }
+
+            // Check if the the game is still in the challenge window
+            let current_timestamp = l2_provider
+                .get_l2_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .header
+                .timestamp;
+            let deadline = U256::from(claim_data.deadline).to::<u64>();
+            if deadline < current_timestamp {
+                tracing::info!(
+                    "Game {:?} at index {:?} deadline {:?} has passed, not attempting to challenge",
+                    game_address,
+                    game_index,
+                    deadline
+                );
+                game_index += U256::from(1);
+                continue;
+            }
+
+            block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
+            tracing::info!(
+                "Checking if game {:?} at index {:?} for block {:?} is invalid",
+                game_address,
+                game_index,
+                block_number
+            );
+            let game_claim = game.rootClaim().call().await?.rootClaim_;
+
+            let output_root = l2_provider
+                .compute_output_root_at_block(block_number)
+                .await?;
+
+            if output_root != game_claim {
+                tracing::info!(
+                    "Output root {:?} at block {:?} is not same as game claim {:?}",
+                    output_root,
+                    block_number,
+                    game_claim
+                );
+                break;
+            }
+
+            game_index += U256::from(1);
+        }
+
+        tracing::info!(
+            "Oldest challengable game {:?} at game index {:?} with l2 block number: {:?}",
+            game_address,
+            game_index,
+            block_number
+        );
+
+        Ok(Some(game_address))
     }
 
     /// Get the genesis L2 block number

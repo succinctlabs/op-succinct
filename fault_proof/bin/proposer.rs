@@ -9,7 +9,7 @@ use alloy::{
     sol_types::SolValue,
     transports::{http::reqwest::Url, Transport},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use op_alloy_network::EthereumWallet;
 use tokio::time;
@@ -82,9 +82,11 @@ where
             )
             .value(self.init_bond)
             .send()
-            .await?
+            .await
+            .context("Failed to send create transaction")?
             .get_receipt()
-            .await?;
+            .await
+            .context("Failed to get transaction receipt for create")?;
 
         let game_address = receipt.inner.logs()[0].address();
 
