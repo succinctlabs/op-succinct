@@ -70,6 +70,7 @@ where
         let game =
             OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider_with_wallet.clone());
 
+        // TODO(fakedev9999): Potentially need to add a gas provider.
         let receipt = game
             .challenge()
             .value(self.proof_reward)
