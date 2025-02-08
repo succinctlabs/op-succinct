@@ -6,36 +6,15 @@ pub mod stats;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
-use anyhow::anyhow;
 use anyhow::Result;
-use kona_host::eth::http_provider;
-use kona_host::single::SingleChainHintHandler;
 use kona_host::single::SingleChainHost;
-use kona_host::single::SingleChainLocalInputs;
-use kona_host::single::SingleChainProviders;
-use kona_host::DiskKeyValueStore;
-use kona_host::MemoryKeyValueStore;
-use kona_host::OnlineHostBackend;
-use kona_host::PreimageServer;
-use kona_host::SharedKeyValueStore;
-use kona_host::SplitKeyValueStore;
 use kona_preimage::BidirectionalChannel;
-use kona_preimage::Channel;
-use kona_preimage::HintReader;
-use kona_preimage::OracleServer;
-use kona_providers_alloy::OnlineBeaconClient;
-use kona_providers_alloy::OnlineBlobProvider;
 use log::info;
-use op_alloy_network::Optimism;
 use op_succinct_client_utils::client::run_witnessgen_client;
 use op_succinct_client_utils::InMemoryOracle;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tokio::task;
-use tokio::task::JoinHandle;
 
 sol! {
     #[allow(missing_docs)]
