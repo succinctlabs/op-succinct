@@ -84,7 +84,9 @@ alloy-rpc-types-engine = { version = "0.11.0", default-features = false }
 alloy-rpc-types-beacon = { version = "0.11.0", default-features = false }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
-alloy-primitives = { version = "0.8.19", default-features = false, features = ["sha3-keccak"] }
+alloy-primitives = { version = "0.8.19", default-features = false, features = [
+    "sha3-keccak",
+] }
 alloy-sol-types = { version = "0.8.19", default-features = false }
 
 # OP Alloy
@@ -95,7 +97,9 @@ op-alloy-network = { version = "0.10.0", default-features = false }
 
 # Maili
 maili-consensus = { version = "0.1.6", default-features = false }
-maili-rpc = { version = "0.2.0", default-features = false, features = ["serde"] }
+maili-rpc = { version = "0.2.0", default-features = false, features = [
+    "serde",
+] }
 maili-protocol = { version = "0.2.0", default-features = false }
 maili-registry = { version = "0.2.0", default-features = false }
 maili-genesis = { version = "0.2.0", default-features = false }
@@ -120,6 +124,5 @@ tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
-
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-4.1.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-4.1.0" }
