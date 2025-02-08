@@ -42,36 +42,20 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
-# Switch back to main `kona` once the SingleChainHostCli is merged. https://github.com/op-rs/kona/issues/982
-kona-mpt = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81", features = [
+# Switch back to main `kona` once https://github.com/op-rs/kona/pull/1018 is merged.
+kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b4719971", default-features = false }
+kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b4719971", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
+kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
-kona-host = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", branch = "ratan/fix-const-mut-1.81" }
-
-# TODO: Switch back to main Kona once https://github.com/op-rs/kona/pull/1016 + https://github.com/op-rs/kona/pull/1018 is merged.
-# kona-mpt = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-# kona-derive = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", default-features = false }
-# kona-driver = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-# kona-preimage = { git = "https://github.com/op-rs/kona", rev = "2e37ea5", features = [
-#     "rkyv",
-#     "serde",
-# ] }
-# kona-executor = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-# kona-proof = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-
-# kona-client = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-# kona-host = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-# kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "2e37ea5" }
-
+kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -119,12 +103,11 @@ maili-genesis = { version = "0.2.0", default-features = false }
 # Revm
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
 
-
 # sp1: Switch to 4.1.0 once it's merged.
-sp1-lib = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee", features = ["verify"] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee", features = ["verify", "embedded"] }
-sp1-build = { git = "https://github.com/succinctlabs/sp1", rev = "337b6ee" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a", features = ["verify"] }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a", features = ["verify", "embedded"] }
+sp1-build = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a" }
 
 [profile.release-client-lto]
 inherits = "release"
@@ -135,6 +118,9 @@ lto = "fat"
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
-ecdsa = { git = "https://github.com/sp1-patches/signatures", tag = "patch-0.16.9-sp1-4.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
+
+p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-4.1.0" }
+k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-4.1.0" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a"}

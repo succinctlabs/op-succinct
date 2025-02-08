@@ -15,8 +15,9 @@ use kona_driver::DriverResult;
 use kona_driver::Executor;
 use kona_driver::TipCursor;
 use kona_executor::{KonaHandleRegister, TrieDBProvider};
-use kona_preimage::HintWriterClient;
-use kona_preimage::PreimageOracleClient;
+use kona_preimage::HintWriter;
+use kona_preimage::NativeChannel;
+use kona_preimage::OracleReader;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::errors::OracleProviderError;
 use kona_proof::executor::KonaExecutor;
@@ -42,16 +43,16 @@ use crate::precompiles::zkvm_handle_register;
 use crate::InMemoryOracle;
 use crate::StoreOracle;
 
-pub async fn run_witnessgen_client<OR, HW>(
-    oracle: Arc<StoreOracle<OR, HW>>,
-) -> Result<InMemoryOracle>
-where
-    OR: PreimageOracleClient + Send + Sync + Debug + Clone,
-    HW: HintWriterClient + Send + Sync + Debug + Clone,
-{
+pub async fn run_witnessgen_client(
+    preimage_chan: NativeChannel,
+    hint_chan: NativeChannel,
+) -> Result<InMemoryOracle> {
+    let oracle = Arc::new(StoreOracle::new(
+        OracleReader::new(preimage_chan),
+        HintWriter::new(hint_chan),
+    ));
     let _ = run_opsuccinct_client(oracle.clone(), Some(zkvm_handle_register)).await?;
     let in_memory_oracle = InMemoryOracle::populate_from_store(oracle.as_ref())?;
-    drop(oracle);
     Ok(in_memory_oracle)
 }
 
