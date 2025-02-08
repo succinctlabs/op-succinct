@@ -21,10 +21,21 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use op_alloy_network::{primitives::BlockTransactionsKind, Optimism};
 use op_alloy_rpc_types::Transaction;
+use tokio::time::Duration;
 
 use crate::contract::{
-    DisputeGameFactory::DisputeGameFactoryInstance, L2Output, OPSuccinctFaultDisputeGame,
+    DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L2Output,
+    OPSuccinctFaultDisputeGame, ProposalStatus,
 };
+
+pub const NUM_CONFIRMATIONS: u64 = 3;
+pub const TIMEOUT_SECONDS: u64 = 60;
+
+#[derive(Debug, Clone, Copy)]
+pub enum Mode {
+    Proposer,
+    Challenger,
+}
 
 pub type L1Provider = RootProvider<Http<Client>, Ethereum>;
 pub type L2Provider = RootProvider<Http<Client>, Optimism>;
@@ -112,9 +123,17 @@ impl L2ProviderTrait for L2Provider {
 }
 
 #[async_trait]
-pub trait FactoryTrait<F, P, T> {
+pub trait FactoryTrait<F, P, T>
+where
+    F: TxFiller<Ethereum>,
+    P: Provider<T, Ethereum> + Clone,
+    T: Transport + Clone,
+{
     /// Fetches the bond required to create a game
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256>;
+
+    /// Fetches the proof reward required to challenge a game
+    async fn fetch_proof_reward(&self, game_type: u32, l1_provider: L1Provider) -> Result<U256>;
 
     /// Fetches the latest game index
     async fn fetch_latest_game_index(&self) -> Result<Option<U256>>;
@@ -131,6 +150,17 @@ pub trait FactoryTrait<F, P, T> {
         l2_provider: L2Provider,
     ) -> Result<Option<(U256, U256)>>;
 
+    /// Get the oldest challengable game address
+    ///
+    /// This function checks a window of recent games, starting from
+    /// (latest_game_index - max_games_to_check_for_challenge) up to latest_game_index
+    async fn get_oldest_challengable_game_address(
+        &self,
+        max_games_to_check_for_challenge: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Option<Address>>;
+
     /// Get the genesis L2 block number
     ///
     /// This function returns the L2 block number of the genesis block for a given game type.
@@ -139,6 +169,40 @@ pub trait FactoryTrait<F, P, T> {
         game_type: u32,
         l1_provider: L1Provider,
     ) -> Result<U256>;
+
+    /// Determines if we should attempt resolution or not. The `oldest_game_index` is configured
+    /// to be `latest_game_index` - `max_games_to_check_for_resolution`.
+    ///
+    /// If the oldest game has no parent (i.e., it's a first game), we always attempt resolution.
+    /// For other games, we only attempt resolution if the parent game is not in progress.
+    ///
+    /// NOTE(fakedev9999): Needs to be updated considering more complex cases where there are
+    ///                    multiple branches of games.
+    async fn should_attempt_resolution(
+        &self,
+        oldest_game_index: U256,
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+    ) -> Result<(bool, Address)>;
+
+    /// Attempts to resolve a challenged game.
+    ///
+    /// This function checks if the game is in progress and challenged, and if so, attempts to resolve it.
+    async fn try_resolve_games(
+        &self,
+        index: U256,
+        mode: Mode,
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+        l2_provider: L2Provider,
+    ) -> Result<()>;
+
+    /// Attempts to resolve all challenged games that the challenger won, up to `max_games_to_check_for_resolution`.
+    async fn resolve_games(
+        &self,
+        mode: Mode,
+        max_games_to_check_for_resolution: u64,
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+        l2_provider: L2Provider,
+    ) -> Result<()>;
 }
 
 #[async_trait]
@@ -152,6 +216,13 @@ where
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256> {
         let init_bond = self.initBonds(game_type).call().await?;
         Ok(init_bond._0)
+    }
+
+    async fn fetch_proof_reward(&self, game_type: u32, l1_provider: L1Provider) -> Result<U256> {
+        let game_impl_address = self.gameImpls(game_type).call().await?._0;
+        let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider);
+        let proof_reward = game_impl.proofReward().call().await?;
+        Ok(proof_reward.proofReward_)
     }
 
     /// Fetches the latest game index
@@ -245,6 +316,104 @@ where
         Ok(Some((block_number, game_index)))
     }
 
+    /// Get the oldest challengable game address
+    ///
+    /// This function checks a window of recent games, starting from
+    /// (latest_game_index - max_games_to_check_for_challenge) up to latest_game_index
+    async fn get_oldest_challengable_game_address(
+        &self,
+        max_games_to_check_for_challenge: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Option<Address>> {
+        // Get latest game index, return None if no games exist
+        let Some(latest_game_index) = self.fetch_latest_game_index().await? else {
+            tracing::info!("No games exist yet");
+            return Ok(None);
+        };
+
+        // Start from the latest game index - max_games_to_check_for_challenge
+        let mut game_index =
+            latest_game_index.saturating_sub(U256::from(max_games_to_check_for_challenge));
+        let mut game_address;
+        let mut block_number;
+
+        loop {
+            // If we've reached last index and still haven't found a valid proposal
+            if game_index > latest_game_index {
+                tracing::info!("No invalid proposals found after checking all games");
+                return Ok(None);
+            }
+
+            game_address = self.fetch_game_address_by_index(game_index).await?;
+            let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
+
+            let claim_data = game.claimData().call().await?.claimData_;
+            if claim_data.status != ProposalStatus::Unchallenged {
+                tracing::info!(
+                    "Game {:?} at index {:?} is not unchallenged, not attempting to challenge",
+                    game_address,
+                    game_index
+                );
+
+                game_index += U256::from(1);
+                continue;
+            }
+
+            // Check if the the game is still in the challenge window
+            let current_timestamp = l2_provider
+                .get_l2_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .header
+                .timestamp;
+            let deadline = U256::from(claim_data.deadline).to::<u64>();
+            if deadline < current_timestamp {
+                tracing::info!(
+                    "Game {:?} at index {:?} deadline {:?} has passed, not attempting to challenge",
+                    game_address,
+                    game_index,
+                    deadline
+                );
+                game_index += U256::from(1);
+                continue;
+            }
+
+            block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
+            tracing::info!(
+                "Checking if game {:?} at index {:?} for block {:?} is invalid",
+                game_address,
+                game_index,
+                block_number
+            );
+            let game_claim = game.rootClaim().call().await?.rootClaim_;
+
+            let output_root = l2_provider
+                .compute_output_root_at_block(block_number)
+                .await?;
+
+            if output_root != game_claim {
+                tracing::info!(
+                    "Output root {:?} at block {:?} is not same as game claim {:?}",
+                    output_root,
+                    block_number,
+                    game_claim
+                );
+                break;
+            }
+
+            game_index += U256::from(1);
+        }
+
+        tracing::info!(
+            "Oldest challengable game {:?} at game index {:?} with l2 block number: {:?}",
+            game_address,
+            game_index,
+            block_number
+        );
+
+        Ok(Some(game_address))
+    }
+
     /// Get the genesis L2 block number
     ///
     /// This function returns the L2 block number of the genesis block for a given game type.
@@ -261,5 +430,169 @@ where
             .await?
             .genesisL2BlockNumber_;
         Ok(genesis_l2_block_number)
+    }
+
+    /// Determines if we should attempt resolution or not. The `oldest_game_index` is configured
+    /// to be `latest_game_index` - `max_games_to_check_for_resolution`.
+    ///
+    /// If the oldest game has no parent (i.e., it's a first game), we always attempt resolution.
+    /// For other games, we only attempt resolution if the parent game is not in progress.
+    ///
+    /// NOTE(fakedev9999): Needs to be updated considering more complex cases where there are
+    ///                    multiple branches of games.
+    async fn should_attempt_resolution(
+        &self,
+        oldest_game_index: U256,
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+    ) -> Result<(bool, Address)> {
+        let oldest_game_address = self.fetch_game_address_by_index(oldest_game_index).await?;
+        let oldest_game =
+            OPSuccinctFaultDisputeGame::new(oldest_game_address, l1_provider_with_wallet.clone());
+        let parent_game_index = oldest_game.claimData().call().await?.claimData_.parentIndex;
+
+        // Always attempt resolution for first games (those with parent_game_index == u32::MAX)
+        // For other games, only attempt if the oldest game's parent game is resolved
+        if parent_game_index == u32::MAX {
+            Ok((true, oldest_game_address))
+        } else {
+            let parent_game_address = self
+                .fetch_game_address_by_index(U256::from(parent_game_index))
+                .await?;
+            let parent_game = OPSuccinctFaultDisputeGame::new(
+                parent_game_address,
+                l1_provider_with_wallet.clone(),
+            );
+
+            Ok((
+                parent_game.status().call().await?.status_ != GameStatus::IN_PROGRESS,
+                oldest_game_address,
+            ))
+        }
+    }
+
+    /// Attempts to resolve a challenged game.
+    ///
+    /// This function checks if the game is in progress and challenged, and if so, attempts to resolve it.
+    async fn try_resolve_games(
+        &self,
+        index: U256,
+        mode: Mode,
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+        l2_provider: L2Provider,
+    ) -> Result<()> {
+        let game_address = self.fetch_game_address_by_index(index).await?;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet.clone());
+        if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
+            tracing::info!(
+                "Game {:?} at index {:?} is not in progress, not attempting resolution",
+                game_address,
+                index
+            );
+            return Ok(());
+        }
+
+        let claim_data = game.claimData().call().await?.claimData_;
+        match mode {
+            Mode::Proposer => {
+                if claim_data.status != ProposalStatus::Unchallenged {
+                    tracing::info!(
+                        "Game {:?} at index {:?} is not unchallenged, not attempting resolution",
+                        game_address,
+                        index
+                    );
+                    return Ok(());
+                }
+            }
+            Mode::Challenger => {
+                if claim_data.status != ProposalStatus::Challenged {
+                    tracing::info!(
+                        "Game {:?} at index {:?} is not challenged, not attempting resolution",
+                        game_address,
+                        index
+                    );
+                    return Ok(());
+                }
+            }
+        }
+
+        let current_timestamp = l2_provider
+            .get_l2_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .header
+            .timestamp;
+        let deadline = U256::from(claim_data.deadline).to::<u64>();
+        if deadline >= current_timestamp {
+            tracing::info!(
+                "Game {:?} at index {:?} deadline {:?} has not passed, not attempting resolution",
+                game_address,
+                index,
+                deadline
+            );
+            return Ok(());
+        }
+
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet);
+        // TODO(fakedev9999): Potentially need to add a gas provider.
+        let receipt = contract
+            .resolve()
+            .send()
+            .await?
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+            .get_receipt()
+            .await?;
+        tracing::info!(
+            "Successfully resolved challenged game {:?} at index {:?} with tx {:?}",
+            game_address,
+            index,
+            receipt.transaction_hash
+        );
+        Ok(())
+    }
+
+    /// Attempts to resolve all challenged games that the challenger won, up to `max_games_to_check_for_resolution`.
+    async fn resolve_games(
+        &self,
+        mode: Mode,
+        max_games_to_check_for_resolution: u64,
+        l1_provider_with_wallet: L1ProviderWithWallet<F, P, T>,
+        l2_provider: L2Provider,
+    ) -> Result<()> {
+        // Find latest game index, return early if no games exist
+        let Some(latest_game_index) = self.fetch_latest_game_index().await? else {
+            tracing::info!("No games exist, skipping resolution");
+            return Ok(());
+        };
+
+        // If the oldest game's parent game is not resolved, we'll not attempt resolution.
+        // Except for the game without a parent, which are first games.
+        let oldest_game_index =
+            latest_game_index.saturating_sub(U256::from(max_games_to_check_for_resolution));
+        let games_to_check = latest_game_index.min(U256::from(max_games_to_check_for_resolution));
+
+        let (should_attempt_resolution, game_address) = self
+            .should_attempt_resolution(oldest_game_index, l1_provider_with_wallet.clone())
+            .await?;
+
+        if should_attempt_resolution {
+            for i in 0..games_to_check.to::<u64>() {
+                let index = oldest_game_index + U256::from(i);
+                self.try_resolve_games(
+                    index,
+                    mode,
+                    l1_provider_with_wallet.clone(),
+                    l2_provider.clone(),
+                )
+                .await?;
+            }
+        } else {
+            tracing::info!(
+                "Oldest game {:?} at index {:?} is not resolved, not attempting resolution",
+                game_address,
+                oldest_game_index
+            );
+        }
+
+        Ok(())
     }
 }
