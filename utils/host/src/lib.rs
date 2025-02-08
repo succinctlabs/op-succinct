@@ -3,8 +3,6 @@ pub mod fetcher;
 pub mod rollup_config;
 pub mod stats;
 
-use std::sync::Arc;
-
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
@@ -18,6 +16,7 @@ use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
 use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
+use std::sync::Arc;
 
 sol! {
     #[allow(missing_docs)]
