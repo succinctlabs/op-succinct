@@ -92,7 +92,6 @@ pub fn get_agg_proof_stdin(
 }
 
 /// Start the server and native client. Each server is tied to a single client.
-/// TODO: Create your own host.
 pub async fn start_server_and_native_client(
     cfg: SingleChainHost,
 ) -> Result<InMemoryOracle, anyhow::Error> {
