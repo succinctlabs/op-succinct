@@ -133,82 +133,15 @@ impl OPSuccinctHost {
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;
 
-        let server_task = self.start_server(hint.host, preimage.host).await?;
+        let server_task = self
+            .kona_args
+            .start_server(hint.host, preimage.host)
+            .await?;
 
         let in_memory_oracle = run_witnessgen_client(preimage.client, hint.client).await?;
         // Unlike the upstream, manually abort the server task, as it will hang if you wait for both tasks to complete.
         server_task.abort();
 
         Ok(in_memory_oracle)
-    }
-
-    pub async fn create_providers(&self) -> Result<SingleChainProviders> {
-        let l1_provider = http_provider(
-            self.kona_args
-                .l1_node_address
-                .as_ref()
-                .ok_or(anyhow!("Provider must be set"))?,
-        );
-        let blob_provider = OnlineBlobProvider::init(OnlineBeaconClient::new_http(
-            self.kona_args
-                .l1_beacon_address
-                .clone()
-                .ok_or(anyhow!("Beacon API URL must be set"))?,
-        ))
-        .await;
-        let l2_provider = http_provider::<Optimism>(
-            self.kona_args
-                .l2_node_address
-                .as_ref()
-                .ok_or(anyhow!("L2 node address must be set"))?,
-        );
-
-        Ok(SingleChainProviders {
-            l1: l1_provider,
-            blobs: blob_provider,
-            l2: l2_provider,
-        })
-    }
-
-    pub async fn start_server<C>(&self, hint: C, preimage: C) -> Result<JoinHandle<Result<()>>>
-    where
-        C: Channel + Send + Sync + 'static,
-    {
-        let kv_store = self.create_key_value_store()?;
-
-        let providers = self.create_providers().await?;
-
-        let backend = OnlineHostBackend::new(
-            self.kona_args.clone(),
-            kv_store,
-            providers,
-            SingleChainHintHandler,
-        );
-
-        Ok(task::spawn(
-            PreimageServer::new(
-                OracleServer::new(preimage),
-                HintReader::new(hint),
-                Arc::new(backend),
-            )
-            .start(),
-        ))
-    }
-
-    /// Creates the key-value store for the host backend.
-    fn create_key_value_store(&self) -> Result<SharedKeyValueStore> {
-        let local_kv_store = SingleChainLocalInputs::new(self.kona_args.clone());
-
-        let kv_store: SharedKeyValueStore = if let Some(ref data_dir) = self.kona_args.data_dir {
-            let disk_kv_store = DiskKeyValueStore::new(data_dir.clone());
-            let split_kv_store = SplitKeyValueStore::new(local_kv_store, disk_kv_store);
-            Arc::new(RwLock::new(split_kv_store))
-        } else {
-            let mem_kv_store = MemoryKeyValueStore::new();
-            let split_kv_store = SplitKeyValueStore::new(local_kv_store, mem_kv_store);
-            Arc::new(RwLock::new(split_kv_store))
-        };
-
-        Ok(kv_store)
     }
 }
