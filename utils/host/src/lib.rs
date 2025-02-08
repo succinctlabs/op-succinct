@@ -3,16 +3,19 @@ pub mod fetcher;
 pub mod rollup_config;
 pub mod stats;
 
+use std::sync::Arc;
+
 use alloy_consensus::Header;
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
 use anyhow::Result;
 use kona_host::single::SingleChainHost;
-use kona_preimage::BidirectionalChannel;
+use kona_preimage::{BidirectionalChannel, HintWriter, NativeChannel, OracleReader};
 use log::info;
-use op_succinct_client_utils::client::run_witnessgen_client;
-use op_succinct_client_utils::InMemoryOracle;
+use op_succinct_client_utils::client::run_opsuccinct_client;
+use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
+use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 
@@ -116,10 +119,27 @@ impl OPSuccinctHost {
             .start_server(hint.host, preimage.host)
             .await?;
 
-        let in_memory_oracle = run_witnessgen_client(preimage.client, hint.client).await?;
+        let in_memory_oracle = self
+            .run_witnessgen_client(preimage.client, hint.client)
+            .await?;
         // Unlike the upstream, manually abort the server task, as it will hang if you wait for both tasks to complete.
         server_task.abort();
 
+        Ok(in_memory_oracle)
+    }
+
+    /// Run the witness generation client.
+    pub async fn run_witnessgen_client(
+        &self,
+        preimage_chan: NativeChannel,
+        hint_chan: NativeChannel,
+    ) -> Result<InMemoryOracle> {
+        let oracle = Arc::new(StoreOracle::new(
+            OracleReader::new(preimage_chan),
+            HintWriter::new(hint_chan),
+        ));
+        let _ = run_opsuccinct_client(oracle.clone(), Some(zkvm_handle_register)).await?;
+        let in_memory_oracle = InMemoryOracle::populate_from_store(oracle.as_ref())?;
         Ok(in_memory_oracle)
     }
 }
