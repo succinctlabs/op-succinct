@@ -104,10 +104,10 @@ maili-genesis = { version = "0.2.0", default-features = false }
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
 
 # sp1: Switch to 4.1.0 once it's merged.
-sp1-lib = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a", features = ["verify"] }
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a", features = ["verify", "embedded"] }
-sp1-build = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a" }
+sp1-lib = { version = "4.1.0", features = ["verify"] }
+sp1-sdk = { version = "4.1.0" }
+sp1-zkvm = { version = "4.1.0", features = ["verify", "embedded"] }
+sp1-build = { version = "4.1.0" }
 
 [profile.release-client-lto]
 inherits = "release"
@@ -123,4 +123,3 @@ sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sh
 
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-4.1.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-4.1.0" }
-sp1-lib = { git = "https://github.com/succinctlabs/sp1", rev = "e09ed7a"}
