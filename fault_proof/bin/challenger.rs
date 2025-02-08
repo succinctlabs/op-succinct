@@ -7,7 +7,8 @@ use fault_proof::{
         OPSuccinctFaultDisputeGame,
     },
     utils::setup_logging,
-    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, Mode,
+    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS,
+    TIMEOUT_SECONDS,
 };
 
 use alloy::{
@@ -75,6 +76,8 @@ where
             .send()
             .await
             .context("Failed to send challenge transaction")?
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
             .get_receipt()
             .await
             .context("Failed to get transaction receipt for challenge")?;

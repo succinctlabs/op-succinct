@@ -21,11 +21,15 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use op_alloy_network::{primitives::BlockTransactionsKind, Optimism};
 use op_alloy_rpc_types::Transaction;
+use tokio::time::Duration;
 
 use crate::contract::{
     DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L2Output,
     OPSuccinctFaultDisputeGame, ProposalStatus,
 };
+
+pub const NUM_CONFIRMATIONS: u64 = 3;
+pub const TIMEOUT_SECONDS: u64 = 60;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Mode {
@@ -528,7 +532,14 @@ where
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet);
-        let receipt = contract.resolve().send().await?.get_receipt().await?;
+        let receipt = contract
+            .resolve()
+            .send()
+            .await?
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+            .get_receipt()
+            .await?;
         tracing::info!(
             "Successfully resolved challenged game {:?} at index {:?} with tx {:?}",
             game_address,

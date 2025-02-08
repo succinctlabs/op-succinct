@@ -19,6 +19,7 @@ use fault_proof::{
     contract::{DisputeGameFactory, DisputeGameFactory::DisputeGameFactoryInstance},
     utils::setup_logging,
     FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode,
+    NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
 
 #[derive(Parser)]
@@ -84,6 +85,8 @@ where
             .send()
             .await
             .context("Failed to send create transaction")?
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
             .get_receipt()
             .await
             .context("Failed to get transaction receipt for create")?;
