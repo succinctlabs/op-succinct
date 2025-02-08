@@ -167,7 +167,7 @@ where
 
 /// Fetches the safe head hash of the L2 chain based on the agreed upon L2 output root in the
 /// [BootInfo].
-pub async fn fetch_safe_head_hash<O>(
+async fn fetch_safe_head_hash<O>(
     caching_oracle: &O,
     agreed_l2_output_root: B256,
 ) -> Result<B256, OracleProviderError>
