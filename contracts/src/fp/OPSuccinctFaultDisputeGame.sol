@@ -120,7 +120,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     uint256 internal immutable PROOF_REWARD;
 
     /// @notice The address of the entry point contract for the game.
-    address internal immutable ENTRY_POINT;
+    address payable internal immutable ENTRY_POINT;
 
     /// @notice The address of the anchor state registry.
     address internal immutable ANCHOR_STATE_REGISTRY;
@@ -143,9 +143,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice The claim made by the proposer.
     ClaimData public claimData;
-
-    /// @notice Credited balances for participants.
-    mapping(address => uint256) public credit;
 
     /// @notice The starting output root of the game that is proven from in case of a challenge.
     /// @dev This should match the claim root of the parent game.
@@ -170,7 +167,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
         uint256 _proofReward,
-        address _entryPoint,
+        address payable _entryPoint,
         address _anchorStateRegistry
     ) {
         // Set up initial game state.
@@ -419,13 +416,14 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (parentGameStatus == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
 
         // INVARIANT: If the parent game's claim is invalid, then the current game's claim is invalid.
+        // INVARIANT: If there is no challenger, i.e. `claimData.counteredBy == address(0)`, the bond is burnt.
         if (parentGameStatus == GameStatus.CHALLENGER_WINS) {
             claimData.status = ProposalStatus.Resolved;
             status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the challenger's reward
-            credit[claimData.counteredBy] += address(this).balance;
+            // Add challenger's reward to the entry point contract.
+            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(claimData.counteredBy, address(this).balance);
 
             emit Resolved(status);
 
@@ -439,8 +437,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the proposer's reward
-            credit[gameCreator()] += address(this).balance;
+            // Return the proposer's bond to the entry point contract.
+            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(gameCreator(), address(this).balance);
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
@@ -449,8 +447,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the challenger's reward
-            credit[claimData.counteredBy] += address(this).balance;
+            // Add challenger's reward to the entry point contract.
+            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(claimData.counteredBy, address(this).balance);
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
@@ -458,8 +456,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the proposer's reward
-            credit[gameCreator()] += address(this).balance;
+            // Return the proposer's bond to the entry point contract.
+            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(gameCreator(), address(this).balance);
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
@@ -467,31 +465,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the proof reward for the prover
-            credit[claimData.prover] += PROOF_REWARD;
+            // Add prover's reward to the entry point contract.
+            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(claimData.prover, PROOF_REWARD);
 
-            // Record the remaining balance (proposer's bond) for the proposer
-            credit[gameCreator()] += address(this).balance - PROOF_REWARD;
+            // Return the proposer's bond to the entry point contract.
+            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(gameCreator(), address(this).balance - PROOF_REWARD);
 
             emit Resolved(status);
         }
 
         return status;
-    }
-
-    /// @notice Claim the credit belonging to the recipient address.
-    /// @param _recipient The owner and recipient of the credit.
-    function claimCredit(address _recipient) external {
-        // Remove the credit from the recipient prior to performing the external call.
-        uint256 recipientCredit = credit[_recipient];
-        credit[_recipient] = 0;
-
-        // Revert if the recipient has no credit to claim.
-        if (recipientCredit == 0) revert NoCreditToClaim();
-
-        // Transfer the credit to the recipient.
-        (bool success,) = _recipient.call{value: recipientCredit}(hex"");
-        if (!success) revert BondTransferFailed();
     }
 
     /// @notice Getter for the game type.
