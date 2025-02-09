@@ -260,10 +260,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // The first game is initialized with a parent index of uint32.max
         if (parentIndex() != type(uint32).max) {
             // For subsequent games, get the parent game's information
-            (GameType parentGameType,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
-
-            // INVARIANT: The parent game must have the same game type as the current game.
-            if (parentGameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
+            (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
 
             startingOutputRoot = OutputRoot({
                 l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
