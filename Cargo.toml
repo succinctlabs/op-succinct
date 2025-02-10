@@ -10,7 +10,7 @@ homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
 
 [workspace.dependencies]
-# General
+# general
 anyhow = { version = "1.0.86", default-features = false }
 thiserror = { version = "2.0.3" }
 cfg-if = "1.0.0"
