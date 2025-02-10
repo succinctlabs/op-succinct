@@ -19,7 +19,8 @@ import {
     InvalidParentGame,
     ClaimAlreadyChallenged,
     AlreadyProven,
-    NotWhitelisted
+    NotWhitelisted,
+    NotThroughEntryPoint
 } from "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
 
@@ -137,7 +138,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
         vm.warp(parentGameDeadline.raw() + 1 seconds);
 
-        parentGame.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(parentGame)));
         entryPoint.claimCredit(proposer); // Current balance of proposer: 1 ether
 
         // Create the child game referencing parent index = 0
@@ -214,7 +215,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Should revert if we try to resolve before deadline
         vm.expectRevert(ClockNotExpired.selector);
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Warp forward past the challenge deadline
         (,,,,, Timestamp deadline) = game.claimData();
@@ -225,7 +226,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         emit Resolved(GameStatus.DEFENDER_WINS);
 
         // Now we can resolve successfully
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Proposer gets the bond back
         entryPoint.claimCredit(proposer);
@@ -246,15 +247,15 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Should revert if we try to resolve before the first challenge deadline
         vm.expectRevert(ClockNotExpired.selector);
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Prover proves the claim while unchallenged
         vm.startPrank(prover);
-        game.prove(bytes(""));
+        entryPoint.proveGame(IDisputeGame(address(game)), bytes(""));
         vm.stopPrank();
 
         // Now the proposal is UnchallengedAndValidProofProvided; we can resolve immediately
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Prover does not get any credit
         vm.expectRevert(NoCreditToClaim.selector);
@@ -281,7 +282,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Try to resolve too early
         vm.expectRevert(ClockNotExpired.selector);
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Challenger posts the bond incorrectly
         vm.startPrank(challenger);
@@ -305,7 +306,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Prover proves the claim in time
         vm.startPrank(prover);
-        game.prove(bytes(""));
+        entryPoint.proveGame(IDisputeGame(address(game)), bytes(""));
         vm.stopPrank();
 
         // Confirm the proposal is now ChallengedAndValidProofProvided
@@ -314,7 +315,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(uint8(game.status()), uint8(GameStatus.IN_PROGRESS));
 
         // Resolve
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Prover gets the proof reward
         entryPoint.claimCredit(prover);
@@ -352,7 +353,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.warp(deadline.raw() + 1);
 
         // Now we can resolve, resulting in CHALLENGER_WINS
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
 
         // Challenger gets the bond back and wins proposer's bond
         entryPoint.claimCredit(challenger);
@@ -405,7 +406,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.startPrank(prover);
         // Attempting to prove after the deadline is exceeded
         vm.expectRevert();
-        game.prove(bytes(""));
+        entryPoint.proveGame(IDisputeGame(address(game)), bytes(""));
         vm.stopPrank();
     }
 
@@ -457,7 +458,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // The parent game is still in progress, not resolved
         // So, if we try to resolve the childGame, it should revert with ParentGameNotResolved
         vm.expectRevert(ParentGameNotResolved.selector);
-        childGame.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(childGame)));
     }
 
     // =========================================
@@ -491,7 +492,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.warp(gameDeadline.raw() + 1);
 
         // 4) The game resolves as CHALLENGER_WINS
-        game.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(game)));
         assertEq(uint8(game.status()), uint8(GameStatus.CHALLENGER_WINS));
 
         // Challenger gets the bond back and wins proposer's bond
@@ -501,7 +502,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // 5) If we try to resolve the child game, it should be resolved as CHALLENGER_WINS
         // because parent's claim is invalid.
         // The child's bond is lost since there is no challenger for the child game.
-        childGame.resolve();
+        entryPoint.resolveGame(IDisputeGame(address(childGame)));
         assertEq(uint8(childGame.status()), uint8(GameStatus.CHALLENGER_WINS));
 
         // ══════════════════════════ END OF CHALLENGER CONTEXT ══════════════════════════
@@ -562,10 +563,25 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.stopPrank();
     }
 
-    // Cannot create, challenge, prove, resolve game without going through the entry point
     // =========================================
-    function testCannotCreateChallengeProveResolveWithoutEntryPoint() public {
+    // Test: Cannot create, challenge, prove, resolve game without going through the entry point
+    // =========================================
+    function testShouldGoThroughEntryPoint() public {
         vm.startPrank(proposer);
         vm.deal(proposer, 1 ether);
+
+        vm.expectRevert(NotThroughEntryPoint.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+
+        vm.expectRevert(NotThroughEntryPoint.selector);
+        game.challenge{value: 1 ether}(challenger);
+
+        vm.expectRevert(NotThroughEntryPoint.selector);
+        game.prove(prover, bytes(""));
+
+        vm.expectRevert(NotThroughEntryPoint.selector);
+        game.resolve();
     }
 }

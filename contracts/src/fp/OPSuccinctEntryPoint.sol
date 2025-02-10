@@ -178,7 +178,7 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
      * @dev Anyone can be a prover.
      */
     function proveGame(IDisputeGame _game, bytes calldata proofBytes) external {
-        OPSuccinctFaultDisputeGame(address(_game)).prove(proofBytes);
+        OPSuccinctFaultDisputeGame(address(_game)).prove(msg.sender, proofBytes);
     }
 
     /**

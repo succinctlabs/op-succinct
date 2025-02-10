@@ -257,15 +257,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (initialized) revert AlreadyInitialized();
 
         // INVARIANT: Games can only be created through the entry point contract.
-        require(
-            gameCreator() == ENTRY_POINT,
-            string.concat(
-                "Invalid entry point: expected ",
-                LibString.toHexString(ENTRY_POINT),
-                " but got ",
-                LibString.toHexString(gameCreator())
-            )
-        );
+        if (gameCreator() != ENTRY_POINT) revert NotThroughEntryPoint();
 
         // The first game is initialized with a parent index of uint32.max
         if (parentIndex() != type(uint32).max) {
@@ -316,7 +308,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // If the proof bytes are not empty, the game is created in fast-finality mode.
         if (proofBytes.length > 0) {
-            this.prove(proofBytes);
+            this.prove(claimant(), proofBytes);
         }
     }
 
@@ -379,7 +371,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice Proves the game.
     /// @param proofBytes The proof bytes to validate the claim.
-    function prove(bytes calldata proofBytes) external returns (ProposalStatus) {
+    function prove(address prover, bytes calldata proofBytes) external returns (ProposalStatus) {
+        // INVARIANT: Can only prove a game through the entry point.
+        if (msg.sender != ENTRY_POINT) revert NotThroughEntryPoint();
+
         // INVARIANT: Cannot prove a game if the clock has timed out.
         if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
 
@@ -399,7 +394,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, abi.encode(publicValues), proofBytes);
 
         // Update the prover address
-        claimData.prover = msg.sender;
+        claimData.prover = prover;
 
         // Update the status of the proposal
         if (claimData.counteredBy == address(0)) {
@@ -419,6 +414,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
     ///         its claim within the `MAX_PROVE_DURATION`.
     function resolve() external returns (GameStatus) {
+        // INVARIANT: Can only resolve a game through the entry point.
+        if (msg.sender != ENTRY_POINT) revert NotThroughEntryPoint();
+
         // INVARIANT: Resolution cannot occur unless the game has already been resolved.
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
