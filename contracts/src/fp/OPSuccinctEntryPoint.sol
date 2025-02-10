@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 // Libraries
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {GameType, Claim} from "src/dispute/lib/Types.sol";
+import {CreditTransferFailed} from "./lib/Errors.sol";
 
 // Interfaces
 import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
@@ -11,6 +12,8 @@ import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 
 // Contracts
 import {OPSuccinctFaultDisputeGame} from "./OPSuccinctFaultDisputeGame.sol";
+
+import "forge-std/console.sol";
 
 /**
  * @title OPSuccinctEntryPoint
@@ -35,7 +38,6 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
 
     error NotWhitelisted();
     error NoCreditToClaim();
-    error CreditTransferFailed();
 
     ////////////////////////////////////////////////////////////////
     //                         State Vars                         //
@@ -132,10 +134,13 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
     /**
      * @notice Allows a user to claim all of their credits accumulated.
      */
-    function claimCredit() external {
-        if (credit[msg.sender] == 0) revert NoCreditToClaim();
-        credit[msg.sender] = 0;
-        (bool success,) = msg.sender.call{value: credit[msg.sender]}("");
+    function claimCredit(address _recipient) external {
+        uint256 creditToClaim = credit[_recipient];
+        credit[_recipient] = 0;
+
+        if (creditToClaim == 0) revert NoCreditToClaim();
+
+        (bool success,) = _recipient.call{value: creditToClaim}(hex"");
         if (!success) revert CreditTransferFailed();
     }
 
@@ -144,7 +149,9 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
      * @param _rootClaim The root claim to initialize the new game with.
      * @param _extraData The extra data to initialize the new game with.
      * @dev Only whitelisted proposers are allowed to call this function.
-     * @dev The extra data includes the l2BlockNumber, parentIndex, and address of the entry point contract.
+     * @dev The extra data includes the l2BlockNumber and the parentIndex.
+     *      Address of the entry point is appended to the extra data to ensure
+     *      the game is created through the entry point.
      */
     function createGame(Claim _rootClaim, bytes calldata _extraData)
         external
@@ -152,8 +159,12 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
         onlyProposer
         returns (address newGameAddress)
     {
-        // Call the factory to create the game.
-        IDisputeGame newGame = disputeGameFactory.create{value: msg.value}(gameType, _rootClaim, _extraData);
+        // Append address(msg.sender) to the extraData
+        bytes memory extraDataWithClaimant = abi.encodePacked(_extraData, msg.sender);
+
+        // Call the factory to create the game
+        // Append address(msg.sender) to the extraData to record the claimant
+        IDisputeGame newGame = disputeGameFactory.create{value: msg.value}(gameType, _rootClaim, extraDataWithClaimant);
 
         // Emit an event with the new game address and the rootClaim
         emit CreatedOPSuccinctFaultDisputeGame(newGameAddress = address(newGame), msg.sender, _rootClaim);

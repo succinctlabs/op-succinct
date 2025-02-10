@@ -18,9 +18,11 @@ import {ParentGameNotResolved, InvalidParentGame, ClaimAlreadyChallenged, Alread
 import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Contracts
+import {OPSuccinctEntryPoint} from "src/fp/OPSuccinctEntryPoint.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
+import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 
 // Interfaces
 import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
@@ -35,6 +37,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
     DisputeGameFactory factory;
     ERC1967Proxy factoryProxy;
+
+    OPSuccinctEntryPoint entryPoint;
 
     OPSuccinctFaultDisputeGame gameImpl;
     OPSuccinctFaultDisputeGame parentGame;
@@ -77,9 +81,12 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
         uint256 proofReward = 1 ether;
-        // FIXME(fakedev9999): Fix this when we have an entry point integrated into the test
-        address entryPoint = address(0x123);
-        address anchorStateRegistry = address(0x456);
+
+        entryPoint = new OPSuccinctEntryPoint();
+        entryPoint.initialize(IDisputeGameFactory(address(factory)), gameType);
+
+        // Deploy the AnchorStateRegistry
+        AnchorStateRegistry anchorStateRegistry = new AnchorStateRegistry(IDisputeGameFactory(address(factory)));
 
         // Deploy the reference implementation of OPSuccinctFaultDisputeGame
         gameImpl = new OPSuccinctFaultDisputeGame(
@@ -91,8 +98,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             aggregationVkey,
             rangeVkeyCommitment,
             proofReward,
-            entryPoint,
-            anchorStateRegistry
+            payable(address(entryPoint)),
+            address(anchorStateRegistry)
         );
 
         // Set the init bond on the factory for our specific GameType
@@ -101,18 +108,21 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Register our reference implementation under the specified gameType
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
-        // Create the first (parent) game – it uses uint32.max as parent index
-        vm.startPrank(proposer);
-        vm.deal(proposer, 2 ether); // extra funds for testing
+        // Set the games to be permissionless proposers and challengers
+        entryPoint.setProposer(address(0), true);
+        entryPoint.setChallenger(address(0), true);
 
-        // This parent game will be at index 0
+        // ══════════════════════════ START OF PROPOSER CONTEXT ══════════════════════════
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether); // extra funds for testing
+
+        // Create the first (parent) game – it uses uint32.max as parent index
         parentGame = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(
-                    gameType,
-                    Claim.wrap(keccak256("genesis")),
-                    // encode l2BlockNumber = 1000, parentIndex = uint32.max
-                    abi.encodePacked(uint256(1000), type(uint32).max)
+            entryPoint.createGame{value: 1 ether}(
+                Claim.wrap(keccak256("genesis")),
+                abi.encodePacked(
+                    uint256(1000), // l2BlockNumber
+                    type(uint32).max // parentIndex
                 )
             )
         );
@@ -120,23 +130,24 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // We want the parent game to finalize. We'll skip its challenge period.
         (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
         vm.warp(parentGameDeadline.raw() + 1 seconds);
+
         parentGame.resolve();
-        parentGame.claimCredit(proposer);
+        entryPoint.claimCredit(proposer); // Current balance of proposer: 1 ether
 
         // Create the child game referencing parent index = 0
         // The child game is at index 1
         game = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(
-                    gameType,
-                    rootClaim,
-                    // encode l2BlockNumber = 2000, parentIndex = 0
-                    abi.encodePacked(l2BlockNumber, parentIndex)
+            entryPoint.createGame{value: 1 ether}(
+                rootClaim,
+                abi.encodePacked(
+                    l2BlockNumber, // l2BlockNumber
+                    parentIndex // parentIndex
                 )
             )
         );
 
         vm.stopPrank();
+        // ══════════════════════════ END OF PROPOSER CONTEXT ══════════════════════════
     }
 
     // =========================================
@@ -178,7 +189,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         assertEq(parentIndex_, 0);
         assertEq(counteredBy_, address(0));
-        assertEq(game.gameCreator(), proposer);
+        assertEq(game.gameCreator(), address(entryPoint));
         assertEq(prover_, address(0));
         assertEq(claim_.raw(), rootClaim.raw());
         // Initially, the status is Unchallenged
@@ -211,14 +222,13 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Proposer gets the bond back
-        game.claimCredit(proposer);
-
+        entryPoint.claimCredit(proposer);
         // Check final state
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
         // The contract should have paid back the proposer
         assertEq(address(game).balance, 0);
         // Proposer posted 1 ether, so they get it back
-        assertEq(proposer.balance, 2 ether);
+        assertEq(proposer.balance, 1 ether);
         assertEq(challenger.balance, 0);
     }
 
@@ -242,17 +252,15 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Prover does not get any credit
         vm.expectRevert(NoCreditToClaim.selector);
-        game.claimCredit(prover);
-
+        entryPoint.claimCredit(prover);
         // Proposer gets the bond back
-        game.claimCredit(proposer);
-
+        entryPoint.claimCredit(proposer);
         // Final status: DEFENDER_WINS
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
         assertEq(address(game).balance, 0);
 
         // Proposer gets their 1 ether back
-        assertEq(proposer.balance, 2 ether);
+        assertEq(proposer.balance, 1 ether);
         // Prover does NOT get the reward because no challenger posted a bond
         assertEq(prover.balance, 0 ether);
         assertEq(challenger.balance, 0);
@@ -303,10 +311,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Prover gets the proof reward
-        game.claimCredit(prover);
+        entryPoint.claimCredit(prover);
 
         // Proposer gets the bond back
-        game.claimCredit(proposer);
+        entryPoint.claimCredit(proposer);
 
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
         assertEq(address(game).balance, 0);
@@ -315,7 +323,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // - The proposer recovers their 1 ether stake
         // - The prover gets 1 ether reward
         // - The challenger gets nothing
-        assertEq(proposer.balance, 2 ether);
+        assertEq(proposer.balance, 1 ether);
         assertEq(prover.balance, 1 ether);
         assertEq(challenger.balance, 0);
     }
@@ -341,7 +349,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Challenger gets the bond back and wins proposer's bond
-        game.claimCredit(challenger);
+        entryPoint.claimCredit(challenger);
 
         assertEq(uint8(game.status()), uint8(GameStatus.CHALLENGER_WINS));
 
@@ -349,7 +357,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         assertEq(challenger.balance, 3 ether); // started with 2, spent 1, got 2 from the game
 
         // The proposer loses their 1 ether stake
-        assertEq(proposer.balance, 1 ether); // started with 2, lost 1
+        assertEq(proposer.balance, 0 ether); // started with 1, lost 1
         // The contract balance is zero
         assertEq(address(game).balance, 0);
     }
@@ -413,8 +421,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             )
         );
 
-        factory.create{value: 1 ether}(
-            gameType,
+        entryPoint.createGame{value: 1 ether}(
             rootClaim,
             abi.encodePacked(uint256(1), uint32(0)) // L2 block is smaller than parent's block
         );
@@ -426,12 +433,12 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     // =========================================
     function testCannotResolveIfParentGameInProgress() public {
         vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
 
         // Create a new game with parentIndex = 1
         OPSuccinctFaultDisputeGame childGame = OPSuccinctFaultDisputeGame(
             address(
-                factory.create{value: 1 ether}(
-                    gameType,
+                entryPoint.createGame{value: 1 ether}(
                     Claim.wrap(keccak256("new-claim")),
                     // encode l2BlockNumber = 3000, parentIndex = 1
                     abi.encodePacked(uint256(3000), uint32(1))
@@ -454,18 +461,22 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     function testParentGameChallengerWinsInvalidatesChild() public {
         // 1) Now create a child game referencing that losing parent at index 1
         vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+
         OPSuccinctFaultDisputeGame childGame = OPSuccinctFaultDisputeGame(
             address(
-                factory.create{value: 1 ether}(
-                    gameType, Claim.wrap(keccak256("child-of-loser")), abi.encodePacked(uint256(10000), uint32(1))
+                entryPoint.createGame{value: 1 ether}(
+                    Claim.wrap(keccak256("child-of-loser")), abi.encodePacked(uint256(10000), uint32(1))
                 )
             )
         );
         vm.stopPrank();
 
+        // ══════════════════════════ START OF CHALLENGER CONTEXT ══════════════════════════
+
         // 2) Challenge the parent game so that it ends up CHALLENGER_WINS when proof is not provided within the prove deadline
         vm.startPrank(challenger);
-        vm.deal(challenger, 2 ether);
+        vm.deal(challenger, 1 ether);
         game.challenge{value: 1 ether}();
         vm.stopPrank();
 
@@ -475,25 +486,23 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // 4) The game resolves as CHALLENGER_WINS
         game.resolve();
+        assertEq(uint8(game.status()), uint8(GameStatus.CHALLENGER_WINS));
 
         // Challenger gets the bond back and wins proposer's bond
-        game.claimCredit(challenger);
-
-        assertEq(uint8(game.status()), uint8(GameStatus.CHALLENGER_WINS));
+        entryPoint.claimCredit(challenger);
+        assertEq(address(challenger).balance, 2 ether);
 
         // 5) If we try to resolve the child game, it should be resolved as CHALLENGER_WINS
         // because parent's claim is invalid.
         // The child's bond is lost since there is no challenger for the child game.
         childGame.resolve();
-
-        // Challenger hasn't challenged the child game, so it gets nothing
-        vm.expectRevert(NoCreditToClaim.selector);
-        childGame.claimCredit(challenger);
-
         assertEq(uint8(childGame.status()), uint8(GameStatus.CHALLENGER_WINS));
 
-        assertEq(address(childGame).balance, 1 ether);
-        assertEq(address(challenger).balance, 3 ether);
+        // ══════════════════════════ END OF CHALLENGER CONTEXT ══════════════════════════
+
+        // Proposer gets nothing
+        vm.expectRevert(NoCreditToClaim.selector);
+        entryPoint.claimCredit(proposer);
         assertEq(address(proposer).balance, 0 ether);
     }
 

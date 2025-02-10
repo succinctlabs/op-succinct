@@ -19,3 +19,6 @@ error ParentGameNotResolved();
 
 /// @notice Thrown when the claim has already been proven.
 error AlreadyProven();
+
+/// @notice Thrown when the credit transfer fails.
+error CreditTransferFailed();

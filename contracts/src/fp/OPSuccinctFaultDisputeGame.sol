@@ -28,6 +28,7 @@ import {
 } from "src/dispute/lib/Errors.sol";
 import "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
+import {LibString} from "@solady/utils/LibString.sol";
 
 // Interfaces
 import {ISemver} from "src/universal/interfaces/ISemver.sol";
@@ -35,6 +36,9 @@ import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.so
 import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {IAnchorStateRegistry} from "src/dispute/interfaces/IAnchorStateRegistry.sol";
+
+// Contracts
+import {OPSuccinctEntryPoint} from "src/fp/OPSuccinctEntryPoint.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
@@ -195,6 +199,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     //      - 0x04 extraData (parentIndex)
     //      - 0x14 extraData (entryPoint)
     //      - 0x02 CWIA bytes
+    //      - 0x?? proof bytes
     /// @dev There can be arbitrary length of optional proof bytes following the CWIA bytes.
     /// @dev 1. If the calldata size is less than 0x92, will revert with `BadExtraData()`.
     /// @dev 2. If the calldata size is exactly 0x92, will return an empty `proofBytes`.
@@ -252,7 +257,15 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (initialized) revert AlreadyInitialized();
 
         // INVARIANT: Games can only be created through the entry point contract.
-        require(msg.sender == ENTRY_POINT, "Games can only be created through the entry point contract");
+        require(
+            gameCreator() == ENTRY_POINT,
+            string.concat(
+                "Invalid entry point: expected ",
+                LibString.toHexString(ENTRY_POINT),
+                " but got ",
+                LibString.toHexString(gameCreator())
+            )
+        );
 
         // The first game is initialized with a parent index of uint32.max
         if (parentIndex() != type(uint32).max) {
@@ -315,6 +328,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The parent index of the game.
     function parentIndex() public pure returns (uint32 parentIndex_) {
         parentIndex_ = _getArgUint32(0x74);
+    }
+
+    /// @notice The claimant of the game.
+    function claimant() public pure returns (address claimant_) {
+        claimant_ = _getArgAddress(0x78);
     }
 
     /// @notice Only the starting block number of the game.
@@ -423,7 +441,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Add challenger's reward to the entry point contract.
-            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(claimData.counteredBy, address(this).balance);
+            (bool success,) = ENTRY_POINT.call{value: address(this).balance}(
+                abi.encodeWithSelector(
+                    OPSuccinctEntryPoint.addCredit.selector, claimData.counteredBy, address(this).balance
+                )
+            );
+            if (!success) revert CreditTransferFailed();
 
             emit Resolved(status);
 
@@ -438,7 +461,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Return the proposer's bond to the entry point contract.
-            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(gameCreator(), address(this).balance);
+            (bool success,) = ENTRY_POINT.call{value: address(this).balance}(
+                abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimant(), address(this).balance)
+            );
+            if (!success) revert CreditTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
@@ -448,7 +474,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Add challenger's reward to the entry point contract.
-            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(claimData.counteredBy, address(this).balance);
+            (bool success,) = ENTRY_POINT.call{value: address(this).balance}(
+                abi.encodeWithSelector(
+                    OPSuccinctEntryPoint.addCredit.selector, claimData.counteredBy, address(this).balance
+                )
+            );
+            if (!success) revert CreditTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
@@ -457,7 +488,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Return the proposer's bond to the entry point contract.
-            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(gameCreator(), address(this).balance);
+            (bool success,) = ENTRY_POINT.call{value: address(this).balance}(
+                abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimant(), address(this).balance)
+            );
+            if (!success) revert CreditTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
@@ -466,10 +500,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Add prover's reward to the entry point contract.
-            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(claimData.prover, PROOF_REWARD);
+            (bool success,) = ENTRY_POINT.call{value: PROOF_REWARD}(
+                abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimData.prover, PROOF_REWARD)
+            );
+            if (!success) revert CreditTransferFailed();
 
             // Return the proposer's bond to the entry point contract.
-            OPSuccinctEntryPoint(ENTRY_POINT).addCredit(gameCreator(), address(this).balance - PROOF_REWARD);
+            (success,) = ENTRY_POINT.call{value: address(this).balance}(
+                abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimant(), address(this).balance)
+            );
+            if (!success) revert CreditTransferFailed();
 
             emit Resolved(status);
         }
@@ -509,6 +549,17 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Getter for the extra data.
     /// @dev `clones-with-immutable-args` argument #4
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
+    /// FIXME(fakedev9999): Wrong length of extra data considering below facts.
+    /// @dev Expected calldata length without proof bytes: 0x92
+    //      - 0x04 selector
+    //      - 0x14 creator address
+    //      - 0x20 root claim
+    //      - 0x20 l1 head
+    //      - 0x20 extraData (l2BlockNumber)
+    //      - 0x04 extraData (parentIndex)
+    //      - 0x14 extraData (claimant)
+    //      - 0x02 CWIA bytes
+    //      - 0x?? proof bytes
     function extraData() public pure returns (bytes memory extraData_) {
         // The extra data starts at the second word within the cwia calldata and
         // is 32 bytes long.
