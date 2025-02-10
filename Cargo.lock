@@ -3410,9 +3410,9 @@ dependencies = [
 
 [[package]]
 name = "kzg-rs"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08151404e9f89dfc6149ccb2d3e03f2c4ec4f253b721770975da1a1644c6b79f"
+checksum = "6efe7b9aea4a6b9454dc95a67f2de13505f6b4fbea885bc7a5c09bda48a85b18"
 dependencies = [
  "ff 0.13.0",
  "hex",
@@ -6485,9 +6485,9 @@ dependencies = [
 
 [[package]]
 name = "sp1_bls12_381"
-version = "0.8.0-sp1-4.0.0"
+version = "0.8.0-sp1-4.0.0-v2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "260e07035fec67f2018dbb70359bed671582160bbcb2419deb812e583c8c975a"
+checksum = "e0800e0491c38cc686233518fce535d01ba0a0707781766fec38aee9c1b33890"
 dependencies = [
  "cfg-if",
  "ff 0.13.0",
@@ -8022,3 +8022,8 @@ dependencies = [
  "sha3",
  "subtle",
 ]
+
+[[patch.unused]]
+name = "bls12_381"
+version = "0.8.0"
+source = "git+https://github.com/sp1-patches/bls12_381?tag=patch-0.8.0-sp1-4.0.0#36b2a9d68b40dd08d2b0ac2843769a6a16608c91"
