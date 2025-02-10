@@ -4,7 +4,8 @@ pragma solidity 0.8.15;
 // Libraries
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {GameType, Claim} from "src/dispute/lib/Types.sol";
-import {CreditTransferFailed} from "./lib/Errors.sol";
+import {NoCreditToClaim} from "src/dispute/lib/Errors.sol";
+import {CreditTransferFailed, NotWhitelisted} from "./lib/Errors.sol";
 
 // Interfaces
 import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
@@ -31,13 +32,6 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
     event ChallengerWhitelisted(address indexed challenger, bool allowed);
     event CreditAdded(address indexed user, uint256 amount);
     event CreatedOPSuccinctFaultDisputeGame(address indexed game, address indexed creator, Claim rootClaim);
-
-    ////////////////////////////////////////////////////////////////
-    //                         Errors                             //
-    ////////////////////////////////////////////////////////////////
-
-    error NotWhitelisted();
-    error NoCreditToClaim();
 
     ////////////////////////////////////////////////////////////////
     //                         State Vars                         //
@@ -176,7 +170,7 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
      * @dev Exact amount of ETH for proof reward is required when challenging.
      */
     function challengeGame(IDisputeGame _game) external payable onlyChallenger {
-        OPSuccinctFaultDisputeGame(address(_game)).challenge{value: msg.value}();
+        OPSuccinctFaultDisputeGame(address(_game)).challenge{value: msg.value}(msg.sender);
     }
 
     /**

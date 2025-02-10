@@ -14,7 +14,13 @@ import {
     UnexpectedRootClaim,
     NoCreditToClaim
 } from "src/dispute/lib/Errors.sol";
-import {ParentGameNotResolved, InvalidParentGame, ClaimAlreadyChallenged, AlreadyProven} from "src/fp/lib/Errors.sol";
+import {
+    ParentGameNotResolved,
+    InvalidParentGame,
+    ClaimAlreadyChallenged,
+    AlreadyProven,
+    NotWhitelisted
+} from "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Contracts
@@ -283,10 +289,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Must pay exactly the required bond
         vm.expectRevert(IncorrectBondAmount.selector);
-        game.challenge{value: 0.5 ether}();
+        entryPoint.challengeGame{value: 0.5 ether}(IDisputeGame(address(game)));
 
         // Correctly challenge
-        game.challenge{value: 1 ether}();
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
         vm.stopPrank();
 
         // Now the contract holds 2 ether total
@@ -335,7 +341,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Challenge the game
         vm.startPrank(challenger);
         vm.deal(challenger, 2 ether);
-        game.challenge{value: 1 ether}();
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
         vm.stopPrank();
 
         // The contract now has 2 ether total
@@ -374,11 +380,11 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // The first challenge is valid
         vm.startPrank(challenger);
         vm.deal(challenger, 2 ether);
-        game.challenge{value: 1 ether}();
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
 
         // A second challenge from any party should revert because the proposal is no longer "Unchallenged"
         vm.expectRevert(ClaimAlreadyChallenged.selector);
-        game.challenge{value: 1 ether}();
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
         vm.stopPrank();
     }
 
@@ -389,7 +395,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Challenge first
         vm.startPrank(challenger);
         vm.deal(challenger, 1 ether);
-        game.challenge{value: 1 ether}();
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
         vm.stopPrank();
 
         // Move time forward beyond the prove period
@@ -477,7 +483,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // 2) Challenge the parent game so that it ends up CHALLENGER_WINS when proof is not provided within the prove deadline
         vm.startPrank(challenger);
         vm.deal(challenger, 1 ether);
-        game.challenge{value: 1 ether}();
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
         vm.stopPrank();
 
         // 3) Warp past the prove deadline
@@ -507,13 +513,59 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     }
 
     // =========================================
-    // Test: Attempting multiple `prove()` calls
+    // Test: Attempting multiple `proveGame()` calls
     // =========================================
     function testCannotProveMultipleTimes() public {
         vm.startPrank(prover);
-        game.prove(bytes(""));
+
+        entryPoint.proveGame(IDisputeGame(address(game)), bytes(""));
+
         vm.expectRevert(AlreadyProven.selector);
-        game.prove(bytes(""));
+        entryPoint.proveGame(IDisputeGame(address(game)), bytes(""));
+
         vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot create game without permission
+    // =========================================
+    function testCannotCreateGameWithoutPermission() public {
+        // No longer permissionless proposer system
+        entryPoint.setProposer(address(0), false);
+
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+
+        vm.expectRevert(NotWhitelisted.selector);
+        entryPoint.createGame{value: 1 ether}(
+            Claim.wrap(keccak256("new-claim")),
+            // encode l2BlockNumber = 3000, parentIndex = 1
+            abi.encodePacked(uint256(3000), uint32(1))
+        );
+
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot challenge game without permission
+    // =========================================
+    function testCannotChallengeGameWithoutPermission() public {
+        // No longer permissionless challenger system
+        entryPoint.setChallenger(address(0), false);
+
+        vm.startPrank(challenger);
+        vm.deal(challenger, 1 ether);
+
+        vm.expectRevert(NotWhitelisted.selector);
+        entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
+
+        vm.stopPrank();
+    }
+
+    // Cannot create, challenge, prove, resolve game without going through the entry point
+    // =========================================
+    function testCannotCreateChallengeProveResolveWithoutEntryPoint() public {
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
     }
 }

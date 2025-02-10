@@ -350,7 +350,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Challenges the game.
-    function challenge() external payable returns (ProposalStatus) {
+    function challenge(address challenger) external payable returns (ProposalStatus) {
+        // INVARIANT: Can only challenge a game through the entry point.
+        if (msg.sender != ENTRY_POINT) revert NotThroughEntryPoint();
+
         // INVARIANT: Can only challenge a game that has not been challenged yet.
         if (claimData.status != ProposalStatus.Unchallenged) revert ClaimAlreadyChallenged();
 
@@ -361,7 +364,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (msg.value != PROOF_REWARD) revert IncorrectBondAmount();
 
         // Update the counteredBy address
-        claimData.counteredBy = msg.sender;
+        claimData.counteredBy = challenger;
 
         // Update the status of the proposal
         claimData.status = ProposalStatus.Challenged;
