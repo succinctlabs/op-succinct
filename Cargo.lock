@@ -3123,7 +3123,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3159,7 +3159,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3179,7 +3179,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3200,7 +3200,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3219,7 +3219,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3263,7 +3263,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3279,7 +3279,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3291,7 +3291,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.2.1"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -3305,7 +3305,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3335,7 +3335,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3362,7 +3362,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3386,7 +3386,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -3399,7 +3399,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?rev=b4719971#b47199717df03c4e13949039e4a156f07c28fa4f"
+source = "git+https://github.com/succinctlabs/kona?rev=2e02cbd#2e02cbd190eb437f8b3fa07fcba52ddc9293d5e4"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
@@ -3550,9 +3550,9 @@ dependencies = [
 
 [[package]]
 name = "maili-genesis"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5362c943f8746e56f39cbb14568be3e709e6355ad460ad79dd752241d001215d"
+checksum = "06b7e97a44adfa99280f855cbc23fd91617053110e1b02e32b0b098ce41411fa"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3568,9 +3568,9 @@ dependencies = [
 
 [[package]]
 name = "maili-interop"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b031a4d7b363d087cb98d2a46933a12eae39e35da355c11856b491c912685bb9"
+checksum = "5c012b9ad9e92b4d8a6cfee4a7a3b4efdee471827f0b48ace3863383fd165c9e"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3584,9 +3584,9 @@ dependencies = [
 
 [[package]]
 name = "maili-protocol"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "837893c0f84c6760348ef21e351a897849dfc30603183632c560bcea32a2dcd9"
+checksum = "2ff2dab30e675a17f683ae5cdaebe15a70d7b16c21c546a36d5cf6b3a9ecc6b7"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3624,9 +3624,9 @@ dependencies = [
 
 [[package]]
 name = "maili-rpc"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2380b1566c658a26bb2ef5e7930f6fc60ef9d94e4544af615db7b4bc419049d6"
+checksum = "48c9694f81bb2002651beeefc47ad985f212aa95ff77f8f018b58b1ac435a360"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -3640,9 +3640,9 @@ dependencies = [
 
 [[package]]
 name = "maili-serde"
-version = "0.2.3"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d11c7501c4db3a2e31942d893f9a2c867896273b003630d25f309446ef4d7474"
+checksum = "d585b003062590dcec94e9933cb9e7cf7ddc2fd727aeb2b80f2fef23164f558b"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -3993,9 +3993,9 @@ checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
 
 [[package]]
 name = "op-alloy-consensus"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1363dd2454f473e2a2a6ee5eda585ecf94209319e35529bd703ddc5072798eb4"
+checksum = "23f7ff02e5f3ba62c8dd5d9a630c818f50147bca7b0d78e89de59ed46b5d02e1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -4009,9 +4009,9 @@ dependencies = [
 
 [[package]]
 name = "op-alloy-flz"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3419796a04a6bcc4752b9ba26b89d6ba4d46d7b69476ddcac3692aa44a558574"
+checksum = "740324977f089db5b2cd96975260308c3f52daeaa103570995211748d282e560"
 
 [[package]]
 name = "op-alloy-network"
@@ -4048,14 +4048,16 @@ dependencies = [
 
 [[package]]
 name = "op-alloy-rpc-types-engine"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2e4fe1929b0e39130da37cb975c98d70418904ba7991a061799ad971dbd09fe"
+checksum = "20120c629465e52e5cdb0ac8df0ba45e184b456fcd55d17ea9ec1247d6968bb4"
 dependencies = [
+ "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "alloy-serde",
+ "derive_more",
  "op-alloy-consensus",
  "serde",
  "thiserror 2.0.11",

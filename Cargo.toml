@@ -43,19 +43,19 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # Switch back to main `kona` once https://github.com/op-rs/kona/pull/1018 is merged.
-kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "b4719971", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "b4719971", features = [
+kona-mpt = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
+kona-derive = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd", default-features = false }
+kona-driver = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
+kona-preimage = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-executor = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
+kona-proof = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
-kona-host = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "b4719971" }
+kona-client = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
+kona-host = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
+kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", rev = "2e02cbd" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -96,13 +96,13 @@ op-alloy-rpc-types-engine = { version = "0.10.0", default-features = false }
 op-alloy-network = { version = "0.10.0", default-features = false }
 
 # Maili
-maili-consensus = { version = "0.1.6", default-features = false }
-maili-rpc = { version = "0.2.0", default-features = false, features = [
+maili-consensus = { version = "0.2.6", default-features = false }
+maili-rpc = { version = "0.2.6", default-features = false, features = [
     "serde",
 ] }
-maili-protocol = { version = "0.2.0", default-features = false }
-maili-registry = { version = "0.2.0", default-features = false }
-maili-genesis = { version = "0.2.0", default-features = false }
+maili-protocol = { version = "0.2.6", default-features = false }
+maili-registry = { version = "0.2.6", default-features = false }
+maili-genesis = { version = "0.2.6", default-features = false }
 
 # Revm
 revm = { version = "19.4.0", default-features = false, features = ["kzg-rs"] }
