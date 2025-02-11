@@ -32,8 +32,8 @@ import (
 )
 
 var (
-	supportedL2OutputVersion   = eth.Bytes32{}
-	ErrProposerNotRunning      = errors.New("proposer is not running")
+	supportedL2OutputVersion = eth.Bytes32{}
+	ErrProposerNotRunning    = errors.New("proposer is not running")
 )
 
 type L1Client interface {
@@ -135,7 +135,7 @@ func newL2OOSubmitter(ctx context.Context, cancel context.CancelFunc, setup Driv
 		return nil, err
 	}
 
-	dfgAbiParsed, err := opsuccinctbindings.OPSuccinctDisputeGameFactoryMetaData.GetAbi()
+	dfgAbiParsed, err := opsuccinctbindings.DisputeGameFactoryMetaData.GetAbi()
 	if err != nil {
 		cancel()
 		return nil, err
