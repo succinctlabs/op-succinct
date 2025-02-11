@@ -395,10 +395,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
         let block = self
             .l1_provider
-            .get_block(
-                block_number,
-                alloy_rpc_types::BlockTransactionsKind::Hashes,
-            )
+            .get_block(block_number, alloy_rpc_types::BlockTransactionsKind::Hashes)
             .await?;
 
         if let Some(block) = block {
