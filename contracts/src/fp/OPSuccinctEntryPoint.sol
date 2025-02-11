@@ -186,12 +186,4 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
     function resolveGame(IDisputeGame _game) external {
         OPSuccinctFaultDisputeGame(address(_game)).resolve();
     }
-
-    ////////////////////////////////////////////////////////////////
-    //                         Receive/Fallback                   //
-    ////////////////////////////////////////////////////////////////
-
-    receive() external payable {}
-
-    fallback() external payable {}
 }
