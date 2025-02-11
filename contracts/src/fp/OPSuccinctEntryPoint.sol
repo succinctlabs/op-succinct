@@ -186,4 +186,11 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
     function resolveGame(IDisputeGame _game) external {
         OPSuccinctFaultDisputeGame(address(_game)).resolve();
     }
+
+    /// @notice Allows the owner to recover by pulling ETHs out of the contract.
+    function recover() external {
+        require(msg.sender == owner(), "OPSuccinctEntryPoint: not owner");
+        (bool success,) = payable(msg.sender).call{value: address(this).balance}(hex"");
+        require(success, "OPSuccinctEntryPoint: recover failed");
+    }
 }

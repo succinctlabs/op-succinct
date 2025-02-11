@@ -583,4 +583,18 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.expectRevert(NotThroughEntryPoint.selector);
         game.resolve();
     }
+
+    // =========================================
+    // Test: Owner can recover ETH from the contract
+    // =========================================
+    function testOwnerCanRecoverETH() public {
+        (,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1);
+
+        entryPoint.resolveGame(IDisputeGame(address(game)));
+
+        entryPoint.recover();
+    }
+
+    receive() external payable {}
 }
