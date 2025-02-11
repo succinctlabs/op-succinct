@@ -7,7 +7,6 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
-use futures::{stream, StreamExt};
 use kona_host::single::SingleChainHost;
 use maili_genesis::RollupConfig;
 use maili_protocol::calculate_tx_l1_cost_fjord;
@@ -398,7 +397,7 @@ impl OPSuccinctDataFetcher {
             .l1_provider
             .get_block(
                 block_number,
-                alloy::rpc::types::BlockTransactionsKind::Hashes,
+                alloy_rpc_types::BlockTransactionsKind::Hashes,
             )
             .await?;
 
