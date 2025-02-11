@@ -20,11 +20,5 @@ error ParentGameNotResolved();
 /// @notice Thrown when the claim has already been proven.
 error AlreadyProven();
 
-/// @notice Thrown when the credit transfer fails.
-error CreditTransferFailed();
-
-/// @notice Thrown when the user is not whitelisted.
-error NotWhitelisted();
-
 /// @notice Thrown when actions are attempted without going through the entry point.
 error NotThroughEntryPoint();

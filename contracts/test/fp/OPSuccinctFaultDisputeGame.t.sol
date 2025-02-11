@@ -8,6 +8,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 // Libraries
 import {Claim, Duration, GameStatus, GameType, Hash, Timestamp} from "src/dispute/lib/Types.sol";
 import {
+    BadAuth,
     ClockNotExpired,
     IncorrectBondAmount,
     AlreadyInitialized,
@@ -19,7 +20,6 @@ import {
     InvalidParentGame,
     ClaimAlreadyChallenged,
     AlreadyProven,
-    NotWhitelisted,
     NotThroughEntryPoint
 } from "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
@@ -537,7 +537,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.startPrank(proposer);
         vm.deal(proposer, 1 ether);
 
-        vm.expectRevert(NotWhitelisted.selector);
+        vm.expectRevert(BadAuth.selector);
         entryPoint.createGame{value: 1 ether}(
             Claim.wrap(keccak256("new-claim")),
             // encode l2BlockNumber = 3000, parentIndex = 1
@@ -557,7 +557,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         vm.startPrank(challenger);
         vm.deal(challenger, 1 ether);
 
-        vm.expectRevert(NotWhitelisted.selector);
+        vm.expectRevert(BadAuth.selector);
         entryPoint.challengeGame{value: 1 ether}(IDisputeGame(address(game)));
 
         vm.stopPrank();

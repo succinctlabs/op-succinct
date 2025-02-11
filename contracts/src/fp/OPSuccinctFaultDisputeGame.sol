@@ -447,7 +447,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
                     OPSuccinctEntryPoint.addCredit.selector, claimData.counteredBy, address(this).balance
                 )
             );
-            if (!success) revert CreditTransferFailed();
+            if (!success) revert BondTransferFailed();
 
             emit Resolved(status);
 
@@ -465,7 +465,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             (bool success,) = ENTRY_POINT.call{value: address(this).balance}(
                 abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimant(), address(this).balance)
             );
-            if (!success) revert CreditTransferFailed();
+            if (!success) revert BondTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
@@ -480,7 +480,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
                     OPSuccinctEntryPoint.addCredit.selector, claimData.counteredBy, address(this).balance
                 )
             );
-            if (!success) revert CreditTransferFailed();
+            if (!success) revert BondTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
@@ -492,7 +492,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             (bool success,) = ENTRY_POINT.call{value: address(this).balance}(
                 abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimant(), address(this).balance)
             );
-            if (!success) revert CreditTransferFailed();
+            if (!success) revert BondTransferFailed();
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
@@ -504,13 +504,13 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             (bool success,) = ENTRY_POINT.call{value: PROOF_REWARD}(
                 abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimData.prover, PROOF_REWARD)
             );
-            if (!success) revert CreditTransferFailed();
+            if (!success) revert BondTransferFailed();
 
             // Return the proposer's bond to the entry point contract.
             (success,) = ENTRY_POINT.call{value: address(this).balance}(
                 abi.encodeWithSelector(OPSuccinctEntryPoint.addCredit.selector, claimant(), address(this).balance)
             );
-            if (!success) revert CreditTransferFailed();
+            if (!success) revert BondTransferFailed();
 
             emit Resolved(status);
         }

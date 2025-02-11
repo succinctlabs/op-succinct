@@ -4,8 +4,7 @@ pragma solidity 0.8.15;
 // Libraries
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {GameType, Claim} from "src/dispute/lib/Types.sol";
-import {NoCreditToClaim} from "src/dispute/lib/Errors.sol";
-import {CreditTransferFailed, NotWhitelisted} from "./lib/Errors.sol";
+import {BadAuth, BondTransferFailed, NoCreditToClaim} from "src/dispute/lib/Errors.sol";
 
 // Interfaces
 import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
@@ -14,14 +13,13 @@ import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 // Contracts
 import {OPSuccinctFaultDisputeGame} from "./OPSuccinctFaultDisputeGame.sol";
 
-import "forge-std/console.sol";
-
 /**
  * @title OPSuccinctEntryPoint
  * @notice An entrypoint contract for `OPSuccinctFaultDisputeGame` that:
  *         1) Stores whitelisted addresses for proposers and challengers.
  *         2) Calls the `disputeGameFactory` to create, challenge, prove,
  *            and resolve `OPSuccinctFaultDisputeGame`s.
+ *         3) Holds credits for users when games are resolved.
  */
 contract OPSuccinctEntryPoint is OwnableUpgradeable {
     ////////////////////////////////////////////////////////////////
@@ -63,7 +61,7 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
     /// @dev Whitelisting zero address allows permissionless proposer system.
     modifier onlyProposer() {
         if (!proposers[msg.sender] && !proposers[address(0)]) {
-            revert NotWhitelisted();
+            revert BadAuth();
         }
         _;
     }
@@ -72,7 +70,7 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
     /// @dev Whitelisting zero address allows permissionless challenger system.
     modifier onlyChallenger() {
         if (!challengers[msg.sender] && !challengers[address(0)]) {
-            revert NotWhitelisted();
+            revert BadAuth();
         }
         _;
     }
@@ -135,7 +133,7 @@ contract OPSuccinctEntryPoint is OwnableUpgradeable {
         if (creditToClaim == 0) revert NoCreditToClaim();
 
         (bool success,) = _recipient.call{value: creditToClaim}(hex"");
-        if (!success) revert CreditTransferFailed();
+        if (!success) revert BondTransferFailed();
     }
 
     /**
