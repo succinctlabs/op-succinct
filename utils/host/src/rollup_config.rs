@@ -1,10 +1,8 @@
-use crate::fetcher::RPCConfig;
 use alloy::eips::eip1559::BaseFeeParams;
 use alloy_primitives::Address;
 use anyhow::Result;
 use op_alloy_genesis::ChainGenesis;
 use op_alloy_genesis::RollupConfig;
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;

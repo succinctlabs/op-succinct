@@ -10,10 +10,11 @@ homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
 
 [workspace.dependencies]
+# general
 anyhow = { version = "1.0.86", default-features = false }
 thiserror = { version = "2.0.3" }
 cfg-if = "1.0.0"
-spin = { version = "0.9.8", features = ["mutex"] }
+spin = { version = "0.9.8" }
 lru = "0.12.3"
 async-trait = "0.1.80"
 sha2 = "0.10.8"
@@ -30,14 +31,11 @@ reqwest = { version = "0.12", features = ["json"] }
 csv = "1.3.0"
 serde = { version = "1.0.198", features = ["derive"] }
 serde_json = { version = "1.0.117", default-features = false }
-rkyv = { version = "0.8", features = ["bytecheck"] }
+rkyv = { version = "0.8", features = ["hashbrown-0_15", "std"] }
 hex = "0.4.3"
 bincode = "1.3.3"
 base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
-kzg-rs = { version = "0.2.2" }
-
-# program tracing
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
@@ -48,6 +46,7 @@ kona-common = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
 kona-common-proc = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
 kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3", features = [
     "rkyv",
+    "serde",
 ] }
 kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
 kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
@@ -60,11 +59,17 @@ eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
-op-succinct-witnessgen = { path = "scripts/witnessgen" }
 op-succinct-client-utils = { path = "utils/client" }
 op-succinct-host-utils = { path = "utils/host" }
 op-succinct-build-utils = { path = "utils/build" }
 op-succinct-proposer = { path = "proposer/succinct" }
+
+# Alloy (Network)
+alloy-signer-local = { version = "0.11.0", default-features = false }
+alloy-provider = { version = "0.11.0", default-features = false }
+alloy-transport = { version = "0.11.0", default-features = false }
+alloy-transport-http = { version = "0.11.0", default-features = false }
+alloy-contract = { version = "0.11.0", default-features = false }
 
 # Alloy
 alloy = { version = "0.6.4", default-features = false, features = ["full"] }
@@ -74,9 +79,6 @@ alloy-primitives = { version = "0.8.15", default-features = false, features = [
 ] }
 alloy-rlp = { version = "0.3.8", default-features = false }
 alloy-eips = { version = "0.6.4", default-features = false }
-revm = { git = "https://github.com/mantle-xyz/revm", branch = "kona", default-features = false, features = [
-    "kzg-rs",
-] }
 alloy-consensus = { version = "0.6.4", default-features = false }
 alloy-sol-types = { version = "0.8" }
 
@@ -91,11 +93,17 @@ op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0
 op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
 op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
 
-# sp1
-sp1-lib = { version = "4.0.0", features = ["verify"] }
-sp1-sdk = { version = "4.0.0" }
-sp1-zkvm = { version = "4.0.0", features = ["verify", "embedded"] }
-sp1-build = { version = "4.0.0" }
+# Revm
+revm = { git = "https://github.com/mantle-xyz/revm", branch = "kona", default-features = false, features = [
+    "kzg-rs",
+] }
+
+# SP1
+sp1-lib = { version = "4.1.0", features = ["verify"] }
+sp1-sdk = { version = "4.1.0" }
+sp1-zkvm = { version = "4.1.0", features = ["verify", "embedded"] }
+sp1-build = { version = "4.1.0" }
+kzg-rs = { version = "0.2.5" }
 
 [profile.release-client-lto]
 inherits = "release"
@@ -106,8 +114,7 @@ lto = "fat"
 [patch.crates-io]
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
 sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
-ecdsa = { git = "https://github.com/sp1-patches/signatures", tag = "patch-0.16.9-sp1-4.0.0" }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0" }
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
-
-# Note: kzg-rs must be on version 0.2.4, https://github.com/bluealloy/revm/pull/2002.
+p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-4.1.0" }
+k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-4.1.0" }
