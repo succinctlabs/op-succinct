@@ -1,5 +1,5 @@
 [workspace]
-members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct"]
+members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct", "proposer/rust"]
 resolver = "2"
 
 [workspace.package]
