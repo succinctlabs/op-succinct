@@ -1,26 +1,22 @@
 pub mod block_range;
 pub mod fetcher;
-pub mod helpers;
 pub mod rollup_config;
 pub mod stats;
-pub mod witnessgen;
 
-use alloy::sol;
 use alloy_consensus::Header;
 use alloy_primitives::B256;
+use alloy_sol_types::sol;
 use anyhow::Result;
-use kona_host::{
-    kv::{DiskKeyValueStore, MemoryKeyValueStore},
-    HostCli,
-};
-use op_alloy_genesis::RollupConfig;
-use op_succinct_client_utils::{
-    boot::BootInfoStruct, types::AggregationInputs, BootInfoWithBytesConfig, BytesHasherBuilder,
-    InMemoryOracleData,
-};
+use kona_host::single::SingleChainHost;
+use kona_preimage::{BidirectionalChannel, HintWriter, NativeChannel, OracleReader};
+use log::info;
+use op_succinct_client_utils::client::run_opsuccinct_client;
+use op_succinct_client_utils::precompiles::zkvm_handle_register;
+use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
+use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
 use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
-use std::{collections::HashMap, fs::File, io::Read};
+use std::sync::Arc;
 
 sol! {
     #[allow(missing_docs)]
@@ -51,44 +47,16 @@ sol! {
     }
 }
 
+pub struct OPSuccinctHost {
+    pub kona_args: SingleChainHost,
+}
+
 /// Get the stdin to generate a proof for the given L2 claim.
-pub fn get_proof_stdin(host_cli: &HostCli) -> Result<SP1Stdin> {
+pub fn get_proof_stdin(oracle: InMemoryOracle) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
 
-    // Read the rollup config.
-    let mut rollup_config_file = File::open(host_cli.rollup_config_path.as_ref().unwrap())?;
-    let mut rollup_config_bytes = Vec::new();
-    rollup_config_file.read_to_end(&mut rollup_config_bytes)?;
-
-    let ser_config = std::fs::read_to_string(host_cli.rollup_config_path.as_ref().unwrap())?;
-    let rollup_config: RollupConfig = serde_json::from_str(&ser_config)?;
-
-    let boot_info = BootInfoWithBytesConfig {
-        l1_head: host_cli.l1_head,
-        l2_output_root: host_cli.agreed_l2_output_root,
-        l2_claim: host_cli.claimed_l2_output_root,
-        l2_claim_block: host_cli.claimed_l2_block_number,
-        chain_id: rollup_config.l2_chain_id,
-        rollup_config_bytes,
-    };
-    stdin.write(&boot_info);
-
-    // Get the disk KV store.
-    let disk_kv_store = DiskKeyValueStore::new(host_cli.data_dir.clone().unwrap());
-
-    // Convert the disk KV store to a memory KV store.
-    let mem_kv_store: MemoryKeyValueStore = disk_kv_store.try_into().map_err(|_| {
-        anyhow::anyhow!("Failed to convert DiskKeyValueStore to MemoryKeyValueStore")
-    })?;
-
-    // Convert the memory KV store to a HashMap<[u8;32], Vec<u8>>.
-    let mut kv_store_map = HashMap::with_hasher(BytesHasherBuilder);
-    for (k, v) in mem_kv_store.store {
-        kv_store_map.insert(k.0, v);
-    }
-
     // Serialize the underlying KV store.
-    let buffer = to_bytes::<rkyv::rancor::Error>(&InMemoryOracleData { map: kv_store_map })?;
+    let buffer = to_bytes::<rkyv::rancor::Error>(&oracle)?;
 
     let kv_store_bytes = buffer.into_vec();
     stdin.write_slice(&kv_store_bytes);
@@ -123,4 +91,54 @@ pub fn get_agg_proof_stdin(
     stdin.write_vec(headers_bytes);
 
     Ok(stdin)
+}
+
+/// Start the server and native client. Each server is tied to a single client.
+pub async fn start_server_and_native_client(
+    cfg: SingleChainHost,
+) -> Result<InMemoryOracle, anyhow::Error> {
+    let host = OPSuccinctHost { kona_args: cfg };
+
+    info!("Starting preimage server and client program.");
+    let in_memory_oracle = host.run().await?;
+
+    Ok(in_memory_oracle)
+}
+
+impl OPSuccinctHost {
+    /// Run the host and client program.
+    ///
+    /// Returns the in-memory oracle which can be supplied to the zkVM.
+    pub async fn run(&self) -> Result<InMemoryOracle> {
+        let hint = BidirectionalChannel::new()?;
+        let preimage = BidirectionalChannel::new()?;
+
+        let server_task = self
+            .kona_args
+            .start_server(hint.host, preimage.host)
+            .await?;
+
+        let in_memory_oracle = self
+            .run_witnessgen_client(preimage.client, hint.client)
+            .await?;
+        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both tasks to complete.
+        server_task.abort();
+
+        Ok(in_memory_oracle)
+    }
+
+    /// Run the witness generation client.
+    pub async fn run_witnessgen_client(
+        &self,
+        preimage_chan: NativeChannel,
+        hint_chan: NativeChannel,
+    ) -> Result<InMemoryOracle> {
+        let oracle = Arc::new(StoreOracle::new(
+            OracleReader::new(preimage_chan),
+            HintWriter::new(hint_chan),
+        ));
+        let _ = run_opsuccinct_client(oracle.clone(), Some(zkvm_handle_register)).await?;
+        let in_memory_oracle = InMemoryOracle::populate_from_store(oracle.as_ref())?;
+        Ok(in_memory_oracle)
+    }
 }
