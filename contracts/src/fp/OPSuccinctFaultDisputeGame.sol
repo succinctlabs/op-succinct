@@ -553,7 +553,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Getter for the extra data.
     /// @dev `clones-with-immutable-args` argument #4
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    /// FIXME(fakedev9999): Wrong length of extra data considering below facts.
     /// @dev Expected calldata length without proof bytes: 0x92
     //      - 0x04 selector
     //      - 0x14 creator address
