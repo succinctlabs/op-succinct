@@ -29,7 +29,6 @@ import {OPSuccinctEntryPoint} from "src/fp/OPSuccinctEntryPoint.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
-import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 
 // Interfaces
 import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
@@ -87,13 +86,12 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
+        uint256 genesisL2BlockNumber = 0;
+        bytes32 genesisL2OutputRoot = keccak256("genesis");
         uint256 proofReward = 1 ether;
 
         entryPoint = new OPSuccinctEntryPoint();
         entryPoint.initialize(IDisputeGameFactory(address(factory)), gameType);
-
-        // Deploy the AnchorStateRegistry
-        AnchorStateRegistry anchorStateRegistry = new AnchorStateRegistry(IDisputeGameFactory(address(factory)));
 
         // Deploy the reference implementation of OPSuccinctFaultDisputeGame
         gameImpl = new OPSuccinctFaultDisputeGame(
@@ -104,9 +102,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
+            genesisL2BlockNumber,
+            genesisL2OutputRoot,
             proofReward,
-            payable(address(entryPoint)),
-            address(anchorStateRegistry)
+            payable(address(entryPoint))
         );
 
         // Set the init bond on the factory for our specific GameType
