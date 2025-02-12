@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use lazy_static::lazy_static;
 use log::{error, info};
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
@@ -22,6 +23,7 @@ use op_succinct_proposer::{
     AggProofRequest, ProofResponse, ProofStatus, SpanProofRequest, SuccinctProposerConfig,
     ValidateConfigRequest, ValidateConfigResponse,
 };
+use prometheus::{register_gauge, Encoder, Gauge, TextEncoder};
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -30,15 +32,35 @@ use sp1_sdk::{
     utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues,
     SP1_CIRCUIT_VERSION,
 };
+use std::time::Duration;
 use std::{
     env, fs,
     str::FromStr,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
+use sysinfo::{get_current_pid, System};
 use tower_http::limit::RequestBodyLimitLayer;
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
+
+lazy_static! {
+    // New system metrics.
+    static ref CPU_USAGE: Gauge = register_gauge!(
+        "process_cpu_usage_percent",
+        "Current CPU usage percentage"
+    ).unwrap();
+
+    static ref MEMORY_USAGE_BYTES: Gauge = register_gauge!(
+        "process_memory_usage_bytes",
+        "Current memory usage in bytes"
+    ).unwrap();
+
+    static ref TOTAL_MEMORY_BYTES: Gauge = register_gauge!(
+        "system_memory_total_bytes",
+        "Total system memory in bytes"
+    ).unwrap();
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -49,6 +71,33 @@ async fn main() -> Result<()> {
     utils::setup_logger();
 
     dotenv::dotenv().ok();
+
+    // Spawn background task for CPU and memory metrics.
+    tokio::spawn(async {
+        let mut sys = System::new_all();
+        loop {
+            sys.refresh_all();
+            if let Some(process) = sys.process(get_current_pid().unwrap()) {
+                // process.cpu_usage returns a f32 representing CPU usage %
+                CPU_USAGE.set(process.cpu_usage() as f64);
+                // process.memory returns the memory usage in kilobytes. Convert to bytes.
+                MEMORY_USAGE_BYTES.set(process.memory() as f64 * 1024.0);
+            }
+            // sys.total_memory returns total memory in kilobytes.
+            TOTAL_MEMORY_BYTES.set(sys.total_memory() as f64 * 1024.0);
+            tokio::time::sleep(Duration::from_secs(15)).await;
+        }
+    });
+
+    // Spawn a separate metrics server.
+    let metrics_port = env::var("METRICS_PORT").unwrap_or_else(|_| "9090".to_string());
+    tokio::spawn(async move {
+        let metrics_app = Router::new().route("/metrics", get(metrics_handler));
+        let metrics_addr = format!("0.0.0.0:{}", metrics_port);
+        info!("Metrics server listening on {}", metrics_addr);
+        let listener = tokio::net::TcpListener::bind(&metrics_addr).await.unwrap();
+        axum::serve(listener, metrics_app).await.unwrap();
+    });
 
     let prover = ProverClient::builder().cpu().build();
     let (range_pk, range_vk) = prover.setup(RANGE_ELF);
@@ -630,4 +679,16 @@ where
     fn from(err: E) -> Self {
         Self(err.into())
     }
+}
+
+async fn metrics_handler() -> impl axum::response::IntoResponse {
+    let encoder = TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buffer = Vec::new();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+
+    axum::response::Response::builder()
+        .header("Content-Type", encoder.format_type())
+        .body(axum::body::Body::from(buffer))
+        .unwrap()
 }
