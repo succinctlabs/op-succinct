@@ -495,12 +495,6 @@ func (db *ProofDB) GetLimitContiguousSpanProofRange(start, max uint64) (uint64, 
 		return 0, nil
 	}
 
-	// Check if the last retrieved span proof ends at the max block.
-	if max < spans[len(spans)-1].EndBlock {
-		// Don't use the last span proof if it doesn't end at the max block.
-		spans = spans[:len(spans)-1]
-	}
-
 	// Return the end block of the last span proof as we can not go beyond max.
 	return spans[len(spans)-1].EndBlock, nil
 }
