@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Libraries
-import {Claim, Duration, GameStatus, GameType, Hash, Timestamp} from "src/dispute/lib/Types.sol";
+import {Claim, Duration, GameStatus, GameType, Hash, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
 import {
     ClockNotExpired,
     IncorrectBondAmount,
@@ -21,11 +21,14 @@ import {AggregationOutputs} from "src/lib/Types.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
+import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
+import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 
 // Interfaces
 import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
+import {ISuperchainConfig} from "src/L1/interfaces/ISuperchainConfig.sol";
 
 contract OPSuccinctFaultDisputeGameTest is Test {
     // Event definitions matching those in OPSuccinctFaultDisputeGame
@@ -39,6 +42,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     OPSuccinctFaultDisputeGame gameImpl;
     OPSuccinctFaultDisputeGame parentGame;
     OPSuccinctFaultDisputeGame game;
+
+    AnchorStateRegistry anchorStateRegistry;
 
     address proposer = address(0x123);
     address challenger = address(0x456);
@@ -72,12 +77,28 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Create a mock verifier
         SP1MockVerifier sp1Verifier = new SP1MockVerifier();
 
+        // Inputs for the anchor state registry
+        AnchorStateRegistry.StartingAnchorRoot[] memory startingAnchorRoots =
+            new AnchorStateRegistry.StartingAnchorRoot[](1);
+        startingAnchorRoots[0] = AnchorStateRegistry.StartingAnchorRoot({
+            gameType: gameType,
+            outputRoot: OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0})
+        });
+        SuperchainConfig superchainConfig = new SuperchainConfig();
+
+        // Create an anchor state registry
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(new AnchorStateRegistry(IDisputeGameFactory(address(factory)))),
+            abi.encodeCall(
+                AnchorStateRegistry.initialize, (startingAnchorRoots, ISuperchainConfig(address(superchainConfig)))
+            )
+        );
+        anchorStateRegistry = AnchorStateRegistry(address(proxy));
+
         // Parameters for the OPSuccinctFaultDisputeGame
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
         bytes32 rangeVkeyCommitment = bytes32(0);
-        uint256 genesisL2BlockNumber = 0;
-        bytes32 genesisL2OutputRoot = keccak256("genesis");
         uint256 proofReward = 1 ether;
 
         // Deploy the reference implementation of OPSuccinctFaultDisputeGame
@@ -89,9 +110,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
-            genesisL2BlockNumber,
-            genesisL2OutputRoot,
-            proofReward
+            proofReward,
+            address(anchorStateRegistry)
         );
 
         // Set the init bond on the factory for our specific GameType
