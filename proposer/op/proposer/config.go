@@ -133,15 +133,13 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 
 	return &CLIConfig{
 		// Required Flags
-		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),
-		RollupRpc:       ctx.String(flags.RollupRpcFlag.Name),
-		L2OOAddress:     ctx.String(flags.L2OOAddressFlag.Name),
-		DGFAddress:      ctx.String(flags.DGFAddressFlag.Name),
-		DisputeGameType: uint32(ctx.Uint64(flags.DisputeGameTypeFlag.Name)),
-		PollInterval:    ctx.Duration(flags.PollIntervalFlag.Name),
-		TxMgrConfig:     txmgr.ReadCLIConfig(ctx),
-		BeaconRpc:       ctx.String(flags.BeaconRpcFlag.Name),
-		L2ChainID:       rollupConfig.L2ChainID.Uint64(),
+		L1EthRpc:     ctx.String(flags.L1EthRpcFlag.Name),
+		RollupRpc:    ctx.String(flags.RollupRpcFlag.Name),
+		L2OOAddress:  ctx.String(flags.L2OOAddressFlag.Name),
+		PollInterval: ctx.Duration(flags.PollIntervalFlag.Name),
+		TxMgrConfig:  txmgr.ReadCLIConfig(ctx),
+		BeaconRpc:    ctx.String(flags.BeaconRpcFlag.Name),
+		L2ChainID:    rollupConfig.L2ChainID.Uint64(),
 
 		// Optional Flags
 		AllowNonFinalized:            ctx.Bool(flags.AllowNonFinalizedFlag.Name),
@@ -160,5 +158,7 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 		OPSuccinctServerUrl:          ctx.String(flags.OPSuccinctServerUrlFlag.Name),
 		MaxConcurrentProofRequests:   ctx.Uint64(flags.MaxConcurrentProofRequestsFlag.Name),
 		Mock:                         ctx.Bool(flags.MockFlag.Name),
+		DGFAddress:                   ctx.String(flags.DGFAddressFlag.Name),
+		DisputeGameType:              uint32(ctx.Uint64(flags.DisputeGameTypeFlag.Name)),
 	}
 }
