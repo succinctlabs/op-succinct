@@ -452,7 +452,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 	}
 
 	// Get the limited contiguous span proof chain we have with an end block <= maxTo and an l1BlockNumber.
-	maxContigousEnd, err := db.GetLimitContiguousSpanProofRange(from, maxTo)
+	_, maxContigousEnd, err := db.GetConsecutiveSpanProofs(from, maxTo)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
 	}
@@ -471,37 +471,9 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 	return true, maxContigousEnd, nil
 }
 
-// GetLimitContiguousSpanProofRange returns the start and end of the contiguous span proof chain.
-func (db *ProofDB) GetLimitContiguousSpanProofRange(start, max uint64) (uint64, error) {
-	ctx := context.Background()
-
-	query := db.readClient.ProofRequest.Query().
-		Where(
-			proofrequest.TypeEQ(proofrequest.TypeSPAN),
-			proofrequest.StatusEQ(proofrequest.StatusCOMPLETE),
-			proofrequest.StartBlockGTE(start),
-			proofrequest.EndBlockLTE(max),
-		).
-		Order(ent.Asc(proofrequest.FieldStartBlock))
-
-	// Execute the query.
-	spans, err := query.All(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("failed to query span proofs: %w", err)
-	}
-
-	// Check if there are no span proofs.
-	if len(spans) == 0 {
-		return 0, nil
-	}
-
-	// Return the end block of the last span proof as we can not go beyond max.
-	return spans[len(spans)-1].EndBlock, nil
-}
-
 // GetConsecutiveSpanProofs returns the span proofs that cover the range [start, end].
 // If there's a gap in the proofs, or the proofs don't fully cover the range, return an error.
-func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error) {
+func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, uint64, error) {
 	ctx := context.Background()
 
 	// Query the DB for the span proofs that cover the range [start, end].
@@ -517,7 +489,7 @@ func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error)
 	// Execute the query.
 	spans, err := query.All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query span proofs: %w", err)
+		return nil, 0, fmt.Errorf("failed to query span proofs: %w", err)
 	}
 
 	// Verify that the proofs are consecutive and cover the entire range.
@@ -526,17 +498,17 @@ func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, error)
 
 	for _, span := range spans {
 		if span.StartBlock != currentBlock {
-			return nil, fmt.Errorf("gap in proof chain: expected start block %d, got %d", currentBlock, span.StartBlock)
+			return nil, 0, fmt.Errorf("gap in proof chain: expected start block %d, got %d", currentBlock, span.StartBlock)
 		}
 		result = append(result, span.Proof)
 		currentBlock = span.EndBlock
 	}
 
 	if currentBlock != end {
-		return nil, fmt.Errorf("incomplete proof chain: ends at block %d, expected %d", currentBlock, end)
+		return nil, 0, fmt.Errorf("incomplete proof chain: ends at block %d, expected %d", currentBlock, end)
 	}
 
-	return result, nil
+	return result, currentBlock, nil
 }
 
 // Get the proofs with start block and end block of a specific status.

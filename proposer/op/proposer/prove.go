@@ -260,7 +260,7 @@ func (l *L2OutputSubmitter) prepareProofRequest(p ent.ProofRequest) ([]byte, err
 		}
 		return jsonBody, nil
 	} else {
-		subproofs, err := l.db.GetConsecutiveSpanProofs(p.StartBlock, p.EndBlock)
+		subproofs, _, err := l.db.GetConsecutiveSpanProofs(p.StartBlock, p.EndBlock)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get subproofs: %w", err)
 		}
