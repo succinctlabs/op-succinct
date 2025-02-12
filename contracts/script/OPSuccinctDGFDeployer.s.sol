@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {Script} from "forge-std/Script.sol";
 import {OPSuccinctL2OutputOracle} from "../src/validity/OPSuccinctL2OutputOracle.sol";
 import {OPSuccinctDisputeGame} from "../src/validity/OPSuccinctDisputeGame.sol";
-import {DisputeGameFactory} from "@optimism/src/dispute/DisputeGameFactory.sol";
+import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {Utils} from "../test/helpers/Utils.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
@@ -38,10 +38,6 @@ contract OPSuccinctDFGDeployer is Script, Utils {
         GameType gameType = GameType.wrap(uint32(6));
         gameFactory.setInitBond(gameType, 0.01 ether);
         gameFactory.setImplementation(gameType, IDisputeGame(address(game)));
-
-        // Add verification
-        address impl = address(gameFactory.gameImpls(gameType));
-        require(impl == address(game), "Implementation not set correctly");
 
         vm.stopBroadcast();
 

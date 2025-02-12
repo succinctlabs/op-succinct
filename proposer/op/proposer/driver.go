@@ -461,8 +461,6 @@ func (l *L2OutputSubmitter) GetBondAmount() (*big.Int, error) {
 }
 
 func (l *L2OutputSubmitter) ProposeL2OutputDGFTxData(output *eth.OutputResponse, proof []byte, l1BlockNum uint64) ([]byte, error) {
-	l.Log.Info("Creating dispute game", "gameType", l.Cfg.DisputeGameType)
-
 	arguments := abi.Arguments{
 		{Type: abi.Type{T: abi.UintTy, Size: 256}}, // for l2BlockNumber
 		{Type: abi.Type{T: abi.UintTy, Size: 256}}, // for l1BlockNumber
@@ -477,7 +475,6 @@ func (l *L2OutputSubmitter) ProposeL2OutputDGFTxData(output *eth.OutputResponse,
 		return nil, err
 	}
 
-	// Pack the final create function call
 	return l.dgfABI.Pack(
 		"create",
 		l.Cfg.DisputeGameType,

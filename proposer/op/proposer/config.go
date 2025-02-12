@@ -131,12 +131,6 @@ func NewConfig(ctx *cli.Context) *CLIConfig {
 	dbPath := ctx.String(flags.DbPathFlag.Name)
 	dbPath = filepath.Join(dbPath, fmt.Sprintf("%d", rollupConfig.L2ChainID.Uint64()), "proofs.db")
 
-	// print the dgf address
-	fmt.Println("DGFAddress:", ctx.String(flags.DGFAddressFlag.Name))
-
-	// print dispute game type
-	fmt.Println("DisputeGameType:", ctx.Uint64(flags.DisputeGameTypeFlag.Name))
-
 	return &CLIConfig{
 		// Required Flags
 		L1EthRpc:        ctx.String(flags.L1EthRpcFlag.Name),

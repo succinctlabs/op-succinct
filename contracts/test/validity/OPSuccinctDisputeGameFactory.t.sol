@@ -17,7 +17,7 @@ import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOra
 import {OPSuccinctDisputeGame} from "../../src/validity/OPSuccinctDisputeGame.sol";
 import {DisputeGameFactory} from "@optimism/src/dispute/DisputeGameFactory.sol";
 
-contract OPSuccinctL2OutputOracleFactoryTest is Test, Utils {
+contract OPSuccinctDisputeGameFactoryTest is Test, Utils {
     using LibCWIA for address;
 
     // Example proof data for the BoB testnet. Tx: https://sepolia.etherscan.io/tx/0x35df99dce5db3d7644a005bd582af2d66533b56fdb01970f248d96e8053fc0ba
@@ -32,8 +32,8 @@ contract OPSuccinctL2OutputOracleFactoryTest is Test, Utils {
         vm.createSelectFork(vm.envString("L1_RPC"), checkpointedL1BlockNum + 1);
     }
 
-    // Test the DisputeGame contract.
-    function testOPSuccinctDisputeGameFactory() public {
+    // Test the DisputeGameFactory contract.
+    function testDisputeGameFactory() public {
         vm.startBroadcast();
 
         Config memory cfg = readJson("opsuccinctl2ooconfig-test.json");
