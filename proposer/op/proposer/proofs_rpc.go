@@ -134,15 +134,13 @@ func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumbe
 	// If the L1 head corresponding to the maxBlock is higher than the L1 block number,
 	// we need to decrease the maxBlock and query the L1 head again until we find an L1 head,
 	// that is lower or equal to the L1 block number.
-	maxL1Block, err := pa.driver.GetL1HeadForL2Block(ctx, rollupClient, maxBlock)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get l1 head for l2 block: %w", err)
-	}
-
-	for ; maxL1Block > l1BlockNumber; maxBlock-- {
+	for maxL1Block := uint64(0); ; maxBlock-- {
 		maxL1Block, err = pa.driver.GetL1HeadForL2Block(ctx, rollupClient, maxBlock)
 		if err != nil {
 			return 0, fmt.Errorf("failed to get l1 head for l2 block: %w", err)
+		}
+		if maxL1Block <= l1BlockNumber {
+			break
 		}
 	}
 

@@ -51,11 +51,12 @@ func TestMaxBlockL1Limit(t *testing.T) {
 	})
 
 	t.Run("decrease maxBlock", func(t *testing.T) {
-		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(49), nil)
+		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(51), nil).Once()
+		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock-1).Return(uint64(50), nil).Once()
 
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
-		assert.Equal(t, maxBlock-1, result)
+		assert.Equal(t, uint64(99), result)
 	})
 
 	t.Run("error getting L1 head", func(t *testing.T) {
