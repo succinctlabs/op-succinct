@@ -39,6 +39,10 @@ contract OPSuccinctDFGDeployer is Script, Utils {
         gameFactory.setInitBond(gameType, 0.01 ether);
         gameFactory.setImplementation(gameType, IDisputeGame(address(game)));
 
+        // Add verification
+        address impl = address(gameFactory.gameImpls(gameType));
+        require(impl == address(game), "Implementation not set correctly");
+
         vm.stopBroadcast();
 
         return address(gameFactory);

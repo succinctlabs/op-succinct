@@ -10,6 +10,7 @@
     --rollup-rpc=${L2_NODE_RPC} \
     --l2oo-address=${L2OO_ADDRESS} \
     --dgf-address=${DGF_ADDRESS} \
+    --dispute-game-type=${DISPUTE_GAME_TYPE} \
     --private-key=${PRIVATE_KEY} \
     --l1-eth-rpc=${L1_RPC} \
     --beacon-rpc=${L1_BEACON_RPC} \
