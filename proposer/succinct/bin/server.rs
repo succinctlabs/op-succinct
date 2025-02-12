@@ -34,6 +34,7 @@ use sp1_sdk::{
 use std::{
     env, fs,
     str::FromStr,
+    sync::Arc,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tower_http::limit::RequestBodyLimitLayer;
@@ -54,9 +55,10 @@ async fn main() -> Result<()> {
 
     dotenv::dotenv().ok();
 
-    let prover = ProverClient::builder().cpu().build();
-    let (range_pk, range_vk) = prover.setup(RANGE_ELF);
-    let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
+    let network_prover = Arc::new(ProverClient::builder().network().build());
+
+    let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
+    let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
     let range_vkey_commitment = B256::from(multi_block_vkey_u8);
     let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
@@ -95,6 +97,7 @@ async fn main() -> Result<()> {
         range_proof_strategy,
         agg_proof_strategy,
         agg_proof_mode,
+        network_prover,
     };
 
     let app = Router::new()
@@ -193,8 +196,8 @@ async fn request_span_proof(
         }
     };
 
-    let client = ProverClient::builder().network().build();
-    let proof_id = client
+    let proof_id = state
+        .network_prover
         .prove(&state.range_pk, &sp1_stdin)
         .compressed()
         .strategy(state.range_proof_strategy)
@@ -292,8 +295,6 @@ async fn request_agg_proof(
         }
     };
 
-    let prover = ProverClient::builder().network().build();
-
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
             Ok(s) => s,
@@ -306,7 +307,8 @@ async fn request_agg_proof(
             }
         };
 
-    let proof_id = match prover
+    let proof_id = match state
+        .network_prover
         .prove(&state.agg_pk, &stdin)
         .mode(state.agg_proof_mode)
         .strategy(state.agg_proof_strategy)
@@ -371,8 +373,11 @@ async fn request_mock_span_proof(
     };
 
     let start_time = Instant::now();
-    let prover = ProverClient::builder().cpu().build();
-    let (pv, report) = prover.execute(RANGE_ELF, &sp1_stdin).run().unwrap();
+    let (pv, report) = state
+        .network_prover
+        .execute(RANGE_ELF, &sp1_stdin)
+        .run()
+        .unwrap();
     let execution_duration = start_time.elapsed();
 
     let block_data = fetcher
@@ -477,8 +482,6 @@ async fn request_mock_agg_proof(
         }
     };
 
-    let prover = ProverClient::builder().mock().build();
-
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
             Ok(s) => s,
@@ -488,10 +491,10 @@ async fn request_mock_agg_proof(
             }
         };
 
-    let proof = match prover
+    let mock_prover = ProverClient::builder().mock().build();
+    let proof = match mock_prover
         .prove(&state.agg_pk, &stdin)
         .mode(state.agg_proof_mode)
-        .deferred_proof_verification(false)
         .run()
     {
         Ok(p) => p,
@@ -513,16 +516,16 @@ async fn request_mock_agg_proof(
 
 /// Get the status of a proof.
 async fn get_proof_status(
+    State(state): State<SuccinctProposerConfig>,
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received proof status request: {:?}", proof_id);
 
-    let client = ProverClient::builder().network().build();
-
     let proof_id_bytes = hex::decode(proof_id)?;
 
     // This request will time out if the server is down.
-    let (status, maybe_proof) = match client
+    let (status, maybe_proof) = match state
+        .network_prover
         .get_proof_status(B256::from_slice(&proof_id_bytes))
         .await
     {
