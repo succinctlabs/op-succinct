@@ -34,6 +34,7 @@ import {ISemver} from "src/universal/interfaces/ISemver.sol";
 import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
 import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
+import {IAnchorStateRegistry} from "src/dispute/interfaces/IAnchorStateRegistry.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
@@ -114,15 +115,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// this verification is the output of converting the [u32; 8] range BabyBear verification key to a [u8; 32] array.
     bytes32 internal immutable RANGE_VKEY_COMMITMENT;
 
-    /// @notice The genesis L2 block number.
-    uint256 internal immutable GENESIS_L2_BLOCK_NUMBER;
-
-    /// @notice The genesis L2 output root.
-    bytes32 internal immutable GENESIS_L2_OUTPUT_ROOT;
-
     /// @notice The proof reward for the game. This is the amount of the bond that the challenger has to bond to challenge and
     ///         is the amount of the bond that is distributed to the prover when proven with a valid proof.
     uint256 internal immutable PROOF_REWARD;
+
+    /// @notice The anchor state registry.
+    address internal immutable ANCHOR_STATE_REGISTRY;
 
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
@@ -157,9 +155,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _rollupConfigHash The rollup config hash for the L2 network.
     /// @param _aggregationVkey The vkey for the aggregation program.
     /// @param _rangeVkeyCommitment The commitment to the range vkey.
-    /// @param _genesisL2BlockNumber The L2 block number of the genesis block.
-    /// @param _genesisL2OutputRoot The L2 output root of the genesis block.
     /// @param _proofReward The proof reward for the game.
+    /// @param _anchorStateRegistry The anchor state registry for the L2 network.
     constructor(
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
@@ -168,9 +165,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _rollupConfigHash,
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
-        uint256 _genesisL2BlockNumber,
-        bytes32 _genesisL2OutputRoot,
-        uint256 _proofReward
+        uint256 _proofReward,
+        address _anchorStateRegistry
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -181,9 +177,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         ROLLUP_CONFIG_HASH = _rollupConfigHash;
         AGGREGATION_VKEY = _aggregationVkey;
         RANGE_VKEY_COMMITMENT = _rangeVkeyCommitment;
-        GENESIS_L2_BLOCK_NUMBER = _genesisL2BlockNumber;
-        GENESIS_L2_OUTPUT_ROOT = _genesisL2OutputRoot;
         PROOF_REWARD = _proofReward;
+        ANCHOR_STATE_REGISTRY = _anchorStateRegistry;
     }
 
     /// @notice Initializes the contract.
@@ -241,8 +236,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             // INVARIANT: The parent game must be a valid game.
             if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
         } else {
-            startingOutputRoot =
-                OutputRoot({root: Hash.wrap(GENESIS_L2_OUTPUT_ROOT), l2BlockNumber: GENESIS_L2_BLOCK_NUMBER});
+            // When there is no parent game, the starting output root is the anchor state for the game type.
+            (startingOutputRoot.root, startingOutputRoot.l2BlockNumber) =
+                IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).anchors(GAME_TYPE);
         }
 
         // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
