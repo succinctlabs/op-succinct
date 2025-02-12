@@ -36,9 +36,13 @@ use std::{
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tower_http::limit::RequestBodyLimitLayer;
+use jemallocator::Jemalloc;
 
 pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
+
+#[global_allocator]
+pub static ALLOCATOR: Jemalloc = Jemalloc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
