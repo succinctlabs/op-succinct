@@ -9,16 +9,15 @@ use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
 use futures::{stream, StreamExt};
 use kona_host::single::SingleChainHost;
-use maili_genesis::RollupConfig;
-use maili_protocol::calculate_tx_l1_cost_fjord;
-use maili_protocol::L2BlockInfo;
-use maili_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_consensus::OpBlock;
+use op_alloy_genesis::RollupConfig;
 use op_alloy_network::{
     primitives::{BlockTransactions, BlockTransactionsKind, HeaderResponse},
     BlockResponse, Network, Optimism,
 };
-use op_alloy_rpc_types::OpTransactionReceipt;
+use op_alloy_protocol::calculate_tx_l1_cost_fjord;
+use op_alloy_protocol::L2BlockInfo;
+use op_alloy_rpc_types::{OpTransactionReceipt, OutputResponse, SafeHeadResponse};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -35,7 +34,7 @@ use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
 use crate::L2Output;
 use crate::{
-    rollup_config::{get_rollup_config_path, merge_rollup_config,get_eigen_da_config,read_rollup_config},
+    rollup_config::{get_eigen_da_config, get_rollup_config_path, read_rollup_config},
     ProgramType,
 };
 
@@ -749,7 +748,7 @@ impl OPSuccinctDataFetcher {
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
         fs::create_dir_all(&data_directory)?;
-        Ok(HostCli {
+        Ok(SingleChainHost {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
             agreed_l2_head_hash,
@@ -786,10 +785,6 @@ impl OPSuccinctDataFetcher {
             proxy_url: eigen_da_config.proxy_url.clone(),
             disperse_url: None,
             disperse_timeout: Default::default(),
-            v: std::env::var("VERBOSITY")
-                .unwrap_or("0".to_string())
-                .parse()
-                .unwrap(),
             retrieve_timeout: eigen_da_config.retrieve_timeout,
         })
     }
@@ -999,7 +994,7 @@ mod tests {
     async fn test_l2_safe_head_progression() {
         use alloy_eips::BlockId;
         use futures::StreamExt;
-        use maili_rpc::SafeHeadResponse;
+        use op_alloy_rpc_types::SafeHeadResponse;
 
         use crate::fetcher::RPCMode;
 

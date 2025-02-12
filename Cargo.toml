@@ -42,20 +42,20 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 # kona
 # Note: Switch to latest version of kona once the std::process::Command issue is resolved.
 # Branch: patch-kona-proof-v0.1.0
-kona-common = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-common-proc = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3", features = [
+kona-common = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-common-proc = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", features = [
     "rkyv",
     "serde",
 ] }
-kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3", default-features = false }
-kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
-eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.3" }
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-derive = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", default-features = false }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-client = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+eigen-da = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -72,26 +72,33 @@ alloy-transport-http = { version = "0.11.0", default-features = false }
 alloy-contract = { version = "0.11.0", default-features = false }
 
 # Alloy
-alloy = { version = "0.6.4", default-features = false, features = ["full"] }
-# Uses sha3 instead of tiny-keccak. Reduces cycle count for Keccak by 50%.
-alloy-primitives = { version = "0.8.15", default-features = false, features = [
+alloy-rlp = { version = "0.3.10", default-features = false }
+alloy-trie = { version = "0.7.8", default-features = false }
+alloy-eips = { version = "0.11.0", default-features = false }
+alloy-serde = { version = "0.11.0", default-features = false }
+alloy-consensus = { version = "0.11.0", default-features = false }
+alloy-rpc-types = { version = "0.11.0", default-features = false }
+alloy-rpc-client = { version = "0.11.0", default-features = false }
+alloy-node-bindings = { version = "0.11.0", default-features = false }
+alloy-rpc-types-engine = { version = "0.11.0", default-features = false }
+alloy-rpc-types-beacon = { version = "0.11.0", default-features = false }
+
+# Keccak with the SHA3 patch is more efficient than the default Keccak.
+alloy-primitives = { version = "0.8.19", default-features = false, features = [
     "sha3-keccak",
 ] }
-alloy-rlp = { version = "0.3.8", default-features = false }
-alloy-eips = { version = "0.6.4", default-features = false }
-alloy-consensus = { version = "0.6.4", default-features = false }
-alloy-sol-types = { version = "0.8" }
+alloy-sol-types = { version = "0.8.19", default-features = false }
 
 # OP Alloy
-op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
-op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false, features = [
+op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false }
+op-alloy-genesis = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false, features = [
     "serde",
 ] }
 
-op-alloy-protocol = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
-op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
-op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
-op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v0.6.5.1", default-features = false }
+op-alloy-protocol = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false }
+op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false }
+op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false }
+op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false }
 
 # Revm
 revm = { git = "https://github.com/mantle-xyz/revm", branch = "kona", default-features = false, features = [
