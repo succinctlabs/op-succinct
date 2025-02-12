@@ -52,7 +52,6 @@ async fn main() -> Result<()> {
     dotenv::dotenv().ok();
 
     let network_prover = Arc::new(ProverClient::builder().network().build());
-
     let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
     let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
