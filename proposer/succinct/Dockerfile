@@ -78,5 +78,8 @@ COPY --from=builder /build/server /usr/local/bin/server
 ENV PORT=${PORT:-3000}
 EXPOSE $PORT
 
+# Set jemalloc flags to aggressively release memory to avoid memory fragmentation
+ENV JEMALLOC_SYS_WITH_MALLOC_CONF="background_thread:true,narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,abort_conf:true"
+
 # Run the server from its permanent location
 CMD ["/usr/local/bin/server"]
