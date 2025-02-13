@@ -48,16 +48,7 @@ async fn main() -> Result<()> {
 
     // Set up the SP1 SDK logger.
     utils::setup_logger();
-
     dotenv::dotenv().ok();
-
-    // Set the default network private key if it's not set.
-    if env::var("NETWORK_PRIVATE_KEY").is_err() {
-        env::set_var(
-            "NETWORK_PRIVATE_KEY",
-            "0000000000000000000000000000000000000000000000000000000000000001",
-        );
-    }
 
     let network_prover = Arc::new(ProverClient::builder().network().build());
     let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
@@ -376,8 +367,10 @@ async fn request_mock_span_proof(
     };
 
     let start_time = Instant::now();
-    let (pv, report) = state
-        .network_prover
+
+    // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
+    let prover = ProverClient::builder().mock().build();
+    let (pv, report) = prover
         .execute(RANGE_ELF, &sp1_stdin)
         .run()
         .unwrap();
@@ -494,6 +487,7 @@ async fn request_mock_agg_proof(
             }
         };
 
+    // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
     let prover = ProverClient::builder().mock().build();
     let proof = match prover
         .prove(&state.agg_pk, &stdin)
