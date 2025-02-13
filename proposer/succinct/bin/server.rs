@@ -370,10 +370,7 @@ async fn request_mock_span_proof(
 
     // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
     let prover = ProverClient::builder().mock().build();
-    let (pv, report) = prover
-        .execute(RANGE_ELF, &sp1_stdin)
-        .run()
-        .unwrap();
+    let (pv, report) = prover.execute(RANGE_ELF, &sp1_stdin).run().unwrap();
     let execution_duration = start_time.elapsed();
 
     let block_data = fetcher
