@@ -51,6 +51,14 @@ async fn main() -> Result<()> {
 
     dotenv::dotenv().ok();
 
+    // Set the default network private key if it's not set.
+    if env::var("NETWORK_PRIVATE_KEY").is_err() {
+        env::set_var(
+            "NETWORK_PRIVATE_KEY",
+            "0000000000000000000000000000000000000000000000000000000000000001",
+        );
+    }
+
     let network_prover = Arc::new(ProverClient::builder().network().build());
     let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
     let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
