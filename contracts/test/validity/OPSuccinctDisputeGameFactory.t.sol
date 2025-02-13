@@ -56,6 +56,9 @@ contract OPSuccinctDisputeGameFactoryTest is Test, Utils {
         // Cast the proxy to the factory contract
         DisputeGameFactory factory = DisputeGameFactory(address(factoryProxy));
 
+        // NOTE(fakedev9999): GameType 6 is the game type for the OP_SUCCINCT proof system.
+        // See https://github.com/ethereum-optimism/optimism/blob/6d7f3bcf1e3a80749a5d70f224e35b49dbd3bb3c/packages/contracts-bedrock/src/dispute/lib/Types.sol#L63-L64
+        // Will be updated to GameTypes.OP_SUCCINCT once we upgrade to a new version of the Optimism contracts.
         factory.setInitBond(GameType.wrap(uint32(6)), 1 ether);
         factory.setImplementation(GameType.wrap(uint32(6)), IDisputeGame(address(game)));
 

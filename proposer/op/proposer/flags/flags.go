@@ -49,11 +49,6 @@ var (
 		Usage:   "Address of the DisputeGameFactory contract",
 		EnvVars: prefixEnvVars("DGF_ADDRESS"),
 	}
-	DisputeGameTypeFlag = &cli.StringFlag{
-		Name:    "dispute-game-type",
-		Usage:   "Type of the DisputeGame to create",
-		EnvVars: prefixEnvVars("DISPUTE_GAME_TYPE"),
-	}
 	PollIntervalFlag = &cli.DurationFlag{
 		Name:    "poll-interval",
 		Usage:   "How frequently to poll L2 for new blocks (legacy L2OO)",
@@ -149,7 +144,6 @@ var requiredFlags = []cli.Flag{
 var optionalFlags = []cli.Flag{
 	L2OOAddressFlag,
 	DGFAddressFlag,
-	DisputeGameTypeFlag,
 	PollIntervalFlag,
 	AllowNonFinalizedFlag,
 	L2OutputHDPathFlag,
