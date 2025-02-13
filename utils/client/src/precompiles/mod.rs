@@ -41,10 +41,6 @@ pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
     create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul");
 pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
     create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
-pub(crate) const ANNOTATED_KZG_EVAL: PrecompileWithAddress = create_annotated_precompile!(
-    revm::precompile::kzg_point_evaluation::POINT_EVALUATION,
-    "kzg-eval"
-);
 pub(crate) const ANNOTATED_EC_RECOVER: PrecompileWithAddress =
     create_annotated_precompile!(revm::precompile::secp256k1::ECRECOVER, "ec-recover");
 pub(crate) const ANNOTATED_P256_VERIFY: PrecompileWithAddress =
@@ -69,7 +65,6 @@ where
             ANNOTATED_BN_ADD,
             ANNOTATED_BN_MUL,
             ANNOTATED_BN_PAIR,
-            ANNOTATED_KZG_EVAL,
             ANNOTATED_EC_RECOVER,
             ANNOTATED_P256_VERIFY,
         ];
