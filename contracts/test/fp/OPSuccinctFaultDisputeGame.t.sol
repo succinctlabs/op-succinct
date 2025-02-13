@@ -25,10 +25,37 @@ import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 
 // Interfaces
-import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
-import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
+import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
+import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
-import {ISuperchainConfig} from "src/L1/interfaces/ISuperchainConfig.sol";
+import {ISuperchainConfig} from "interfaces/L1/ISuperchainConfig.sol";
+import {IOptimismPortal2} from "interfaces/L1/IOptimismPortal2.sol";
+import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
+
+contract MockOptimismPortal2 {
+    /// @notice A mapping of dispute game addresses to whether or not they are blacklisted.
+    mapping(IDisputeGame => bool) public disputeGameBlacklist;
+
+    /// @notice The game type that the OptimismPortal consults for output proposals.
+    GameType public respectedGameType;
+
+    /// @notice The timestamp at which the respected game type was last updated.
+    uint64 public respectedGameTypeUpdatedAt;
+
+    constructor(GameType _initialRespectedGameType) {
+        respectedGameType = _initialRespectedGameType;
+        respectedGameTypeUpdatedAt = uint64(block.timestamp);
+    }
+
+    function blacklistDisputeGame(IDisputeGame _disputeGame) external {
+        disputeGameBlacklist[_disputeGame] = true;
+    }
+
+    function setRespectedGameType(GameType _gameType) external {
+        respectedGameType = _gameType;
+        respectedGameTypeUpdatedAt = uint64(block.timestamp);
+    }
+}
 
 contract OPSuccinctFaultDisputeGameTest is Test {
     // Event definitions matching those in OPSuccinctFaultDisputeGame
@@ -48,6 +75,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     address proposer = address(0x123);
     address challenger = address(0x456);
     address prover = address(0x789);
+
+    MockOptimismPortal2 portal;
 
     // Fixed parameters
     GameType gameType = GameType.wrap(42);
@@ -77,20 +106,21 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Create a mock verifier
         SP1MockVerifier sp1Verifier = new SP1MockVerifier();
 
-        // Inputs for the anchor state registry
-        AnchorStateRegistry.StartingAnchorRoot[] memory startingAnchorRoots =
-            new AnchorStateRegistry.StartingAnchorRoot[](1);
-        startingAnchorRoots[0] = AnchorStateRegistry.StartingAnchorRoot({
-            gameType: gameType,
-            outputRoot: OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0})
-        });
-        SuperchainConfig superchainConfig = new SuperchainConfig();
-
         // Create an anchor state registry
+        SuperchainConfig superchainConfig = new SuperchainConfig();
+        portal = new MockOptimismPortal2(gameType);
+        OutputRoot memory startingAnchorRoot = OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0});
+
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(new AnchorStateRegistry(IDisputeGameFactory(address(factory)))),
+            address(new AnchorStateRegistry()),
             abi.encodeCall(
-                AnchorStateRegistry.initialize, (startingAnchorRoots, ISuperchainConfig(address(superchainConfig)))
+                AnchorStateRegistry.initialize,
+                (
+                    ISuperchainConfig(address(superchainConfig)),
+                    IDisputeGameFactory(address(factory)),
+                    IOptimismPortal2(payable(address(portal))),
+                    startingAnchorRoot
+                )
             )
         );
         anchorStateRegistry = AnchorStateRegistry(address(proxy));
@@ -111,7 +141,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             aggregationVkey,
             rangeVkeyCommitment,
             proofReward,
-            address(anchorStateRegistry)
+            IAnchorStateRegistry(address(anchorStateRegistry))
         );
 
         // Set the init bond on the factory for our specific GameType
@@ -123,6 +153,9 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Create the first (parent) game – it uses uint32.max as parent index
         vm.startPrank(proposer);
         vm.deal(proposer, 2 ether); // extra funds for testing
+
+        // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp
+        vm.warp(block.timestamp + 1000);
 
         // This parent game will be at index 0
         parentGame = OPSuccinctFaultDisputeGame(
@@ -524,6 +557,48 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.prove(bytes(""));
         vm.expectRevert(AlreadyProven.selector);
         game.prove(bytes(""));
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot create a game with a blacklisted parent game
+    // =========================================
+    function testParentGameNotValid() public {
+        portal.blacklistDisputeGame(IDisputeGame(address(game)));
+
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        vm.expectRevert(InvalidParentGame.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("blacklisted-parent-game")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot create a game with a parent game that is not respected
+    // =========================================
+    function testParentGameNotRespected() public {
+        // Set the respected game type to a different game type
+        portal.setRespectedGameType(GameType.wrap(43));
+
+        // Create a game that is not respected at index 2
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("not-respected-parent-game")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+        vm.stopPrank();
+
+        // Try to create a game with a parent game that is not respected
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        vm.expectRevert(InvalidParentGame.selector);
+        factory.create{value: 1 ether}(
+            gameType,
+            Claim.wrap(keccak256("child-with-not-respected-parent")),
+            abi.encodePacked(uint256(4000), uint32(2))
+        );
         vm.stopPrank();
     }
 }

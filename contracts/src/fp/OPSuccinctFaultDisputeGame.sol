@@ -30,11 +30,13 @@ import "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Interfaces
-import {ISemver} from "src/universal/interfaces/ISemver.sol";
-import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
-import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
+import {ISemver} from "interfaces/universal/ISemver.sol";
+import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
+import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
-import {IAnchorStateRegistry} from "src/dispute/interfaces/IAnchorStateRegistry.sol";
+import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
+
+import {console} from "forge-std/console.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
@@ -120,7 +122,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     uint256 internal immutable PROOF_REWARD;
 
     /// @notice The anchor state registry.
-    address internal immutable ANCHOR_STATE_REGISTRY;
+    IAnchorStateRegistry internal immutable ANCHOR_STATE_REGISTRY;
 
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
@@ -148,6 +150,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @dev This should match the claim root of the parent game.
     OutputRoot public startingOutputRoot;
 
+    /// @notice A boolean for whether or not the game type was respected when the game was created.
+    bool public wasRespectedGameTypeWhenCreated;
+
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
     /// @param _disputeGameFactory The factory that creates the dispute games.
@@ -166,7 +171,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
         uint256 _proofReward,
-        address _anchorStateRegistry
+        IAnchorStateRegistry _anchorStateRegistry
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -225,6 +230,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             // For subsequent games, get the parent game's information
             (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
 
+            // NOTE(fakedev9999): We're performing a subset of the checks from AnchorStateRegistry.isGameProper()
+            // plus isGameRespected(). Since we're pulling the parent game directly from the factory, we can skip
+            // the isGameRegistered() check and even if the parent game's game type is retired, if it was respected
+            // when created, it's considered as a proper game. We verify that the game:
+            // 1. Is not blacklisted (isGameBlacklisted())
+            // 2. Was a respected game type when created (isGameRespected())
+            if (ANCHOR_STATE_REGISTRY.isGameBlacklisted(proxy) || !ANCHOR_STATE_REGISTRY.isGameRespected(proxy)) {
+                revert InvalidParentGame();
+            }
+
             startingOutputRoot = OutputRoot({
                 l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
                 root: Hash.wrap(OPSuccinctFaultDisputeGame(address(proxy)).rootClaim().raw())
@@ -259,6 +274,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Set the game's starting timestamp
         createdAt = Timestamp.wrap(uint64(block.timestamp));
+
+        // Set whether the game type was respected when the game was created.
+        wasRespectedGameTypeWhenCreated =
+            GameType.unwrap(ANCHOR_STATE_REGISTRY.respectedGameType()) == GameType.unwrap(GAME_TYPE);
     }
 
     /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
@@ -480,7 +499,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     function extraData() public pure returns (bytes memory extraData_) {
         // The extra data starts at the second word within the cwia calldata and
         // is 32 bytes long.
-        extraData_ = _getArgBytes(0x54, 0x20);
+        extraData_ = _getArgBytes(0x54, 0x24);
     }
 
     /// @notice A compliant implementation of this interface should return the components of the
@@ -513,5 +532,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Returns the dispute game factory.
     function disputeGameFactory() external view returns (IDisputeGameFactory disputeGameFactory_) {
         disputeGameFactory_ = DISPUTE_GAME_FACTORY;
+    }
+
+    /// @notice Returns the anchor state registry contract.
+    function anchorStateRegistry() external view returns (IAnchorStateRegistry registry_) {
+        registry_ = ANCHOR_STATE_REGISTRY;
     }
 }
