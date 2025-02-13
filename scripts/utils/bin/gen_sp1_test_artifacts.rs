@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
+use hana_host::celestia::CelestiaCfg;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
