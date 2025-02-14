@@ -35,16 +35,28 @@ macro_rules! create_annotated_precompile {
     };
 }
 
-pub(crate) const ANNOTATED_BN_ADD: PrecompileWithAddress =
-    create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add");
-pub(crate) const ANNOTATED_BN_MUL: PrecompileWithAddress =
-    create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul");
-pub(crate) const ANNOTATED_BN_PAIR: PrecompileWithAddress =
-    create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair");
-pub(crate) const ANNOTATED_EC_RECOVER: PrecompileWithAddress =
-    create_annotated_precompile!(revm::precompile::secp256k1::ECRECOVER, "ec-recover");
-pub(crate) const ANNOTATED_P256_VERIFY: PrecompileWithAddress =
-    create_annotated_precompile!(revm::precompile::secp256r1::P256VERIFY, "p256-verify");
+const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
+    (
+        bn128::add::ISTANBUL,
+        create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add"),
+    ),
+    (
+        bn128::mul::ISTANBUL,
+        create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul"),
+    ),
+    (
+        bn128::pair::ISTANBUL,
+        create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair"),
+    ),
+    (
+        revm::precompile::secp256k1::ECRECOVER,
+        create_annotated_precompile!(revm::precompile::secp256k1::ECRECOVER, "ec-recover"),
+    ),
+    (
+        revm::precompile::secp256r1::P256VERIFY,
+        create_annotated_precompile!(revm::precompile::secp256r1::P256VERIFY, "p256-verify"),
+    ),
+];
 
 // Source: https://github.com/anton-rs/kona/blob/main/bin/client/src/fault/handler/mod.rs#L20-L42
 pub fn zkvm_handle_register<F, H>(handler: &mut EvmHandler<'_, (), &mut State<&mut TrieDB<F, H>>>)
@@ -59,16 +71,7 @@ where
             revm::optimism::load_precompiles::<SPEC, (), &mut State<&mut TrieDB<F, H>>>()
         });
 
-        // Extend with ZKVM-accelerated precompiles and annotated precompiles that track the
-        // cycle count.
-        let override_precompiles = [
-            ANNOTATED_BN_ADD,
-            ANNOTATED_BN_MUL,
-            ANNOTATED_BN_PAIR,
-            ANNOTATED_EC_RECOVER,
-            ANNOTATED_P256_VERIFY,
-        ];
-        ctx_precompiles.extend(override_precompiles);
+        ctx_precompiles.extend(PRECOMPILES.iter().map(|p| p.0.clone()).take(1));
 
         ctx_precompiles
     });
@@ -82,16 +85,8 @@ mod tests {
     fn test_precompiles() {
         // Check each annotated precompile is a standard precompile.
         // TODO: Add kzg_point_evaluation once revm-precompile 0.17.0 is released with standard precompile support.
-        let annotated_precompiles = [
-            revm::precompile::secp256k1::ECRECOVER,
-            revm::precompile::secp256r1::P256VERIFY,
-            revm::precompile::bn128::add::ISTANBUL,
-            revm::precompile::bn128::mul::ISTANBUL,
-            revm::precompile::bn128::pair::ISTANBUL,
-        ];
-
-        for precompile in annotated_precompiles {
-            assert!(matches!(precompile.1, Precompile::Standard(_)));
+        for precompile in PRECOMPILES {
+            assert!(matches!(precompile.0 .1, Precompile::Standard(_)));
         }
     }
 }
