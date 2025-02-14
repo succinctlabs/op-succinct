@@ -66,8 +66,6 @@ contract MockOptimismPortal2 {
         respectedGameTypeUpdatedAt = uint64(block.timestamp);
     }
 
-    /// @notice Getter for the dispute game finality delay.
-
     function disputeGameFinalityDelaySeconds() public view returns (uint256) {
         return DISPUTE_GAME_FINALITY_DELAY_SECONDS;
     }
