@@ -208,16 +208,16 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice Extracts the proof bytes from the extra data.
     /// @dev The extra data is the calldata of the `createGame` function from the `OPSuccinctEntryPoint` contract.
-    /// @dev Expected calldata length without proof bytes: 0x7E
+    /// @dev Expected calldata length without fast-finality mode flag and proof bytes: 0x7E.
     //      - 0x04 selector
     //      - 0x14 creator address
     //      - 0x20 root claim
     //      - 0x20 l1 head
     //      - 0x20 extraData (l2BlockNumber)
     //      - 0x04 extraData (parentIndex)
+    //      - 0x01 extraData (fast-finality mode flag. optional)
+    //      - 0x?? extraData (proof bytes. optional)
     //      - 0x02 CWIA bytes
-    //      - 0x01 fast-finality mode flag
-    //      - 0x?? proof bytes
     /// @dev There can be arbitrary length of optional proof bytes following the CWIA bytes.
     /// @dev 1. If the calldata size is less than 0x7E, will revert with `BadExtraData()`.
     /// @dev 2. If the calldata size is exactly 0x7E, will return an empty `proofBytes`.
@@ -653,9 +653,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @dev `clones-with-immutable-args` argument #4
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
     function extraData() public pure returns (bytes memory extraData_) {
-        // The extra data starts at the second word within the cwia calldata and
-        // is 32 bytes long.
-        extraData_ = _getArgBytes(0x54, 0x24);
+        extraData_ = _getArgBytes();
     }
 
     /// @notice A compliant implementation of this interface should return the components of the
