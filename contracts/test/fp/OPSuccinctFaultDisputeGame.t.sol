@@ -660,4 +660,38 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         assertEq(address(anchorStateRegistry.anchorGame()), address(game));
     }
+
+    // =========================================
+    // Test: Fast-finality mode
+    // =========================================
+    function testFastFinalityMode() public {
+        // Resolve the parent game
+        (,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1);
+        game.resolve();
+
+        // Create a game in fast-finality mode
+        vm.startPrank(proposer);
+        vm.deal(proposer, 1 ether);
+        OPSuccinctFaultDisputeGame childGame = OPSuccinctFaultDisputeGame(
+            address(
+                factory.create{value: 1 ether}(
+                    gameType,
+                    Claim.wrap(keccak256("fast-finality-mode-game")),
+                    abi.encodePacked(
+                        uint256(3000),
+                        uint32(1),
+                        // Fast-finality mode flag (1 byte)
+                        hex"01",
+                        // Dummy proof bytes added to the extra data
+                        bytes("")
+                    )
+                )
+            )
+        );
+        vm.stopPrank();
+
+        // The child game should be resolved immediately.
+        assertEq(uint8(childGame.status()), uint8(GameStatus.DEFENDER_WINS));
+    }
 }
