@@ -35,6 +35,9 @@ macro_rules! create_annotated_precompile {
     };
 }
 
+/// Tuples of the original and annotated precompiles.
+///
+/// TODO: Add kzg_point_evaluation once revm-precompile 0.17.0 is released with standard precompile support.
 const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
     (
         bn128::add::ISTANBUL,
@@ -84,9 +87,12 @@ mod tests {
     #[test]
     fn test_precompiles() {
         // Check each annotated precompile is a standard precompile.
-        // TODO: Add kzg_point_evaluation once revm-precompile 0.17.0 is released with standard precompile support.
         for precompile in PRECOMPILES {
-            assert!(matches!(precompile.0 .1, Precompile::Standard(_)));
+            assert!(
+                matches!(precompile.0 .1, Precompile::Standard(_)),
+                "{:?} is not a standard precompile",
+                precompile.0
+            );
         }
     }
 }
