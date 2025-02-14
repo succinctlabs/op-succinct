@@ -4,16 +4,16 @@ pragma solidity 0.8.15;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title AccessManager
-/// @notice Manages permissions for dispute game proposers and challengers
+/// @notice Manages permissions for dispute game proposers and challengers.
 contract AccessManager is Ownable {
     ////////////////////////////////////////////////////////////////
     //                         Events                             //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Event emitted when proposer permissions are updated
+    /// @notice Event emitted when proposer permissions are updated.
     event ProposerPermissionUpdated(address indexed proposer, bool allowed);
 
-    /// @notice Event emitted when challenger permissions are updated
+    /// @notice Event emitted when challenger permissions are updated.
     event ChallengerPermissionUpdated(address indexed challenger, bool allowed);
 
     ////////////////////////////////////////////////////////////////
@@ -46,19 +46,19 @@ contract AccessManager is Ownable {
         emit ChallengerPermissionUpdated(_challenger, _allowed);
     }
 
-    /// @notice Checks if an address is allowed to propose
-    /// @param _proposer The address to check
-    /// @return allowed_ Whether the address is allowed to propose
+    /// @notice Checks if an address is allowed to propose.
+    /// @param _proposer The address to check.
+    /// @return allowed_ Whether the address is allowed to propose.
     function isAllowedProposer(address _proposer) external view returns (bool allowed_) {
-        // If address(0) is allowed, then it's permissionless
+        // If address(0) is allowed, then it's permissionless.
         allowed_ = proposers[address(0)] || proposers[_proposer];
     }
 
-    /// @notice Checks if an address is allowed to challenge
-    /// @param _challenger The address to check
-    /// @return allowed_ Whether the address is allowed to challenge
+    /// @notice Checks if an address is allowed to challenge.
+    /// @param _challenger The address to check.
+    /// @return allowed_ Whether the address is allowed to challenge.
     function isAllowedChallenger(address _challenger) external view returns (bool allowed_) {
-        // If address(0) is allowed, then it's permissionless
+        // If address(0) is allowed, then it's permissionless.
         allowed_ = challengers[address(0)] || challengers[_challenger];
     }
 }
