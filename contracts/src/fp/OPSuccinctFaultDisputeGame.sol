@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 // Libraries
 import {Clone} from "@solady/utils/Clone.sol";
 import {
+    BondDistributionMode,
     Claim,
     Clock,
     Duration,
@@ -21,8 +22,11 @@ import {
     ClaimAlreadyResolved,
     ClockNotExpired,
     ClockTimeExceeded,
+    GameNotFinalized,
     GameNotInProgress,
+    GameNotResolved,
     IncorrectBondAmount,
+    InvalidBondDistributionMode,
     NoCreditToClaim,
     UnexpectedRootClaim
 } from "src/dispute/lib/Errors.sol";
@@ -88,6 +92,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param status The status of the game after resolution.
     event Resolved(GameStatus indexed status);
 
+    /// @notice Emitted when the game is closed.
+    event GameClosed(BondDistributionMode bondDistributionMode);
+
     ////////////////////////////////////////////////////////////////
     //                         State Vars                         //
     ////////////////////////////////////////////////////////////////
@@ -143,8 +150,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The claim made by the proposer.
     ClaimData public claimData;
 
-    /// @notice Credited balances for participants.
-    mapping(address => uint256) public credit;
+    /// @notice Credited balances for winning participants.
+    mapping(address => uint256) public normalModeCredit;
+
+    /// @notice A mapping of each claimant's refund mode credit.
+    mapping(address => uint256) public refundModeCredit;
 
     /// @notice The starting output root of the game that is proven from in case of a challenge.
     /// @dev This should match the claim root of the parent game.
@@ -152,6 +162,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
     /// @notice A boolean for whether or not the game type was respected when the game was created.
     bool public wasRespectedGameTypeWhenCreated;
+
+    /// @notice The bond distribution mode of the game.
+    BondDistributionMode public bondDistributionMode;
 
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
@@ -272,6 +285,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // Set the game as initialized.
         initialized = true;
 
+        // Deposit the bond.
+        refundModeCredit[gameCreator()] += msg.value;
+
         // Set the game's starting timestamp
         createdAt = Timestamp.wrap(uint64(block.timestamp));
 
@@ -323,6 +339,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Update the clock to the current block timestamp, which marks the start of the challenge.
         claimData.deadline = Timestamp.wrap(uint64(block.timestamp + MAX_PROVE_DURATION.raw()));
+
+        // Deposit the bond.
+        refundModeCredit[msg.sender] += msg.value;
 
         emit Challenged(claimData.counteredBy);
 
@@ -395,7 +414,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Record the challenger's reward
-            credit[claimData.counteredBy] += address(this).balance;
+            normalModeCredit[claimData.counteredBy] += address(this).balance;
 
             emit Resolved(status);
 
@@ -410,7 +429,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Record the proposer's reward
-            credit[gameCreator()] += address(this).balance;
+            normalModeCredit[gameCreator()] += address(this).balance;
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
@@ -420,7 +439,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Record the challenger's reward
-            credit[claimData.counteredBy] += address(this).balance;
+            normalModeCredit[claimData.counteredBy] += address(this).balance;
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
@@ -429,7 +448,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Record the proposer's reward
-            credit[gameCreator()] += address(this).balance;
+            normalModeCredit[gameCreator()] += address(this).balance;
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
@@ -438,10 +457,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
             // Record the proof reward for the prover
-            credit[claimData.prover] += PROOF_REWARD;
+            normalModeCredit[claimData.prover] += PROOF_REWARD;
 
             // Record the remaining balance (proposer's bond) for the proposer
-            credit[gameCreator()] += address(this).balance - PROOF_REWARD;
+            normalModeCredit[gameCreator()] += address(this).balance - PROOF_REWARD;
 
             emit Resolved(status);
         }
@@ -449,19 +468,82 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         return status;
     }
 
-    /// @notice Claim the credit belonging to the recipient address.
+    /// @notice Claim the credit belonging to the recipient address. Reverts if the game isn't
+    ///         finalized, if the recipient has no credit to claim, or if the bond transfer
+    ///         fails. If the game is finalized but no bond has been paid out yet, this method
+    ///         will determine the bond distribution mode and also try to update anchor game.
     /// @param _recipient The owner and recipient of the credit.
     function claimCredit(address _recipient) external {
-        // Remove the credit from the recipient prior to performing the external call.
-        uint256 recipientCredit = credit[_recipient];
-        credit[_recipient] = 0;
+        // Close out the game and determine the bond distribution mode if not already set.
+        // We call this as part of claim credit to reduce the number of additional calls that a
+        // Challenger needs to make to this contract.
+        closeGame();
+
+        // Fetch the recipient's credit balance based on the bond distribution mode.
+        uint256 recipientCredit;
+        if (bondDistributionMode == BondDistributionMode.REFUND) {
+            recipientCredit = refundModeCredit[_recipient];
+        } else if (bondDistributionMode == BondDistributionMode.NORMAL) {
+            recipientCredit = normalModeCredit[_recipient];
+        } else {
+            // We shouldn't get here, but sanity check just in case.
+            revert InvalidBondDistributionMode();
+        }
 
         // Revert if the recipient has no credit to claim.
         if (recipientCredit == 0) revert NoCreditToClaim();
 
+        // Set the recipient's credit balances to 0.
+        refundModeCredit[_recipient] = 0;
+        normalModeCredit[_recipient] = 0;
+
         // Transfer the credit to the recipient.
         (bool success,) = _recipient.call{value: recipientCredit}(hex"");
         if (!success) revert BondTransferFailed();
+    }
+
+    /// @notice Closes out the game, determines the bond distribution mode, attempts to register
+    ///         the game as the anchor game, and emits an event.
+    function closeGame() public {
+        // If the bond distribution mode has already been determined, we can return early.
+        if (bondDistributionMode == BondDistributionMode.REFUND || bondDistributionMode == BondDistributionMode.NORMAL)
+        {
+            // We can't revert or we'd break claimCredit().
+            return;
+        } else if (bondDistributionMode != BondDistributionMode.UNDECIDED) {
+            // We shouldn't get here, but sanity check just in case.
+            revert InvalidBondDistributionMode();
+        }
+
+        // Make sure that the game is resolved.
+        // AnchorStateRegistry should be checking this but we're being defensive here.
+        if (resolvedAt.raw() == 0) {
+            revert GameNotResolved();
+        }
+
+        // Game must be finalized according to the AnchorStateRegistry.
+        bool finalized = ANCHOR_STATE_REGISTRY.isGameFinalized(IDisputeGame(address(this)));
+        if (!finalized) {
+            revert GameNotFinalized();
+        }
+
+        // Try to update the anchor game first. Won't always succeed because delays can lead
+        // to situations in which this game might not be eligible to be a new anchor game.
+        try ANCHOR_STATE_REGISTRY.setAnchorState(IDisputeGame(address(this))) {} catch {}
+
+        // Check if the game is a proper game, which will determine the bond distribution mode.
+        bool properGame = ANCHOR_STATE_REGISTRY.isGameProper(IDisputeGame(address(this)));
+
+        // If the game is a proper game, the bonds should be distributed normally. Otherwise, go
+        // into refund mode and distribute bonds back to their original depositors.
+        if (properGame) {
+            bondDistributionMode = BondDistributionMode.NORMAL;
+        } else {
+            bondDistributionMode = BondDistributionMode.REFUND;
+        }
+
+        // Emit an event to signal that the game has been closed.
+        emit GameClosed(bondDistributionMode);
     }
 
     /// @notice Getter for the game type.

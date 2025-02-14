@@ -12,7 +12,9 @@ import {
     IncorrectBondAmount,
     AlreadyInitialized,
     UnexpectedRootClaim,
-    NoCreditToClaim
+    NoCreditToClaim,
+    GameNotResolved,
+    GameNotFinalized
 } from "src/dispute/lib/Errors.sol";
 import {ParentGameNotResolved, InvalidParentGame, ClaimAlreadyChallenged, AlreadyProven} from "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
@@ -33,6 +35,10 @@ import {IOptimismPortal2} from "interfaces/L1/IOptimismPortal2.sol";
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
 
 contract MockOptimismPortal2 {
+    /// @notice The delay between when a dispute game is resolved and when a withdrawal proven against it may be
+    ///         finalized.
+    uint256 internal immutable DISPUTE_GAME_FINALITY_DELAY_SECONDS;
+
     /// @notice A mapping of dispute game addresses to whether or not they are blacklisted.
     mapping(IDisputeGame => bool) public disputeGameBlacklist;
 
@@ -42,9 +48,11 @@ contract MockOptimismPortal2 {
     /// @notice The timestamp at which the respected game type was last updated.
     uint64 public respectedGameTypeUpdatedAt;
 
-    constructor(GameType _initialRespectedGameType) {
+    constructor(GameType _initialRespectedGameType, uint256 _disputeGameFinalityDelaySeconds) {
         respectedGameType = _initialRespectedGameType;
         respectedGameTypeUpdatedAt = uint64(block.timestamp);
+
+        DISPUTE_GAME_FINALITY_DELAY_SECONDS = _disputeGameFinalityDelaySeconds;
     }
 
     function blacklistDisputeGame(IDisputeGame _disputeGame) external {
@@ -54,6 +62,12 @@ contract MockOptimismPortal2 {
     function setRespectedGameType(GameType _gameType) external {
         respectedGameType = _gameType;
         respectedGameTypeUpdatedAt = uint64(block.timestamp);
+    }
+
+    /// @notice Getter for the dispute game finality delay.
+
+    function disputeGameFinalityDelaySeconds() public view returns (uint256) {
+        return DISPUTE_GAME_FINALITY_DELAY_SECONDS;
     }
 }
 
@@ -77,6 +91,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     address prover = address(0x789);
 
     MockOptimismPortal2 portal;
+
+    uint256 disputeGameFinalityDelaySeconds = 1000;
 
     // Fixed parameters
     GameType gameType = GameType.wrap(42);
@@ -108,7 +124,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Create an anchor state registry
         SuperchainConfig superchainConfig = new SuperchainConfig();
-        portal = new MockOptimismPortal2(gameType);
+        portal = new MockOptimismPortal2(gameType, disputeGameFinalityDelaySeconds);
         OutputRoot memory startingAnchorRoot = OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0});
 
         ERC1967Proxy proxy = new ERC1967Proxy(
@@ -173,6 +189,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
         vm.warp(parentGameDeadline.raw() + 1 seconds);
         parentGame.resolve();
+
+        vm.warp(parentGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         parentGame.claimCredit(proposer);
 
         // Create the child game referencing parent index = 0
@@ -263,6 +281,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Proposer gets the bond back
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         game.claimCredit(proposer);
 
         // Check final state
@@ -293,6 +312,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Prover does not get any credit
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         vm.expectRevert(NoCreditToClaim.selector);
         game.claimCredit(prover);
 
@@ -355,6 +375,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Prover gets the proof reward
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         game.claimCredit(prover);
 
         // Proposer gets the bond back
@@ -393,6 +414,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Challenger gets the bond back and wins proposer's bond
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         game.claimCredit(challenger);
 
         assertEq(uint8(game.status()), uint8(GameStatus.CHALLENGER_WINS));
@@ -529,6 +551,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         game.resolve();
 
         // Challenger gets the bond back and wins proposer's bond
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
         game.claimCredit(challenger);
 
         assertEq(uint8(game.status()), uint8(GameStatus.CHALLENGER_WINS));
@@ -539,6 +562,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         childGame.resolve();
 
         // Challenger hasn't challenged the child game, so it gets nothing
+        vm.warp(childGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+
         vm.expectRevert(NoCreditToClaim.selector);
         childGame.claimCredit(challenger);
 
@@ -600,5 +625,39 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             abi.encodePacked(uint256(4000), uint32(2))
         );
         vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot close the game before it is resolved
+    // =========================================
+    function testCannotCloseGameBeforeResolved() public {
+        vm.expectRevert(GameNotResolved.selector);
+        game.closeGame();
+    }
+
+    // =========================================
+    // Test: Cannot claim credit before the game is finalized
+    // =========================================
+    function testCannotClaimCreditBeforeFinalized() public {
+        (,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1);
+        game.resolve();
+
+        vm.expectRevert(GameNotFinalized.selector);
+        game.claimCredit(proposer);
+    }
+
+    // =========================================
+    // Test: Check if anchor game is updated
+    // =========================================
+    function testAnchorGameUpdated() public {
+        (,,,,, Timestamp deadline) = game.claimData();
+        vm.warp(deadline.raw() + 1);
+        game.resolve();
+
+        vm.warp(game.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+        game.closeGame();
+
+        assertEq(address(anchorStateRegistry.anchorGame()), address(game));
     }
 }
