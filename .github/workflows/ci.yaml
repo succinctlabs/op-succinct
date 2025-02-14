@@ -1,4 +1,4 @@
-name: OP Succinct
+name: Cargo Tests
 
 on:
   pull_request:
