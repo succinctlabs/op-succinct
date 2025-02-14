@@ -8,6 +8,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 // Libraries
 import {Claim, Duration, GameStatus, GameType, Hash, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
 import {
+    BadAuth,
     ClockNotExpired,
     IncorrectBondAmount,
     AlreadyInitialized,
@@ -25,6 +26,7 @@ import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol"
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
+import {AccessManager} from "src/fp/AccessManager.sol";
 
 // Interfaces
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
@@ -141,6 +143,10 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
         anchorStateRegistry = AnchorStateRegistry(address(proxy));
 
+        AccessManager accessManager = new AccessManager();
+        accessManager.setProposer(proposer, true);
+        accessManager.setChallenger(challenger, true);
+
         // Parameters for the OPSuccinctFaultDisputeGame
         bytes32 rollupConfigHash = bytes32(0);
         bytes32 aggregationVkey = bytes32(0);
@@ -157,7 +163,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             aggregationVkey,
             rangeVkeyCommitment,
             proofReward,
-            IAnchorStateRegistry(address(anchorStateRegistry))
+            IAnchorStateRegistry(address(anchorStateRegistry)),
+            accessManager
         );
 
         // Set the init bond on the factory for our specific GameType
@@ -693,5 +700,37 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // The child game should be resolved immediately.
         assertEq(uint8(childGame.status()), uint8(GameStatus.DEFENDER_WINS));
+    }
+
+    // =========================================
+    // Test: Cannot create game without permission
+    // =========================================
+    function testCannotCreateGameWithoutPermission() public {
+        address maliciousProposer = address(0x1234);
+
+        vm.startPrank(maliciousProposer);
+        vm.deal(maliciousProposer, 1 ether);
+
+        vm.expectRevert(BadAuth.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot challenge game without permission
+    // =========================================
+    function testCannotChallengeGameWithoutPermission() public {
+        address maliciousChallenger = address(0x1234);
+
+        vm.startPrank(maliciousChallenger);
+        vm.deal(maliciousChallenger, 1 ether);
+
+        vm.expectRevert(BadAuth.selector);
+        game.challenge{value: 1 ether}();
+
+        vm.stopPrank();
     }
 }

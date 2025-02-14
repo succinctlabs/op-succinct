@@ -18,6 +18,7 @@ import {
 import {
     AlreadyInitialized,
     AnchorRootNotFound,
+    BadAuth,
     BondTransferFailed,
     ClaimAlreadyResolved,
     ClockNotExpired,
@@ -40,7 +41,8 @@ import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
 
-import {console} from "forge-std/console.sol";
+// Contracts
+import {AccessManager} from "src/fp/AccessManager.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
@@ -131,6 +133,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The anchor state registry.
     IAnchorStateRegistry internal immutable ANCHOR_STATE_REGISTRY;
 
+    /// @notice The access manager.
+    AccessManager internal immutable ACCESS_MANAGER;
+
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
     string public constant version = "1.0.0";
@@ -184,7 +189,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
         uint256 _proofReward,
-        IAnchorStateRegistry _anchorStateRegistry
+        IAnchorStateRegistry _anchorStateRegistry,
+        AccessManager _accessManager
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -197,6 +203,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         RANGE_VKEY_COMMITMENT = _rangeVkeyCommitment;
         PROOF_REWARD = _proofReward;
         ANCHOR_STATE_REGISTRY = _anchorStateRegistry;
+        ACCESS_MANAGER = _accessManager;
     }
 
     /// @notice Extracts the proof bytes from the extra data.
@@ -273,6 +280,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // INVARIANT: The game must not have already been initialized.
         if (initialized) revert AlreadyInitialized();
+
+        // INVARIANT: The proposer must be whitelisted.
+        if (!ACCESS_MANAGER.isAllowedProposer(gameCreator())) revert BadAuth();
 
         // The first game is initialized with a parent index of uint32.max
         if (parentIndex() != type(uint32).max) {
@@ -380,6 +390,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     function challenge() external payable returns (ProposalStatus) {
         // INVARIANT: Can only challenge a game that has not been challenged yet.
         if (claimData.status != ProposalStatus.Unchallenged) revert ClaimAlreadyChallenged();
+
+        // INVARIANT: The challenger must be whitelisted.
+        if (!ACCESS_MANAGER.isAllowedChallenger(msg.sender)) revert BadAuth();
 
         // INVARIANT: Cannot challenge a game if the clock has already expired.
         if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
