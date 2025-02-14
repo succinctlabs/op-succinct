@@ -650,10 +650,28 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     }
 
     /// @notice Getter for the extra data.
-    /// @dev `clones-with-immutable-args` argument #4
-    /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
+    /// @dev Extracts the extra data from the immutable args section of the CWIA clone.
+    /// @dev CWIA immutable args layout:
+    ///      [Fixed args (0x54 bytes)]:
+    ///      - 0x00-0x13: creator address (20 bytes)
+    ///      - 0x14-0x33: root claim (32 bytes)
+    ///      - 0x34-0x53: l1 head (32 bytes)
+    ///      [Variable length extra data]:
+    ///      - 0x54+: extra data (variable length)
+    ///      [CWIA suffix]:
+    ///      - Last 2 bytes: length of all immutable args
+    /// @return extraData_ The variable length extra data portion of the immutable args
     function extraData() public pure returns (bytes memory extraData_) {
-        extraData_ = _getArgBytes();
+        uint256 length;
+        assembly {
+            // Get total length of immutable args from last 2 bytes
+            length := shr(240, calldataload(sub(calldatasize(), 2)))
+            // Subtract fixed args length (0x54) and CWIA length bytes (0x02)
+            // to get the length of just the extra data
+            length := sub(length, 0x56)
+        }
+        // Read extra data starting after fixed args (0x54)
+        extraData_ = _getArgBytes(0x54, length);
     }
 
     /// @notice A compliant implementation of this interface should return the components of the
