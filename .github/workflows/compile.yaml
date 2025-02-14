@@ -12,13 +12,14 @@ jobs:
   build_native_programs:
     runs-on:
       - runs-on
-      - runner=16cpu-linux-arm64
+      - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }} 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    - name: Setup CI
-      uses: ./.github/actions/setup
-    - name: Compile the range program
-      run: cargo build --profile release-client-lto
-      working-directory: programs/range
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2
+    - run: |
+        cargo check --release
+        cargo test --release
+        cargo build --release

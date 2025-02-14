@@ -36,8 +36,7 @@ macro_rules! create_annotated_precompile {
 }
 
 /// Tuples of the original and annotated precompiles.
-///
-/// TODO: Add kzg_point_evaluation once revm-precompile 0.17.0 is released with standard precompile support.
+// TODO: Add kzg_point_evaluation once it has standard precompile support in revm-precompile 0.17.0.
 const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
     (
         bn128::add::ISTANBUL,
@@ -73,9 +72,8 @@ where
         let mut ctx_precompiles = spec_to_generic!(spec_id, {
             revm::optimism::load_precompiles::<SPEC, (), &mut State<&mut TrieDB<F, H>>>()
         });
-
-        ctx_precompiles.extend(PRECOMPILES.iter().map(|p| p.0.clone()).take(1));
-
+        // Add the annotated precompiles.
+        ctx_precompiles.extend(PRECOMPILES.iter().map(|p| p.1.clone()).take(1));
         ctx_precompiles
     });
 }
@@ -85,8 +83,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_precompiles() {
-        // Check each annotated precompile is a standard precompile.
+    fn test_precompile_standard() {
+        // Check each precompile which was annotated is a standard precompile.
         for precompile in PRECOMPILES {
             assert!(
                 matches!(precompile.0 .1, Precompile::Standard(_)),
