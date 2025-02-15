@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 // Libraries
 import {Clone} from "@solady/utils/Clone.sol";
 import {
+    BondDistributionMode,
     Claim,
     Clock,
     Duration,
@@ -17,12 +18,16 @@ import {
 import {
     AlreadyInitialized,
     AnchorRootNotFound,
+    BadAuth,
     BondTransferFailed,
     ClaimAlreadyResolved,
     ClockNotExpired,
     ClockTimeExceeded,
+    GameNotFinalized,
     GameNotInProgress,
+    GameNotResolved,
     IncorrectBondAmount,
+    InvalidBondDistributionMode,
     NoCreditToClaim,
     UnexpectedRootClaim
 } from "src/dispute/lib/Errors.sol";
@@ -30,10 +35,14 @@ import "src/fp/lib/Errors.sol";
 import {AggregationOutputs} from "src/lib/Types.sol";
 
 // Interfaces
-import {ISemver} from "src/universal/interfaces/ISemver.sol";
-import {IDisputeGameFactory} from "src/dispute/interfaces/IDisputeGameFactory.sol";
-import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
+import {ISemver} from "interfaces/universal/ISemver.sol";
+import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
+import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
+import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
+
+// Contracts
+import {AccessManager} from "src/fp/AccessManager.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
@@ -85,6 +94,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param status The status of the game after resolution.
     event Resolved(GameStatus indexed status);
 
+    /// @notice Emitted when the game is closed.
+    event GameClosed(BondDistributionMode bondDistributionMode);
+
     ////////////////////////////////////////////////////////////////
     //                         State Vars                         //
     ////////////////////////////////////////////////////////////////
@@ -114,15 +126,15 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// this verification is the output of converting the [u32; 8] range BabyBear verification key to a [u8; 32] array.
     bytes32 internal immutable RANGE_VKEY_COMMITMENT;
 
-    /// @notice The genesis L2 block number.
-    uint256 internal immutable GENESIS_L2_BLOCK_NUMBER;
-
-    /// @notice The genesis L2 output root.
-    bytes32 internal immutable GENESIS_L2_OUTPUT_ROOT;
-
     /// @notice The proof reward for the game. This is the amount of the bond that the challenger has to bond to challenge and
     ///         is the amount of the bond that is distributed to the prover when proven with a valid proof.
     uint256 internal immutable PROOF_REWARD;
+
+    /// @notice The anchor state registry.
+    IAnchorStateRegistry internal immutable ANCHOR_STATE_REGISTRY;
+
+    /// @notice The access manager.
+    AccessManager internal immutable ACCESS_MANAGER;
 
     /// @notice Semantic version.
     /// @custom:semver 1.0.0
@@ -143,12 +155,21 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice The claim made by the proposer.
     ClaimData public claimData;
 
-    /// @notice Credited balances for participants.
-    mapping(address => uint256) public credit;
+    /// @notice Credited balances for winning participants.
+    mapping(address => uint256) public normalModeCredit;
+
+    /// @notice A mapping of each claimant's refund mode credit.
+    mapping(address => uint256) public refundModeCredit;
 
     /// @notice The starting output root of the game that is proven from in case of a challenge.
     /// @dev This should match the claim root of the parent game.
     OutputRoot public startingOutputRoot;
+
+    /// @notice A boolean for whether or not the game type was respected when the game was created.
+    bool public wasRespectedGameTypeWhenCreated;
+
+    /// @notice The bond distribution mode of the game.
+    BondDistributionMode public bondDistributionMode;
 
     /// @param _maxChallengeDuration The maximum duration allowed for a challenger to challenge a game.
     /// @param _maxProveDuration The maximum duration allowed for a proposer to prove against a challenge.
@@ -157,9 +178,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @param _rollupConfigHash The rollup config hash for the L2 network.
     /// @param _aggregationVkey The vkey for the aggregation program.
     /// @param _rangeVkeyCommitment The commitment to the range vkey.
-    /// @param _genesisL2BlockNumber The L2 block number of the genesis block.
-    /// @param _genesisL2OutputRoot The L2 output root of the genesis block.
     /// @param _proofReward The proof reward for the game.
+    /// @param _anchorStateRegistry The anchor state registry for the L2 network.
     constructor(
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
@@ -168,9 +188,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         bytes32 _rollupConfigHash,
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment,
-        uint256 _genesisL2BlockNumber,
-        bytes32 _genesisL2OutputRoot,
-        uint256 _proofReward
+        uint256 _proofReward,
+        IAnchorStateRegistry _anchorStateRegistry,
+        AccessManager _accessManager
     ) {
         // Set up initial game state.
         GAME_TYPE = GameType.wrap(42);
@@ -181,9 +201,67 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         ROLLUP_CONFIG_HASH = _rollupConfigHash;
         AGGREGATION_VKEY = _aggregationVkey;
         RANGE_VKEY_COMMITMENT = _rangeVkeyCommitment;
-        GENESIS_L2_BLOCK_NUMBER = _genesisL2BlockNumber;
-        GENESIS_L2_OUTPUT_ROOT = _genesisL2OutputRoot;
         PROOF_REWARD = _proofReward;
+        ANCHOR_STATE_REGISTRY = _anchorStateRegistry;
+        ACCESS_MANAGER = _accessManager;
+    }
+
+    /// @notice Extracts the proof bytes from the extra data.
+    /// @dev The extra data is the calldata of the `createGame` function from the `OPSuccinctEntryPoint` contract.
+    /// @dev Expected calldata length without fast-finality mode flag and proof bytes: 0x7E.
+    //      - 0x04 selector
+    //      - 0x14 creator address
+    //      - 0x20 root claim
+    //      - 0x20 l1 head
+    //      - 0x20 extraData (l2BlockNumber)
+    //      - 0x04 extraData (parentIndex)
+    //      - 0x01 extraData (optional fast-finality mode flag)
+    //      - 0x?? extraData (optional proof bytes)
+    //      - 0x02 CWIA bytes
+    /// @dev There can be arbitrary length of optional proof bytes following the CWIA bytes.
+    /// @dev 1. If the calldata size is less than 0x7E, will revert with `BadExtraData()`.
+    /// @dev 2. If the calldata size is exactly 0x7E, will return an empty `proofBytes`.
+    /// @dev 3. If the calldata size is greater than 0x7E, will return `proofBytes` from the 0x7E index to the end of the calldata.
+    function _extractProofFromExtraData() private pure returns (bool fastFinalityMode, bytes memory proofBytes) {
+        assembly {
+            // The total size of the calldata *including* the 4-byte function selector.
+            let size := calldatasize()
+
+            // If calldatasize < 0x7E, revert with `BadExtraData()`.
+            if lt(size, 0x7E) {
+                // Store the selector for `BadExtraData()` and revert.
+                mstore(0x00, 0x9824bdab)
+                revert(0x1C, 0x04)
+            }
+
+            // 2. If calldatasize == 0x7E, return an empty bytes array with the fast-finality mode flag set to false.
+            if eq(size, 0x7E) {
+                // Set the fast finality mode flag to false.
+                fastFinalityMode := false
+
+                // Allocate free memory for an empty bytes array of length 0.
+                proofBytes := mload(0x40) // Fetch current free memory pointer.
+                mstore(proofBytes, 0) // Set length = 0 in the 32 bytes length slot.
+                mstore(0x40, add(proofBytes, 0x20)) // Advance free ptr by 32 (just for the length slot).
+            }
+
+            // 3. If calldatasize > 0x7E, interpret everything beyond 0x7E as fast-finality mode flag and proof bytes.
+            if gt(size, 0x7E) {
+                // Load the fast finality mode flag from calldata[0x7E].
+                fastFinalityMode := byte(0, calldataload(0x7E))
+
+                // Subtract 0x7F considering the 1 byte fast-finality mode flag.
+                let proofLen := sub(size, 0x7F)
+
+                // Allocate a new bytes array in free memory.
+                proofBytes := mload(0x40)
+                mstore(proofBytes, proofLen) // Set array length
+                mstore(0x40, add(proofBytes, add(proofLen, 0x20))) // Advance free mem pointer (proofLen + 32 bytes for length).
+
+                // Copy the proof from calldata[0x7F...size] into memory[proofBytes+0x20].
+                calldatacopy(add(proofBytes, 0x20), 0x7F, proofLen)
+            }
+        }
     }
 
     /// @notice Initializes the contract.
@@ -203,35 +281,23 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // INVARIANT: The game must not have already been initialized.
         if (initialized) revert AlreadyInitialized();
 
-        // Revert if the calldata size is not the expected length.
-        //
-        // This is to prevent adding extra or omitting bytes from to `extraData` that result in a different game UUID
-        // in the factory, but are not used by the game, which would allow for multiple dispute games for the same
-        // output proposal to be created.
-        //
-        // Expected length: 0x7E
-        // - 0x04 selector
-        // - 0x14 creator address
-        // - 0x20 root claim
-        // - 0x20 l1 head
-        // - 0x20 extraData (l2BlockNumber)
-        // - 0x04 extraData (parentIndex)
-        // - 0x02 CWIA bytes
-        assembly {
-            if iszero(eq(calldatasize(), 0x7E)) {
-                // Store the selector for `BadExtraData()` & revert
-                mstore(0x00, 0x9824bdab)
-                revert(0x1C, 0x04)
-            }
-        }
+        // INVARIANT: The proposer must be whitelisted.
+        if (!ACCESS_MANAGER.isAllowedProposer(gameCreator())) revert BadAuth();
 
         // The first game is initialized with a parent index of uint32.max
         if (parentIndex() != type(uint32).max) {
             // For subsequent games, get the parent game's information
-            (GameType parentGameType,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+            (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
 
-            // INVARIANT: The parent game must have the same game type as the current game.
-            if (parentGameType.raw() != GAME_TYPE.raw()) revert UnexpectedGameType();
+            // NOTE(fakedev9999): We're performing a subset of the checks from AnchorStateRegistry.isGameProper()
+            // plus isGameRespected(). Since we're pulling the parent game directly from the factory, we can skip
+            // the isGameRegistered() check and even if the parent game's game type is retired, if it was respected
+            // when created, it's considered as a proper game. We verify that the game:
+            // 1. Is not blacklisted (isGameBlacklisted()).
+            // 2. Was a respected game type when created (isGameRespected()).
+            if (ANCHOR_STATE_REGISTRY.isGameBlacklisted(proxy) || !ANCHOR_STATE_REGISTRY.isGameRespected(proxy)) {
+                revert InvalidParentGame();
+            }
 
             startingOutputRoot = OutputRoot({
                 l2BlockNumber: OPSuccinctFaultDisputeGame(address(proxy)).l2BlockNumber(),
@@ -241,8 +307,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             // INVARIANT: The parent game must be a valid game.
             if (proxy.status() == GameStatus.CHALLENGER_WINS) revert InvalidParentGame();
         } else {
-            startingOutputRoot =
-                OutputRoot({root: Hash.wrap(GENESIS_L2_OUTPUT_ROOT), l2BlockNumber: GENESIS_L2_BLOCK_NUMBER});
+            // When there is no parent game, the starting output root is the anchor state for the game type.
+            (startingOutputRoot.root, startingOutputRoot.l2BlockNumber) =
+                IAnchorStateRegistry(ANCHOR_STATE_REGISTRY).anchors(GAME_TYPE);
         }
 
         // Do not allow the game to be initialized if the root claim corresponds to a block at or before the
@@ -264,8 +331,35 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // Set the game as initialized.
         initialized = true;
 
+        // Deposit the bond.
+        refundModeCredit[gameCreator()] += msg.value;
+
         // Set the game's starting timestamp
         createdAt = Timestamp.wrap(uint64(block.timestamp));
+
+        // Set whether the game type was respected when the game was created.
+        wasRespectedGameTypeWhenCreated =
+            GameType.unwrap(ANCHOR_STATE_REGISTRY.respectedGameType()) == GameType.unwrap(GAME_TYPE);
+
+        ////////////////////////////////////////////////////////////////
+        //                     FAST-FINALITY MODE                    //
+        ////////////////////////////////////////////////////////////////
+
+        // Extract the proof bytes from the extra data.
+        (bool fastFinalityMode, bytes memory proofBytes) = _extractProofFromExtraData();
+
+        // If the proof bytes are not empty, the game is created in fast-finality mode.
+        if (fastFinalityMode) {
+            this.prove(proofBytes);
+
+            // Set the prover to the creator of the game or else the prover will be marked as the game contract.
+            claimData.prover = msg.sender;
+
+            // Resolve the game immediately if the parent game is resolved.
+            if (getParentGameStatus() != GameStatus.IN_PROGRESS) {
+                this.resolve();
+            }
+        }
     }
 
     /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
@@ -297,6 +391,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // INVARIANT: Can only challenge a game that has not been challenged yet.
         if (claimData.status != ProposalStatus.Unchallenged) revert ClaimAlreadyChallenged();
 
+        // INVARIANT: The challenger must be whitelisted.
+        if (!ACCESS_MANAGER.isAllowedChallenger(msg.sender)) revert BadAuth();
+
         // INVARIANT: Cannot challenge a game if the clock has already expired.
         if (uint64(block.timestamp) > claimData.deadline.raw()) revert ClockTimeExceeded();
 
@@ -311,6 +408,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // Update the clock to the current block timestamp, which marks the start of the challenge.
         claimData.deadline = Timestamp.wrap(uint64(block.timestamp + MAX_PROVE_DURATION.raw()));
+
+        // Deposit the bond.
+        refundModeCredit[msg.sender] += msg.value;
 
         emit Challenged(claimData.counteredBy);
 
@@ -353,6 +453,20 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         return claimData.status;
     }
 
+    /// @notice Returns the status of the parent game.
+    /// @dev If the parent game index is `uint32.max`, then the parent game's status is considered as `DEFENDER_WINS`.
+    function getParentGameStatus() private view returns (GameStatus) {
+        if (parentIndex() != type(uint32).max) {
+            (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
+            return parentGame.status();
+        }
+        // If this is the first dispute game (i.e. parent game index is `uint32.max`),
+        // then the parent game's status is considered as `DEFENDER_WINS`.
+        else {
+            return GameStatus.DEFENDER_WINS;
+        }
+    }
+
     /// @notice Resolves the game after the clock expires.
     ///         `DEFENDER_WINS` when no one has challenged the proposer's claim and `MAX_CHALLENGE_DURATION` has passed
     ///         or there is a challenge but the prover has provided a valid proof within the `MAX_PROVE_DURATION`.
@@ -363,16 +477,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         if (status != GameStatus.IN_PROGRESS) revert ClaimAlreadyResolved();
 
         // INVARIANT: Cannot resolve a game if the parent game has not been resolved.
-        GameStatus parentGameStatus;
-        if (parentIndex() != type(uint32).max) {
-            (,, IDisputeGame parentGame) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
-            parentGameStatus = parentGame.status();
-        }
-        // If this is the first dispute game (i.e. parent game index is `uint32.max`),
-        // then the parent game's status is considered as `DEFENDER_WINS`.
-        else {
-            parentGameStatus = GameStatus.DEFENDER_WINS;
-        }
+        GameStatus parentGameStatus = getParentGameStatus();
 
         if (parentGameStatus == GameStatus.IN_PROGRESS) revert ParentGameNotResolved();
 
@@ -382,8 +487,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the challenger's reward
-            credit[claimData.counteredBy] += address(this).balance;
+            // Record the challenger's reward.
+            normalModeCredit[claimData.counteredBy] += address(this).balance;
 
             emit Resolved(status);
 
@@ -397,8 +502,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the proposer's reward
-            credit[gameCreator()] += address(this).balance;
+            // Record the proposer's reward.
+            normalModeCredit[gameCreator()] += address(this).balance;
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.Challenged) {
@@ -407,8 +512,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.CHALLENGER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the challenger's reward
-            credit[claimData.counteredBy] += address(this).balance;
+            // Record the challenger's reward.
+            normalModeCredit[claimData.counteredBy] += address(this).balance;
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
@@ -416,8 +521,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the proposer's reward
-            credit[gameCreator()] += address(this).balance;
+            // Record the proposer's reward.
+            normalModeCredit[gameCreator()] += address(this).balance;
 
             emit Resolved(status);
         } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
@@ -425,11 +530,11 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
             status = GameStatus.DEFENDER_WINS;
             resolvedAt = Timestamp.wrap(uint64(block.timestamp));
 
-            // Record the proof reward for the prover
-            credit[claimData.prover] += PROOF_REWARD;
+            // Record the proof reward for the prover.
+            normalModeCredit[claimData.prover] += PROOF_REWARD;
 
-            // Record the remaining balance (proposer's bond) for the proposer
-            credit[gameCreator()] += address(this).balance - PROOF_REWARD;
+            // Record the remaining balance (proposer's bond) for the proposer.
+            normalModeCredit[gameCreator()] += address(this).balance - PROOF_REWARD;
 
             emit Resolved(status);
         }
@@ -437,19 +542,82 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         return status;
     }
 
-    /// @notice Claim the credit belonging to the recipient address.
+    /// @notice Claim the credit belonging to the recipient address. Reverts if the game isn't
+    ///         finalized, if the recipient has no credit to claim, or if the bond transfer
+    ///         fails. If the game is finalized but no bond has been paid out yet, this method
+    ///         will determine the bond distribution mode and also try to update anchor game.
     /// @param _recipient The owner and recipient of the credit.
     function claimCredit(address _recipient) external {
-        // Remove the credit from the recipient prior to performing the external call.
-        uint256 recipientCredit = credit[_recipient];
-        credit[_recipient] = 0;
+        // Close out the game and determine the bond distribution mode if not already set.
+        // We call this as part of claim credit to reduce the number of additional calls that a
+        // Challenger needs to make to this contract.
+        closeGame();
+
+        // Fetch the recipient's credit balance based on the bond distribution mode.
+        uint256 recipientCredit;
+        if (bondDistributionMode == BondDistributionMode.REFUND) {
+            recipientCredit = refundModeCredit[_recipient];
+        } else if (bondDistributionMode == BondDistributionMode.NORMAL) {
+            recipientCredit = normalModeCredit[_recipient];
+        } else {
+            // We shouldn't get here, but sanity check just in case.
+            revert InvalidBondDistributionMode();
+        }
 
         // Revert if the recipient has no credit to claim.
         if (recipientCredit == 0) revert NoCreditToClaim();
 
+        // Set the recipient's credit balances to 0.
+        refundModeCredit[_recipient] = 0;
+        normalModeCredit[_recipient] = 0;
+
         // Transfer the credit to the recipient.
         (bool success,) = _recipient.call{value: recipientCredit}(hex"");
         if (!success) revert BondTransferFailed();
+    }
+
+    /// @notice Closes out the game, determines the bond distribution mode, attempts to register
+    ///         the game as the anchor game, and emits an event.
+    function closeGame() public {
+        // If the bond distribution mode has already been determined, we can return early.
+        if (bondDistributionMode == BondDistributionMode.REFUND || bondDistributionMode == BondDistributionMode.NORMAL)
+        {
+            // We can't revert or we'd break claimCredit().
+            return;
+        } else if (bondDistributionMode != BondDistributionMode.UNDECIDED) {
+            // We shouldn't get here, but sanity check just in case.
+            revert InvalidBondDistributionMode();
+        }
+
+        // Make sure that the game is resolved.
+        // AnchorStateRegistry should be checking this but we're being defensive here.
+        if (resolvedAt.raw() == 0) {
+            revert GameNotResolved();
+        }
+
+        // Game must be finalized according to the AnchorStateRegistry.
+        bool finalized = ANCHOR_STATE_REGISTRY.isGameFinalized(IDisputeGame(address(this)));
+        if (!finalized) {
+            revert GameNotFinalized();
+        }
+
+        // Try to update the anchor game first. Won't always succeed because delays can lead
+        // to situations in which this game might not be eligible to be a new anchor game.
+        try ANCHOR_STATE_REGISTRY.setAnchorState(IDisputeGame(address(this))) {} catch {}
+
+        // Check if the game is a proper game, which will determine the bond distribution mode.
+        bool properGame = ANCHOR_STATE_REGISTRY.isGameProper(IDisputeGame(address(this)));
+
+        // If the game is a proper game, the bonds should be distributed normally. Otherwise, go
+        // into refund mode and distribute bonds back to their original depositors.
+        if (properGame) {
+            bondDistributionMode = BondDistributionMode.NORMAL;
+        } else {
+            bondDistributionMode = BondDistributionMode.REFUND;
+        }
+
+        // Emit an event to signal that the game has been closed.
+        emit GameClosed(bondDistributionMode);
     }
 
     /// @notice Getter for the game type.
@@ -482,12 +650,28 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     }
 
     /// @notice Getter for the extra data.
-    /// @dev `clones-with-immutable-args` argument #4
-    /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
+    /// @dev Extracts the extra data from the immutable args section of the CWIA clone.
+    /// @dev CWIA immutable args layout:
+    ///      [Fixed args (0x54 bytes)]:
+    ///      - 0x00-0x13: creator address (20 bytes)
+    ///      - 0x14-0x33: root claim (32 bytes)
+    ///      - 0x34-0x53: l1 head (32 bytes)
+    ///      [Variable length extra data]:
+    ///      - 0x54+: extra data (variable length)
+    ///      [CWIA suffix]:
+    ///      - Last 2 bytes: length of all immutable args
+    /// @return extraData_ The variable length extra data portion of the immutable args
     function extraData() public pure returns (bytes memory extraData_) {
-        // The extra data starts at the second word within the cwia calldata and
-        // is 32 bytes long.
-        extraData_ = _getArgBytes(0x54, 0x20);
+        uint256 length;
+        assembly {
+            // Get total length of immutable args from last 2 bytes
+            length := shr(240, calldataload(sub(calldatasize(), 2)))
+            // Subtract fixed args length (0x54) and CWIA length bytes (0x02)
+            // to get the length of just the extra data
+            length := sub(length, 0x56)
+        }
+        // Read extra data starting after fixed args (0x54)
+        extraData_ = _getArgBytes(0x54, length);
     }
 
     /// @notice A compliant implementation of this interface should return the components of the
@@ -520,5 +704,10 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Returns the dispute game factory.
     function disputeGameFactory() external view returns (IDisputeGameFactory disputeGameFactory_) {
         disputeGameFactory_ = DISPUTE_GAME_FACTORY;
+    }
+
+    /// @notice Returns the anchor state registry contract.
+    function anchorStateRegistry() external view returns (IAnchorStateRegistry registry_) {
+        registry_ = ANCHOR_STATE_REGISTRY;
     }
 }
