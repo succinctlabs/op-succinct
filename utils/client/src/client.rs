@@ -7,7 +7,6 @@ use kona_derive::errors::PipelineError;
 use kona_derive::errors::PipelineErrorKind;
 use kona_derive::traits::Pipeline;
 use kona_derive::traits::SignalReceiver;
-use kona_derive::types::Signal;
 use kona_driver::Driver;
 use kona_driver::DriverError;
 use kona_driver::DriverPipeline;
@@ -24,8 +23,6 @@ use kona_proof::sync::new_pipeline_cursor;
 use kona_proof::{BootInfo, FlushableCache, HintType};
 use op_alloy_consensus::OpBlock;
 use op_alloy_consensus::OpTxEnvelope;
-use op_alloy_consensus::OpTxType;
-use op_alloy_genesis::RollupConfig;
 use op_alloy_protocol::L2BlockInfo;
 use op_alloy_rpc_types_engine::OpAttributesWithParent;
 use std::fmt::Debug;
@@ -65,7 +62,7 @@ where
     let mut l1_provider = OracleL1ChainProvider::new(boot.l1_head, oracle.clone());
     let mut l2_provider =
         OracleL2ChainProvider::new(safe_head_hash, rollup_config.clone(), oracle.clone());
-    let mut eigen_da_provider = OracleEigenDaProvider::new(oracle.clone());
+    let eigen_da_provider = OracleEigenDaProvider::new(oracle.clone());
     let beacon = OPSuccinctOracleBlobProvider::new(oracle.clone());
 
     // Fetch the safe head's block header.
@@ -129,12 +126,8 @@ where
     // Use custom advance to target with cycle tracking.
     #[cfg(target_os = "zkvm")]
     println!("cycle-tracker-report-start: block-execution-and-derivation");
-    let (safe_head, output_root) = advance_to_target(
-        &mut driver,
-        rollup_config.as_ref(),
-        Some(boot.claimed_l2_block_number),
-    )
-    .await?;
+    let (safe_head, output_root) =
+        advance_to_target(&mut driver, Some(boot.claimed_l2_block_number)).await?;
     #[cfg(target_os = "zkvm")]
     println!("cycle-tracker-report-end: block-execution-and-derivation");
 
@@ -209,7 +202,6 @@ where
 /// - `Err(e)` - An error if the block could not be produced.
 pub async fn advance_to_target<E, DP, P>(
     driver: &mut Driver<E, DP, P>,
-    cfg: &RollupConfig,
     mut target: Option<u64>,
 ) -> DriverResult<(L2BlockInfo, B256), E::Error>
 where
@@ -230,7 +222,7 @@ where
 
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: payload-derivation");
-        let OpAttributesWithParent { mut attributes, .. } = match driver
+        let OpAttributesWithParent { attributes, .. } = match driver
             .pipeline
             .produce_payload(tip_cursor.l2_safe_head)
             .await
