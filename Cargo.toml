@@ -40,8 +40,6 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
-# Note: Switch to latest version of kona once the std::process::Command issue is resolved.
-# Branch: patch-kona-proof-v0.1.0
 kona-common = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
 kona-common-proc = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
 kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", features = [

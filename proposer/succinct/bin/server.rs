@@ -33,6 +33,7 @@ use sp1_sdk::{
 use std::{
     env, fs,
     str::FromStr,
+    sync::Arc,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use tower_http::limit::RequestBodyLimitLayer;
@@ -47,12 +48,11 @@ async fn main() -> Result<()> {
 
     // Set up the SP1 SDK logger.
     utils::setup_logger();
-
     dotenv::dotenv().ok();
 
-    let prover = ProverClient::builder().cpu().build();
-    let (range_pk, range_vk) = prover.setup(RANGE_ELF);
-    let (agg_pk, agg_vk) = prover.setup(AGG_ELF);
+    let network_prover = Arc::new(ProverClient::builder().network().build());
+    let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
+    let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
     let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
     let range_vkey_commitment = B256::from(multi_block_vkey_u8);
     let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
@@ -84,13 +84,14 @@ async fn main() -> Result<()> {
         agg_vkey_hash,
         range_vkey_commitment,
         rollup_config_hash,
-        range_vk,
-        range_pk,
-        agg_vk,
-        agg_pk,
+        range_vk: Arc::new(range_vk),
+        range_pk: Arc::new(range_pk),
+        agg_vk: Arc::new(agg_vk),
+        agg_pk: Arc::new(agg_pk),
         range_proof_strategy,
         agg_proof_strategy,
         agg_proof_mode,
+        network_prover,
     };
 
     let app = Router::new()
@@ -157,8 +158,8 @@ async fn request_span_proof(
         }
     };
 
-    let host_cli = match fetcher
-        .get_host_cli_args(
+    let host_args = match fetcher
+        .get_host_args(
             payload.start,
             payload.end,
             ProgramType::Multi,
@@ -176,7 +177,7 @@ async fn request_span_proof(
         }
     };
 
-    let mem_kv_store = start_server_and_native_client(host_cli).await?;
+    let mem_kv_store = start_server_and_native_client(host_args).await?;
 
     let sp1_stdin = match get_proof_stdin(mem_kv_store) {
         Ok(stdin) => stdin,
@@ -189,8 +190,8 @@ async fn request_span_proof(
         }
     };
 
-    let client = ProverClient::builder().network().build();
-    let proof_id = client
+    let proof_id = state
+        .network_prover
         .prove(&state.range_pk, &sp1_stdin)
         .compressed()
         .strategy(state.range_proof_strategy)
@@ -268,7 +269,10 @@ async fn request_agg_proof(
 
     let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await {
         Ok(f) => f,
-        Err(e) => return Err(AppError(anyhow::anyhow!("Failed to create fetcher: {}", e))),
+        Err(e) => {
+            error!("Failed to create fetcher: {}", e);
+            return Err(AppError(anyhow::anyhow!("Failed to create fetcher: {}", e)));
+        }
     };
 
     let headers = match fetcher
@@ -285,8 +289,6 @@ async fn request_agg_proof(
         }
     };
 
-    let prover = ProverClient::builder().network().build();
-
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
             Ok(s) => s,
@@ -299,7 +301,8 @@ async fn request_agg_proof(
             }
         };
 
-    let proof_id = match prover
+    let proof_id = match state
+        .network_prover
         .prove(&state.agg_pk, &stdin)
         .mode(state.agg_proof_mode)
         .strategy(state.agg_proof_strategy)
@@ -335,8 +338,8 @@ async fn request_mock_span_proof(
         }
     };
 
-    let host_cli = match fetcher
-        .get_host_cli_args(
+    let host_args = match fetcher
+        .get_host_args(
             payload.start,
             payload.end,
             ProgramType::Multi,
@@ -352,7 +355,7 @@ async fn request_mock_span_proof(
     };
 
     let start_time = Instant::now();
-    let oracle = start_server_and_native_client(host_cli.clone()).await?;
+    let oracle = start_server_and_native_client(host_args.clone()).await?;
     let witness_generation_duration = start_time.elapsed();
 
     let sp1_stdin = match get_proof_stdin(oracle) {
@@ -364,7 +367,9 @@ async fn request_mock_span_proof(
     };
 
     let start_time = Instant::now();
-    let prover = ProverClient::builder().cpu().build();
+
+    // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
+    let prover = ProverClient::builder().mock().build();
     let (pv, report) = prover.execute(RANGE_ELF, &sp1_stdin).run().unwrap();
     let execution_duration = start_time.elapsed();
 
@@ -372,7 +377,7 @@ async fn request_mock_span_proof(
         .get_l2_block_data_range(payload.start, payload.end)
         .await?;
 
-    let l1_head = host_cli.l1_head;
+    let l1_head = host_args.kona_args.l1_head;
     // Get the L1 block number from the L1 head.
     let l1_block_number = fetcher.get_l1_header(l1_head.into()).await?.number;
     let stats = ExecutionStats::new(
@@ -470,8 +475,6 @@ async fn request_mock_agg_proof(
         }
     };
 
-    let prover = ProverClient::builder().mock().build();
-
     let stdin =
         match get_agg_proof_stdin(proofs, boot_infos, headers, &state.range_vk, l1_head.into()) {
             Ok(s) => s,
@@ -481,6 +484,8 @@ async fn request_mock_agg_proof(
             }
         };
 
+    // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
+    let prover = ProverClient::builder().mock().build();
     let proof = match prover
         .prove(&state.agg_pk, &stdin)
         .mode(state.agg_proof_mode)
@@ -506,16 +511,16 @@ async fn request_mock_agg_proof(
 
 /// Get the status of a proof.
 async fn get_proof_status(
+    State(state): State<SuccinctProposerConfig>,
     Path(proof_id): Path<String>,
 ) -> Result<(StatusCode, Json<ProofStatus>), AppError> {
     info!("Received proof status request: {:?}", proof_id);
 
-    let client = ProverClient::builder().network().build();
-
     let proof_id_bytes = hex::decode(proof_id)?;
 
     // This request will time out if the server is down.
-    let (status, maybe_proof) = match client
+    let (status, maybe_proof) = match state
+        .network_prover
         .get_proof_status(B256::from_slice(&proof_id_bytes))
         .await
     {

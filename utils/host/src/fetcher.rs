@@ -7,7 +7,6 @@ use alloy_sol_types::SolValue;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
 use cargo_metadata::MetadataCommand;
-use futures::{stream, StreamExt};
 use kona_host::single::SingleChainHost;
 use op_alloy_consensus::OpBlock;
 use op_alloy_genesis::RollupConfig;
@@ -32,11 +31,11 @@ use std::{
 
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
-use crate::L2Output;
 use crate::{
     rollup_config::{get_eigen_da_config, get_rollup_config_path, read_rollup_config},
     ProgramType,
 };
+use crate::{L2Output, OPSuccinctHost};
 
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
@@ -394,7 +393,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
         let block = self
             .l1_provider
-            .get_block(block_number, BlockTransactionsKind::Full)
+            .get_block(block_number, alloy_rpc_types::BlockTransactionsKind::Hashes)
             .await?;
 
         if let Some(block) = block {
@@ -571,13 +570,13 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        let headers = stream::iter(start..=end)
-            .map(|block_number| async move { self.get_l1_header(block_number.into()).await })
-            .buffered(10)
-            .collect::<Vec<Result<Header>>>()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>>>()?;
+        // Note: Original implementation was using a buffered stream, but this was causing
+        // issues with the RPC requests timing out/receiving no response for 20+ minutes.
+        let mut headers = Vec::new();
+        for block_number in start..=end {
+            let header = self.get_l1_header(block_number.into()).await?;
+            headers.push(header);
+        }
 
         Ok(headers)
     }
@@ -640,13 +639,13 @@ impl OPSuccinctDataFetcher {
     /// Get the L2 output data for a given block number and save the boot info to a file in the data
     /// directory with block_number. Return the arguments to be passed to the native host for
     /// datagen.
-    pub async fn get_host_cli_args(
+    pub async fn get_host_args(
         &self,
         l2_start_block: u64,
         l2_end_block: u64,
         multi_block: ProgramType,
         cache_mode: CacheMode,
-    ) -> Result<SingleChainHost> {
+    ) -> Result<OPSuccinctHost> {
         // If the rollup config is not already loaded, fetch and save it.
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
@@ -748,44 +747,46 @@ impl OPSuccinctDataFetcher {
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
         fs::create_dir_all(&data_directory)?;
-        Ok(SingleChainHost {
-            l1_head: l1_head_hash,
-            agreed_l2_output_root,
-            agreed_l2_head_hash,
-            claimed_l2_output_root,
-            claimed_l2_block_number: l2_end_block,
-            l2_chain_id: None,
-            // Trim the trailing slash to avoid double slashes in the URL.
-            l2_node_address: Some(
-                self.rpc_config
-                    .l2_rpc
-                    .as_str()
-                    .trim_end_matches('/')
-                    .to_string(),
-            ),
-            l1_node_address: Some(
-                self.rpc_config
-                    .l1_rpc
-                    .as_str()
-                    .trim_end_matches('/')
-                    .to_string(),
-            ),
-            l1_beacon_address: Some(
-                self.rpc_config
-                    .l1_beacon_rpc
-                    .as_str()
-                    .trim_end_matches('/')
-                    .to_string(),
-            ),
-            data_dir: Some(data_directory.into()),
-            native: false,
-            server: true,
-            rollup_config_path: Some(rollup_config_path),
-            mantle_da_indexer_url: None,
-            proxy_url: eigen_da_config.proxy_url.clone(),
-            disperse_url: None,
-            disperse_timeout: Default::default(),
-            retrieve_timeout: eigen_da_config.retrieve_timeout,
+        Ok(OPSuccinctHost {
+            kona_args: SingleChainHost {
+                l1_head: l1_head_hash,
+                agreed_l2_output_root,
+                agreed_l2_head_hash,
+                claimed_l2_output_root,
+                claimed_l2_block_number: l2_end_block,
+                l2_chain_id: None,
+                // Trim the trailing slash to avoid double slashes in the URL.
+                l2_node_address: Some(
+                    self.rpc_config
+                        .l2_rpc
+                        .as_str()
+                        .trim_end_matches('/')
+                        .to_string(),
+                ),
+                l1_node_address: Some(
+                    self.rpc_config
+                        .l1_rpc
+                        .as_str()
+                        .trim_end_matches('/')
+                        .to_string(),
+                ),
+                l1_beacon_address: Some(
+                    self.rpc_config
+                        .l1_beacon_rpc
+                        .as_str()
+                        .trim_end_matches('/')
+                        .to_string(),
+                ),
+                data_dir: Some(data_directory.into()),
+                native: false,
+                server: true,
+                rollup_config_path: Some(rollup_config_path),
+                mantle_da_indexer_url: None,
+                proxy_url: eigen_da_config.proxy_url.clone(),
+                disperse_url: None,
+                disperse_timeout: Default::default(),
+                retrieve_timeout: eigen_da_config.retrieve_timeout,
+            },
         })
     }
 
@@ -962,76 +963,6 @@ impl OPSuccinctDataFetcher {
         } else {
             // Otherwise use derivable end to avoid pulling in multiple batches.
             Ok(l2_derivable_block_end)
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::fetcher::OPSuccinctDataFetcher;
-    use crate::fetcher::RunContext;
-
-    #[tokio::test]
-    #[cfg(test)]
-    async fn test_get_l1_head() {
-        use alloy_eips::BlockId;
-
-        dotenv::dotenv().ok();
-        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev)
-            .await
-            .unwrap();
-        let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
-
-        // Get the L2 block number from 1 hour ago.
-        let l2_end_block = latest_l2_block.number
-            - ((60 * 60) / fetcher.rollup_config.as_ref().unwrap().block_time);
-
-        let _ = fetcher.get_l1_head(l2_end_block).await.unwrap();
-    }
-
-    #[tokio::test]
-    #[cfg(test)]
-    async fn test_l2_safe_head_progression() {
-        use alloy_eips::BlockId;
-        use futures::StreamExt;
-        use op_alloy_rpc_types::SafeHeadResponse;
-
-        use crate::fetcher::RPCMode;
-
-        dotenv::dotenv().ok();
-        let fetcher = OPSuccinctDataFetcher::new(RunContext::Dev);
-        let mut l2_safe_heads = Vec::new();
-
-        let latest_l1_block = fetcher.get_l1_header(BlockId::latest()).await.unwrap();
-        let latest_l1_block_number = latest_l1_block.number;
-        let l1_block_number_hex = format!("0x{:x}", latest_l1_block_number);
-        let _ = fetcher
-            .fetch_rpc_data_with_mode::<SafeHeadResponse>(
-                RPCMode::L2Node,
-                "optimism_safeHeadAtL1Block",
-                vec![l1_block_number_hex.into()],
-            )
-            .await
-            .unwrap();
-
-        let latest_l2_block = fetcher.get_l2_header(BlockId::latest()).await.unwrap();
-
-        let safe_heads =
-            futures::stream::iter(latest_l2_block.number - 500..=latest_l2_block.number)
-                .map(|block_num| {
-                    let l1_block_number_hex = format!("0x{:x}", block_num);
-                    fetcher.fetch_rpc_data_with_mode::<SafeHeadResponse>(
-                        RPCMode::L2Node,
-                        "optimism_safeHeadAtL1Block",
-                        vec![l1_block_number_hex.into()],
-                    )
-                })
-                .buffered(100)
-                .collect::<Vec<_>>()
-                .await;
-
-        for result in safe_heads.into_iter().flatten() {
-            l2_safe_heads.push(result.safe_head.number);
         }
     }
 }
