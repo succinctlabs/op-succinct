@@ -31,7 +31,6 @@ Create a `.env` file in the contracts directory with the following variables:
 | `DISPUTE_GAME_FINALITY_DELAY_SECONDS` | Delay before finalizing dispute games. | `604800` for 7 days |
 | `MAX_CHALLENGE_DURATION` | Maximum duration for challenges in seconds. | `604800` for 7 days |
 | `MAX_PROVE_DURATION` | Maximum duration for proving in seconds. | `86400` for 1 day |
-| `PROOF_REWARD` | Reward for successful proofs (optional). | `0.01 ether` |
 
 ### SP1 Verifier Configuration
 Choose one of the following:
@@ -70,8 +69,8 @@ Choose one of the following:
 
 The deployment script deploys the contract with the following parameters:
 
-- **Initial Bond**: 0.01 ETH.
-- **Proof Reward**: 0.01 ETH (configurable via `PROOF_REWARD`).
+- **Initial Bond**: 0.01 ETH by default (configurable via `INITIAL_BOND` in wei, so 10000000000000000 wei for 0.01 ETH).
+- **Proof Reward**: 0.01 ETH by default (configurable via `PROOF_REWARD` in wei, so 10000000000000000 wei for 0.01 ETH).
 - **Starting Anchor Root**: Genesis configuration with block number 0.
 - **Access Control**: Permissionless (address(0) can propose and challenge).
 
