@@ -111,8 +111,7 @@ contract DeployOPSuccinctDG is Script {
         );
 
         // Set initial bond and implementation in factory.
-        uint256 initialBond = vm.envOr("INITIAL_BOND", uint256(0.01 ether));
-        factory.setInitBond(gameType, initialBond);
+        factory.setInitBond(gameType, vm.envOr("INITIAL_BOND", uint256(0.01 ether)));
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         vm.stopBroadcast();
