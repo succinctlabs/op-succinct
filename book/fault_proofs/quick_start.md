@@ -57,7 +57,24 @@ PRIVATE_KEY=<YOUR_PRIVATE_KEY>
 cargo run --bin proposer
 ```
 
-## Step 3: Monitor Games
+## Step 3: Run the Challenger
+
+1. Create a `.env.challenger` file in the fault_proof directory:
+```env
+# Required Configuration
+L1_RPC=<YOUR_L1_RPC_URL>
+L2_RPC=<YOUR_L2_RPC_URL>
+FACTORY_ADDRESS=<FACTORY_ADDRESS_FROM_DEPLOYMENT>
+GAME_TYPE=42
+PRIVATE_KEY=<YOUR_PRIVATE_KEY>
+```
+
+2. Run the challenger:
+```bash
+cargo run --bin challenger
+```
+
+## Step 4: Monitor Games
 
 1. The proposer will automatically create new games at regular intervals (every 1800 blocks with the default config)
 2. You can view created games on a block explorer using the factory address and the game address in the proposer logs
@@ -65,9 +82,9 @@ cargo run --bin proposer
 ## Next Steps
 
 Once you've seen the basic flow:
-1. Try `ENABLE_GAME_RESOLUTION=true` to automatically resolve unchallenged games
-2. Try enabling `FAST_FINALITY_MODE=true` to include proofs on game creation and get faster finality
-3. Try removing the `USE_SP1_MOCK_VERIFIER=true` flag and use [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network) with [deployed SP1 Verifiers](https://docs.succinct.xyz/docs/sp1/verification/onchain/contract-addresses) for production
+1. Try `ENABLE_GAME_RESOLUTION=true` on both proposer and challenger to automatically resolve games
+2. Try enabling `FAST_FINALITY_MODE=true` on the proposer to include proofs on game creation
+3. Try removing the `USE_SP1_MOCK_VERIFIER=true` flag and use [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network)
 
 ## Troubleshooting
 
