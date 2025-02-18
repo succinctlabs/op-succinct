@@ -55,7 +55,7 @@ impl ProposerConfig {
                 .parse()
                 .expect("FACTORY_ADDRESS not set"),
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
-                .unwrap_or("1000".to_string())
+                .unwrap_or("1800".to_string())
                 .parse()?,
             fetch_interval: env::var("FETCH_INTERVAL")
                 .unwrap_or("30".to_string())

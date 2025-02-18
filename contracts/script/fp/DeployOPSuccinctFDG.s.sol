@@ -26,7 +26,7 @@ import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 // Utils
 import {MockOptimismPortal2} from "../../utils/MockOptimismPortal2.sol";
 
-contract DeployOPSuccinctDG is Script {
+contract DeployOPSuccinctFDG is Script {
     function run() public {
         vm.startBroadcast();
 
