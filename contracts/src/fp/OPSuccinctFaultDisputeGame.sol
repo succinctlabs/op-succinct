@@ -206,64 +206,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         ACCESS_MANAGER = _accessManager;
     }
 
-    /// @notice Extracts the proof bytes from the extra data.
-    /// @dev The extra data is the calldata of the `createGame` function from the `OPSuccinctEntryPoint` contract.
-    /// @dev Expected calldata length without fast-finality mode flag and proof bytes: 0x7E.
-    //      - 0x04 selector
-    //      - 0x14 creator address
-    //      - 0x20 root claim
-    //      - 0x20 l1 head
-    //      - 0x20 extraData (l2BlockNumber)
-    //      - 0x04 extraData (parentIndex)
-    //      - 0x01 extraData (optional fast-finality mode flag)
-    //      - 0x?? extraData (optional proof bytes)
-    //      - 0x02 CWIA bytes
-    /// @dev There can be arbitrary length of optional proof bytes following the CWIA bytes.
-    /// @dev 1. If the calldata size is less than 0x7E, will revert with `BadExtraData()`.
-    /// @dev 2. If the calldata size is exactly 0x7E, will return an empty `proofBytes`.
-    /// @dev 3. If the calldata size is greater than 0x7E, will return `proofBytes` from the 0x7E index to the end of the calldata.
-    function _extractProofFromExtraData() private pure returns (bool fastFinalityMode, bytes memory proofBytes) {
-        assembly {
-            // The total size of the calldata *including* the 4-byte function selector.
-            let size := calldatasize()
-
-            // If calldatasize < 0x7E, revert with `BadExtraData()`.
-            if lt(size, 0x7E) {
-                // Store the selector for `BadExtraData()` and revert.
-                mstore(0x00, 0x9824bdab)
-                revert(0x1C, 0x04)
-            }
-
-            // 2. If calldatasize == 0x7E, return an empty bytes array with the fast-finality mode flag set to false.
-            if eq(size, 0x7E) {
-                // Set the fast finality mode flag to false.
-                fastFinalityMode := false
-
-                // Allocate free memory for an empty bytes array of length 0.
-                proofBytes := mload(0x40) // Fetch current free memory pointer.
-                mstore(proofBytes, 0) // Set length = 0 in the 32 bytes length slot.
-                mstore(0x40, add(proofBytes, 0x20)) // Advance free ptr by 32 (just for the length slot).
-            }
-
-            // 3. If calldatasize > 0x7E, interpret everything beyond 0x7E as fast-finality mode flag and proof bytes.
-            if gt(size, 0x7E) {
-                // Load the fast finality mode flag from calldata[0x7E].
-                fastFinalityMode := byte(0, calldataload(0x7E))
-
-                // Subtract 0x7F considering the 1 byte fast-finality mode flag.
-                let proofLen := sub(size, 0x7F)
-
-                // Allocate a new bytes array in free memory.
-                proofBytes := mload(0x40)
-                mstore(proofBytes, proofLen) // Set array length
-                mstore(0x40, add(proofBytes, add(proofLen, 0x20))) // Advance free mem pointer (proofLen + 32 bytes for length).
-
-                // Copy the proof from calldata[0x7F...size] into memory[proofBytes+0x20].
-                calldatacopy(add(proofBytes, 0x20), 0x7F, proofLen)
-            }
-        }
-    }
-
     /// @notice Initializes the contract.
     /// @dev This function may only be called once.
     function initialize() external payable virtual {
@@ -283,6 +225,28 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
 
         // INVARIANT: The proposer must be whitelisted.
         if (!ACCESS_MANAGER.isAllowedProposer(gameCreator())) revert BadAuth();
+
+        // Revert if the calldata size is not the expected length.
+        //
+        // This is to prevent adding extra or omitting bytes from to `extraData` that result in a different game UUID
+        // in the factory, but are not used by the game, which would allow for multiple dispute games for the same
+        // output proposal to be created.
+        //
+        // Expected length: 0x7E
+        // - 0x04 selector
+        // - 0x14 creator address
+        // - 0x20 root claim
+        // - 0x20 l1 head
+        // - 0x20 extraData (l2BlockNumber)
+        // - 0x04 extraData (parentIndex)
+        // - 0x02 CWIA bytes
+        assembly {
+            if iszero(eq(calldatasize(), 0x7E)) {
+                // Store the selector for `BadExtraData()` & revert
+                mstore(0x00, 0x9824bdab)
+                revert(0x1C, 0x04)
+            }
+        }
 
         // The first game is initialized with a parent index of uint32.max
         if (parentIndex() != type(uint32).max) {
@@ -340,26 +304,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
         // Set whether the game type was respected when the game was created.
         wasRespectedGameTypeWhenCreated =
             GameType.unwrap(ANCHOR_STATE_REGISTRY.respectedGameType()) == GameType.unwrap(GAME_TYPE);
-
-        ////////////////////////////////////////////////////////////////
-        //                     FAST-FINALITY MODE                    //
-        ////////////////////////////////////////////////////////////////
-
-        // Extract the proof bytes from the extra data.
-        (bool fastFinalityMode, bytes memory proofBytes) = _extractProofFromExtraData();
-
-        // If the proof bytes are not empty, the game is created in fast-finality mode.
-        if (fastFinalityMode) {
-            this.prove(proofBytes);
-
-            // Set the prover to the creator of the game or else the prover will be marked as the game contract.
-            claimData.prover = msg.sender;
-
-            // Resolve the game immediately if the parent game is resolved.
-            if (getParentGameStatus() != GameStatus.IN_PROGRESS) {
-                this.resolve();
-            }
-        }
     }
 
     /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
