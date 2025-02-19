@@ -16,7 +16,7 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
-    L2OutputOracle, ProgramType,
+    OPSuccinctL2OutputOracle, ProgramType,
 };
 use op_succinct_proposer::{
     AggProofRequest, ProofResponse, ProofStatus, SpanProofRequest, SuccinctProposerConfig,
@@ -124,7 +124,7 @@ async fn validate_config(
     let fetcher = OPSuccinctDataFetcher::default();
 
     let address = Address::from_str(&payload.address).unwrap();
-    let l2_output_oracle = L2OutputOracle::new(address, fetcher.l1_provider);
+    let l2_output_oracle = OPSuccinctL2OutputOracle::new(address, fetcher.l1_provider);
 
     let agg_vkey = l2_output_oracle.aggregationVkey().call().await?;
     let range_vkey = l2_output_oracle.rangeVkeyCommitment().call().await?;
