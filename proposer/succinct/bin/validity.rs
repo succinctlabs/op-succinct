@@ -13,7 +13,13 @@ async fn main() -> Result<()> {
     utils::setup_logger();
     dotenv::dotenv().ok();
 
-    let proposer = Proposer::new().await?;
+    // TODO: Read this from the fetcher.
+    let rpc_url = env::var("L1_RPC").expect("L1_RPC not set");
+    let signer = EthereumWallet::new(private_key);
+    let provider = ProviderBuilder::new()
+        .wallet(signer.clone())
+        .on_http(rpc_url.parse().expect("Failed to parse RPC URL"));
+    let proposer = Proposer::new(provider).await?;
 
     proposer.start().await?;
 

@@ -38,7 +38,7 @@ pub enum RequestMode {
     Mock = 1,
 }
 
-#[derive(FromRow, Debug, Default)]
+#[derive(FromRow, Debug, Default, Clone)]
 pub struct OPSuccinctRequest {
     pub id: i64,
     pub status: RequestStatus,
@@ -218,6 +218,20 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    /// Fetch all requests that have one of the given statuses.
+    pub async fn fetch_requests_by_statuses(
+        &self,
+        statuses: &[RequestStatus],
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
+        let query =
+            sqlx::query_as::<_, OPSuccinctRequest>("SELECT * FROM requests WHERE status = ANY($1)")
+                .bind(&status_values[..])
+                .fetch_all(&self.pool)
+                .await?;
+        Ok(query)
+    }
+
     /// Fetch all requests with a specific status from the database.
     pub async fn fetch_requests_by_status(
         &self,
@@ -228,6 +242,87 @@ impl DriverDBClient {
                 .bind(status as i16)
                 .fetch_all(&self.pool)
                 .await?;
+        Ok(requests)
+    }
+
+    /// Get the consecutive range proofs for a given start block and end block that are complete with the same range vkey commitment.
+    pub async fn get_consecutive_range_proofs(
+        &self,
+        start_block: i64,
+        end_block: i64,
+        range_vkey_commitment: [u8; 32],
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND start_block >= $4 AND end_block <= $5 ORDER BY start_block ASC"
+        )
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(&range_vkey_commitment[..])
+        .bind(start_block)
+        .bind(end_block)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(requests)
+    }
+
+    /// Fetch all non-failed AGG proofs with the same start block, range vkey commitment, and aggregation vkey.
+    ///
+    /// TODO: Confirm this works
+    pub async fn fetch_active_agg_proofs(
+        &self,
+        start_block: i64,
+        range_vkey_commitment: [u8; 32],
+        agg_vkey: [u8; 32],
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status != $1 AND status != $2 AND req_type = $3 AND range_vkey_commitment = $4 AND aggregation_vkey = $5 AND start_block = $6 ORDER BY start_block ASC"
+        )
+        .bind(RequestStatus::FailedRetryable as i16)
+        .bind(RequestStatus::FailedFatal as i16)
+        .bind(RequestType::Aggregation as i16)
+        .bind(&range_vkey_commitment[..])
+        .bind(&agg_vkey[..])
+        .bind(start_block)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(requests)
+    }
+
+    /// Fetch the sorted list of AGG proofs with status UNREQ that have a start_block >= latest_contract_l2_block.
+    pub async fn fetch_unrequested_agg_proofs(
+        &self,
+        latest_contract_l2_block: i64,
+        range_vkey_commitment: [u8; 32],
+        agg_vkey: [u8; 32],
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND aggregation_vkey = $4 AND start_block >= $5 ORDER BY start_block ASC"
+        )
+        .bind(RequestStatus::Unrequested as i16)
+        .bind(latest_contract_l2_block)
+        .bind(&range_vkey_commitment[..])
+        .bind(&agg_vkey[..])
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(requests)
+    }
+
+    /// Fetch the sorted list of RANGE proofs with status UNREQ that have a start_block >= latest_contract_l2_block.
+    pub async fn fetch_unrequested_range_proofs(
+        &self,
+        latest_contract_l2_block: i64,
+        range_vkey_commitment: [u8; 32],
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND start_block >= $4 ORDER BY start_block ASC"
+        )
+        .bind(RequestStatus::Unrequested as i16)
+        .bind(RequestType::Range as i16)
+        .bind(&range_vkey_commitment[..])
+        .bind(latest_contract_l2_block)
+        .fetch_all(&self.pool)
+        .await?;
         Ok(requests)
     }
 
@@ -250,7 +345,7 @@ impl DriverDBClient {
     }
 
     /// Add a completed proof to the database.
-    pub async fn update_completed_proof(
+    pub async fn update_proof_to_complete(
         &self,
         id: i64,
         proof: &[u8],
@@ -270,20 +365,57 @@ impl DriverDBClient {
     /// Update the status of a request in the database.
     pub async fn update_request_status(
         &self,
-        start_block: i64,
-        end_block: i64,
+        id: i64,
         new_status: RequestStatus,
     ) -> Result<PgQueryResult, Error> {
         sqlx::query(
             r#"
             UPDATE requests 
             SET status = $1, updated_at = NOW()
-            WHERE start_block = $2 AND end_block = $3
+            WHERE id = $2
             "#,
         )
         .bind(new_status as i16)
-        .bind(start_block)
-        .bind(end_block)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Update the status of a request to PROVE.
+    pub async fn update_request_to_prove(
+        &self,
+        request_id: i64,
+        proof_id: [u8; 32],
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query(
+            r#"
+            UPDATE requests 
+            SET status = $1, proof_request_id = $2, updated_at = NOW()
+            WHERE id = $3
+            "#,
+        )
+        .bind(RequestStatus::Prove as i16)
+        .bind(&proof_id[..])
+        .bind(request_id)
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Insert the execution statistics for a request.
+    pub async fn insert_execution_statistics(
+        &self,
+        id: i64,
+        execution_statistics: Value,
+        execution_duration_secs: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query(
+            r#"
+            UPDATE requests SET execution_statistics = $1, execution_duration = $2 WHERE id = $3
+            "#,
+        )
+        .bind(&execution_statistics)
+        .bind(execution_duration_secs)
+        .bind(id)
         .execute(&self.pool)
         .await
     }
@@ -358,7 +490,7 @@ async fn main() -> Result<()> {
     println!("Requests: {:?}", requests);
 
     client
-        .update_request_status(100, 200, RequestStatus::WitnessGeneration)
+        .update_request_status(1, RequestStatus::WitnessGeneration)
         .await?;
 
     let eth_metrics = EthMetrics {

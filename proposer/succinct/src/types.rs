@@ -3,7 +3,8 @@ use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sp1_sdk::{
-    network::FulfillmentStrategy, NetworkProver, SP1ProofMode, SP1ProvingKey, SP1VerifyingKey,
+    network::FulfillmentStrategy, ExecutionReport, NetworkProver, SP1ProofMode, SP1ProvingKey,
+    SP1VerifyingKey,
 };
 use std::sync::Arc;
 
@@ -106,4 +107,42 @@ where
                 .map_err(serde::de::Error::custom)
         })
         .collect()
+}
+
+#[derive(Serialize)]
+pub struct RequestExecutionStatistics {
+    pub total_instruction_cycles: u64,
+    pub total_sp1_gas: u64,
+    pub block_execution_cycles: u64,
+    pub oracle_verify_cycles: u64,
+    pub derivation_cycles: u64,
+    pub blob_verification_cycles: u64,
+    pub bn_add_cycles: u64,
+    pub bn_mul_cycles: u64,
+    pub bn_pair_cycles: u64,
+    pub kzg_eval_cycles: u64,
+    pub ec_recover_cycles: u64,
+    pub p256_verify_cycles: u64,
+}
+
+impl RequestExecutionStatistics {
+    pub fn new(execution_report: ExecutionReport) -> Self {
+        let get_cycles = |key: &str| *execution_report.cycle_tracker.get(key).unwrap_or(&0);
+
+        Self {
+            total_instruction_cycles: execution_report.total_instruction_count(),
+            // TODO: Re-add this when total SP1 gas is available.
+            total_sp1_gas: 0,
+            block_execution_cycles: get_cycles("block-execution"),
+            oracle_verify_cycles: get_cycles("oracle-verify"),
+            derivation_cycles: get_cycles("payload-derivation"),
+            blob_verification_cycles: get_cycles("blob-verification"),
+            bn_add_cycles: get_cycles("precompile-bn-add"),
+            bn_mul_cycles: get_cycles("precompile-bn-mul"),
+            bn_pair_cycles: get_cycles("precompile-bn-pair"),
+            kzg_eval_cycles: get_cycles("precompile-kzg-eval"),
+            ec_recover_cycles: get_cycles("precompile-ec-recover"),
+            p256_verify_cycles: get_cycles("precompile-p256-verify"),
+        }
+    }
 }

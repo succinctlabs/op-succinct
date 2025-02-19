@@ -1,17 +1,16 @@
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, B256};
-use alloy_provider::{
-    network::{Ethereum, EthereumWallet},
-    Network, Provider, ProviderBuilder,
-};
+use alloy_primitives::{Address, B256, U256};
+use alloy_provider::{network::ReceiptResponse, Network, Provider};
 use alloy_signer_local::PrivateKeySigner;
-use alloy_transport::Transport;
 use anyhow::Result;
-use chrono::{Local, NaiveDateTime, Utc};
-use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
+use chrono::Local;
+use op_succinct_client_utils::{
+    boot::{hash_rollup_config, BootInfoStruct},
+    types::u32_to_u8,
+};
 use op_succinct_host_utils::{
-    fetcher::{OPSuccinctDataFetcher, RunContext},
-    OPSuccinctL2OutputOracle,
+    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
+    get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, ProgramType,
 };
 use sp1_sdk::{
     network::{
@@ -19,26 +18,30 @@ use sp1_sdk::{
         FulfillmentStrategy,
     },
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
-use std::{env, str::FromStr, sync::Arc};
+use std::{
+    env,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
-    get_latest_proposed_block_number, AGG_ELF, RANGE_ELF,
+    get_latest_proposed_block_number, RequestExecutionStatistics, AGG_ELF, RANGE_ELF,
 };
 
 use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
 
-pub struct ContractConfig<T, P, N>
+pub struct ContractConfig<P, N>
 where
-    T: Transport + Clone,
     P: Provider<N> + 'static,
     N: Network,
 {
     pub l2oo_address: Address,
     pub dgf_address: Address,
-    pub l2oo_contract: OPSuccinctL2OOContract<T, P, N>,
+    pub l2oo_contract: OPSuccinctL2OOContract<(), P, N>,
 }
 
 pub struct ProgramConfig {
@@ -83,25 +86,23 @@ pub struct DriverConfig {
     pub max_concurrent_witness_gen: u64,
 }
 
-pub struct Proposer<T, P, N>
+pub struct Proposer<P, N>
 where
-    T: Transport + Clone,
     P: Provider<N> + 'static,
     N: Network,
 {
     driver_config: DriverConfig,
-    contract_config: ContractConfig<T, P, N>,
+    contract_config: ContractConfig<P, N>,
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
 }
 
-impl<T, P, N> Proposer<T, P, N>
+impl<P, N> Proposer<P, N>
 where
-    P: Provider<T, N> + 'static,
-    T: Transport + Clone,
+    P: Provider<N> + 'static,
     N: Network,
 {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(provider: P) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
         let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
@@ -172,12 +173,6 @@ where
             .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"))
             .expect("PRIVATE_KEY not set");
 
-        // TODO: Read this from the fetcher.
-        let rpc_url = env::var("L1_RPC").expect("L1_RPC not set");
-        let signer = EthereumWallet::new(private_key);
-        let provider = ProviderBuilder::new()
-            .wallet(signer.clone())
-            .on_http(rpc_url.parse().expect("Failed to parse RPC URL"));
         let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
 
         let proposer = Proposer {
@@ -316,7 +311,7 @@ where
                 // Add the completed proof to the database.
                 self.driver_config
                     .driver_db_client
-                    .update_completed_proof(request.id, &proof_bytes)
+                    .update_proof_to_complete(request.id, &proof_bytes)
                     .await?;
             } else if status.fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
                 self.handle_unfulfillable_request(request, execution_status)
@@ -345,11 +340,7 @@ where
         // Set the existing request to status FAILED_RETRYABLE.
         self.driver_config
             .driver_db_client
-            .update_request_status(
-                request.start_block,
-                request.end_block,
-                RequestStatus::FailedRetryable,
-            )
+            .update_request_status(request.id, RequestStatus::FailedRetryable)
             .await?;
 
         if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
@@ -402,11 +393,16 @@ where
             .driver_db_client
             .insert_request(&OPSuccinctRequest {
                 status: RequestStatus::Unrequested,
-                req_type: RequestType::Range,
+                req_type: request.req_type,
+                created_at: Local::now().naive_local(),
+                updated_at: Local::now().naive_local(),
                 mode: request.mode,
                 start_block: request.start_block,
                 end_block: request.end_block,
                 range_vkey_commitment: request.range_vkey_commitment,
+                aggregation_vkey: request.aggregation_vkey,
+                checkpointed_l1_block_hash: request.checkpointed_l1_block_hash,
+                checkpointed_l1_block_number: request.checkpointed_l1_block_number,
                 ..Default::default()
             })
             .await?;
@@ -417,7 +413,33 @@ where
     /// Create aggregation proofs based on the completed range proofs. The range proofs must be contiguous and have
     /// the same range vkey commitment. Assumes that the range proof retry logic guarantees that there is not
     /// two potential contiguous chains of range proofs.
+    ///
+    /// Only creates an AGG proof if there's not an AGG proof in progress with the same start block.
     pub async fn create_aggregation_proofs(&self) -> Result<()> {
+        // Check if there's an AGG proof with the same start block AND range verification key commitment AND aggregation vkey.
+        // If so, return.
+        let latest_proposed_block_number = get_latest_proposed_block_number(
+            self.contract_config.l2oo_address,
+            self.driver_config.fetcher.as_ref(),
+        )
+        .await?;
+
+        // Get all active AGG proofs with the same start block, range vkey commitment, and aggregation vkey.
+        let agg_proofs = self
+            .driver_config
+            .driver_db_client
+            .fetch_active_agg_proofs(
+                latest_proposed_block_number as i64,
+                self.program_config.range_vkey_commitment.into(),
+                self.program_config.agg_vkey_hash.into(),
+            )
+            .await?;
+
+        if agg_proofs.len() > 0 {
+            log::info!("There is already an AGG proof in progress with the same start block, range vkey commitment, and aggregation vkey.");
+            return Ok(());
+        }
+
         // Get the latest proposed block number on the contract.
         // TODO: This could also be the latest relayed block number.
         let latest_proposed_block_number = get_latest_proposed_block_number(
@@ -451,8 +473,27 @@ where
                     .await?;
 
                 // TODO: Checkpoint the L1 block hash.
+                // Wait for 5 confirmations.
+                const NUM_CONFIRMATIONS: u64 = 5;
+                // 2 minute timeout.
+                const TIMEOUT: u64 = 120;
+                let receipt = self
+                    .contract_config
+                    .l2oo_contract
+                    .checkpointBlockHash(U256::from(latest_header.number))
+                    .send()
+                    .await?
+                    .with_required_confirmations(NUM_CONFIRMATIONS)
+                    .with_timeout(Some(Duration::from_secs(TIMEOUT)))
+                    .get_receipt()
+                    .await?;
 
-                // Create an aggregation proof request to cover the range.
+                // If transaction reverted, log the error.
+                if !receipt.status() {
+                    log::error!("Transaction reverted: {:?}", receipt);
+                }
+
+                // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
                 self.driver_config
                     .driver_db_client
                     .insert_request(&OPSuccinctRequest {
@@ -465,6 +506,8 @@ where
                         end_block: last_request.end_block,
                         range_vkey_commitment: self.program_config.range_vkey_commitment.into(),
                         aggregation_vkey: Some(self.program_config.agg_vkey_hash.into()),
+                        checkpointed_l1_block_hash: Some(latest_header.hash_slow().into()),
+                        checkpointed_l1_block_number: Some(latest_header.number as i64),
                         ..Default::default()
                     })
                     .await?;
@@ -472,6 +515,304 @@ where
         }
 
         Ok(())
+    }
+
+    /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. Also, be aware of MAX_CONCURRENT_WITNESS_GEN.
+    ///
+    /// TODO: Submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
+    ///
+    /// TODO: Limit the maximum number of WITNESSGEN threads to MAX_CONCURRENT_WITNESS_GEN.
+    async fn request_queued_proofs(&self) -> Result<()> {
+        let requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_requests_by_statuses(&[
+                RequestStatus::WitnessGeneration,
+                RequestStatus::Execution,
+                RequestStatus::Prove,
+            ])
+            .await?;
+
+        // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WITNESSGEN, EXECUTE, and PROVE status, return.
+        if requests.len() >= self.driver_config.max_concurrent_proof_requests as usize {
+            return Ok(());
+        }
+
+        // Get the next proof to request.
+        let next_request = self.get_next_unrequested_proof().await?;
+
+        if let Some(request) = next_request {
+            // For mock and range proofs, set the status to WITNESSGEN.
+            self.driver_config
+                .driver_db_client
+                .update_request_status(request.id, RequestStatus::WitnessGeneration)
+                .await?;
+
+            // Get the stdin for the proof.
+            // TODO: Turn this into a separate stage. NOTE: Never store the stdin in the DB, as it's quite large.
+            let stdin = match request.req_type {
+                RequestType::Range => self.range_proof_witnessgen(&request).await?,
+                RequestType::Aggregation => {
+                    // Query the database for the consecutive range proofs.
+                    let range_proofs = self
+                        .driver_config
+                        .driver_db_client
+                        .get_consecutive_range_proofs(
+                            request.start_block,
+                            request.end_block,
+                            request.range_vkey_commitment,
+                        )
+                        .await?;
+
+                    // Parse the range proofs into SP1ProofWithPublicValues.
+                    let range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs
+                        .iter()
+                        .map(|proof| bincode::deserialize(proof.proof.as_ref().unwrap()).unwrap())
+                        .collect();
+
+                    // Generate the witness for the aggregation proof.
+                    self.agg_proof_witnessgen(&request, range_proofs).await?
+                }
+            };
+
+            // If mock mode, set status to EXECUTE. For real mode, only set to PROVE after the request is sent.
+            if self.driver_config.mock {
+                // Set the status to EXECUTE.
+                self.driver_config
+                    .driver_db_client
+                    .update_request_status(request.id, RequestStatus::Execution)
+                    .await?;
+            }
+
+            if request.req_type == RequestType::Range {
+                if self.driver_config.mock {
+                    let proof = self.request_mock_range_proof(&request, stdin).await?;
+
+                    // For mock range proofs, the proof bytes are the bincode serialized proof.
+                    let proof_bytes = bincode::serialize(&proof).unwrap();
+                    self.driver_config
+                        .driver_db_client
+                        .update_proof_to_complete(request.id, &proof_bytes)
+                        .await?;
+                } else {
+                    // Request the range proof.
+                    let proof_id = self.request_range_proof(stdin).await?;
+
+                    // Update the request with the proof ID.
+                    self.driver_config
+                        .driver_db_client
+                        .update_request_to_prove(request.id, proof_id.into())
+                        .await?;
+                }
+            } else if request.req_type == RequestType::Aggregation {
+                if self.driver_config.mock {
+                    // Generate the mock aggregation proof.
+                    let proof = self.request_mock_agg_proof(stdin).await?;
+                    self.driver_config
+                        .driver_db_client
+                        .update_proof_to_complete(request.id, &proof.bytes())
+                        .await?;
+                } else {
+                    // Request the aggregation proof.
+                    let proof_id = self.request_agg_proof(stdin).await?;
+
+                    // Update the request with the proof ID.
+                    self.driver_config
+                        .driver_db_client
+                        .update_request_to_prove(request.id, proof_id.into())
+                        .await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the next unrequested proof from the database.
+    ///
+    /// If there is an AGG proof with the same start block, range vkey commitment, and aggregation vkey, return that.
+    /// Otherwise, return a range proof with the lowest start block.
+    async fn get_next_unrequested_proof(&self) -> Result<Option<OPSuccinctRequest>> {
+        let latest_proposed_block_number = get_latest_proposed_block_number(
+            self.contract_config.l2oo_address,
+            self.driver_config.fetcher.as_ref(),
+        )
+        .await?;
+
+        let unreq_agg_requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_unrequested_agg_proofs(
+                latest_proposed_block_number as i64,
+                self.program_config.range_vkey_commitment.into(),
+                self.program_config.agg_vkey_hash.into(),
+            )
+            .await?;
+
+        if unreq_agg_requests.len() > 0 {
+            return Ok(Some(unreq_agg_requests[0].clone()));
+        }
+
+        let unreq_range_requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_unrequested_range_proofs(
+                latest_proposed_block_number as i64,
+                self.program_config.range_vkey_commitment.into(),
+            )
+            .await?;
+
+        if unreq_range_requests.len() > 0 {
+            return Ok(Some(unreq_range_requests[0].clone()));
+        }
+
+        Ok(None)
+    }
+
+    /// Spawn a thread to generate the witness for a proof, and then request it.
+    ///
+    /// Returns the proof ID.
+    async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
+        self.driver_config
+            .network_prover
+            .prove(&self.program_config.range_pk, &stdin)
+            .compressed()
+            .strategy(self.driver_config.range_proof_strategy)
+            .skip_simulation(true)
+            .cycle_limit(1_000_000_000_000)
+            .request_async()
+            .await
+    }
+
+    /// Spawn a thread to generate the witness for a proof, and then request it.
+    async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
+        self.driver_config
+            .network_prover
+            .prove(&self.program_config.agg_pk, &stdin)
+            .mode(self.driver_config.agg_proof_mode)
+            .strategy(self.driver_config.agg_proof_strategy)
+            .request_async()
+            .await
+    }
+
+    /// Generate a mock range proof.
+    ///
+    /// Writes the execution statistics to the database.
+    async fn request_mock_range_proof(
+        &self,
+        request: &OPSuccinctRequest,
+        stdin: SP1Stdin,
+    ) -> Result<SP1ProofWithPublicValues> {
+        let start_time = Instant::now();
+        let (pv, report) = self
+            .driver_config
+            .network_prover
+            .execute(RANGE_ELF, &stdin)
+            .run()?;
+        let execution_duration = start_time.elapsed().as_secs();
+
+        let execution_statistics = RequestExecutionStatistics::new(report);
+
+        // Write the execution data to the database.
+        self.driver_config
+            .driver_db_client
+            .insert_execution_statistics(
+                request.id,
+                serde_json::to_value(execution_statistics)?,
+                execution_duration as i64,
+            )
+            .await?;
+
+        Ok(SP1ProofWithPublicValues::create_mock_proof(
+            &self.program_config.range_pk,
+            pv.clone(),
+            SP1ProofMode::Compressed,
+            SP1_CIRCUIT_VERSION,
+        ))
+    }
+
+    /// Generate a mock aggregation proof.
+    ///
+    /// TODO: Add execution statistics.
+    async fn request_mock_agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
+        // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
+        let prover = ProverClient::builder().mock().build();
+
+        // TODO: In the future, add statistics for aggregation proof execution.
+        prover
+            .prove(&self.program_config.range_pk, &stdin)
+            .mode(self.driver_config.agg_proof_mode)
+            .deferred_proof_verification(false)
+            .run()
+    }
+
+    /// Generate the witness for a range proof.
+    async fn range_proof_witnessgen(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
+        let host_args = match self
+            .driver_config
+            .fetcher
+            .get_host_args(
+                request.start_block as u64,
+                request.end_block as u64,
+                ProgramType::Multi,
+                CacheMode::DeleteCache,
+            )
+            .await
+        {
+            Ok(cli) => cli,
+            Err(e) => {
+                log::error!("Failed to get host CLI args: {}", e);
+                return Err(anyhow::anyhow!("Failed to get host CLI args: {}", e));
+            }
+        };
+
+        let mem_kv_store = start_server_and_native_client(host_args).await?;
+
+        let sp1_stdin = match get_proof_stdin(mem_kv_store) {
+            Ok(stdin) => stdin,
+            Err(e) => {
+                log::error!("Failed to get proof stdin: {}", e);
+                return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
+            }
+        };
+
+        Ok(sp1_stdin)
+    }
+
+    /// Generate the witness for an aggregation proof.
+    async fn agg_proof_witnessgen(
+        &self,
+        request: &OPSuccinctRequest,
+        mut range_proofs: Vec<SP1ProofWithPublicValues>,
+    ) -> Result<SP1Stdin> {
+        let boot_infos: Vec<BootInfoStruct> = range_proofs
+            .iter_mut()
+            .map(|proof| proof.public_values.read())
+            .collect();
+
+        let proofs: Vec<SP1Proof> = range_proofs
+            .iter_mut()
+            .map(|proof| proof.proof.clone())
+            .collect();
+
+        let l1_head = request
+            .checkpointed_l1_block_hash
+            .expect("Aggregation proof has no checkpointed block.");
+
+        let headers = self
+            .driver_config
+            .fetcher
+            .get_header_preimages(&boot_infos, l1_head.into())
+            .await?;
+
+        let stdin = get_agg_proof_stdin(
+            proofs,
+            boot_infos,
+            headers,
+            &self.program_config.range_vk,
+            l1_head.into(),
+        )?;
+
+        Ok(stdin)
     }
 
     /// Get the largest contiguous range of completed range proofs.
@@ -504,14 +845,15 @@ where
         // Get all proof statuses of all requests in the witness generation state.
         // TODO: Decide whether to implement this. Currently, all it does is a timeout check.
 
-        // Create aggregation proofs based on the completed range proofs.
+        // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
+        // in advance.
         self.create_aggregation_proofs().await?;
 
         // Request all unrequested proofs from the prover network.
         self.request_queued_proofs().await?;
 
         // Determine if any aggregation proofs that are complete need to be checkpointed.
-        self.checkpoint_aggregation_proofs().await?;
+        self.submit_agg_proofs().await?;
 
         Ok(())
     }
