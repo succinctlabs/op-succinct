@@ -33,15 +33,18 @@ Create a `.env` file in the contracts directory with the following variables:
 | `MAX_PROVE_DURATION` | Maximum duration for proving in seconds. | `86400` for 1 day |
 
 ### SP1 Verifier Configuration
-Choose one of the following:
+For testing, set:
+```bash
+USE_SP1_MOCK_VERIFIER=true
+```
 
+For production, set all of these:
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `USE_SP1_MOCK_VERIFIER` | Set to true to deploy a mock verifier for testing. | `true` |
-| `VERIFIER_ADDRESS` | Address of the SP1 verifier for production. | `0x...` |
-| `ROLLUP_CONFIG_HASH` | Hash of the rollup configuration (if not using mock). | `0x...` |
-| `AGGREGATION_VKEY` | Verification key for aggregation (if not using mock). | `0x...` |
-| `RANGE_VKEY_COMMITMENT` | Commitment to range verification key (if not using mock). | `0x...` |
+| `VERIFIER_ADDRESS` | Address of the SP1 verifier ([see contract addresses](https://docs.succinct.xyz/docs/sp1/verification/onchain/contract-addresses)) | `0x...` |
+| `ROLLUP_CONFIG_HASH` | Hash of the rollup configuration | `0x...` |
+| `AGGREGATION_VKEY` | Verification key for aggregation | `0x...` |
+| `RANGE_VKEY_COMMITMENT` | Commitment to range verification key | `0x...` |
 
 ## Deployment
 

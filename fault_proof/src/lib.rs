@@ -136,7 +136,6 @@ impl<F, P> FactoryTrait<F, P> for DisputeGameFactoryInstance<(), L1ProviderWithW
 where
     F: TxFiller,
     P: Provider + Clone,
-    L1ProviderWithWallet<F, P>: alloy_contract::private::Provider<(), Ethereum>,
 {
     /// Fetches the bond required to create a game.
     async fn fetch_init_bond(&self, game_type: u32) -> Result<U256> {
