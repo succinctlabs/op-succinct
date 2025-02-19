@@ -1,7 +1,6 @@
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
-use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use chrono::Local;
 use op_succinct_client_utils::{
@@ -97,12 +96,17 @@ where
     requester_config: RequesterConfig,
 }
 
+// 5 confirmations (1 minute)
+const NUM_CONFIRMATIONS: u64 = 5;
+// 2 minute timeout.
+const TIMEOUT: u64 = 120;
+
 impl<P, N> Proposer<P, N>
 where
     P: Provider<N> + 'static,
     N: Network,
 {
-    pub async fn new(provider: P) -> Result<Self> {
+    pub async fn new(provider: P, db_client: Arc<DriverDBClient>) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
         let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
@@ -154,24 +158,15 @@ where
             .expect("MAX_CONCURRENT_PROOF_REQUESTS not set")
             .parse::<u64>()
             .expect("Invalid MAX_CONCURRENT_PROOF_REQUESTS");
-        let mock = env::var("MOCK")
+        let mock = env::var("OP_SUCCINCT_MOCK")
             .map(|v| v.parse::<bool>().unwrap_or(false))
             .unwrap_or(false);
-        let db_url = env::var("DB_URL").expect("DB_URL not set");
         const PROOF_TIMEOUT: u64 = 60 * 60;
-
-        let driver_db_client = Arc::new(DriverDBClient::new(&db_url).await?);
 
         // The latest proposed block number is the highest block number that has been proposed.
         let latest_block_number = get_latest_proposed_block_number(l2oo_address, &fetcher).await?;
 
         let fetcher = Arc::new(fetcher);
-
-        // TODO: Add support for KMS.
-        let private_key: PrivateKeySigner = env::var("PRIVATE_KEY")
-            .ok()
-            .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"))
-            .expect("PRIVATE_KEY not set");
 
         let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
 
@@ -186,7 +181,7 @@ where
                 submission_interval: 0,
                 proof_timeout: PROOF_TIMEOUT,
                 mock,
-                driver_db_client,
+                driver_db_client: db_client,
                 current_processed_block_number: latest_block_number,
                 max_concurrent_proof_requests,
                 max_concurrent_witness_gen,
@@ -472,11 +467,7 @@ where
                     .get_l1_header(BlockId::latest())
                     .await?;
 
-                // TODO: Checkpoint the L1 block hash.
-                // Wait for 5 confirmations.
-                const NUM_CONFIRMATIONS: u64 = 5;
-                // 2 minute timeout.
-                const TIMEOUT: u64 = 120;
+                // Checkpoint the L1 block hash.
                 let receipt = self
                     .contract_config
                     .l2oo_contract
@@ -608,6 +599,8 @@ where
                 if self.driver_config.mock {
                     // Generate the mock aggregation proof.
                     let proof = self.request_mock_agg_proof(stdin).await?;
+
+                    // For mock aggregation proofs, the proof bytes are on-chain encoded proof bytes.
                     self.driver_config
                         .driver_db_client
                         .update_proof_to_complete(request.id, &proof.bytes())
@@ -668,7 +661,7 @@ where
         Ok(None)
     }
 
-    /// Spawn a thread to generate the witness for a proof, and then request it.
+    /// Request a range proof.
     ///
     /// Returns the proof ID.
     async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
@@ -683,7 +676,9 @@ where
             .await
     }
 
-    /// Spawn a thread to generate the witness for a proof, and then request it.
+    /// Request an aggregation proof.
+    ///
+    /// Returns the proof ID.
     async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
         self.driver_config
             .network_prover
@@ -835,6 +830,69 @@ where
         Ok(largest_contiguous_range)
     }
 
+    /// Submit all completed aggregation proofs to the prover network.
+    async fn submit_agg_proofs(&self) -> Result<()> {
+        let latest_proposed_block_number = get_latest_proposed_block_number(
+            self.contract_config.l2oo_address,
+            self.driver_config.fetcher.as_ref(),
+        )
+        .await?;
+
+        // Query for all AGG proofs that are complete.
+        let completed_agg_proofs = self
+            .driver_config
+            .driver_db_client
+            .fetch_completed_aggregation_proofs(
+                latest_proposed_block_number as i64,
+                self.program_config.agg_vkey_hash.into(),
+                self.program_config.range_vkey_commitment.into(),
+            )
+            .await?;
+
+        if completed_agg_proofs.len() == 0 {
+            return Ok(());
+        }
+
+        let completed_agg_proof = completed_agg_proofs[0].clone();
+
+        // Get the output at the end block of the last completed aggregation proof.
+        let output = self
+            .driver_config
+            .fetcher
+            .get_l2_output_at_block(completed_agg_proof.end_block as u64)
+            .await?;
+
+        // Propose the L2 output.
+        let receipt = self
+            .contract_config
+            .l2oo_contract
+            .proposeL2Output(
+                output.output_root,
+                U256::from(completed_agg_proof.end_block),
+                U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
+                completed_agg_proof.proof.unwrap().into(),
+            )
+            .send()
+            .await?
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT)))
+            .get_receipt()
+            .await?;
+
+        // If the transaction reverted, log the error.
+        if !receipt.status() {
+            log::error!("Transaction reverted: {:?}", receipt);
+        }
+
+        // Update the request to status RELAYED.
+        self.driver_config
+            .driver_db_client
+            .update_request_to_relayed(completed_agg_proof.id, receipt.transaction_hash().into())
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn start(&self) -> Result<()> {
         // Add new ranges to the database.
         self.add_new_ranges().await?;
@@ -843,7 +901,7 @@ where
         self.handle_proving_requests().await?;
 
         // Get all proof statuses of all requests in the witness generation state.
-        // TODO: Decide whether to implement this. Currently, all it does is a timeout check.
+        // TODO: Decide whether to implement this. Currently, all it does in go proposer is a timeout check.
 
         // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
         // in advance.

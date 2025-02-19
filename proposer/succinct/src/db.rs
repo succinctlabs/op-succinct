@@ -1,7 +1,7 @@
 use anyhow::Result;
-use chrono::{Duration, Local, NaiveDateTime};
+use chrono::{Local, NaiveDateTime};
 use serde_json::Value;
-use sqlx::types::Uuid;
+use sqlx::types::BigDecimal;
 use sqlx::Error;
 use sqlx::{postgres::PgQueryResult, FromRow, PgPool};
 
@@ -99,8 +99,10 @@ impl OPSuccinctRequest {
 pub struct EthMetrics {
     pub nb_transactions: i64,
     pub eth_gas_used: i64,
-    pub l1_fees: i64,
-    pub tx_fees: i64,
+    // sqlx doesn't support u128, use BigDecimal instead for fees.
+    // Fees are in wei, can be greater than 9 * 10^18.
+    pub l1_fees: BigDecimal,
+    pub tx_fees: BigDecimal,
 }
 
 pub struct DriverDBClient {
@@ -110,6 +112,10 @@ pub struct DriverDBClient {
 impl DriverDBClient {
     pub async fn new(database_url: &str) -> Result<Self> {
         let pool = PgPool::connect(database_url).await?;
+
+        // Run migrations.
+        sqlx::migrate!("./migrations").run(&pool).await?;
+
         Ok(DriverDBClient { pool })
     }
 
@@ -151,7 +157,7 @@ impl DriverDBClient {
         .bind(req.checkpointed_l1_block_number.map(|n| n as i64))
         .bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
         .bind(&req.execution_statistics)
-        // Storing durations as milliseconds for simplicity.
+        // Storing durations in seconds.
         .bind(req.witnessgen_duration_secs)
         .bind(req.execution_duration_secs)
         .bind(req.prove_duration_secs)
@@ -175,9 +181,9 @@ impl DriverDBClient {
             "#,
         )
         .bind(metrics.nb_transactions)
-        .bind(metrics.eth_gas_used)
-        .bind(metrics.l1_fees)
-        .bind(metrics.tx_fees)
+        .bind(metrics.eth_gas_used.clone())
+        .bind(metrics.l1_fees.clone())
+        .bind(metrics.tx_fees.clone())
         .execute(&self.pool)
         .await
     }
@@ -401,6 +407,44 @@ impl DriverDBClient {
         .await
     }
 
+    /// Update status of a request to RELAYED.
+    pub async fn update_request_to_relayed(
+        &self,
+        id: i64,
+        relay_tx_hash: [u8; 32],
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query(
+            r#"
+            UPDATE requests SET status = $1, relay_tx_hash = $2, updated_at = NOW() WHERE id = $3
+            "#,
+        )
+        .bind(RequestStatus::Relayed as i16)
+        .bind(&relay_tx_hash[..])
+        .bind(id)
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Fetch a single completed aggregation proof.
+    pub async fn fetch_completed_aggregation_proofs(
+        &self,
+        latest_contract_l2_block: i64,
+        aggregation_vkey: [u8; 32],
+        range_vkey_commitment: [u8; 32],
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND aggregation_vkey = $4 AND start_block = $5 ORDER BY start_block ASC LIMIT 1"
+        )
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Aggregation as i16)
+        .bind(&range_vkey_commitment[..])
+        .bind(&aggregation_vkey[..])
+        .bind(latest_contract_l2_block)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(requests)
+    }
+
     /// Insert the execution statistics for a request.
     pub async fn insert_execution_statistics(
         &self,
@@ -496,8 +540,8 @@ async fn main() -> Result<()> {
     let eth_metrics = EthMetrics {
         nb_transactions: 10,
         eth_gas_used: 20000,
-        l1_fees: 300,
-        tx_fees: 150,
+        l1_fees: 300.into(),
+        tx_fees: 150.into(),
     };
 
     client.insert_eth_metrics(&eth_metrics).await?;

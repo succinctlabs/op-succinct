@@ -20,6 +20,8 @@ path = "bin/validity.rs"
 # workspace
 tokio.workspace = true
 alloy-primitives.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
 
 # local
 op-succinct-host-utils.workspace = true
@@ -28,10 +30,11 @@ op-succinct-host-utils.workspace = true
 sp1-sdk.workspace = true
 
 # alloy
-alloy-eips = { version = "0.11.1" }
-alloy-provider = { version = "0.11.1" }
-alloy-transport = { version = "0.11.1" }
-alloy-signer-local = { version = "0.11.1" }
+alloy-eips.workspace = true
+alloy-provider.workspace = true
+alloy-transport.workspace = true
+alloy-signer-local.workspace = true
+op-alloy-network.workspace = true
 
 anyhow.workspace = true
 dotenv.workspace = true
@@ -46,8 +49,9 @@ log.workspace = true
 base64.workspace = true
 tower-http.workspace = true
 serde_repr = "0.1.19"
-sqlx = { version = "0.8.3", features = ["postgres", "chrono", "uuid"] }
+sqlx = { version = "0.8.3", features = ["postgres", "chrono", "bigdecimal"] }
 chrono = "0.4.39"
+futures-util = "0.3.31"
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
