@@ -1,8 +1,18 @@
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256};
+use alloy_provider::{
+    network::{Ethereum, EthereumWallet},
+    Network, Provider, ProviderBuilder,
+};
+use alloy_signer_local::PrivateKeySigner;
+use alloy_transport::Transport;
 use anyhow::Result;
+use chrono::{Local, NaiveDateTime, Utc};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
+use op_succinct_host_utils::{
+    fetcher::{OPSuccinctDataFetcher, RunContext},
+    OPSuccinctL2OutputOracle,
+};
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -18,9 +28,17 @@ use crate::{
     get_latest_proposed_block_number, AGG_ELF, RANGE_ELF,
 };
 
-pub struct ContractConfig {
+use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
+
+pub struct ContractConfig<T, P, N>
+where
+    T: Transport + Clone,
+    P: Provider<N> + 'static,
+    N: Network,
+{
     pub l2oo_address: Address,
     pub dgf_address: Address,
+    pub l2oo_contract: OPSuccinctL2OOContract<T, P, N>,
 }
 
 pub struct ProgramConfig {
@@ -47,6 +65,7 @@ pub struct DriverConfig {
     // // Proposer configuration
     // // ****
     pub network_prover: Arc<NetworkProver>,
+    pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub range_proof_strategy: FulfillmentStrategy,
     pub agg_proof_strategy: FulfillmentStrategy,
     pub agg_proof_mode: SP1ProofMode,
@@ -64,14 +83,24 @@ pub struct DriverConfig {
     pub max_concurrent_witness_gen: u64,
 }
 
-pub struct Proposer {
+pub struct Proposer<T, P, N>
+where
+    T: Transport + Clone,
+    P: Provider<N> + 'static,
+    N: Network,
+{
     driver_config: DriverConfig,
-    contract_config: ContractConfig,
+    contract_config: ContractConfig<T, P, N>,
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
 }
 
-impl Proposer {
+impl<T, P, N> Proposer<T, P, N>
+where
+    P: Provider<T, N> + 'static,
+    T: Transport + Clone,
+    N: Network,
+{
     pub async fn new() -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
@@ -133,11 +162,28 @@ impl Proposer {
         let driver_db_client = Arc::new(DriverDBClient::new(&db_url).await?);
 
         // The latest proposed block number is the highest block number that has been proposed.
-        let latest_block_number = get_latest_proposed_block_number(l2oo_address, fetcher).await?;
+        let latest_block_number = get_latest_proposed_block_number(l2oo_address, &fetcher).await?;
+
+        let fetcher = Arc::new(fetcher);
+
+        // TODO: Add support for KMS.
+        let private_key: PrivateKeySigner = env::var("PRIVATE_KEY")
+            .ok()
+            .map(|s| s.parse().expect("Failed to parse PRIVATE_KEY"))
+            .expect("PRIVATE_KEY not set");
+
+        // TODO: Read this from the fetcher.
+        let rpc_url = env::var("L1_RPC").expect("L1_RPC not set");
+        let signer = EthereumWallet::new(private_key);
+        let provider = ProviderBuilder::new()
+            .wallet(signer.clone())
+            .on_http(rpc_url.parse().expect("Failed to parse RPC URL"));
+        let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
 
         let proposer = Proposer {
             driver_config: DriverConfig {
                 network_prover,
+                fetcher,
                 range_proof_strategy,
                 agg_proof_strategy,
                 agg_proof_mode,
@@ -153,6 +199,7 @@ impl Proposer {
             contract_config: ContractConfig {
                 l2oo_address,
                 dgf_address,
+                l2oo_contract,
             },
             program_config: ProgramConfig {
                 range_vk,
@@ -176,8 +223,11 @@ impl Proposer {
 
     /// Use the in-memory index of the highest block number to add new ranges to the database.
     pub async fn add_new_ranges(&self) -> Result<()> {
-        let fetcher = OPSuccinctDataFetcher::default();
-        let latest_finalized_header = fetcher.get_l2_header(BlockId::finalized()).await?;
+        let latest_finalized_header = self
+            .driver_config
+            .fetcher
+            .get_l2_header(BlockId::finalized())
+            .await?;
 
         let mut current_block = self.driver_config.current_processed_block_number;
         let mut requests = Vec::new();
@@ -231,7 +281,7 @@ impl Proposer {
             .await?;
 
         // Get the proof status of all of the requests in parallel.
-        // TODO: Make this in parallel.
+        // TODO: Do this in parallel.
         for request in prove_requests {
             self.process_proof_request_status(request).await?;
         }
@@ -368,7 +418,80 @@ impl Proposer {
     /// the same range vkey commitment. Assumes that the range proof retry logic guarantees that there is not
     /// two potential contiguous chains of range proofs.
     pub async fn create_aggregation_proofs(&self) -> Result<()> {
+        // Get the latest proposed block number on the contract.
+        // TODO: This could also be the latest relayed block number.
+        let latest_proposed_block_number = get_latest_proposed_block_number(
+            self.contract_config.l2oo_address,
+            self.driver_config.fetcher.as_ref(),
+        )
+        .await?;
+
+        // Get all completed range proofs from the database.
+        let completed_range_proofs = self
+            .driver_config
+            .driver_db_client
+            .fetch_completed_range_proofs(
+                self.program_config.range_vkey_commitment.into(),
+                latest_proposed_block_number as i64,
+            )
+            .await?;
+
+        // Get the largest contiguous range of completed range proofs.
+        let largest_contiguous_range = self.get_largest_contiguous_range(completed_range_proofs)?;
+
+        if let Some(last_request) = largest_contiguous_range.last() {
+            if (last_request.end_block - last_request.start_block) as u64
+                >= self.requester_config.range_proof_interval
+            {
+                // Checkpoint an L1 block hash that will be used to create the aggregation proof.
+                let latest_header = self
+                    .driver_config
+                    .fetcher
+                    .get_l1_header(BlockId::latest())
+                    .await?;
+
+                // TODO: Checkpoint the L1 block hash.
+
+                // Create an aggregation proof request to cover the range.
+                self.driver_config
+                    .driver_db_client
+                    .insert_request(&OPSuccinctRequest {
+                        status: RequestStatus::Unrequested,
+                        req_type: RequestType::Aggregation,
+                        created_at: Local::now().naive_local(),
+                        updated_at: Local::now().naive_local(),
+                        mode: last_request.mode,
+                        start_block: latest_proposed_block_number as i64,
+                        end_block: last_request.end_block,
+                        range_vkey_commitment: self.program_config.range_vkey_commitment.into(),
+                        aggregation_vkey: Some(self.program_config.agg_vkey_hash.into()),
+                        ..Default::default()
+                    })
+                    .await?;
+            }
+        }
+
         Ok(())
+    }
+
+    /// Get the largest contiguous range of completed range proofs.
+    fn get_largest_contiguous_range(
+        &self,
+        completed_range_proofs: Vec<OPSuccinctRequest>,
+    ) -> Result<Vec<OPSuccinctRequest>> {
+        let mut largest_contiguous_range: Vec<OPSuccinctRequest> = Vec::new();
+
+        for proof in completed_range_proofs {
+            if largest_contiguous_range.is_empty() {
+                largest_contiguous_range.push(proof);
+            } else if proof.start_block == largest_contiguous_range.last().unwrap().end_block {
+                largest_contiguous_range.push(proof);
+            } else {
+                break;
+            }
+        }
+
+        Ok(largest_contiguous_range)
     }
 
     pub async fn start(&self) -> Result<()> {
@@ -382,6 +505,13 @@ impl Proposer {
         // TODO: Decide whether to implement this. Currently, all it does is a timeout check.
 
         // Create aggregation proofs based on the completed range proofs.
+        self.create_aggregation_proofs().await?;
+
+        // Request all unrequested proofs from the prover network.
+        self.request_queued_proofs().await?;
+
+        // Determine if any aggregation proofs that are complete need to be checkpointed.
+        self.checkpoint_aggregation_proofs().await?;
 
         Ok(())
     }

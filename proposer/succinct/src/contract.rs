@@ -9,9 +9,9 @@ pub async fn validate_config(
     expected_agg_vkey: B256,
     expected_range_vkey: B256,
     expected_rollup_config_hash: B256,
-    fetcher: OPSuccinctDataFetcher,
+    fetcher: &OPSuccinctDataFetcher,
 ) -> Result<bool> {
-    let l2_output_oracle = OPSuccinctL2OutputOracle::new(address, fetcher.l1_provider);
+    let l2_output_oracle = OPSuccinctL2OutputOracle::new(address, fetcher.l1_provider.clone());
 
     let agg_vkey = l2_output_oracle.aggregationVkey().call().await?;
     let range_vkey = l2_output_oracle.rangeVkeyCommitment().call().await?;
@@ -28,9 +28,9 @@ pub async fn validate_config(
 /// Get the latest proposed block number from the L2 output oracle.
 pub async fn get_latest_proposed_block_number(
     address: Address,
-    fetcher: OPSuccinctDataFetcher,
+    fetcher: &OPSuccinctDataFetcher,
 ) -> Result<u64> {
-    let l2_output_oracle = OPSuccinctL2OutputOracle::new(address, fetcher.l1_provider);
+    let l2_output_oracle = OPSuccinctL2OutputOracle::new(address, fetcher.l1_provider.clone());
     let block_number = l2_output_oracle.latestBlockNumber().call().await?;
 
     // Convert the block number to a u64.

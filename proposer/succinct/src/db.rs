@@ -231,6 +231,24 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    /// Fetch all completed range proofs with matching range_vkey_commitment and start_block >= latest_contract_l2_block
+    pub async fn fetch_completed_range_proofs(
+        &self,
+        range_vkey_commitment: [u8; 32],
+        latest_contract_l2_block: i64,
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND start_block >= $4 ORDER BY start_block ASC"
+        )
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
+        .bind(&range_vkey_commitment[..])
+        .bind(latest_contract_l2_block)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(requests)
+    }
+
     /// Add a completed proof to the database.
     pub async fn update_completed_proof(
         &self,

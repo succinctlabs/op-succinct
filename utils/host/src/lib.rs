@@ -30,6 +30,15 @@ sol! {
         function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner;
 
         function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner;
+
+        // Checkpointing L1 block hashes.
+        function checkpointBlockHash(uint256 _blockNumber) external;
+
+        // Proposing outputs when the output oracle is set to ZK mode.
+        function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
+        external
+        payable
+        whenNotOptimistic;
     }
 }
 

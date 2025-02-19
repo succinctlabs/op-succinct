@@ -28,7 +28,10 @@ op-succinct-host-utils.workspace = true
 sp1-sdk.workspace = true
 
 # alloy
-alloy-eips.workspace = true
+alloy-eips = { version = "0.11.1" }
+alloy-provider = { version = "0.11.1" }
+alloy-transport = { version = "0.11.1" }
+alloy-signer-local = { version = "0.11.1" }
 
 anyhow.workspace = true
 dotenv.workspace = true
