@@ -19,12 +19,13 @@ use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::sync::Arc;
 
 sol! {
-    #[allow(missing_docs)]
     #[sol(rpc)]
-    contract L2OutputOracle {
+    contract OPSuccinctL2OutputOracle {
         bytes32 public aggregationVkey;
         bytes32 public rangeVkeyCommitment;
         bytes32 public rollupConfigHash;
+
+        function latestBlockNumber() public view returns (uint256);
 
         function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner;
 

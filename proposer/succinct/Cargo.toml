@@ -11,6 +11,10 @@ homepage.workspace = true
 name = "server"
 path = "bin/server.rs"
 
+[[bin]]
+name = "validity"
+path = "bin/validity.rs"
+
 [dependencies]
 
 # workspace
@@ -22,6 +26,9 @@ op-succinct-host-utils.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
+
+# alloy
+alloy-eips.workspace = true
 
 anyhow.workspace = true
 dotenv.workspace = true
@@ -36,6 +43,8 @@ log.workspace = true
 base64.workspace = true
 tower-http.workspace = true
 serde_repr = "0.1.19"
+sqlx = { version = "0.8.3", features = ["postgres", "chrono", "uuid"] }
+chrono = "0.4.39"
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
