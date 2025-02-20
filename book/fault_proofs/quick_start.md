@@ -18,7 +18,7 @@ This guide provides the fastest path to try out OP Succinct fault dispute games 
 1. Clone and setup the repository:
     ```bash
     git clone https://github.com/succinctlabs/op-succinct.git
-    cd op-succinct
+    cd op-succinct/contracts
     forge install
     ```
 
@@ -42,7 +42,6 @@ See [Getting the Starting Root](./deploy.md#getting-the-starting-root) for more 
 
 3. Deploy contracts:
     ```bash
-    cd contracts
     forge script script/fp/DeployOPSuccinctFDG.s.sol --broadcast --rpc-url <L1_RPC_URL> --private-key <YOUR_PRIVATE_KEY>
     ```
 
