@@ -24,16 +24,6 @@ use fault_proof::{
 struct Args {
     #[clap(long, default_value = ".env.proposer")]
     env_file: String,
-
-    #[clap(long)]
-    /// Whether to enable game creation.
-    /// When game creation is not enabled, the proposer will not create games.
-    enable_proposal: bool,
-
-    #[clap(long)]
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the proposer will not resolve games.
-    enable_resolution: bool,
 }
 
 struct OPSuccinctProposer<F, P>
@@ -99,8 +89,7 @@ where
             .with_required_confirmations(NUM_CONFIRMATIONS)
             .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
             .get_receipt()
-            .await
-            .context("Failed to get transaction receipt for create")?;
+            .await?;
 
         let game_address =
             Address::from_slice(&receipt.inner.logs()[0].inner.data.topics()[1][12..]);
@@ -114,13 +103,8 @@ where
     }
 
     /// Handles the creation of a new game if conditions are met.
-    async fn handle_game_creation(&self, enable_proposal: bool) -> Result<()> {
+    async fn handle_game_creation(&self) -> Result<()> {
         let _span = tracing::info_span!("[[Proposing]]").entered();
-
-        if !enable_proposal {
-            tracing::info!("Game creation is disabled");
-            return Ok(());
-        }
 
         // Get the safe L2 head block number
         let safe_l2_head_block_number = self
@@ -178,14 +162,8 @@ where
     }
 
     /// Handles the resolution of all eligible unchallenged games.
-    async fn handle_game_resolution(&self, enable_game_resolution: bool) -> Result<()> {
+    async fn handle_game_resolution(&self) -> Result<()> {
         let _span = tracing::info_span!("[[Resolving]]").entered();
-
-        // Only resolve games if the config is enabled.
-        if !enable_game_resolution {
-            tracing::info!("Game resolution is disabled");
-            return Ok(());
-        }
 
         self.factory
             .resolve_games(
@@ -198,18 +176,18 @@ where
     }
 
     /// Runs the proposer indefinitely.
-    async fn run(&self, args: Args) -> Result<()> {
+    async fn run(&self) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         loop {
             interval.tick().await;
 
-            if let Err(e) = self.handle_game_creation(args.enable_proposal).await {
+            if let Err(e) = self.handle_game_creation().await {
                 tracing::warn!("Failed to handle game creation: {:?}", e);
             }
 
-            if let Err(e) = self.handle_game_resolution(args.enable_resolution).await {
+            if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
         }
@@ -245,5 +223,5 @@ async fn main() {
     let proposer = OPSuccinctProposer::new(l1_provider_with_wallet, factory)
         .await
         .unwrap();
-    proposer.run(args).await.expect("Runs in an infinite loop");
+    proposer.run().await.expect("Runs in an infinite loop");
 }

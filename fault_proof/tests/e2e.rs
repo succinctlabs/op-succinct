@@ -57,7 +57,7 @@ async fn test_e2e_proposer_wins() -> Result<()> {
     // Spawn the proposer process to create games.
     tracing::info!("Spawning proposer to create games");
     let mut proposer_process = TokioCommand::new("cargo")
-        .args(["run", "--bin", "proposer", "--", "--enable-proposal"])
+        .args(["run", "--bin", "proposer"])
         .spawn()
         .expect("Failed to spawn proposer to create games");
 
@@ -85,12 +85,6 @@ async fn test_e2e_proposer_wins() -> Result<()> {
         tracing::info!("Game {:?} created at index {:?}", game_address, game_index);
     }
 
-    proposer_process
-        .kill()
-        .await
-        .expect("Failed to kill proposer process for creating games");
-    tracing::info!("Proposer process killed for creating games");
-
     let game_impl = OPSuccinctFaultDisputeGame::new(
         factory
             .gameImpls(proposer_config.game_type)
@@ -110,13 +104,6 @@ async fn test_e2e_proposer_wins() -> Result<()> {
         max_challenge_duration
     );
     sleep(Duration::from_secs(max_challenge_duration)).await;
-
-    // Spawn the proposer process to resolve games.
-    tracing::info!("Spawning proposer to resolve games");
-    let mut proposer_process = TokioCommand::new("cargo")
-        .args(["run", "--bin", "proposer", "--", "--enable-resolution"])
-        .spawn()
-        .expect("Failed to spawn proposer to resolve games");
 
     // Wait for games to be resolved.
     let mut done = false;
@@ -146,12 +133,12 @@ async fn test_e2e_proposer_wins() -> Result<()> {
         }
     }
 
-    // Kill the proposer process for resolving games.
+    // Kill the proposer process
     proposer_process
         .kill()
         .await
-        .expect("Failed to kill proposer process for resolving games");
-    tracing::info!("Proposer process killed for resolving games");
+        .expect("Failed to kill proposer process");
+    tracing::info!("Proposer process killed");
 
     assert!(
         done,
