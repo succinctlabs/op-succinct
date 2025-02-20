@@ -214,16 +214,15 @@ where
             .get_l2_header(BlockId::finalized())
             .await?;
 
-        // Get the highest block number of any of the requests in the database that are not FAILED or CANCELLED with the same commitment.
+        // Get the highest block number of any of range request in the database that is not FAILED or CANCELLED or RELAYED with the same commitment.
         let highest_request = self
             .driver_config
             .driver_db_client
-            .fetch_highest_request_with_statuses_and_commitment(
+            .fetch_highest_range_request_with_statuses_and_commitment(
                 &[
                     RequestStatus::Unrequested,
                     RequestStatus::WitnessGeneration,
                     RequestStatus::Execution,
-                    RequestStatus::Relayed,
                     RequestStatus::Complete,
                     RequestStatus::Prove,
                 ],
@@ -717,86 +716,22 @@ where
         Ok(())
     }
 
-    /// Update the DB state if the proposer is being re-started.
+    /// Update the DB state if the proposer is being re-started. Cancel all proofs that are not RELAYED.
     ///
-    /// TODO: If starting the proposer with a valid config BUT a different block number, need to confirm that all
-    /// Unrequested, Prove, EXEC, WitnessGeneration requests are linked to the original block number. Basically, confirm that there's
-    /// no need to regenerate the requests. The easier (but simpler) way to do this is to see if the commitment is the same, if so, cancel all
-    /// WITGEN, Execute requests and backfill.
-    ///
-    /// 1. If any of range vkey, agg vkey or rollup config hash has changed, set all proofs that are not RELAYED or COMPLETED to CANCELLED.
-    /// 2. If all the same, keep all proofs in UNREQUESTED and Prove proofs. Retry all WitnessGeneration and EXECUTION proofs.
-    ///
-    /// TODO: Add handling logic if initialized with a diff contract address.
+    /// TODO: Don't cancel proofs that are in PROVE status with same request mode and commitment config.
     #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
     async fn initialize_proposer(&self) -> Result<()> {
-        // Get highest request with one of the given statuses.
-        let request = self
-            .driver_config
+        // Cancel all old requests.
+        self.driver_config
             .driver_db_client
-            .fetch_highest_request_with_statuses(&[
+            .cancel_all_requests_with_statuses(&[
                 RequestStatus::Unrequested,
                 RequestStatus::Prove,
                 RequestStatus::Execution,
                 RequestStatus::WitnessGeneration,
+                RequestStatus::Complete,
             ])
             .await?;
-
-        // Cancel all ongoing requests if the rollup config hash or range vkey commitment has changed.
-        // Only one set of pending requests with a given (rollup_config_hash, range_vkey_commitment, agg_vkey_hash)
-        // can exist at a time.
-        if let Some(request) = request {
-            let config_changed = request.rollup_config_hash
-                != self.program_config.commitments.rollup_config_hash
-                || request.range_vkey_commitment
-                    != self.program_config.commitments.range_vkey_commitment;
-
-            let agg_key_changed = request
-                .aggregation_vkey_hash
-                .map(|hash| hash != self.program_config.commitments.agg_vkey_hash)
-                .unwrap_or(false);
-
-            if config_changed || agg_key_changed {
-                tracing::info!("Rollup config hash, aggregation vkey hash, or range vkey commitment has changed. Cancelling all old requests.");
-                // Cancel all old requests.
-                self.driver_config
-                    .driver_db_client
-                    .cancel_all_requests_with_statuses(&[
-                        RequestStatus::Unrequested,
-                        RequestStatus::Prove,
-                        RequestStatus::Execution,
-                        RequestStatus::WitnessGeneration,
-                    ])
-                    .await?;
-
-                // The range proof creation will view the latest state of the DB and the highest proposed block number to retrieve the correct latest block number.
-                // This is safe to do because the proposer state is only updated when the proposer is re-started.
-                return Ok(());
-            }
-        }
-
-        // Fetch all requests in status Execution and WitnessGeneration for re-trying.
-        let requests = self
-            .driver_config
-            .driver_db_client
-            .fetch_requests_by_statuses(
-                &[RequestStatus::Execution, RequestStatus::WitnessGeneration],
-                &self.program_config.commitments,
-            )
-            .await?;
-
-        if !requests.is_empty() {
-            tracing::info!("No changes to the proposer config. Retrying all {} requests in Execution and WitnessGeneration status.", requests.len());
-        }
-
-        // Retry all requests with status Execution and WitnessGeneration.
-        for request in requests {
-            // Retry the request by using the unfulfillable request handler.
-            // NOTE: There is only special logic with Unexecutable requests, so any other status will be handled by retrying the same range.
-            self.proof_requester
-                .handle_unfulfillable_request(request, ExecutionStatus::UnspecifiedExecutionStatus)
-                .await?;
-        }
 
         Ok(())
     }

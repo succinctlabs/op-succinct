@@ -273,17 +273,18 @@ impl DriverDBClient {
     }
 
     /// Fetch the highest block number of a request with one of the given statuses and commitment.
-    pub async fn fetch_highest_request_with_statuses_and_commitment(
+    pub async fn fetch_highest_range_request_with_statuses_and_commitment(
         &self,
         statuses: &[RequestStatus],
         commitment: &CommitmentConfig,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
         let request = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) ORDER BY start_block DESC LIMIT 1",
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 ORDER BY start_block DESC LIMIT 1",
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
         .bind(&statuses[..])
+        .bind(RequestType::Range as i16)
         .fetch_optional(&self.pool)
         .await?;
         Ok(request)
