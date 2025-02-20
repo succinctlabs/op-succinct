@@ -67,7 +67,6 @@ pub struct RequesterConfig {
 }
 
 pub struct DriverConfig {
-    // // TODO: Add prover key, etc.
     // // ****
     // // Proposer configuration
     // // ****
@@ -88,6 +87,18 @@ pub struct DriverConfig {
     pub max_concurrent_witness_gen: u64,
 }
 
+pub struct ProposerConfigArgs {
+    pub l2oo_address: Address,
+    pub dgf_address: Address,
+    pub range_proof_interval: u64,
+    pub max_concurrent_witness_gen: u64,
+    pub max_concurrent_proof_requests: u64,
+    pub range_proof_strategy: FulfillmentStrategy,
+    pub agg_proof_strategy: FulfillmentStrategy,
+    pub agg_proof_mode: SP1ProofMode,
+    pub op_succinct_mock: bool,
+}
+
 pub struct Proposer<P, N>
 where
     P: Provider<N> + 'static,
@@ -104,12 +115,17 @@ const NUM_CONFIRMATIONS: u64 = 5;
 // 2 minute timeout.
 const TIMEOUT: u64 = 120;
 
+// TODO: Add support for DGF.
 impl<P, N> Proposer<P, N>
 where
     P: Provider<N> + 'static,
     N: Network,
 {
-    pub async fn new(provider: P, db_client: Arc<DriverDBClient>) -> Result<Self> {
+    pub async fn new(
+        provider: P,
+        db_client: Arc<DriverDBClient>,
+        config: ProposerConfigArgs,
+    ) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
         let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
@@ -117,53 +133,22 @@ where
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
         let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
 
-        // TODO: Fix this so we don't need to run in Docker.
-        // TODO: It's really weird that we have a Docker/Dev mode.
+        // Initialize fetcher
         let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
-        // Note: The rollup config hash never changes for a given chain, so we can just hash it once at
-        // server start-up. The only time a rollup config changes is typically when a new version of the
-        // [`RollupConfig`] is released from `op-alloy`.
         let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
 
-        // Set the proof strategies based on environment variables. Default to reserved to keep existing behavior.
-        let range_proof_strategy = match env::var("RANGE_PROOF_STRATEGY") {
-            Ok(strategy) if strategy.to_lowercase() == "hosted" => FulfillmentStrategy::Hosted,
-            _ => FulfillmentStrategy::Reserved,
-        };
-        let agg_proof_strategy = match env::var("AGG_PROOF_STRATEGY") {
-            Ok(strategy) if strategy.to_lowercase() == "hosted" => FulfillmentStrategy::Hosted,
-            _ => FulfillmentStrategy::Reserved,
-        };
+        // Use config values instead of env vars
+        let range_proof_strategy = config.range_proof_strategy;
+        let agg_proof_strategy = config.agg_proof_strategy;
+        let agg_proof_mode = config.agg_proof_mode;
 
-        // Set the aggregation proof type based on environment variable. Default to groth16.
-        let agg_proof_mode = match env::var("AGG_PROOF_MODE") {
-            Ok(proof_type) if proof_type.to_lowercase() == "plonk" => SP1ProofMode::Plonk,
-            _ => SP1ProofMode::Groth16,
-        };
+        let l2oo_address = config.l2oo_address;
+        let dgf_address = config.dgf_address;
 
-        let l2oo_address: Address = env::var("L2OO_ADDRESS")
-            .expect("L2OO_ADDRESS not set")
-            .parse::<Address>()
-            .expect("Invalid L2OO_ADDRESS");
-        let dgf_address: Address = env::var("DISPUTE_GAME_FACTORY_ADDRESS")
-            .expect("DISPUTE_GAME_FACTORY_ADDRESS not set")
-            .parse::<Address>()
-            .expect("Invalid DISPUTE_GAME_FACTORY_ADDRESS");
-        let range_proof_interval = env::var("RANGE_PROOF_INTERVAL")
-            .expect("RANGE_PROOF_INTERVAL not set")
-            .parse::<u64>()
-            .expect("Invalid RANGE_PROOF_INTERVAL");
-        let max_concurrent_witness_gen = env::var("MAX_CONCURRENT_WITNESS_GEN")
-            .expect("MAX_CONCURRENT_WITNESS_GEN not set")
-            .parse::<u64>()
-            .expect("Invalid MAX_CONCURRENT_WITNESS_GEN");
-        let max_concurrent_proof_requests = env::var("MAX_CONCURRENT_PROOF_REQUESTS")
-            .expect("MAX_CONCURRENT_PROOF_REQUESTS not set")
-            .parse::<u64>()
-            .expect("Invalid MAX_CONCURRENT_PROOF_REQUESTS");
-        let mock = env::var("OP_SUCCINCT_MOCK")
-            .map(|v| v.parse::<bool>().unwrap_or(false))
-            .unwrap_or(false);
+        let range_proof_interval = config.range_proof_interval;
+        let max_concurrent_witness_gen = config.max_concurrent_witness_gen;
+        let max_concurrent_proof_requests = config.max_concurrent_proof_requests;
+        let mock = config.op_succinct_mock;
         const PROOF_TIMEOUT: u64 = 60 * 60;
 
         let fetcher = Arc::new(fetcher);
@@ -242,7 +227,7 @@ where
         let mut current_processed_block = match highest_request {
             Some(request) => request.end_block as u64,
             None => {
-                log::info!(
+                tracing::info!(
                     "No requests in the database, using latest proposed block number on contract."
                 );
                 get_latest_proposed_block_number(
@@ -349,7 +334,7 @@ where
         } else {
             // TODO: If there is no proof request id, this should be a hard error. There should
             // never be a proof request in PROVE status without a proof request id.
-            log::warn!("Request has no proof request id: {:?}", request);
+            tracing::warn!("Request has no proof request id: {:?}", request);
         }
 
         Ok(())
@@ -364,7 +349,7 @@ where
         // If the proof request is unfulfillable, check if the request is a range proof and if the execution status is unexecutable.
         // If so, split the request into two requests.
         // Otherwise, retry the same request.
-        log::info!("Request is unfulfillable: {:?}", request);
+        tracing::info!("Request is unfulfillable: {:?}", request);
 
         // Set the existing request to status Failed.
         self.driver_config
@@ -384,7 +369,7 @@ where
                 .await?;
 
             if failed_requests.len() > 1 || execution_status == ExecutionStatus::Unexecutable {
-                log::info!("Splitting request into two: {:?}", request);
+                tracing::info!("Splitting request into two: {:?}", request);
                 // Add the two new requests to the database.
                 let new_requests = vec![
                     OPSuccinctRequest {
@@ -482,7 +467,7 @@ where
             .await?;
 
         if agg_proofs.len() > 0 {
-            log::info!("There is already an AGG proof queued with the same start block, range vkey commitment, and aggregation vkey.");
+            tracing::info!("There is already an AGG proof queued with the same start block, range vkey commitment, and aggregation vkey.");
             return Ok(());
         }
 
@@ -532,7 +517,7 @@ where
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
-                    log::error!("Transaction reverted: {:?}", receipt);
+                    tracing::error!("Transaction reverted: {:?}", receipt);
                 }
 
                 // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
@@ -819,7 +804,7 @@ where
         {
             Ok(cli) => cli,
             Err(e) => {
-                log::error!("Failed to get host CLI args: {}", e);
+                tracing::error!("Failed to get host CLI args: {}", e);
                 return Err(anyhow::anyhow!("Failed to get host CLI args: {}", e));
             }
         };
@@ -829,7 +814,7 @@ where
         let sp1_stdin = match get_proof_stdin(mem_kv_store) {
             Ok(stdin) => stdin,
             Err(e) => {
-                log::error!("Failed to get proof stdin: {}", e);
+                tracing::error!("Failed to get proof stdin: {}", e);
                 return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
             }
         };
@@ -944,7 +929,7 @@ where
 
         // If the transaction reverted, log the error.
         if !receipt.status() {
-            log::error!("Transaction reverted: {:?}", receipt);
+            tracing::error!("Transaction reverted: {:?}", receipt);
         }
 
         // Update the request to status RELAYED.

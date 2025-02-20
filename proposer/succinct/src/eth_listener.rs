@@ -3,11 +3,12 @@ use anyhow::Result;
 use futures_util::StreamExt;
 use op_alloy_network::Optimism;
 use std::sync::Arc;
+use tracing::info;
 
 // Import our DB client and EthMetrics struct
 use crate::db::{DriverDBClient, EthMetrics};
 
-pub struct EthListener<P>
+pub struct OPChainMetricer<P>
 where
     P: Provider<Optimism> + 'static,
 {
@@ -15,7 +16,7 @@ where
     provider: Arc<P>,
 }
 
-impl<P> EthListener<P>
+impl<P> OPChainMetricer<P>
 where
     P: Provider<Optimism> + 'static,
 {
@@ -29,7 +30,7 @@ where
     pub async fn listen(&self) -> Result<()> {
         // Subscribe to new blocks.
         let sub = self.provider.subscribe_blocks().await?;
-        println!("Listening for new blocks on alloy provider");
+        info!("Listening for new blocks on alloy provider");
 
         // Convert the subscription to a stream.
         let mut stream = sub.into_stream();
@@ -93,10 +94,10 @@ async fn main() -> Result<()> {
     let ws = WsConnect::new(l2_rpc);
     let provider = ProviderBuilder::default().on_ws(ws).await?;
 
-    // Create an EthListener struct with a reference to our Arc'd DB client
+    // Create an OPChainMetricer struct with a reference to our Arc'd DB client
 
-    // Create an EthListener struct with a reference to our Arc'd DB client
-    let eth_listener = EthListener::new(db_client, Arc::new(provider));
+    // Create an OPChainMetricer struct with a reference to our Arc'd DB client
+    let eth_listener = OPChainMetricer::new(db_client, Arc::new(provider));
 
     eth_listener.listen().await?;
 

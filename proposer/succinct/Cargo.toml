@@ -52,6 +52,7 @@ serde_repr = "0.1.19"
 sqlx = { version = "0.8.3", features = ["postgres", "chrono", "bigdecimal"] }
 chrono = "0.4.39"
 futures-util = "0.3.31"
+clap.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
