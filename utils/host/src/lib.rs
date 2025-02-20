@@ -9,7 +9,6 @@ use alloy_sol_types::sol;
 use anyhow::Result;
 use kona_host::single::SingleChainHost;
 use kona_preimage::{BidirectionalChannel, HintWriter, NativeChannel, OracleReader};
-use log::info;
 use op_succinct_client_utils::client::run_opsuccinct_client;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
@@ -85,7 +84,6 @@ pub fn get_agg_proof_stdin(
     latest_checkpoint_head: B256,
 ) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
-    info!("Number of range proofs: {}", proofs.len());
     for proof in proofs {
         let SP1Proof::Compressed(compressed_proof) = proof else {
             return Err(anyhow::anyhow!("Invalid proof passed as compressed proof!"));

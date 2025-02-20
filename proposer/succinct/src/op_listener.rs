@@ -26,12 +26,13 @@ where
         }
     }
 
+    #[tracing::instrument(name = "op_listener", skip(self))]
     pub async fn listen(&self) -> Result<()> {
-        let span = tracing::debug_span!("eth_listener_loop");
+        let span = tracing::debug_span!("op_listener");
         let _enter = span.enter();
 
         let sub = self.provider.subscribe_blocks().await?;
-        tracing::info!("Listening for new blocks on alloy provider");
+        tracing::info!("Listening for new blocks on L2.");
 
         let mut stream = sub.into_stream();
         while let Some(header) = stream.next().await {
@@ -66,7 +67,7 @@ where
                     tx_fees: tx_fees.into(),
                 };
                 match self.db_client.insert_eth_metrics(&metrics).await {
-                    Ok(_) => tracing::info!("Inserted metrics for block: {}", header.number),
+                    Ok(_) => tracing::debug!("Inserted metrics for block: {}", header.number),
                     Err(e) => tracing::error!(
                         "Error inserting metrics for block {}: {:?}",
                         header.number,

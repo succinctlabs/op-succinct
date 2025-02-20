@@ -279,15 +279,22 @@ impl OPSuccinctProofRequester {
 
     /// Makes a proof request by updating statuses, generating witnesses,
     /// and then either requesting or mocking the proof depending on configuration.
+    #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self))]
     pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
-        let span = debug_span!("make_proof_request");
-        let _enter = span.enter();
-
-        // Update status to WITNESSGEN.
+        // Update status to WitnessGeneration.
         self.db_client
             .update_request_status(request.id, RequestStatus::WitnessGeneration)
             .await?;
 
+        info!(
+            request_id = request.id,
+            request_type = ?request.req_type,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            "Starting witness generation"
+        );
+
+        let witnessgen_duration = Instant::now();
         // Generate the stdin needed for the proof.
         let stdin = match request.req_type {
             RequestType::Range => self.range_proof_witnessgen(&request).await?,
@@ -311,6 +318,18 @@ impl OPSuccinctProofRequester {
                 self.agg_proof_witnessgen(&request, range_proofs).await?
             }
         };
+        let duration = witnessgen_duration.elapsed();
+
+        self.db_client
+            .update_witnessgen_duration(request.id, duration.as_secs() as i64)
+            .await?;
+
+        info!(
+            request_id = request.id,
+            request_type = ?request.req_type,
+            duration_s = duration.as_secs(),
+            "Completed witness generation"
+        );
 
         // For mock mode, update status to EXECUTION before proceeding.
         if self.mock {

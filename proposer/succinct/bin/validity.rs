@@ -37,6 +37,7 @@ async fn main() -> Result<()> {
                 .add_directive("batch-validator=error".parse().unwrap())
                 .add_directive("client-derivation-driver=error".parse().unwrap())
                 .add_directive("host-server=error".parse().unwrap())
+                .add_directive("maili_protocol=error".parse().unwrap())
                 .add_directive("sp1_core_executor=off".parse().unwrap()),
         )
         .event_format(format)
@@ -142,7 +143,7 @@ async fn main() -> Result<()> {
 
     // Spawn a thread for the proposer.
     let proposer_handle = tokio::spawn(async move {
-        if let Err(e) = proposer.start().await {
+        if let Err(e) = proposer.run().await {
             tracing::error!("Proposer error: {}", e);
             return Err(e);
         }

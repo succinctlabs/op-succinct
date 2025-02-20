@@ -1,9 +1,11 @@
+use alloy_primitives::B256;
 use anyhow::Result;
 use chrono::{Local, NaiveDateTime};
 use serde_json::Value;
 use sqlx::types::BigDecimal;
 use sqlx::Error;
 use sqlx::{postgres::PgQueryResult, FromRow, PgPool};
+use std::fmt::Debug;
 
 use crate::CommitmentConfig;
 
@@ -41,7 +43,7 @@ pub enum RequestMode {
 }
 
 // TODO: Add a contract address for the relayed request and the chain id.
-#[derive(FromRow, Debug, Default, Clone)]
+#[derive(FromRow, Default, Clone)]
 pub struct OPSuccinctRequest {
     pub id: i64,
     pub status: RequestStatus,
@@ -52,6 +54,7 @@ pub struct OPSuccinctRequest {
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
     pub proof_request_id: Option<[u8; 32]>,
+    pub proof_request_time: Option<NaiveDateTime>,
     pub checkpointed_l1_block_number: Option<i64>,
     pub checkpointed_l1_block_hash: Option<[u8; 32]>,
     pub execution_statistics: Value,
@@ -63,6 +66,34 @@ pub struct OPSuccinctRequest {
     pub rollup_config_hash: [u8; 32],
     pub relay_tx_hash: Option<[u8; 32]>,
     pub proof: Option<Vec<u8>>,
+}
+
+impl Debug for OPSuccinctRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "OPSuccinctRequest {{ id: {}, status: {:?}, req_type: {:?}, mode: {:?}, start_block: {}, end_block: {}, created_at: {}, updated_at: {}, proof_request_id: {:?}, proof_request_time: {:?}, checkpointed_l1_block_number: {:?}, checkpointed_l1_block_hash: {:?}, execution_statistics: {}, witnessgen_duration: {:?}, execution_duration: {:?}, prove_duration: {:?}, range_vkey_commitment: {}, aggregation_vkey_hash: {:?}, rollup_config_hash: {}, relay_tx_hash: {:?}, proof: {:?} }}", 
+            self.id,
+            self.status,
+            self.req_type, 
+            self.mode,
+            self.start_block,
+            self.end_block,
+            self.created_at,
+            self.updated_at,
+            self.proof_request_id.map(B256::from),
+            self.proof_request_time,
+            self.checkpointed_l1_block_number,
+            self.checkpointed_l1_block_hash.map(B256::from),
+            self.execution_statistics,
+            self.witnessgen_duration,
+            self.execution_duration,
+            self.prove_duration,
+            B256::from(self.range_vkey_commitment),
+            self.aggregation_vkey_hash.map(B256::from),
+            B256::from(self.rollup_config_hash),
+            self.relay_tx_hash.map(B256::from),
+            self.proof.as_ref().map(|p| format!("[{} bytes]", p.len()))
+        )
+    }
 }
 
 impl OPSuccinctRequest {
@@ -86,6 +117,7 @@ impl OPSuccinctRequest {
             created_at: now,
             updated_at: now,
             proof_request_id: None,
+            proof_request_time: None,
             checkpointed_l1_block_number: None,
             checkpointed_l1_block_hash: None,
             execution_statistics: serde_json::Value::Null,
@@ -138,6 +170,7 @@ impl DriverDBClient {
                 created_at,
                 updated_at,
                 proof_request_id,
+                proof_request_time,
                 checkpointed_l1_block_number,
                 checkpointed_l1_block_hash,
                 execution_statistics,
@@ -162,6 +195,7 @@ impl DriverDBClient {
         .bind(req.created_at)
         .bind(req.updated_at)
         .bind(req.proof_request_id.as_ref().map(|arr| &arr[..]))
+        .bind(req.proof_request_time)
         .bind(req.checkpointed_l1_block_number.map(|n| n as i64))
         .bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
         .bind(&req.execution_statistics)
@@ -348,7 +382,7 @@ impl DriverDBClient {
         Ok(request)
     }
 
-    /// Fetch all non-failed AGG proofs with the same start block, range vkey commitment, and aggregation vkey.
+    /// Fetch all non-failed Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
     ///
     /// TODO: Confirm this works
     pub async fn fetch_active_agg_proofs(
@@ -371,11 +405,11 @@ impl DriverDBClient {
         Ok(requests)
     }
 
-    /// Fetch the sorted list of AGG proofs with status UNREQ that have a start_block >= latest_contract_l2_block.
+    /// Fetch the sorted list of Aggregation proofs with status Unrequested that have a start_block >= latest_contract_l2_block.
     ///
     /// Checks that the request has the same range vkey commitment, aggregation vkey, and rollup config hash as the commitment.
     ///
-    /// NOTE: There should only be one "pending" UNREQ agg proof at a time for a specific start block.
+    /// NOTE: There should only be one "pending" Unrequested agg proof at a time for a specific start block.
     pub async fn fetch_unrequested_agg_proof(
         &self,
         latest_contract_l2_block: i64,
@@ -396,7 +430,7 @@ impl DriverDBClient {
         Ok(request)
     }
 
-    /// Fetch the sorted list of RANGE proofs with status UNREQ that have a start_block >= latest_contract_l2_block.
+    /// Fetch the sorted list of Range proofs with status Unrequested that have a start_block >= latest_contract_l2_block.
     pub async fn fetch_unrequested_range_proofs(
         &self,
         latest_contract_l2_block: i64,
@@ -434,6 +468,21 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    /// Update the prove_duration based on the current time and the proof_request_time.
+    pub async fn update_prove_duration(
+        &self,
+        id: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query(
+            r#"
+            UPDATE requests SET prove_duration = EXTRACT(EPOCH FROM (NOW() - proof_request_time))::BIGINT WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await
+    }
+
     /// Add a completed proof to the database.
     pub async fn update_proof_to_complete(
         &self,
@@ -447,6 +496,23 @@ impl DriverDBClient {
         )
         .bind(proof)
         .bind(RequestStatus::Complete as i16)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Update the witness generation duration of a request in the database.
+    pub async fn update_witnessgen_duration(
+        &self,
+        id: i64,
+        duration: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query(
+            r#"
+            UPDATE requests SET witnessgen_duration = $1, updated_at = NOW() WHERE id = $2
+            "#,
+        )
+        .bind(duration)
         .bind(id)
         .execute(&self.pool)
         .await
@@ -471,7 +537,9 @@ impl DriverDBClient {
         .await
     }
 
-    /// Update the status of a request to PROVE.
+    /// Update the status of a request to Prove.
+    /// 
+    /// Updates the proof_request_time to the current time.
     pub async fn update_request_to_prove(
         &self,
         request_id: i64,
@@ -480,7 +548,7 @@ impl DriverDBClient {
         sqlx::query(
             r#"
             UPDATE requests 
-            SET status = $1, proof_request_id = $2, updated_at = NOW()
+            SET status = $1, proof_request_id = $2, proof_request_time = NOW(), updated_at = NOW()
             WHERE id = $3
             "#,
         )
@@ -548,7 +616,7 @@ impl DriverDBClient {
         .await
     }
 
-    /// Create a query which sets the status of all requests in UNREQ, EXECUTE, WITNESSGEN, PROVE to cancelled.
+    /// Create a query which sets the status of all requests in Unrequested, Execute, WitnessGeneration, Prove to cancelled.
     ///
     /// Cancel all requests with the given status
     pub async fn cancel_all_requests_with_statuses(
@@ -571,7 +639,7 @@ impl DriverDBClient {
         let mut query_builder = sqlx::QueryBuilder::new(
             "INSERT INTO requests (
                 status, req_type, mode, start_block, end_block, created_at, updated_at,
-                proof_request_id, checkpointed_l1_block_number, checkpointed_l1_block_hash, execution_statistics,
+                proof_request_id, proof_request_time, checkpointed_l1_block_number, checkpointed_l1_block_hash, execution_statistics,
                 witnessgen_duration, execution_duration, prove_duration, range_vkey_commitment,
                 aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof) ",
         );
@@ -585,6 +653,7 @@ impl DriverDBClient {
                 .push_bind(req.created_at)
                 .push_bind(req.updated_at)
                 .push_bind(req.proof_request_id.as_ref().map(|arr| &arr[..]))
+                .push_bind(req.proof_request_time)
                 .push_bind(req.checkpointed_l1_block_number)
                 .push_bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
                 .push_bind(&req.execution_statistics)

@@ -1,6 +1,6 @@
 mod contract;
 mod db;
-mod eth_listener;
+mod op_listener;
 mod programs;
 mod proof_requester;
 mod proposer;
@@ -8,7 +8,7 @@ mod types;
 
 pub use contract::*;
 pub use db::*;
-pub use eth_listener::*;
+pub use op_listener::*;
 pub use programs::*;
 pub use proof_requester::*;
 pub use proposer::*;

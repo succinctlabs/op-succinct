@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS requests (
     execution_statistics JSONB NOT NULL DEFAULT 'null'::jsonb,
     witnessgen_duration BIGINT,
     execution_duration BIGINT,
+    proof_request_time TIMESTAMP,
     prove_duration BIGINT,
     range_vkey_commitment BYTEA NOT NULL,
     aggregation_vkey_hash BYTEA,
