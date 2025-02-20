@@ -12,7 +12,7 @@ Before running the challenger, ensure you have:
 4. Sufficient ETH balance for:
    - Transaction fees
    - Challenge bonds (proof rewards)
-5. Required environment variables properly configured (see [Configuration](#configuration))
+5. Required environment variables properly configured (See [Configuration](#configuration))
 
 ## Overview
 
