@@ -110,7 +110,6 @@ pub fn get_agg_proof_stdin(
 pub async fn start_server_and_native_client(
     cfg: OPSuccinctHost,
 ) -> Result<InMemoryOracle, anyhow::Error> {
-    info!("Starting preimage server and client program.");
     let in_memory_oracle = cfg.run().await?;
 
     Ok(in_memory_oracle)

@@ -18,14 +18,26 @@ async fn main() -> Result<()> {
         .with_thread_names(false)
         .with_file(false)
         .with_line_number(false)
-        .with_ansi(true);
+        .with_ansi(true)
+        .with_target(true); // Shows the target of the log for silencing.
 
+    // Turn off all logging from kona.
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_env("RUST_LOG").unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::from_default_env()
-                    .add_directive(tracing::Level::INFO.into())
-            }),
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive(tracing::Level::INFO.into())
+                .add_directive("sqlx=off".parse().unwrap())
+                .add_directive("execute=error".parse().unwrap())
+                .add_directive("sp1_prover=error".parse().unwrap())
+                .add_directive("boot-loader=error".parse().unwrap())
+                .add_directive("client-executor=error".parse().unwrap())
+                .add_directive("client=error".parse().unwrap())
+                .add_directive("channel-assembler=error".parse().unwrap())
+                .add_directive("attributes-queue=error".parse().unwrap())
+                .add_directive("batch-validator=error".parse().unwrap())
+                .add_directive("client-derivation-driver=error".parse().unwrap())
+                .add_directive("host-server=error".parse().unwrap())
+                .add_directive("sp1_core_executor=off".parse().unwrap()),
         )
         .event_format(format)
         .init();

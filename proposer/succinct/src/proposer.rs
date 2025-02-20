@@ -3,32 +3,22 @@ use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
 use anyhow::Result;
 use chrono::Local;
-use op_succinct_client_utils::{
-    boot::{hash_rollup_config, BootInfoStruct},
-    types::u32_to_u8,
-};
-use op_succinct_host_utils::{
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, ProgramType,
-};
+use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
+use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
         FulfillmentStrategy,
     },
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
 };
-use std::{
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use tracing::info;
+use std::{str::FromStr, sync::Arc, time::Duration};
+use tracing::{info, warn};
 
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
-    get_latest_proposed_block_number, RequestExecutionStatistics, AGG_ELF, RANGE_ELF,
+    get_latest_proposed_block_number, OPSuccinctProofRequester, AGG_ELF, RANGE_ELF,
 };
 
 use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
@@ -80,8 +70,6 @@ pub struct DriverConfig {
     pub submission_interval: u64,
     pub proof_timeout: u64,
     pub mock: bool,
-    // // TODO: Make sure this works in both local and hosted mode.
-    // // Note: There's no cached DB.
     pub driver_db_client: Arc<DriverDBClient>,
     /// Limits on the maximum number of concurrent proof requests and witness generation requests.
     pub max_concurrent_proof_requests: u64,
@@ -110,6 +98,7 @@ where
     contract_config: ContractConfig<P, N>,
     program_config: Arc<ProgramConfig>,
     requester_config: RequesterConfig,
+    proof_requester: Arc<OPSuccinctProofRequester>,
 }
 
 // 5 confirmations (1 minute)
@@ -154,6 +143,30 @@ where
         let mock = config.op_succinct_mock;
         const PROOF_TIMEOUT: u64 = 60 * 60;
 
+        let program_config = Arc::new(ProgramConfig {
+            range_vk,
+            range_pk,
+            agg_vk,
+            agg_pk,
+            commitments: CommitmentConfig {
+                range_vkey_commitment,
+                agg_vkey_hash,
+                rollup_config_hash,
+            },
+        });
+
+        // Initialize the proof requester.
+        let proof_requester = Arc::new(OPSuccinctProofRequester::new(
+            network_prover.clone(),
+            Arc::new(fetcher.clone()),
+            db_client.clone(),
+            program_config.clone(),
+            mock,
+            range_proof_strategy,
+            agg_proof_strategy,
+            agg_proof_mode,
+        ));
+
         let fetcher = Arc::new(fetcher);
 
         let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
@@ -178,17 +191,7 @@ where
                 dgf_address,
                 l2oo_contract,
             },
-            program_config: Arc::new(ProgramConfig {
-                range_vk,
-                range_pk,
-                agg_vk,
-                agg_pk,
-                commitments: CommitmentConfig {
-                    range_vkey_commitment,
-                    agg_vkey_hash,
-                    rollup_config_hash,
-                },
-            }),
+            program_config: program_config,
             requester_config: RequesterConfig {
                 l2oo_address,
                 dgf_address,
@@ -197,6 +200,7 @@ where
                 max_concurrent_witness_gen,
                 max_concurrent_proof_requests,
             },
+            proof_requester,
         };
         Ok(proposer)
     }
@@ -338,13 +342,9 @@ where
                     .update_proof_to_complete(request.id, &proof_bytes)
                     .await?;
             } else if status.fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
-                handle_unfulfillable_request(
-                    self.driver_config.driver_db_client.clone(),
-                    self.program_config.clone(),
-                    request,
-                    execution_status,
-                )
-                .await?;
+                self.proof_requester
+                    .handle_unfulfillable_request(request, execution_status)
+                    .await?;
             }
         } else {
             // TODO: If there is no proof request id, this should be a hard error. There should
@@ -387,7 +387,6 @@ where
         }
 
         // Get the latest proposed block number on the contract.
-        // TODO: This could also be the latest relayed block number.
         let latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
             self.driver_config.fetcher.as_ref(),
@@ -523,11 +522,10 @@ where
         Ok(())
     }
 
-    /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. Also, be aware of MAX_CONCURRENT_WITNESS_GEN.
+    /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WITNESSGEN, EXECUTE, and PROVE status, return.
+    /// If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WITNESSGEN or EXECUTE status, return.
     ///
     /// TODO: Submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
-    ///
-    /// TODO: Limit the maximum number of WITNESSGEN threads to MAX_CONCURRENT_WITNESS_GEN.
     async fn request_queued_proofs(&self) -> Result<()> {
         info!("Requesting queued proofs.");
 
@@ -546,6 +544,20 @@ where
 
         // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WITNESSGEN, EXECUTE, and PROVE status, return.
         if requests.len() >= self.driver_config.max_concurrent_proof_requests as usize {
+            warn!("There are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WITNESSGEN, EXECUTE, and PROVE status.");
+            return Ok(());
+        }
+
+        // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WITNESSGEN or EXECUTE status, return.
+        if requests
+            .iter()
+            .filter(|r| {
+                r.status == RequestStatus::WitnessGeneration || r.status == RequestStatus::Execution
+            })
+            .count()
+            >= self.driver_config.max_concurrent_witness_gen as usize
+        {
+            warn!("There are already MAX_CONCURRENT_WITNESS_GEN proofs in WITNESSGEN or EXECUTE status.");
             return Ok(());
         }
 
@@ -553,28 +565,11 @@ where
         let next_request = self.get_next_unrequested_proof().await?;
 
         if let Some(request) = next_request {
-            let network_prover = self.driver_config.network_prover.clone();
-            let fetcher = self.driver_config.fetcher.clone();
-            let db_client = self.driver_config.driver_db_client.clone();
-            let program_config = self.program_config.clone();
-            let mock = self.driver_config.mock;
-            let range_strategy = self.driver_config.range_proof_strategy;
-            let agg_strategy = self.driver_config.agg_proof_strategy;
-            let agg_mode = self.driver_config.agg_proof_mode;
+            let proof_requester = self.proof_requester.clone();
+
+            // Spawn a thread which will make the proof request and update the proof lifecycle.
             tokio::spawn(async move {
-                if let Err(e) = make_proof_request(
-                    request,
-                    network_prover,
-                    fetcher,
-                    db_client,
-                    program_config,
-                    mock,
-                    range_strategy,
-                    agg_strategy,
-                    agg_mode,
-                )
-                .await
-                {
+                if let Err(e) = proof_requester.make_proof_request(request).await {
                     tracing::error!("Failed to make proof request: {}", e);
                 }
             });
@@ -621,82 +616,6 @@ where
         }
 
         Ok(None)
-    }
-
-    /// Generate the witness for a range proof.
-    async fn range_proof_witnessgen(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
-        let span = tracing::debug_span!("range_proof_witnessgen");
-        let _enter = span.enter();
-
-        let host_args = match self
-            .driver_config
-            .fetcher
-            .get_host_args(
-                request.start_block as u64,
-                request.end_block as u64,
-                ProgramType::Multi,
-                CacheMode::DeleteCache,
-            )
-            .await
-        {
-            Ok(cli) => cli,
-            Err(e) => {
-                tracing::error!("Failed to get host CLI args: {}", e);
-                return Err(anyhow::anyhow!("Failed to get host CLI args: {}", e));
-            }
-        };
-
-        let mem_kv_store = start_server_and_native_client(host_args).await?;
-
-        let sp1_stdin = match get_proof_stdin(mem_kv_store) {
-            Ok(stdin) => stdin,
-            Err(e) => {
-                tracing::error!("Failed to get proof stdin: {}", e);
-                return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
-            }
-        };
-
-        Ok(sp1_stdin)
-    }
-
-    /// Generate the witness for an aggregation proof.
-    async fn agg_proof_witnessgen(
-        &self,
-        request: &OPSuccinctRequest,
-        mut range_proofs: Vec<SP1ProofWithPublicValues>,
-    ) -> Result<SP1Stdin> {
-        let span = tracing::debug_span!("agg_proof_witnessgen");
-        let _enter = span.enter();
-
-        let boot_infos: Vec<BootInfoStruct> = range_proofs
-            .iter_mut()
-            .map(|proof| proof.public_values.read())
-            .collect();
-
-        let proofs: Vec<SP1Proof> = range_proofs
-            .iter_mut()
-            .map(|proof| proof.proof.clone())
-            .collect();
-
-        let l1_head = request
-            .checkpointed_l1_block_hash
-            .expect("Aggregation proof has no checkpointed block.");
-
-        let headers = self
-            .driver_config
-            .fetcher
-            .get_header_preimages(&boot_infos, l1_head.into())
-            .await?;
-
-        let stdin = get_agg_proof_stdin(
-            proofs,
-            boot_infos,
-            headers,
-            &self.program_config.range_vk,
-            l1_head.into(),
-        )?;
-
-        Ok(stdin)
     }
 
     /// Get the largest contiguous range of completed range proofs.
@@ -862,13 +781,9 @@ where
         for request in requests {
             // Retry the request by using the unfulfillable request handler.
             // NOTE: There is only special logic with Unexecutable requests, so any other status will be handled by retrying the same range.
-            handle_unfulfillable_request(
-                self.driver_config.driver_db_client.clone(),
-                self.program_config.clone(),
-                request,
-                ExecutionStatus::UnspecifiedExecutionStatus,
-            )
-            .await?;
+            self.proof_requester
+                .handle_unfulfillable_request(request, ExecutionStatus::UnspecifiedExecutionStatus)
+                .await?;
         }
 
         Ok(())
@@ -886,9 +801,6 @@ where
 
             // Get all proof statuses of all requests in the proving state.
             self.handle_proving_requests().await?;
-
-            // Get all proof statuses of all requests in the witness generation state.
-            // TODO: Decide whether to implement this. Currently, all it does in go proposer is a timeout check.
 
             // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
             // in advance.
@@ -908,391 +820,4 @@ where
     pub async fn stop(&self) -> Result<()> {
         Ok(())
     }
-}
-
-/// Generate the witness for a range proof.
-async fn range_proof_witnessgen(
-    request: &OPSuccinctRequest,
-    fetcher: Arc<OPSuccinctDataFetcher>,
-) -> Result<SP1Stdin> {
-    let span = tracing::debug_span!("range_proof_witnessgen");
-    let _enter = span.enter();
-
-    let host_args = match fetcher
-        .get_host_args(
-            request.start_block as u64,
-            request.end_block as u64,
-            ProgramType::Multi,
-            CacheMode::DeleteCache,
-        )
-        .await
-    {
-        Ok(cli) => cli,
-        Err(e) => {
-            tracing::error!("Failed to get host CLI args: {}", e);
-            return Err(anyhow::anyhow!("Failed to get host CLI args: {}", e));
-        }
-    };
-
-    let mem_kv_store = start_server_and_native_client(host_args).await?;
-
-    let sp1_stdin = match get_proof_stdin(mem_kv_store) {
-        Ok(stdin) => stdin,
-        Err(e) => {
-            tracing::error!("Failed to get proof stdin: {}", e);
-            return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
-        }
-    };
-
-    Ok(sp1_stdin)
-}
-
-async fn agg_proof_witnessgen(
-    request: &OPSuccinctRequest,
-    mut range_proofs: Vec<SP1ProofWithPublicValues>,
-    fetcher: Arc<OPSuccinctDataFetcher>,
-    program_config: Arc<ProgramConfig>,
-) -> Result<SP1Stdin> {
-    let span = tracing::debug_span!("agg_proof_witnessgen");
-    let _enter = span.enter();
-
-    let boot_infos: Vec<BootInfoStruct> = range_proofs
-        .iter_mut()
-        .map(|proof| proof.public_values.read())
-        .collect();
-
-    let proofs: Vec<SP1Proof> = range_proofs
-        .iter_mut()
-        .map(|proof| proof.proof.clone())
-        .collect();
-
-    let l1_head = request
-        .checkpointed_l1_block_hash
-        .expect("Aggregation proof has no checkpointed block.");
-
-    let headers = fetcher
-        .get_header_preimages(&boot_infos, l1_head.into())
-        .await?;
-
-    let stdin = get_agg_proof_stdin(
-        proofs,
-        boot_infos,
-        headers,
-        &program_config.range_vk,
-        l1_head.into(),
-    )?;
-
-    Ok(stdin)
-}
-
-/// Request a range proof.
-///
-/// Returns the proof ID.
-async fn request_range_proof(
-    stdin: SP1Stdin,
-    network_prover: Arc<NetworkProver>,
-    program_config: Arc<ProgramConfig>,
-    range_proof_strategy: FulfillmentStrategy,
-) -> Result<B256> {
-    network_prover
-        .prove(&program_config.range_pk, &stdin)
-        .compressed()
-        .strategy(range_proof_strategy)
-        .skip_simulation(true)
-        .cycle_limit(1_000_000_000_000)
-        .request_async()
-        .await
-}
-
-/// Request an aggregation proof.
-///
-/// Returns the proof ID.
-async fn request_agg_proof(
-    stdin: SP1Stdin,
-    network_prover: Arc<NetworkProver>,
-    program_config: Arc<ProgramConfig>,
-    agg_proof_strategy: FulfillmentStrategy,
-    agg_proof_mode: SP1ProofMode,
-) -> Result<B256> {
-    network_prover
-        .prove(&program_config.agg_pk, &stdin)
-        .mode(agg_proof_mode)
-        .strategy(agg_proof_strategy)
-        .request_async()
-        .await
-}
-
-/// Generate a mock range proof.
-///
-/// Writes the execution statistics to the database.
-async fn request_mock_range_proof(
-    request: &OPSuccinctRequest,
-    stdin: SP1Stdin,
-    network_prover: Arc<NetworkProver>,
-    program_config: Arc<ProgramConfig>,
-    db_client: Arc<DriverDBClient>,
-) -> Result<SP1ProofWithPublicValues> {
-    let span = tracing::debug_span!("request_mock_range_proof");
-    let _enter = span.enter();
-
-    let start_time = Instant::now();
-    let (pv, report) = network_prover.execute(RANGE_ELF, &stdin).run()?;
-    let execution_duration = start_time.elapsed().as_secs();
-
-    let execution_statistics = RequestExecutionStatistics::new(report);
-
-    // Write the execution data to the database.
-    db_client
-        .insert_execution_statistics(
-            request.id,
-            serde_json::to_value(execution_statistics)?,
-            execution_duration as i64,
-        )
-        .await?;
-
-    Ok(SP1ProofWithPublicValues::create_mock_proof(
-        &program_config.range_pk,
-        pv.clone(),
-        SP1ProofMode::Compressed,
-        SP1_CIRCUIT_VERSION,
-    ))
-}
-
-/// Generate a mock aggregation proof.
-///
-/// TODO: Add execution statistics.
-async fn request_mock_agg_proof(
-    stdin: SP1Stdin,
-    program_config: Arc<ProgramConfig>,
-    agg_proof_mode: SP1ProofMode,
-) -> Result<SP1ProofWithPublicValues> {
-    let span = tracing::debug_span!("request_mock_agg_proof");
-    let _enter = span.enter();
-
-    // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
-    let prover = ProverClient::builder().mock().build();
-
-    // TODO: In the future, add statistics for aggregation proof execution.
-    prover
-        .prove(&program_config.agg_pk, &stdin)
-        .mode(agg_proof_mode)
-        .deferred_proof_verification(false)
-        .run()
-}
-
-/// Handle an unfulfillable proof request.
-pub async fn handle_unfulfillable_request(
-    db_client: Arc<DriverDBClient>,
-    program_config: Arc<ProgramConfig>,
-    request: OPSuccinctRequest,
-    execution_status: ExecutionStatus,
-) -> Result<()> {
-    // If the proof request is unfulfillable, check if the request is a range proof and if the execution status is unexecutable.
-    // If so, split the request into two requests.
-    // Otherwise, retry the same request.
-    tracing::warn!("Request is unfulfillable: {:?}", request);
-
-    // Set the existing request to status Failed.
-    db_client
-        .update_request_status(request.id, RequestStatus::Failed)
-        .await?;
-
-    if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
-        let failed_requests = db_client
-            .fetch_failed_requests_by_block_range(
-                request.start_block,
-                request.end_block,
-                &program_config.commitments,
-            )
-            .await?;
-
-        if failed_requests.len() > 1 || execution_status == ExecutionStatus::Unexecutable {
-            tracing::info!("Splitting request into two: {:?}", request);
-            // Add the two new requests to the database.
-            let new_requests = vec![
-                OPSuccinctRequest {
-                    status: RequestStatus::Unrequested,
-                    req_type: RequestType::Range,
-                    mode: request.mode,
-                    start_block: request.start_block,
-                    end_block: (request.start_block + request.end_block) / 2,
-                    range_vkey_commitment: program_config.commitments.range_vkey_commitment.into(),
-                    rollup_config_hash: program_config.commitments.rollup_config_hash.into(),
-                    ..Default::default()
-                },
-                OPSuccinctRequest {
-                    status: RequestStatus::Unrequested,
-                    req_type: RequestType::Range,
-                    mode: request.mode,
-                    start_block: (request.start_block + request.end_block) / 2,
-                    end_block: request.end_block,
-                    range_vkey_commitment: program_config.commitments.range_vkey_commitment.into(),
-                    rollup_config_hash: program_config.commitments.rollup_config_hash.into(),
-                    ..Default::default()
-                },
-            ];
-
-            db_client.insert_requests(&new_requests).await?;
-
-            // Return early, as the request has been split into two new requests.
-            return Ok(());
-        }
-    }
-
-    // If the logic to split into two requests has not been triggered, retry the same request.
-    db_client
-        .insert_request(&OPSuccinctRequest {
-            status: RequestStatus::Unrequested,
-            req_type: request.req_type,
-            created_at: Local::now().naive_local(),
-            updated_at: Local::now().naive_local(),
-            mode: request.mode,
-            start_block: request.start_block,
-            end_block: request.end_block,
-            range_vkey_commitment: request.range_vkey_commitment,
-            aggregation_vkey_hash: request.aggregation_vkey_hash,
-            checkpointed_l1_block_hash: request.checkpointed_l1_block_hash,
-            checkpointed_l1_block_number: request.checkpointed_l1_block_number,
-            ..Default::default()
-        })
-        .await?;
-
-    Ok(())
-}
-
-async fn make_proof_request(
-    request: OPSuccinctRequest,
-    network_prover: Arc<NetworkProver>,
-    fetcher: Arc<OPSuccinctDataFetcher>,
-    db_client: Arc<DriverDBClient>,
-    program_config: Arc<ProgramConfig>,
-    mock: bool,
-    range_proof_strategy: FulfillmentStrategy,
-    agg_proof_strategy: FulfillmentStrategy,
-    agg_proof_mode: SP1ProofMode,
-) -> Result<()> {
-    let span = tracing::debug_span!("make_proof_request");
-    let _enter = span.enter();
-
-    // For mock and range proofs, set the status to WITNESSGEN.
-    db_client
-        .update_request_status(request.id, RequestStatus::WitnessGeneration)
-        .await?;
-
-    // Get the stdin for the proof.
-    // TODO: Turn this into a separate stage. NOTE: Never store the stdin in the DB, as it's quite large.
-    let stdin = match request.req_type {
-        RequestType::Range => range_proof_witnessgen(&request, fetcher).await?,
-        RequestType::Aggregation => {
-            // Query the database for the consecutive range proofs.
-            let range_proofs = db_client
-                .get_consecutive_range_proofs(
-                    request.start_block,
-                    request.end_block,
-                    &program_config.commitments,
-                )
-                .await?;
-
-            // Parse the range proofs into SP1ProofWithPublicValues.
-            let range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs
-                .iter()
-                .map(|proof| bincode::deserialize(proof.proof.as_ref().unwrap()).unwrap())
-                .collect();
-
-            // Generate the witness for the aggregation proof.
-            agg_proof_witnessgen(&request, range_proofs, fetcher, program_config.clone()).await?
-        }
-    };
-
-    // If mock mode, set status to EXECUTE. For real mode, only set to PROVE after the request is sent.
-    if mock {
-        // Set the status to EXECUTE.
-        db_client
-            .update_request_status(request.id, RequestStatus::Execution)
-            .await?;
-    }
-
-    if request.req_type == RequestType::Range {
-        if mock {
-            let proof = match request_mock_range_proof(
-                &request,
-                stdin,
-                network_prover,
-                program_config.clone(),
-                db_client.clone(),
-            )
-            .await
-            {
-                Ok(p) => p,
-                Err(e) => {
-                    tracing::error!("Failed to generate mock range proof: {}", e);
-                    handle_unfulfillable_request(
-                        db_client.clone(),
-                        program_config.clone(),
-                        request,
-                        ExecutionStatus::UnspecifiedExecutionStatus,
-                    )
-                    .await?;
-                    return Ok(());
-                }
-            };
-
-            // For mock range proofs, the proof bytes are the bincode serialized proof.
-            let proof_bytes = bincode::serialize(&proof).unwrap();
-            db_client
-                .update_proof_to_complete(request.id, &proof_bytes)
-                .await?;
-        } else {
-            // Request the range proof.
-            let proof_id =
-                request_range_proof(stdin, network_prover, program_config, range_proof_strategy)
-                    .await?;
-
-            // Update the request with the proof ID.
-            db_client
-                .update_request_to_prove(request.id, proof_id.into())
-                .await?;
-        }
-    } else if request.req_type == RequestType::Aggregation {
-        if mock {
-            // Generate the mock aggregation proof.
-            let proof =
-                match request_mock_agg_proof(stdin, program_config.clone(), agg_proof_mode).await {
-                    Ok(p) => p,
-                    Err(e) => {
-                        tracing::error!("Failed to generate mock aggregation proof: {}", e);
-                        handle_unfulfillable_request(
-                            db_client.clone(),
-                            program_config.clone(),
-                            request,
-                            ExecutionStatus::UnspecifiedExecutionStatus,
-                        )
-                        .await?;
-                        return Ok(());
-                    }
-                };
-
-            // For mock aggregation proofs, the proof bytes are on-chain encoded proof bytes.
-            db_client
-                .update_proof_to_complete(request.id, &proof.bytes())
-                .await?;
-        } else {
-            // Request the aggregation proof.
-            let proof_id = request_agg_proof(
-                stdin,
-                network_prover,
-                program_config,
-                agg_proof_strategy,
-                agg_proof_mode,
-            )
-            .await?;
-
-            // Update the request with the proof ID.
-            db_client
-                .update_request_to_prove(request.id, proof_id.into())
-                .await?;
-        }
-    }
-
-    Ok(())
 }
