@@ -8,10 +8,6 @@ repository.workspace = true
 homepage.workspace = true
 
 [[bin]]
-name = "server"
-path = "bin/server.rs"
-
-[[bin]]
 name = "validity"
 path = "bin/validity.rs"
 
@@ -58,6 +54,7 @@ sqlx = { version = "0.8.3", features = [
 chrono = "0.4.39"
 futures-util = "0.3.31"
 clap.workspace = true
+tikv-jemallocator = "0.6.0"
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true

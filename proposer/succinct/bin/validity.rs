@@ -7,6 +7,11 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_proposer::{DriverDBClient, OPChainMetricer, Proposer, ProposerConfigArgs};
 
+use tikv_jemallocator::Jemalloc;
+
+#[global_allocator]
+static ALLOCATOR: Jemalloc = Jemalloc;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv::dotenv().ok();

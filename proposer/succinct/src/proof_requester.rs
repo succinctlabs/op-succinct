@@ -12,7 +12,7 @@ use sp1_sdk::{
     SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{debug_span, error, info, warn};
+use tracing::{debug_span, error, info};
 
 use crate::db::DriverDBClient;
 use crate::RANGE_ELF;
@@ -186,13 +186,13 @@ impl OPSuccinctProofRequester {
             .run()
     }
 
-    /// Handles an unfulfillable proof request by either splitting range requests or re-queuing the same one.
-    pub async fn handle_unfulfillable_request(
+    /// Handles a failed proof request by either splitting range requests or re-queuing the same one.
+    pub async fn retry_request(
         &self,
         request: OPSuccinctRequest,
         execution_status: ExecutionStatus,
     ) -> Result<()> {
-        warn!("Request is unfulfillable: {:?}", request);
+        info!("Retrying request: {:?}", request);
 
         // Mark the existing request as failed.
         self.db_client
@@ -209,7 +209,8 @@ impl OPSuccinctProofRequester {
                 )
                 .await?;
 
-            if failed_requests.len() > 1 || execution_status == ExecutionStatus::Unexecutable {
+            // NOTE: The failed_requests check here can be removed in V5 once the only failures that occur are unexecutable requests.
+            if failed_requests.len() > 2 || execution_status == ExecutionStatus::Unexecutable {
                 info!("Splitting request into two: {:?}", request);
                 let mid_block = (request.start_block + request.end_block) / 2;
                 let new_requests = vec![
@@ -345,7 +346,7 @@ impl OPSuccinctProofRequester {
                         Ok(p) => p,
                         Err(e) => {
                             error!("Failed to generate mock range proof: {}", e);
-                            self.handle_unfulfillable_request(
+                            self.retry_request(
                                 request,
                                 ExecutionStatus::UnspecifiedExecutionStatus,
                             )
@@ -370,7 +371,7 @@ impl OPSuccinctProofRequester {
                         Ok(p) => p,
                         Err(e) => {
                             error!("Failed to generate mock aggregation proof: {}", e);
-                            self.handle_unfulfillable_request(
+                            self.retry_request(
                                 request,
                                 ExecutionStatus::UnspecifiedExecutionStatus,
                             )

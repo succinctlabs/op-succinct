@@ -353,7 +353,7 @@ where
                     .await?;
             } else if status.fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
                 self.proof_requester
-                    .handle_unfulfillable_request(request, execution_status)
+                    .retry_request(request, execution_status)
                     .await?;
             }
         } else {
@@ -577,10 +577,17 @@ where
             info!("Creating proof request for {:?}", request);
             let proof_requester = self.proof_requester.clone();
 
-            // Spawn a thread which will make the proof request and update the proof lifecycle.
+            // Spawn a task to handle the proof request lifecycle.
             tokio::spawn(async move {
-                if let Err(e) = proof_requester.make_proof_request(request).await {
+                if let Err(e) = proof_requester.make_proof_request(request.clone()).await {
+                    // If the proof request failed, retry it.
                     tracing::error!("Failed to make proof request: {}", e);
+                    if let Err(e) = proof_requester
+                        .retry_request(request, ExecutionStatus::UnspecifiedExecutionStatus)
+                        .await
+                    {
+                        tracing::error!("Failed to retry proof request: {}", e);
+                    }
                 }
             });
         }
