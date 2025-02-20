@@ -58,7 +58,7 @@ pub struct OPSuccinctRequest {
     pub execution_duration_secs: Option<i64>,
     pub prove_duration_secs: Option<i64>,
     pub range_vkey_commitment: [u8; 32],
-    pub aggregation_vkey: Option<[u8; 32]>,
+    pub aggregation_vkey_hash: Option<[u8; 32]>,
     pub rollup_config_hash: [u8; 32],
     pub relay_tx_hash: Option<[u8; 32]>,
     pub proof: Option<Vec<u8>>,
@@ -92,7 +92,7 @@ impl OPSuccinctRequest {
             execution_duration_secs: None,
             prove_duration_secs: None,
             range_vkey_commitment,
-            aggregation_vkey: None,
+            aggregation_vkey_hash: None,
             rollup_config_hash,
             relay_tx_hash: None,
             proof: None,
@@ -168,7 +168,7 @@ impl DriverDBClient {
         .bind(req.execution_duration_secs)
         .bind(req.prove_duration_secs)
         .bind(&req.range_vkey_commitment[..])
-        .bind(req.aggregation_vkey.as_ref().map(|arr| &arr[..]))
+        .bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
         .bind(&req.rollup_config_hash[..])
         .bind(req.relay_tx_hash.as_ref())
         .bind(req.proof.as_ref())
@@ -232,6 +232,37 @@ impl DriverDBClient {
         .fetch_all(&self.pool)
         .await?;
         Ok(requests)
+    }
+
+    /// Fetch the highest block number of a request with one of the given statuses and commitment.
+    pub async fn fetch_highest_request_with_statuses_and_commitment(
+        &self,
+        statuses: &[RequestStatus],
+        commitment: &CommitmentConfig,
+    ) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) ORDER BY start_block DESC LIMIT 1",
+        )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&statuses[..])
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(request)
+    }
+
+    /// Fetch the highest block number of a request with one of the given statuses.
+    pub async fn fetch_highest_request_with_statuses(
+        &self,
+        statuses: &[RequestStatus],
+    ) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = ANY($1) ORDER BY start_block DESC LIMIT 1",
+        )
+        .bind(&statuses[..])
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(request)
     }
 
     /// Fetch all requests that have one of the given statuses.
@@ -316,13 +347,15 @@ impl DriverDBClient {
     /// Fetch the sorted list of AGG proofs with status UNREQ that have a start_block >= latest_contract_l2_block.
     ///
     /// Checks that the request has the same range vkey commitment, aggregation vkey, and rollup config hash as the commitment.
-    pub async fn fetch_unrequested_agg_proofs(
+    ///
+    /// NOTE: There should only be one "pending" UNREQ agg proof at a time for a specific start block.
+    pub async fn fetch_unrequested_agg_proof(
         &self,
         latest_contract_l2_block: i64,
         commitment: &CommitmentConfig,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC"
+    ) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
@@ -330,10 +363,10 @@ impl DriverDBClient {
         .bind(RequestStatus::Unrequested as i16)
         .bind(RequestType::Aggregation as i16)
         .bind(latest_contract_l2_block)
-        .fetch_all(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
 
-        Ok(requests)
+        Ok(request)
     }
 
     /// Fetch the sorted list of RANGE proofs with status UNREQ that have a start_block >= latest_contract_l2_block.
@@ -341,19 +374,18 @@ impl DriverDBClient {
         &self,
         latest_contract_l2_block: i64,
         commitment: &CommitmentConfig,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC"
+    ) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
-        .bind(&commitment.agg_vkey_hash[..])
         .bind(RequestStatus::Unrequested as i16)
         .bind(RequestType::Range as i16)
         .bind(latest_contract_l2_block)
-        .fetch_all(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
-        Ok(requests)
+        Ok(request)
     }
 
     /// Fetch all completed range proofs with matching range_vkey_commitment and start_block >= latest_contract_l2_block
@@ -455,8 +487,8 @@ impl DriverDBClient {
         &self,
         latest_contract_l2_block: i64,
         commitment: &CommitmentConfig,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+    ) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
             "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block = $6 ORDER BY start_block ASC LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
@@ -465,9 +497,9 @@ impl DriverDBClient {
         .bind(RequestStatus::Complete as i16)
         .bind(RequestType::Aggregation as i16)
         .bind(latest_contract_l2_block)
-        .fetch_all(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
-        Ok(requests)
+        Ok(request)
     }
 
     /// Insert the execution statistics for a request.
@@ -487,6 +519,21 @@ impl DriverDBClient {
         .bind(id)
         .execute(&self.pool)
         .await
+    }
+
+    /// Create a query which sets the status of all requests in UNREQ, EXECUTE, WITNESSGEN, PROVE to cancelled.
+    ///
+    /// Cancel all requests with the given status
+    pub async fn cancel_all_requests_with_statuses(
+        &self,
+        statuses: &[RequestStatus],
+    ) -> Result<PgQueryResult, Error> {
+        let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
+        sqlx::query("UPDATE requests SET status = $1 WHERE status = ANY($2)")
+            .bind(RequestStatus::Cancelled as i16)
+            .bind(&status_values[..])
+            .execute(&self.pool)
+            .await
     }
 
     /// Batch insert requests.
@@ -518,7 +565,7 @@ impl DriverDBClient {
                 .push_bind(req.execution_duration_secs)
                 .push_bind(req.prove_duration_secs)
                 .push_bind(&req.range_vkey_commitment[..])
-                .push_bind(req.aggregation_vkey.as_ref().map(|arr| &arr[..]))
+                .push_bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
                 .push_bind(&req.rollup_config_hash[..])
                 .push_bind(req.relay_tx_hash.as_ref())
                 .push_bind(req.proof.as_ref());
@@ -549,7 +596,7 @@ async fn main() -> Result<()> {
         execution_duration_secs: Some(300),
         prove_duration_secs: None,
         range_vkey_commitment: [0u8; 32],
-        aggregation_vkey: None,
+        aggregation_vkey_hash: None,
         rollup_config_hash: [0u8; 32],
         relay_tx_hash: None,
         proof_request_id: None,

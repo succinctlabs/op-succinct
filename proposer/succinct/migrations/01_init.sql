@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS requests (
     execution_duration BIGINT,
     prove_duration BIGINT,
     range_vkey_commitment BYTEA NOT NULL,
-    aggregation_vkey BYTEA,
+    aggregation_vkey_hash BYTEA,
     rollup_config_hash BYTEA NOT NULL,
     relay_tx_hash BYTEA,
     proof BYTEA

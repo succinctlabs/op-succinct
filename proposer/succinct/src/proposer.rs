@@ -83,8 +83,6 @@ pub struct DriverConfig {
     // // TODO: Make sure this works in both local and hosted mode.
     // // Note: There's no cached DB.
     pub driver_db_client: Arc<DriverDBClient>,
-    /// The current in-memory index of the highest block number in the database.
-    pub current_processed_block_number: u64,
     /// Limits on the maximum number of concurrent proof requests and witness generation requests.
     pub max_concurrent_proof_requests: u64,
     pub max_concurrent_witness_gen: u64,
@@ -168,9 +166,6 @@ where
             .unwrap_or(false);
         const PROOF_TIMEOUT: u64 = 60 * 60;
 
-        // The latest proposed block number is the highest block number that has been proposed.
-        let latest_block_number = get_latest_proposed_block_number(l2oo_address, &fetcher).await?;
-
         let fetcher = Arc::new(fetcher);
 
         let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
@@ -187,7 +182,6 @@ where
                 proof_timeout: PROOF_TIMEOUT,
                 mock,
                 driver_db_client: db_client,
-                current_processed_block_number: latest_block_number,
                 max_concurrent_proof_requests,
                 max_concurrent_witness_gen,
             },
@@ -226,17 +220,49 @@ where
             .get_l2_header(BlockId::finalized())
             .await?;
 
-        let mut current_block = self.driver_config.current_processed_block_number;
+        // Get the highest block number of any of the requests in the database that are not FAILED or CANCELLED with the same commitment.
+        let highest_request = self
+            .driver_config
+            .driver_db_client
+            .fetch_highest_request_with_statuses_and_commitment(
+                &[
+                    RequestStatus::Unrequested,
+                    RequestStatus::WitnessGeneration,
+                    RequestStatus::Execution,
+                    RequestStatus::Relayed,
+                    RequestStatus::Complete,
+                    RequestStatus::Prove,
+                ],
+                &self.program_config.commitments,
+            )
+            .await?;
+
+        // If there are no requests in the database, the current processed block number is the latest finalized block number on the contract. Otherwise, it's the highest block number
+        // of any of the requests in the database that are not FAILED or CANCELLED.
+        let mut current_processed_block = match highest_request {
+            Some(request) => request.end_block as u64,
+            None => {
+                log::info!(
+                    "No requests in the database, using latest proposed block number on contract."
+                );
+                get_latest_proposed_block_number(
+                    self.contract_config.l2oo_address,
+                    self.driver_config.fetcher.as_ref(),
+                )
+                .await?
+            }
+        };
+
         let mut requests = Vec::new();
 
         // Only add new ranges if the current block is less than the latest finalized block minus the
         // range proof interval. This ensures that only ranges that cover range_proof_interval blocks
         // are added to the database.
-        while current_block
+        while current_processed_block
             < latest_finalized_header.number - self.requester_config.range_proof_interval
         {
             let end_block = std::cmp::min(
-                current_block + self.requester_config.range_proof_interval,
+                current_processed_block + self.requester_config.range_proof_interval,
                 latest_finalized_header.number,
             );
 
@@ -248,7 +274,7 @@ where
                 } else {
                     RequestMode::Real
                 },
-                start_block: current_block as i64,
+                start_block: current_processed_block as i64,
                 end_block: end_block as i64,
                 range_vkey_commitment: self.program_config.commitments.range_vkey_commitment.into(),
                 rollup_config_hash: self.program_config.commitments.rollup_config_hash.into(),
@@ -256,7 +282,7 @@ where
             };
 
             requests.push(request);
-            current_block = end_block;
+            current_processed_block = end_block;
         }
 
         if !requests.is_empty() {
@@ -340,7 +366,7 @@ where
         // Otherwise, retry the same request.
         log::info!("Request is unfulfillable: {:?}", request);
 
-        // Set the existing request to status FAILED_RETRYABLE.
+        // Set the existing request to status Failed.
         self.driver_config
             .driver_db_client
             .update_request_status(request.id, RequestStatus::Failed)
@@ -421,7 +447,7 @@ where
                 start_block: request.start_block,
                 end_block: request.end_block,
                 range_vkey_commitment: request.range_vkey_commitment,
-                aggregation_vkey: request.aggregation_vkey,
+                aggregation_vkey_hash: request.aggregation_vkey_hash,
                 checkpointed_l1_block_hash: request.checkpointed_l1_block_hash,
                 checkpointed_l1_block_number: request.checkpointed_l1_block_number,
                 ..Default::default()
@@ -530,7 +556,7 @@ where
                             .commitments
                             .rollup_config_hash
                             .into(),
-                        aggregation_vkey: Some(
+                        aggregation_vkey_hash: Some(
                             self.program_config.commitments.agg_vkey_hash.into(),
                         ),
                         checkpointed_l1_block_hash: Some(latest_header.hash_slow().into()),
@@ -670,20 +696,20 @@ where
         )
         .await?;
 
-        let unreq_agg_requests = self
+        let unreq_agg_request = self
             .driver_config
             .driver_db_client
-            .fetch_unrequested_agg_proofs(
+            .fetch_unrequested_agg_proof(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
             )
             .await?;
 
-        if unreq_agg_requests.len() > 0 {
-            return Ok(Some(unreq_agg_requests[0].clone()));
+        if let Some(unreq_agg_request) = unreq_agg_request {
+            return Ok(Some(unreq_agg_request));
         }
 
-        let unreq_range_requests = self
+        let unreq_range_request = self
             .driver_config
             .driver_db_client
             .fetch_unrequested_range_proofs(
@@ -692,8 +718,8 @@ where
             )
             .await?;
 
-        if unreq_range_requests.len() > 0 {
-            return Ok(Some(unreq_range_requests[0].clone()));
+        if let Some(unreq_range_request) = unreq_range_request {
+            return Ok(Some(unreq_range_request));
         }
 
         Ok(None)
@@ -876,8 +902,8 @@ where
         )
         .await?;
 
-        // Query for all AGG proofs that are complete.
-        let completed_agg_proofs = self
+        // See if there is an aggregation proof that is complete for this start block. NOTE: There should only be one "pending" aggregation proof at a time for a specific start block.
+        let completed_agg_proof = self
             .driver_config
             .driver_db_client
             .fetch_completed_aggregation_proofs(
@@ -887,11 +913,10 @@ where
             .await?;
 
         // If there are no completed aggregation proofs, do nothing.
-        if completed_agg_proofs.len() == 0 {
-            return Ok(());
-        }
-
-        let completed_agg_proof = completed_agg_proofs[0].clone();
+        let completed_agg_proof = match completed_agg_proof {
+            Some(proof) => proof,
+            None => return Ok(()),
+        };
 
         // Get the output at the end block of the last completed aggregation proof.
         let output = self
@@ -936,7 +961,68 @@ where
     /// 1. If any of range vkey, agg vkey or rollup config hash has changed, set all proofs that are not RELAYED or COMPLETED to CANCELLED.
     /// 2. If all the same, keep all proofs in UNREQUESTED and PROVE proofs. Retry all WITNESSGEN and EXECUTION proofs.
     async fn initialize_proposer(&self) -> Result<()> {
-        // TODO: Implement this.
+        // Get highest request with one of the given statuses.
+        let request = self
+            .driver_config
+            .driver_db_client
+            .fetch_highest_request_with_statuses(&[
+                RequestStatus::Unrequested,
+                RequestStatus::Prove,
+                RequestStatus::Execution,
+                RequestStatus::WitnessGeneration,
+            ])
+            .await?;
+
+        // Cancel all ongoing requests if the rollup config hash or range vkey commitment has changed.
+        // Only one set of pending requests with a given (rollup_config_hash, range_vkey_commitment, agg_vkey_hash)
+        // can exist at a time.
+        if let Some(request) = request {
+            let config_changed = request.rollup_config_hash
+                != self.program_config.commitments.rollup_config_hash
+                || request.range_vkey_commitment
+                    != self.program_config.commitments.range_vkey_commitment;
+
+            let agg_key_changed = request
+                .aggregation_vkey_hash
+                .map(|hash| hash != self.program_config.commitments.agg_vkey_hash)
+                .unwrap_or(false);
+
+            if config_changed || agg_key_changed {
+                // Cancel all old requests.
+                self.driver_config
+                    .driver_db_client
+                    .cancel_all_requests_with_statuses(&[
+                        RequestStatus::Unrequested,
+                        RequestStatus::Prove,
+                        RequestStatus::Execution,
+                        RequestStatus::WitnessGeneration,
+                    ])
+                    .await?;
+
+                // The range proof creation will view the latest state of the DB and the highest proposed block number to retrieve the correct latest block number.
+                // This is safe to do because the proposer state is only updated when the proposer is re-started.
+                return Ok(());
+            }
+        }
+
+        // Fetch all requests in status Execution and WitnessGeneration for re-trying.
+        let requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_requests_by_statuses(
+                &[RequestStatus::Execution, RequestStatus::WitnessGeneration],
+                &self.program_config.commitments,
+            )
+            .await?;
+
+        // Retry all requests with status Execution and WitnessGeneration.
+        for request in requests {
+            // Retry the request by using the unfulfillable request handler.
+            // NOTE: There is only special logic with Unexecutable requests, so any other status will be handled by retrying the same range.
+            self.handle_unfulfillable_request(request, ExecutionStatus::UnspecifiedExecutionStatus)
+                .await?;
+        }
+
         Ok(())
     }
 
