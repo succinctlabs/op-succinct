@@ -41,11 +41,10 @@ The proposer is configured through various environment variables. Create a `.env
 
 | Variable | Description | Default Value |
 |----------|-------------|---------------|
-| `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1000` |
+| `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
-| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `false` |
+| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
-| `FAST_FINALITY_MODE` | Enable fast finality with proofs | `false` |
 
 ```env
 # Required Configuration
@@ -56,11 +55,10 @@ GAME_TYPE=               # Type identifier for the dispute game (must match fact
 PRIVATE_KEY=             # Private key for transaction signing
 
 # Optional Configuration
-PROPOSAL_INTERVAL_IN_BLOCKS=1000    # Number of L2 blocks between proposals
+PROPOSAL_INTERVAL_IN_BLOCKS=1800    # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                   # Polling interval in seconds
 ENABLE_GAME_RESOLUTION=false        # Whether to enable automatic game resolution
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100  # Maximum number of games to check for resolution
-FAST_FINALITY_MODE=false           # Enable fast finality mode with proofs
 ```
 
 ### Configuration Steps
@@ -100,12 +98,6 @@ When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
 - Creates proposals for new blocks as they become available
 - Maintains proper spacing between proposals based on configuration
 - Tracks the latest valid proposal for proper sequencing
-
-### Fast Finality Mode
-When enabled (`FAST_FINALITY_MODE=true`), the proposer:
-- Includes proofs with proposals for faster finality
-- Adds additional data to game creation transactions
-- Enables immediate validation of proposals
 
 ## Logging
 

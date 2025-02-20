@@ -37,11 +37,6 @@ pub struct ProposerConfig {
     /// When game resolution is enabled, the proposer will attempt to resolve games that are
     /// unchallenged up to `max_games_to_check_for_resolution` games behind the latest game.
     pub max_games_to_check_for_resolution: u64,
-
-    /// Whether to enable fast finality mode.
-    /// When fast finality mode is enabled, the proposer will propose games with a proof that
-    /// the proposal is valid.
-    pub fast_finality_mode: bool,
 }
 
 impl ProposerConfig {
@@ -62,13 +57,10 @@ impl ProposerConfig {
                 .parse()?,
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
             enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("false".to_string())
+                .unwrap_or("true".to_string())
                 .parse()?,
             max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
                 .unwrap_or("100".to_string())
-                .parse()?,
-            fast_finality_mode: env::var("FAST_FINALITY_MODE")
-                .unwrap_or("false".to_string())
                 .parse()?,
         })
     }

@@ -68,21 +68,13 @@ where
     /// `l2_block_number`: the L2 block number we are proposing the output root for.
     /// `parent_game_index`: the index of the parent game.
     async fn create_game(&self, l2_block_number: U256, parent_game_index: u32) -> Result<()> {
-        let extra_data = if self.config.fast_finality_mode {
-            tracing::info!("Creating game with fast finality mode");
+        tracing::info!(
+            "Creating game at L2 block number: {:?}, with parent game index: {:?}",
+            l2_block_number,
+            parent_game_index
+        );
 
-            let proof = vec![];
-            <(U256, u32, bool, Vec<u8>)>::abi_encode_packed(&(
-                l2_block_number,
-                parent_game_index,
-                self.config.fast_finality_mode,
-                proof,
-            ))
-        } else {
-            tracing::info!("Creating game with non fast finality mode");
-
-            <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index))
-        };
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
 
         let receipt = self
             .factory
@@ -99,10 +91,10 @@ where
             .get_receipt()
             .await?;
 
-        let game_address = receipt.inner.logs()[0].address();
-
+        let game_address =
+            Address::from_slice(&receipt.inner.logs()[0].inner.data.topics()[1][12..]);
         tracing::info!(
-            "New game {:?} created with tx {:?}",
+            "\x1b[1mNew game at address {:?} created with tx {:?}\x1b[0m",
             game_address,
             receipt.transaction_hash
         );

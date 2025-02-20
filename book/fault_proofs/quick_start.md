@@ -61,13 +61,7 @@ cargo run --bin proposer
 
 1. The proposer will automatically create new games at regular intervals (every 1800 blocks with the default config)
 2. You can view created games on a block explorer using the factory address and the game address in the proposer logs
-
-## Next Steps
-
-Once you've seen the basic flow:
-1. Try `ENABLE_GAME_RESOLUTION=true` to automatically resolve unchallenged games
-2. Try enabling `FAST_FINALITY_MODE=true` to include proofs on game creation and get faster finality
-3. Try removing the `USE_SP1_MOCK_VERIFIER=true` flag and use [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network) with [deployed SP1 Verifiers](https://docs.succinct.xyz/docs/sp1/verification/onchain/contract-addresses) for production
+3. The proposer will also attempt to resolve unchallenged games after the challenge period expires
 
 ## Troubleshooting
 
