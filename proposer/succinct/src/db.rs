@@ -333,7 +333,7 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
         let request = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = $7 AND checkpointed_block_hash IS NOT NULL AND checkpointed_block_number IS NOT NULL LIMIT 1"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = $7 AND checkpointed_l1_block_hash IS NOT NULL AND checkpointed_l1_block_number IS NOT NULL LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])

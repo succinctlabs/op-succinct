@@ -877,7 +877,10 @@ where
     }
 
     /// Generate the witness for a range proof.
+    #[tracing::instrument(name = "proposer.range_proof_witnessgen", skip(self))]
     async fn range_proof_witnessgen(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
+        let _span = tracing::debug_span!("range_proof_witnessgen").entered();
+
         let host_args = match self
             .driver_config
             .fetcher
@@ -910,11 +913,14 @@ where
     }
 
     /// Generate the witness for an aggregation proof.
+    #[tracing::instrument(name = "proposer.agg_proof_witnessgen", skip(self))]
     async fn agg_proof_witnessgen(
         &self,
         request: &OPSuccinctRequest,
         mut range_proofs: Vec<SP1ProofWithPublicValues>,
     ) -> Result<SP1Stdin> {
+        let _span = tracing::debug_span!("agg_proof_witnessgen").entered();
+
         let boot_infos: Vec<BootInfoStruct> = range_proofs
             .iter_mut()
             .map(|proof| proof.public_values.read())
@@ -967,6 +973,7 @@ where
     }
 
     /// Submit all completed aggregation proofs to the prover network.
+    #[tracing::instrument(name = "proposer.submit_agg_proofs", skip(self))]
     async fn submit_agg_proofs(&self) -> Result<()> {
         info!("Submitting aggregation proofs.");
 
@@ -1020,6 +1027,11 @@ where
         if !receipt.status() {
             tracing::error!("Transaction reverted: {:?}", receipt);
         }
+
+        info!(
+            "Relayed aggregation proof. Transaction hash: {:?}",
+            receipt.transaction_hash()
+        );
 
         // Update the request to status RELAYED.
         self.driver_config
