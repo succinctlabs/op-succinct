@@ -25,16 +25,6 @@ use fault_proof::{
 struct Args {
     #[clap(long, default_value = ".env.challenger")]
     env_file: String,
-
-    #[clap(long)]
-    /// Whether to enable game challenging.
-    /// When game challenging is not enabled, the challenger will not challenge games.
-    enable_challenge: bool,
-
-    #[clap(long)]
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the challenger will not resolve games.
-    enable_resolution: bool,
 }
 
 struct OPSuccinctChallenger<F, P>
@@ -101,13 +91,8 @@ where
     }
 
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
-    async fn handle_game_challenging(&self, enable_challenge: bool) -> Result<()> {
+    async fn handle_game_challenging(&self) -> Result<()> {
         let _span = tracing::info_span!("[[Challenging]]").entered();
-
-        if !enable_challenge {
-            tracing::info!("Game challenging is disabled");
-            return Ok(());
-        }
 
         if let Some(game_address) = self
             .factory
@@ -126,15 +111,7 @@ where
     }
 
     /// Handles resolution of challenged games that are ready to be resolved.
-    async fn handle_game_resolution(&self, enable_resolution: bool) -> Result<()> {
-        let _span = tracing::info_span!("[[Resolving]]").entered();
-
-        // Only resolve games if the config is enabled
-        if !enable_resolution {
-            tracing::info!("Game resolution is disabled");
-            return Ok(());
-        }
-
+    async fn handle_game_resolution(&self) -> Result<()> {
         let _span = tracing::info_span!("[[Resolving]]").entered();
 
         self.factory
@@ -148,7 +125,7 @@ where
     }
 
     /// Runs the challenger in an infinite loop, periodically checking for games to challenge and resolve.
-    async fn run(&mut self, args: Args) -> Result<()> {
+    async fn run(&mut self) -> Result<()> {
         tracing::info!("OP Succinct Challenger running...");
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
@@ -157,11 +134,11 @@ where
         loop {
             interval.tick().await;
 
-            if let Err(e) = self.handle_game_challenging(args.enable_challenge).await {
+            if let Err(e) = self.handle_game_challenging().await {
                 tracing::warn!("Failed to handle game challenging: {:?}", e);
             }
 
-            if let Err(e) = self.handle_game_resolution(args.enable_resolution).await {
+            if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
         }
@@ -197,8 +174,5 @@ async fn main() {
     let mut challenger = OPSuccinctChallenger::new(l1_provider_with_wallet, factory)
         .await
         .unwrap();
-    challenger
-        .run(args)
-        .await
-        .expect("Runs in an infinite loop");
+    challenger.run().await.expect("Runs in an infinite loop");
 }

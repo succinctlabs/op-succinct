@@ -197,7 +197,7 @@ async fn test_e2e_challenger_wins() -> Result<()> {
     // Spawn the challenger process first
     tracing::info!("Spawning challenger");
     let mut challenger_process = TokioCommand::new("cargo")
-        .args(["run", "--bin", "challenger", "--", "--enable-challenge"])
+        .args(["run", "--bin", "challenger"])
         .spawn()
         .expect("Failed to spawn challenger");
 
