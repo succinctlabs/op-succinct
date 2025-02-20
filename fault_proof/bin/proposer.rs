@@ -24,6 +24,16 @@ use fault_proof::{
 struct Args {
     #[clap(long, default_value = ".env.proposer")]
     env_file: String,
+
+    #[clap(long)]
+    /// Whether to enable game creation.
+    /// When game creation is not enabled, the proposer will not create games.
+    enable_proposal: bool,
+
+    #[clap(long)]
+    /// Whether to enable game resolution.
+    /// When game resolution is not enabled, the proposer will not resolve games.
+    enable_resolution: bool,
 }
 
 struct OPSuccinctProposer<F, P>
@@ -104,8 +114,13 @@ where
     }
 
     /// Handles the creation of a new game if conditions are met.
-    async fn handle_game_creation(&self) -> Result<()> {
+    async fn handle_game_creation(&self, enable_proposal: bool) -> Result<()> {
         let _span = tracing::info_span!("[[Proposing]]").entered();
+
+        if !enable_proposal {
+            tracing::info!("Game creation is disabled");
+            return Ok(());
+        }
 
         // Get the safe L2 head block number
         let safe_l2_head_block_number = self
@@ -163,13 +178,14 @@ where
     }
 
     /// Handles the resolution of all eligible unchallenged games.
-    async fn handle_game_resolution(&self) -> Result<()> {
+    async fn handle_game_resolution(&self, enable_game_resolution: bool) -> Result<()> {
+        let _span = tracing::info_span!("[[Resolving]]").entered();
+
         // Only resolve games if the config is enabled.
-        if !self.config.enable_game_resolution {
+        if !enable_game_resolution {
+            tracing::info!("Game resolution is disabled");
             return Ok(());
         }
-
-        let _span = tracing::info_span!("[[Resolving]]").entered();
 
         self.factory
             .resolve_games(
@@ -182,18 +198,18 @@ where
     }
 
     /// Runs the proposer indefinitely.
-    async fn run(&self) -> Result<()> {
+    async fn run(&self, args: Args) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         loop {
             interval.tick().await;
 
-            if let Err(e) = self.handle_game_creation().await {
+            if let Err(e) = self.handle_game_creation(args.enable_proposal).await {
                 tracing::warn!("Failed to handle game creation: {:?}", e);
             }
 
-            if let Err(e) = self.handle_game_resolution().await {
+            if let Err(e) = self.handle_game_resolution(args.enable_resolution).await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
         }
@@ -205,7 +221,7 @@ async fn main() {
     setup_logging();
 
     let args = Args::parse();
-    dotenv::from_filename(args.env_file).ok();
+    dotenv::from_filename(args.env_file.clone()).ok();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")
@@ -229,5 +245,5 @@ async fn main() {
     let proposer = OPSuccinctProposer::new(l1_provider_with_wallet, factory)
         .await
         .unwrap();
-    proposer.run().await.expect("Runs in an infinite loop");
+    proposer.run(args).await.expect("Runs in an infinite loop");
 }
