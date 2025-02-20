@@ -150,7 +150,7 @@ async fn main() {
     setup_logging();
 
     let args = Args::parse();
-    dotenv::from_filename(args.env_file.clone()).ok();
+    dotenv::from_filename(args.env_file).ok();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")
