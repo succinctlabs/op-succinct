@@ -38,6 +38,8 @@ This guide provides the fastest path to try out OP Succinct fault dispute games 
     USE_SP1_MOCK_VERIFIER=true
     ```
 
+See [Getting the Starting Root](./deploy.md#getting-the-starting-root) for more information on how to get the starting root.
+
 3. Deploy contracts:
     ```bash
     cd contracts
