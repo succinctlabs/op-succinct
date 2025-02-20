@@ -241,13 +241,14 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let query =
-            sqlx::query_as::<_, OPSuccinctRequest>("SELECT * FROM requests WHERE status = ANY($1) AND range_vkey_commitment = $2 AND rollup_config_hash = $3")
-                .bind(&status_values[..])
-                .bind(&commitment.range_vkey_commitment[..])
-                .bind(&commitment.rollup_config_hash[..])
-                .fetch_all(&self.pool)
-                .await?;
+        let query = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3)"
+        )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&status_values[..])
+        .fetch_all(&self.pool)
+        .await?;
         Ok(query)
     }
 
@@ -257,13 +258,14 @@ impl DriverDBClient {
         status: RequestStatus,
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests =
-            sqlx::query_as::<_, OPSuccinctRequest>("SELECT * FROM requests WHERE status = $1 AND range_vkey_commitment = $2 AND rollup_config_hash = $3")
-                .bind(status as i16)
-                .bind(&commitment.range_vkey_commitment[..])
-                .bind(&commitment.rollup_config_hash[..])
-                .fetch_all(&self.pool)
-                .await?;
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3"
+        )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(status as i16)
+        .fetch_all(&self.pool)
+        .await?;
         Ok(requests)
     }
 
@@ -275,12 +277,12 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND rollup_config_hash = $4 AND start_block >= $5 AND end_block <= $6 ORDER BY start_block ASC"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND end_block <= $6 ORDER BY start_block ASC"
         )
-        .bind(RequestStatus::Complete as i16)
-        .bind(RequestType::Range as i16)
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
         .bind(start_block)
         .bind(end_block)
         .fetch_all(&self.pool)
@@ -297,14 +299,14 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status != $1 AND status != $2 AND req_type = $3 AND range_vkey_commitment = $4 AND aggregation_vkey = $5 AND rollup_config_hash = $6 AND start_block = $7 ORDER BY start_block ASC"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 ORDER BY start_block ASC"
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
         .bind(RequestStatus::Failed as i16)
         .bind(RequestStatus::Cancelled as i16)
         .bind(RequestType::Aggregation as i16)
-        .bind(&commitment.range_vkey_commitment[..])
-        .bind(&commitment.agg_vkey_hash[..])
-        .bind(&commitment.rollup_config_hash[..])
         .bind(start_block)
         .fetch_all(&self.pool)
         .await?;
@@ -320,13 +322,13 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND aggregation_vkey = $4 AND rollup_config_hash = $5 AND start_block >= $6 ORDER BY start_block ASC"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC"
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
         .bind(RequestStatus::Unrequested as i16)
         .bind(RequestType::Aggregation as i16)
-        .bind(&commitment.range_vkey_commitment[..])
-        .bind(&commitment.agg_vkey_hash[..])
-        .bind(&commitment.rollup_config_hash[..])
         .bind(latest_contract_l2_block)
         .fetch_all(&self.pool)
         .await?;
@@ -341,13 +343,13 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND aggregation_vkey = $4 AND rollup_config_hash = $5 AND start_block >= $6 ORDER BY start_block ASC"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC"
         )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
         .bind(RequestStatus::Unrequested as i16)
         .bind(RequestType::Range as i16)
-        .bind(&commitment.range_vkey_commitment[..])
-        .bind(&commitment.agg_vkey_hash[..])
-        .bind(&commitment.rollup_config_hash[..])
         .bind(latest_contract_l2_block)
         .fetch_all(&self.pool)
         .await?;
@@ -361,12 +363,12 @@ impl DriverDBClient {
         latest_contract_l2_block: i64,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND rollup_config_hash = $4 AND start_block >= $5 ORDER BY start_block ASC"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 ORDER BY start_block ASC"
         )
-        .bind(RequestStatus::Complete as i16)
-        .bind(RequestType::Range as i16)
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Range as i16)
         .bind(latest_contract_l2_block)
         .fetch_all(&self.pool)
         .await?;
@@ -455,13 +457,13 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status = $1 AND req_type = $2 AND range_vkey_commitment = $3 AND rollup_config_hash = $4 AND aggregation_vkey = $5 AND start_block = $6 ORDER BY start_block ASC LIMIT 1"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block = $6 ORDER BY start_block ASC LIMIT 1"
         )
-        .bind(RequestStatus::Complete as i16)
-        .bind(RequestType::Aggregation as i16)
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
         .bind(&commitment.agg_vkey_hash[..])
+        .bind(RequestStatus::Complete as i16)
+        .bind(RequestType::Aggregation as i16)
         .bind(latest_contract_l2_block)
         .fetch_all(&self.pool)
         .await?;
