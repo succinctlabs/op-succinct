@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS requests (
 -- Create eth_metrics table
 CREATE TABLE IF NOT EXISTS eth_metrics (
     id BIGSERIAL PRIMARY KEY,
+    block_nb BIGINT NOT NULL,
     nb_transactions BIGINT NOT NULL,
     eth_gas_used NUMERIC(38,0) NOT NULL,
     l1_fees NUMERIC(38,0) NOT NULL,

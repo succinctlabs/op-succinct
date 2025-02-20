@@ -20,7 +20,6 @@ use sp1_sdk::{
     SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use std::{
-    env,
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},

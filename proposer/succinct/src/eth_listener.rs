@@ -58,6 +58,7 @@ where
                 }
 
                 let metrics = EthMetrics {
+                    block_nb: header.number as i64,
                     nb_transactions,
                     eth_gas_used,
                     l1_fees: l1_fees.into(),
@@ -93,8 +94,6 @@ async fn main() -> Result<()> {
     // Create a provider for the L2 network
     let ws = WsConnect::new(l2_rpc);
     let provider = ProviderBuilder::default().on_ws(ws).await?;
-
-    // Create an OPChainMetricer struct with a reference to our Arc'd DB client
 
     // Create an OPChainMetricer struct with a reference to our Arc'd DB client
     let eth_listener = OPChainMetricer::new(db_client, Arc::new(provider));

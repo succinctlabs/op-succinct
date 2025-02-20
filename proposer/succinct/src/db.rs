@@ -102,6 +102,7 @@ impl OPSuccinctRequest {
 
 #[derive(FromRow, Debug)]
 pub struct EthMetrics {
+    pub block_nb: i64,
     pub nb_transactions: i64,
     pub eth_gas_used: i64,
     // sqlx doesn't support u128, use BigDecimal instead for fees.
@@ -180,13 +181,15 @@ impl DriverDBClient {
         sqlx::query(
             r#"
             INSERT INTO eth_metrics (
+                block_nb,
                 nb_transactions,
                 eth_gas_used,
                 l1_fees,
                 tx_fees
-            ) VALUES ($1, $2, $3, $4)
+            ) VALUES ($1, $2, $3, $4, $5)
             "#,
         )
+        .bind(metrics.block_nb)
         .bind(metrics.nb_transactions)
         .bind(metrics.eth_gas_used.clone())
         .bind(metrics.l1_fees.clone())
@@ -612,6 +615,7 @@ async fn main() -> Result<()> {
         .await?;
 
     let eth_metrics = EthMetrics {
+        block_nb: 0,
         nb_transactions: 10,
         eth_gas_used: 20000,
         l1_fees: 300.into(),
