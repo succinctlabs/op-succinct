@@ -5,7 +5,7 @@ use std::{env, sync::Arc};
 use alloy_provider::{network::EthereumWallet, ProviderBuilder, WsConnect};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_proposer::{DriverDBClient, OPChainMetricer, Proposer, ProposerConfigArgs};
+use op_succinct_proposer::{DriverDBClient, OPChainMetricer, Proposer, RequesterConfig};
 
 use tikv_jemallocator::Jemalloc;
 
@@ -97,7 +97,7 @@ async fn main() -> Result<()> {
         .parse()
         .expect("Invalid L2OO_ADDRESS");
 
-    let proposer_config = ProposerConfigArgs {
+    let proposer_config = RequesterConfig {
         l2oo_address,
         dgf_address: Address::ZERO,
         range_proof_interval: env::var("RANGE_PROOF_INTERVAL")
@@ -119,7 +119,7 @@ async fn main() -> Result<()> {
         range_proof_strategy,
         agg_proof_strategy,
         agg_proof_mode,
-        op_succinct_mock: env::var("OP_SUCCINCT_MOCK")
+        mock: env::var("OP_SUCCINCT_MOCK")
             .unwrap_or_else(|_| "false".to_string())
             .parse()
             .expect("Invalid OP_SUCCINCT_MOCK"),

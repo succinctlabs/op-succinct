@@ -55,6 +55,10 @@ pub struct RequesterConfig {
     pub submission_interval: u64,
     pub max_concurrent_witness_gen: u64,
     pub max_concurrent_proof_requests: u64,
+    pub range_proof_strategy: FulfillmentStrategy,
+    pub agg_proof_strategy: FulfillmentStrategy,
+    pub agg_proof_mode: SP1ProofMode,
+    pub mock: bool,
 }
 
 pub struct DriverConfig {
@@ -63,30 +67,13 @@ pub struct DriverConfig {
     // // ****
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
-    pub range_proof_strategy: FulfillmentStrategy,
-    pub agg_proof_strategy: FulfillmentStrategy,
-    pub agg_proof_mode: SP1ProofMode,
     pub range_proof_size: u64,
     pub submission_interval: u64,
     pub proof_timeout: u64,
-    pub mock: bool,
     pub driver_db_client: Arc<DriverDBClient>,
     /// Limits on the maximum number of concurrent proof requests and witness generation requests.
     pub max_concurrent_proof_requests: u64,
     pub max_concurrent_witness_gen: u64,
-}
-
-pub struct ProposerConfigArgs {
-    pub l2oo_address: Address,
-    pub dgf_address: Address,
-    pub range_proof_interval: u64,
-    pub submission_interval: u64,
-    pub max_concurrent_witness_gen: u64,
-    pub max_concurrent_proof_requests: u64,
-    pub range_proof_strategy: FulfillmentStrategy,
-    pub agg_proof_strategy: FulfillmentStrategy,
-    pub agg_proof_mode: SP1ProofMode,
-    pub op_succinct_mock: bool,
 }
 
 pub struct Proposer<P, N>
@@ -115,7 +102,7 @@ where
     pub async fn new(
         provider: P,
         db_client: Arc<DriverDBClient>,
-        config: ProposerConfigArgs,
+        config: RequesterConfig,
     ) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
@@ -140,7 +127,7 @@ where
         let submission_interval = config.submission_interval;
         let max_concurrent_witness_gen = config.max_concurrent_witness_gen;
         let max_concurrent_proof_requests = config.max_concurrent_proof_requests;
-        let mock = config.op_succinct_mock;
+        let mock = config.mock;
         const PROOF_TIMEOUT: u64 = 60 * 60;
 
         let program_config = Arc::new(ProgramConfig {
@@ -175,13 +162,9 @@ where
             driver_config: DriverConfig {
                 network_prover,
                 fetcher,
-                range_proof_strategy,
-                agg_proof_strategy,
-                agg_proof_mode,
                 range_proof_size: 0,
                 submission_interval: 0,
                 proof_timeout: PROOF_TIMEOUT,
-                mock,
                 driver_db_client: db_client,
                 max_concurrent_proof_requests,
                 max_concurrent_witness_gen,
@@ -197,8 +180,12 @@ where
                 dgf_address,
                 range_proof_interval,
                 submission_interval,
+                range_proof_strategy,
+                agg_proof_strategy,
+                agg_proof_mode,
                 max_concurrent_witness_gen,
                 max_concurrent_proof_requests,
+                mock,
             },
             proof_requester,
         };
@@ -263,7 +250,7 @@ where
             let request = OPSuccinctRequest {
                 status: RequestStatus::Unrequested,
                 req_type: RequestType::Range,
-                mode: if self.driver_config.mock {
+                mode: if self.requester_config.mock {
                     RequestMode::Mock
                 } else {
                     RequestMode::Real
