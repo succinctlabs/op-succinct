@@ -82,23 +82,3 @@ where
         Ok(())
     }
 }
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let l2_rpc = "wss://your-l2-rpc-endpoint";
-    let database_url = "postgres://user:password@localhost/dbname";
-
-    // Initialize DB client and wrap it in an Arc for shared ownership
-    let db_client = Arc::new(DriverDBClient::new(database_url).await?);
-
-    // Create a provider for the L2 network
-    let ws = WsConnect::new(l2_rpc);
-    let provider = ProviderBuilder::default().on_ws(ws).await?;
-
-    // Create an OPChainMetricer struct with a reference to our Arc'd DB client
-    let eth_listener = OPChainMetricer::new(db_client, Arc::new(provider));
-
-    eth_listener.listen().await?;
-
-    Ok(())
-}

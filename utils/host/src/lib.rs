@@ -24,6 +24,7 @@ sol! {
         bytes32 public aggregationVkey;
         bytes32 public rangeVkeyCommitment;
         bytes32 public rollupConfigHash;
+        uint256 public submissionInterval;
 
         function latestBlockNumber() public view returns (uint256);
 
@@ -86,7 +87,9 @@ pub fn get_agg_proof_stdin(
     let mut stdin = SP1Stdin::new();
     for proof in proofs {
         let SP1Proof::Compressed(compressed_proof) = proof else {
-            panic!();
+            return Err(anyhow::anyhow!(
+                "Invalid proof passed as compressed proof!"
+            ));
         };
         stdin.write_proof(*compressed_proof, multi_block_vkey.vk.clone());
     }

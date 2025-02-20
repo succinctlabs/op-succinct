@@ -1,7 +1,7 @@
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::Local;
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
@@ -24,6 +24,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use tracing::info;
 
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
@@ -61,6 +62,7 @@ pub struct RequesterConfig {
     pub l2oo_address: Address,
     pub dgf_address: Address,
     pub range_proof_interval: u64,
+    pub submission_interval: u64,
     pub max_concurrent_witness_gen: u64,
     pub max_concurrent_proof_requests: u64,
 }
@@ -90,6 +92,7 @@ pub struct ProposerConfigArgs {
     pub l2oo_address: Address,
     pub dgf_address: Address,
     pub range_proof_interval: u64,
+    pub submission_interval: u64,
     pub max_concurrent_witness_gen: u64,
     pub max_concurrent_proof_requests: u64,
     pub range_proof_strategy: FulfillmentStrategy,
@@ -145,6 +148,7 @@ where
         let dgf_address = config.dgf_address;
 
         let range_proof_interval = config.range_proof_interval;
+        let submission_interval = config.submission_interval;
         let max_concurrent_witness_gen = config.max_concurrent_witness_gen;
         let max_concurrent_proof_requests = config.max_concurrent_proof_requests;
         let mock = config.op_succinct_mock;
@@ -189,6 +193,7 @@ where
                 l2oo_address,
                 dgf_address,
                 range_proof_interval,
+                submission_interval,
                 max_concurrent_witness_gen,
                 max_concurrent_proof_requests,
             },
@@ -198,6 +203,8 @@ where
 
     /// Use the in-memory index of the highest block number to add new ranges to the database.
     pub async fn add_new_ranges(&self) -> Result<()> {
+        info!("Adding new ranges to the database.");
+
         let latest_finalized_header = self
             .driver_config
             .fetcher
@@ -281,6 +288,8 @@ where
 
     /// Handle all proof requests in the PROVE state.
     pub async fn handle_proving_requests(&self) -> Result<()> {
+        info!("Handling proving requests.");
+
         // Get all requests from the database.
         let prove_requests = self
             .driver_config
@@ -348,7 +357,7 @@ where
         // If the proof request is unfulfillable, check if the request is a range proof and if the execution status is unexecutable.
         // If so, split the request into two requests.
         // Otherwise, retry the same request.
-        tracing::info!("Request is unfulfillable: {:?}", request);
+        tracing::warn!("Request is unfulfillable: {:?}", request);
 
         // Set the existing request to status Failed.
         self.driver_config
@@ -447,6 +456,8 @@ where
     ///
     /// Only creates an AGG proof if there's not an AGG proof in progress with the same start block.
     pub async fn create_aggregation_proofs(&self) -> Result<()> {
+        info!("Creating aggregation proofs.");
+
         // Check if there's an AGG proof with the same start block AND range verification key commitment AND aggregation vkey.
         // If so, return.
         let latest_proposed_block_number = get_latest_proposed_block_number(
@@ -491,33 +502,86 @@ where
         // Get the largest contiguous range of completed range proofs.
         let largest_contiguous_range = self.get_largest_contiguous_range(completed_range_proofs)?;
 
+        // Get the submission interval from the contract.
+        let contract_submission_interval: u64 = self
+            .contract_config
+            .l2oo_contract
+            .submissionInterval()
+            .call()
+            .await?
+            .submissionInterval
+            .try_into()
+            .unwrap();
+
+        // Use the submission interval from the contract if it's greater than the one in the proposer config.
+        let submission_interval =
+            contract_submission_interval.max(self.requester_config.submission_interval);
+
+        info!(
+            "Submission interval for aggregation proof: {}",
+            submission_interval
+        );
+
         if let Some(last_request) = largest_contiguous_range.last() {
-            if (last_request.end_block - last_request.start_block) as u64
-                >= self.requester_config.range_proof_interval
-            {
-                // Checkpoint an L1 block hash that will be used to create the aggregation proof.
-                let latest_header = self
+            if (last_request.end_block - last_request.start_block) as u64 >= submission_interval {
+                // If an aggregation request with the same start block and end block and commitment config exists, there's no need to checkpoint the L1 block hash.
+                // Use the existing L1 block hash from the existing request.
+                let existing_request = self
                     .driver_config
-                    .fetcher
-                    .get_l1_header(BlockId::latest())
+                    .driver_db_client
+                    .fetch_agg_request_with_checkpointed_block_hash(
+                        last_request.start_block,
+                        last_request.end_block,
+                        &self.program_config.commitments,
+                    )
                     .await?;
 
-                // Checkpoint the L1 block hash.
-                let receipt = self
-                    .contract_config
-                    .l2oo_contract
-                    .checkpointBlockHash(U256::from(latest_header.number))
-                    .send()
-                    .await?
-                    .with_required_confirmations(NUM_CONFIRMATIONS)
-                    .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-                    .get_receipt()
-                    .await?;
+                // If there's an existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash, use the existing L1 block hash and number. This is
+                // likely caused by an error generating the aggregation proof, but there's no need to checkpoint the L1 block hash again.
+                let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(
+                    existing_request,
+                ) =
+                    existing_request
+                {
+                    tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
+                    (
+                        existing_request
+                            .checkpointed_l1_block_hash
+                            .expect("checkpointed_l1_block_hash is None"),
+                        existing_request
+                            .checkpointed_l1_block_number
+                            .expect("checkpointed_l1_block_number is None"),
+                    )
+                } else {
+                    // Checkpoint an L1 block hash that will be used to create the aggregation proof.
+                    let latest_header = self
+                        .driver_config
+                        .fetcher
+                        .get_l1_header(BlockId::latest())
+                        .await?;
 
-                // If transaction reverted, log the error.
-                if !receipt.status() {
-                    tracing::error!("Transaction reverted: {:?}", receipt);
-                }
+                    // Checkpoint the L1 block hash.
+                    let receipt = self
+                        .contract_config
+                        .l2oo_contract
+                        .checkpointBlockHash(U256::from(latest_header.number))
+                        .send()
+                        .await?
+                        .with_required_confirmations(NUM_CONFIRMATIONS)
+                        .with_timeout(Some(Duration::from_secs(TIMEOUT)))
+                        .get_receipt()
+                        .await?;
+
+                    // If transaction reverted, log the error.
+                    if !receipt.status() {
+                        tracing::error!("Transaction reverted: {:?}", receipt);
+                    }
+
+                    (
+                        latest_header.hash_slow().into(),
+                        latest_header.number as i64,
+                    )
+                };
 
                 // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
                 self.driver_config
@@ -543,8 +607,8 @@ where
                         aggregation_vkey_hash: Some(
                             self.program_config.commitments.agg_vkey_hash.into(),
                         ),
-                        checkpointed_l1_block_hash: Some(latest_header.hash_slow().into()),
-                        checkpointed_l1_block_number: Some(latest_header.number as i64),
+                        checkpointed_l1_block_hash: Some(checkpointed_l1_block_hash),
+                        checkpointed_l1_block_number: Some(checkpointed_l1_block_number),
                         ..Default::default()
                     })
                     .await?;
@@ -560,6 +624,8 @@ where
     ///
     /// TODO: Limit the maximum number of WITNESSGEN threads to MAX_CONCURRENT_WITNESS_GEN.
     async fn request_queued_proofs(&self) -> Result<()> {
+        info!("Requesting queued proofs.");
+
         let requests = self
             .driver_config
             .driver_db_client
@@ -626,7 +692,18 @@ where
 
             if request.req_type == RequestType::Range {
                 if self.driver_config.mock {
-                    let proof = self.request_mock_range_proof(&request, stdin).await?;
+                    let proof = match self.request_mock_range_proof(&request, stdin).await {
+                        Ok(p) => p,
+                        Err(e) => {
+                            tracing::error!("Failed to generate mock range proof: {}", e);
+                            self.handle_unfulfillable_request(
+                                request,
+                                ExecutionStatus::UnspecifiedExecutionStatus,
+                            )
+                            .await?;
+                            return Ok(());
+                        }
+                    };
 
                     // For mock range proofs, the proof bytes are the bincode serialized proof.
                     let proof_bytes = bincode::serialize(&proof).unwrap();
@@ -647,7 +724,18 @@ where
             } else if request.req_type == RequestType::Aggregation {
                 if self.driver_config.mock {
                     // Generate the mock aggregation proof.
-                    let proof = self.request_mock_agg_proof(stdin).await?;
+                    let proof = match self.request_mock_agg_proof(stdin).await {
+                        Ok(p) => p,
+                        Err(e) => {
+                            tracing::error!("Failed to generate mock aggregation proof: {}", e);
+                            self.handle_unfulfillable_request(
+                                request,
+                                ExecutionStatus::UnspecifiedExecutionStatus,
+                            )
+                            .await?;
+                            return Ok(());
+                        }
+                    };
 
                     // For mock aggregation proofs, the proof bytes are on-chain encoded proof bytes.
                     self.driver_config
@@ -782,7 +870,7 @@ where
 
         // TODO: In the future, add statistics for aggregation proof execution.
         prover
-            .prove(&self.program_config.range_pk, &stdin)
+            .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.driver_config.agg_proof_mode)
             .deferred_proof_verification(false)
             .run()
@@ -880,6 +968,8 @@ where
 
     /// Submit all completed aggregation proofs to the prover network.
     async fn submit_agg_proofs(&self) -> Result<()> {
+        info!("Submitting aggregation proofs.");
+
         let latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
             self.driver_config.fetcher.as_ref(),
@@ -942,9 +1032,17 @@ where
 
     /// Update the DB state if the proposer is being re-started.
     ///
+    /// TODO: If starting the proposer with a valid config BUT a different block number, need to confirm that all
+    /// UNREQ, PROVE, EXEC, WITNESSGEN requests are linked to the original block number. Basically, confirm that there's
+    /// no need to regenerate the requests. The easier (but simpler) way to do this is to see if the commitment is the same, if so, cancel all
+    /// WITGEN, EXECUTE requests and backfill.
+    ///
     /// 1. If any of range vkey, agg vkey or rollup config hash has changed, set all proofs that are not RELAYED or COMPLETED to CANCELLED.
     /// 2. If all the same, keep all proofs in UNREQUESTED and PROVE proofs. Retry all WITNESSGEN and EXECUTION proofs.
+    ///
+    /// TODO: Add handling logic if initialized with a diff contract
     async fn initialize_proposer(&self) -> Result<()> {
+        info!("Initializing proposer.");
         // Get highest request with one of the given statuses.
         let request = self
             .driver_config
@@ -988,6 +1086,8 @@ where
                 return Ok(());
             }
         }
+
+        info!("Fetching requests with status Execution and WitnessGeneration.");
 
         // Fetch all requests in status Execution and WitnessGeneration for re-trying.
         let requests = self

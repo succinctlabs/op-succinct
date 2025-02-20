@@ -49,7 +49,7 @@ log.workspace = true
 base64.workspace = true
 tower-http.workspace = true
 serde_repr = "0.1.19"
-sqlx = { version = "0.8.3", features = ["postgres", "chrono", "bigdecimal"] }
+sqlx = { version = "0.8.3", features = ["postgres", "chrono", "bigdecimal", "runtime-tokio"] }
 chrono = "0.4.39"
 futures-util = "0.3.31"
 clap.workspace = true

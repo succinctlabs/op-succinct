@@ -40,6 +40,7 @@ pub enum RequestMode {
     Mock = 1,
 }
 
+// TODO: Add a contract address for the relayed request and the chain id.
 #[derive(FromRow, Debug, Default, Clone)]
 pub struct OPSuccinctRequest {
     pub id: i64,
@@ -54,9 +55,9 @@ pub struct OPSuccinctRequest {
     pub checkpointed_l1_block_number: Option<i64>,
     pub checkpointed_l1_block_hash: Option<[u8; 32]>,
     pub execution_statistics: Value,
-    pub witnessgen_duration_secs: Option<i64>,
-    pub execution_duration_secs: Option<i64>,
-    pub prove_duration_secs: Option<i64>,
+    pub witnessgen_duration: Option<i64>,
+    pub execution_duration: Option<i64>,
+    pub prove_duration: Option<i64>,
     pub range_vkey_commitment: [u8; 32],
     pub aggregation_vkey_hash: Option<[u8; 32]>,
     pub rollup_config_hash: [u8; 32],
@@ -88,9 +89,9 @@ impl OPSuccinctRequest {
             checkpointed_l1_block_number: None,
             checkpointed_l1_block_hash: None,
             execution_statistics: serde_json::Value::Null,
-            witnessgen_duration_secs: None,
-            execution_duration_secs: None,
-            prove_duration_secs: None,
+            witnessgen_duration: None,
+            execution_duration: None,
+            prove_duration: None,
             range_vkey_commitment,
             aggregation_vkey_hash: None,
             rollup_config_hash,
@@ -144,7 +145,7 @@ impl DriverDBClient {
                 execution_duration,
                 prove_duration,
                 range_vkey_commitment,
-                aggregation_vkey,
+                aggregation_vkey_hash,
                 rollup_config_hash,
                 relay_tx_hash,
                 proof
@@ -165,9 +166,9 @@ impl DriverDBClient {
         .bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
         .bind(&req.execution_statistics)
         // Storing durations in seconds.
-        .bind(req.witnessgen_duration_secs)
-        .bind(req.execution_duration_secs)
-        .bind(req.prove_duration_secs)
+        .bind(req.witnessgen_duration)
+        .bind(req.execution_duration)
+        .bind(req.prove_duration)
         .bind(&req.range_vkey_commitment[..])
         .bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
         .bind(&req.rollup_config_hash[..])
@@ -324,6 +325,29 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    /// Fetch an aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.
+    pub async fn fetch_agg_request_with_checkpointed_block_hash(
+        &self,
+        start_block: i64,
+        end_block: i64,
+        commitment: &CommitmentConfig,
+    ) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = $7 AND checkpointed_block_hash IS NOT NULL AND checkpointed_block_number IS NOT NULL LIMIT 1"
+        )
+        .bind(&commitment.range_vkey_commitment[..])
+        .bind(&commitment.rollup_config_hash[..])
+        .bind(&commitment.agg_vkey_hash[..])
+        .bind(RequestType::Aggregation as i16)
+        .bind(start_block)
+        .bind(end_block)
+        .bind(RequestStatus::Failed as i16)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(request)
+    }
+
     /// Fetch all non-failed AGG proofs with the same start block, range vkey commitment, and aggregation vkey.
     ///
     /// TODO: Confirm this works
@@ -333,7 +357,7 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 ORDER BY start_block ASC"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 ORDER BY start_block ASC"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
@@ -358,7 +382,7 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
         let request = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC LIMIT 1"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
@@ -379,7 +403,7 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
         let request = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $4 AND req_type = $5 AND start_block >= $6 ORDER BY start_block ASC LIMIT 1"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 ORDER BY start_block ASC LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
@@ -492,7 +516,7 @@ impl DriverDBClient {
         commitment: &CommitmentConfig,
     ) -> Result<Option<OPSuccinctRequest>, Error> {
         let request = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey = $3 AND status = $4 AND req_type = $5 AND start_block = $6 ORDER BY start_block ASC LIMIT 1"
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = $4 AND req_type = $5 AND start_block = $6 ORDER BY start_block ASC LIMIT 1"
         )
         .bind(&commitment.range_vkey_commitment[..])
         .bind(&commitment.rollup_config_hash[..])
@@ -549,7 +573,7 @@ impl DriverDBClient {
                 status, req_type, mode, start_block, end_block, created_at, updated_at,
                 proof_request_id, checkpointed_l1_block_number, checkpointed_l1_block_hash, execution_statistics,
                 witnessgen_duration, execution_duration, prove_duration, range_vkey_commitment,
-                aggregation_vkey, rollup_config_hash, relay_tx_hash, proof) ",
+                aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof) ",
         );
 
         query_builder.push_values(requests, |mut b, req| {
@@ -564,9 +588,9 @@ impl DriverDBClient {
                 .push_bind(req.checkpointed_l1_block_number)
                 .push_bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
                 .push_bind(&req.execution_statistics)
-                .push_bind(req.witnessgen_duration_secs)
-                .push_bind(req.execution_duration_secs)
-                .push_bind(req.prove_duration_secs)
+                .push_bind(req.witnessgen_duration)
+                .push_bind(req.execution_duration)
+                .push_bind(req.prove_duration)
                 .push_bind(&req.range_vkey_commitment[..])
                 .push_bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
                 .push_bind(&req.rollup_config_hash[..])
@@ -576,55 +600,4 @@ impl DriverDBClient {
 
         query_builder.build().execute(&self.pool).await
     }
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let database_url = "postgres://user:password@localhost/dbname";
-    let client = DriverDBClient::new(database_url).await?;
-
-    let request = OPSuccinctRequest {
-        id: 0, // ID is auto-generated by the database.
-        status: RequestStatus::Unrequested,
-        req_type: RequestType::Range,
-        mode: RequestMode::Mock,
-        start_block: 100,
-        end_block: 200,
-        created_at: Local::now().naive_local(),
-        updated_at: Local::now().naive_local(),
-        checkpointed_l1_block_number: None,
-        checkpointed_l1_block_hash: None,
-        execution_statistics: serde_json::json!({"example": "data"}),
-        witnessgen_duration_secs: Some(500),
-        execution_duration_secs: Some(300),
-        prove_duration_secs: None,
-        range_vkey_commitment: [0u8; 32],
-        aggregation_vkey_hash: None,
-        rollup_config_hash: [0u8; 32],
-        relay_tx_hash: None,
-        proof_request_id: None,
-        proof: None,
-    };
-
-    client.insert_request(&request).await?;
-    let requests = client.fetch_requests().await?;
-    println!("Requests: {:?}", requests);
-
-    client
-        .update_request_status(1, RequestStatus::WitnessGeneration)
-        .await?;
-
-    let eth_metrics = EthMetrics {
-        block_nb: 0,
-        nb_transactions: 10,
-        eth_gas_used: 20000,
-        l1_fees: 300.into(),
-        tx_fees: 150.into(),
-    };
-
-    client.insert_eth_metrics(&eth_metrics).await?;
-    let metrics = client.fetch_eth_metrics().await?;
-    println!("Eth Metrics: {:?}", metrics);
-
-    Ok(())
 }

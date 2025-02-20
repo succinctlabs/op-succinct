@@ -35,4 +35,4 @@ CREATE TABLE IF NOT EXISTS eth_metrics (
 );
 
 -- Create composite index on requests table
-CREATE INDEX idx_requests_vkey_config_agg ON requests (range_vkey_commitment, rollup_config_hash, aggregation_vkey); 
+CREATE INDEX idx_requests_vkey_config_agg ON requests (range_vkey_commitment, rollup_config_hash, aggregation_vkey_hash); 

@@ -1,50 +1,15 @@
-use clap::Parser;
+use alloy_primitives::Address;
 use sp1_sdk::network::FulfillmentStrategy;
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use alloy_provider::{network::EthereumWallet, ProviderBuilder, WsConnect};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_proposer::{DriverDBClient, OPChainMetricer, Proposer, ProposerConfigArgs};
-use sp1_sdk::utils;
-
-#[derive(Parser, Debug)]
-#[clap(author, version, about)]
-struct Args {
-    #[clap(long)]
-    l1_rpc: String,
-    #[clap(long)]
-    private_key: String,
-    #[clap(long)]
-    db_url: String,
-    #[clap(long)]
-    l2_ws_rpc: String,
-    // Proposer config args
-    #[clap(long)]
-    l2oo_address: String,
-    #[clap(long)]
-    dgf_address: String,
-    #[clap(long, default_value = "10")]
-    range_proof_interval: u64,
-    #[clap(long, default_value = "10")]
-    max_concurrent_witness_gen: u64,
-    #[clap(long, default_value = "10")]
-    max_concurrent_proof_requests: u64,
-    #[clap(long, default_value = "reserved")]
-    range_proof_strategy: String,
-    #[clap(long, default_value = "reserved")]
-    agg_proof_strategy: String,
-    #[clap(long, default_value = "groth16")]
-    agg_proof_mode: String,
-    #[clap(long, default_value = "false")]
-    op_succinct_mock: bool,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Parse command line arguments using Clap
-    let args = Args::parse();
-
+    dotenv::dotenv().ok();
     // Set up logging using the provided format
     let format = tracing_subscriber::fmt::format()
         .with_level(true)
@@ -65,13 +30,10 @@ async fn main() -> Result<()> {
         .event_format(format)
         .init();
 
-    // Set up the SP1 SDK logger.
-    utils::setup_logger();
-
-    // Use Clap args instead of dotenv/env vars
-    let rpc_url = args.l1_rpc;
-    let private_key: PrivateKeySigner = args
-        .private_key
+    // Read all config from env vars
+    let rpc_url = env::var("L1_RPC").expect("L1_RPC is not set");
+    let private_key: PrivateKeySigner = env::var("PRIVATE_KEY")
+        .expect("PRIVATE_KEY is not set")
         .parse()
         .expect("Failed to parse PRIVATE_KEY");
     let signer = EthereumWallet::new(private_key);
@@ -79,47 +41,75 @@ async fn main() -> Result<()> {
         .wallet(signer.clone())
         .on_http(rpc_url.parse().expect("Failed to parse RPC URL"));
 
-    let db_url = args.db_url;
+    let db_url = env::var("DB_URL").expect("DB_URL is not set");
     let db_client = Arc::new(DriverDBClient::new(&db_url).await?);
 
-    // Build ProposerConfigArgs from Clap args
-    let range_proof_strategy = if args.range_proof_strategy.to_lowercase() == "hosted" {
+    let range_proof_strategy = if env::var("RANGE_PROOF_STRATEGY")
+        .unwrap_or_else(|_| "reserved".to_string())
+        .to_lowercase()
+        == "hosted"
+    {
         FulfillmentStrategy::Hosted
     } else {
         FulfillmentStrategy::Reserved
     };
-    let agg_proof_strategy = if args.agg_proof_strategy.to_lowercase() == "hosted" {
+
+    let agg_proof_strategy = if env::var("AGG_PROOF_STRATEGY")
+        .unwrap_or_else(|_| "reserved".to_string())
+        .to_lowercase()
+        == "hosted"
+    {
         FulfillmentStrategy::Hosted
     } else {
         FulfillmentStrategy::Reserved
     };
-    let agg_proof_mode = if args.agg_proof_mode.to_lowercase() == "plonk" {
+
+    let agg_proof_mode = if env::var("AGG_PROOF_MODE")
+        .unwrap_or_else(|_| "groth16".to_string())
+        .to_lowercase()
+        == "plonk"
+    {
         sp1_sdk::SP1ProofMode::Plonk
     } else {
         sp1_sdk::SP1ProofMode::Groth16
     };
 
-    let l2oo_address = args.l2oo_address.parse().expect("Invalid L2OO_ADDRESS");
-    let dgf_address = args
-        .dgf_address
+    let l2oo_address = env::var("L2OO_ADDRESS")
+        .expect("L2OO_ADDRESS is not set")
         .parse()
-        .expect("Invalid DISPUTE_GAME_FACTORY_ADDRESS");
+        .expect("Invalid L2OO_ADDRESS");
 
     let proposer_config = ProposerConfigArgs {
         l2oo_address,
-        dgf_address,
-        range_proof_interval: args.range_proof_interval,
-        max_concurrent_witness_gen: args.max_concurrent_witness_gen,
-        max_concurrent_proof_requests: args.max_concurrent_proof_requests,
+        dgf_address: Address::ZERO,
+        range_proof_interval: env::var("RANGE_PROOF_INTERVAL")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .expect("Invalid RANGE_PROOF_INTERVAL"),
+        max_concurrent_witness_gen: env::var("MAX_CONCURRENT_WITNESS_GEN")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .expect("Invalid MAX_CONCURRENT_WITNESS_GEN"),
+        max_concurrent_proof_requests: env::var("MAX_CONCURRENT_PROOF_REQUESTS")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .expect("Invalid MAX_CONCURRENT_PROOF_REQUESTS"),
+        submission_interval: env::var("SUBMISSION_INTERVAL")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse()
+            .expect("Invalid SUBMISSION_INTERVAL"),
         range_proof_strategy,
         agg_proof_strategy,
         agg_proof_mode,
-        op_succinct_mock: args.op_succinct_mock,
+        op_succinct_mock: env::var("OP_SUCCINCT_MOCK")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse()
+            .expect("Invalid OP_SUCCINCT_MOCK"),
     };
 
     let proposer = Proposer::new(l1_provider, db_client.clone(), proposer_config).await?;
 
-    let l2_ws_rpc = args.l2_ws_rpc;
+    let l2_ws_rpc = env::var("L2_WS_RPC").expect("L2_WS_RPC is not set");
     let l2_provider = alloy_provider::ProviderBuilder::default()
         .on_ws(WsConnect::new(l2_ws_rpc))
         .await?;
