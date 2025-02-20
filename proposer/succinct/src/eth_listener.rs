@@ -26,7 +26,6 @@ where
         }
     }
 
-    #[tracing::instrument(name = "eth_listener.listen", skip(self))]
     pub async fn listen(&self) -> Result<()> {
         let span = tracing::debug_span!("eth_listener_loop");
         let _enter = span.enter();

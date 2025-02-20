@@ -85,11 +85,10 @@ pub fn get_agg_proof_stdin(
     latest_checkpoint_head: B256,
 ) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
+    info!("Number of range proofs: {}", proofs.len());
     for proof in proofs {
         let SP1Proof::Compressed(compressed_proof) = proof else {
-            return Err(anyhow::anyhow!(
-                "Invalid proof passed as compressed proof!"
-            ));
+            return Err(anyhow::anyhow!("Invalid proof passed as compressed proof!"));
         };
         stdin.write_proof(*compressed_proof, multi_block_vkey.vk.clone());
     }

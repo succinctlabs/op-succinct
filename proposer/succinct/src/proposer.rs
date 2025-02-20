@@ -1,7 +1,7 @@
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::Local;
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
@@ -108,7 +108,7 @@ where
 {
     driver_config: DriverConfig,
     contract_config: ContractConfig<P, N>,
-    program_config: ProgramConfig,
+    program_config: Arc<ProgramConfig>,
     requester_config: RequesterConfig,
 }
 
@@ -178,7 +178,7 @@ where
                 dgf_address,
                 l2oo_contract,
             },
-            program_config: ProgramConfig {
+            program_config: Arc::new(ProgramConfig {
                 range_vk,
                 range_pk,
                 agg_vk,
@@ -188,7 +188,7 @@ where
                     agg_vkey_hash,
                     rollup_config_hash,
                 },
-            },
+            }),
             requester_config: RequesterConfig {
                 l2oo_address,
                 dgf_address,
@@ -298,10 +298,12 @@ where
             .await?;
 
         // Get the proof status of all of the requests in parallel.
-        // TODO: Do this in parallel.
-        for request in prove_requests {
-            self.process_proof_request_status(request).await?;
-        }
+        futures_util::future::join_all(
+            prove_requests
+                .into_iter()
+                .map(|request| async move { self.process_proof_request_status(request).await }),
+        )
+        .await;
 
         Ok(())
     }
@@ -336,116 +338,19 @@ where
                     .update_proof_to_complete(request.id, &proof_bytes)
                     .await?;
             } else if status.fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
-                self.handle_unfulfillable_request(request, execution_status)
-                    .await?;
+                handle_unfulfillable_request(
+                    self.driver_config.driver_db_client.clone(),
+                    self.program_config.clone(),
+                    request,
+                    execution_status,
+                )
+                .await?;
             }
         } else {
             // TODO: If there is no proof request id, this should be a hard error. There should
             // never be a proof request in PROVE status without a proof request id.
             tracing::warn!("Request has no proof request id: {:?}", request);
         }
-
-        Ok(())
-    }
-
-    /// Handle an unfulfillable proof request.
-    pub async fn handle_unfulfillable_request(
-        &self,
-        request: OPSuccinctRequest,
-        execution_status: ExecutionStatus,
-    ) -> Result<()> {
-        // If the proof request is unfulfillable, check if the request is a range proof and if the execution status is unexecutable.
-        // If so, split the request into two requests.
-        // Otherwise, retry the same request.
-        tracing::warn!("Request is unfulfillable: {:?}", request);
-
-        // Set the existing request to status Failed.
-        self.driver_config
-            .driver_db_client
-            .update_request_status(request.id, RequestStatus::Failed)
-            .await?;
-
-        if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
-            let failed_requests = self
-                .driver_config
-                .driver_db_client
-                .fetch_failed_requests_by_block_range(
-                    request.start_block,
-                    request.end_block,
-                    &self.program_config.commitments,
-                )
-                .await?;
-
-            if failed_requests.len() > 1 || execution_status == ExecutionStatus::Unexecutable {
-                tracing::info!("Splitting request into two: {:?}", request);
-                // Add the two new requests to the database.
-                let new_requests = vec![
-                    OPSuccinctRequest {
-                        status: RequestStatus::Unrequested,
-                        req_type: RequestType::Range,
-                        mode: request.mode,
-                        start_block: request.start_block,
-                        end_block: (request.start_block + request.end_block) / 2,
-                        range_vkey_commitment: self
-                            .program_config
-                            .commitments
-                            .range_vkey_commitment
-                            .into(),
-                        rollup_config_hash: self
-                            .program_config
-                            .commitments
-                            .rollup_config_hash
-                            .into(),
-                        ..Default::default()
-                    },
-                    OPSuccinctRequest {
-                        status: RequestStatus::Unrequested,
-                        req_type: RequestType::Range,
-                        mode: request.mode,
-                        start_block: (request.start_block + request.end_block) / 2,
-                        end_block: request.end_block,
-                        range_vkey_commitment: self
-                            .program_config
-                            .commitments
-                            .range_vkey_commitment
-                            .into(),
-                        rollup_config_hash: self
-                            .program_config
-                            .commitments
-                            .rollup_config_hash
-                            .into(),
-                        ..Default::default()
-                    },
-                ];
-
-                self.driver_config
-                    .driver_db_client
-                    .insert_requests(&new_requests)
-                    .await?;
-
-                // Return early, as the request has been split into two new requests.
-                return Ok(());
-            }
-        }
-
-        // If the logic to split into two requests has not been triggered, retry the same request.
-        self.driver_config
-            .driver_db_client
-            .insert_request(&OPSuccinctRequest {
-                status: RequestStatus::Unrequested,
-                req_type: request.req_type,
-                created_at: Local::now().naive_local(),
-                updated_at: Local::now().naive_local(),
-                mode: request.mode,
-                start_block: request.start_block,
-                end_block: request.end_block,
-                range_vkey_commitment: request.range_vkey_commitment,
-                aggregation_vkey_hash: request.aggregation_vkey_hash,
-                checkpointed_l1_block_hash: request.checkpointed_l1_block_hash,
-                checkpointed_l1_block_number: request.checkpointed_l1_block_number,
-                ..Default::default()
-            })
-            .await?;
 
         Ok(())
     }
@@ -648,112 +553,33 @@ where
         let next_request = self.get_next_unrequested_proof().await?;
 
         if let Some(request) = next_request {
-            // For mock and range proofs, set the status to WITNESSGEN.
-            self.driver_config
-                .driver_db_client
-                .update_request_status(request.id, RequestStatus::WitnessGeneration)
-                .await?;
-
-            // Get the stdin for the proof.
-            // TODO: Turn this into a separate stage. NOTE: Never store the stdin in the DB, as it's quite large.
-            let stdin = match request.req_type {
-                RequestType::Range => self.range_proof_witnessgen(&request).await?,
-                RequestType::Aggregation => {
-                    // Query the database for the consecutive range proofs.
-                    let range_proofs = self
-                        .driver_config
-                        .driver_db_client
-                        .get_consecutive_range_proofs(
-                            request.start_block,
-                            request.end_block,
-                            &self.program_config.commitments,
-                        )
-                        .await?;
-
-                    // Parse the range proofs into SP1ProofWithPublicValues.
-                    let range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs
-                        .iter()
-                        .map(|proof| bincode::deserialize(proof.proof.as_ref().unwrap()).unwrap())
-                        .collect();
-
-                    // Generate the witness for the aggregation proof.
-                    self.agg_proof_witnessgen(&request, range_proofs).await?
+            let network_prover = self.driver_config.network_prover.clone();
+            let fetcher = self.driver_config.fetcher.clone();
+            let db_client = self.driver_config.driver_db_client.clone();
+            let program_config = self.program_config.clone();
+            let mock = self.driver_config.mock;
+            let range_strategy = self.driver_config.range_proof_strategy;
+            let agg_strategy = self.driver_config.agg_proof_strategy;
+            let agg_mode = self.driver_config.agg_proof_mode;
+            tokio::spawn(async move {
+                if let Err(e) = make_proof_request(
+                    request,
+                    network_prover,
+                    fetcher,
+                    db_client,
+                    program_config,
+                    mock,
+                    range_strategy,
+                    agg_strategy,
+                    agg_mode,
+                )
+                .await
+                {
+                    tracing::error!("Failed to make proof request: {}", e);
                 }
-            };
-
-            // If mock mode, set status to EXECUTE. For real mode, only set to PROVE after the request is sent.
-            if self.driver_config.mock {
-                // Set the status to EXECUTE.
-                self.driver_config
-                    .driver_db_client
-                    .update_request_status(request.id, RequestStatus::Execution)
-                    .await?;
-            }
-
-            if request.req_type == RequestType::Range {
-                if self.driver_config.mock {
-                    let proof = match self.request_mock_range_proof(&request, stdin).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            tracing::error!("Failed to generate mock range proof: {}", e);
-                            self.handle_unfulfillable_request(
-                                request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
-                            )
-                            .await?;
-                            return Ok(());
-                        }
-                    };
-
-                    // For mock range proofs, the proof bytes are the bincode serialized proof.
-                    let proof_bytes = bincode::serialize(&proof).unwrap();
-                    self.driver_config
-                        .driver_db_client
-                        .update_proof_to_complete(request.id, &proof_bytes)
-                        .await?;
-                } else {
-                    // Request the range proof.
-                    let proof_id = self.request_range_proof(stdin).await?;
-
-                    // Update the request with the proof ID.
-                    self.driver_config
-                        .driver_db_client
-                        .update_request_to_prove(request.id, proof_id.into())
-                        .await?;
-                }
-            } else if request.req_type == RequestType::Aggregation {
-                if self.driver_config.mock {
-                    // Generate the mock aggregation proof.
-                    let proof = match self.request_mock_agg_proof(stdin).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            tracing::error!("Failed to generate mock aggregation proof: {}", e);
-                            self.handle_unfulfillable_request(
-                                request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
-                            )
-                            .await?;
-                            return Ok(());
-                        }
-                    };
-
-                    // For mock aggregation proofs, the proof bytes are on-chain encoded proof bytes.
-                    self.driver_config
-                        .driver_db_client
-                        .update_proof_to_complete(request.id, &proof.bytes())
-                        .await?;
-                } else {
-                    // Request the aggregation proof.
-                    let proof_id = self.request_agg_proof(stdin).await?;
-
-                    // Update the request with the proof ID.
-                    self.driver_config
-                        .driver_db_client
-                        .update_request_to_prove(request.id, proof_id.into())
-                        .await?;
-                }
-            }
+            });
         }
+
         Ok(())
     }
 
@@ -797,89 +623,10 @@ where
         Ok(None)
     }
 
-    /// Request a range proof.
-    ///
-    /// Returns the proof ID.
-    async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        self.driver_config
-            .network_prover
-            .prove(&self.program_config.range_pk, &stdin)
-            .compressed()
-            .strategy(self.driver_config.range_proof_strategy)
-            .skip_simulation(true)
-            .cycle_limit(1_000_000_000_000)
-            .request_async()
-            .await
-    }
-
-    /// Request an aggregation proof.
-    ///
-    /// Returns the proof ID.
-    async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        self.driver_config
-            .network_prover
-            .prove(&self.program_config.agg_pk, &stdin)
-            .mode(self.driver_config.agg_proof_mode)
-            .strategy(self.driver_config.agg_proof_strategy)
-            .request_async()
-            .await
-    }
-
-    /// Generate a mock range proof.
-    ///
-    /// Writes the execution statistics to the database.
-    async fn request_mock_range_proof(
-        &self,
-        request: &OPSuccinctRequest,
-        stdin: SP1Stdin,
-    ) -> Result<SP1ProofWithPublicValues> {
-        let start_time = Instant::now();
-        let (pv, report) = self
-            .driver_config
-            .network_prover
-            .execute(RANGE_ELF, &stdin)
-            .run()?;
-        let execution_duration = start_time.elapsed().as_secs();
-
-        let execution_statistics = RequestExecutionStatistics::new(report);
-
-        // Write the execution data to the database.
-        self.driver_config
-            .driver_db_client
-            .insert_execution_statistics(
-                request.id,
-                serde_json::to_value(execution_statistics)?,
-                execution_duration as i64,
-            )
-            .await?;
-
-        Ok(SP1ProofWithPublicValues::create_mock_proof(
-            &self.program_config.range_pk,
-            pv.clone(),
-            SP1ProofMode::Compressed,
-            SP1_CIRCUIT_VERSION,
-        ))
-    }
-
-    /// Generate a mock aggregation proof.
-    ///
-    /// TODO: Add execution statistics.
-    async fn request_mock_agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
-        // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
-        let prover = ProverClient::builder().mock().build();
-
-        // TODO: In the future, add statistics for aggregation proof execution.
-        prover
-            .prove(&self.program_config.agg_pk, &stdin)
-            .mode(self.driver_config.agg_proof_mode)
-            .deferred_proof_verification(false)
-            .run()
-    }
-
     /// Generate the witness for a range proof.
-    #[tracing::instrument(name = "proposer.range_proof_witnessgen", skip(self))]
     async fn range_proof_witnessgen(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
-        let _span = tracing::debug_span!("range_proof_witnessgen").entered();
+        let span = tracing::debug_span!("range_proof_witnessgen");
+        let _enter = span.enter();
 
         let host_args = match self
             .driver_config
@@ -913,13 +660,13 @@ where
     }
 
     /// Generate the witness for an aggregation proof.
-    #[tracing::instrument(name = "proposer.agg_proof_witnessgen", skip(self))]
     async fn agg_proof_witnessgen(
         &self,
         request: &OPSuccinctRequest,
         mut range_proofs: Vec<SP1ProofWithPublicValues>,
     ) -> Result<SP1Stdin> {
-        let _span = tracing::debug_span!("agg_proof_witnessgen").entered();
+        let span = tracing::debug_span!("agg_proof_witnessgen");
+        let _enter = span.enter();
 
         let boot_infos: Vec<BootInfoStruct> = range_proofs
             .iter_mut()
@@ -1115,8 +862,13 @@ where
         for request in requests {
             // Retry the request by using the unfulfillable request handler.
             // NOTE: There is only special logic with Unexecutable requests, so any other status will be handled by retrying the same range.
-            self.handle_unfulfillable_request(request, ExecutionStatus::UnspecifiedExecutionStatus)
-                .await?;
+            handle_unfulfillable_request(
+                self.driver_config.driver_db_client.clone(),
+                self.program_config.clone(),
+                request,
+                ExecutionStatus::UnspecifiedExecutionStatus,
+            )
+            .await?;
         }
 
         Ok(())
@@ -1156,4 +908,391 @@ where
     pub async fn stop(&self) -> Result<()> {
         Ok(())
     }
+}
+
+/// Generate the witness for a range proof.
+async fn range_proof_witnessgen(
+    request: &OPSuccinctRequest,
+    fetcher: Arc<OPSuccinctDataFetcher>,
+) -> Result<SP1Stdin> {
+    let span = tracing::debug_span!("range_proof_witnessgen");
+    let _enter = span.enter();
+
+    let host_args = match fetcher
+        .get_host_args(
+            request.start_block as u64,
+            request.end_block as u64,
+            ProgramType::Multi,
+            CacheMode::DeleteCache,
+        )
+        .await
+    {
+        Ok(cli) => cli,
+        Err(e) => {
+            tracing::error!("Failed to get host CLI args: {}", e);
+            return Err(anyhow::anyhow!("Failed to get host CLI args: {}", e));
+        }
+    };
+
+    let mem_kv_store = start_server_and_native_client(host_args).await?;
+
+    let sp1_stdin = match get_proof_stdin(mem_kv_store) {
+        Ok(stdin) => stdin,
+        Err(e) => {
+            tracing::error!("Failed to get proof stdin: {}", e);
+            return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
+        }
+    };
+
+    Ok(sp1_stdin)
+}
+
+async fn agg_proof_witnessgen(
+    request: &OPSuccinctRequest,
+    mut range_proofs: Vec<SP1ProofWithPublicValues>,
+    fetcher: Arc<OPSuccinctDataFetcher>,
+    program_config: Arc<ProgramConfig>,
+) -> Result<SP1Stdin> {
+    let span = tracing::debug_span!("agg_proof_witnessgen");
+    let _enter = span.enter();
+
+    let boot_infos: Vec<BootInfoStruct> = range_proofs
+        .iter_mut()
+        .map(|proof| proof.public_values.read())
+        .collect();
+
+    let proofs: Vec<SP1Proof> = range_proofs
+        .iter_mut()
+        .map(|proof| proof.proof.clone())
+        .collect();
+
+    let l1_head = request
+        .checkpointed_l1_block_hash
+        .expect("Aggregation proof has no checkpointed block.");
+
+    let headers = fetcher
+        .get_header_preimages(&boot_infos, l1_head.into())
+        .await?;
+
+    let stdin = get_agg_proof_stdin(
+        proofs,
+        boot_infos,
+        headers,
+        &program_config.range_vk,
+        l1_head.into(),
+    )?;
+
+    Ok(stdin)
+}
+
+/// Request a range proof.
+///
+/// Returns the proof ID.
+async fn request_range_proof(
+    stdin: SP1Stdin,
+    network_prover: Arc<NetworkProver>,
+    program_config: Arc<ProgramConfig>,
+    range_proof_strategy: FulfillmentStrategy,
+) -> Result<B256> {
+    network_prover
+        .prove(&program_config.range_pk, &stdin)
+        .compressed()
+        .strategy(range_proof_strategy)
+        .skip_simulation(true)
+        .cycle_limit(1_000_000_000_000)
+        .request_async()
+        .await
+}
+
+/// Request an aggregation proof.
+///
+/// Returns the proof ID.
+async fn request_agg_proof(
+    stdin: SP1Stdin,
+    network_prover: Arc<NetworkProver>,
+    program_config: Arc<ProgramConfig>,
+    agg_proof_strategy: FulfillmentStrategy,
+    agg_proof_mode: SP1ProofMode,
+) -> Result<B256> {
+    network_prover
+        .prove(&program_config.agg_pk, &stdin)
+        .mode(agg_proof_mode)
+        .strategy(agg_proof_strategy)
+        .request_async()
+        .await
+}
+
+/// Generate a mock range proof.
+///
+/// Writes the execution statistics to the database.
+async fn request_mock_range_proof(
+    request: &OPSuccinctRequest,
+    stdin: SP1Stdin,
+    network_prover: Arc<NetworkProver>,
+    program_config: Arc<ProgramConfig>,
+    db_client: Arc<DriverDBClient>,
+) -> Result<SP1ProofWithPublicValues> {
+    let span = tracing::debug_span!("request_mock_range_proof");
+    let _enter = span.enter();
+
+    let start_time = Instant::now();
+    let (pv, report) = network_prover.execute(RANGE_ELF, &stdin).run()?;
+    let execution_duration = start_time.elapsed().as_secs();
+
+    let execution_statistics = RequestExecutionStatistics::new(report);
+
+    // Write the execution data to the database.
+    db_client
+        .insert_execution_statistics(
+            request.id,
+            serde_json::to_value(execution_statistics)?,
+            execution_duration as i64,
+        )
+        .await?;
+
+    Ok(SP1ProofWithPublicValues::create_mock_proof(
+        &program_config.range_pk,
+        pv.clone(),
+        SP1ProofMode::Compressed,
+        SP1_CIRCUIT_VERSION,
+    ))
+}
+
+/// Generate a mock aggregation proof.
+///
+/// TODO: Add execution statistics.
+async fn request_mock_agg_proof(
+    stdin: SP1Stdin,
+    program_config: Arc<ProgramConfig>,
+    agg_proof_mode: SP1ProofMode,
+) -> Result<SP1ProofWithPublicValues> {
+    let span = tracing::debug_span!("request_mock_agg_proof");
+    let _enter = span.enter();
+
+    // Note(ratan): In a future version of the server which only supports mock proofs, Arc<MockProver> should be used to reduce memory usage.
+    let prover = ProverClient::builder().mock().build();
+
+    // TODO: In the future, add statistics for aggregation proof execution.
+    prover
+        .prove(&program_config.agg_pk, &stdin)
+        .mode(agg_proof_mode)
+        .deferred_proof_verification(false)
+        .run()
+}
+
+/// Handle an unfulfillable proof request.
+pub async fn handle_unfulfillable_request(
+    db_client: Arc<DriverDBClient>,
+    program_config: Arc<ProgramConfig>,
+    request: OPSuccinctRequest,
+    execution_status: ExecutionStatus,
+) -> Result<()> {
+    // If the proof request is unfulfillable, check if the request is a range proof and if the execution status is unexecutable.
+    // If so, split the request into two requests.
+    // Otherwise, retry the same request.
+    tracing::warn!("Request is unfulfillable: {:?}", request);
+
+    // Set the existing request to status Failed.
+    db_client
+        .update_request_status(request.id, RequestStatus::Failed)
+        .await?;
+
+    if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
+        let failed_requests = db_client
+            .fetch_failed_requests_by_block_range(
+                request.start_block,
+                request.end_block,
+                &program_config.commitments,
+            )
+            .await?;
+
+        if failed_requests.len() > 1 || execution_status == ExecutionStatus::Unexecutable {
+            tracing::info!("Splitting request into two: {:?}", request);
+            // Add the two new requests to the database.
+            let new_requests = vec![
+                OPSuccinctRequest {
+                    status: RequestStatus::Unrequested,
+                    req_type: RequestType::Range,
+                    mode: request.mode,
+                    start_block: request.start_block,
+                    end_block: (request.start_block + request.end_block) / 2,
+                    range_vkey_commitment: program_config.commitments.range_vkey_commitment.into(),
+                    rollup_config_hash: program_config.commitments.rollup_config_hash.into(),
+                    ..Default::default()
+                },
+                OPSuccinctRequest {
+                    status: RequestStatus::Unrequested,
+                    req_type: RequestType::Range,
+                    mode: request.mode,
+                    start_block: (request.start_block + request.end_block) / 2,
+                    end_block: request.end_block,
+                    range_vkey_commitment: program_config.commitments.range_vkey_commitment.into(),
+                    rollup_config_hash: program_config.commitments.rollup_config_hash.into(),
+                    ..Default::default()
+                },
+            ];
+
+            db_client.insert_requests(&new_requests).await?;
+
+            // Return early, as the request has been split into two new requests.
+            return Ok(());
+        }
+    }
+
+    // If the logic to split into two requests has not been triggered, retry the same request.
+    db_client
+        .insert_request(&OPSuccinctRequest {
+            status: RequestStatus::Unrequested,
+            req_type: request.req_type,
+            created_at: Local::now().naive_local(),
+            updated_at: Local::now().naive_local(),
+            mode: request.mode,
+            start_block: request.start_block,
+            end_block: request.end_block,
+            range_vkey_commitment: request.range_vkey_commitment,
+            aggregation_vkey_hash: request.aggregation_vkey_hash,
+            checkpointed_l1_block_hash: request.checkpointed_l1_block_hash,
+            checkpointed_l1_block_number: request.checkpointed_l1_block_number,
+            ..Default::default()
+        })
+        .await?;
+
+    Ok(())
+}
+
+async fn make_proof_request(
+    request: OPSuccinctRequest,
+    network_prover: Arc<NetworkProver>,
+    fetcher: Arc<OPSuccinctDataFetcher>,
+    db_client: Arc<DriverDBClient>,
+    program_config: Arc<ProgramConfig>,
+    mock: bool,
+    range_proof_strategy: FulfillmentStrategy,
+    agg_proof_strategy: FulfillmentStrategy,
+    agg_proof_mode: SP1ProofMode,
+) -> Result<()> {
+    let span = tracing::debug_span!("make_proof_request");
+    let _enter = span.enter();
+
+    // For mock and range proofs, set the status to WITNESSGEN.
+    db_client
+        .update_request_status(request.id, RequestStatus::WitnessGeneration)
+        .await?;
+
+    // Get the stdin for the proof.
+    // TODO: Turn this into a separate stage. NOTE: Never store the stdin in the DB, as it's quite large.
+    let stdin = match request.req_type {
+        RequestType::Range => range_proof_witnessgen(&request, fetcher).await?,
+        RequestType::Aggregation => {
+            // Query the database for the consecutive range proofs.
+            let range_proofs = db_client
+                .get_consecutive_range_proofs(
+                    request.start_block,
+                    request.end_block,
+                    &program_config.commitments,
+                )
+                .await?;
+
+            // Parse the range proofs into SP1ProofWithPublicValues.
+            let range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs
+                .iter()
+                .map(|proof| bincode::deserialize(proof.proof.as_ref().unwrap()).unwrap())
+                .collect();
+
+            // Generate the witness for the aggregation proof.
+            agg_proof_witnessgen(&request, range_proofs, fetcher, program_config.clone()).await?
+        }
+    };
+
+    // If mock mode, set status to EXECUTE. For real mode, only set to PROVE after the request is sent.
+    if mock {
+        // Set the status to EXECUTE.
+        db_client
+            .update_request_status(request.id, RequestStatus::Execution)
+            .await?;
+    }
+
+    if request.req_type == RequestType::Range {
+        if mock {
+            let proof = match request_mock_range_proof(
+                &request,
+                stdin,
+                network_prover,
+                program_config.clone(),
+                db_client.clone(),
+            )
+            .await
+            {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::error!("Failed to generate mock range proof: {}", e);
+                    handle_unfulfillable_request(
+                        db_client.clone(),
+                        program_config.clone(),
+                        request,
+                        ExecutionStatus::UnspecifiedExecutionStatus,
+                    )
+                    .await?;
+                    return Ok(());
+                }
+            };
+
+            // For mock range proofs, the proof bytes are the bincode serialized proof.
+            let proof_bytes = bincode::serialize(&proof).unwrap();
+            db_client
+                .update_proof_to_complete(request.id, &proof_bytes)
+                .await?;
+        } else {
+            // Request the range proof.
+            let proof_id =
+                request_range_proof(stdin, network_prover, program_config, range_proof_strategy)
+                    .await?;
+
+            // Update the request with the proof ID.
+            db_client
+                .update_request_to_prove(request.id, proof_id.into())
+                .await?;
+        }
+    } else if request.req_type == RequestType::Aggregation {
+        if mock {
+            // Generate the mock aggregation proof.
+            let proof =
+                match request_mock_agg_proof(stdin, program_config.clone(), agg_proof_mode).await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        tracing::error!("Failed to generate mock aggregation proof: {}", e);
+                        handle_unfulfillable_request(
+                            db_client.clone(),
+                            program_config.clone(),
+                            request,
+                            ExecutionStatus::UnspecifiedExecutionStatus,
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+                };
+
+            // For mock aggregation proofs, the proof bytes are on-chain encoded proof bytes.
+            db_client
+                .update_proof_to_complete(request.id, &proof.bytes())
+                .await?;
+        } else {
+            // Request the aggregation proof.
+            let proof_id = request_agg_proof(
+                stdin,
+                network_prover,
+                program_config,
+                agg_proof_strategy,
+                agg_proof_mode,
+            )
+            .await?;
+
+            // Update the request with the proof ID.
+            db_client
+                .update_request_to_prove(request.id, proof_id.into())
+                .await?;
+        }
+    }
+
+    Ok(())
 }
