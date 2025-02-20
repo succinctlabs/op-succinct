@@ -100,7 +100,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     Duration maxProveDuration = Duration.wrap(3 days);
     Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
 
-    // We will use these for the child game creation.
+    // Child game creation parameters.
     uint256 l2BlockNumber = 2000;
     uint32 parentIndex = 0;
 
@@ -165,7 +165,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             accessManager
         );
 
-        // Set the init bond on the factory for our specific GameType.
+        // Set the init bond on the factory for the OPSuccinctFDG specific GameType.
         factory.setInitBond(gameType, 1 ether);
 
         // Register our reference implementation under the specified gameType.

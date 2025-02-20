@@ -46,7 +46,7 @@ import {AccessManager} from "src/fp/AccessManager.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
-contract OPSuccinctFaultDisputeGame is Clone, ISemver {
+contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
     ////////////////////////////////////////////////////////////////
     //                         Enums                              //
     ////////////////////////////////////////////////////////////////
@@ -89,10 +89,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver {
     /// @notice Emitted when the game is proved.
     /// @param prover The address of the prover.
     event Proved(address indexed prover);
-
-    /// @notice Emitted when the game is resolved.
-    /// @param status The status of the game after resolution.
-    event Resolved(GameStatus indexed status);
 
     /// @notice Emitted when the game is closed.
     event GameClosed(BondDistributionMode bondDistributionMode);
