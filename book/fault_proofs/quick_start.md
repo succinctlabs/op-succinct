@@ -71,6 +71,8 @@ Save the output addresses, particularly the `FACTORY_ADDRESS` output as "Factory
     ```env
     FAST_FINALITY_MODE=true
     NETWORK_PRIVATE_KEY=0x...
+    L1_BEACON_RPC=<L1_BEACON_RPC_URL>
+    L2_NODE_RPC=<L2_NODE_RPC_URL>
     ```
 
 To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
