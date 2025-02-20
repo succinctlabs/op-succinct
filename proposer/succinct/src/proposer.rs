@@ -43,14 +43,19 @@ where
     pub l2oo_contract: OPSuccinctL2OOContract<(), P, N>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CommitmentConfig {
+    pub range_vkey_commitment: B256,
+    pub agg_vkey_hash: B256,
+    pub rollup_config_hash: B256,
+}
+
 pub struct ProgramConfig {
     pub range_vk: SP1VerifyingKey,
     pub range_pk: SP1ProvingKey,
     pub agg_vk: SP1VerifyingKey,
     pub agg_pk: SP1ProvingKey,
-    pub agg_vkey_hash: B256,
-    pub range_vkey_commitment: B256,
-    pub rollup_config_hash: B256,
+    pub commitments: CommitmentConfig,
 }
 
 pub struct RequesterConfig {
@@ -196,9 +201,11 @@ where
                 range_pk,
                 agg_vk,
                 agg_pk,
-                agg_vkey_hash,
-                range_vkey_commitment,
-                rollup_config_hash,
+                commitments: CommitmentConfig {
+                    range_vkey_commitment,
+                    agg_vkey_hash,
+                    rollup_config_hash,
+                },
             },
             requester_config: RequesterConfig {
                 l2oo_address,
@@ -243,7 +250,8 @@ where
                 },
                 start_block: current_block as i64,
                 end_block: end_block as i64,
-                range_vkey_commitment: self.program_config.range_vkey_commitment.into(),
+                range_vkey_commitment: self.program_config.commitments.range_vkey_commitment.into(),
+                rollup_config_hash: self.program_config.commitments.rollup_config_hash.into(),
                 ..Default::default()
             };
 
@@ -267,7 +275,7 @@ where
         let prove_requests = self
             .driver_config
             .driver_db_client
-            .fetch_requests_by_status(RequestStatus::Prove)
+            .fetch_requests_by_status(RequestStatus::Prove, &self.program_config.commitments)
             .await?;
 
         // Get the proof status of all of the requests in parallel.
@@ -335,7 +343,7 @@ where
         // Set the existing request to status FAILED_RETRYABLE.
         self.driver_config
             .driver_db_client
-            .update_request_status(request.id, RequestStatus::FailedRetryable)
+            .update_request_status(request.id, RequestStatus::Failed)
             .await?;
 
         if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
@@ -345,7 +353,7 @@ where
                 .fetch_failed_requests_by_block_range(
                     request.start_block,
                     request.end_block,
-                    request.range_vkey_commitment,
+                    &self.program_config.commitments,
                 )
                 .await?;
 
@@ -359,7 +367,16 @@ where
                         mode: request.mode,
                         start_block: request.start_block,
                         end_block: (request.start_block + request.end_block) / 2,
-                        range_vkey_commitment: request.range_vkey_commitment,
+                        range_vkey_commitment: self
+                            .program_config
+                            .commitments
+                            .range_vkey_commitment
+                            .into(),
+                        rollup_config_hash: self
+                            .program_config
+                            .commitments
+                            .rollup_config_hash
+                            .into(),
                         ..Default::default()
                     },
                     OPSuccinctRequest {
@@ -368,7 +385,16 @@ where
                         mode: request.mode,
                         start_block: (request.start_block + request.end_block) / 2,
                         end_block: request.end_block,
-                        range_vkey_commitment: request.range_vkey_commitment,
+                        range_vkey_commitment: self
+                            .program_config
+                            .commitments
+                            .range_vkey_commitment
+                            .into(),
+                        rollup_config_hash: self
+                            .program_config
+                            .commitments
+                            .rollup_config_hash
+                            .into(),
                         ..Default::default()
                     },
                 ];
@@ -425,13 +451,12 @@ where
             .driver_db_client
             .fetch_active_agg_proofs(
                 latest_proposed_block_number as i64,
-                self.program_config.range_vkey_commitment.into(),
-                self.program_config.agg_vkey_hash.into(),
+                &self.program_config.commitments,
             )
             .await?;
 
         if agg_proofs.len() > 0 {
-            log::info!("There is already an AGG proof in progress with the same start block, range vkey commitment, and aggregation vkey.");
+            log::info!("There is already an AGG proof queued with the same start block, range vkey commitment, and aggregation vkey.");
             return Ok(());
         }
 
@@ -448,7 +473,7 @@ where
             .driver_config
             .driver_db_client
             .fetch_completed_range_proofs(
-                self.program_config.range_vkey_commitment.into(),
+                &self.program_config.commitments,
                 latest_proposed_block_number as i64,
             )
             .await?;
@@ -495,8 +520,19 @@ where
                         mode: last_request.mode,
                         start_block: latest_proposed_block_number as i64,
                         end_block: last_request.end_block,
-                        range_vkey_commitment: self.program_config.range_vkey_commitment.into(),
-                        aggregation_vkey: Some(self.program_config.agg_vkey_hash.into()),
+                        range_vkey_commitment: self
+                            .program_config
+                            .commitments
+                            .range_vkey_commitment
+                            .into(),
+                        rollup_config_hash: self
+                            .program_config
+                            .commitments
+                            .rollup_config_hash
+                            .into(),
+                        aggregation_vkey: Some(
+                            self.program_config.commitments.agg_vkey_hash.into(),
+                        ),
                         checkpointed_l1_block_hash: Some(latest_header.hash_slow().into()),
                         checkpointed_l1_block_number: Some(latest_header.number as i64),
                         ..Default::default()
@@ -517,11 +553,14 @@ where
         let requests = self
             .driver_config
             .driver_db_client
-            .fetch_requests_by_statuses(&[
-                RequestStatus::WitnessGeneration,
-                RequestStatus::Execution,
-                RequestStatus::Prove,
-            ])
+            .fetch_requests_by_statuses(
+                &[
+                    RequestStatus::WitnessGeneration,
+                    RequestStatus::Execution,
+                    RequestStatus::Prove,
+                ],
+                &self.program_config.commitments,
+            )
             .await?;
 
         // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WITNESSGEN, EXECUTE, and PROVE status, return.
@@ -551,7 +590,7 @@ where
                         .get_consecutive_range_proofs(
                             request.start_block,
                             request.end_block,
-                            request.range_vkey_commitment,
+                            &self.program_config.commitments,
                         )
                         .await?;
 
@@ -636,8 +675,7 @@ where
             .driver_db_client
             .fetch_unrequested_agg_proofs(
                 latest_proposed_block_number as i64,
-                self.program_config.range_vkey_commitment.into(),
-                self.program_config.agg_vkey_hash.into(),
+                &self.program_config.commitments,
             )
             .await?;
 
@@ -650,7 +688,7 @@ where
             .driver_db_client
             .fetch_unrequested_range_proofs(
                 latest_proposed_block_number as i64,
-                self.program_config.range_vkey_commitment.into(),
+                &self.program_config.commitments,
             )
             .await?;
 
@@ -844,11 +882,11 @@ where
             .driver_db_client
             .fetch_completed_aggregation_proofs(
                 latest_proposed_block_number as i64,
-                self.program_config.agg_vkey_hash.into(),
-                self.program_config.range_vkey_commitment.into(),
+                &self.program_config.commitments,
             )
             .await?;
 
+        // If there are no completed aggregation proofs, do nothing.
         if completed_agg_proofs.len() == 0 {
             return Ok(());
         }
@@ -893,27 +931,44 @@ where
         Ok(())
     }
 
-    pub async fn start(&self) -> Result<()> {
-        // Add new ranges to the database.
-        self.add_new_ranges().await?;
-
-        // Get all proof statuses of all requests in the proving state.
-        self.handle_proving_requests().await?;
-
-        // Get all proof statuses of all requests in the witness generation state.
-        // TODO: Decide whether to implement this. Currently, all it does in go proposer is a timeout check.
-
-        // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
-        // in advance.
-        self.create_aggregation_proofs().await?;
-
-        // Request all unrequested proofs from the prover network.
-        self.request_queued_proofs().await?;
-
-        // Determine if any aggregation proofs that are complete need to be checkpointed.
-        self.submit_agg_proofs().await?;
-
+    /// Update the DB state if the proposer is being re-started.
+    ///
+    /// 1. If any of range vkey, agg vkey or rollup config hash has changed, set all proofs that are not RELAYED or COMPLETED to CANCELLED.
+    /// 2. If all the same, keep all proofs in UNREQUESTED and PROVE proofs. Retry all WITNESSGEN and EXECUTION proofs.
+    async fn initialize_proposer(&self) -> Result<()> {
+        // TODO: Implement this.
         Ok(())
+    }
+
+    pub async fn start(&self) -> Result<()> {
+        // Handle the case where the proposer is being re-started and the proposer state needs to be updated.
+        self.initialize_proposer().await?;
+
+        // Main proposer loop.
+        const PROPOSER_LOOP_INTERVAL: u64 = 60;
+        loop {
+            // Add new ranges to the database.
+            self.add_new_ranges().await?;
+
+            // Get all proof statuses of all requests in the proving state.
+            self.handle_proving_requests().await?;
+
+            // Get all proof statuses of all requests in the witness generation state.
+            // TODO: Decide whether to implement this. Currently, all it does in go proposer is a timeout check.
+
+            // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
+            // in advance.
+            self.create_aggregation_proofs().await?;
+
+            // Request all unrequested proofs from the prover network.
+            self.request_queued_proofs().await?;
+
+            // Determine if any aggregation proofs that are complete need to be checkpointed.
+            self.submit_agg_proofs().await?;
+
+            // Sleep for the proposer loop interval.
+            tokio::time::sleep(Duration::from_secs(PROPOSER_LOOP_INTERVAL)).await;
+        }
     }
 
     pub async fn stop(&self) -> Result<()> {

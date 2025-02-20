@@ -52,6 +52,8 @@ async fn main() -> Result<()> {
         .on_ws(WsConnect::new(l2_rpc))
         .await?;
 
+    // TODO: Set up proposer metrics.
+
     // Create the ETH listener.
     let eth_listener = EthListener::new(db_client.clone(), Arc::new(l2_provider));
 
@@ -73,7 +75,7 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    // Wait for both tasks to complete
+    // Wait for both tasks to complete.
     tokio::select! {
         res = eth_handle => {
             if let Err(e) = res {

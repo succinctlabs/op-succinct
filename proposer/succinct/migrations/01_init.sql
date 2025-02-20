@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS requests (
     prove_duration BIGINT,
     range_vkey_commitment BYTEA NOT NULL,
     aggregation_vkey BYTEA,
+    rollup_config_hash BYTEA NOT NULL,
     relay_tx_hash BYTEA,
     proof BYTEA
 );
@@ -30,4 +31,7 @@ CREATE TABLE IF NOT EXISTS eth_metrics (
     eth_gas_used NUMERIC(38,0) NOT NULL,
     l1_fees NUMERIC(38,0) NOT NULL,
     tx_fees NUMERIC(38,0) NOT NULL
-); 
+);
+
+-- Create composite index on requests table
+CREATE INDEX idx_requests_vkey_config_agg ON requests (range_vkey_commitment, rollup_config_hash, aggregation_vkey); 
