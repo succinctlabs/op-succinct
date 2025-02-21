@@ -64,6 +64,7 @@ impl OPSuccinctProofRequester {
             .get_host_args(
                 request.start_block as u64,
                 request.end_block as u64,
+                None,
                 ProgramType::Multi,
                 CacheMode::DeleteCache,
             )

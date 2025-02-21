@@ -1,21 +1,32 @@
-use alloy_primitives::Address;
-use sp1_sdk::network::FulfillmentStrategy;
-use std::{env, sync::Arc, time::Duration};
+use std::{env, sync::Arc};
 use tracing::info;
 
 use alloy_provider::{network::EthereumWallet, ProviderBuilder, WsConnect};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_proposer::{read_env, DriverDBClient, OPChainMetricer, Proposer, RequesterConfig};
+use op_succinct_proposer::{read_env, OPChainMetricer, Proposer};
 
 use tikv_jemallocator::Jemalloc;
 
 #[global_allocator]
 static ALLOCATOR: Jemalloc = Jemalloc;
 
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to environment file
+    #[arg(long, default_value = ".env")]
+    env_file: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv::dotenv().ok();
+    let args = Args::parse();
+
+    dotenv::from_filename(args.env_file).ok();
+
     // Set up logging using the provided format
     let format = tracing_subscriber::fmt::format()
         .with_level(true)
