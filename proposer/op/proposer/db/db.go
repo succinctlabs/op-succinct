@@ -465,7 +465,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 	}
 
 	// Create a new AGG proof request
-	err = db.NewEntryWithL1BlockInfo("AGG", from, maxContigousEnd, l1BlockNumber, l1BlockHash)
+	err = db.NewEntryWithL1BlockInfo(proofrequest.TypeAGG, from, maxContigousEnd, l1BlockNumber, l1BlockHash)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to insert AGG proof request: %w", err)
 	}
