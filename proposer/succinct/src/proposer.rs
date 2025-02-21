@@ -738,30 +738,57 @@ where
         Ok(())
     }
 
-    /// Update the DB state if the proposer is being re-started. Cancel all proofs that are not RELAYED.
-    ///
-    /// TODO: Don't cancel proofs that are in PROVE status with same request mode and commitment config.
-    #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
-    async fn initialize_proposer(&self) -> Result<()> {
+    /// Validate the requester config matches the contract.
+    async fn validate_contract_config(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         let contract_rollup_config_hash = self
             .contract_config
             .l2oo_contract
             .rollupConfigHash()
             .call()
-            .await?;
+            .await?
+            .rollupConfigHash;
         let contract_agg_vkey_hash = self
             .contract_config
             .l2oo_contract
             .aggregationVkey()
             .call()
-            .await?;
+            .await?
+            .aggregationVkey;
         let contract_range_vkey_commitment = self
             .contract_config
             .l2oo_contract
             .rangeVkeyCommitment()
             .call()
-            .await?;
+            .await?
+            .rangeVkeyCommitment;
+
+        let rollup_config_hash_match =
+            contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;
+        let agg_vkey_hash_match =
+            contract_agg_vkey_hash == self.program_config.commitments.agg_vkey_hash;
+        let range_vkey_commitment_match =
+            contract_range_vkey_commitment == self.program_config.commitments.range_vkey_commitment;
+
+        if !rollup_config_hash_match || !agg_vkey_hash_match || !range_vkey_commitment_match {
+            tracing::error!(
+                rollup_config_hash_match = rollup_config_hash_match,
+                agg_vkey_hash_match = agg_vkey_hash_match,
+                range_vkey_commitment_match = range_vkey_commitment_match,
+                "Config mismatches detected."
+            );
+            return Err(anyhow::anyhow!("Config mismatches detected."));
+        }
+
+        Ok(())
+    }
+    /// Update the DB state if the proposer is being re-started. Cancel all proofs that are not RELAYED.
+    ///
+    /// TODO: Don't cancel proofs that are in PROVE status with same request mode and commitment config.
+    #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
+    async fn initialize_proposer(&self) -> Result<()> {
+        // Validate the requester config matches the contract.
+        self.validate_contract_config().await?;
 
         // Cancel all old requests.
         self.driver_config
@@ -859,6 +886,9 @@ where
         // Loop interval in seconds.
         const PROPOSER_LOOP_INTERVAL: u64 = 60;
         loop {
+            // Validate the requester config matches the contract.
+            self.validate_contract_config().await?;
+
             // Log the proposer metrics.
             self.log_proposer_metrics().await?;
 
