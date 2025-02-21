@@ -91,7 +91,7 @@ Then run the following command to get the Rollup Config Hash:
 cargo run --bin fetch-rollup-config-hash
 ```
 
-You can get the Aggregation VKEY, and Range VKEY Commitment by running the following command:
+You can get the aggregation program verification key, and range program verification key commitment by running the following command:
 
 ```bash
 cargo run --bin vkey --release
