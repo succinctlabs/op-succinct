@@ -1,7 +1,7 @@
--- Add chain_id and contract_address columns to requests table
+-- Add chain_id and contract_address columns to requests table. Has default values for Phala (only chain in the table when migrating).
 ALTER TABLE requests
-ADD COLUMN l1_chain_id BIGINT NOT NULL,
-ADD COLUMN l2_chain_id BIGINT NOT NULL,
+ADD COLUMN l1_chain_id BIGINT NOT NULL DEFAULT 1,
+ADD COLUMN l2_chain_id BIGINT NOT NULL DEFAULT 2035,
 ADD COLUMN contract_address BYTEA;
 
 -- Create index on chain_id for faster lookups
