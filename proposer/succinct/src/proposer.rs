@@ -4,7 +4,7 @@ use alloy_provider::{network::ReceiptResponse, Network, Provider};
 use anyhow::Result;
 use chrono::Local;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
+use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -49,6 +49,8 @@ pub struct ProgramConfig {
 }
 
 pub struct RequesterConfig {
+    pub l1_chain_id: i64,
+    pub l2_chain_id: i64,
     pub l2oo_address: Address,
     pub dgf_address: Address,
     pub range_proof_interval: u64,
@@ -102,6 +104,7 @@ where
     pub async fn new(
         provider: P,
         db_client: Arc<DriverDBClient>,
+        fetcher: Arc<OPSuccinctDataFetcher>,
         config: RequesterConfig,
     ) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
@@ -112,7 +115,6 @@ where
         let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
 
         // Initialize fetcher
-        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
         let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
 
         // Use config values instead of env vars
@@ -145,7 +147,7 @@ where
         // Initialize the proof requester.
         let proof_requester = Arc::new(OPSuccinctProofRequester::new(
             network_prover.clone(),
-            Arc::new(fetcher.clone()),
+            fetcher.clone(),
             db_client.clone(),
             program_config.clone(),
             mock,
@@ -154,7 +156,8 @@ where
             agg_proof_mode,
         ));
 
-        let fetcher = Arc::new(fetcher);
+        let l1_chain_id = fetcher.l1_provider.get_chain_id().await?;
+        let l2_chain_id = fetcher.l2_provider.get_chain_id().await?;
 
         let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
 
@@ -185,6 +188,8 @@ where
                 agg_proof_mode,
                 max_concurrent_witness_gen,
                 max_concurrent_proof_requests,
+                l1_chain_id: l1_chain_id as i64,
+                l2_chain_id: l2_chain_id as i64,
                 mock,
             },
             proof_requester,
@@ -214,6 +219,8 @@ where
                     RequestStatus::Prove,
                 ],
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -266,6 +273,8 @@ where
                 self.program_config.commitments.range_vkey_commitment.into(),
                 self.program_config.commitments.rollup_config_hash.into(),
                 block_data,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             );
 
             requests.push(request);
@@ -290,7 +299,12 @@ where
         let prove_requests = self
             .driver_config
             .driver_db_client
-            .fetch_requests_by_status(RequestStatus::Prove, &self.program_config.commitments)
+            .fetch_requests_by_status(
+                RequestStatus::Prove,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
+            )
             .await?;
 
         debug!(
@@ -312,7 +326,7 @@ where
     /// Process a single OP Succinct request's proof status.
     #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
-        if let Some(proof_request_id) = request.proof_request_id {
+        if let Some(proof_request_id) = request.proof_request_id.as_ref() {
             let (status, proof) = self
                 .driver_config
                 .network_prover
@@ -346,7 +360,7 @@ where
                     .await?;
             } else if status.fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
                 self.proof_requester
-                    .retry_request(request, execution_status)
+                    .retry_request(&request, execution_status)
                     .await?;
             }
         } else {
@@ -379,6 +393,8 @@ where
             .fetch_active_agg_proofs(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -401,6 +417,8 @@ where
             .fetch_completed_range_proofs(
                 &self.program_config.commitments,
                 latest_proposed_block_number as i64,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -438,6 +456,8 @@ where
                         last_request.start_block,
                         last_request.end_block,
                         &self.program_config.commitments,
+                        self.requester_config.l1_chain_id as i64,
+                        self.requester_config.l2_chain_id as i64,
                     )
                     .await?;
 
@@ -485,7 +505,7 @@ where
                     tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
 
                     (
-                        latest_header.hash_slow().into(),
+                        latest_header.hash_slow().to_vec(),
                         latest_header.number as i64,
                     )
                 };
@@ -505,17 +525,19 @@ where
                             .program_config
                             .commitments
                             .range_vkey_commitment
-                            .into(),
+                            .to_vec(),
                         rollup_config_hash: self
                             .program_config
                             .commitments
                             .rollup_config_hash
-                            .into(),
+                            .to_vec(),
                         aggregation_vkey_hash: Some(
-                            self.program_config.commitments.agg_vkey_hash.into(),
+                            self.program_config.commitments.agg_vkey_hash.to_vec(),
                         ),
                         checkpointed_l1_block_hash: Some(checkpointed_l1_block_hash),
                         checkpointed_l1_block_number: Some(checkpointed_l1_block_number),
+                        l1_chain_id: self.requester_config.l1_chain_id,
+                        l2_chain_id: self.requester_config.l2_chain_id,
                         ..Default::default()
                     })
                     .await?;
@@ -541,6 +563,8 @@ where
                     RequestStatus::Prove,
                 ],
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -576,7 +600,7 @@ where
                     // If the proof request failed, retry it.
                     tracing::error!("Failed to make proof request: {}", e);
                     if let Err(e) = proof_requester
-                        .retry_request(request, ExecutionStatus::UnspecifiedExecutionStatus)
+                        .retry_request(&request, ExecutionStatus::UnspecifiedExecutionStatus)
                         .await
                     {
                         tracing::error!("Failed to retry proof request: {}", e);
@@ -605,6 +629,8 @@ where
             .fetch_unrequested_agg_proof(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -618,6 +644,8 @@ where
             .fetch_unrequested_range_proofs(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -664,6 +692,8 @@ where
             .fetch_completed_aggregation_proofs(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -710,7 +740,11 @@ where
         // Update the request to status RELAYED.
         self.driver_config
             .driver_db_client
-            .update_request_to_relayed(completed_agg_proof.id, receipt.transaction_hash().into())
+            .update_request_to_relayed(
+                completed_agg_proof.id,
+                receipt.transaction_hash().into(),
+                self.contract_config.l2oo_address.into(),
+            )
             .await?;
 
         Ok(())
@@ -724,13 +758,17 @@ where
         // Cancel all old requests.
         self.driver_config
             .driver_db_client
-            .delete_all_requests_with_statuses(&[
-                RequestStatus::Unrequested,
-                RequestStatus::Prove,
-                RequestStatus::Execution,
-                RequestStatus::WitnessGeneration,
-                RequestStatus::Complete,
-            ])
+            .delete_all_requests_with_statuses(
+                &[
+                    RequestStatus::Unrequested,
+                    RequestStatus::Prove,
+                    RequestStatus::Execution,
+                    RequestStatus::WitnessGeneration,
+                    RequestStatus::Complete,
+                ],
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
+            )
             .await?;
 
         Ok(())
@@ -752,6 +790,8 @@ where
             .fetch_completed_range_proofs(
                 &self.program_config.commitments,
                 latest_proposed_block_number as i64,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 
@@ -775,6 +815,8 @@ where
                     RequestStatus::WitnessGeneration,
                 ],
                 &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
             )
             .await?;
 

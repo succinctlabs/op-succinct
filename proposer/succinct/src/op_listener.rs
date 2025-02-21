@@ -60,6 +60,7 @@ where
                     }
                 }
                 let metrics = EthMetrics {
+                    id: 0,
                     block_nb: header.number as i64,
                     nb_transactions,
                     eth_gas_used,

@@ -1,4 +1,5 @@
 use alloy_primitives::B256;
+use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use chrono::Local;
 use op_succinct_client_utils::boot::BootInfoStruct;
@@ -98,11 +99,12 @@ impl OPSuccinctProofRequester {
 
         let l1_head = request
             .checkpointed_l1_block_hash
+            .as_ref()
             .expect("Aggregation proof has no checkpointed block.");
 
         let headers = self
             .fetcher
-            .get_header_preimages(&boot_infos, l1_head.into())
+            .get_header_preimages(&boot_infos, B256::from_slice(&l1_head))
             .await?;
 
         let stdin = get_agg_proof_stdin(
@@ -110,7 +112,7 @@ impl OPSuccinctProofRequester {
             boot_infos,
             headers,
             &self.program_config.range_vk,
-            l1_head.into(),
+            B256::from_slice(&l1_head),
         )?;
 
         Ok(stdin)
@@ -190,7 +192,7 @@ impl OPSuccinctProofRequester {
     /// Handles a failed proof request by either splitting range requests or re-queuing the same one.
     pub async fn retry_request(
         &self,
-        request: OPSuccinctRequest,
+        request: &OPSuccinctRequest,
         execution_status: ExecutionStatus,
     ) -> Result<()> {
         info!("Retrying request: {:?}", request);
@@ -200,12 +202,17 @@ impl OPSuccinctProofRequester {
             .update_request_status(request.id, RequestStatus::Failed)
             .await?;
 
+        let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
+        let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
+
         if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
             let failed_requests = self
                 .db_client
                 .fetch_failed_requests_by_block_range(
                     request.start_block,
                     request.end_block,
+                    request.l1_chain_id as i64,
+                    request.l2_chain_id as i64,
                     &self.program_config.commitments,
                 )
                 .await?;
@@ -232,6 +239,8 @@ impl OPSuccinctProofRequester {
                         self.program_config.commitments.range_vkey_commitment.into(),
                         self.program_config.commitments.rollup_config_hash.into(),
                         block_data,
+                        l1_chain_id as i64,
+                        l2_chain_id as i64,
                     ),
                     OPSuccinctRequest::new(
                         RequestStatus::Unrequested,
@@ -242,6 +251,8 @@ impl OPSuccinctProofRequester {
                         self.program_config.commitments.range_vkey_commitment.into(),
                         self.program_config.commitments.rollup_config_hash.into(),
                         block_data_2,
+                        l1_chain_id as i64,
+                        l2_chain_id as i64,
                     ),
                 ];
 
@@ -301,6 +312,8 @@ impl OPSuccinctProofRequester {
                         request.start_block,
                         request.end_block,
                         &self.program_config.commitments,
+                        request.l1_chain_id as i64,
+                        request.l2_chain_id as i64,
                     )
                     .await?;
                 let range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs_raw
@@ -341,7 +354,7 @@ impl OPSuccinctProofRequester {
                         Err(e) => {
                             error!("Failed to generate mock range proof: {}", e);
                             self.retry_request(
-                                request,
+                                &request,
                                 ExecutionStatus::UnspecifiedExecutionStatus,
                             )
                             .await?;
@@ -366,7 +379,7 @@ impl OPSuccinctProofRequester {
                         Err(e) => {
                             error!("Failed to generate mock aggregation proof: {}", e);
                             self.retry_request(
-                                request,
+                                &request,
                                 ExecutionStatus::UnspecifiedExecutionStatus,
                             )
                             .await?;

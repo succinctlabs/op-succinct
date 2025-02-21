@@ -6,7 +6,10 @@ use sp1_sdk::network::FulfillmentStrategy;
 
 use crate::{DriverDBClient, RequesterConfig};
 
-pub async fn read_env() -> Result<(Arc<DriverDBClient>, RequesterConfig)> {
+pub async fn read_env(
+    l1_chain_id: i64,
+    l2_chain_id: i64,
+) -> Result<(Arc<DriverDBClient>, RequesterConfig)> {
     let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set");
     let db_client = Arc::new(DriverDBClient::new(&db_url).await?);
 
@@ -46,6 +49,8 @@ pub async fn read_env() -> Result<(Arc<DriverDBClient>, RequesterConfig)> {
         .expect("Invalid L2OO_ADDRESS");
 
     let requester_config = RequesterConfig {
+        l1_chain_id,
+        l2_chain_id,
         l2oo_address,
         dgf_address: Address::ZERO,
         range_proof_interval: env::var("RANGE_PROOF_INTERVAL")

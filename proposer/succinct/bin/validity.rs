@@ -1,7 +1,7 @@
+use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
 use std::{env, sync::Arc};
-use tracing::info;
 
-use alloy_provider::{network::EthereumWallet, ProviderBuilder, WsConnect};
+use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder, WsConnect};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_proposer::{read_env, OPChainMetricer, Proposer};
@@ -58,10 +58,14 @@ async fn main() -> Result<()> {
         .event_format(format)
         .init();
 
-    info!("Initializing DB client");
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
     // Read the environment variables.
-    let (db_client, proposer_config) = read_env().await?;
+    let (db_client, proposer_config) = read_env(
+        fetcher.l1_provider.get_chain_id().await? as i64,
+        fetcher.l2_provider.get_chain_id().await? as i64,
+    )
+    .await?;
 
     // Read all config from env vars
     let rpc_url = env::var("L1_RPC").expect("L1_RPC is not set");
@@ -74,16 +78,18 @@ async fn main() -> Result<()> {
         .wallet(signer.clone())
         .on_http(rpc_url.parse().expect("Failed to parse L1_RPC"));
 
-    let proposer = Proposer::new(l1_provider, db_client.clone(), proposer_config).await?;
-
-    info!("Initializing L2 provider");
+    let proposer = Proposer::new(
+        l1_provider,
+        db_client.clone(),
+        Arc::new(fetcher),
+        proposer_config,
+    )
+    .await?;
 
     let l2_ws_rpc = env::var("L2_WS_RPC").expect("L2_WS_RPC is not set");
     let l2_provider = alloy_provider::ProviderBuilder::default()
         .on_ws(WsConnect::new(l2_ws_rpc))
         .await?;
-
-    info!("Initializing ETH listener");
 
     // Create the OP chain metrics collector.
     let eth_listener = OPChainMetricer::new(db_client.clone(), Arc::new(l2_provider));
@@ -96,8 +102,6 @@ async fn main() -> Result<()> {
         }
         Ok(())
     });
-
-    info!("Initializing proposer");
 
     // Spawn a thread for the proposer.
     let proposer_handle = tokio::spawn(async move {
