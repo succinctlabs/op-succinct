@@ -743,6 +743,26 @@ where
     /// TODO: Don't cancel proofs that are in PROVE status with same request mode and commitment config.
     #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
     async fn initialize_proposer(&self) -> Result<()> {
+        // Validate the requester config matches the contract.
+        let contract_rollup_config_hash = self
+            .contract_config
+            .l2oo_contract
+            .rollupConfigHash()
+            .call()
+            .await?;
+        let contract_agg_vkey_hash = self
+            .contract_config
+            .l2oo_contract
+            .aggregationVkey()
+            .call()
+            .await?;
+        let contract_range_vkey_commitment = self
+            .contract_config
+            .l2oo_contract
+            .rangeVkeyCommitment()
+            .call()
+            .await?;
+
         // Cancel all old requests.
         self.driver_config
             .driver_db_client
