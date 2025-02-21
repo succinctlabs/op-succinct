@@ -2,7 +2,6 @@ use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
 use anyhow::Result;
-use chrono::Local;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use sp1_sdk::{
@@ -17,7 +16,7 @@ use std::{str::FromStr, sync::Arc, time::Duration};
 use tracing::{debug, info};
 
 use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
     get_latest_proposed_block_number, OPSuccinctProofRequester, AGG_ELF, RANGE_ELF,
 };
 
@@ -260,9 +259,7 @@ where
                 .get_l2_block_data_range(current_processed_block, end_block)
                 .await?;
 
-            let request = OPSuccinctRequest::new(
-                RequestStatus::Unrequested,
-                RequestType::Range,
+            let request = OPSuccinctRequest::new_range_request(
                 if self.requester_config.mock {
                     RequestMode::Mock
                 } else {
@@ -470,9 +467,11 @@ where
                 {
                     tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
                     (
-                        existing_request
-                            .checkpointed_l1_block_hash
-                            .expect("checkpointed_l1_block_hash is None"),
+                        B256::from_slice(
+                            &existing_request
+                                .checkpointed_l1_block_hash
+                                .expect("checkpointed_l1_block_hash is None"),
+                        ),
                         existing_request
                             .checkpointed_l1_block_number
                             .expect("checkpointed_l1_block_number is None"),
@@ -504,42 +503,24 @@ where
 
                     tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
 
-                    (
-                        latest_header.hash_slow().to_vec(),
-                        latest_header.number as i64,
-                    )
+                    (latest_header.hash_slow(), latest_header.number as i64)
                 };
 
                 // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
                 self.driver_config
                     .driver_db_client
-                    .insert_request(&OPSuccinctRequest {
-                        status: RequestStatus::Unrequested,
-                        req_type: RequestType::Aggregation,
-                        created_at: Local::now().naive_local(),
-                        updated_at: Local::now().naive_local(),
-                        mode: last_request.mode,
-                        start_block: latest_proposed_block_number as i64,
-                        end_block: last_request.end_block,
-                        range_vkey_commitment: self
-                            .program_config
-                            .commitments
-                            .range_vkey_commitment
-                            .to_vec(),
-                        rollup_config_hash: self
-                            .program_config
-                            .commitments
-                            .rollup_config_hash
-                            .to_vec(),
-                        aggregation_vkey_hash: Some(
-                            self.program_config.commitments.agg_vkey_hash.to_vec(),
-                        ),
-                        checkpointed_l1_block_hash: Some(checkpointed_l1_block_hash),
-                        checkpointed_l1_block_number: Some(checkpointed_l1_block_number),
-                        l1_chain_id: self.requester_config.l1_chain_id,
-                        l2_chain_id: self.requester_config.l2_chain_id,
-                        ..Default::default()
-                    })
+                    .insert_request(&OPSuccinctRequest::new_agg_request(
+                        last_request.mode,
+                        latest_proposed_block_number as i64,
+                        last_request.end_block,
+                        self.program_config.commitments.range_vkey_commitment,
+                        self.program_config.commitments.agg_vkey_hash,
+                        self.program_config.commitments.rollup_config_hash,
+                        self.requester_config.l1_chain_id as i64,
+                        self.requester_config.l2_chain_id as i64,
+                        checkpointed_l1_block_number,
+                        checkpointed_l1_block_hash,
+                    ))
                     .await?;
             }
         }

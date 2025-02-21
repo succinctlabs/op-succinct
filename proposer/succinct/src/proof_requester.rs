@@ -226,9 +226,7 @@ impl OPSuccinctProofRequester {
                     .get_l2_block_data_range(mid_block as u64, request.end_block as u64)
                     .await?;
                 let new_requests = vec![
-                    OPSuccinctRequest::new(
-                        RequestStatus::Unrequested,
-                        RequestType::Range,
+                    OPSuccinctRequest::new_range_request(
                         request.mode,
                         request.start_block,
                         mid_block,
@@ -238,9 +236,7 @@ impl OPSuccinctProofRequester {
                         l1_chain_id as i64,
                         l2_chain_id as i64,
                     ),
-                    OPSuccinctRequest::new(
-                        RequestStatus::Unrequested,
-                        RequestType::Range,
+                    OPSuccinctRequest::new_range_request(
                         request.mode,
                         mid_block,
                         request.end_block,

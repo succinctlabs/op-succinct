@@ -146,9 +146,8 @@ impl Debug for OPSuccinctRequest {
 }
 
 impl OPSuccinctRequest {
-    pub fn new(
-        status: RequestStatus,
-        req_type: RequestType,
+    /// Create a new range request.
+    pub fn new_range_request(
         mode: RequestMode,
         start_block: i64,
         end_block: i64,
@@ -165,36 +164,60 @@ impl OPSuccinctRequest {
         // Note: The transaction fees are a superset of the L1 fees.
         let total_l1_fees: u128 = block_data.iter().map(|b| b.total_l1_fees).sum();
         let total_tx_fees: u128 = block_data.iter().map(|b| b.total_tx_fees).sum();
-
+        
         Self {
             id: 0,
-            status,
-            req_type,
+            status: RequestStatus::Unrequested,
+            req_type: RequestType::Range,
             mode,
             start_block,
             end_block,
             created_at: now,
             updated_at: now,
-            proof_request_id: None,
-            proof_request_time: None,
-            checkpointed_l1_block_number: None,
-            checkpointed_l1_block_hash: None,
-            execution_statistics: serde_json::Value::Null,
-            witnessgen_duration: None,
-            execution_duration: None,
-            prove_duration: None,
             range_vkey_commitment: range_vkey_commitment.to_vec(),
-            aggregation_vkey_hash: None,
             rollup_config_hash: rollup_config_hash.to_vec(),
-            relay_tx_hash: None,
-            proof: None,
             total_nb_transactions: total_nb_transactions as i64,
             total_eth_gas_used: total_eth_gas_used as i64,
             total_l1_fees: total_l1_fees.into(),
             total_tx_fees: total_tx_fees.into(),
             l1_chain_id,
             l2_chain_id,
-            contract_address: None
+            ..Default::default()
+        }
+    }
+
+    /// Create a new aggregation request.
+    pub fn new_agg_request(
+        mode: RequestMode,
+        start_block: i64,
+        end_block: i64,
+        range_vkey_commitment: B256,
+        aggregation_vkey_hash: B256,
+        rollup_config_hash: B256,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+        checkpointed_l1_block_number: i64,
+        checkpointed_l1_block_hash: B256,
+    ) -> Self {
+        let now = Local::now().naive_local();
+
+        Self {
+            id: 0,
+            status: RequestStatus::Unrequested,
+            req_type: RequestType::Aggregation,
+            mode,
+            start_block,
+            end_block,
+            created_at: now,
+            updated_at: now,
+            checkpointed_l1_block_number: Some(checkpointed_l1_block_number),
+            checkpointed_l1_block_hash: Some(checkpointed_l1_block_hash.to_vec()),
+            range_vkey_commitment: range_vkey_commitment.to_vec(),
+            aggregation_vkey_hash: Some(aggregation_vkey_hash.to_vec()),
+            rollup_config_hash: rollup_config_hash.to_vec(),
+            l1_chain_id,
+            l2_chain_id,
+            ..Default::default()
         }
     }
 }
