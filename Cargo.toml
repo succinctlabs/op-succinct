@@ -67,6 +67,7 @@ alloy-provider = { version = "0.11.1", default-features = false }
 alloy-transport = { version = "0.11.1", default-features = false }
 alloy-transport-http = { version = "0.11.1", default-features = false }
 alloy-contract = { version = "0.11.1", default-features = false }
+alloy-network = { version = "0.11.1", default-features = false }
 
 # Alloy
 alloy-rlp = { version = "0.3.10", default-features = false }
