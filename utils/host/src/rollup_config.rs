@@ -61,6 +61,8 @@ pub(crate) struct ChainConfig {
     ecotone_time: u64,
     fjord_time: u64,
     terminal_total_difficulty: u64,
+    #[serde(default)]
+    terminal_total_difficulty_passed: bool,
     optimism: OptimismConfig,
 }
 

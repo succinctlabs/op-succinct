@@ -2,15 +2,15 @@
 pragma solidity ^0.8.15;
 
 import {Script} from "forge-std/Script.sol";
-import {OPSuccinctL2OutputOracle} from "../src/validity/OPSuccinctL2OutputOracle.sol";
-import {OPSuccinctDisputeGame} from "../src/validity/OPSuccinctDisputeGame.sol";
+import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
+import {OPSuccinctDisputeGame} from "../../src/validity/OPSuccinctDisputeGame.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
-import {Utils} from "../test/helpers/Utils.sol";
+import {Utils} from "../../test/helpers/Utils.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {GameType} from "src/dispute/lib/Types.sol";
-import {IDisputeGame} from "src/dispute/interfaces/IDisputeGame.sol";
+import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 
 contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
