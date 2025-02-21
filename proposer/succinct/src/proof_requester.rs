@@ -13,7 +13,7 @@ use sp1_sdk::{
     SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{debug_span, error, info};
+use tracing::{error, info};
 
 use crate::db::DriverDBClient;
 use crate::RANGE_ELF;
@@ -57,9 +57,6 @@ impl OPSuccinctProofRequester {
 
     /// Generates the witness for a range proof.
     pub async fn range_proof_witnessgen(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
-        let span = debug_span!("range_proof_witnessgen");
-        let _enter = span.enter();
-
         let host_args = self
             .fetcher
             .get_host_args(
@@ -84,9 +81,6 @@ impl OPSuccinctProofRequester {
         request: &OPSuccinctRequest,
         mut range_proofs: Vec<SP1ProofWithPublicValues>,
     ) -> Result<SP1Stdin> {
-        let span = debug_span!("agg_proof_witnessgen");
-        let _enter = span.enter();
-
         let boot_infos: Vec<BootInfoStruct> = range_proofs
             .iter_mut()
             .map(|proof| proof.public_values.read())
@@ -146,8 +140,13 @@ impl OPSuccinctProofRequester {
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
-        let span = debug_span!("request_mock_range_proof");
-        let _enter = span.enter();
+        info!(
+            request_id = request.id,
+            request_type = ?request.req_type,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            "Executing mock range proof"
+        );
 
         let start_time = Instant::now();
         let (pv, report) = self.network_prover.execute(RANGE_ELF, &stdin).run()?;
@@ -177,9 +176,6 @@ impl OPSuccinctProofRequester {
         &self,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
-        let span = debug_span!("request_mock_agg_proof");
-        let _enter = span.enter();
-
         let prover = ProverClient::builder().mock().build();
         // TODO: Potentially add execution statistics in the future.
         prover
@@ -285,7 +281,7 @@ impl OPSuccinctProofRequester {
 
     /// Makes a proof request by updating statuses, generating witnesses,
     /// and then either requesting or mocking the proof depending on configuration.
-    #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self))]
+    #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
     pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
         // Update status to WitnessGeneration.
         self.db_client
@@ -334,6 +330,8 @@ impl OPSuccinctProofRequester {
 
         info!(
             request_id = request.id,
+            start_block = request.start_block,
+            end_block = request.end_block,
             request_type = ?request.req_type,
             duration_s = duration.as_secs(),
             "Completed witness generation"

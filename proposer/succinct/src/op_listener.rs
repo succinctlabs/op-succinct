@@ -28,16 +28,11 @@ where
 
     #[tracing::instrument(name = "op_listener", skip(self))]
     pub async fn listen(&self) -> Result<()> {
-        let span = tracing::debug_span!("op_listener");
-        let _enter = span.enter();
-
         let sub = self.provider.subscribe_blocks().await?;
         tracing::info!("Listening for new blocks on L2.");
 
         let mut stream = sub.into_stream();
         while let Some(header) = stream.next().await {
-            let block_span = tracing::debug_span!("new_block", number = header.number);
-            let _block_enter = block_span.enter();
             let receipts = self
                 .provider
                 .get_block_receipts(header.number.into())

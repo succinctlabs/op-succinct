@@ -591,7 +591,14 @@ where
         let next_request = self.get_next_unrequested_proof().await?;
 
         if let Some(request) = next_request {
-            info!("Creating proof request for {:?}", request);
+            info!(
+                request_id = request.id,
+                request_type = ?request.req_type,
+                start_block = request.start_block,
+                end_block = request.end_block,
+                "Making proof request"
+            );
+
             let proof_requester = self.proof_requester.clone();
 
             // Spawn a task to handle the proof request lifecycle.
