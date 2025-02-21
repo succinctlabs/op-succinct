@@ -217,6 +217,8 @@ impl OPSuccinctProofRequester {
                     OPSuccinctRequest {
                         status: RequestStatus::Unrequested,
                         req_type: RequestType::Range,
+                        created_at: Local::now().naive_local(),
+                        updated_at: Local::now().naive_local(),
                         mode: request.mode,
                         start_block: request.start_block,
                         end_block: mid_block,
@@ -235,6 +237,8 @@ impl OPSuccinctProofRequester {
                     OPSuccinctRequest {
                         status: RequestStatus::Unrequested,
                         req_type: RequestType::Range,
+                        created_at: Local::now().naive_local(),
+                        updated_at: Local::now().naive_local(),
                         mode: request.mode,
                         start_block: mid_block,
                         end_block: request.end_block,

@@ -1,11 +1,12 @@
 use alloy_primitives::Address;
 use sp1_sdk::network::FulfillmentStrategy;
-use std::{env, sync::Arc};
+use std::{env, sync::Arc, time::Duration};
+use tracing::info;
 
 use alloy_provider::{network::EthereumWallet, ProviderBuilder, WsConnect};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_proposer::{DriverDBClient, OPChainMetricer, Proposer, RequesterConfig};
+use op_succinct_proposer::{read_env, DriverDBClient, OPChainMetricer, Proposer, RequesterConfig};
 
 use tikv_jemallocator::Jemalloc;
 
@@ -23,15 +24,13 @@ async fn main() -> Result<()> {
         .with_thread_names(false)
         .with_file(false)
         .with_line_number(false)
-        .with_ansi(true)
-        .with_target(true); // Shows the target of the log for silencing.
+        .with_ansi(true);
 
     // Turn off all logging from kona.
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
                 .add_directive(tracing::Level::INFO.into())
-                .add_directive("sqlx=off".parse().unwrap())
                 .add_directive("execute=error".parse().unwrap())
                 .add_directive("sp1_prover=error".parse().unwrap())
                 .add_directive("boot-loader=error".parse().unwrap())
@@ -48,6 +47,11 @@ async fn main() -> Result<()> {
         .event_format(format)
         .init();
 
+    info!("Initializing DB client");
+
+    // Read the environment variables.
+    let (db_client, proposer_config) = read_env().await?;
+
     // Read all config from env vars
     let rpc_url = env::var("L1_RPC").expect("L1_RPC is not set");
     let private_key: PrivateKeySigner = env::var("PRIVATE_KEY")
@@ -57,84 +61,20 @@ async fn main() -> Result<()> {
     let signer = EthereumWallet::new(private_key);
     let l1_provider = ProviderBuilder::new()
         .wallet(signer.clone())
-        .on_http(rpc_url.parse().expect("Failed to parse RPC URL"));
-
-    let db_url = env::var("DB_URL").expect("DB_URL is not set");
-    let db_client = Arc::new(DriverDBClient::new(&db_url).await?);
-
-    let range_proof_strategy = if env::var("RANGE_PROOF_STRATEGY")
-        .unwrap_or_else(|_| "reserved".to_string())
-        .to_lowercase()
-        == "hosted"
-    {
-        FulfillmentStrategy::Hosted
-    } else {
-        FulfillmentStrategy::Reserved
-    };
-
-    let agg_proof_strategy = if env::var("AGG_PROOF_STRATEGY")
-        .unwrap_or_else(|_| "reserved".to_string())
-        .to_lowercase()
-        == "hosted"
-    {
-        FulfillmentStrategy::Hosted
-    } else {
-        FulfillmentStrategy::Reserved
-    };
-
-    let agg_proof_mode = if env::var("AGG_PROOF_MODE")
-        .unwrap_or_else(|_| "groth16".to_string())
-        .to_lowercase()
-        == "plonk"
-    {
-        sp1_sdk::SP1ProofMode::Plonk
-    } else {
-        sp1_sdk::SP1ProofMode::Groth16
-    };
-
-    let l2oo_address = env::var("L2OO_ADDRESS")
-        .expect("L2OO_ADDRESS is not set")
-        .parse()
-        .expect("Invalid L2OO_ADDRESS");
-
-    let proposer_config = RequesterConfig {
-        l2oo_address,
-        dgf_address: Address::ZERO,
-        range_proof_interval: env::var("RANGE_PROOF_INTERVAL")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse()
-            .expect("Invalid RANGE_PROOF_INTERVAL"),
-        max_concurrent_witness_gen: env::var("MAX_CONCURRENT_WITNESS_GEN")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse()
-            .expect("Invalid MAX_CONCURRENT_WITNESS_GEN"),
-        max_concurrent_proof_requests: env::var("MAX_CONCURRENT_PROOF_REQUESTS")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse()
-            .expect("Invalid MAX_CONCURRENT_PROOF_REQUESTS"),
-        submission_interval: env::var("SUBMISSION_INTERVAL")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse()
-            .expect("Invalid SUBMISSION_INTERVAL"),
-        range_proof_strategy,
-        agg_proof_strategy,
-        agg_proof_mode,
-        mock: env::var("OP_SUCCINCT_MOCK")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse()
-            .expect("Invalid OP_SUCCINCT_MOCK"),
-    };
+        .on_http(rpc_url.parse().expect("Failed to parse L1_RPC"));
 
     let proposer = Proposer::new(l1_provider, db_client.clone(), proposer_config).await?;
+
+    info!("Initializing L2 provider");
 
     let l2_ws_rpc = env::var("L2_WS_RPC").expect("L2_WS_RPC is not set");
     let l2_provider = alloy_provider::ProviderBuilder::default()
         .on_ws(WsConnect::new(l2_ws_rpc))
         .await?;
 
-    // TODO: Set up proposer metrics.
+    info!("Initializing ETH listener");
 
-    // Create the OP Metrics collector.
+    // Create the OP chain metrics collector.
     let eth_listener = OPChainMetricer::new(db_client.clone(), Arc::new(l2_provider));
 
     // Spawn a thread for the ETH listener.
@@ -146,6 +86,8 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
+    info!("Initializing proposer");
+
     // Spawn a thread for the proposer.
     let proposer_handle = tokio::spawn(async move {
         if let Err(e) = proposer.run().await {
@@ -155,20 +97,26 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    // Wait for both tasks to complete.
-    tokio::select! {
-        res = eth_handle => {
-            if let Err(e) = res {
-                tracing::error!("ETH listener task failed: {}", e);
-                return Err(anyhow::anyhow!("ETH listener task failed: {}", e));
-            }
-        }
-        res = proposer_handle => {
-            if let Err(e) = res {
-                tracing::error!("Proposer task failed: {}", e);
-                return Err(anyhow::anyhow!("Proposer task failed: {}", e));
-            }
-        }
+    // // Spawn a thread for the metrics exporter.
+    // info!("Initializing metrics exporter");
+    // const METRICS_PORT: u16 = 7000;
+    // op_succinct_proposer::init_metrics(&METRICS_PORT);
+
+    // info!("Starting metrics update loop");
+
+    // const METRICS_UPDATE_INTERVAL: u64 = 1;
+    // let metrics_handle = tokio::spawn(async move {
+    //     loop {
+    //         op_succinct_proposer::update_cpu_and_memory();
+    //         tokio::time::sleep(Duration::from_secs(METRICS_UPDATE_INTERVAL)).await;
+    //     }
+    // });
+
+    // Wait for all tasks to complete.
+    let (eth_res, proposer_res) = tokio::try_join!(eth_handle, proposer_handle)?;
+    if let Err(e) = eth_res.or(proposer_res) {
+        tracing::error!("Proposer task failed: {}", e);
+        return Err(e);
     }
 
     Ok(())

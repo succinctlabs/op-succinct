@@ -27,7 +27,7 @@ sp1-sdk.workspace = true
 
 # alloy
 alloy-eips.workspace = true
-alloy-provider.workspace = true
+alloy-provider = { workspace = true }
 alloy-transport.workspace = true
 alloy-signer-local.workspace = true
 op-alloy-network.workspace = true
@@ -55,6 +55,10 @@ chrono = "0.4.39"
 futures-util = "0.3.31"
 clap.workspace = true
 tikv-jemallocator = "0.6.0"
+# metrics-exporter-prometheus = "0.16.2"
+# metrics-util = "0.19.0"
+# metrics = "0.24.1"
+# sysinfo = "0.33.1"
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true

@@ -250,6 +250,8 @@ where
             let request = OPSuccinctRequest {
                 status: RequestStatus::Unrequested,
                 req_type: RequestType::Range,
+                created_at: Local::now().naive_local(),
+                updated_at: Local::now().naive_local(),
                 mode: if self.requester_config.mock {
                     RequestMode::Mock
                 } else {
