@@ -1,6 +1,7 @@
 use alloy_primitives::B256;
 use anyhow::Result;
 use chrono::{Local, NaiveDateTime};
+use op_succinct_host_utils::fetcher::BlockInfo;
 use serde_json::Value;
 use sqlx::types::BigDecimal;
 use sqlx::Error;
@@ -66,6 +67,10 @@ pub struct OPSuccinctRequest {
     pub rollup_config_hash: [u8; 32],
     pub relay_tx_hash: Option<[u8; 32]>,
     pub proof: Option<Vec<u8>>,
+    pub total_nb_transactions: i64,
+    pub total_eth_gas_used: i64,
+    pub total_l1_fees: BigDecimal,
+    pub total_tx_fees: BigDecimal,
 }
 
 impl Debug for OPSuccinctRequest {
@@ -105,8 +110,16 @@ impl OPSuccinctRequest {
         end_block: i64,
         range_vkey_commitment: [u8; 32],
         rollup_config_hash: [u8; 32],
+        block_data: Vec<BlockInfo>,
     ) -> Self {
         let now = Local::now().naive_local();
+
+        let total_nb_transactions: u64 = block_data.iter().map(|b| b.transaction_count).sum();
+        let total_eth_gas_used: u64 = block_data.iter().map(|b| b.gas_used).sum();
+        // Note: The transaction fees are a superset of the L1 fees.
+        let total_l1_fees: u128 = block_data.iter().map(|b| b.total_l1_fees).sum();
+        let total_tx_fees: u128 = block_data.iter().map(|b| b.total_tx_fees).sum();
+
         Self {
             id: 0,
             status,
@@ -129,6 +142,10 @@ impl OPSuccinctRequest {
             rollup_config_hash,
             relay_tx_hash: None,
             proof: None,
+            total_nb_transactions: total_nb_transactions as i64,
+            total_eth_gas_used: total_eth_gas_used as i64,
+            total_l1_fees: total_l1_fees.into(),
+            total_tx_fees: total_tx_fees.into(),
         }
     }
 }
@@ -158,6 +175,7 @@ impl DriverDBClient {
         Ok(DriverDBClient { pool })
     }
 
+    // TODO: Add chain ID column.
     pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<PgQueryResult, Error> {
         sqlx::query(
             r#"
@@ -181,9 +199,13 @@ impl DriverDBClient {
                 aggregation_vkey_hash,
                 rollup_config_hash,
                 relay_tx_hash,
-                proof
+                proof,
+                total_nb_transactions,
+                total_eth_gas_used,
+                total_l1_fees,
+                total_tx_fees
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
             )
             "#,
         )
@@ -208,6 +230,10 @@ impl DriverDBClient {
         .bind(&req.rollup_config_hash[..])
         .bind(req.relay_tx_hash.as_ref())
         .bind(req.proof.as_ref())
+        .bind(req.total_nb_transactions)
+        .bind(req.total_eth_gas_used)
+        .bind(req.total_l1_fees.clone())
+        .bind(req.total_tx_fees.clone())
         .execute(&self.pool)
         .await
     }
@@ -617,8 +643,6 @@ impl DriverDBClient {
         .await
     }
 
-    /// Create a query which sets the status of all requests in Unrequested, Execute, WitnessGeneration, Prove to cancelled.
-    ///
     /// Cancel all requests with the given status
     pub async fn cancel_all_requests_with_statuses(
         &self,
@@ -627,6 +651,18 @@ impl DriverDBClient {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
         sqlx::query("UPDATE requests SET status = $1 WHERE status = ANY($2)")
             .bind(RequestStatus::Cancelled as i16)
+            .bind(&status_values[..])
+            .execute(&self.pool)
+            .await
+    }
+
+    /// Drop all requests with the given statuses
+    pub async fn delete_all_requests_with_statuses(
+        &self,
+        statuses: &[RequestStatus],
+    ) -> Result<PgQueryResult, Error> {
+        let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
+        sqlx::query("DELETE FROM requests WHERE status = ANY($1)")
             .bind(&status_values[..])
             .execute(&self.pool)
             .await
@@ -642,7 +678,7 @@ impl DriverDBClient {
                 status, req_type, mode, start_block, end_block, created_at, updated_at,
                 proof_request_id, proof_request_time, checkpointed_l1_block_number, checkpointed_l1_block_hash, execution_statistics,
                 witnessgen_duration, execution_duration, prove_duration, range_vkey_commitment,
-                aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof) ",
+                aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees) ",
         );
 
         query_builder.push_values(requests, |mut b, req| {
@@ -665,7 +701,11 @@ impl DriverDBClient {
                 .push_bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
                 .push_bind(&req.rollup_config_hash[..])
                 .push_bind(req.relay_tx_hash.as_ref())
-                .push_bind(req.proof.as_ref());
+                .push_bind(req.proof.as_ref())
+                .push_bind(req.total_nb_transactions)
+                .push_bind(req.total_eth_gas_used)
+                .push_bind(req.total_l1_fees.clone())
+                .push_bind(req.total_tx_fees.clone());
         });
 
         query_builder.build().execute(&self.pool).await

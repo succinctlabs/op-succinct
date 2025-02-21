@@ -247,22 +247,26 @@ where
                 latest_finalized_header.number,
             );
 
-            let request = OPSuccinctRequest {
-                status: RequestStatus::Unrequested,
-                req_type: RequestType::Range,
-                created_at: Local::now().naive_local(),
-                updated_at: Local::now().naive_local(),
-                mode: if self.requester_config.mock {
+            let block_data = self
+                .driver_config
+                .fetcher
+                .get_l2_block_data_range(current_processed_block, end_block)
+                .await?;
+
+            let request = OPSuccinctRequest::new(
+                RequestStatus::Unrequested,
+                RequestType::Range,
+                if self.requester_config.mock {
                     RequestMode::Mock
                 } else {
                     RequestMode::Real
                 },
-                start_block: current_processed_block as i64,
-                end_block: end_block as i64,
-                range_vkey_commitment: self.program_config.commitments.range_vkey_commitment.into(),
-                rollup_config_hash: self.program_config.commitments.rollup_config_hash.into(),
-                ..Default::default()
-            };
+                current_processed_block as i64,
+                end_block as i64,
+                self.program_config.commitments.range_vkey_commitment.into(),
+                self.program_config.commitments.rollup_config_hash.into(),
+                block_data,
+            );
 
             requests.push(request);
             current_processed_block = end_block;
@@ -720,7 +724,7 @@ where
         // Cancel all old requests.
         self.driver_config
             .driver_db_client
-            .cancel_all_requests_with_statuses(&[
+            .delete_all_requests_with_statuses(&[
                 RequestStatus::Unrequested,
                 RequestStatus::Prove,
                 RequestStatus::Execution,

@@ -22,7 +22,11 @@ CREATE TABLE IF NOT EXISTS requests (
     aggregation_vkey_hash BYTEA,
     rollup_config_hash BYTEA NOT NULL,
     relay_tx_hash BYTEA,
-    proof BYTEA
+    proof BYTEA,
+    total_nb_transactions BIGINT NOT NULL,
+    total_eth_gas_used BIGINT NOT NULL,
+    total_l1_fees NUMERIC(38,0) NOT NULL,
+    total_tx_fees NUMERIC(38,0) NOT NULL
 );
 
 -- Create eth_metrics table
@@ -30,7 +34,7 @@ CREATE TABLE IF NOT EXISTS eth_metrics (
     id BIGSERIAL PRIMARY KEY,
     block_nb BIGINT NOT NULL,
     nb_transactions BIGINT NOT NULL,
-    eth_gas_used NUMERIC(38,0) NOT NULL,
+    eth_gas_used BIGINT NOT NULL,
     l1_fees NUMERIC(38,0) NOT NULL,
     tx_fees NUMERIC(38,0) NOT NULL
 );

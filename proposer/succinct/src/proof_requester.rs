@@ -214,47 +214,35 @@ impl OPSuccinctProofRequester {
             if failed_requests.len() > 2 || execution_status == ExecutionStatus::Unexecutable {
                 info!("Splitting request into two: {:?}", request);
                 let mid_block = (request.start_block + request.end_block) / 2;
+                let block_data = self
+                    .fetcher
+                    .get_l2_block_data_range(request.start_block as u64, mid_block as u64)
+                    .await?;
+                let block_data_2 = self
+                    .fetcher
+                    .get_l2_block_data_range(mid_block as u64, request.end_block as u64)
+                    .await?;
                 let new_requests = vec![
-                    OPSuccinctRequest {
-                        status: RequestStatus::Unrequested,
-                        req_type: RequestType::Range,
-                        created_at: Local::now().naive_local(),
-                        updated_at: Local::now().naive_local(),
-                        mode: request.mode,
-                        start_block: request.start_block,
-                        end_block: mid_block,
-                        range_vkey_commitment: self
-                            .program_config
-                            .commitments
-                            .range_vkey_commitment
-                            .into(),
-                        rollup_config_hash: self
-                            .program_config
-                            .commitments
-                            .rollup_config_hash
-                            .into(),
-                        ..Default::default()
-                    },
-                    OPSuccinctRequest {
-                        status: RequestStatus::Unrequested,
-                        req_type: RequestType::Range,
-                        created_at: Local::now().naive_local(),
-                        updated_at: Local::now().naive_local(),
-                        mode: request.mode,
-                        start_block: mid_block,
-                        end_block: request.end_block,
-                        range_vkey_commitment: self
-                            .program_config
-                            .commitments
-                            .range_vkey_commitment
-                            .into(),
-                        rollup_config_hash: self
-                            .program_config
-                            .commitments
-                            .rollup_config_hash
-                            .into(),
-                        ..Default::default()
-                    },
+                    OPSuccinctRequest::new(
+                        RequestStatus::Unrequested,
+                        RequestType::Range,
+                        request.mode,
+                        request.start_block,
+                        mid_block,
+                        self.program_config.commitments.range_vkey_commitment.into(),
+                        self.program_config.commitments.rollup_config_hash.into(),
+                        block_data,
+                    ),
+                    OPSuccinctRequest::new(
+                        RequestStatus::Unrequested,
+                        RequestType::Range,
+                        request.mode,
+                        mid_block,
+                        request.end_block,
+                        self.program_config.commitments.range_vkey_commitment.into(),
+                        self.program_config.commitments.rollup_config_hash.into(),
+                        block_data_2,
+                    ),
                 ];
 
                 self.db_client.insert_requests(&new_requests).await?;
@@ -263,22 +251,23 @@ impl OPSuccinctProofRequester {
         }
 
         // Retry the same request if splitting was not triggered.
-        self.db_client
-            .insert_request(&OPSuccinctRequest {
-                status: RequestStatus::Unrequested,
-                req_type: request.req_type,
-                created_at: Local::now().naive_local(),
-                updated_at: Local::now().naive_local(),
-                mode: request.mode,
-                start_block: request.start_block,
-                end_block: request.end_block,
-                range_vkey_commitment: request.range_vkey_commitment,
-                aggregation_vkey_hash: request.aggregation_vkey_hash,
-                checkpointed_l1_block_hash: request.checkpointed_l1_block_hash,
-                checkpointed_l1_block_number: request.checkpointed_l1_block_number,
-                ..Default::default()
-            })
-            .await?;
+        let mut new_request = request.clone();
+        new_request.id = 0;
+        new_request.status = RequestStatus::Unrequested;
+        new_request.created_at = Local::now().naive_local();
+        new_request.updated_at = Local::now().naive_local();
+        new_request.proof_request_id = None;
+        new_request.proof_request_time = None;
+        new_request.checkpointed_l1_block_number = None;
+        new_request.checkpointed_l1_block_hash = None;
+        new_request.execution_statistics = serde_json::Value::Null;
+        new_request.witnessgen_duration = None;
+        new_request.execution_duration = None;
+        new_request.prove_duration = None;
+        new_request.relay_tx_hash = None;
+        new_request.proof = None;
+
+        self.db_client.insert_request(&new_request).await?;
 
         Ok(())
     }

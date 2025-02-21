@@ -1,16 +1,13 @@
 use std::{env, sync::Arc};
 
 use alloy_primitives::Address;
-use alloy_provider::ProviderBuilder;
-use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_alloy_network::EthereumWallet;
 use sp1_sdk::network::FulfillmentStrategy;
 
 use crate::{DriverDBClient, RequesterConfig};
 
 pub async fn read_env() -> Result<(Arc<DriverDBClient>, RequesterConfig)> {
-    let db_url = env::var("DB_URL").expect("DB_URL is not set");
+    let db_url = env::var("DATABASE_URL").expect("DATABASE_URL is not set");
     let db_client = Arc::new(DriverDBClient::new(&db_url).await?);
 
     let range_proof_strategy = if env::var("RANGE_PROOF_STRATEGY")
