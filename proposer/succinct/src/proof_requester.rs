@@ -217,35 +217,29 @@ impl OPSuccinctProofRequester {
             if failed_requests.len() > 2 || execution_status == ExecutionStatus::Unexecutable {
                 info!("Splitting request into two: {:?}", request);
                 let mid_block = (request.start_block + request.end_block) / 2;
-                let block_data = self
-                    .fetcher
-                    .get_l2_block_data_range(request.start_block as u64, mid_block as u64)
-                    .await?;
-                let block_data_2 = self
-                    .fetcher
-                    .get_l2_block_data_range(mid_block as u64, request.end_block as u64)
-                    .await?;
                 let new_requests = vec![
-                    OPSuccinctRequest::new_range_request(
+                    OPSuccinctRequest::create_range_request(
                         request.mode,
                         request.start_block,
                         mid_block,
                         self.program_config.commitments.range_vkey_commitment.into(),
                         self.program_config.commitments.rollup_config_hash.into(),
-                        block_data,
                         l1_chain_id as i64,
                         l2_chain_id as i64,
-                    ),
-                    OPSuccinctRequest::new_range_request(
+                        self.fetcher.clone(),
+                    )
+                    .await?,
+                    OPSuccinctRequest::create_range_request(
                         request.mode,
                         mid_block,
                         request.end_block,
                         self.program_config.commitments.range_vkey_commitment.into(),
                         self.program_config.commitments.rollup_config_hash.into(),
-                        block_data_2,
                         l1_chain_id as i64,
                         l2_chain_id as i64,
-                    ),
+                        self.fetcher.clone(),
+                    )
+                    .await?,
                 ];
 
                 self.db_client.insert_requests(&new_requests).await?;

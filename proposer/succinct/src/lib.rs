@@ -7,7 +7,7 @@ mod proposer;
 // mod prom;
 mod types;
 mod env;
-
+mod utils;
 pub use contract::*;
 pub use db::*;
 pub use op_listener::*;
@@ -17,3 +17,4 @@ pub use proposer::*;
 // pub use prom::*;
 pub use types::*;
 pub use env::*;
+pub use utils::*;

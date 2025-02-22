@@ -1,12 +1,13 @@
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use chrono::{Local, NaiveDateTime};
-use op_succinct_host_utils::fetcher::BlockInfo;
+use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
 use serde_json::Value;
 use sqlx::types::BigDecimal;
 use sqlx::Error;
 use sqlx::{postgres::PgQueryResult, FromRow, PgPool};
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use crate::CommitmentConfig;
 
@@ -146,7 +147,23 @@ impl Debug for OPSuccinctRequest {
 }
 
 impl OPSuccinctRequest {
-    /// Create a new range request.
+    /// Creates a new range request and fetches the block data.
+    pub async fn create_range_request(
+        mode: RequestMode,
+        start_block: i64,
+        end_block: i64,
+        range_vkey_commitment: B256,
+        rollup_config_hash: B256,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+        fetcher: Arc<OPSuccinctDataFetcher>,
+    ) -> Result<Self> {
+        let block_data = fetcher.get_l2_block_data_range(start_block as u64, end_block as u64).await?;
+
+        Ok(Self::new_range_request(mode, start_block, end_block, range_vkey_commitment, rollup_config_hash, block_data, l1_chain_id, l2_chain_id))
+    }
+
+    /// Create a new range request given the block data.
     pub fn new_range_request(
         mode: RequestMode,
         start_block: i64,
@@ -248,7 +265,6 @@ impl DriverDBClient {
         Ok(DriverDBClient { pool })
     }
 
-    // TODO: Add chain ID column.
     pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<PgQueryResult, Error> {
         sqlx::query!(
             r#"
@@ -360,7 +376,7 @@ impl DriverDBClient {
         Ok(metrics)
     }
 
-    /// Fetch all requests with a specific block range and status FAILED_RETRYABLE or FAILED_FATAL.
+    /// Fetch all requests with a specific block range and status FAILED or CANCELLED.
     ///
     /// Checks that the request has the same range vkey commitment and rollup config hash as the commitment.
     pub async fn fetch_failed_requests_by_block_range(
@@ -412,28 +428,34 @@ impl DriverDBClient {
         Ok(request)
     }
 
-    /// Fetch the highest block number of a request with one of the given statuses.
-    pub async fn fetch_highest_request_with_statuses(
+    /// Fetch all range requests that have one of the given statuses and start block >= latest_contract_l2_block.
+    pub async fn fetch_range_requests_with_status_and_start_block(
         &self,
         statuses: &[RequestStatus],
+        latest_contract_l2_block: i64,
+        commitment: &CommitmentConfig,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Option<OPSuccinctRequest>, Error> {
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let request = sqlx::query_as!(
+        let requests = sqlx::query_as!(
             OPSuccinctRequest,
-            "SELECT * FROM requests WHERE status = ANY($1) AND l1_chain_id = $2 AND l2_chain_id = $3 ORDER BY start_block DESC LIMIT 1",
+            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7",
+            &commitment.range_vkey_commitment[..],
+            &commitment.rollup_config_hash[..],
             &status_values[..],
+            RequestType::Range as i16,
+            latest_contract_l2_block,
             l1_chain_id,
             l2_chain_id,
         )
-        .fetch_optional(&self.pool)
+        .fetch_all(&self.pool)
         .await?;
-        Ok(request)
+        Ok(requests)
     }
 
     /// Fetch all requests that have one of the given statuses.
-    pub async fn fetch_requests_by_statuses(
+    pub async fn fetch_requests_with_status(
         &self,
         statuses: &[RequestStatus],
         commitment: &CommitmentConfig,
@@ -531,8 +553,6 @@ impl DriverDBClient {
     }
 
     /// Fetch all non-failed Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
-    ///
-    /// TODO: Confirm this works
     pub async fn fetch_active_agg_proofs(
         &self,
         start_block: i64,
@@ -824,6 +844,28 @@ impl DriverDBClient {
             DELETE FROM requests WHERE status = ANY($1) AND l1_chain_id = $2 AND l2_chain_id = $3
             "#,
             &status_values[..],
+            l1_chain_id,
+            l2_chain_id,
+        )
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Cancel all prove requests with a different commitment config and same chain id's
+    pub async fn cancel_prove_requests_with_different_commitment_config(
+        &self,
+        commitment: &CommitmentConfig,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query!(
+            r#"
+            UPDATE requests SET status = $1 WHERE status = $2 AND (range_vkey_commitment != $3 OR rollup_config_hash != $4) AND l1_chain_id = $5 AND l2_chain_id = $6
+            "#,
+            RequestStatus::Cancelled as i16,
+            RequestStatus::Prove as i16,
+            &commitment.range_vkey_commitment[..],
+            &commitment.rollup_config_hash[..],
             l1_chain_id,
             l2_chain_id,
         )

@@ -17,7 +17,8 @@ use tracing::{debug, info};
 
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    get_latest_proposed_block_number, OPSuccinctProofRequester, AGG_ELF, RANGE_ELF,
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, OPSuccinctProofRequester,
+    AGG_ELF, RANGE_ELF,
 };
 
 use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
@@ -253,13 +254,7 @@ where
                 latest_finalized_header.number,
             );
 
-            let block_data = self
-                .driver_config
-                .fetcher
-                .get_l2_block_data_range(current_processed_block, end_block)
-                .await?;
-
-            let request = OPSuccinctRequest::new_range_request(
+            let request = OPSuccinctRequest::create_range_request(
                 if self.requester_config.mock {
                     RequestMode::Mock
                 } else {
@@ -269,10 +264,11 @@ where
                 end_block as i64,
                 self.program_config.commitments.range_vkey_commitment.into(),
                 self.program_config.commitments.rollup_config_hash.into(),
-                block_data,
                 self.requester_config.l1_chain_id as i64,
                 self.requester_config.l2_chain_id as i64,
-            );
+                self.driver_config.fetcher.clone(),
+            )
+            .await?;
 
             requests.push(request);
             current_processed_block = end_block;
@@ -537,7 +533,7 @@ where
         let requests = self
             .driver_config
             .driver_db_client
-            .fetch_requests_by_statuses(
+            .fetch_requests_with_status(
                 &[
                     RequestStatus::WitnessGeneration,
                     RequestStatus::Execution,
@@ -782,28 +778,118 @@ where
 
         Ok(())
     }
-    /// Update the DB state if the proposer is being re-started. Cancel all proofs that are not RELAYED.
+
+    /// Initialize the proposer by cleaning up stale requests and creating new range proof requests for the proposer with the given chain ID.
     ///
-    /// TODO: Don't cancel proofs that are in PROVE status with same request mode and commitment config.
+    /// This function performs several key tasks:
+    /// 1. Validates that the proposer's config matches the contract
+    /// 2. Deletes unrecoverable requests (UNREQUESTED, EXECUTION, WITNESS_GENERATION)
+    /// 3. Cancels PROVE requests with mismatched commitment configs
+    /// 4. Identifies gaps between the latest proposed block and finalized block
+    /// 5. Creates new range proof requests to cover those gaps
+    ///
+    /// The goal is to ensure the database is in a clean state and all block ranges
+    /// between the latest proposed block and finalized block have corresponding requests.
     #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
     async fn initialize_proposer(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         self.validate_contract_config().await?;
 
-        // Cancel all old requests.
+        // Delete all requests for the same chain ID that are of status UNREQUESTED, EXECUTION or WITNESS_GENERATION as they're unrecoverable.
         self.driver_config
             .driver_db_client
             .delete_all_requests_with_statuses(
                 &[
                     RequestStatus::Unrequested,
-                    RequestStatus::Prove,
                     RequestStatus::Execution,
                     RequestStatus::WitnessGeneration,
-                    RequestStatus::Complete,
                 ],
                 self.requester_config.l1_chain_id as i64,
                 self.requester_config.l2_chain_id as i64,
             )
+            .await?;
+
+        // Cancel all requests in PROVE state for the same chain ID that have a different commitment config.
+        self.driver_config
+            .driver_db_client
+            .cancel_prove_requests_with_different_commitment_config(
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
+            )
+            .await?;
+
+        // Get the latest proposed block number on the contract.
+        let latest_proposed_block_number = get_latest_proposed_block_number(
+            self.contract_config.l2oo_address,
+            self.driver_config.fetcher.as_ref(),
+        )
+        .await?;
+
+        let finalized_block_number = self
+            .driver_config
+            .fetcher
+            .get_l2_header(BlockId::finalized())
+            .await?
+            .number;
+
+        // Get all requests in PROVE or COMPLETE status with the same commitment config and start block >= latest_proposed_block_number.
+        // These requests are non-overlapping.
+        let mut requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_range_requests_with_status_and_start_block(
+                &[RequestStatus::Prove, RequestStatus::Complete],
+                latest_proposed_block_number as i64,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id as i64,
+                self.requester_config.l2_chain_id as i64,
+            )
+            .await?;
+
+        // Sort the requests by start block.
+        requests.sort_by_key(|r| r.start_block);
+
+        let disjoint_ranges = find_gaps(
+            latest_proposed_block_number as i64,
+            finalized_block_number as i64,
+            &requests
+                .iter()
+                .map(|r| (r.start_block, r.end_block))
+                .collect::<Vec<(i64, i64)>>(),
+        );
+
+        let ranges_to_prove = get_ranges_to_prove(
+            &disjoint_ranges,
+            self.requester_config.range_proof_interval as i64,
+        );
+
+        // Create range proof requests for the ranges to prove.
+        let mut new_range_requests = Vec::new();
+        for range in ranges_to_prove {
+            new_range_requests.push(
+                OPSuccinctRequest::create_range_request(
+                    if self.requester_config.mock {
+                        RequestMode::Mock
+                    } else {
+                        RequestMode::Real
+                    },
+                    range.0,
+                    range.1,
+                    self.program_config.commitments.range_vkey_commitment,
+                    self.program_config.commitments.rollup_config_hash,
+                    self.requester_config.l1_chain_id as i64,
+                    self.requester_config.l2_chain_id as i64,
+                    self.driver_config.fetcher.clone(),
+                )
+                .await?,
+            );
+        }
+
+        // Insert the new range proof requests into the database.
+        self.driver_config
+            .driver_db_client
+            .insert_requests(&new_range_requests)
             .await?;
 
         Ok(())
@@ -842,7 +928,7 @@ where
         let requests = self
             .driver_config
             .driver_db_client
-            .fetch_requests_by_statuses(
+            .fetch_requests_with_status(
                 &[
                     RequestStatus::Unrequested,
                     RequestStatus::Prove,
