@@ -1,4 +1,5 @@
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
+use tracing::info;
 use std::{env, sync::Arc};
 
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder, WsConnect};
@@ -85,6 +86,8 @@ async fn main() -> Result<()> {
         proposer_config,
     )
     .await?;
+
+    info!("Initializing proposer");
 
     let l2_ws_rpc = env::var("L2_WS_RPC").expect("L2_WS_RPC is not set");
     let l2_provider = alloy_provider::ProviderBuilder::default()
