@@ -152,6 +152,15 @@ impl OPSuccinctProofRequester {
         let (pv, report) = self.network_prover.execute(RANGE_ELF, &stdin).run()?;
         let execution_duration = start_time.elapsed().as_secs();
 
+        info!(
+            request_id = request.id,
+            request_type = ?request.req_type,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            duration_s = execution_duration,
+            "Executed mock range proof.",
+        );
+
         let execution_statistics = RequestExecutionStatistics::new(report);
 
         // Write the execution data to the database.
