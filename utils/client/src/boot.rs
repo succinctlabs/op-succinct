@@ -3,8 +3,8 @@
 
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
-use kona_proof::BootInfo;
 use kona_genesis::RollupConfig;
+use kona_proof::BootInfo;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
