@@ -324,4 +324,6 @@ Two key time windows ensure fair participation:
 
 ## Acknowledgements
 
-Zach Obront, who worked on the first version of OP Succinct, prototyped a similar `MultiProof` dispute game implementation with OP Succinct as part of his work with the Ithaca team. This fault proof implementation takes some inspiration from his multiproof work.
+Special thanks to Kelvin Fichter for his invaluable contributions with thorough design reviews, technical guidance, and insightful feedback throughout the development process.
+
+Also, Zach Obront, who worked on the first version of OP Succinct, prototyped a similar `MultiProof` dispute game implementation with OP Succinct as part of his work with the Ithaca team. This fault proof implementation takes some inspiration from his multiproof work.
