@@ -631,17 +631,17 @@ impl DriverDBClient {
         Ok(request)
     }
 
-    /// Fetch all completed range proofs with matching range_vkey_commitment and start_block >= latest_contract_l2_block
-    pub async fn fetch_completed_range_proofs(
+    /// Fetch start and end blocks of all completed range proofs with matching range_vkey_commitment and start_block >= latest_contract_l2_block
+    pub async fn fetch_completed_ranges(
         &self,
         commitment: &CommitmentConfig,
         latest_contract_l2_block: i64,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
+    ) -> Result<Vec<(i64, i64)>, Error> {
+        let blocks = sqlx::query_as!(
+            (i64, i64),
+            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             RequestStatus::Complete as i16,
@@ -652,7 +652,8 @@ impl DriverDBClient {
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(requests)
+        
+        Ok(blocks)
     }
 
     /// Update the prove_duration based on the current time and the proof_request_time.
