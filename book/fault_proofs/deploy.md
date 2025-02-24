@@ -119,14 +119,16 @@ cargo run --bin vkey --release
    forge script script/fp/DeployOPSuccinctFDG.s.sol --broadcast --rpc-url <RPC_URL> --private-key <PRIVATE_KEY>
    ```
 
-## Contract Parameters
+## Optional Environment Variables
 
 The deployment script deploys the contract with the following parameters:
 
-- **Initial Bond**: 0.01 ETH by default (configurable via `INITIAL_BOND` in wei, so 10000000000000000 wei for 0.01 ETH).
-- **Proof Reward**: 0.01 ETH by default (configurable via `PROOF_REWARD` in wei, so 10000000000000000 wei for 0.01 ETH).
-- **Starting Anchor Root**: Genesis configuration with block number 0.
-- **Access Control**: Permissionless (address(0) can propose and challenge).
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `INITIAL_BOND` | Initial bond for the game. | 1000000000000000 (for 0.001 ETH) |
+| `CHALLENGER_BOND` | Challenger bond for the game. | 1000000000000000 (for 0.001 ETH) |
+
+These values highly depend on the economic model of the L2 chain. For example, `CHALLENGER_BOND` can be set to 10x of the proving cost needed to prove a game, to prevent frivolous challenges.
 
 ## Post-Deployment
 
@@ -134,7 +136,7 @@ After deployment, the script will output the addresses of:
 - Factory Proxy.
 - Game Implementation.
 - SP1 Verifier.
-- Portal2.
+- OptimismPortal2.
 - Anchor State Registry.
 - Access Manager.
 

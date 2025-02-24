@@ -108,13 +108,13 @@ contract DeployOPSuccinctFDG is Script {
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
-            vm.envOr("PROOF_REWARD", uint256(0.01 ether)),
+            vm.envOr("CHALLENGER_BOND", uint256(0.001 ether)),
             IAnchorStateRegistry(address(registry)),
             accessManager
         );
 
         // Set initial bond and implementation in factory.
-        factory.setInitBond(gameType, vm.envOr("INITIAL_BOND", uint256(0.01 ether)));
+        factory.setInitBond(gameType, vm.envOr("INITIAL_BOND", uint256(0.001 ether)));
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         vm.stopBroadcast();
