@@ -80,11 +80,16 @@ async fn main() -> Result<()> {
         .wallet(signer.clone())
         .on_http(rpc_url.parse().expect("Failed to parse L1_RPC"));
 
+    let loop_interval = env::var("LOOP_INTERVAL")
+        .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"))
+        .ok();
+
     let proposer = Proposer::new(
         l1_provider,
         db_client.clone(),
         Arc::new(fetcher),
         proposer_config,
+        loop_interval,
     )
     .await?;
 

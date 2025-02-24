@@ -77,6 +77,7 @@ pub struct DriverConfig {
     /// Limits on the maximum number of concurrent proof requests and witness generation requests.
     pub max_concurrent_proof_requests: u64,
     pub max_concurrent_witness_gen: u64,
+    pub loop_interval_seconds: u64,
 }
 
 pub struct Proposer<P, N>
@@ -107,6 +108,7 @@ where
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         config: RequesterConfig,
+        loop_interval_seconds: Option<u64>,
     ) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
@@ -162,6 +164,9 @@ where
 
         let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
 
+        // 1 minute default loop interval.
+        const DEFAULT_LOOP_INTERVAL: u64 = 60;
+
         let proposer = Proposer {
             driver_config: DriverConfig {
                 network_prover,
@@ -172,6 +177,7 @@ where
                 driver_db_client: db_client,
                 max_concurrent_proof_requests,
                 max_concurrent_witness_gen,
+                loop_interval_seconds: loop_interval_seconds.unwrap_or(DEFAULT_LOOP_INTERVAL),
             },
             contract_config: ContractConfig {
                 l2oo_address,
@@ -978,7 +984,6 @@ where
         self.initialize_proposer().await?;
 
         // Loop interval in seconds.
-        const PROPOSER_LOOP_INTERVAL: u64 = 60;
         loop {
             // Validate the requester config matches the contract.
             self.validate_contract_config().await?;
@@ -1003,7 +1008,7 @@ where
             self.submit_agg_proofs().await?;
 
             // Sleep for the proposer loop interval.
-            tokio::time::sleep(Duration::from_secs(PROPOSER_LOOP_INTERVAL)).await;
+            tokio::time::sleep(Duration::from_secs(self.driver_config.loop_interval_seconds)).await;
         }
     }
 
