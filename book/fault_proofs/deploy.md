@@ -130,7 +130,7 @@ The deployment script deploys the contract with the following parameters:
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 
-These values highly depend on the economic model of the L2 chain. For example, `CHALLENGER_BOND` can be set to 10x of the proving cost needed to prove a game, to prevent frivolous challenges.
+These values depend on the L2 chain, and the total value secured. Generally, to prevent frivolous challenges, `CHALLENGER_BOND` should be set to at least 10x of the proving cost needed to prove a game.
 
 ## Post-Deployment
 
