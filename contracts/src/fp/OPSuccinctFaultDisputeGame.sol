@@ -21,7 +21,6 @@ import {
     BadAuth,
     BondTransferFailed,
     ClaimAlreadyResolved,
-    ClockNotExpired,
     ClockTimeExceeded,
     GameNotFinalized,
     GameNotInProgress,
