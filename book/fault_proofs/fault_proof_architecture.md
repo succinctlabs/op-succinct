@@ -84,7 +84,7 @@ In this example, Proposal 3A would always resolve to `CHALLENGER_WINS`, as its p
 - `ROLLUP_CONFIG_HASH`: Hash of the chain's rollup configuration
 - `AGGREGATION_VKEY`: The verification key for the aggregation SP1 program.
 - `RANGE_VKEY_COMMITMENT`: The commitment to the BabyBear representation of the verification key of the range SP1 program.
-- `CHALLENGER_BOND`: Amount of ETH required to submit a challenge (given to prover if they provide a valid proof).
+- `CHALLENGER_BOND`: Amount of ETH required to submit a challenge. If a prover supplies a valid proof, the bond is disbursed to the prover.
 - `ANCHOR_STATE_REGISTRY`: The anchor state registry contract.
 - `ACCESS_MANAGER`: The access manager contract.
 
@@ -326,4 +326,4 @@ Two key time windows ensure fair participation:
 
 Special thanks to Kelvin Fichter for his invaluable contributions with thorough design reviews, technical guidance, and insightful feedback throughout the development process.
 
-Also, Zach Obront, who worked on the first version of OP Succinct, prototyped a similar `MultiProof` dispute game implementation with OP Succinct as part of his work with the Ithaca team. This fault proof implementation takes some inspiration from his multiproof work.
+Zach Obront, who worked on the first version of OP Succinct, prototyped a similar `MultiProof` dispute game implementation with OP Succinct as part of his work with the Ithaca team. This fault proof implementation takes some inspiration from his multiproof work.

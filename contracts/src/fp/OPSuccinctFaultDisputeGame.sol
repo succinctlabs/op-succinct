@@ -249,9 +249,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             // For subsequent games, get the parent game's information
             (,, IDisputeGame proxy) = DISPUTE_GAME_FACTORY.gameAtIndex(parentIndex());
 
-            // NOTE(fakedev9999): We're performing a subset of the checks from AnchorStateRegistry.isGameProper()
-            // plus isGameRespected(). Since we're pulling the parent game directly from the factory, we can skip
-            // the isGameRegistered() check.
+            // We perform a subset of AnchorStateRegistry.isGameProper() checks plus isGameRespected():
+            // 1. isGameRespected(): Verifies the parent game was respected when it was created.
+            //    There's only one respected game type in an AnchorStateRegistry at a time.
+            // 2. isGameRetired(): Ensures the game hasn't been retroactively marked as retired.
+            // 3. isGameBlacklisted(): Confirms the parent game isn't blacklisted.
+            // Note: isGameRegistered() check is skipped since the parent game is coming directly from factory.
             if (
                 !ANCHOR_STATE_REGISTRY.isGameRespected(proxy) || ANCHOR_STATE_REGISTRY.isGameBlacklisted(proxy)
                     || ANCHOR_STATE_REGISTRY.isGameRetired(proxy)
@@ -373,8 +376,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             rangeVkeyCommitment: RANGE_VKEY_COMMITMENT
         });
 
-        // Verify the proof.
-        // Note that this will revert if the proof is invalid.
+        // Verify the proof. Reverts if the proof is invalid.
         SP1_VERIFIER.verifyProof(AGGREGATION_VKEY, abi.encode(publicValues), proofBytes);
 
         // Update the prover address
@@ -420,9 +422,8 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
 
         // INVARIANT: If the parent game's claim is invalid, then the current game's claim is invalid.
         if (parentGameStatus == GameStatus.CHALLENGER_WINS) {
-            // Parent game is invalid so this game is invalid too, challenger wins, challenger gets
-            // everything. If the game has not been challenged then there will not be any
-            // challenger address and the bond is essentially burned (given to address(0)).
+            // Parent game is invalid so this game is invalid too. Therefore the challenger wins and gets all bonds.
+            // If the game has not been challenged then there will not be any challenger address and the bond is burned.
             status = GameStatus.CHALLENGER_WINS;
             normalModeCredit[claimData.counteredBy] += address(this).balance;
         } else {

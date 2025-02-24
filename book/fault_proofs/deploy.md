@@ -125,8 +125,10 @@ The deployment script deploys the contract with the following parameters:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `INITIAL_BOND` | Initial bond for the game. | 1000000000000000 (for 0.001 ETH) |
-| `CHALLENGER_BOND` | Challenger bond for the game. | 1000000000000000 (for 0.001 ETH) |
+| `INITIAL_BOND_IN_WEI` | Initial bond for the game. | 1000000000000000 (for 0.001 ETH) |
+| `CHALLENGER_BOND_IN_WEI` | Challenger bond for the game. | 1000000000000000 (for 0.001 ETH) |
+
+Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 
 These values highly depend on the economic model of the L2 chain. For example, `CHALLENGER_BOND` can be set to 10x of the proving cost needed to prove a game, to prevent frivolous challenges.
 
