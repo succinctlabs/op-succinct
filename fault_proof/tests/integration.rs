@@ -50,12 +50,12 @@ async fn test_proposer_defends_successfully() -> Result<()> {
     // Malicious challenger challenging a valid game
     tracing::info!("Malicious challenger challenging a valid game");
     let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet.clone());
-    let proof_reward = factory
-        .fetch_proof_reward(proposer.config.game_type)
+    let challenger_bond = factory
+        .fetch_challenger_bond(proposer.config.game_type)
         .await?;
     let challenge_receipt = game
         .challenge()
-        .value(proof_reward)
+        .value(challenger_bond)
         .send()
         .await
         .context("Failed to send challenge transaction")?

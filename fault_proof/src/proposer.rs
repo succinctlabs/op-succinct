@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use alloy_eips::BlockNumberOrTag;
@@ -28,10 +29,10 @@ pub const RANGE_ELF: &[u8] = include_bytes!("../../elf/range-elf");
 pub const AGG_ELF: &[u8] = include_bytes!("../../elf/aggregation-elf");
 
 struct SP1Prover {
-    network_prover: NetworkProver,
-    range_pk: SP1ProvingKey,
-    range_vk: SP1VerifyingKey,
-    agg_pk: SP1ProvingKey,
+    network_prover: Arc<NetworkProver>,
+    range_pk: Arc<SP1ProvingKey>,
+    range_vk: Arc<SP1VerifyingKey>,
+    agg_pk: Arc<SP1ProvingKey>,
 }
 
 pub struct OPSuccinctProposer<F, P>
@@ -42,7 +43,7 @@ where
     pub config: ProposerConfig,
     pub l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
     pub l2_provider: L2Provider,
-    pub factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
+    pub factory: Arc<DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>>,
     pub init_bond: U256,
     prover: SP1Prover,
 }
@@ -59,7 +60,7 @@ where
     ) -> Result<Self> {
         let config = ProposerConfig::from_env()?;
 
-        let network_prover = ProverClient::builder().network().build();
+        let network_prover = Arc::new(ProverClient::builder().network().build());
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
         let (agg_pk, _) = network_prover.setup(AGG_ELF);
 
@@ -67,13 +68,13 @@ where
             config: config.clone(),
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
-            factory: factory.clone(),
+            factory: Arc::new(factory.clone()),
             init_bond: factory.fetch_init_bond(config.game_type).await?,
             prover: SP1Prover {
                 network_prover,
-                range_pk,
-                range_vk,
-                agg_pk,
+                range_pk: Arc::new(range_pk),
+                range_vk: Arc::new(range_vk),
+                agg_pk: Arc::new(agg_pk),
             },
         })
     }
