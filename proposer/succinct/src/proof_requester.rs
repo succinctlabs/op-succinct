@@ -149,7 +149,12 @@ impl OPSuccinctProofRequester {
         );
 
         let start_time = Instant::now();
-        let (pv, report) = self.network_prover.execute(RANGE_ELF, &stdin).run()?;
+        let network_prover = self.network_prover.clone();
+        // Move the CPU-intensive operation to a dedicated thread.
+        let (pv, report) =
+            tokio::task::spawn_blocking(move || network_prover.execute(RANGE_ELF, &stdin).run())
+                .await??; // Handle both JoinError and the Result from execute.
+
         let execution_duration = start_time.elapsed().as_secs();
 
         info!(
@@ -186,12 +191,18 @@ impl OPSuccinctProofRequester {
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
         let prover = ProverClient::builder().mock().build();
+        let agg_pk = self.program_config.agg_pk.clone();
+        let agg_mode = self.agg_mode;
+
         // TODO: Potentially add execution statistics in the future.
-        prover
-            .prove(&self.program_config.agg_pk, &stdin)
-            .mode(self.agg_mode)
-            .deferred_proof_verification(false)
-            .run()
+        tokio::task::spawn_blocking(move || {
+            prover
+                .prove(&agg_pk, &stdin)
+                .mode(agg_mode)
+                .deferred_proof_verification(false)
+                .run()
+        })
+        .await?
     }
 
     /// Handles a failed proof request by either splitting range requests or re-queuing the same one.

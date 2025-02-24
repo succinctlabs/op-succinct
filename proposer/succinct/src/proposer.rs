@@ -20,6 +20,7 @@ use crate::{
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, OPSuccinctProofRequester,
     AGG_ELF, RANGE_ELF,
 };
+use futures_util::{stream, StreamExt, TryStreamExt};
 
 use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
 
@@ -809,6 +810,8 @@ where
             )
             .await?;
 
+        info!("Deleted all unrecoverable requests.");
+
         // Cancel all requests in PROVE state for the same chain ID that have a different commitment config.
         self.driver_config
             .driver_db_client
@@ -864,16 +867,18 @@ where
             self.requester_config.range_proof_interval as i64,
         );
 
-        // Create range proof requests for the ranges to prove.
-        let mut new_range_requests = Vec::new();
-        for range in ranges_to_prove {
-            new_range_requests.push(
+        info!("Found {} ranges to prove.", ranges_to_prove.len());
+
+        // Create range proof requests for the ranges to prove in parallel
+        let new_range_requests = stream::iter(ranges_to_prove)
+            .map(|range| {
+                let mode = if self.requester_config.mock {
+                    RequestMode::Mock
+                } else {
+                    RequestMode::Real
+                };
                 OPSuccinctRequest::create_range_request(
-                    if self.requester_config.mock {
-                        RequestMode::Mock
-                    } else {
-                        RequestMode::Real
-                    },
+                    mode,
                     range.0,
                     range.1,
                     self.program_config.commitments.range_vkey_commitment,
@@ -882,9 +887,12 @@ where
                     self.requester_config.l2_chain_id as i64,
                     self.driver_config.fetcher.clone(),
                 )
-                .await?,
-            );
-        }
+            })
+            .buffer_unordered(20) // Do 20 at a time, otherwise it's too slow when fetching the block range data.
+            .try_collect::<Vec<OPSuccinctRequest>>()
+            .await?;
+
+        info!("Inserting new range proof requests into the database.");
 
         // Insert the new range proof requests into the database.
         self.driver_config

@@ -1,11 +1,11 @@
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
-use tracing::info;
 use std::{env, sync::Arc};
+use tracing::info;
 
-use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder, WsConnect};
+use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_proposer::{read_env, OPChainMetricer, Proposer};
+use op_succinct_proposer::{read_env, Proposer};
 
 use tikv_jemallocator::Jemalloc;
 
@@ -88,8 +88,6 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    info!("Initializing proposer");
-
     // let l2_ws_rpc = env::var("L2_WS_RPC").expect("L2_WS_RPC is not set");
     // let l2_provider = alloy_provider::ProviderBuilder::default()
     //     .on_ws(WsConnect::new(l2_ws_rpc))
@@ -108,6 +106,7 @@ async fn main() -> Result<()> {
     // });
 
     // Spawn a thread for the proposer.
+    info!("Starting proposer.");
     let proposer_handle = tokio::spawn(async move {
         if let Err(e) = proposer.run().await {
             tracing::error!("Proposer error: {}", e);

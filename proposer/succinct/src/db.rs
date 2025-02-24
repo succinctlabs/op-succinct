@@ -878,44 +878,61 @@ impl DriverDBClient {
         &self,
         requests: &[OPSuccinctRequest],
     ) -> Result<PgQueryResult, Error> {
-        let mut query_builder = sqlx::QueryBuilder::new(
-            "INSERT INTO requests (
-                status, req_type, mode, start_block, end_block, created_at, updated_at,
-                proof_request_id, proof_request_time, checkpointed_l1_block_number, checkpointed_l1_block_hash, execution_statistics,
-                witnessgen_duration, execution_duration, prove_duration, range_vkey_commitment,
-                aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, l1_chain_id, l2_chain_id, contract_address) ",
-        );
+        // Process in batches to avoid PostgreSQL parameter limit of 65535.
+        const BATCH_SIZE: usize = 100;
 
-        query_builder.push_values(requests, |mut b, req| {
-            b.push_bind(req.status as i16)
-                .push_bind(req.req_type as i16)
-                .push_bind(req.mode as i16)
-                .push_bind(req.start_block)
-                .push_bind(req.end_block)
-                .push_bind(req.created_at)
-                .push_bind(req.updated_at)
-                .push_bind(req.proof_request_id.as_ref().map(|arr| &arr[..]))
-                .push_bind(req.proof_request_time)
-                .push_bind(req.checkpointed_l1_block_number)
-                .push_bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
-                .push_bind(&req.execution_statistics)
-                .push_bind(req.witnessgen_duration)
-                .push_bind(req.execution_duration)
-                .push_bind(req.prove_duration)
-                .push_bind(&req.range_vkey_commitment[..])
-                .push_bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
-                .push_bind(&req.rollup_config_hash[..])
-                .push_bind(req.relay_tx_hash.as_ref())
-                .push_bind(req.proof.as_ref())
-                .push_bind(req.total_nb_transactions)
-                .push_bind(req.total_eth_gas_used)
-                .push_bind(req.total_l1_fees.clone())
-                .push_bind(req.total_tx_fees.clone())
-                .push_bind(req.l1_chain_id)
-                .push_bind(req.l2_chain_id)
-                .push_bind(req.contract_address.as_ref().map(|arr| &arr[..]));
-        });
+        // Use a transaction for better performance and atomicity
+        let mut tx = self.pool.begin().await?;
 
-        query_builder.build().execute(&self.pool).await
+        for chunk in requests.chunks(BATCH_SIZE) {
+            let mut query_builder = sqlx::QueryBuilder::new(
+                "INSERT INTO requests (
+                    status, req_type, mode, start_block, end_block, created_at, updated_at,
+                    proof_request_id, proof_request_time, checkpointed_l1_block_number, 
+                    checkpointed_l1_block_hash, execution_statistics, witnessgen_duration, 
+                    execution_duration, prove_duration, range_vkey_commitment,
+                    aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, 
+                    total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, 
+                    l1_chain_id, l2_chain_id, contract_address) "
+            );
+
+            query_builder.push_values(chunk, |mut b, req| {
+                b.push_bind(req.status as i16)
+                    .push_bind(req.req_type as i16)
+                    .push_bind(req.mode as i16)
+                    .push_bind(req.start_block)
+                    .push_bind(req.end_block)
+                    .push_bind(req.created_at)
+                    .push_bind(req.updated_at)
+                    .push_bind(req.proof_request_id.as_ref().map(|arr| &arr[..]))
+                    .push_bind(req.proof_request_time)
+                    .push_bind(req.checkpointed_l1_block_number)
+                    .push_bind(req.checkpointed_l1_block_hash.as_ref().map(|arr| &arr[..]))
+                    .push_bind(&req.execution_statistics)
+                    .push_bind(req.witnessgen_duration)
+                    .push_bind(req.execution_duration)
+                    .push_bind(req.prove_duration)
+                    .push_bind(&req.range_vkey_commitment[..])
+                    .push_bind(req.aggregation_vkey_hash.as_ref().map(|arr| &arr[..]))
+                    .push_bind(&req.rollup_config_hash[..])
+                    .push_bind(req.relay_tx_hash.as_ref())
+                    .push_bind(req.proof.as_ref())
+                    .push_bind(req.total_nb_transactions)
+                    .push_bind(req.total_eth_gas_used)
+                    .push_bind(req.total_l1_fees.clone())
+                    .push_bind(req.total_tx_fees.clone())
+                    .push_bind(req.l1_chain_id)
+                    .push_bind(req.l2_chain_id)
+                    .push_bind(req.contract_address.as_ref().map(|arr| &arr[..]));
+            });
+
+            query_builder.build().execute(&mut *tx).await?;
+        }
+
+        // Commit the transaction
+        tx.commit().await?;
+
+        // Create a result with the total rows affected
+        Ok(PgQueryResult::default())
     }
 }
