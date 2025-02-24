@@ -125,8 +125,8 @@ The deployment script deploys the contract with the following parameters:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `INITIAL_BOND_IN_WEI` | Initial bond for the game. | 1000000000000000 (for 0.001 ETH) |
-| `CHALLENGER_BOND_IN_WEI` | Challenger bond for the game. | 1000000000000000 (for 0.001 ETH) |
+| `INITIAL_BOND_WEI` | Initial bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
+| `CHALLENGER_BOND_WEI` | Challenger bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 

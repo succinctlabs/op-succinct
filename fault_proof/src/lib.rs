@@ -503,7 +503,6 @@ where
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
-        // TODO(fakedev9999): Potentially need to add a gas provider.
         let receipt = contract
             .resolve()
             .send()
