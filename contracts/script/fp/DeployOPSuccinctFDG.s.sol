@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.15;
 
 // Libraries
 import {Script} from "forge-std/Script.sol";
@@ -33,20 +33,15 @@ contract DeployOPSuccinctFDG is Script {
         // Deploy factory proxy.
         ERC1967Proxy factoryProxy = new ERC1967Proxy(
             address(new DisputeGameFactory()),
-            abi.encodeWithSelector(
-                DisputeGameFactory.initialize.selector,
-                msg.sender
-            )
+            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
         );
         DisputeGameFactory factory = DisputeGameFactory(address(factoryProxy));
 
         GameType gameType = GameType.wrap(uint32(vm.envUint("GAME_TYPE")));
 
         // TODO(fakedev9999): Use real OptimismPortal2.
-        MockOptimismPortal2 portal = new MockOptimismPortal2(
-            gameType,
-            vm.envUint("DISPUTE_GAME_FINALITY_DELAY_SECONDS")
-        );
+        MockOptimismPortal2 portal =
+            new MockOptimismPortal2(gameType, vm.envUint("DISPUTE_GAME_FINALITY_DELAY_SECONDS"));
         console.log("OptimismPortal2:", address(portal));
 
         OutputRoot memory startingAnchorRoot = OutputRoot({
@@ -68,9 +63,7 @@ contract DeployOPSuccinctFDG is Script {
             )
         );
 
-        AnchorStateRegistry registry = AnchorStateRegistry(
-            address(registryProxy)
-        );
+        AnchorStateRegistry registry = AnchorStateRegistry(address(registryProxy));
         console.log("Anchor state registry:", address(registry));
         // Deploy the access manager contract.
         AccessManager accessManager = new AccessManager();
@@ -121,10 +114,7 @@ contract DeployOPSuccinctFDG is Script {
         );
 
         // Set initial bond and implementation in factory.
-        factory.setInitBond(
-            gameType,
-            vm.envOr("INITIAL_BOND_WEI", uint256(0.001 ether))
-        );
+        factory.setInitBond(gameType, vm.envOr("INITIAL_BOND_WEI", uint256(0.001 ether)));
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         vm.stopBroadcast();
