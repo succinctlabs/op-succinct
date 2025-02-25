@@ -414,7 +414,7 @@ where
         let completed_range_proofs = self
             .driver_config
             .driver_db_client
-            .fetch_completed_range_proofs(
+            .fetch_completed_ranges(
                 &self.program_config.commitments,
                 latest_proposed_block_number as i64,
                 self.requester_config.l1_chain_id as i64,
@@ -445,16 +445,16 @@ where
             submission_interval
         );
 
-        if let Some(last_request) = largest_contiguous_range.last() {
-            if (last_request.end_block - last_request.start_block) as u64 >= submission_interval {
+        if let Some((final_start_block, final_end_block)) = largest_contiguous_range.last() {
+            if (final_end_block - final_start_block) as u64 >= submission_interval {
                 // If an aggregation request with the same start block and end block and commitment config exists, there's no need to checkpoint the L1 block hash.
                 // Use the existing L1 block hash from the existing request.
                 let existing_request = self
                     .driver_config
                     .driver_db_client
                     .fetch_agg_request_with_checkpointed_block_hash(
-                        last_request.start_block,
-                        last_request.end_block,
+                        *final_start_block,
+                        *final_end_block,
                         &self.program_config.commitments,
                         self.requester_config.l1_chain_id as i64,
                         self.requester_config.l2_chain_id as i64,
@@ -513,9 +513,13 @@ where
                 self.driver_config
                     .driver_db_client
                     .insert_request(&OPSuccinctRequest::new_agg_request(
-                        last_request.mode,
-                        latest_proposed_block_number as i64,
-                        last_request.end_block,
+                        if self.requester_config.mock {
+                            RequestMode::Mock
+                        } else {
+                            RequestMode::Real
+                        },
+                        *final_start_block,
+                        *final_end_block,
                         self.program_config.commitments.range_vkey_commitment,
                         self.program_config.commitments.agg_vkey_hash,
                         self.program_config.commitments.rollup_config_hash,
@@ -537,35 +541,49 @@ where
     /// TODO: Submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
     async fn request_queued_proofs(&self) -> Result<()> {
-        let requests = self
+        let commitments = self.program_config.commitments.clone();
+        let l1_chain_id = self.requester_config.l1_chain_id as i64;
+        let l2_chain_id = self.requester_config.l2_chain_id as i64;
+
+        let witness_gen_count = self
             .driver_config
             .driver_db_client
-            .fetch_requests_with_status(
-                &[
-                    RequestStatus::WitnessGeneration,
-                    RequestStatus::Execution,
-                    RequestStatus::Prove,
-                ],
-                &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+            .fetch_request_count(
+                RequestStatus::WitnessGeneration,
+                &commitments,
+                l1_chain_id,
+                l2_chain_id,
             )
             .await?;
 
+        let execution_count = self
+            .driver_config
+            .driver_db_client
+            .fetch_request_count(
+                RequestStatus::Execution,
+                &commitments,
+                l1_chain_id,
+                l2_chain_id,
+            )
+            .await?;
+
+        let prove_count = self
+            .driver_config
+            .driver_db_client
+            .fetch_request_count(RequestStatus::Prove, &commitments, l1_chain_id, l2_chain_id)
+            .await?;
+
         // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status, return.
-        if requests.len() >= self.driver_config.max_concurrent_proof_requests as usize {
+        if witness_gen_count + execution_count + prove_count
+            >= self.driver_config.max_concurrent_proof_requests as i64
+        {
             debug!("There are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status.");
             return Ok(());
         }
 
         // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or Execute status, return.
-        if requests
-            .iter()
-            .filter(|r| {
-                r.status == RequestStatus::WitnessGeneration || r.status == RequestStatus::Execution
-            })
-            .count()
-            >= self.driver_config.max_concurrent_witness_gen as usize
+        if witness_gen_count + execution_count
+            >= self.driver_config.max_concurrent_witness_gen as i64
         {
             debug!("There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or Execute status.");
             return Ok(());
@@ -650,14 +668,14 @@ where
     /// Get the largest contiguous range of completed range proofs.
     fn get_largest_contiguous_range(
         &self,
-        completed_range_proofs: Vec<OPSuccinctRequest>,
-    ) -> Result<Vec<OPSuccinctRequest>> {
-        let mut largest_contiguous_range: Vec<OPSuccinctRequest> = Vec::new();
+        completed_range_proofs: Vec<(i64, i64)>,
+    ) -> Result<Vec<(i64, i64)>> {
+        let mut largest_contiguous_range: Vec<(i64, i64)> = Vec::new();
 
         for proof in completed_range_proofs {
             if largest_contiguous_range.is_empty() {
                 largest_contiguous_range.push(proof);
-            } else if proof.start_block == largest_contiguous_range.last().unwrap().end_block {
+            } else if proof.0 == largest_contiguous_range.last().unwrap().1 + 1 {
                 largest_contiguous_range.push(proof);
             } else {
                 break;
@@ -922,7 +940,7 @@ where
         let completed_range_proofs = self
             .driver_config
             .driver_db_client
-            .fetch_completed_range_proofs(
+            .fetch_completed_ranges(
                 &self.program_config.commitments,
                 latest_proposed_block_number as i64,
                 self.requester_config.l1_chain_id as i64,
@@ -936,42 +954,47 @@ where
         let highest_block_number = if largest_contiguous_range.is_empty() {
             latest_proposed_block_number
         } else {
-            largest_contiguous_range.last().unwrap().end_block as u64
+            largest_contiguous_range.last().unwrap().1 as u64
         };
 
-        let requests = self
-            .driver_config
-            .driver_db_client
-            .fetch_requests_with_status(
-                &[
-                    RequestStatus::Unrequested,
-                    RequestStatus::Prove,
-                    RequestStatus::Execution,
-                    RequestStatus::WitnessGeneration,
-                ],
-                &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+        let db = &self.driver_config.driver_db_client;
+        let commitments = &self.program_config.commitments;
+        let l1_chain_id = self.requester_config.l1_chain_id as i64;
+        let l2_chain_id = self.requester_config.l2_chain_id as i64;
+
+        let num_unrequested_requests = db
+            .fetch_request_count(
+                RequestStatus::Unrequested,
+                commitments,
+                l1_chain_id,
+                l2_chain_id,
             )
             .await?;
 
-        let num_unrequested_requests = requests
-            .iter()
-            .filter(|r| r.status == RequestStatus::Unrequested)
-            .count();
-        let num_prove_requests = requests
-            .iter()
-            .filter(|r| r.status == RequestStatus::Prove)
-            .count();
-        let num_execution_requests = requests
-            .iter()
-            .filter(|r| r.status == RequestStatus::Execution)
-            .count();
-        let num_witness_generation_requests = requests
-            .iter()
-            .filter(|r| r.status == RequestStatus::WitnessGeneration)
-            .count();
-        info!(target: "proposer_metrics",
+        let num_prove_requests = db
+            .fetch_request_count(RequestStatus::Prove, commitments, l1_chain_id, l2_chain_id)
+            .await?;
+
+        let num_execution_requests = db
+            .fetch_request_count(
+                RequestStatus::Execution,
+                commitments,
+                l1_chain_id,
+                l2_chain_id,
+            )
+            .await?;
+
+        let num_witness_generation_requests = db
+            .fetch_request_count(
+                RequestStatus::WitnessGeneration,
+                commitments,
+                l1_chain_id,
+                l2_chain_id,
+            )
+            .await?;
+
+        info!(
+            target: "proposer_metrics",
             "unrequested={num_unrequested_requests} prove={num_prove_requests} execution={num_execution_requests} witness_generation={num_witness_generation_requests} highest_contiguous_proven_block={highest_block_number}"
         );
 
@@ -1008,7 +1031,10 @@ where
             self.submit_agg_proofs().await?;
 
             // Sleep for the proposer loop interval.
-            tokio::time::sleep(Duration::from_secs(self.driver_config.loop_interval_seconds)).await;
+            tokio::time::sleep(Duration::from_secs(
+                self.driver_config.loop_interval_seconds,
+            ))
+            .await;
         }
     }
 

@@ -454,27 +454,25 @@ impl DriverDBClient {
         Ok(requests)
     }
 
-    /// Fetch all requests that have one of the given statuses.
-    pub async fn fetch_requests_with_status(
+    /// Fetch the number of requests with a specific status.
+    pub async fn fetch_request_count(
         &self,
-        statuses: &[RequestStatus],
+        status: RequestStatus,
         commitment: &CommitmentConfig,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let requests = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND l1_chain_id = $4 AND l2_chain_id = $5",
+    ) -> Result<i64, Error> {
+        let count = sqlx::query!(
+            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND l1_chain_id = $4 AND l2_chain_id = $5",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
-            &status_values[..],
+            status as i16,
             l1_chain_id,
             l2_chain_id,
         )
-        .fetch_all(&self.pool)
+        .fetch_one(&self.pool)
         .await?;
-        Ok(requests)
+        Ok(count.count.unwrap_or(0))
     }
 
     /// Fetch all requests with a specific status from the database.
@@ -639,8 +637,7 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<Vec<(i64, i64)>, Error> {
-        let blocks = sqlx::query_as!(
-            (i64, i64),
+        let blocks = sqlx::query!(
             "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
@@ -653,7 +650,7 @@ impl DriverDBClient {
         .fetch_all(&self.pool)
         .await?;
         
-        Ok(blocks)
+        Ok(blocks.iter().map(|block| (block.start_block, block.end_block)).collect())
     }
 
     /// Update the prove_duration based on the current time and the proof_request_time.
