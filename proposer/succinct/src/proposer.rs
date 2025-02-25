@@ -912,7 +912,7 @@ where
                     self.driver_config.fetcher.clone(),
                 )
             })
-            .buffer_unordered(20) // Do 20 at a time, otherwise it's too slow when fetching the block range data.
+            .buffer_unordered(10) // Do 10 at a time, otherwise it's too slow when fetching the block range data.
             .try_collect::<Vec<OPSuccinctRequest>>()
             .await?;
 
