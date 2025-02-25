@@ -47,5 +47,3 @@ contracts/opsuccinctl2ooconfig.json
 
 # Rollup Configs
 configs/
-
-**/.sqlx
