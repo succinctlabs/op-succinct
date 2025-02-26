@@ -1,0 +1,27 @@
+services:
+  proposer:
+    build:
+      context: ..
+      dockerfile: fault_proof/Dockerfile
+    image: op-succinct-fp-proposer
+    container_name: op-succinct-fp-proposer
+    command: ["proposer"]
+    restart: unless-stopped
+    env_file:
+      - .env.proposer
+
+  challenger:
+    build:
+      context: ..
+      dockerfile: fault_proof/Dockerfile
+    image: op-succinct-fp-challenger
+    container_name: op-succinct-fp-challenger
+    command: ["challenger"]
+    restart: unless-stopped
+    env_file:
+      - .env.challenger
+volumes:
+  proposer_data:
+    driver: local
+  challenger_data:
+    driver: local
