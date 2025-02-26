@@ -581,11 +581,11 @@ where
             return Ok(());
         }
 
-        // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or Execute status, return.
-        if witness_gen_count + execution_count
+        // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status, return.
+        if witness_gen_count
             >= self.driver_config.max_concurrent_witness_gen as i64
         {
-            debug!("There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or Execute status.");
+            debug!("There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status.");
             return Ok(());
         }
 
