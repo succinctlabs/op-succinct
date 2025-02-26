@@ -1008,34 +1008,51 @@ where
 
         // Loop interval in seconds.
         loop {
-            // Validate the requester config matches the contract.
-            self.validate_contract_config().await?;
-
-            // Log the proposer metrics.
-            self.log_proposer_metrics().await?;
-
-            // Add new ranges to the database.
-            self.add_new_ranges().await?;
-
-            // Get all proof statuses of all requests in the proving state.
-            self.handle_proving_requests().await?;
-
-            // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
-            // in advance.
-            self.create_aggregation_proofs().await?;
-
-            // Request all unrequested proofs from the prover network.
-            self.request_queued_proofs().await?;
-
-            // Determine if any aggregation proofs that are complete need to be checkpointed.
-            self.submit_agg_proofs().await?;
-
-            // Sleep for the proposer loop interval.
-            tokio::time::sleep(Duration::from_secs(
-                self.driver_config.loop_interval_seconds,
-            ))
-            .await;
+            // Wrap the entire loop body in a match to handle errors
+            match self.run_loop_iteration().await {
+                Ok(_) => {
+                    // Normal sleep between iterations
+                    tokio::time::sleep(Duration::from_secs(
+                        self.driver_config.loop_interval_seconds,
+                    ))
+                    .await;
+                }
+                Err(e) => {
+                    // Log the error
+                    tracing::error!("Error in proposer loop: {}", e);
+                    // Pause for 5 minutes before retrying
+                    tracing::info!("Pausing for 5 minutes before restarting the process");
+                    tokio::time::sleep(Duration::from_secs(300)).await;
+                }
+            }
         }
+    }
+
+    // Extract the loop body into a separate method to handle errors
+    async fn run_loop_iteration(&self) -> Result<()> {
+        // Validate the requester config matches the contract.
+        self.validate_contract_config().await?;
+
+        // Log the proposer metrics.
+        self.log_proposer_metrics().await?;
+
+        // Add new ranges to the database.
+        self.add_new_ranges().await?;
+
+        // Get all proof statuses of all requests in the proving state.
+        self.handle_proving_requests().await?;
+
+        // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
+        // in advance.
+        self.create_aggregation_proofs().await?;
+
+        // Request all unrequested proofs from the prover network.
+        self.request_queued_proofs().await?;
+
+        // Determine if any aggregation proofs that are complete need to be checkpointed.
+        self.submit_agg_proofs().await?;
+
+        Ok(())
     }
 
     pub async fn stop(&self) -> Result<()> {
