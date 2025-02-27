@@ -24,7 +24,6 @@ import {
     ClockTimeExceeded,
     GameNotFinalized,
     GameNotInProgress,
-    GameNotResolved,
     IncorrectBondAmount,
     InvalidBondDistributionMode,
     NoCreditToClaim,
@@ -507,12 +506,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         } else if (bondDistributionMode != BondDistributionMode.UNDECIDED) {
             // We shouldn't get here, but sanity check just in case.
             revert InvalidBondDistributionMode();
-        }
-
-        // Make sure that the game is resolved.
-        // AnchorStateRegistry should be checking this but we're being defensive here.
-        if (resolvedAt.raw() == 0) {
-            revert GameNotResolved();
         }
 
         // Game must be finalized according to the AnchorStateRegistry.
