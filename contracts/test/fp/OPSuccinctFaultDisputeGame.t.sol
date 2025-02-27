@@ -614,7 +614,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     // Test: Cannot close the game before it is resolved
     // =========================================
     function testCannotCloseGameBeforeResolved() public {
-        vm.expectRevert(GameNotResolved.selector);
+        vm.expectRevert(GameNotFinalized.selector);
         game.closeGame();
     }
 
