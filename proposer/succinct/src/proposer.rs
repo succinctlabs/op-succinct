@@ -9,9 +9,12 @@ use alloy_provider::{network::ReceiptResponse, Network, Provider};
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
+use lazy_static::lazy_static;
+use metrics::gauge;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
+use prometheus::{register_int_gauge, IntGauge};
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -962,6 +965,19 @@ where
             target: "proposer_metrics",
             "unrequested={num_unrequested_requests} prove={num_prove_requests} execution={num_execution_requests} witness_generation={num_witness_generation_requests} highest_contiguous_proven_block={highest_block_number}"
         );
+
+        // Update current proof counts
+        let current_unrequested_gauge = gauge!("succinct_current_unrequested_proofs");
+        current_unrequested_gauge.set(num_unrequested_requests as f64);
+
+        let current_proving_gauge = gauge!("succinct_current_proving_proofs");
+        current_proving_gauge.set(num_prove_requests as f64);
+
+        let current_witnessgen_gauge = gauge!("succinct_current_witnessgen_proofs");
+        current_witnessgen_gauge.set(num_witness_generation_requests as f64);
+
+        let current_execute_gauge = gauge!("succinct_current_execute_proofs");
+        current_execute_gauge.set(num_execution_requests as f64);
 
         Ok(())
     }

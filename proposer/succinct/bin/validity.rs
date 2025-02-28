@@ -1,10 +1,10 @@
+use alloy_primitives::Address;
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
-use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
+use metrics_process::Collector;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
-use op_succinct_proposer::{read_env, Proposer};
-use std::time::Duration;
-use std::{env, sync::Arc};
+use op_succinct_proposer::{read_env, DriverDBClient, Proposer, RequesterConfig};
+use std::{sync::Arc, thread, time::Duration};
 use tracing::info;
 
 use tikv_jemallocator::Jemalloc;
@@ -63,33 +63,36 @@ async fn main() -> Result<()> {
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
     // Read the environment variables.
-    let (db_client, proposer_config) = read_env(
-        fetcher.l1_provider.get_chain_id().await? as i64,
-        fetcher.l2_provider.get_chain_id().await? as i64,
-    )
-    .await?;
+    let env_config = read_env()?;
+
+    let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
+    let proposer_config = RequesterConfig {
+        l1_chain_id: fetcher.l1_provider.get_chain_id().await? as i64,
+        l2_chain_id: fetcher.l2_provider.get_chain_id().await? as i64,
+        l2oo_address: env_config.l2oo_address,
+        dgf_address: Address::ZERO,
+        range_proof_interval: env_config.range_proof_interval,
+        max_concurrent_witness_gen: env_config.max_concurrent_witness_gen,
+        max_concurrent_proof_requests: env_config.max_concurrent_proof_requests,
+        range_proof_strategy: env_config.range_proof_strategy,
+        agg_proof_strategy: env_config.agg_proof_strategy,
+        agg_proof_mode: env_config.agg_proof_mode,
+        submission_interval: env_config.submission_interval,
+        mock: env_config.mock,
+    };
 
     // Read all config from env vars
-    let rpc_url = env::var("L1_RPC").expect("L1_RPC is not set");
-    let private_key: PrivateKeySigner = env::var("PRIVATE_KEY")
-        .expect("PRIVATE_KEY is not set")
-        .parse()
-        .expect("Failed to parse PRIVATE_KEY");
-    let signer = EthereumWallet::new(private_key);
+    let signer = EthereumWallet::new(env_config.private_key);
     let l1_provider = ProviderBuilder::new()
         .wallet(signer.clone())
-        .on_http(rpc_url.parse().expect("Failed to parse L1_RPC"));
-
-    let loop_interval = env::var("LOOP_INTERVAL")
-        .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"))
-        .ok();
+        .on_http(env_config.l1_rpc.parse().expect("Failed to parse L1_RPC"));
 
     let proposer = Proposer::new(
         l1_provider,
         db_client.clone(),
         Arc::new(fetcher),
         proposer_config,
-        loop_interval,
+        env_config.loop_interval,
     )
     .await?;
 
@@ -103,20 +106,8 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    // Spawn a thread for the metrics exporter.
-    info!("Initializing metrics exporter");
-    const METRICS_PORT: u16 = 7001;
-    op_succinct_proposer::init_metrics(&METRICS_PORT);
-
-    info!("Starting metrics update loop");
-
-    const METRICS_UPDATE_INTERVAL: u64 = 1;
-    let _ = tokio::spawn(async move {
-        loop {
-            op_succinct_proposer::update_cpu_and_memory();
-            tokio::time::sleep(Duration::from_secs(METRICS_UPDATE_INTERVAL)).await;
-        }
-    });
+    // Initialize metrics exporter.
+    op_succinct_proposer::init_metrics(&env_config.metrics_port);
 
     // Wait for all tasks to complete.
     let proposer_res = proposer_handle.await?;
@@ -124,11 +115,6 @@ async fn main() -> Result<()> {
         tracing::error!("Proposer task failed: {}", e);
         return Err(e);
     }
-    // let (metrics_res, proposer_res) = tokio::try_join!(metrics_handle, proposer_handle)?;
-    // if let Err(e) = metrics_res.or(proposer_res) {
-    //     tracing::error!("Proposer task failed: {}", e);
-    //     return Err(e);
-    // }
 
     Ok(())
 }
