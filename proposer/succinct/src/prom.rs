@@ -26,7 +26,6 @@ pub fn init_metrics(port: &u16) {
         "Number of proofs currently being executed"
     );
 
-    // Note: Metrics only are exported with the process collector on Linux.
     let builder = PrometheusBuilder::new().with_http_listener(SocketAddr::new(
         IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
         port.to_owned(),
