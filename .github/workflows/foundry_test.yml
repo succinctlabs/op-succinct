@@ -1,4 +1,4 @@
-name: CI
+name: Foundry Test
 
 on:
   pull_request:
