@@ -424,7 +424,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             // Parent game is invalid so this game is invalid too. Therefore the challenger wins and gets all bonds.
             // If the game has not been challenged then there will not be any challenger address and the bond is burned.
             status = GameStatus.CHALLENGER_WINS;
-            normalModeCredit[claimData.counteredBy] += address(this).balance;
+            normalModeCredit[claimData.counteredBy] = address(this).balance;
         } else {
             // INVARIANT: Game must be completed either by clock expiration or valid proof.
             if (!gameOver()) revert GameNotOver();
@@ -433,23 +433,32 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             if (claimData.status == ProposalStatus.Unchallenged) {
                 // Claim is unchallenged, defender wins, game creator gets everything.
                 status = GameStatus.DEFENDER_WINS;
-                normalModeCredit[gameCreator()] += address(this).balance;
+                normalModeCredit[gameCreator()] = address(this).balance;
             } else if (claimData.status == ProposalStatus.Challenged) {
                 // Claim is challenged, challenger wins, challenger wins everything
                 status = GameStatus.CHALLENGER_WINS;
-                normalModeCredit[claimData.counteredBy] += address(this).balance;
+                normalModeCredit[claimData.counteredBy] = address(this).balance;
             } else if (claimData.status == ProposalStatus.UnchallengedAndValidProofProvided) {
                 // Claim is unchallenged but a valid proof was provided, defender wins, game
                 // creator gets everything. Note that the prover does not receive any reward in
                 // this particular case.
                 status = GameStatus.DEFENDER_WINS;
-                normalModeCredit[gameCreator()] += address(this).balance;
+                normalModeCredit[gameCreator()] = address(this).balance;
             } else if (claimData.status == ProposalStatus.ChallengedAndValidProofProvided) {
                 // Claim is challenged but a valid proof was provided, defender wins, prover gets
                 // the challenger's bond and the game creator gets everything else.
                 status = GameStatus.DEFENDER_WINS;
-                normalModeCredit[claimData.prover] += CHALLENGER_BOND;
-                normalModeCredit[gameCreator()] += address(this).balance - CHALLENGER_BOND;
+
+                // If the prover is same as the proposer, the proposer takes the entire bond.
+                if (claimData.prover == gameCreator()) {
+                    normalModeCredit[claimData.prover] = address(this).balance;
+                }
+                // If the prover is different from the proposer, the proposer gets the initial bond back,
+                // and the prover gets the challenger's bond.
+                else {
+                    normalModeCredit[claimData.prover] = CHALLENGER_BOND;
+                    normalModeCredit[gameCreator()] = address(this).balance - CHALLENGER_BOND;
+                }
             }
         }
 
