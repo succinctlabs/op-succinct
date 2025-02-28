@@ -9,14 +9,13 @@ use op_succinct_host_utils::{
 };
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
-    NetworkProver, ProverClient, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin,
-    SP1_CIRCUIT_VERSION,
+    NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
 use tracing::{error, info};
 
-use crate::db::DriverDBClient;
 use crate::RANGE_ELF;
+use crate::{db::DriverDBClient, AGG_ELF};
 use crate::{
     OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus, RequestType,
 };
@@ -188,21 +187,48 @@ impl OPSuccinctProofRequester {
     /// Generates a mock aggregation proof.
     pub async fn request_mock_agg_proof(
         &self,
+        request: &OPSuccinctRequest,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
-        let prover = ProverClient::builder().mock().build();
-        let agg_pk = self.program_config.agg_pk.clone();
-        let agg_mode = self.agg_mode;
-
-        // TODO: Potentially add execution statistics in the future.
-        tokio::task::spawn_blocking(move || {
-            prover
-                .prove(&agg_pk, &stdin)
-                .mode(agg_mode)
+        let start_time = Instant::now();
+        let network_prover = self.network_prover.clone();
+        // Move the CPU-intensive operation to a dedicated thread.
+        let (pv, report) = tokio::task::spawn_blocking(move || {
+            network_prover
+                .execute(AGG_ELF, &stdin)
                 .deferred_proof_verification(false)
                 .run()
         })
-        .await?
+        .await??; // Handle both JoinError and the Result from execute.
+
+        let execution_duration = start_time.elapsed().as_secs();
+
+        info!(
+            request_id = request.id,
+            request_type = ?request.req_type,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            duration_s = execution_duration,
+            "Executed mock aggregation proof.",
+        );
+
+        let execution_statistics = RequestExecutionStatistics::new(report);
+
+        // Write the execution data to the database.
+        self.db_client
+            .insert_execution_statistics(
+                request.id,
+                serde_json::to_value(execution_statistics)?,
+                execution_duration as i64,
+            )
+            .await?;
+
+        Ok(SP1ProofWithPublicValues::create_mock_proof(
+            &self.program_config.agg_pk,
+            pv.clone(),
+            self.agg_mode,
+            SP1_CIRCUIT_VERSION,
+        ))
     }
 
     /// Handles a failed proof request by either splitting range requests or re-queuing the same one.
@@ -382,7 +408,7 @@ impl OPSuccinctProofRequester {
             }
             RequestType::Aggregation => {
                 if self.mock {
-                    let proof = match self.request_mock_agg_proof(stdin).await {
+                    let proof = match self.request_mock_agg_proof(&request, stdin).await {
                         Ok(p) => p,
                         Err(e) => {
                             error!("Failed to generate mock aggregation proof: {}", e);
