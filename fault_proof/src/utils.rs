@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn setup_logging() {
@@ -17,4 +18,14 @@ pub fn setup_logging() {
         }))
         .event_format(format)
         .init();
+}
+
+/// Setup and start the Prometheus metrics server
+pub async fn setup_metrics_server(addr: SocketAddr) -> anyhow::Result<()> {
+    tracing::info!("Starting metrics server on {}", addr);
+    let builder = prometheus_exporter::Builder::new(addr);
+    builder.start()?;
+    tracing::info!("Metrics server started");
+
+    Ok(())
 }

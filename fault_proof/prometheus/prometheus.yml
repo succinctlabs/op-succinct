@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'proposer'
+    static_configs:
+      - targets: ['proposer:7300']
+        labels:
+          service: 'op-succinct-proposer'
+          
+  - job_name: 'challenger'
+    static_configs:
+      - targets: ['challenger:7301']
+        labels:
+          service: 'op-succinct-challenger' 

@@ -9,6 +9,9 @@ services:
     env_file:
       - .env.proposer
     command: ["proposer"]
+    ports:
+      # Metrics port for the fault proof proposer
+      - "7300:7300"
 
   challenger:
     build:
@@ -20,3 +23,45 @@ services:
     env_file:
       - .env.challenger
     command: ["challenger"]
+    ports:
+      # Metrics port for the fault proof challenger
+      - "7301:7301"
+    
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: op-succinct-fp-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - proposer
+      - challenger
+      
+  grafana:
+    image: grafana/grafana:10.0.3
+    container_name: op-succinct-fp-grafana
+    restart: unless-stopped
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:

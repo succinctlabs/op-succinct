@@ -1,4 +1,6 @@
 use std::env;
+use std::net::SocketAddr;
+use std::str::FromStr;
 
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
@@ -43,37 +45,47 @@ pub struct ProposerConfig {
     /// When game resolution is enabled, the proposer will attempt to resolve games that are
     /// unchallenged up to `max_games_to_check_for_resolution` games behind the latest game.
     pub max_games_to_check_for_resolution: u64,
+
+    /// The address to expose Prometheus metrics on.
+    /// Default is 0.0.0.0:7300
+    pub metrics_addr: Option<SocketAddr>,
 }
 
 impl ProposerConfig {
     pub fn from_env() -> Result<Self> {
         dotenv::from_filename(".env.proposer").ok();
 
+        let metrics_addr = env::var("METRICS_ADDR")
+            .ok()
+            .map(|addr| SocketAddr::from_str(&addr))
+            .transpose()?;
+
         Ok(Self {
-            l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
-            l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
-            factory_address: env::var("FACTORY_ADDRESS")?
-                .parse()
-                .expect("FACTORY_ADDRESS not set"),
+            l1_rpc: env::var("L1_RPC")?.parse()?,
+            l2_rpc: env::var("L2_RPC")?.parse()?,
+            factory_address: env::var("FACTORY_ADDRESS")?.parse()?,
             fast_finality_mode: env::var("FAST_FINALITY_MODE")
-                .unwrap_or("false".to_string())
+                .unwrap_or_else(|_| "false".to_string())
                 .parse()?,
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
-                .unwrap_or("1800".to_string())
+                .unwrap_or_else(|_| "1".to_string())
                 .parse()?,
             fetch_interval: env::var("FETCH_INTERVAL")
-                .unwrap_or("30".to_string())
+                .unwrap_or_else(|_| "10".to_string())
                 .parse()?,
-            game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
+            game_type: env::var("GAME_TYPE")
+                .unwrap_or_else(|_| "0".to_string())
+                .parse()?,
             max_games_to_check_for_defense: env::var("MAX_GAMES_TO_CHECK_FOR_DEFENSE")
-                .unwrap_or("100".to_string())
+                .unwrap_or_else(|_| "10".to_string())
                 .parse()?,
             enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
+                .unwrap_or_else(|_| "true".to_string())
                 .parse()?,
             max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-                .unwrap_or("100".to_string())
+                .unwrap_or_else(|_| "10".to_string())
                 .parse()?,
+            metrics_addr,
         })
     }
 }
@@ -102,29 +114,39 @@ pub struct ChallengerConfig {
     /// When game resolution is enabled, the challenger will attempt to resolve games that are
     /// challenged up to `max_games_to_check_for_resolution` games behind the latest game.
     pub max_games_to_check_for_resolution: u64,
+
+    /// The address to expose Prometheus metrics on.
+    /// Default is 0.0.0.0:7301
+    pub metrics_addr: Option<SocketAddr>,
 }
 
 impl ChallengerConfig {
     pub fn from_env() -> Result<Self> {
+        dotenv::from_filename(".env.challenger").ok();
+
+        let metrics_addr = env::var("METRICS_ADDR")
+            .ok()
+            .map(|addr| SocketAddr::from_str(&addr))
+            .transpose()?;
+
         Ok(Self {
-            l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
-            l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
-            factory_address: env::var("FACTORY_ADDRESS")?
-                .parse()
-                .expect("FACTORY_ADDRESS not set"),
-            game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
+            l1_rpc: env::var("L1_RPC")?.parse()?,
+            l2_rpc: env::var("L2_RPC")?.parse()?,
+            factory_address: env::var("FACTORY_ADDRESS")?.parse()?,
+            game_type: env::var("GAME_TYPE")?.parse()?,
             fetch_interval: env::var("FETCH_INTERVAL")
-                .unwrap_or("30".to_string())
+                .unwrap_or_else(|_| "30".to_string())
                 .parse()?,
             max_games_to_check_for_challenge: env::var("MAX_GAMES_TO_CHECK_FOR_CHALLENGE")
-                .unwrap_or("100".to_string())
+                .unwrap_or_else(|_| "100".to_string())
                 .parse()?,
             enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
+                .unwrap_or_else(|_| "true".to_string())
                 .parse()?,
             max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-                .unwrap_or("100".to_string())
+                .unwrap_or_else(|_| "100".to_string())
                 .parse()?,
+            metrics_addr,
         })
     }
 }

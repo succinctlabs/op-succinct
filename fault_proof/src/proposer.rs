@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_network::Ethereum;
@@ -16,8 +16,8 @@ use tokio::time;
 use crate::{
     config::ProposerConfig,
     contract::{DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame},
-    FactoryTrait, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode, NUM_CONFIRMATIONS,
-    TIMEOUT_SECONDS,
+    metrics, FactoryTrait, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode,
+    NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
@@ -80,10 +80,14 @@ where
     }
 
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
-        let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
+        let start_time = Instant::now();
+
+        let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await
+        {
             Ok(f) => f,
             Err(e) => {
                 tracing::error!("Failed to create data fetcher: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
                 return Err(anyhow::anyhow!("Failed to create data fetcher: {}", e));
             }
         };
@@ -107,22 +111,34 @@ where
             Ok(cli) => cli,
             Err(e) => {
                 tracing::error!("Failed to get host CLI args: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
                 return Err(anyhow::anyhow!("Failed to get host CLI args: {}", e));
             }
         };
 
-        let mem_kv_store = start_server_and_native_client(host_args).await?;
+        let mem_kv_store = match start_server_and_native_client(host_args.clone()).await {
+            Ok(result) => result,
+            Err(e) => {
+                tracing::error!("Failed to start server and native client: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
+                return Err(anyhow::anyhow!(
+                    "Failed to start server and native client: {}",
+                    e
+                ));
+            }
+        };
 
         let sp1_stdin = match get_proof_stdin(mem_kv_store) {
             Ok(stdin) => stdin,
             Err(e) => {
                 tracing::error!("Failed to get proof stdin: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
                 return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
             }
         };
 
         tracing::info!("Generating Range Proof");
-        let range_proof = self
+        let range_proof = match self
             .prover
             .network_prover
             .prove(&self.prover.range_pk, &sp1_stdin)
@@ -131,7 +147,15 @@ where
             .skip_simulation(true)
             .cycle_limit(1_000_000_000_000)
             .run_async()
-            .await?;
+            .await
+        {
+            Ok(proof) => proof,
+            Err(e) => {
+                tracing::error!("Failed to generate range proof: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
+                return Err(anyhow::anyhow!("Failed to generate range proof: {}", e));
+            }
+        };
 
         tracing::info!("Preparing Stdin for Agg Proof");
         let proof = range_proof.proof.clone();
@@ -145,6 +169,7 @@ where
             Ok(headers) => headers,
             Err(e) => {
                 tracing::error!("Failed to get header preimages: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
                 return Err(anyhow::anyhow!("Failed to get header preimages: {}", e));
             }
         };
@@ -159,25 +184,48 @@ where
             Ok(s) => s,
             Err(e) => {
                 tracing::error!("Failed to get agg proof stdin: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
                 return Err(anyhow::anyhow!("Failed to get agg proof stdin: {}", e));
             }
         };
 
         tracing::info!("Generating Agg Proof");
-        let agg_proof = self
+        let agg_proof = match self
             .prover
             .network_prover
             .prove(&self.prover.agg_pk, &sp1_stdin)
             .groth16()
             .run_async()
-            .await?;
+            .await
+        {
+            Ok(proof) => proof,
+            Err(e) => {
+                tracing::error!("Failed to generate agg proof: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
+                return Err(anyhow::anyhow!("Failed to generate agg proof: {}", e));
+            }
+        };
 
-        let receipt = game
+        let receipt = match game
             .prove(agg_proof.bytes().into())
             .send()
-            .await?
+            .await
+            .context("Failed to send prove transaction")?
+            .with_required_confirmations(NUM_CONFIRMATIONS)
+            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
             .get_receipt()
-            .await?;
+            .await
+        {
+            Ok(receipt) => receipt,
+            Err(e) => {
+                tracing::error!("Failed to get transaction receipt: {}", e);
+                metrics::observe_game_proving_time("error", start_time.elapsed().as_secs_f64());
+                return Err(anyhow::anyhow!("Failed to get transaction receipt: {}", e));
+            }
+        };
+
+        // Record successful proving time
+        metrics::observe_game_proving_time("success", start_time.elapsed().as_secs_f64());
 
         Ok(receipt.transaction_hash)
     }
@@ -224,6 +272,9 @@ where
             game_address,
             receipt.transaction_hash
         );
+
+        // Record metrics for successful game creation
+        metrics::increment_games_created("success");
 
         if self.config.fast_finality_mode {
             tracing::info!("Fast finality mode enabled: Generating proof for the game immediately");
@@ -346,21 +397,41 @@ where
     /// Runs the proposer indefinitely.
     pub async fn run(&self) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
+
+        // Start metrics server
+        let metrics_addr = self
+            .config
+            .metrics_addr
+            .unwrap_or_else(|| std::net::SocketAddr::from(([0, 0, 0, 0], 7300)));
+        tokio::spawn(async move {
+            if let Err(e) = crate::utils::setup_metrics_server(metrics_addr).await {
+                tracing::error!("Failed to start metrics server: {}", e);
+            }
+        });
+
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         loop {
             interval.tick().await;
 
+            // Update active games metric
+            if let Ok(Some(latest_index)) = self.factory.fetch_latest_game_index().await {
+                metrics::set_active_games("total", latest_index.to::<i64>());
+            }
+
             if let Err(e) = self.handle_game_creation().await {
                 tracing::warn!("Failed to handle game creation: {:?}", e);
+                metrics::increment_games_created("error");
             }
 
             if let Err(e) = self.handle_game_defense().await {
                 tracing::warn!("Failed to handle game defense: {:?}", e);
+                metrics::increment_games_defended("error");
             }
 
             if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
+                metrics::increment_games_resolved("error");
             }
         }
     }

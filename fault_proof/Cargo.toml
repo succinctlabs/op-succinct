@@ -44,6 +44,11 @@ alloy-transport-http = { workspace = true, features = ["reqwest", "reqwest-nativ
 op-alloy-network.workspace = true
 op-alloy-rpc-types.workspace = true
 
+# metrics
+prometheus = "0.13"
+prometheus_exporter = "0.8"
+lazy_static = "1.4"
+
 # general
 anyhow.workspace = true
 async-trait.workspace = true
