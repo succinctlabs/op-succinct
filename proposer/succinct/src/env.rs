@@ -56,9 +56,9 @@ pub fn read_env() -> Result<EnvironmentConfig> {
 
     let config = EnvironmentConfig {
         metrics_port: env::var("METRICS_PORT")
-            .unwrap_or_else(|_| "8080".to_string())
-            .parse::<u16>()
-            .unwrap_or_else(|_| 8080),
+            .ok()
+            .and_then(|v| v.parse::<u16>().ok())
+            .unwrap_or(8080),
         loop_interval: env::var("LOOP_INTERVAL")
             .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"))
             .ok(),
