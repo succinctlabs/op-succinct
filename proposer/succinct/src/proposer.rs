@@ -597,6 +597,11 @@ where
                 if let Err(e) = proof_requester.make_proof_request(request.clone()).await {
                     // If the proof request failed, retry it.
                     tracing::error!("Failed to make proof request: {}", e);
+                    
+                    // Update the error gauge
+                    let error_gauge = gauge!("succinct_error_count");
+                    error_gauge.increment(1.0);
+
                     if let Err(e) = proof_requester
                         .retry_request(&request, ExecutionStatus::UnspecifiedExecutionStatus)
                         .await
@@ -977,6 +982,49 @@ where
         let current_execute_gauge = gauge!("succinct_current_execute_proofs");
         current_execute_gauge.set(num_execution_requests as f64);
 
+        // Update the proposer gauges
+        let highest_contiguous_gauge = gauge!("succinct_highest_proven_contiguous_block");
+        highest_contiguous_gauge.set(highest_block_number as f64);
+
+        let latest_contract_l2_block_gauge = gauge!("succinct_latest_contract_l2_block");
+        latest_contract_l2_block_gauge.set(latest_proposed_block_number as f64);
+
+        let l2_unsafe_head_gauge = gauge!("succinct_l2_unsafe_head_block");
+        l2_unsafe_head_gauge.set(
+            self.proof_requester
+                .fetcher
+                .get_l2_header(BlockId::latest())
+                .await?
+                .number as f64,
+        );
+
+        let l2_finalized_gauge = gauge!("succinct_l2_finalized_block");
+        l2_finalized_gauge.set(
+            self.proof_requester
+                .fetcher
+                .get_l2_header(BlockId::finalized())
+                .await?
+                .number as f64,
+        );
+
+        // Get the submission interval from the contract.
+        let contract_submission_interval: u64 = self
+            .contract_config
+            .l2oo_contract
+            .submissionInterval()
+            .call()
+            .await?
+            .submissionInterval
+            .try_into()
+            .unwrap();
+
+        // Use the submission interval from the contract if it's greater than the one in the proposer config.
+        let submission_interval =
+            contract_submission_interval.max(self.requester_config.submission_interval);
+
+        let min_block_to_agg_gauge = gauge!("succinct_min_block_to_prove_to_agg");
+        min_block_to_agg_gauge.set((latest_proposed_block_number + submission_interval) as f64);
+
         Ok(())
     }
 
@@ -999,6 +1047,9 @@ where
                 Err(e) => {
                     // Log the error
                     tracing::error!("Error in proposer loop: {}", e);
+                    // Update the error gauge
+                    let error_gauge = gauge!("succinct_error_count");
+                    error_gauge.increment(1.0);
                     // Pause for 10 seconds before restarting
                     tracing::info!("Pausing for 10 seconds before restarting the process");
                     tokio::time::sleep(Duration::from_secs(10)).await;
