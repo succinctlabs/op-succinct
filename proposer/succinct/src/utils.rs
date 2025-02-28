@@ -81,13 +81,7 @@ mod tests {
         };
     }
 
-    test_find_gaps!(
-        test_find_gaps_no_gaps,
-        1,
-        4,
-        &[(1, 2), (2, 3), (3, 4)],
-        &[]
-    );
+    test_find_gaps!(test_find_gaps_no_gaps, 1, 4, &[(1, 2), (2, 3), (3, 4)], &[]);
     test_find_gaps!(
         test_find_gaps_with_gaps,
         1,
@@ -102,13 +96,7 @@ mod tests {
         &[(3, 4), (5, 6)],
         &[(1, 3), (4, 5)]
     );
-    test_find_gaps!(
-        test_find_gaps_at_end,
-        1,
-        5,
-        &[(1, 2), (2, 3)],
-        &[(3, 5)]
-    );
+    test_find_gaps!(test_find_gaps_at_end, 1, 5, &[(1, 2), (2, 3)], &[(3, 5)]);
     test_find_gaps!(test_find_gaps_empty_ranges, 1, 5, &[], &[(1, 5)]);
     test_find_gaps!(
         test_find_gaps_single_range,

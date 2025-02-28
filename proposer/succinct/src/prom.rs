@@ -40,20 +40,14 @@ pub fn custom_gauges() {
         "succinct_l2_unsafe_head_block",
         "L2 unsafe head block number"
     );
-    describe_gauge!(
-        "succinct_l2_finalized_block",
-        "L2 finalized block number"
-    );
+    describe_gauge!("succinct_l2_finalized_block", "L2 finalized block number");
     describe_gauge!(
         "succinct_min_block_to_prove_to_agg",
         "Minimum block number required to prove for aggregation"
     );
 
     // Error gauges
-    describe_gauge!(
-        "succinct_error_count",
-        "Number of errors"
-    );
+    describe_gauge!("succinct_error_count", "Number of errors");
 }
 
 pub fn init_metrics(port: &u16) {

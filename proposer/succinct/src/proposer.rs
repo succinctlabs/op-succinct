@@ -597,7 +597,7 @@ where
                 if let Err(e) = proof_requester.make_proof_request(request.clone()).await {
                     // If the proof request failed, retry it.
                     tracing::error!("Failed to make proof request: {}", e);
-                    
+
                     // Update the error gauge
                     let error_gauge = gauge!("succinct_error_count");
                     error_gauge.increment(1.0);
