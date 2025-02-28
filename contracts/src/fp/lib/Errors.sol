@@ -22,3 +22,6 @@ error GameOver();
 
 /// @notice Thrown when the game is not over.
 error GameNotOver();
+
+/// @notice Thrown when the proposal status is invalid.
+error InvalidProposalStatus();
