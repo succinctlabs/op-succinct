@@ -1,7 +1,6 @@
 use alloy_primitives::B256;
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
-use chrono::Local;
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher},
@@ -24,7 +23,7 @@ pub struct OPSuccinctProofRequester {
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub db_client: Arc<DriverDBClient>,
-    pub program_config: Arc<ProgramConfig>,
+    pub program_config: ProgramConfig,
     pub mock: bool,
     pub range_strategy: FulfillmentStrategy,
     pub agg_strategy: FulfillmentStrategy,
@@ -36,7 +35,7 @@ impl OPSuccinctProofRequester {
         network_prover: Arc<NetworkProver>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         db_client: Arc<DriverDBClient>,
-        program_config: Arc<ProgramConfig>,
+        program_config: ProgramConfig,
         mock: bool,
         range_strategy: FulfillmentStrategy,
         agg_strategy: FulfillmentStrategy,
@@ -231,7 +230,10 @@ impl OPSuccinctProofRequester {
         ))
     }
 
-    /// Handles a failed proof request by either splitting range requests or re-queuing the same one.
+    /// Handles a failed proof request by inserting a new request.
+    ///
+    /// If the request is a range proof and the number of failed requests is greater than 2 or the execution status is unexecutable, the request is split into two new requests.
+    /// Otherwise, the same request is inserted again with a new ID.
     pub async fn retry_request(
         &self,
         request: &OPSuccinctRequest,
@@ -293,24 +295,9 @@ impl OPSuccinctProofRequester {
             }
         }
 
-        // Retry the same request if splitting was not triggered.
-        let mut new_request = request.clone();
-        new_request.id = 0;
-        new_request.status = RequestStatus::Unrequested;
-        new_request.created_at = Local::now().naive_local();
-        new_request.updated_at = Local::now().naive_local();
-        new_request.proof_request_id = None;
-        new_request.proof_request_time = None;
-        new_request.checkpointed_l1_block_number = None;
-        new_request.checkpointed_l1_block_hash = None;
-        new_request.execution_statistics = serde_json::Value::Null;
-        new_request.witnessgen_duration = None;
-        new_request.execution_duration = None;
-        new_request.prove_duration = None;
-        new_request.relay_tx_hash = None;
-        new_request.proof = None;
-
-        self.db_client.insert_request(&new_request).await?;
+        self.db_client
+            .insert_request(&OPSuccinctRequest::new_retry_request(request))
+            .await?;
 
         Ok(())
     }
@@ -382,7 +369,7 @@ impl OPSuccinctProofRequester {
             "Completed witness generation"
         );
 
-        // For mock mode, update status to EXECUTION before proceeding.
+        // For mock mode, update status to Execution before proceeding.
         if self.mock {
             self.db_client
                 .update_request_status(request.id, RequestStatus::Execution)

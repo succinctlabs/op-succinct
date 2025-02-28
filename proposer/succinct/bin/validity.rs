@@ -93,23 +93,6 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    // let l2_ws_rpc = env::var("L2_WS_RPC").expect("L2_WS_RPC is not set");
-    // let l2_provider = alloy_provider::ProviderBuilder::default()
-    //     .on_ws(WsConnect::new(l2_ws_rpc))
-    //     .await?;
-
-    // // Create the OP chain metrics collector.
-    // let eth_listener = OPChainMetricer::new(db_client.clone(), Arc::new(l2_provider));
-
-    // // Spawn a thread for the ETH listener.
-    // let eth_handle = tokio::spawn(async move {
-    //     if let Err(e) = eth_listener.listen().await {
-    //         tracing::error!("ETH listener error: {}", e);
-    //         return Err(e);
-    //     }
-    //     Ok(())
-    // });
-
     // Spawn a thread for the proposer.
     info!("Starting proposer.");
     let proposer_handle = tokio::spawn(async move {

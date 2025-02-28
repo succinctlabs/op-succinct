@@ -1,9 +1,17 @@
+use crate::{
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, OPSuccinctProofRequester,
+    AGG_ELF, RANGE_ELF,
+};
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
-use anyhow::Result;
+use anyhow::anyhow;
+use anyhow::{Context, Result};
+use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
+use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -14,15 +22,6 @@ use sp1_sdk::{
 };
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tracing::{debug, info};
-
-use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, OPSuccinctProofRequester,
-    AGG_ELF, RANGE_ELF,
-};
-use futures_util::{stream, StreamExt, TryStreamExt};
-
-use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
 
 pub struct ContractConfig<P, N>
 where
@@ -41,11 +40,12 @@ pub struct CommitmentConfig {
     pub rollup_config_hash: B256,
 }
 
+#[derive(Clone)]
 pub struct ProgramConfig {
-    pub range_vk: SP1VerifyingKey,
-    pub range_pk: SP1ProvingKey,
-    pub agg_vk: SP1VerifyingKey,
-    pub agg_pk: SP1ProvingKey,
+    pub range_vk: Arc<SP1VerifyingKey>,
+    pub range_pk: Arc<SP1ProvingKey>,
+    pub agg_vk: Arc<SP1VerifyingKey>,
+    pub agg_pk: Arc<SP1ProvingKey>,
     pub commitments: CommitmentConfig,
 }
 
@@ -85,7 +85,7 @@ where
 {
     driver_config: DriverConfig,
     contract_config: ContractConfig<P, N>,
-    program_config: Arc<ProgramConfig>,
+    program_config: ProgramConfig,
     requester_config: RequesterConfig,
     proof_requester: Arc<OPSuccinctProofRequester>,
 }
@@ -133,17 +133,17 @@ where
         let mock = config.mock;
         const PROOF_TIMEOUT: u64 = 60 * 60;
 
-        let program_config = Arc::new(ProgramConfig {
-            range_vk,
-            range_pk,
-            agg_vk,
-            agg_pk,
+        let program_config = ProgramConfig {
+            range_vk: Arc::new(range_vk),
+            range_pk: Arc::new(range_pk),
+            agg_vk: Arc::new(agg_vk),
+            agg_pk: Arc::new(agg_pk),
             commitments: CommitmentConfig {
                 range_vkey_commitment,
                 agg_vkey_hash,
                 rollup_config_hash,
             },
-        });
+        };
 
         // Initialize the proof requester.
         let proof_requester = Arc::new(OPSuccinctProofRequester::new(
@@ -182,7 +182,7 @@ where
                 dgf_address,
                 l2oo_contract,
             },
-            program_config: program_config,
+            program_config,
             requester_config: RequesterConfig {
                 l2oo_address,
                 dgf_address,
@@ -331,9 +331,10 @@ where
                 .get_proof_status(B256::from_slice(&proof_request_id))
                 .await?;
 
-            let execution_status = ExecutionStatus::try_from(status.execution_status).unwrap();
-            let fulfillment_status =
-                FulfillmentStatus::try_from(status.fulfillment_status).unwrap();
+            let execution_status = ExecutionStatus::try_from(status.execution_status)
+                .context("Failed to convert execution status to ExecutionStatus.")?;
+            let fulfillment_status = FulfillmentStatus::try_from(status.fulfillment_status)
+                .context("Failed to convert fulfillment status to FulfillmentStatus.")?;
 
             // If the proof request has been fulfilled, update the request to status Complete and add the proof bytes to the database.
             if fulfillment_status == FulfillmentStatus::Fulfilled {
@@ -343,7 +344,8 @@ where
                     // If it's a compressed proof, serialize with bincode.
                     SP1Proof::Compressed(_) => bincode::serialize(&proof).unwrap(),
                     // If it's Groth16 or PLONK, get the on-chain proof bytes.
-                    _ => proof.bytes(),
+                    SP1Proof::Groth16(_) | SP1Proof::Plonk(_) => proof.bytes(),
+                    SP1Proof::Core(_) => return Err(anyhow!("Core proofs are not supported.")),
                 };
 
                 // Add the completed proof to the database.
@@ -784,7 +786,9 @@ where
     #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
     async fn initialize_proposer(&self) -> Result<()> {
         // Validate the requester config matches the contract.
-        self.validate_contract_config().await?;
+        self.validate_contract_config()
+            .await
+            .context("Failed to validate the requester config matches the contract.")?;
 
         // Delete all requests for the same chain ID that are of status UNREQUESTED, EXECUTION or WITNESS_GENERATION as they're unrecoverable.
         self.driver_config
@@ -1013,10 +1017,6 @@ where
         // Submit any aggregation proofs that are complete.
         self.submit_agg_proofs().await?;
 
-        Ok(())
-    }
-
-    pub async fn stop(&self) -> Result<()> {
         Ok(())
     }
 
