@@ -1,11 +1,11 @@
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
-use std::{env, sync::Arc};
-use tracing::info;
-
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
+use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
 use op_succinct_proposer::{read_env, Proposer};
+use std::time::Duration;
+use std::{env, sync::Arc};
+use tracing::info;
 
 use tikv_jemallocator::Jemalloc;
 
@@ -105,13 +105,13 @@ async fn main() -> Result<()> {
 
     // Spawn a thread for the metrics exporter.
     info!("Initializing metrics exporter");
-    const METRICS_PORT: u16 = 7000;
+    const METRICS_PORT: u16 = 7001;
     op_succinct_proposer::init_metrics(&METRICS_PORT);
 
     info!("Starting metrics update loop");
 
     const METRICS_UPDATE_INTERVAL: u64 = 1;
-    let metrics_handle = tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         loop {
             op_succinct_proposer::update_cpu_and_memory();
             tokio::time::sleep(Duration::from_secs(METRICS_UPDATE_INTERVAL)).await;
@@ -124,8 +124,8 @@ async fn main() -> Result<()> {
         tracing::error!("Proposer task failed: {}", e);
         return Err(e);
     }
-    // let (eth_res, proposer_res) = tokio::try_join!(eth_handle, proposer_handle)?;
-    // if let Err(e) = eth_res.or(proposer_res) {
+    // let (metrics_res, proposer_res) = tokio::try_join!(metrics_handle, proposer_handle)?;
+    // if let Err(e) = metrics_res.or(proposer_res) {
     //     tracing::error!("Proposer task failed: {}", e);
     //     return Err(e);
     // }

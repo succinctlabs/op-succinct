@@ -31,6 +31,7 @@ pub struct OPSuccinctProofRequester {
 }
 
 impl OPSuccinctProofRequester {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         network_prover: Arc<NetworkProver>,
         fetcher: Arc<OPSuccinctDataFetcher>,
@@ -96,7 +97,7 @@ impl OPSuccinctProofRequester {
 
         let headers = self
             .fetcher
-            .get_header_preimages(&boot_infos, B256::from_slice(&l1_head))
+            .get_header_preimages(&boot_infos, B256::from_slice(l1_head))
             .await?;
 
         let stdin = get_agg_proof_stdin(
@@ -104,7 +105,7 @@ impl OPSuccinctProofRequester {
             boot_infos,
             headers,
             &self.program_config.range_vk,
-            B256::from_slice(&l1_head),
+            B256::from_slice(l1_head),
         )?;
 
         Ok(stdin)
@@ -255,8 +256,8 @@ impl OPSuccinctProofRequester {
                 .fetch_failed_request_count_by_block_range(
                     request.start_block,
                     request.end_block,
-                    request.l1_chain_id as i64,
-                    request.l2_chain_id as i64,
+                    request.l1_chain_id,
+                    request.l2_chain_id,
                     &self.program_config.commitments,
                 )
                 .await?;
@@ -270,8 +271,8 @@ impl OPSuccinctProofRequester {
                         request.mode,
                         request.start_block,
                         mid_block,
-                        self.program_config.commitments.range_vkey_commitment.into(),
-                        self.program_config.commitments.rollup_config_hash.into(),
+                        self.program_config.commitments.range_vkey_commitment,
+                        self.program_config.commitments.rollup_config_hash,
                         l1_chain_id as i64,
                         l2_chain_id as i64,
                         self.fetcher.clone(),
@@ -281,8 +282,8 @@ impl OPSuccinctProofRequester {
                         request.mode,
                         mid_block,
                         request.end_block,
-                        self.program_config.commitments.range_vkey_commitment.into(),
-                        self.program_config.commitments.rollup_config_hash.into(),
+                        self.program_config.commitments.range_vkey_commitment,
+                        self.program_config.commitments.rollup_config_hash,
                         l1_chain_id as i64,
                         l2_chain_id as i64,
                         self.fetcher.clone(),
@@ -305,7 +306,7 @@ impl OPSuccinctProofRequester {
     /// Generates the stdin needed for a proof.
     async fn generate_proof_stdin(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
         let stdin = match request.req_type {
-            RequestType::Range => self.range_proof_witnessgen(&request).await?,
+            RequestType::Range => self.range_proof_witnessgen(request).await?,
             RequestType::Aggregation => {
                 // Fetch consecutive range proofs from the database.
                 let range_proofs_raw = self
@@ -314,8 +315,8 @@ impl OPSuccinctProofRequester {
                         request.start_block,
                         request.end_block,
                         &self.program_config.commitments,
-                        request.l1_chain_id as i64,
-                        request.l2_chain_id as i64,
+                        request.l1_chain_id,
+                        request.l2_chain_id,
                     )
                     .await?;
                 let range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs_raw
@@ -325,7 +326,7 @@ impl OPSuccinctProofRequester {
                             .expect("Deserialization failure for range proof")
                     })
                     .collect();
-                self.agg_proof_witnessgen(&request, range_proofs).await?
+                self.agg_proof_witnessgen(request, range_proofs).await?
             }
         };
 
@@ -387,7 +388,7 @@ impl OPSuccinctProofRequester {
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
                     self.db_client
-                        .update_request_to_prove(request.id, proof_id.into())
+                        .update_request_to_prove(request.id, proof_id)
                         .await?;
                 }
             }
@@ -400,7 +401,7 @@ impl OPSuccinctProofRequester {
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;
                     self.db_client
-                        .update_request_to_prove(request.id, proof_id.into())
+                        .update_request_to_prove(request.id, proof_id)
                         .await?;
                 }
             }

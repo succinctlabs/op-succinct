@@ -224,8 +224,8 @@ where
                     RequestStatus::Prove,
                 ],
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -267,10 +267,10 @@ where
                 },
                 current_processed_block as i64,
                 end_block as i64,
-                self.program_config.commitments.range_vkey_commitment.into(),
-                self.program_config.commitments.rollup_config_hash.into(),
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.program_config.commitments.range_vkey_commitment,
+                self.program_config.commitments.rollup_config_hash,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
                 self.driver_config.fetcher.clone(),
             )
             .await?;
@@ -300,8 +300,8 @@ where
             .fetch_requests_by_status(
                 RequestStatus::Prove,
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -328,7 +328,7 @@ where
             let (status, proof) = self
                 .driver_config
                 .network_prover
-                .get_proof_status(B256::from_slice(&proof_request_id))
+                .get_proof_status(B256::from_slice(proof_request_id))
                 .await?;
 
             let execution_status = ExecutionStatus::try_from(status.execution_status)
@@ -393,8 +393,8 @@ where
             .fetch_active_agg_proofs_count(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -410,8 +410,8 @@ where
             .fetch_completed_ranges(
                 &self.program_config.commitments,
                 latest_proposed_block_number as i64,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -455,8 +455,8 @@ where
                     latest_proposed_block_number,
                     highest_proven_contiguous_block_number,
                     &self.program_config.commitments,
-                    self.requester_config.l1_chain_id as i64,
-                    self.requester_config.l2_chain_id as i64,
+                    self.requester_config.l1_chain_id,
+                    self.requester_config.l2_chain_id,
                 )
                 .await?;
 
@@ -512,8 +512,8 @@ where
                     self.program_config.commitments.range_vkey_commitment,
                     self.program_config.commitments.agg_vkey_hash,
                     self.program_config.commitments.rollup_config_hash,
-                    self.requester_config.l1_chain_id as i64,
-                    self.requester_config.l2_chain_id as i64,
+                    self.requester_config.l1_chain_id,
+                    self.requester_config.l2_chain_id,
                     checkpointed_l1_block_number,
                     checkpointed_l1_block_hash,
                 ))
@@ -530,8 +530,8 @@ where
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
     async fn request_queued_proofs(&self) -> Result<()> {
         let commitments = self.program_config.commitments.clone();
-        let l1_chain_id = self.requester_config.l1_chain_id as i64;
-        let l2_chain_id = self.requester_config.l2_chain_id as i64;
+        let l1_chain_id = self.requester_config.l1_chain_id;
+        let l2_chain_id = self.requester_config.l2_chain_id;
 
         let witness_gen_count = self
             .driver_config
@@ -626,8 +626,8 @@ where
             .fetch_unrequested_agg_proof(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -641,8 +641,8 @@ where
             .fetch_first_unrequested_range_proof(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -669,8 +669,8 @@ where
             .fetch_completed_agg_proof_after_block(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -719,8 +719,8 @@ where
             .driver_db_client
             .update_request_to_relayed(
                 completed_agg_proof.id,
-                receipt.transaction_hash().into(),
-                self.contract_config.l2oo_address.into(),
+                receipt.transaction_hash(),
+                self.contract_config.l2oo_address,
             )
             .await?;
 
@@ -799,8 +799,8 @@ where
                     RequestStatus::Execution,
                     RequestStatus::WitnessGeneration,
                 ],
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -811,8 +811,8 @@ where
             .driver_db_client
             .cancel_prove_requests_with_different_commitment_config(
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -839,8 +839,8 @@ where
                 &[RequestStatus::Prove, RequestStatus::Complete],
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -874,8 +874,8 @@ where
                     range.1,
                     self.program_config.commitments.range_vkey_commitment,
                     self.program_config.commitments.rollup_config_hash,
-                    self.requester_config.l1_chain_id as i64,
-                    self.requester_config.l2_chain_id as i64,
+                    self.requester_config.l1_chain_id,
+                    self.requester_config.l2_chain_id,
                     self.driver_config.fetcher.clone(),
                 )
             })
@@ -910,8 +910,8 @@ where
             .fetch_completed_ranges(
                 &self.program_config.commitments,
                 latest_proposed_block_number as i64,
-                self.requester_config.l1_chain_id as i64,
-                self.requester_config.l2_chain_id as i64,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
             )
             .await?;
 
@@ -924,8 +924,8 @@ where
 
         let db = &self.driver_config.driver_db_client;
         let commitments = &self.program_config.commitments;
-        let l1_chain_id = self.requester_config.l1_chain_id as i64;
-        let l2_chain_id = self.requester_config.l2_chain_id as i64;
+        let l1_chain_id = self.requester_config.l1_chain_id;
+        let l2_chain_id = self.requester_config.l2_chain_id;
 
         let num_unrequested_requests = db
             .fetch_request_count(

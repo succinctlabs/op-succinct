@@ -1,6 +1,8 @@
 use metrics_exporter_prometheus::PrometheusBuilder;
+use prometheus::Encoder;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use sysinfo::System;
+use tracing::{info, warn};
 
 pub struct Metric {
     pub name: &'static str,
@@ -20,18 +22,26 @@ pub const MEMORY_USAGE: Metric = Metric {
 };
 
 pub fn init_metrics(port: &u16) {
-    println!("initializing metrics exporter");
+    info!("initializing metrics exporter on port {}", port);
 
-    PrometheusBuilder::new()
-        .with_http_listener(SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-            port.to_owned(),
-        ))
-        .install()
-        .expect("failed to install Prometheus recorder");
+    let builder = PrometheusBuilder::new().with_http_listener(SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+        port.to_owned(),
+    ));
 
-    for name in GAUGES {
-        register_gauge(name)
+    match builder.install() {
+        Ok(_) => {
+            info!("Prometheus metrics server started on port {}", port);
+            for name in GAUGES {
+                register_gauge(name)
+            }
+        }
+        Err(e) => {
+            warn!(
+                "Failed to start metrics server: {}. Will continue without metrics.",
+                e
+            );
+        }
     }
 }
 

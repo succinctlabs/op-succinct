@@ -147,6 +147,7 @@ impl Debug for OPSuccinctRequest {
 
 impl OPSuccinctRequest {
     /// Creates a new range request and fetches the block data.
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_range_request(
         mode: RequestMode,
         start_block: i64,
@@ -174,6 +175,7 @@ impl OPSuccinctRequest {
     }
 
     /// Create a new range request given the block data.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_range_request(
         mode: RequestMode,
         start_block: i64,
@@ -214,6 +216,7 @@ impl OPSuccinctRequest {
     }
 
     /// Create a new aggregation request.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_agg_request(
         mode: RequestMode,
         start_block: i64,
