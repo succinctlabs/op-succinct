@@ -11,7 +11,7 @@ use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProvingKey,
     SP1VerifyingKey,
 };
-use tokio::time;
+use tokio::time::{sleep, interval};
 
 use crate::{
     config::ProposerConfig,
@@ -79,7 +79,56 @@ where
         })
     }
 
+    /// Generates a proof for the given game address with retry mechanism
+    /// 
+    /// This function attempts to generate a proof for the game and will retry up to 3 times
+    /// if it encounters a temporary error. It uses exponential backoff between retries.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `game_address` - The address of the game to prove
+    /// 
+    /// # Returns
+    /// 
+    /// The transaction hash of the submitted proof or an error
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
+        let max_retries = 3;
+        let initial_backoff_ms = 1000; // 1 second
+        
+        let mut attempt = 0;
+        let mut last_error = None;
+        
+        while attempt < max_retries {
+            match self.attempt_prove_game(game_address).await {
+                Ok(tx_hash) => return Ok(tx_hash),
+                Err(e) => {
+                    // Mark permanent errors as failures immediately
+                    if !is_retryable_error(&e) {
+                        return Err(e);
+                    }
+                    
+                    attempt += 1;
+                    last_error = Some(e);
+                    
+                    if attempt < max_retries {
+                        // Exponential backoff
+                        let backoff = initial_backoff_ms * 2u64.pow(attempt as u32 - 1);
+                        tracing::warn!(
+                            "Retryable error while proving game {:?}, retrying in {}ms (attempt {}/{}): {:?}",
+                            game_address, backoff, attempt, max_retries, last_error
+                        );
+                        sleep(Duration::from_millis(backoff)).await;
+                    }
+                }
+            }
+        }
+        
+        Err(anyhow::anyhow!("Failed after {} attempts: {:?}", max_retries, last_error.unwrap()))
+    }
+
+    // Attempts to generate a proof for the given game address
+    // This contains the original implementation of prove_game
+    async fn attempt_prove_game(&self, game_address: Address) -> Result<TxHash> {
         let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await
         {
             Ok(f) => f,
@@ -347,7 +396,7 @@ where
     /// Runs the proposer indefinitely.
     pub async fn run(&self) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
-        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+        let mut interval = interval(Duration::from_secs(self.config.fetch_interval));
 
         loop {
             interval.tick().await;
@@ -364,5 +413,23 @@ where
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
         }
+    }
+
+    // Determines if an error is retryable based on its message
+    // Returns true if the error is likely temporary and the operation should be retried
+    fn is_retryable_error(e: &anyhow::Error) -> bool {
+        let error_str = e.to_string().to_lowercase();
+        
+        // Temporary network errors
+        error_str.contains("timeout") || 
+        error_str.contains("connection") ||
+        error_str.contains("temporarily") ||
+        // Prover service related temporary errors
+        error_str.contains("service unavailable") ||
+        error_str.contains("too many requests") ||
+        error_str.contains("retry") ||
+        // RPC errors
+        error_str.contains("server busy") ||
+        error_str.contains("rate limit")
     }
 }
