@@ -47,7 +47,10 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
 /// assert_eq!(ranges_to_prove, [(0, 25), (25, 50), (100, 125), (125, 150), (150, 175), (175, 200), (200, 210)]);
 /// ```
 ///
-pub fn get_ranges_to_prove(disjoint_ranges: &[(i64, i64)], range_proof_interval: i64) -> Vec<(i64, i64)> {
+pub fn get_ranges_to_prove(
+    disjoint_ranges: &[(i64, i64)],
+    range_proof_interval: i64,
+) -> Vec<(i64, i64)> {
     let mut ranges = Vec::new();
 
     for &(start, end) in disjoint_ranges {
@@ -64,8 +67,6 @@ pub fn get_ranges_to_prove(disjoint_ranges: &[(i64, i64)], range_proof_interval:
     ranges
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -80,12 +81,42 @@ mod tests {
         };
     }
 
-    test_find_gaps!(test_find_gaps_no_gaps, 1, 4, vec![(1, 2), (2, 3), (3, 4)], vec![]);
-    test_find_gaps!(test_find_gaps_with_gaps, 1, 10, vec![(1, 2), (4, 5), (7, 8)], vec![(2, 4), (5, 7), (8, 10)]);
-    test_find_gaps!(test_find_gaps_at_start, 1, 6, vec![(3, 4), (5, 6)], vec![(1, 3), (4, 5)]);
-    test_find_gaps!(test_find_gaps_at_end, 1, 5, vec![(1, 2), (2, 3)], vec![(3, 5)]);
+    test_find_gaps!(
+        test_find_gaps_no_gaps,
+        1,
+        4,
+        vec![(1, 2), (2, 3), (3, 4)],
+        vec![]
+    );
+    test_find_gaps!(
+        test_find_gaps_with_gaps,
+        1,
+        10,
+        vec![(1, 2), (4, 5), (7, 8)],
+        vec![(2, 4), (5, 7), (8, 10)]
+    );
+    test_find_gaps!(
+        test_find_gaps_at_start,
+        1,
+        6,
+        vec![(3, 4), (5, 6)],
+        vec![(1, 3), (4, 5)]
+    );
+    test_find_gaps!(
+        test_find_gaps_at_end,
+        1,
+        5,
+        vec![(1, 2), (2, 3)],
+        vec![(3, 5)]
+    );
     test_find_gaps!(test_find_gaps_empty_ranges, 1, 5, vec![], vec![(1, 5)]);
-    test_find_gaps!(test_find_gaps_single_range, 1, 5, vec![(2, 4)], vec![(1, 2), (4, 5)]);
+    test_find_gaps!(
+        test_find_gaps_single_range,
+        1,
+        5,
+        vec![(2, 4)],
+        vec![(1, 2), (4, 5)]
+    );
 
     macro_rules! test_get_ranges_to_prove {
         ($name:ident, $disjoint_ranges:expr, $range_proof_interval:expr, $expected:expr) => {
@@ -102,7 +133,13 @@ mod tests {
         vec![(0, 50), (100, 200), (200, 210)],
         25,
         vec![
-            (0, 25), (25, 50), (100, 125), (125, 150), (150, 175), (175, 200), (200, 210)
+            (0, 25),
+            (25, 50),
+            (100, 125),
+            (125, 150),
+            (150, 175),
+            (175, 200),
+            (200, 210)
         ]
     );
 
@@ -110,35 +147,27 @@ mod tests {
         test_get_ranges_to_prove_case_2,
         vec![(0, 30), (40, 70)],
         10,
-        vec![
-            (0, 10), (10, 20), (20, 30), (40, 50), (50, 60), (60, 70)
-        ]
+        vec![(0, 10), (10, 20), (20, 30), (40, 50), (50, 60), (60, 70)]
     );
 
     test_get_ranges_to_prove!(
         test_get_ranges_to_prove_case_3,
         vec![(0, 100)],
         20,
-        vec![
-            (0, 20), (20, 40), (40, 60), (60, 80), (80, 100)
-        ]
+        vec![(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]
     );
 
     test_get_ranges_to_prove!(
         test_get_ranges_to_prove_case_4,
         vec![(0, 15), (20, 35)],
         5,
-        vec![
-            (0, 5), (5, 10), (10, 15), (20, 25), (25, 30), (30, 35)
-        ]
+        vec![(0, 5), (5, 10), (10, 15), (20, 25), (25, 30), (30, 35)]
     );
 
     test_get_ranges_to_prove!(
         test_get_ranges_to_prove_case_5,
         vec![(0, 5), (10, 15), (20, 25)],
         3,
-        vec![
-            (0, 3), (3, 5), (10, 13), (13, 15), (20, 23), (23, 25)
-        ]
+        vec![(0, 3), (3, 5), (10, 13), (13, 15), (20, 23), (23, 25)]
     );
 }

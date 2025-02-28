@@ -42,7 +42,6 @@ impl From<i16> for RequestStatus {
     }
 }
 
-
 #[derive(sqlx::Type, Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[sqlx(type_name = "smallint")]
 pub enum RequestType {
@@ -97,11 +96,11 @@ pub struct OPSuccinctRequest {
     pub witnessgen_duration: Option<i64>,
     pub execution_duration: Option<i64>,
     pub prove_duration: Option<i64>,
-    pub range_vkey_commitment: Vec<u8>, //B256
+    pub range_vkey_commitment: Vec<u8>,         //B256
     pub aggregation_vkey_hash: Option<Vec<u8>>, //B256
-    pub rollup_config_hash: Vec<u8>, //B256
-    pub relay_tx_hash: Option<Vec<u8>>, //B256
-    pub proof: Option<Vec<u8>>, // Bytes
+    pub rollup_config_hash: Vec<u8>,            //B256
+    pub relay_tx_hash: Option<Vec<u8>>,         //B256
+    pub proof: Option<Vec<u8>>,                 // Bytes
     pub total_nb_transactions: i64,
     pub total_eth_gas_used: i64,
     pub total_l1_fees: BigDecimal,
@@ -116,7 +115,7 @@ impl Debug for OPSuccinctRequest {
         write!(f, "OPSuccinctRequest {{ id: {}, status: {:?}, req_type: {:?}, mode: {:?}, start_block: {}, end_block: {}, created_at: {}, updated_at: {}, proof_request_id: {:?}, proof_request_time: {:?}, checkpointed_l1_block_number: {:?}, checkpointed_l1_block_hash: {:?}, execution_statistics: {}, witnessgen_duration: {:?}, execution_duration: {:?}, prove_duration: {:?}, range_vkey_commitment: {}, aggregation_vkey_hash: {:?}, rollup_config_hash: {}, relay_tx_hash: {:?}, proof: {:?}, total_nb_transactions: {}, total_eth_gas_used: {}, total_l1_fees: {}, total_tx_fees: {}, l1_chain_id: {}, l2_chain_id: {}, contract_address: {:?} }}", 
             self.id,
             self.status,
-            self.req_type, 
+            self.req_type,
             self.mode,
             self.start_block,
             self.end_block,
@@ -158,9 +157,20 @@ impl OPSuccinctRequest {
         l2_chain_id: i64,
         fetcher: Arc<OPSuccinctDataFetcher>,
     ) -> Result<Self> {
-        let block_data = fetcher.get_l2_block_data_range(start_block as u64, end_block as u64).await?;
+        let block_data = fetcher
+            .get_l2_block_data_range(start_block as u64, end_block as u64)
+            .await?;
 
-        Ok(Self::new_range_request(mode, start_block, end_block, range_vkey_commitment, rollup_config_hash, block_data, l1_chain_id, l2_chain_id))
+        Ok(Self::new_range_request(
+            mode,
+            start_block,
+            end_block,
+            range_vkey_commitment,
+            rollup_config_hash,
+            block_data,
+            l1_chain_id,
+            l2_chain_id,
+        ))
     }
 
     /// Create a new range request given the block data.
@@ -181,7 +191,7 @@ impl OPSuccinctRequest {
         // Note: The transaction fees include the L1 fees.
         let total_l1_fees: u128 = block_data.iter().map(|b| b.total_l1_fees).sum();
         let total_tx_fees: u128 = block_data.iter().map(|b| b.total_tx_fees).sum();
-        
+
         Self {
             id: 0,
             status: RequestStatus::Unrequested,
@@ -239,11 +249,9 @@ impl OPSuccinctRequest {
     }
 
     /// Creates a retry request.
-    /// 
+    ///
     /// Preserves the request type, mode, block range, vkey commitments, rollup config hash, transaction metrics, and chain IDs.
-    pub fn new_retry_request(
-        existing_request: &OPSuccinctRequest,
-    ) -> Self {
+    pub fn new_retry_request(existing_request: &OPSuccinctRequest) -> Self {
         // Retry the same request if splitting was not triggered.
         let mut new_request = existing_request.clone();
         new_request.id = 0;
@@ -453,8 +461,11 @@ impl DriverDBClient {
         )
         .fetch_all(&self.pool)
         .await?;
-        
-        Ok(ranges.into_iter().map(|r| (r.start_block, r.end_block)).collect())
+
+        Ok(ranges
+            .into_iter()
+            .map(|r| (r.start_block, r.end_block))
+            .collect())
     }
 
     /// Fetch the number of requests with a specific status.
@@ -549,7 +560,12 @@ impl DriverDBClient {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(result.map(|r| (r.checkpointed_l1_block_hash.unwrap(), r.checkpointed_l1_block_number.unwrap())))
+        Ok(result.map(|r| {
+            (
+                r.checkpointed_l1_block_hash.unwrap(),
+                r.checkpointed_l1_block_number.unwrap(),
+            )
+        }))
     }
     /// Fetch the count of active (non-failed, non-cancelled) Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
     pub async fn fetch_active_agg_proofs_count(
@@ -650,15 +666,15 @@ impl DriverDBClient {
         )
         .fetch_all(&self.pool)
         .await?;
-        
-        Ok(blocks.iter().map(|block| (block.start_block, block.end_block)).collect())
+
+        Ok(blocks
+            .iter()
+            .map(|block| (block.start_block, block.end_block))
+            .collect())
     }
 
     /// Update the prove_duration based on the current time and the proof_request_time.
-    pub async fn update_prove_duration(
-        &self,
-        id: i64,
-    ) -> Result<PgQueryResult, Error> {
+    pub async fn update_prove_duration(&self, id: i64) -> Result<PgQueryResult, Error> {
         sqlx::query!(
             r#"
             UPDATE requests SET prove_duration = EXTRACT(EPOCH FROM (NOW() - proof_request_time))::BIGINT WHERE id = $1
@@ -724,7 +740,7 @@ impl DriverDBClient {
     }
 
     /// Update the status of a request to Prove.
-    /// 
+    ///
     /// Updates the proof_request_time to the current time.
     pub async fn update_request_to_prove(
         &self,
@@ -892,7 +908,7 @@ impl DriverDBClient {
                     execution_duration, prove_duration, range_vkey_commitment,
                     aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, 
                     total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, 
-                    l1_chain_id, l2_chain_id, contract_address) "
+                    l1_chain_id, l2_chain_id, contract_address) ",
             );
 
             query_builder.push_values(chunk, |mut b, req| {

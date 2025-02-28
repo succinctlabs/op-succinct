@@ -1,20 +1,21 @@
 mod contract;
 mod db;
+mod env;
 mod op_listener;
 mod programs;
+mod prom;
 mod proof_requester;
 mod proposer;
-// mod prom;
 mod types;
-mod env;
 mod utils;
+
 pub use contract::*;
 pub use db::*;
+pub use env::*;
 pub use op_listener::*;
 pub use programs::*;
+pub use prom::*;
 pub use proof_requester::*;
 pub use proposer::*;
-// pub use prom::*;
 pub use types::*;
-pub use env::*;
 pub use utils::*;

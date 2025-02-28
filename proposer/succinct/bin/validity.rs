@@ -103,20 +103,20 @@ async fn main() -> Result<()> {
         Ok(())
     });
 
-    // // Spawn a thread for the metrics exporter.
-    // info!("Initializing metrics exporter");
-    // const METRICS_PORT: u16 = 7000;
-    // op_succinct_proposer::init_metrics(&METRICS_PORT);
+    // Spawn a thread for the metrics exporter.
+    info!("Initializing metrics exporter");
+    const METRICS_PORT: u16 = 7000;
+    op_succinct_proposer::init_metrics(&METRICS_PORT);
 
-    // info!("Starting metrics update loop");
+    info!("Starting metrics update loop");
 
-    // const METRICS_UPDATE_INTERVAL: u64 = 1;
-    // let metrics_handle = tokio::spawn(async move {
-    //     loop {
-    //         op_succinct_proposer::update_cpu_and_memory();
-    //         tokio::time::sleep(Duration::from_secs(METRICS_UPDATE_INTERVAL)).await;
-    //     }
-    // });
+    const METRICS_UPDATE_INTERVAL: u64 = 1;
+    let metrics_handle = tokio::spawn(async move {
+        loop {
+            op_succinct_proposer::update_cpu_and_memory();
+            tokio::time::sleep(Duration::from_secs(METRICS_UPDATE_INTERVAL)).await;
+        }
+    });
 
     // Wait for all tasks to complete.
     let proposer_res = proposer_handle.await?;
