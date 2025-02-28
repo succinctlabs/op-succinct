@@ -459,6 +459,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
                     normalModeCredit[claimData.prover] = CHALLENGER_BOND;
                     normalModeCredit[gameCreator()] = address(this).balance - CHALLENGER_BOND;
                 }
+            } else {
+                // We shouldn't get here, but sanity check just in case.
+                revert InvalidProposalStatus();
             }
         }
 
