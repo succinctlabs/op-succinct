@@ -651,7 +651,7 @@ where
         Ok(None)
     }
 
-    /// Submit all completed aggregation proofs to the prover network.
+    /// Relay all completed aggregation proofs to the contract.
     #[tracing::instrument(name = "proposer.submit_agg_proofs", skip(self))]
     async fn submit_agg_proofs(&self) -> Result<()> {
         let latest_proposed_block_number = get_latest_proposed_block_number(
@@ -989,7 +989,7 @@ where
         }
     }
 
-    // Extract the loop body into a separate method to handle errors
+    // Run a single loop of the validity proposer.
     async fn run_loop_iteration(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         self.validate_contract_config().await?;
@@ -997,7 +997,7 @@ where
         // Log the proposer metrics.
         self.log_proposer_metrics().await?;
 
-        // Add new ranges to the database.
+        // Add new range requests to the database.
         self.add_new_ranges().await?;
 
         // Get all proof statuses of all requests in the proving state.
@@ -1010,7 +1010,7 @@ where
         // Request all unrequested proofs from the prover network.
         self.request_queued_proofs().await?;
 
-        // Determine if any aggregation proofs that are complete need to be checkpointed.
+        // Submit any aggregation proofs that are complete.
         self.submit_agg_proofs().await?;
 
         Ok(())
