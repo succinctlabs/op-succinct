@@ -106,7 +106,7 @@ async fn main() -> Result<()> {
     });
 
     // Initialize metrics exporter.
-    info!("Initializing metrics exporter.");
+    info!("Initializing metrics on port {}", env_config.metrics_port);
     op_succinct_proposer::init_metrics(&env_config.metrics_port);
 
     // Wait for all tasks to complete.
