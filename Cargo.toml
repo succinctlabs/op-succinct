@@ -59,8 +59,6 @@ kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-
 kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
 kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
 kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-
-# kona
 kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", default-features = false, features = [
     "serde",
 ] }

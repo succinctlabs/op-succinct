@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.15;
 
 // Libraries
 import {Script} from "forge-std/Script.sol";
@@ -20,7 +20,7 @@ import {AccessManager} from "../../src/fp/AccessManager.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
+import {OPSuccinctFaultDisputeGame} from "../../src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 
 // Utils
@@ -115,16 +115,13 @@ contract DeployOPSuccinctFDG is Script {
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
-            vm.envOr("PROOF_REWARD", uint256(0.01 ether)),
+            vm.envOr("CHALLENGER_BOND_WEI", uint256(0.001 ether)),
             IAnchorStateRegistry(address(registry)),
             accessManager
         );
 
         // Set initial bond and implementation in factory.
-        factory.setInitBond(
-            gameType,
-            vm.envOr("INITIAL_BOND", uint256(0.01 ether))
-        );
+        factory.setInitBond(gameType, vm.envOr("INITIAL_BOND_WEI", uint256(0.001 ether)));
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         vm.stopBroadcast();

@@ -17,8 +17,7 @@ use fault_proof::{
         OPSuccinctFaultDisputeGame,
     },
     utils::setup_logging,
-    FactoryTrait, L1Provider, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS,
-    TIMEOUT_SECONDS,
+    FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
 
 #[derive(Parser)]
@@ -33,11 +32,10 @@ where
     P: Provider<Ethereum> + Clone,
 {
     config: ChallengerConfig,
-    l1_provider: L1Provider,
     l2_provider: L2Provider,
     l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
     factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
-    proof_reward: U256,
+    challenger_bond: U256,
 }
 
 impl<F, P> OPSuccinctChallenger<F, P>
@@ -51,15 +49,13 @@ where
         factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
     ) -> Result<Self> {
         let config = ChallengerConfig::from_env()?;
-        let l1_provider = ProviderBuilder::default().on_http(config.l1_rpc.clone());
 
         Ok(Self {
             config: config.clone(),
-            l1_provider: l1_provider.clone(),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc.clone()),
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
             factory: factory.clone(),
-            proof_reward: factory.fetch_proof_reward(config.game_type).await?,
+            challenger_bond: factory.fetch_challenger_bond(config.game_type).await?,
         })
     }
 
@@ -68,10 +64,9 @@ where
         let game =
             OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider_with_wallet.clone());
 
-        // TODO(fakedev9999): Potentially need to add a gas provider.
         let receipt = game
             .challenge()
-            .value(self.proof_reward)
+            .value(self.challenger_bond)
             .send()
             .await
             .context("Failed to send challenge transaction")?
@@ -98,7 +93,6 @@ where
             .factory
             .get_oldest_challengable_game_address(
                 self.config.max_games_to_check_for_challenge,
-                self.l1_provider.clone(),
                 self.l2_provider.clone(),
             )
             .await?

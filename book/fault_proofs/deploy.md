@@ -67,7 +67,7 @@ For testing, set:
 USE_SP1_MOCK_VERIFIER=true
 ```
 
-For production, set all of these:
+For production, remove the `USE_SP1_MOCK_VERIFIER` environment variable and set all of these:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -75,6 +75,27 @@ For production, set all of these:
 | `ROLLUP_CONFIG_HASH` | Hash of the rollup configuration | `0x...` |
 | `AGGREGATION_VKEY` | Verification key for aggregation | `0x...` |
 | `RANGE_VKEY_COMMITMENT` | Commitment to range verification key | `0x...` |
+
+#### Getting the Rollup Config Hash, Aggregation VKEY, and Range VKEY Commitment
+
+First, create a `.env` file in the root directory with the following variables:
+```bash
+L1_RPC=<L1_RPC_URL>
+L1_BEACON_RPC=<L1_BEACON_RPC_URL>
+L2_RPC=<L2_RPC_URL>
+L2_NODE_RPC=<L2_NODE_RPC_URL>
+```
+
+Then run the following command to get the Rollup Config Hash:
+```bash
+cargo run --bin fetch-rollup-config-hash
+```
+
+You can get the aggregation program verification key, and range program verification key commitment by running the following command:
+
+```bash
+cargo run --bin vkey --release
+```
 
 ## Deployment
 
@@ -98,14 +119,18 @@ For production, set all of these:
    forge script script/fp/DeployOPSuccinctFDG.s.sol --broadcast --rpc-url <RPC_URL> --private-key <PRIVATE_KEY>
    ```
 
-## Contract Parameters
+## Optional Environment Variables
 
 The deployment script deploys the contract with the following parameters:
 
-- **Initial Bond**: 0.01 ETH by default (configurable via `INITIAL_BOND` in wei, so 10000000000000000 wei for 0.01 ETH).
-- **Proof Reward**: 0.01 ETH by default (configurable via `PROOF_REWARD` in wei, so 10000000000000000 wei for 0.01 ETH).
-- **Starting Anchor Root**: Genesis configuration with block number 0.
-- **Access Control**: Permissionless (address(0) can propose and challenge).
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `INITIAL_BOND_WEI` | Initial bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
+| `CHALLENGER_BOND_WEI` | Challenger bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
+
+Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
+
+These values depend on the L2 chain, and the total value secured. Generally, to prevent frivolous challenges, `CHALLENGER_BOND` should be set to at least 10x of the proving cost needed to prove a game.
 
 ## Post-Deployment
 
@@ -113,7 +138,7 @@ After deployment, the script will output the addresses of:
 - Factory Proxy.
 - Game Implementation.
 - SP1 Verifier.
-- Portal2.
+- OptimismPortal2.
 - Anchor State Registry.
 - Access Manager.
 
