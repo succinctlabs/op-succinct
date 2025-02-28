@@ -214,10 +214,10 @@ where
             .await?;
 
         // Get the highest block number of any of range request in the database that is not FAILED or CANCELLED or RELAYED with the same commitment.
-        let highest_request = self
+        let highest_end_block = self
             .driver_config
             .driver_db_client
-            .fetch_highest_range_request_with_statuses_and_commitment(
+            .fetch_highest_end_block_for_range_request(
                 &[
                     RequestStatus::Unrequested,
                     RequestStatus::WitnessGeneration,
@@ -233,8 +233,8 @@ where
 
         // If there are no requests in the database, the current processed block number is the latest finalized block number on the contract. Otherwise, it's the highest block number
         // of any of the requests in the database that are not FAILED or CANCELLED.
-        let mut current_processed_block = match highest_request {
-            Some(request) => request.end_block as u64,
+        let mut current_processed_block = match highest_end_block {
+            Some(end_block) => end_block as u64,
             None => {
                 tracing::debug!(
                     "No requests in the database, using latest proposed block number on contract."
@@ -387,10 +387,10 @@ where
         .await?;
 
         // Get all active Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
-        let agg_proofs = self
+        let active_agg_proofs_count = self
             .driver_config
             .driver_db_client
-            .fetch_active_agg_proofs(
+            .fetch_active_agg_proofs_count(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
                 self.requester_config.l1_chain_id as i64,
@@ -398,7 +398,7 @@ where
             )
             .await?;
 
-        if agg_proofs.len() > 0 {
+        if active_agg_proofs_count > 0 {
             tracing::debug!("There is already an Aggregation proof queued with the same start block, range vkey commitment, and aggregation vkey.");
             return Ok(());
         }
@@ -452,7 +452,7 @@ where
                 let existing_request = self
                     .driver_config
                     .driver_db_client
-                    .fetch_agg_request_with_checkpointed_block_hash(
+                    .fetch_failed_agg_request_with_checkpointed_block_hash(
                         *final_start_block,
                         *final_end_block,
                         &self.program_config.commitments,
@@ -469,16 +469,7 @@ where
                     existing_request
                 {
                     tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
-                    (
-                        B256::from_slice(
-                            &existing_request
-                                .checkpointed_l1_block_hash
-                                .expect("checkpointed_l1_block_hash is None"),
-                        ),
-                        existing_request
-                            .checkpointed_l1_block_number
-                            .expect("checkpointed_l1_block_number is None"),
-                    )
+                    (B256::from_slice(&existing_request.0), existing_request.1)
                 } else {
                     // Checkpoint an L1 block hash that will be used to create the aggregation proof.
                     let latest_header = self
@@ -582,10 +573,10 @@ where
         }
 
         // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status, return.
-        if witness_gen_count
-            >= self.driver_config.max_concurrent_witness_gen as i64
-        {
-            debug!("There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status.");
+        if witness_gen_count >= self.driver_config.max_concurrent_witness_gen as i64 {
+            debug!(
+                "There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status."
+            );
             return Ok(());
         }
 
@@ -650,7 +641,7 @@ where
         let unreq_range_request = self
             .driver_config
             .driver_db_client
-            .fetch_unrequested_range_proofs(
+            .fetch_first_unrequested_range_proof(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
                 self.requester_config.l1_chain_id as i64,
@@ -698,7 +689,7 @@ where
         let completed_agg_proof = self
             .driver_config
             .driver_db_client
-            .fetch_completed_aggregation_proofs(
+            .fetch_completed_agg_proof_after_block(
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
                 self.requester_config.l1_chain_id as i64,
@@ -865,7 +856,7 @@ where
         let mut requests = self
             .driver_config
             .driver_db_client
-            .fetch_range_requests_with_status_and_start_block(
+            .fetch_ranges_after_block(
                 &[RequestStatus::Prove, RequestStatus::Complete],
                 latest_proposed_block_number as i64,
                 &self.program_config.commitments,
@@ -875,15 +866,12 @@ where
             .await?;
 
         // Sort the requests by start block.
-        requests.sort_by_key(|r| r.start_block);
+        requests.sort_by_key(|r| r.0);
 
         let disjoint_ranges = find_gaps(
             latest_proposed_block_number as i64,
             finalized_block_number as i64,
-            &requests
-                .iter()
-                .map(|r| (r.start_block, r.end_block))
-                .collect::<Vec<(i64, i64)>>(),
+            &requests,
         );
 
         let ranges_to_prove = get_ranges_to_prove(

@@ -222,9 +222,9 @@ impl OPSuccinctProofRequester {
         let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
 
         if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
-            let failed_requests = self
+            let num_failed_requests = self
                 .db_client
-                .fetch_failed_requests_by_block_range(
+                .fetch_failed_request_count_by_block_range(
                     request.start_block,
                     request.end_block,
                     request.l1_chain_id as i64,
@@ -234,7 +234,7 @@ impl OPSuccinctProofRequester {
                 .await?;
 
             // NOTE: The failed_requests check here can be removed in V5 once the only failures that occur are unexecutable requests.
-            if failed_requests.len() > 2 || execution_status == ExecutionStatus::Unexecutable {
+            if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
                 info!("Splitting request into two: {:?}", request);
                 let mid_block = (request.start_block + request.end_block) / 2;
                 let new_requests = vec![
@@ -314,7 +314,7 @@ impl OPSuccinctProofRequester {
                 // Fetch consecutive range proofs from the database.
                 let range_proofs_raw = self
                     .db_client
-                    .get_consecutive_range_proofs(
+                    .get_consecutive_complete_range_proofs(
                         request.start_block,
                         request.end_block,
                         &self.program_config.commitments,

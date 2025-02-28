@@ -178,7 +178,7 @@ impl OPSuccinctRequest {
 
         let total_nb_transactions: u64 = block_data.iter().map(|b| b.transaction_count).sum();
         let total_eth_gas_used: u64 = block_data.iter().map(|b| b.gas_used).sum();
-        // Note: The transaction fees are a superset of the L1 fees.
+        // Note: The transaction fees include the L1 fees.
         let total_l1_fees: u128 = block_data.iter().map(|b| b.total_l1_fees).sum();
         let total_tx_fees: u128 = block_data.iter().map(|b| b.total_tx_fees).sum();
         
@@ -354,42 +354,19 @@ impl DriverDBClient {
         .await
     }
 
-    /// Fetch all requests from the database.
-    pub async fn fetch_requests(&self) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests"
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(requests)
-    }
-
-    /// Fetch all Ethereum metrics from the database.
-    pub async fn fetch_eth_metrics(&self) -> Result<Vec<EthMetrics>, Error> {
-        let metrics = sqlx::query_as!(
-            EthMetrics,
-            "SELECT * FROM eth_metrics"
-        )
-        .fetch_all(&self.pool)
-        .await?;
-        Ok(metrics)
-    }
-
     /// Fetch all requests with a specific block range and status FAILED or CANCELLED.
     ///
     /// Checks that the request has the same range vkey commitment and rollup config hash as the commitment.
-    pub async fn fetch_failed_requests_by_block_range(
+    pub async fn fetch_failed_request_count_by_block_range(
         &self,
         start_block: i64,
         end_block: i64,
         l1_chain_id: i64,
         l2_chain_id: i64,
         commitment: &CommitmentConfig,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE start_block = $1 AND end_block = $2 AND (status = $3 OR status = $4) AND range_vkey_commitment = $5 AND rollup_config_hash = $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
+    ) -> Result<i64, Error> {
+        let count = sqlx::query!(
+            "SELECT COUNT(*) FROM requests WHERE start_block = $1 AND end_block = $2 AND (status = $3 OR status = $4) AND range_vkey_commitment = $5 AND rollup_config_hash = $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
             start_block as i64,
             end_block as i64,
             RequestStatus::Failed as i16,
@@ -399,23 +376,22 @@ impl DriverDBClient {
             l1_chain_id,
             l2_chain_id,
         )
-        .fetch_all(&self.pool)
+        .fetch_one(&self.pool)
         .await?;
-        Ok(requests)
+        Ok(count.count.unwrap_or(0))
     }
 
-    /// Fetch the highest block number of a request with one of the given statuses and commitment.
-    pub async fn fetch_highest_range_request_with_statuses_and_commitment(
+    /// Fetch the highest end block of a request with one of the given statuses and commitment.
+    pub async fn fetch_highest_end_block_for_range_request(
         &self,
         statuses: &[RequestStatus],
         commitment: &CommitmentConfig,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Option<OPSuccinctRequest>, Error> {
+    ) -> Result<Option<i64>, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let request = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND l1_chain_id = $5 AND l2_chain_id = $6 ORDER BY start_block DESC LIMIT 1",
+        let result = sqlx::query!(
+            "SELECT end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND l1_chain_id = $5 AND l2_chain_id = $6 ORDER BY end_block DESC LIMIT 1",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             &status_values[..],
@@ -425,22 +401,22 @@ impl DriverDBClient {
         )
         .fetch_optional(&self.pool)
         .await?;
-        Ok(request)
+        Ok(result.map(|r| r.end_block))
     }
 
     /// Fetch all range requests that have one of the given statuses and start block >= latest_contract_l2_block.
-    pub async fn fetch_range_requests_with_status_and_start_block(
+    /// Returns only the start and end block as tuples.
+    pub async fn fetch_ranges_after_block(
         &self,
         statuses: &[RequestStatus],
         latest_contract_l2_block: i64,
         commitment: &CommitmentConfig,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+    ) -> Result<Vec<(i64, i64)>, Error> {
         let status_values: Vec<i16> = statuses.iter().map(|s| *s as i16).collect();
-        let requests = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7",
+        let ranges = sqlx::query!(
+            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = ANY($3) AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             &status_values[..],
@@ -451,7 +427,8 @@ impl DriverDBClient {
         )
         .fetch_all(&self.pool)
         .await?;
-        Ok(requests)
+        
+        Ok(ranges.into_iter().map(|r| (r.start_block, r.end_block)).collect())
     }
 
     /// Fetch the number of requests with a specific status.
@@ -497,7 +474,7 @@ impl DriverDBClient {
     }
 
     /// Get the consecutive range proofs for a given start block and end block that are complete with the same range vkey commitment.
-    pub async fn get_consecutive_range_proofs(
+    pub async fn get_consecutive_complete_range_proofs(
         &self,
         start_block: i64,
         end_block: i64,
@@ -522,18 +499,17 @@ impl DriverDBClient {
         Ok(requests)
     }
 
-    /// Fetch an aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.
-    pub async fn fetch_agg_request_with_checkpointed_block_hash(
+    /// Fetch the checkpointed block hash and number for an aggregation request with the same start block, end block, and commitment config.
+    pub async fn fetch_failed_agg_request_with_checkpointed_block_hash(
         &self,
         start_block: i64,
         end_block: i64,
         commitment: &CommitmentConfig,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Option<OPSuccinctRequest>, Error> {
-        let request = sqlx::query_as!(
-            OPSuccinctRequest,
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = $7 AND checkpointed_l1_block_hash IS NOT NULL AND checkpointed_l1_block_number IS NOT NULL AND l1_chain_id = $8 AND l2_chain_id = $9 LIMIT 1",
+    ) -> Result<Option<(Vec<u8>, i64)>, Error> {
+        let result = sqlx::query!(
+            "SELECT checkpointed_l1_block_hash, checkpointed_l1_block_number FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND req_type = $4 AND start_block = $5 AND end_block = $6 AND status = $7 AND checkpointed_l1_block_hash IS NOT NULL AND checkpointed_l1_block_number IS NOT NULL AND l1_chain_id = $8 AND l2_chain_id = $9 LIMIT 1",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             &commitment.agg_vkey_hash[..],
@@ -547,32 +523,31 @@ impl DriverDBClient {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(request)
+        Ok(result.map(|r| (r.checkpointed_l1_block_hash.unwrap(), r.checkpointed_l1_block_number.unwrap())))
     }
-
-    /// Fetch all non-failed Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
-    pub async fn fetch_active_agg_proofs(
+    /// Fetch the count of active (non-failed, non-cancelled) Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
+    pub async fn fetch_active_agg_proofs_count(
         &self,
         start_block: i64,
         commitment: &CommitmentConfig,
         l1_chain_id: i64,
         l2_chain_id: i64,
-    ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 AND l1_chain_id = $8 AND l2_chain_id = $9 ORDER BY start_block ASC"
+    ) -> Result<i64, Error> {
+        let result = sqlx::query!(
+            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 AND l1_chain_id = $8 AND l2_chain_id = $9",
+            &commitment.range_vkey_commitment[..],
+            &commitment.rollup_config_hash[..],
+            &commitment.agg_vkey_hash[..],
+            RequestStatus::Failed as i16,
+            RequestStatus::Cancelled as i16,
+            RequestType::Aggregation as i16,
+            start_block,
+            l1_chain_id,
+            l2_chain_id,
         )
-        .bind(&commitment.range_vkey_commitment[..])
-        .bind(&commitment.rollup_config_hash[..])
-        .bind(&commitment.agg_vkey_hash[..])
-        .bind(RequestStatus::Failed as i16)
-        .bind(RequestStatus::Cancelled as i16)
-        .bind(RequestType::Aggregation as i16)
-        .bind(start_block)
-        .bind(l1_chain_id)
-        .bind(l2_chain_id)
-        .fetch_all(&self.pool)
+        .fetch_one(&self.pool)
         .await?;
-        Ok(requests)
+        Ok(result.count.unwrap_or(0))
     }
 
     /// Fetch the sorted list of Aggregation proofs with status Unrequested that have a start_block >= latest_contract_l2_block.
@@ -605,8 +580,8 @@ impl DriverDBClient {
         Ok(request)
     }
 
-    /// Fetch the sorted list of Range proofs with status Unrequested that have a start_block >= latest_contract_l2_block.
-    pub async fn fetch_unrequested_range_proofs(
+    /// Fetch the first Range proof with status Unrequested that has a start_block >= latest_contract_l2_block.
+    pub async fn fetch_first_unrequested_range_proof(
         &self,
         latest_contract_l2_block: i64,
         commitment: &CommitmentConfig,
@@ -764,8 +739,8 @@ impl DriverDBClient {
         .await
     }
 
-    /// Fetch a single completed aggregation proof.
-    pub async fn fetch_completed_aggregation_proofs(
+    /// Fetch a single completed aggregation proof after the given start block.
+    pub async fn fetch_completed_agg_proof_after_block(
         &self,
         latest_contract_l2_block: i64,
         commitment: &CommitmentConfig,

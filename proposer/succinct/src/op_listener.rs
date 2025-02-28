@@ -4,7 +4,6 @@ use futures_util::StreamExt;
 use op_alloy_network::Optimism;
 use std::sync::Arc;
 
-// Import our DB client and EthMetrics struct
 use crate::db::{DriverDBClient, EthMetrics};
 
 pub struct OPChainMetricer<P>
