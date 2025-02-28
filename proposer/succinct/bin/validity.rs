@@ -1,10 +1,9 @@
 use alloy_primitives::Address;
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
-use metrics_process::Collector;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
 use op_succinct_proposer::{read_env, DriverDBClient, Proposer, RequesterConfig};
-use std::{sync::Arc, thread, time::Duration};
+use std::sync::Arc;
 use tracing::info;
 
 use tikv_jemallocator::Jemalloc;
@@ -107,6 +106,7 @@ async fn main() -> Result<()> {
     });
 
     // Initialize metrics exporter.
+    info!("Initializing metrics exporter.");
     op_succinct_proposer::init_metrics(&env_config.metrics_port);
 
     // Wait for all tasks to complete.
