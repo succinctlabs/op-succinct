@@ -64,10 +64,8 @@ pub struct RequesterConfig {
     pub mock: bool,
 }
 
+/// Configuration for the driver.
 pub struct DriverConfig {
-    // // ****
-    // // Proposer configuration
-    // // ****
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub range_proof_size: u64,
@@ -384,7 +382,7 @@ where
             self.contract_config.l2oo_address,
             self.driver_config.fetcher.as_ref(),
         )
-        .await?;
+        .await? as i64;
 
         // Get all active Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
         let active_agg_proofs_count = self
@@ -403,14 +401,7 @@ where
             return Ok(());
         }
 
-        // Get the latest proposed block number on the contract.
-        let latest_proposed_block_number = get_latest_proposed_block_number(
-            self.contract_config.l2oo_address,
-            self.driver_config.fetcher.as_ref(),
-        )
-        .await?;
-
-        // Get all completed range proofs from the database.
+        // Get the completed range proofs with a start block greater than the latest proposed block number.
         let completed_range_proofs = self
             .driver_config
             .driver_db_client
@@ -422,8 +413,12 @@ where
             )
             .await?;
 
-        // Get the largest contiguous range of completed range proofs.
-        let largest_contiguous_range = self.get_largest_contiguous_range(completed_range_proofs)?;
+        // Get the highest block number of the completed range proofs.
+        let highest_proven_contiguous_block_number =
+            match self.get_highest_proven_contiguous_block(completed_range_proofs)? {
+                Some(block) => block,
+                None => return Ok(()), // No completed range proofs contiguous to the latest proposed block number, so no need to create an aggregation proof.
+            };
 
         // Get the submission interval from the contract.
         let contract_submission_interval: u64 = self
@@ -438,89 +433,89 @@ where
 
         // Use the submission interval from the contract if it's greater than the one in the proposer config.
         let submission_interval =
-            contract_submission_interval.max(self.requester_config.submission_interval);
+            contract_submission_interval.max(self.requester_config.submission_interval) as i64;
 
         debug!(
             "Submission interval for aggregation proof: {}.",
             submission_interval
         );
 
-        if let Some((final_start_block, final_end_block)) = largest_contiguous_range.last() {
-            if (final_end_block - final_start_block) as u64 >= submission_interval {
-                // If an aggregation request with the same start block and end block and commitment config exists, there's no need to checkpoint the L1 block hash.
-                // Use the existing L1 block hash from the existing request.
-                let existing_request = self
+        // If the highest proven contiguous block number is greater than the latest proposed block number plus the submission interval, create an aggregation proof.
+        if (highest_proven_contiguous_block_number - latest_proposed_block_number)
+            >= submission_interval
+        {
+            // If an aggregation request with the same start block and end block and commitment config exists, there's no need to checkpoint the L1 block hash.
+            // Use the existing L1 block hash from the existing request.
+            let existing_request = self
+                .driver_config
+                .driver_db_client
+                .fetch_failed_agg_request_with_checkpointed_block_hash(
+                    latest_proposed_block_number,
+                    highest_proven_contiguous_block_number,
+                    &self.program_config.commitments,
+                    self.requester_config.l1_chain_id as i64,
+                    self.requester_config.l2_chain_id as i64,
+                )
+                .await?;
+
+            // If there's an existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash, use the existing L1 block hash and number. This is
+            // likely caused by an error generating the aggregation proof, but there's no need to checkpoint the L1 block hash again.
+            let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(
+                existing_request,
+            ) = existing_request
+            {
+                tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
+                (B256::from_slice(&existing_request.0), existing_request.1)
+            } else {
+                // Checkpoint an L1 block hash that will be used to create the aggregation proof.
+                let latest_header = self
                     .driver_config
-                    .driver_db_client
-                    .fetch_failed_agg_request_with_checkpointed_block_hash(
-                        *final_start_block,
-                        *final_end_block,
-                        &self.program_config.commitments,
-                        self.requester_config.l1_chain_id as i64,
-                        self.requester_config.l2_chain_id as i64,
-                    )
+                    .fetcher
+                    .get_l1_header(BlockId::latest())
                     .await?;
 
-                // If there's an existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash, use the existing L1 block hash and number. This is
-                // likely caused by an error generating the aggregation proof, but there's no need to checkpoint the L1 block hash again.
-                let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(
-                    existing_request,
-                ) =
-                    existing_request
-                {
-                    tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
-                    (B256::from_slice(&existing_request.0), existing_request.1)
-                } else {
-                    // Checkpoint an L1 block hash that will be used to create the aggregation proof.
-                    let latest_header = self
-                        .driver_config
-                        .fetcher
-                        .get_l1_header(BlockId::latest())
-                        .await?;
-
-                    // Checkpoint the L1 block hash.
-                    let receipt = self
-                        .contract_config
-                        .l2oo_contract
-                        .checkpointBlockHash(U256::from(latest_header.number))
-                        .send()
-                        .await?
-                        .with_required_confirmations(NUM_CONFIRMATIONS)
-                        .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-                        .get_receipt()
-                        .await?;
-
-                    // If transaction reverted, log the error.
-                    if !receipt.status() {
-                        tracing::error!("Transaction reverted: {:?}", receipt);
-                    }
-
-                    tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
-
-                    (latest_header.hash_slow(), latest_header.number as i64)
-                };
-
-                // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
-                self.driver_config
-                    .driver_db_client
-                    .insert_request(&OPSuccinctRequest::new_agg_request(
-                        if self.requester_config.mock {
-                            RequestMode::Mock
-                        } else {
-                            RequestMode::Real
-                        },
-                        *final_start_block,
-                        *final_end_block,
-                        self.program_config.commitments.range_vkey_commitment,
-                        self.program_config.commitments.agg_vkey_hash,
-                        self.program_config.commitments.rollup_config_hash,
-                        self.requester_config.l1_chain_id as i64,
-                        self.requester_config.l2_chain_id as i64,
-                        checkpointed_l1_block_number,
-                        checkpointed_l1_block_hash,
-                    ))
+                // Checkpoint the L1 block hash.
+                let receipt = self
+                    .contract_config
+                    .l2oo_contract
+                    .checkpointBlockHash(U256::from(latest_header.number))
+                    .send()
+                    .await?
+                    .with_required_confirmations(NUM_CONFIRMATIONS)
+                    .with_timeout(Some(Duration::from_secs(TIMEOUT)))
+                    .get_receipt()
                     .await?;
-            }
+
+                // If transaction reverted, log the error.
+                if !receipt.status() {
+                    tracing::error!("Transaction reverted: {:?}", receipt);
+                }
+
+                tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
+
+                (latest_header.hash_slow(), latest_header.number as i64)
+            };
+
+            // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
+            self.driver_config
+                .driver_db_client
+                .insert_request(&OPSuccinctRequest::new_agg_request(
+                    if self.requester_config.mock {
+                        RequestMode::Mock
+                    } else {
+                        RequestMode::Real
+                    },
+                    latest_proposed_block_number,
+                    highest_proven_contiguous_block_number,
+                    self.program_config.commitments.range_vkey_commitment,
+                    self.program_config.commitments.agg_vkey_hash,
+                    self.program_config.commitments.rollup_config_hash,
+                    self.requester_config.l1_chain_id as i64,
+                    self.requester_config.l2_chain_id as i64,
+                    checkpointed_l1_block_number,
+                    checkpointed_l1_block_hash,
+                ))
+                .await?;
         }
 
         Ok(())
@@ -654,26 +649,6 @@ where
         }
 
         Ok(None)
-    }
-
-    /// Get the largest contiguous range of completed range proofs.
-    fn get_largest_contiguous_range(
-        &self,
-        completed_range_proofs: Vec<(i64, i64)>,
-    ) -> Result<Vec<(i64, i64)>> {
-        let mut largest_contiguous_range: Vec<(i64, i64)> = Vec::new();
-
-        for proof in completed_range_proofs {
-            if largest_contiguous_range.is_empty() {
-                largest_contiguous_range.push(proof);
-            } else if proof.0 == largest_contiguous_range.last().unwrap().1 + 1 {
-                largest_contiguous_range.push(proof);
-            } else {
-                break;
-            }
-        }
-
-        Ok(largest_contiguous_range)
     }
 
     /// Submit all completed aggregation proofs to the prover network.
@@ -936,14 +911,12 @@ where
             )
             .await?;
 
-        // Get the largest contiguous range of completed range proofs.
-        let largest_contiguous_range = self.get_largest_contiguous_range(completed_range_proofs)?;
-
-        let highest_block_number = if largest_contiguous_range.is_empty() {
-            latest_proposed_block_number
-        } else {
-            largest_contiguous_range.last().unwrap().1 as u64
-        };
+        // Get the highest proven contiguous block.
+        let highest_block_number =
+            match self.get_highest_proven_contiguous_block(completed_range_proofs)? {
+                Some(block) => block as u64,
+                None => latest_proposed_block_number,
+            };
 
         let db = &self.driver_config.driver_db_client;
         let commitments = &self.program_config.commitments;
@@ -1008,9 +981,9 @@ where
                 Err(e) => {
                     // Log the error
                     tracing::error!("Error in proposer loop: {}", e);
-                    // Pause for 5 minutes before retrying
-                    tracing::info!("Pausing for 5 minutes before restarting the process");
-                    tokio::time::sleep(Duration::from_secs(300)).await;
+                    // Pause for 10 seconds before restarting
+                    tracing::info!("Pausing for 10 seconds before restarting the process");
+                    tokio::time::sleep(Duration::from_secs(10)).await;
                 }
             }
         }
@@ -1045,5 +1018,30 @@ where
 
     pub async fn stop(&self) -> Result<()> {
         Ok(())
+    }
+
+    /// Get the highest block number at the end of the largest contiguous range of completed range proofs.
+    /// Returns None if there are no completed range proofs.
+    fn get_highest_proven_contiguous_block(
+        &self,
+        completed_range_proofs: Vec<(i64, i64)>,
+    ) -> Result<Option<i64>> {
+        if completed_range_proofs.is_empty() {
+            return Ok(None);
+        }
+
+        let mut highest_block = completed_range_proofs[0].0;
+        let mut current_end = completed_range_proofs[0].1;
+
+        for proof in completed_range_proofs.iter().skip(1) {
+            if proof.0 == current_end + 1 {
+                current_end = proof.1;
+                highest_block = current_end;
+            } else {
+                break;
+            }
+        }
+
+        Ok(Some(highest_block))
     }
 }

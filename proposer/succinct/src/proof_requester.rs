@@ -12,7 +12,7 @@ use sp1_sdk::{
     NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{error, info};
+use tracing::info;
 
 use crate::RANGE_ELF;
 use crate::{db::DriverDBClient, AGG_ELF};
@@ -134,7 +134,7 @@ impl OPSuccinctProofRequester {
     }
 
     /// Generates a mock range proof and writes the execution statistics to the database.
-    pub async fn request_mock_range_proof(
+    pub async fn generate_mock_range_proof(
         &self,
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
@@ -185,7 +185,7 @@ impl OPSuccinctProofRequester {
     }
 
     /// Generates a mock aggregation proof.
-    pub async fn request_mock_agg_proof(
+    pub async fn generate_mock_agg_proof(
         &self,
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
@@ -315,25 +315,8 @@ impl OPSuccinctProofRequester {
         Ok(())
     }
 
-    /// Makes a proof request by updating statuses, generating witnesses,
-    /// and then either requesting or mocking the proof depending on configuration.
-    #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
-    pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
-        // Update status to WitnessGeneration.
-        self.db_client
-            .update_request_status(request.id, RequestStatus::WitnessGeneration)
-            .await?;
-
-        info!(
-            request_id = request.id,
-            request_type = ?request.req_type,
-            start_block = request.start_block,
-            end_block = request.end_block,
-            "Starting witness generation"
-        );
-
-        let witnessgen_duration = Instant::now();
-        // Generate the stdin needed for the proof.
+    /// Generates the stdin needed for a proof.
+    async fn generate_proof_stdin(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
         let stdin = match request.req_type {
             RequestType::Range => self.range_proof_witnessgen(&request).await?,
             RequestType::Aggregation => {
@@ -358,6 +341,32 @@ impl OPSuccinctProofRequester {
                 self.agg_proof_witnessgen(&request, range_proofs).await?
             }
         };
+
+        Ok(stdin)
+    }
+
+    /// Makes a proof request by updating statuses, generating witnesses, and then either requesting or
+    /// mocking the proof depending on configuration.
+    ///
+    /// Note: Any error from this function will cause the proof to be retried.
+    #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
+    pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
+        // Update status to WitnessGeneration.
+        self.db_client
+            .update_request_status(request.id, RequestStatus::WitnessGeneration)
+            .await?;
+
+        info!(
+            request_id = request.id,
+            request_type = ?request.req_type,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            "Starting witness generation"
+        );
+
+        let witnessgen_duration = Instant::now();
+        // Generate the stdin needed for the proof. If this fails, retry the request.
+        let stdin = self.generate_proof_stdin(&request).await?;
         let duration = witnessgen_duration.elapsed();
 
         self.db_client
@@ -383,18 +392,7 @@ impl OPSuccinctProofRequester {
         match request.req_type {
             RequestType::Range => {
                 if self.mock {
-                    let proof = match self.request_mock_range_proof(&request, stdin).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            error!("Failed to generate mock range proof: {}", e);
-                            self.retry_request(
-                                &request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
-                            )
-                            .await?;
-                            return Ok(());
-                        }
-                    };
+                    let proof = self.generate_mock_range_proof(&request, stdin).await?;
                     let proof_bytes = bincode::serialize(&proof).unwrap();
                     self.db_client
                         .update_proof_to_complete(request.id, &proof_bytes)
@@ -408,18 +406,7 @@ impl OPSuccinctProofRequester {
             }
             RequestType::Aggregation => {
                 if self.mock {
-                    let proof = match self.request_mock_agg_proof(&request, stdin).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            error!("Failed to generate mock aggregation proof: {}", e);
-                            self.retry_request(
-                                &request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
-                            )
-                            .await?;
-                            return Ok(());
-                        }
-                    };
+                    let proof = self.generate_mock_agg_proof(&request, stdin).await?;
                     self.db_client
                         .update_proof_to_complete(request.id, &proof.bytes())
                         .await?;
