@@ -45,11 +45,11 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Rust and SP1 tools from rust-base
-COPY --from=rust-base /root/.cargo /root/.cargo
-COPY --from=rust-base /root/.sp1 /root/.sp1
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
-
+RUN rustup install stable && rustup default stable
+    
 # Copy the built proposer binary
 COPY --from=builder /usr/src/app/target/release/proposer /usr/local/bin/
 

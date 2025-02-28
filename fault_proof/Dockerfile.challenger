@@ -45,11 +45,6 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Rust and SP1 tools from rust-base
-COPY --from=rust-base /root/.cargo /root/.cargo
-COPY --from=rust-base /root/.sp1 /root/.sp1
-ENV PATH=/root/.cargo/bin:$PATH
-
 # Copy the built challenger binary
 COPY --from=builder /usr/src/app/target/release/challenger /usr/local/bin/
 
