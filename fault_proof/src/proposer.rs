@@ -7,6 +7,7 @@ use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{fillers::TxFiller, Provider, ProviderBuilder};
 use alloy_sol_types::SolValue;
 use anyhow::{Context, Result};
+use metrics::{counter, gauge};
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProvingKey,
     SP1VerifyingKey,
@@ -344,24 +345,102 @@ where
         Ok(())
     }
 
+    /// Fetch and log the proposer metrics.
+    async fn log_proposer_metrics(&self) -> Result<()> {
+        let finalized_l2_block_gauge = gauge!("op_succinct_fp_finalized_l2_block_number");
+        finalized_l2_block_gauge.set(
+            self.l2_provider
+                .get_l2_block_by_number(BlockNumberOrTag::Finalized)
+                .await?
+                .header
+                .number as f64,
+        );
+
+        // Get the latest valid proposal
+        match self
+            .factory
+            .get_latest_valid_proposal(self.l2_provider.clone())
+            .await?
+        {
+            Some((l2_block_number, _game_index)) => {
+                // Update metrics for latest game block number
+                let latest_game_l2_block_gauge = gauge!("succinct_fp_latest_game_l2_block_number");
+                latest_game_l2_block_gauge.set(l2_block_number.to::<u64>() as f64);
+            }
+            None => {
+                tracing::debug!("No valid proposals found for metrics");
+                return Ok(());
+            }
+        };
+
+        // Get the anchor L2 block number
+        let anchor_l2_block_number = self
+            .factory
+            .get_anchor_l2_block_number(self.config.game_type)
+            .await?;
+
+        // Update anchor block number metric
+        let anchor_l2_block_gauge = gauge!("succinct_fp_latest_anchor_l2_block_number");
+        anchor_l2_block_gauge.set(anchor_l2_block_number.to::<u64>() as f64);
+
+        Ok(())
+    }
+
     /// Runs the proposer indefinitely.
     pub async fn run(&self) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
+
+        // Initialize metrics
+        crate::prometheus::init_metrics(self.config.metrics_port);
+
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+        let mut metrics_interval = time::interval(Duration::from_secs(30)); // Update metrics every 30 seconds
 
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {
+                    match self.handle_game_creation().await {
+                        Ok(Some(_)) => {
+                            let game_created_counter = counter!("op_succinct_fp_games_created");
+                            game_created_counter.increment(1);
+                        }
+                        Ok(None) => {}
+                        Err(e) => {
+                            tracing::warn!("Failed to handle game creation: {:?}", e);
+                            let error_counter = counter!("op_succinct_fp_errors");
+                            error_counter.increment(1);
+                        }
+                    }
 
-            if let Err(e) = self.handle_game_creation().await {
-                tracing::warn!("Failed to handle game creation: {:?}", e);
-            }
+                    match self.handle_game_defense().await {
+                        Ok(_) => {
+                            let game_defended_counter = counter!("op_succinct_fp_games_defended");
+                            game_defended_counter.increment(1);
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to handle game defense: {:?}", e);
+                            let error_counter = counter!("op_succinct_fp_errors");
+                            error_counter.increment(1);
+                        }
+                    }
 
-            if let Err(e) = self.handle_game_defense().await {
-                tracing::warn!("Failed to handle game defense: {:?}", e);
-            }
-
-            if let Err(e) = self.handle_game_resolution().await {
-                tracing::warn!("Failed to handle game resolution: {:?}", e);
+                    match self.handle_game_resolution().await {
+                        Ok(_) => {
+                            let game_resolved_counter = counter!("op_succinct_fp_games_resolved");
+                            game_resolved_counter.increment(1);
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to handle game resolution: {:?}", e);
+                            let error_counter = counter!("op_succinct_fp_errors");
+                            error_counter.increment(1);
+                        }
+                    }
+                }
+                _ = metrics_interval.tick() => {
+                    if let Err(e) = self.log_proposer_metrics().await {
+                        tracing::warn!("Failed to log metrics: {:?}", e);
+                    }
+                }
             }
         }
     }

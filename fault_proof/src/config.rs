@@ -43,6 +43,9 @@ pub struct ProposerConfig {
     /// When game resolution is enabled, the proposer will attempt to resolve games that are
     /// unchallenged up to `max_games_to_check_for_resolution` games behind the latest game.
     pub max_games_to_check_for_resolution: u64,
+
+    /// The port to expose metrics on.
+    pub metrics_port: u16,
 }
 
 impl ProposerConfig {
@@ -73,6 +76,9 @@ impl ProposerConfig {
                 .parse()?,
             max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
                 .unwrap_or("100".to_string())
+                .parse()?,
+            metrics_port: env::var("METRICS_PORT")
+                .unwrap_or("9000".to_string())
                 .parse()?,
         })
     }

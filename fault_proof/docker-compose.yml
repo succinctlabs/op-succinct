@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env.proposer
+    ports:
+      - "${METRICS_PORT:-9000}:9000"
     command: ["proposer"]
 
   challenger:

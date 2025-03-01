@@ -53,5 +53,8 @@ RUN rustup install stable && rustup default stable
 # Copy the built proposer binary
 COPY --from=builder /usr/src/app/target/release/proposer /usr/local/bin/
 
+# Expose the port for metrics
+EXPOSE 9000
+
 # Set the command
 CMD ["proposer"]

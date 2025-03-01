@@ -57,3 +57,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde_json.workspace = true
 tracing.workspace = true
 hex.workspace = true
+
+# metrics
+metrics = "0.24.1"
+metrics-exporter-prometheus = "0.16.2"
+metrics-process = "2.4.0"
