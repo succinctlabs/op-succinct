@@ -51,22 +51,7 @@ pub fn custom_gauges() {
 }
 
 pub fn init_metrics(port: &u16) {
-    describe_gauge!(
-        "succinct_current_unrequested_proofs",
-        "Number of proofs currently unrequested"
-    );
-    describe_gauge!(
-        "succinct_current_proving_proofs",
-        "Number of proofs currently being proved"
-    );
-    describe_gauge!(
-        "succinct_current_witnessgen_proofs",
-        "Number of proofs currently in witness generation"
-    );
-    describe_gauge!(
-        "succinct_current_execute_proofs",
-        "Number of proofs currently being executed"
-    );
+    custom_gauges();
 
     let builder = PrometheusBuilder::new().with_http_listener(SocketAddr::new(
         IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
