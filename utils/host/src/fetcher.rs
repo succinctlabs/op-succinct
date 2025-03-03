@@ -32,10 +32,7 @@ use std::{
 
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
-use crate::{
-    rollup_config::{get_rollup_config_path, merge_rollup_config},
-    ProgramType,
-};
+use crate::{rollup_config::get_rollup_config_path, ProgramType};
 use crate::{L2Output, OPSuccinctHost};
 
 #[derive(Clone)]
@@ -497,11 +494,8 @@ impl OPSuccinctDataFetcher {
         rpc_config: &RPCConfig,
         run_context: RunContext,
     ) -> Result<RollupConfig> {
-        let rollup_config =
+        let rollup_config: RollupConfig =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
-        let chain_config =
-            Self::fetch_rpc_data(&rpc_config.l2_rpc, "debug_chainConfig", vec![]).await?;
-        let rollup_config = merge_rollup_config(&rollup_config, &chain_config)?;
 
         // Save rollup config to the rollup config file.
         let rollup_config_path = get_rollup_config_path(rollup_config.l2_chain_id, run_context)?;

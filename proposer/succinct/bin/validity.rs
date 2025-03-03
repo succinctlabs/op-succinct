@@ -1,8 +1,9 @@
-use alloy_primitives::Address;
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
-use op_succinct_proposer::{read_proposer_env, DriverDBClient, Proposer, RequesterConfig};
+use op_succinct_proposer::{
+    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
+};
 use std::sync::Arc;
 use tracing::info;
 
@@ -27,37 +28,7 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    // Set up logging using the provided format
-    let format = tracing_subscriber::fmt::format()
-        .with_level(true)
-        .with_target(false)
-        .with_thread_ids(false)
-        .with_thread_names(false)
-        .with_file(false)
-        .with_line_number(false)
-        .with_ansi(true);
-
-    // Turn off all logging from kona and SP1.
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
-                .add_directive("single_hint_handler=error".parse().unwrap())
-                .add_directive("execute=error".parse().unwrap())
-                .add_directive("sp1_prover=error".parse().unwrap())
-                .add_directive("boot-loader=error".parse().unwrap())
-                .add_directive("client-executor=error".parse().unwrap())
-                .add_directive("client=error".parse().unwrap())
-                .add_directive("channel-assembler=error".parse().unwrap())
-                .add_directive("attributes-queue=error".parse().unwrap())
-                .add_directive("batch-validator=error".parse().unwrap())
-                .add_directive("client-derivation-driver=error".parse().unwrap())
-                .add_directive("host-server=error".parse().unwrap())
-                .add_directive("kona_protocol=error".parse().unwrap())
-                .add_directive("sp1_core_executor=off".parse().unwrap()),
-        )
-        .event_format(format)
-        .init();
+    setup_proposer_logger();
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
@@ -69,7 +40,7 @@ async fn main() -> Result<()> {
         l1_chain_id: fetcher.l1_provider.get_chain_id().await? as i64,
         l2_chain_id: fetcher.l2_provider.get_chain_id().await? as i64,
         l2oo_address: env_config.l2oo_address,
-        dgf_address: Address::ZERO,
+        dgf_address: env_config.dgf_address,
         range_proof_interval: env_config.range_proof_interval,
         max_concurrent_witness_gen: env_config.max_concurrent_witness_gen,
         max_concurrent_proof_requests: env_config.max_concurrent_proof_requests,

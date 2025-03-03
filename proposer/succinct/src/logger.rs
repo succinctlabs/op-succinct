@@ -1,4 +1,4 @@
-pub fn setup_logger() {
+pub fn setup_proposer_logger() {
     // Set up logging using the provided format
     let format = tracing_subscriber::fmt::format()
         .with_level(true)

@@ -75,7 +75,6 @@ pub struct DriverConfig {
     pub submission_interval: u64,
     pub proof_timeout: u64,
     pub driver_db_client: Arc<DriverDBClient>,
-    /// Limits on the maximum number of concurrent proof requests and witness generation requests.
     pub max_concurrent_proof_requests: u64,
     pub max_concurrent_witness_gen: u64,
     pub loop_interval_seconds: u64,
@@ -108,7 +107,7 @@ where
         provider: P,
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
-        config: RequesterConfig,
+        requester_config: RequesterConfig,
         loop_interval_seconds: Option<u64>,
     ) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
@@ -120,20 +119,6 @@ where
 
         // Initialize fetcher
         let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
-
-        // Use config values instead of env vars
-        let range_proof_strategy = config.range_proof_strategy;
-        let agg_proof_strategy = config.agg_proof_strategy;
-        let agg_proof_mode = config.agg_proof_mode;
-
-        let l2oo_address = config.l2oo_address;
-        let dgf_address = config.dgf_address;
-
-        let range_proof_interval = config.range_proof_interval;
-        let submission_interval = config.submission_interval;
-        let max_concurrent_witness_gen = config.max_concurrent_witness_gen;
-        let max_concurrent_proof_requests = config.max_concurrent_proof_requests;
-        let mock = config.mock;
         const PROOF_TIMEOUT: u64 = 60 * 60;
 
         let program_config = ProgramConfig {
@@ -154,16 +139,13 @@ where
             fetcher.clone(),
             db_client.clone(),
             program_config.clone(),
-            mock,
-            range_proof_strategy,
-            agg_proof_strategy,
-            agg_proof_mode,
+            requester_config.mock,
+            requester_config.range_proof_strategy,
+            requester_config.agg_proof_strategy,
+            requester_config.agg_proof_mode,
         ));
 
-        let l1_chain_id = fetcher.l1_provider.get_chain_id().await?;
-        let l2_chain_id = fetcher.l2_provider.get_chain_id().await?;
-
-        let l2oo_contract = OPSuccinctL2OOContract::new(l2oo_address, provider);
+        let l2oo_contract = OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider);
 
         // 1 minute default loop interval.
         const DEFAULT_LOOP_INTERVAL: u64 = 60;
@@ -176,30 +158,17 @@ where
                 submission_interval: 0,
                 proof_timeout: PROOF_TIMEOUT,
                 driver_db_client: db_client,
-                max_concurrent_proof_requests,
-                max_concurrent_witness_gen,
+                max_concurrent_proof_requests: requester_config.max_concurrent_proof_requests,
+                max_concurrent_witness_gen: requester_config.max_concurrent_witness_gen,
                 loop_interval_seconds: loop_interval_seconds.unwrap_or(DEFAULT_LOOP_INTERVAL),
             },
             contract_config: ContractConfig {
-                l2oo_address,
-                dgf_address,
+                l2oo_address: requester_config.l2oo_address,
+                dgf_address: requester_config.dgf_address,
                 l2oo_contract,
             },
             program_config,
-            requester_config: RequesterConfig {
-                l2oo_address,
-                dgf_address,
-                range_proof_interval,
-                submission_interval,
-                range_proof_strategy,
-                agg_proof_strategy,
-                agg_proof_mode,
-                max_concurrent_witness_gen,
-                max_concurrent_proof_requests,
-                l1_chain_id: l1_chain_id as i64,
-                l2_chain_id: l2_chain_id as i64,
-                mock,
-            },
+            requester_config,
             proof_requester,
         };
         Ok(proposer)
@@ -924,92 +893,49 @@ where
             .await?;
 
         // Get the highest proven contiguous block.
-        let highest_block_number =
-            match self.get_highest_proven_contiguous_block(completed_range_proofs)? {
-                Some(block) => block as u64,
-                None => latest_proposed_block_number,
-            };
+        let highest_block_number = self
+            .get_highest_proven_contiguous_block(completed_range_proofs)?
+            .map_or(latest_proposed_block_number, |block| block as u64);
 
-        let db = &self.driver_config.driver_db_client;
+        // Fetch request counts for different statuses
         let commitments = &self.program_config.commitments;
         let l1_chain_id = self.requester_config.l1_chain_id;
         let l2_chain_id = self.requester_config.l2_chain_id;
+        let db_client = &self.driver_config.driver_db_client;
+        
+        // Define statuses and their corresponding variable names
+        let (num_unrequested_requests, num_prove_requests, num_execution_requests, num_witness_generation_requests) = 
+            (
+                db_client.fetch_request_count(RequestStatus::Unrequested, commitments, l1_chain_id, l2_chain_id).await?,
+                db_client.fetch_request_count(RequestStatus::Prove, commitments, l1_chain_id, l2_chain_id).await?,
+                db_client.fetch_request_count(RequestStatus::Execution, commitments, l1_chain_id, l2_chain_id).await?,
+                db_client.fetch_request_count(RequestStatus::WitnessGeneration, commitments, l1_chain_id, l2_chain_id).await?
+            );
 
-        let num_unrequested_requests = db
-            .fetch_request_count(
-                RequestStatus::Unrequested,
-                commitments,
-                l1_chain_id,
-                l2_chain_id,
-            )
-            .await?;
-
-        let num_prove_requests = db
-            .fetch_request_count(RequestStatus::Prove, commitments, l1_chain_id, l2_chain_id)
-            .await?;
-
-        let num_execution_requests = db
-            .fetch_request_count(
-                RequestStatus::Execution,
-                commitments,
-                l1_chain_id,
-                l2_chain_id,
-            )
-            .await?;
-
-        let num_witness_generation_requests = db
-            .fetch_request_count(
-                RequestStatus::WitnessGeneration,
-                commitments,
-                l1_chain_id,
-                l2_chain_id,
-            )
-            .await?;
-
+        // Log metrics
         info!(
             target: "proposer_metrics",
             "unrequested={num_unrequested_requests} prove={num_prove_requests} execution={num_execution_requests} witness_generation={num_witness_generation_requests} highest_contiguous_proven_block={highest_block_number}"
         );
 
-        // Update current proof counts
-        let current_unrequested_gauge = gauge!("succinct_current_unrequested_proofs");
-        current_unrequested_gauge.set(num_unrequested_requests as f64);
+        // Update gauges for proof counts
+        gauge!("succinct_current_unrequested_proofs").set(num_unrequested_requests as f64);
+        gauge!("succinct_current_proving_proofs").set(num_prove_requests as f64);
+        gauge!("succinct_current_witnessgen_proofs").set(num_witness_generation_requests as f64);
+        gauge!("succinct_current_execute_proofs").set(num_execution_requests as f64);
+        gauge!("succinct_highest_proven_contiguous_block").set(highest_block_number as f64);
+        gauge!("succinct_latest_contract_l2_block").set(latest_proposed_block_number as f64);
 
-        let current_proving_gauge = gauge!("succinct_current_proving_proofs");
-        current_proving_gauge.set(num_prove_requests as f64);
-
-        let current_witnessgen_gauge = gauge!("succinct_current_witnessgen_proofs");
-        current_witnessgen_gauge.set(num_witness_generation_requests as f64);
-
-        let current_execute_gauge = gauge!("succinct_current_execute_proofs");
-        current_execute_gauge.set(num_execution_requests as f64);
-
-        // Update the proposer gauges
-        let highest_contiguous_gauge = gauge!("succinct_highest_proven_contiguous_block");
-        highest_contiguous_gauge.set(highest_block_number as f64);
-
-        let latest_contract_l2_block_gauge = gauge!("succinct_latest_contract_l2_block");
-        latest_contract_l2_block_gauge.set(latest_proposed_block_number as f64);
-
-        let l2_unsafe_head_gauge = gauge!("succinct_l2_unsafe_head_block");
-        l2_unsafe_head_gauge.set(
-            self.proof_requester
-                .fetcher
-                .get_l2_header(BlockId::latest())
-                .await?
-                .number as f64,
+        // Get and set L2 block metrics
+        let fetcher = &self.proof_requester.fetcher;
+        gauge!("succinct_l2_unsafe_head_block").set(
+            fetcher.get_l2_header(BlockId::latest()).await?.number as f64
+        );
+        gauge!("succinct_l2_finalized_block").set(
+            fetcher.get_l2_header(BlockId::finalized()).await?.number as f64
         );
 
-        let l2_finalized_gauge = gauge!("succinct_l2_finalized_block");
-        l2_finalized_gauge.set(
-            self.proof_requester
-                .fetcher
-                .get_l2_header(BlockId::finalized())
-                .await?
-                .number as f64,
-        );
-
-        // Get the submission interval from the contract.
+        // Get submission interval from contract and set gauge
         let contract_submission_interval: u64 = self
             .contract_config
             .l2oo_contract
@@ -1020,12 +946,8 @@ where
             .try_into()
             .unwrap();
 
-        // Use the submission interval from the contract if it's greater than the one in the proposer config.
-        let submission_interval =
-            contract_submission_interval.max(self.requester_config.submission_interval);
-
-        let min_block_to_agg_gauge = gauge!("succinct_min_block_to_prove_to_agg");
-        min_block_to_agg_gauge.set((latest_proposed_block_number + submission_interval) as f64);
+        let submission_interval = contract_submission_interval.max(self.requester_config.submission_interval);
+        gauge!("succinct_min_block_to_prove_to_agg").set((latest_proposed_block_number + submission_interval) as f64);
 
         Ok(())
     }
