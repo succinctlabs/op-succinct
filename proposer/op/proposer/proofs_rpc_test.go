@@ -43,27 +43,31 @@ func TestMaxBlockL1Limit(t *testing.T) {
 	l1BlockNumber := uint64(50)
 
 	t.Run("success", func(t *testing.T) {
-		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(50), nil)
+		mockCall := mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(50), nil)
 
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
 		assert.Equal(t, maxBlock, result)
+		mockCall.Unset()
 	})
 
 	t.Run("decrease maxBlock", func(t *testing.T) {
-		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(51), nil).Once()
-		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock-1).Return(uint64(50), nil).Once()
+		mockCall1 := mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(51), nil).Once()
+		mockCall2 := mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock-1).Return(uint64(50), nil).Once()
 
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(99), result)
+		mockCall1.Unset()
+		mockCall2.Unset()
 	})
 
 	t.Run("error getting L1 head", func(t *testing.T) {
-		mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(0), errors.New("error"))
+		mockCall := mockDriver.On("GetL1HeadForL2Block", ctx, mock.Anything, maxBlock).Return(uint64(0), errors.New("error"))
 
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.Error(t, err)
 		assert.Equal(t, uint64(0), result)
+		mockCall.Unset()
 	})
 }
