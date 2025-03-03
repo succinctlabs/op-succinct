@@ -286,12 +286,15 @@ func (ps *ProposerService) initRPCServer(cfg *CLIConfig) error {
 		ps.Log.Info("Admin RPC enabled")
 	}
 
-	// Instantiate a new proofs API	and add it to the server
-	proofsAPI, err := NewProofsAPI(ps.driver.db, ps.Log, cfg.Mock, ps.driver)
-	if err != nil {
-		return fmt.Errorf("failed to create ProofsAPI: %w", err)
+	if cfg.Agglayer {
+		// Instantiate a new proofs API	and add it to the server
+		proofsAPI, err := NewProofsAPI(ps.driver.db, ps.Log, cfg.Mock, ps.driver)
+		if err != nil {
+			return fmt.Errorf("failed to create ProofsAPI: %w", err)
+		}
+		server.AddAPI(GetProofsAPI(proofsAPI))
+		ps.Log.Info("Agglayer RPC enabled")
 	}
-	server.AddAPI(GetProofsAPI(proofsAPI))
 
 	ps.Log.Info("Starting JSON-RPC server")
 	if err := server.Start(); err != nil {

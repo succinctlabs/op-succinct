@@ -127,15 +127,18 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
-		// TODO: Conditional for normal operation
-		// Retry the same request.
-		err = l.db.NewEntryWithL1BlockInfo(
-			req.Type,
-			req.StartBlock,
-			req.EndBlock,
-			req.L1BlockNumber,
-			req.L1BlockHash,
-		)
+		if l.Cfg.Agglayer {
+			// Retry the same request.
+			err = l.db.NewEntryWithL1BlockInfo(
+				req.Type,
+				req.StartBlock,
+				req.EndBlock,
+				req.L1BlockNumber,
+				req.L1BlockHash,
+			)
+		} else {
+			err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+		}
 		if err != nil {
 			l.Log.Error("failed to retry proof request", "err", err)
 			return err
