@@ -487,9 +487,7 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// Fetch the rollup config. Combines the rollup config from `optimism_rollupConfig` and the
-    /// chain config from `debug_chainConfig`. Saves the rollup config to the rollup config file and
-    /// in memory.
+    /// Fetch and save the rollup config to the rollup config file.
     async fn fetch_and_save_rollup_config(
         rpc_config: &RPCConfig,
         run_context: RunContext,

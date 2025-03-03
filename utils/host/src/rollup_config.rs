@@ -1,11 +1,8 @@
-use std::fs;
-use std::path::PathBuf;
-
+use crate::fetcher::RunContext;
 use anyhow::Result;
 use kona_genesis::RollupConfig;
-use serde::{Deserialize, Serialize};
-
-use crate::fetcher::RunContext;
+use std::fs;
+use std::path::PathBuf;
 
 /// Get the path to the rollup config file for the given chain id.
 pub fn get_rollup_config_path(l2_chain_id: u64, run_context: RunContext) -> Result<PathBuf> {
