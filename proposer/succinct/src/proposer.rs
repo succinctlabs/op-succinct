@@ -1,7 +1,6 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, OPSuccinctProofRequester,
-    AGG_ELF, RANGE_ELF,
 };
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -11,8 +10,11 @@ use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
 use metrics::gauge;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
-use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
-use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
+use op_succinct_host_utils::{
+    fetcher::OPSuccinctDataFetcher,
+    OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
+    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+};
 use sp1_sdk::{
     network::{
         proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -110,8 +112,8 @@ where
         loop_interval_seconds: Option<u64>,
     ) -> Result<Self> {
         let network_prover = Arc::new(ProverClient::builder().network().build());
-        let (range_pk, range_vk) = network_prover.setup(RANGE_ELF);
-        let (agg_pk, agg_vk) = network_prover.setup(AGG_ELF);
+        let (range_pk, range_vk) = network_prover.setup(RANGE_ELF_EMBEDDED);
+        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
         let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
         let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();

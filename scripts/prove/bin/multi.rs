@@ -5,9 +5,9 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
-    ProgramType,
+    ProgramType, RANGE_ELF_EMBEDDED,
 };
-use op_succinct_prove::{execute_multi, DEFAULT_RANGE, RANGE_ELF};
+use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
 use std::{fs, time::Instant};
@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(RANGE_ELF);
+        let (pk, _) = prover.setup(RANGE_ELF_EMBEDDED);
 
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();

@@ -10,7 +10,7 @@ use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
     get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
-    OPSuccinctHost, ProgramType,
+    OPSuccinctHost, ProgramType, RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -22,8 +22,6 @@ use std::{
     path::PathBuf,
     time::Duration,
 };
-
-pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 const ONE_WEEK: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
@@ -90,7 +88,7 @@ async fn execute_blocks_and_write_stats_csv(
 
     // Execute the program for each block range in parallel.
     execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(RANGE_ELF, sp1_stdin).run();
+        let result = prover.execute(RANGE_ELF_EMBEDDED, sp1_stdin).run();
 
         if let Some(err) = result.as_ref().err() {
             log::warn!(

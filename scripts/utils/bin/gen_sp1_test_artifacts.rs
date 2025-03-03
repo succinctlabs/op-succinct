@@ -5,7 +5,7 @@ use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin, start_server_and_native_client, ProgramType,
+    get_proof_stdin, start_server_and_native_client, ProgramType, RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::utils;
@@ -13,8 +13,6 @@ use std::{
     fs::{self},
     path::PathBuf,
 };
-
-pub const RANGE_ELF: &[u8] = include_bytes!("../../../elf/range-elf");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -64,7 +62,7 @@ async fn main() -> Result<()> {
     }
 
     // Now, write the successful ranges to /sp1-testing-suite-artifacts/op-succinct-chain-{l2_chain_id}-{start}-{end}
-    // The folders should each have the RANGE_ELF as program.bin, and the serialized stdin should be
+    // The folders should each have the RANGE_ELF_EMBEDDED as program.bin, and the serialized stdin should be
     // written to stdin.bin.
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root).join("sp1-testing-suite-artifacts");
@@ -80,7 +78,7 @@ async fn main() -> Result<()> {
         ));
         fs::create_dir_all(&program_dir)?;
 
-        fs::write(program_dir.join("program.bin"), RANGE_ELF)?;
+        fs::write(program_dir.join("program.bin"), RANGE_ELF_EMBEDDED)?;
         fs::write(
             program_dir.join("stdin.bin"),
             bincode::serialize(&sp1_stdin).unwrap(),

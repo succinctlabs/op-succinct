@@ -5,6 +5,7 @@ use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher},
     get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, ProgramType,
+    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
 };
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
@@ -13,8 +14,7 @@ use sp1_sdk::{
 use std::{sync::Arc, time::Instant};
 use tracing::info;
 
-use crate::RANGE_ELF;
-use crate::{db::DriverDBClient, AGG_ELF};
+use crate::db::DriverDBClient;
 use crate::{
     OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus, RequestType,
 };
@@ -150,9 +150,10 @@ impl OPSuccinctProofRequester {
         let start_time = Instant::now();
         let network_prover = self.network_prover.clone();
         // Move the CPU-intensive operation to a dedicated thread.
-        let (pv, report) =
-            tokio::task::spawn_blocking(move || network_prover.execute(RANGE_ELF, &stdin).run())
-                .await??; // Handle both JoinError and the Result from execute.
+        let (pv, report) = tokio::task::spawn_blocking(move || {
+            network_prover.execute(RANGE_ELF_EMBEDDED, &stdin).run()
+        })
+        .await??; // Handle both JoinError and the Result from execute.
 
         let execution_duration = start_time.elapsed().as_secs();
 
@@ -195,7 +196,7 @@ impl OPSuccinctProofRequester {
         // Move the CPU-intensive operation to a dedicated thread.
         let (pv, report) = tokio::task::spawn_blocking(move || {
             network_prover
-                .execute(AGG_ELF, &stdin)
+                .execute(AGGREGATION_ELF, &stdin)
                 .deferred_proof_verification(false)
                 .run()
         })

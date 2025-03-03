@@ -17,6 +17,10 @@ use rkyv::to_bytes;
 use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
 use std::sync::Arc;
 
+pub const RANGE_ELF_BUMP: &[u8] = include_bytes!("../../../elf/range-elf-bump");
+pub const RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
+pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
+
 sol! {
     #[sol(rpc)]
     contract OPSuccinctL2OutputOracle {
