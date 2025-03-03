@@ -127,8 +127,18 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
-		// Retry the same request.
-		err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+		if l.Cfg.Agglayer {
+			// Retry the same request.
+			err = l.db.NewEntryWithL1BlockInfo(
+				req.Type,
+				req.StartBlock,
+				req.EndBlock,
+				req.L1BlockNumber,
+				req.L1BlockHash,
+			)
+		} else {
+			err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
+		}
 		if err != nil {
 			l.Log.Error("failed to retry proof request", "err", err)
 			return err
@@ -272,7 +282,7 @@ func (l *L2OutputSubmitter) prepareProofRequest(p ent.ProofRequest) ([]byte, err
 		}
 		return jsonBody, nil
 	} else {
-		subproofs, err := l.db.GetConsecutiveSpanProofs(p.StartBlock, p.EndBlock)
+		subproofs, _, err := l.db.GetConsecutiveSpanProofs(p.StartBlock, p.EndBlock)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get subproofs: %w", err)
 		}

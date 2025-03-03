@@ -64,6 +64,7 @@ type ProposerConfig struct {
 	OPSuccinctServerUrl        string
 	MaxConcurrentProofRequests uint64
 	Mock                       bool
+	Agglayer                   bool
 }
 
 type ProposerService struct {
@@ -125,6 +126,7 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 	ps.L2ChainID = cfg.L2ChainID
 	ps.MaxConcurrentProofRequests = cfg.MaxConcurrentProofRequests
 	ps.Mock = cfg.Mock
+	ps.Agglayer = cfg.Agglayer
 
 	ps.initL2ooAddress(cfg)
 	ps.initDGF(cfg)
@@ -283,6 +285,17 @@ func (ps *ProposerService) initRPCServer(cfg *CLIConfig) error {
 		server.AddAPI(rpc.GetAdminAPI(adminAPI))
 		ps.Log.Info("Admin RPC enabled")
 	}
+
+	if cfg.Agglayer {
+		// Instantiate a new proofs API	and add it to the server
+		proofsAPI, err := NewProofsAPI(ps.driver.db, ps.Log, cfg.Mock, ps.driver)
+		if err != nil {
+			return fmt.Errorf("failed to create ProofsAPI: %w", err)
+		}
+		server.AddAPI(GetProofsAPI(proofsAPI))
+		ps.Log.Info("Agglayer RPC enabled")
+	}
+
 	ps.Log.Info("Starting JSON-RPC server")
 	if err := server.Start(); err != nil {
 		return fmt.Errorf("unable to start RPC server: %w", err)
