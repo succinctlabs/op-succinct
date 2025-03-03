@@ -64,6 +64,7 @@ type ProposerConfig struct {
 	OPSuccinctServerUrl        string
 	MaxConcurrentProofRequests uint64
 	Mock                       bool
+	Agglayer                   bool
 }
 
 type ProposerService struct {
@@ -125,6 +126,7 @@ func (ps *ProposerService) initFromCLIConfig(ctx context.Context, version string
 	ps.L2ChainID = cfg.L2ChainID
 	ps.MaxConcurrentProofRequests = cfg.MaxConcurrentProofRequests
 	ps.Mock = cfg.Mock
+	ps.Agglayer = cfg.Agglayer
 
 	ps.initL2ooAddress(cfg)
 	ps.initDGF(cfg)

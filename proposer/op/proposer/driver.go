@@ -644,14 +644,16 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				continue
 			}
 
-			// 4) Determine if there is a continguous chain of span proofs starting from the latest block on the L2OO contract.
-			// If there is, queue an aggregate proof for all of the span proofs.
-			// l.Log.Info("Stage 4: Deriving Agg Proofs...")
-			// err = l.DeriveAggProofs(ctx)
-			// if err != nil {
-			// 	l.Log.Error("failed to generate pending agg proofs", "err", err)
-			// 	continue
-			// }
+			if !l.Cfg.Agglayer {
+				// 4) Determine if there is a continguous chain of span proofs starting from the latest block on the L2OO contract.
+				// If there is, queue an aggregate proof for all of the span proofs.
+				l.Log.Info("Stage 4: Deriving Agg Proofs...")
+				err = l.DeriveAggProofs(ctx)
+				if err != nil {
+					l.Log.Error("failed to generate pending agg proofs", "err", err)
+					continue
+				}
+			}
 
 			// 5) Request all unrequested proofs from the prover network.
 			// Any DB entry with status = "UNREQ" means it's queued up and ready.
@@ -664,12 +666,14 @@ func (l *L2OutputSubmitter) loopL2OO(ctx context.Context) {
 				continue
 			}
 
-			// 6) Submit agg proofs on chain.
-			// If we have a completed agg proof waiting in the DB, we submit them on chain.
-			l.Log.Info("Stage 6: Submitting Agg Proofs...")
-			err = l.SubmitAggProofs(ctx)
-			if err != nil {
-				l.Log.Error("failed to submit agg proofs", "err", err)
+			if !l.Cfg.Agglayer {
+				// 6) Submit agg proofs on chain.
+				// If we have a completed agg proof waiting in the DB, we submit them on chain.
+				l.Log.Info("Stage 6: Submitting Agg Proofs...")
+				err = l.SubmitAggProofs(ctx)
+				if err != nil {
+					l.Log.Error("failed to submit agg proofs", "err", err)
+				}
 			}
 		case <-l.done:
 			return
