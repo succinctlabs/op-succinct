@@ -130,6 +130,12 @@ var (
 		Value:   false,
 		EnvVars: prefixEnvVars("OP_SUCCINCT_MOCK"),
 	}
+	AgglayerFlag = &cli.BoolFlag{
+		Name:    "agglayer",
+		Usage:   "Enable the integration with the Agglayer",
+		Value:   false,
+		EnvVars: prefixEnvVars("OP_SUCCINCT_AGGLAYER"),
+	}
 
 	// Legacy Flags
 	L2OutputHDPathFlag = txmgr.L2OutputHDPathFlag
