@@ -74,21 +74,17 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 
 | Parameter | Description |
 |-----------|-------------|
-| `MAX_CONCURRENT_PROOF_REQUESTS` | Default: `10`. The maximum number of concurrent proof requests to send to the `op-succinct-server`. |
-| `MAX_CONCURRENT_WITNESS_GEN` | Default: `5`. The maximum number of concurrent witness generation processes to run on the `op-succinct-server`. |
-| `WITNESS_GEN_TIMEOUT` | Default: `1200`. The maximum time in seconds to spend generating a witness for `op-succinct-server`. |
-| `MAX_BLOCK_RANGE_PER_SPAN_PROOF` | Default: `300`. The maximum number of blocks to include in each span proof. For chains with high throughput, you need to decrease this value. |
+| `MAX_CONCURRENT_PROOF_REQUESTS` | Default: `3`. The maximum number of concurrent proof requests to send to the `op-succinct-server`. |
+| `MAX_CONCURRENT_WITNESS_GEN` | Default: `3`. The maximum number of concurrent witness generation processes to run on the `op-succinct-server`. |
+| `RANGE_PROOF_INTERVAL` | Default: `1800`. The number of blocks to include in each range proof. For chains with high throughput, you need to decrease this value. |
 | `OP_SUCCINCT_MOCK` | Default: `false`. Set to `true` to run in mock proof mode. The `OPSuccinctL2OutputOracle` contract must be configured to use an `SP1MockVerifier`. |
-| `OP_SUCCINCT_SERVER_URL` | Default: `http://op-succinct-server:3000`. The URL of the `op-succinct-server` service which the `op-succinct/op-proposer` will send proof requests to. |
-| `METRICS_ENABLED` | Default: `true`. Set to `false` to disable metrics collection. |
 | `METRICS_PORT` | Default: `7300`. The port to run the metrics server on. |
 | `DB_PATH` | Default: `/usr/local/bin/dbdata`. The path to the database directory within the container. |
-| `POLL_INTERVAL` | Default: `20s`. The interval at which the `op-succinct/op-proposer` service runs. |
-| `USE_CACHED_DB` | Default: `false`. Set to `true` to use cached proofs from previous runs when restarting the service, avoiding regeneration of unused proofs. |
+| `LOOP_INTERVAL` | Default: `60`. The interval (in seconds) between each iteration of the OP Succinct service. |
 
 # Build the Proposer Service
 
-Build the docker images for the OP Succinct services.
+Build the OP Succinct validity service.
 
 ```bash
 docker compose build
@@ -96,7 +92,7 @@ docker compose build
 
 # Run the Proposer
 
-Now, launch both services in the background.
+Run the OP Succinct validity service.
 
 ```bash
 docker compose up

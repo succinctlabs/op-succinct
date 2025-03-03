@@ -847,6 +847,18 @@ impl OPSuccinctDataFetcher {
         Ok(finalized_l2_header.timestamp - l2_block_minus_1.timestamp)
     }
 
+    pub async fn get_l2_output_at_block(&self, block_number: u64) -> Result<OutputResponse> {
+        let block_number_hex = format!("0x{:x}", block_number);
+        let l2_output_data: OutputResponse = self
+            .fetch_rpc_data_with_mode(
+                RPCMode::L2Node,
+                "optimism_outputAtBlock",
+                vec![block_number_hex.into()],
+            )
+            .await?;
+        Ok(l2_output_data)
+    }
+
     /// Get the L1 block from which the `l2_end_block` can be derived.
     pub async fn get_l1_head_with_safe_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
         let latest_l1_header = self.get_l1_header(BlockId::finalized()).await?;

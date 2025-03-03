@@ -1,5 +1,11 @@
 [workspace]
-members = ["utils/*", "programs/*", "scripts/*", "proposer/succinct", "fault_proof"]
+members = [
+    "utils/*",
+    "programs/*",
+    "scripts/*",
+    "proposer/succinct",
+    "fault_proof",
+]
 resolver = "2"
 
 [workspace.package]
@@ -68,12 +74,12 @@ op-succinct-build-utils = { path = "utils/build" }
 op-succinct-proposer = { path = "proposer/succinct" }
 
 # Alloy (Network)
-alloy-network = { version = "0.11.0", default-features = false }
-alloy-signer-local = { version = "0.11.0", default-features = false }
-alloy-provider = { version = "0.11.0", default-features = false }
-alloy-transport = { version = "0.11.0", default-features = false }
-alloy-transport-http = { version = "0.11.0", default-features = false }
-alloy-contract = { version = "0.11.0", default-features = false }
+alloy-signer-local = { version = "0.11.1", default-features = false }
+alloy-provider = { version = "0.11.1", default-features = false }
+alloy-transport = { version = "0.11.1", default-features = false }
+alloy-transport-http = { version = "0.11.1", default-features = false }
+alloy-contract = { version = "0.11.1", default-features = false }
+alloy-network = { version = "0.11.1", default-features = false }
 
 # Alloy
 alloy-rlp = { version = "0.3.10", default-features = false }
@@ -107,7 +113,7 @@ revm = { version = "19.5.0", default-features = false, features = ["kzg-rs"] }
 # SP1
 sp1-lib = { version = "4.1.0", features = ["verify"] }
 sp1-sdk = { version = "4.1.0" }
-sp1-zkvm = { version = "4.1.0", features = ["verify", "embedded"] }
+sp1-zkvm = { version = "4.1.0", features = ["verify"] }
 sp1-build = { version = "4.1.0" }
 kzg-rs = { version = "0.2.5" }
 
