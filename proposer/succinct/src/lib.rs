@@ -1,7 +1,6 @@
 mod contract;
 mod db;
 mod env;
-mod op_listener;
 mod prom;
 mod proof_requester;
 mod proposer;
@@ -11,7 +10,6 @@ mod utils;
 pub use contract::*;
 pub use db::*;
 pub use env::*;
-pub use op_listener::*;
 pub use prom::*;
 pub use proof_requester::*;
 pub use proposer::*;
