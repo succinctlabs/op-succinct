@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, B256};
+use alloy_primitives::B256;
 use anyhow::Result;
 use chrono::{Local, NaiveDateTime};
 use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
@@ -105,41 +105,6 @@ pub struct OPSuccinctRequest {
     pub l1_chain_id: i64,
     pub l2_chain_id: i64,
     pub contract_address: Option<Vec<u8>>, //Address
-}
-
-impl Debug for OPSuccinctRequest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "OPSuccinctRequest {{ id: {}, status: {:?}, req_type: {:?}, mode: {:?}, start_block: {}, end_block: {}, created_at: {}, updated_at: {}, proof_request_id: {:?}, proof_request_time: {:?}, checkpointed_l1_block_number: {:?}, checkpointed_l1_block_hash: {:?}, execution_statistics: {}, witnessgen_duration: {:?}, execution_duration: {:?}, prove_duration: {:?}, range_vkey_commitment: {}, aggregation_vkey_hash: {:?}, rollup_config_hash: {}, relay_tx_hash: {:?}, proof: {:?}, total_nb_transactions: {}, total_eth_gas_used: {}, total_l1_fees: {}, total_tx_fees: {}, l1_chain_id: {}, l2_chain_id: {}, contract_address: {:?} }}", 
-            self.id,
-            self.status,
-            self.req_type,
-            self.mode,
-            self.start_block,
-            self.end_block,
-            self.created_at,
-            self.updated_at,
-            self.proof_request_id.as_ref().map(|id| B256::from_slice(id)),
-            self.proof_request_time,
-            self.checkpointed_l1_block_number,
-            self.checkpointed_l1_block_hash.as_ref().map(|hash| B256::from_slice(hash)),
-            self.execution_statistics,
-            self.witnessgen_duration,
-            self.execution_duration,
-            self.prove_duration,
-            B256::from_slice(&self.range_vkey_commitment),
-            self.aggregation_vkey_hash.as_ref().map(|hash| B256::from_slice(hash)),
-            B256::from_slice(&self.rollup_config_hash),
-            self.relay_tx_hash.as_ref().map(|hash| B256::from_slice(hash)),
-            self.proof.as_ref().map(|p| format!("[{} bytes]", p.len())),
-            self.total_nb_transactions,
-            self.total_eth_gas_used,
-            self.total_l1_fees,
-            self.total_tx_fees,
-            self.l1_chain_id,
-            self.l2_chain_id,
-            self.contract_address.as_ref().map(|addr| Address::from_slice(addr)),
-        )
-    }
 }
 
 impl OPSuccinctRequest {

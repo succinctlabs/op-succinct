@@ -241,7 +241,7 @@ impl OPSuccinctProofRequester {
         request: &OPSuccinctRequest,
         execution_status: ExecutionStatus,
     ) -> Result<()> {
-        info!("Retrying request: {:?}", request);
+        info!("Retrying request: {:?}", request.id);
 
         // Mark the existing request as failed.
         self.db_client
@@ -265,7 +265,7 @@ impl OPSuccinctProofRequester {
 
             // NOTE: The failed_requests check here can be removed in V5 once the only failures that occur are unexecutable requests.
             if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
-                info!("Splitting request into two: {:?}", request);
+                info!("Splitting request into two: {:?}", request.id);
                 let mid_block = (request.start_block + request.end_block) / 2;
                 let new_requests = vec![
                     OPSuccinctRequest::create_range_request(

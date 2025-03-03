@@ -2,7 +2,7 @@ use alloy_primitives::Address;
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
-use op_succinct_proposer::{read_env, DriverDBClient, Proposer, RequesterConfig};
+use op_succinct_proposer::{read_proposer_env, DriverDBClient, Proposer, RequesterConfig};
 use std::sync::Arc;
 use tracing::info;
 
@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
         .with_line_number(false)
         .with_ansi(true);
 
-    // Turn off all logging from kona.
+    // Turn off all logging from kona and SP1.
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
 
     // Read the environment variables.
-    let env_config = read_env()?;
+    let env_config = read_proposer_env()?;
 
     let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
     let proposer_config = RequesterConfig {

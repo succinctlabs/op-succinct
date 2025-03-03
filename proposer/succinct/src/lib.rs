@@ -6,6 +6,7 @@ mod proof_requester;
 mod proposer;
 mod types;
 mod utils;
+mod logger;
 
 pub use contract::*;
 pub use db::*;
@@ -15,3 +16,4 @@ pub use proof_requester::*;
 pub use proposer::*;
 pub use types::*;
 pub use utils::*;
+pub use logger::*;

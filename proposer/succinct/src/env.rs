@@ -22,73 +22,70 @@ pub struct EnvironmentConfig {
     pub mock: bool,
 }
 
-pub fn read_env() -> Result<EnvironmentConfig> {
-    let range_proof_strategy = match env::var("RANGE_PROOF_STRATEGY") {
-        Ok(v) => {
-            if v.to_lowercase() == "hosted" {
-                FulfillmentStrategy::Hosted
-            } else {
-                FulfillmentStrategy::Reserved
-            }
-        }
-        Err(_) => FulfillmentStrategy::Reserved,
-    };
-    let agg_proof_strategy = match env::var("AGG_PROOF_STRATEGY") {
-        Ok(v) => {
-            if v.to_lowercase() == "hosted" {
-                FulfillmentStrategy::Hosted
-            } else {
-                FulfillmentStrategy::Reserved
-            }
-        }
-        Err(_) => FulfillmentStrategy::Reserved,
-    };
-    let agg_proof_mode = match env::var("AGG_PROOF_MODE") {
-        Ok(v) => {
-            if v.to_lowercase() == "plonk" {
-                SP1ProofMode::Plonk
-            } else {
-                SP1ProofMode::Groth16
-            }
-        }
-        Err(_) => SP1ProofMode::Groth16,
+/// Helper function to get environment variables with a default value and parse them.
+fn get_env_var<T: std::str::FromStr>(key: &str, default: Option<&str>) -> Result<T>
+where
+    T::Err: std::fmt::Debug,
+{
+    let value = match default {
+        Some(default_val) => env::var(key).unwrap_or_else(|_| default_val.to_string()),
+        None => env::var(key).expect(&format!("{} is not set", key)),
     };
 
+    value
+        .parse::<T>()
+        .map_err(|e| anyhow::anyhow!("Failed to parse {}: {:?}", key, e))
+}
+
+/// Read proposer environment variables and return a config.
+pub fn read_proposer_env() -> Result<EnvironmentConfig> {
+    // Parse strategy values
+    let range_proof_strategy = if get_env_var::<String>("RANGE_PROOF_STRATEGY", Some("reserved"))?
+        .to_lowercase()
+        == "hosted"
+    {
+        FulfillmentStrategy::Hosted
+    } else {
+        FulfillmentStrategy::Reserved
+    };
+
+    let agg_proof_strategy = if get_env_var::<String>("AGG_PROOF_STRATEGY", Some("reserved"))?
+        .to_lowercase()
+        == "hosted"
+    {
+        FulfillmentStrategy::Hosted
+    } else {
+        FulfillmentStrategy::Reserved
+    };
+
+    // Parse proof mode
+    let agg_proof_mode =
+        if get_env_var::<String>("AGG_PROOF_MODE", Some("groth16"))?.to_lowercase() == "plonk" {
+            SP1ProofMode::Plonk
+        } else {
+            SP1ProofMode::Groth16
+        };
+
+    // Optional loop interval
+    let loop_interval = env::var("LOOP_INTERVAL")
+        .ok()
+        .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"));
+
     let config = EnvironmentConfig {
-        metrics_port: env::var("METRICS_PORT")
-            .ok()
-            .and_then(|v| v.parse::<u16>().ok())
-            .unwrap_or(8080),
-        loop_interval: env::var("LOOP_INTERVAL")
-            .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"))
-            .ok(),
-        l1_rpc: env::var("L1_RPC").expect("L1_RPC is not set"),
-        private_key: env::var("PRIVATE_KEY")
-            .expect("PRIVATE_KEY is not set")
-            .parse()
-            .expect("Failed to parse PRIVATE_KEY"),
-        db_url: env::var("DATABASE_URL").expect("DATABASE_URL is not set"),
+        metrics_port: get_env_var("METRICS_PORT", Some("8080"))?,
+        l1_rpc: get_env_var("L1_RPC", None)?,
+        private_key: get_env_var("PRIVATE_KEY", None)?,
+        db_url: get_env_var("DATABASE_URL", None)?,
         range_proof_strategy,
         agg_proof_strategy,
         agg_proof_mode,
-        l2oo_address: env::var("L2OO_ADDRESS")
-            .expect("L2OO_ADDRESS is not set")
-            .parse()?,
-        range_proof_interval: env::var("RANGE_PROOF_INTERVAL")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse::<u64>()?,
-        max_concurrent_witness_gen: env::var("MAX_CONCURRENT_WITNESS_GEN")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse::<u64>()?,
-        max_concurrent_proof_requests: env::var("MAX_CONCURRENT_PROOF_REQUESTS")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse::<u64>()?,
-        submission_interval: env::var("SUBMISSION_INTERVAL")
-            .unwrap_or_else(|_| "10".to_string())
-            .parse::<u64>()?,
-        mock: env::var("OP_SUCCINCT_MOCK")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse::<bool>()?,
+        l2oo_address: get_env_var("L2OO_ADDRESS", None)?,
+        range_proof_interval: get_env_var("RANGE_PROOF_INTERVAL", Some("10"))?,
+        max_concurrent_witness_gen: get_env_var("MAX_CONCURRENT_WITNESS_GEN", Some("10"))?,
+        max_concurrent_proof_requests: get_env_var("MAX_CONCURRENT_PROOF_REQUESTS", Some("10"))?,
+        submission_interval: get_env_var("SUBMISSION_INTERVAL", Some("10"))?,
+        mock: get_env_var("OP_SUCCINCT_MOCK", Some("false"))?,
+        loop_interval,
     };
 
     Ok(config)

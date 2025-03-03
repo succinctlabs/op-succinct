@@ -325,7 +325,7 @@ where
     }
 
     /// Process a single OP Succinct request's proof status.
-    #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self))]
+    #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self, request))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
             let (status, proof) = self
@@ -368,7 +368,7 @@ where
             }
         } else {
             // There should never be a proof request in Prove status without a proof request id.
-            tracing::warn!("Request has no proof request id: {:?}", request);
+            tracing::warn!(id = request.id, start_block = request.start_block, end_block = request.end_block, req_type = ?request.req_type, "Request has no proof request id");
         }
 
         Ok(())
