@@ -603,6 +603,22 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
     }
 
     ////////////////////////////////////////////////////////////////
+    //                       MISC EXTERNAL                        //
+    ////////////////////////////////////////////////////////////////
+
+    /// @notice Returns the credit balance of a given recipient.
+    /// @param _recipient The recipient of the credit.
+    /// @return credit_ The credit balance of the recipient.
+    function credit(address _recipient) external view returns (uint256 credit_) {
+        if (bondDistributionMode == BondDistributionMode.REFUND) {
+            credit_ = refundModeCredit[_recipient];
+        } else {
+            // Always return normal credit balance by default unless we're in refund mode.
+            credit_ = normalModeCredit[_recipient];
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////
     //                     IMMUTABLE GETTERS                      //
     ////////////////////////////////////////////////////////////////
 
