@@ -25,3 +25,6 @@ error GameNotOver();
 
 /// @notice Thrown when the proposal status is invalid.
 error InvalidProposalStatus();
+
+/// @notice Thrown when the game is initialized by an incorrect factory.
+error IncorrectDisputeGameFactory();

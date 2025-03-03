@@ -218,6 +218,9 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         // INVARIANT: The game must not have already been initialized.
         if (initialized) revert AlreadyInitialized();
 
+        // INVARIANT: The game can only be initialized by the dispute game factory.
+        if (address(DISPUTE_GAME_FACTORY) != msg.sender) revert IncorrectDisputeGameFactory();
+
         // INVARIANT: The proposer must be whitelisted.
         if (!ACCESS_MANAGER.isAllowedProposer(gameCreator())) revert BadAuth();
 
