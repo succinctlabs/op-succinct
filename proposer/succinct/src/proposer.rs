@@ -905,15 +905,42 @@ where
         let l1_chain_id = self.requester_config.l1_chain_id;
         let l2_chain_id = self.requester_config.l2_chain_id;
         let db_client = &self.driver_config.driver_db_client;
-        
+
         // Define statuses and their corresponding variable names
-        let (num_unrequested_requests, num_prove_requests, num_execution_requests, num_witness_generation_requests) = 
-            (
-                db_client.fetch_request_count(RequestStatus::Unrequested, commitments, l1_chain_id, l2_chain_id).await?,
-                db_client.fetch_request_count(RequestStatus::Prove, commitments, l1_chain_id, l2_chain_id).await?,
-                db_client.fetch_request_count(RequestStatus::Execution, commitments, l1_chain_id, l2_chain_id).await?,
-                db_client.fetch_request_count(RequestStatus::WitnessGeneration, commitments, l1_chain_id, l2_chain_id).await?
-            );
+        let (
+            num_unrequested_requests,
+            num_prove_requests,
+            num_execution_requests,
+            num_witness_generation_requests,
+        ) = (
+            db_client
+                .fetch_request_count(
+                    RequestStatus::Unrequested,
+                    commitments,
+                    l1_chain_id,
+                    l2_chain_id,
+                )
+                .await?,
+            db_client
+                .fetch_request_count(RequestStatus::Prove, commitments, l1_chain_id, l2_chain_id)
+                .await?,
+            db_client
+                .fetch_request_count(
+                    RequestStatus::Execution,
+                    commitments,
+                    l1_chain_id,
+                    l2_chain_id,
+                )
+                .await?,
+            db_client
+                .fetch_request_count(
+                    RequestStatus::WitnessGeneration,
+                    commitments,
+                    l1_chain_id,
+                    l2_chain_id,
+                )
+                .await?,
+        );
 
         // Log metrics
         info!(
@@ -931,12 +958,10 @@ where
 
         // Get and set L2 block metrics
         let fetcher = &self.proof_requester.fetcher;
-        gauge!("succinct_l2_unsafe_head_block").set(
-            fetcher.get_l2_header(BlockId::latest()).await?.number as f64
-        );
-        gauge!("succinct_l2_finalized_block").set(
-            fetcher.get_l2_header(BlockId::finalized()).await?.number as f64
-        );
+        gauge!("succinct_l2_unsafe_head_block")
+            .set(fetcher.get_l2_header(BlockId::latest()).await?.number as f64);
+        gauge!("succinct_l2_finalized_block")
+            .set(fetcher.get_l2_header(BlockId::finalized()).await?.number as f64);
 
         // Get submission interval from contract and set gauge
         let contract_submission_interval: u64 = self
@@ -949,8 +974,10 @@ where
             .try_into()
             .unwrap();
 
-        let submission_interval = contract_submission_interval.max(self.requester_config.submission_interval);
-        gauge!("succinct_min_block_to_prove_to_agg").set((latest_proposed_block_number + submission_interval) as f64);
+        let submission_interval =
+            contract_submission_interval.max(self.requester_config.submission_interval);
+        gauge!("succinct_min_block_to_prove_to_agg")
+            .set((latest_proposed_block_number + submission_interval) as f64);
 
         Ok(())
     }
