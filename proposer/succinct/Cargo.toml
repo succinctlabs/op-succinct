@@ -28,22 +28,17 @@ sp1-sdk.workspace = true
 # alloy
 alloy-eips.workspace = true
 alloy-provider = { workspace = true }
-alloy-transport.workspace = true
 alloy-signer-local.workspace = true
-op-alloy-network.workspace = true
 
 anyhow.workspace = true
 dotenv.workspace = true
 op-succinct-client-utils.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-csv.workspace = true
+
 # server
-axum = "0.7.4"
 bincode.workspace = true
-log.workspace = true
 base64.workspace = true
-tower-http.workspace = true
 serde_repr = "0.1.19"
 sqlx = { version = "0.8.3", features = [
     "postgres",
@@ -57,12 +52,8 @@ futures-util = "0.3.31"
 clap.workspace = true
 tikv-jemallocator = "0.6.0"
 metrics-exporter-prometheus = "0.16.2"
-prometheus = { version = "0.13.4", features = ["process"] }
 metrics = "0.24.1"
-sysinfo = "0.33.1"
 metrics-process = "2.4.0"
-lazy_static = "1.5.0"
-tempfile = "3.17.1"
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true

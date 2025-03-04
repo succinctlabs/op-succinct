@@ -26,15 +26,10 @@ dotenv.workspace = true
 csv.workspace = true
 tracing.workspace = true
 
-# kona
-kona-host.workspace = true
-kona-preimage.workspace = true
-
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
-async-trait.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
