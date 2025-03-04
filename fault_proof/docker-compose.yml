@@ -49,6 +49,7 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/alerts:/var/lib/grafana/alerts
       - /home/op_succinct_lite_grafana_data:/var/lib/grafana
     user: root
     environment:
