@@ -46,6 +46,7 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
+# TODO: Switch back to kona tag once the chain-op-config branch is merged into main
 kona-mpt = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
 kona-derive = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", default-features = false }
 kona-driver = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
