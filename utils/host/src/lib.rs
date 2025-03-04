@@ -1,6 +1,5 @@
 pub mod block_range;
 pub mod fetcher;
-pub mod rollup_config;
 pub mod stats;
 
 use alloy_consensus::Header;
