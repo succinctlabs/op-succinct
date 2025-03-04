@@ -987,6 +987,8 @@ where
         // Handle the case where the proposer is being re-started and the proposer state needs to be updated.
         self.initialize_proposer().await?;
 
+        gauge!("succinct_error_count").set(0.0);
+
         // Loop interval in seconds.
         loop {
             // Wrap the entire loop body in a match to handle errors
