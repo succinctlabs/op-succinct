@@ -1,5 +1,5 @@
 use crate::BytesHasherBuilder;
-use alloy_primitives::{keccak256, FixedBytes};
+use alloy_primitives::{keccak256, Bytes, FixedBytes};
 use anyhow::Result;
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
@@ -13,7 +13,10 @@ use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{from_bytes, Archive};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-
+use ark_bn254::{Fq, G1Affine};
+use ark_ff::PrimeField;
+use rust_kzg_bn254_verifier::batch::verify_blob_kzg_proof_batch;
+use rust_kzg_bn254_primitives::blob::Blob as EigenBlob;
 use super::StoreOracle;
 
 /// An in-memory HashMap that will serve as the oracle for the zkVM.
@@ -101,6 +104,13 @@ struct Blob {
     kzg_proof: FixedBytes<48>,
 }
 
+#[derive(Default)]
+struct EigenDaBlob {
+    commitment: Vec<u8>,
+    data: Vec<u8>,
+    kzg_proof: Vec<u8>,
+}
+
 pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<()> {
     let key_type = key.key_type();
     let preimage = match key_type {
@@ -126,6 +136,8 @@ impl InMemoryOracle {
     /// TODO(r): Switch to using the BlobProvider to save the witness and verify this.
     pub fn verify(&self) -> AnyhowResult<()> {
         let mut blobs: HashMap<FixedBytes<48>, Blob, BytesHasherBuilder> =
+            HashMap::with_hasher(BytesHasherBuilder);
+        let mut eigenda_blobs: HashMap<[u8; 64], EigenDaBlob, BytesHasherBuilder> =
             HashMap::with_hasher(BytesHasherBuilder);
 
         for (key, value) in self.cache.iter() {
@@ -164,36 +176,96 @@ impl InMemoryOracle {
                             }
                         });
                 }
+            } else if preimage_key.key_type() == PreimageKeyType::GlobalGeneric{
+                let blob_key_key: [u8; 32] =
+                    PreimageKey::new(*key, PreimageKeyType::Keccak256).into();
+                if let Some(blob_key_data) = self.cache.get(&blob_key_key) {
+                    let commitment = blob_key_data[..64].try_into().unwrap();
+                    if blob_key_data.len() == 64 {
+                        eigenda_blobs
+                            .entry(commitment)
+                            .or_default()
+                            .kzg_proof
+                            .copy_from_slice(value);
+                    } else if blob_key_data.len() == 65 {
+                        eigenda_blobs
+                            .entry(commitment)
+                            .or_default()
+                            .commitment
+                            .copy_from_slice(value);
+                    } else {
+                        let element_idx_bytes: [u8; 8] = blob_key_data[64..].try_into().unwrap();
+                        let element_idx: u64 = u64::from_be_bytes(element_idx_bytes);
+                        // Add the 32 bytes of blob data into the correct spot in the blob.
+                        eigenda_blobs
+                            .entry(commitment)
+                            .or_default()
+                            .data
+                            .get_mut((element_idx as usize) << 5..(element_idx as usize + 1) << 5)
+                            .map(|slice| {
+                                if slice.iter().all(|&byte| byte == 0) {
+                                    slice.copy_from_slice(value);
+                                    Ok(())
+                                } else {
+                                    Err(anyhow!("trying to overwrite existing blob data"))
+                                }
+                            });
+                    }
+                }
             } else {
                 verify_preimage(&preimage_key, value)?;
             }
         }
 
         println!("cycle-tracker-report-start: blob-verification");
-        let commitments: Vec<Bytes48> = blobs
-            .keys()
-            .cloned()
-            .map(|blob| Bytes48::from_slice(&blob.0).unwrap())
-            .collect_vec();
-        let kzg_proofs: Vec<Bytes48> = blobs
-            .values()
-            .map(|blob| Bytes48::from_slice(&blob.kzg_proof.0).unwrap())
-            .collect_vec();
-        let blob_datas: Vec<KzgRsBlob> = blobs
-            .values()
-            .map(|blob| KzgRsBlob::from_slice(&blob.data.0).unwrap())
-            .collect_vec();
-        println!("Verifying {} blobs", blob_datas.len());
-        // Verify reconstructed blobs.
-        kzg_rs::KzgProof::verify_blob_kzg_proof_batch(
-            blob_datas,
-            commitments,
-            kzg_proofs,
-            &get_kzg_settings(),
-        )
-        .map_err(|e| anyhow!("blob verification failed for batch: {:?}", e))?;
+        if !blobs.is_empty() {
+            let commitments: Vec<Bytes48> = blobs
+                .keys()
+                .cloned()
+                .map(|blob| Bytes48::from_slice(&blob.0).unwrap())
+                .collect_vec();
+            let kzg_proofs: Vec<Bytes48> = blobs
+                .values()
+                .map(|blob| Bytes48::from_slice(&blob.kzg_proof.0).unwrap())
+                .collect_vec();
+            let blob_datas: Vec<KzgRsBlob> = blobs
+                .values()
+                .map(|blob| KzgRsBlob::from_slice(&blob.data.0).unwrap())
+                .collect_vec();
+            println!("Verifying {} blobs", blob_datas.len());
+            // Verify reconstructed blobs.
+            let result = kzg_rs::KzgProof::verify_blob_kzg_proof_batch(
+                blob_datas,
+                commitments,
+                kzg_proofs,
+                &get_kzg_settings(),
+            )
+                .map_err(|e| anyhow!("blob verification failed for batch: {:?}", e))?;
+            assert!(result,"ethereum blob verification false");
+        }
         println!("cycle-tracker-report-end: blob-verification");
 
+        println!("cycle-tracker-report-start: eigen-da-blob-verification");
+        println!("Verifying {} eigenda blobs", eigenda_blobs.len());
+        if !eigenda_blobs.is_empty() {
+            let mut eigen_blobs: Vec<EigenBlob> = Vec::new();
+            let mut eigen_commitments: Vec<G1Affine> = Vec::new();
+            let mut eigen_proofs: Vec<G1Affine> = Vec::new();
+            for (_, value) in eigenda_blobs {
+                eigen_blobs.push(EigenBlob::from(value.data));
+                let x = Fq::from_be_bytes_mod_order(&value.commitment[..32]);
+                let y = Fq::from_be_bytes_mod_order(&value.commitment[32..64]);
+                eigen_commitments.push(G1Affine::new(x, y));
+                let p_x = Fq::from_be_bytes_mod_order(&value.kzg_proof[..32]);
+                let p_y = Fq::from_be_bytes_mod_order(&value.kzg_proof[32..64]);
+                eigen_proofs.push(G1Affine::new(p_x, p_y));
+            }
+            //Verify EigenDa blob
+            let e_r = verify_blob_kzg_proof_batch(&eigen_blobs, &eigen_commitments, &eigen_proofs)
+                .map_err(|e| anyhow!("blob verification failed for batch: {:?}", e))?;
+            assert!(e_r, "eigen blob verification failed");
+        }
+        println!("cycle-tracker-report-end: eigen-da-blob-verification");
         Ok(())
     }
 }

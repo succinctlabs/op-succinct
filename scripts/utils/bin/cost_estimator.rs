@@ -148,6 +148,8 @@ fn aggregate_execution_stats(
             stats.block_execution_instruction_count;
         aggregate_stats.blob_verification_instruction_count +=
             stats.blob_verification_instruction_count;
+        aggregate_stats.eigen_da_verify_instruction_count +=
+            stats.eigen_da_verify_instruction_count;
         aggregate_stats.total_sp1_gas += stats.total_sp1_gas;
         aggregate_stats.nb_blocks += stats.nb_blocks;
         aggregate_stats.nb_transactions += stats.nb_transactions;

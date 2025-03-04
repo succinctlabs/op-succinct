@@ -39,21 +39,23 @@ tower-http = { version = "0.5.2", features = ["limit"] }
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
+kzg-rs-bn254 = { git = "https://github.com/mantle-xyz/kzg-rs", branch = "test"}
+
 # kona
-kona-common = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-common-proc = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", features = [
+kona-common = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-common-proc = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify", features = [
     "rkyv",
     "serde",
 ] }
-kona-mpt = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-driver = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-derive = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt", default-features = false }
-kona-executor = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-client = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-host = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-kona-proof = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
-eigen-da = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt" }
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-derive = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify", default-features = false }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-client = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
+eigen-da = { git = "https://github.com/mantle-xyz/kona", branch = "mantle-kona-mpt-verify" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -99,7 +101,7 @@ op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", br
 op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", branch = "alloy-0.11.1", default-features = false }
 
 # Revm
-revm = { git = "https://github.com/mantle-xyz/revm", branch = "kona", default-features = false, features = [
+revm = { git = "https://github.com/mantle-xyz/revm", branch = "dev", default-features = false, features = [
     "kzg-rs",
 ] }
 
@@ -109,6 +111,12 @@ sp1-sdk = { version = "4.1.0" }
 sp1-zkvm = { version = "4.1.0", features = ["verify", "embedded"] }
 sp1-build = { version = "4.1.0" }
 kzg-rs = { version = "0.2.5" }
+
+# EigenDA
+rust-kzg-bn254-verifier = { git = "https://github.com/Layr-Labs/rust-kzg-bn254", branch = "master", default-features = false }
+rust-kzg-bn254-primitives = { git = "https://github.com/Layr-Labs/rust-kzg-bn254", branch = "master", default-features = false }
+ark-bn254 = "0.5.0"
+ark-ff = { version = "0.5.0", features = ["parallel"] }
 
 [profile.release-client-lto]
 inherits = "release"

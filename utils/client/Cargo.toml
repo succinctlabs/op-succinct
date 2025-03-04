@@ -44,3 +44,7 @@ spin.workspace = true
 
 # kzg
 kzg-rs.workspace = true
+rust-kzg-bn254-verifier.workspace = true
+rust-kzg-bn254-primitives.workspace = true
+ark-bn254.workspace = true
+ark-ff.workspace = true

@@ -754,7 +754,7 @@ impl OPSuccinctDataFetcher {
                 agreed_l2_head_hash,
                 claimed_l2_output_root,
                 claimed_l2_block_number: l2_end_block,
-                l2_chain_id: None,
+                l2_chain_id: Some(l2_chain_id),
                 // Trim the trailing slash to avoid double slashes in the URL.
                 l2_node_address: Some(
                     self.rpc_config

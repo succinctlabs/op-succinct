@@ -20,6 +20,7 @@ pub struct ExecutionStats {
     pub derivation_instruction_count: u64,
     pub block_execution_instruction_count: u64,
     pub blob_verification_instruction_count: u64,
+    pub eigen_da_verify_instruction_count: u64,
     pub total_sp1_gas: u64,
     pub nb_blocks: u64,
     pub nb_transactions: u64,
@@ -89,6 +90,11 @@ impl fmt::Display for ExecutionStats {
             "Blob Verification Cycles",
             self.blob_verification_instruction_count,
         )?;
+        write_stat(
+            f,
+            "Eigen DA Verify Cycles",
+            self.eigen_da_verify_instruction_count,
+        )?;
         write_stat(f, "Total SP1 Gas", self.total_sp1_gas)?;
         write_stat(f, "Number of Blocks", self.nb_blocks)?;
         write_stat(f, "Number of Transactions", self.nb_transactions)?;
@@ -142,6 +148,7 @@ impl ExecutionStats {
             oracle_verify_instruction_count: get_cycles("oracle-verify"),
             derivation_instruction_count: get_cycles("payload-derivation"),
             blob_verification_instruction_count: get_cycles("blob-verification"),
+            eigen_da_verify_instruction_count: get_cycles("eigen-da-blob-verification"),
             bn_add_cycles: get_cycles("precompile-bn-add"),
             bn_mul_cycles: get_cycles("precompile-bn-mul"),
             bn_pair_cycles: get_cycles("precompile-bn-pair"),
@@ -209,6 +216,11 @@ impl fmt::Display for MarkdownExecutionStats {
             f,
             "Blob Verification Cycles",
             self.0.blob_verification_instruction_count,
+        )?;
+        write_stat(
+            f,
+            "Eigen DA Verify Cycles",
+            self.0.eigen_da_verify_instruction_count,
         )?;
         write_stat(f, "Total SP1 Gas", self.0.total_sp1_gas)?;
         write_stat(f, "Number of Blocks", self.0.nb_blocks)?;
