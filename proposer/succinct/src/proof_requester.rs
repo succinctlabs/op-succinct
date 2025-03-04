@@ -240,7 +240,13 @@ impl OPSuccinctProofRequester {
         request: &OPSuccinctRequest,
         execution_status: ExecutionStatus,
     ) -> Result<()> {
-        info!("Retrying request: {:?}", request.id);
+        info!(
+            id = request.id,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            req_type = ?request.req_type,
+            "Retrying request"
+        );
 
         // Mark the existing request as failed.
         self.db_client

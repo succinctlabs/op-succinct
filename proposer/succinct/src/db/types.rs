@@ -41,6 +41,7 @@ impl From<i16> for RequestStatus {
 
 #[derive(sqlx::Type, Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[sqlx(type_name = "smallint")]
+#[repr(i16)]
 pub enum RequestType {
     #[default]
     Range = 0,
@@ -59,6 +60,7 @@ impl From<i16> for RequestType {
 
 #[derive(sqlx::Type, Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[sqlx(type_name = "smallint")]
+#[repr(i16)]
 pub enum RequestMode {
     #[default]
     Real = 0,
