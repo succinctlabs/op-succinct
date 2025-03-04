@@ -58,10 +58,6 @@ impl InMemoryOracle {
         for (key, value) in cache_guard.iter() {
             // Check which keys are not present here
             let key_bytes: [u8; 32] = (*key).into();
-            if key.key_type() == PreimageKeyType::GlobalGeneric {
-                println!("Populating Key Type {:?}", key.key_type());
-                println!("Key value {:?}", hex::encode(key_bytes));
-            }
             cache.insert(key_bytes, value.clone());
         }
         Ok(Self { cache })
@@ -72,7 +68,6 @@ impl InMemoryOracle {
 impl PreimageOracleClient for InMemoryOracle {
     async fn get(&self, key: PreimageKey) -> Result<Vec<u8>, PreimageOracleError> {
         let key_bytes: [u8; 32] = key.into();
-        println!("Key Type Request: {:?}", key.key_type());
         self.cache
             .get(&key_bytes)
             .cloned()
