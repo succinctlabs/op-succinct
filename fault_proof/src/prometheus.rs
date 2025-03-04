@@ -1,4 +1,4 @@
-use metrics::describe_counter;
+use metrics::{describe_counter, describe_gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use metrics_process::Collector;
 use std::{
@@ -13,6 +13,17 @@ pub fn custom_counters() {
     describe_counter!(
         "op_succinct_fp_games_created",
         "Total number of games created by the proposer"
+    );
+}
+
+pub fn custom_gauges() {
+    describe_gauge!(
+        "op_succinct_fp_finalized_l2_block_number",
+        "Finalized L2 block number"
+    );
+    describe_gauge!(
+        "op_succinct_fp_latest_game_l2_block_number",
+        "Latest game L2 block number"
     );
 }
 
