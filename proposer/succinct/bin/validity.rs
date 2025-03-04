@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
 
     setup_proposer_logger();
 
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await?;
 
     // Read the environment variables.
     let env_config = read_proposer_env()?;
