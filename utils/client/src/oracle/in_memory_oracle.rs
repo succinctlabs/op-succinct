@@ -76,7 +76,7 @@ impl PreimageOracleClient for InMemoryOracle {
         self.cache
             .get(&key_bytes)
             .cloned()
-            .ok_or_else(|| PreimageOracleError::KeyNotFound(key.key_type()))
+            .ok_or_else(|| PreimageOracleError::KeyNotFound)
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
@@ -115,7 +115,7 @@ pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<
         PreimageKeyType::Keccak256 => Some(keccak256(value).0),
         PreimageKeyType::Sha256 => Some(Sha256::digest(value).into()),
         PreimageKeyType::Precompile | PreimageKeyType::Blob => unimplemented!(),
-        PreimageKeyType::Local | PreimageKeyType::GlobalGeneric | PreimageKeyType::Null => None,
+        PreimageKeyType::Local | PreimageKeyType::GlobalGeneric => None,
     };
 
     if let Some(preimage) = preimage {
