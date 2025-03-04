@@ -5,9 +5,8 @@ use op_succinct_proposer::{
     read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
 };
 use std::sync::Arc;
-use tracing::info;
-
 use tikv_jemallocator::Jemalloc;
+use tracing::info;
 
 #[global_allocator]
 static ALLOCATOR: Jemalloc = Jemalloc;

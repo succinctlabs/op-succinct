@@ -50,7 +50,7 @@ sqlx = { version = "0.8.3", features = [
     "chrono",
     "bigdecimal",
     "runtime-tokio",
-    "tls-rustls-ring-webpki"
+    "tls-native-tls",
 ] }
 chrono = "0.4.39"
 futures-util = "0.3.31"
