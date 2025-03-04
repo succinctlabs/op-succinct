@@ -7,6 +7,7 @@ use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{fillers::TxFiller, Provider, ProviderBuilder};
 use alloy_sol_types::SolValue;
 use anyhow::{Context, Result};
+use metrics::counter;
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProvingKey,
     SP1VerifyingKey,
@@ -352,8 +353,17 @@ where
         loop {
             interval.tick().await;
 
-            if let Err(e) = self.handle_game_creation().await {
-                tracing::warn!("Failed to handle game creation: {:?}", e);
+            match self.handle_game_creation().await {
+                Ok(Some(_)) => {
+                    let game_created_counter = counter!("op_succinct_fp_games_created");
+                    game_created_counter.increment(1);
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to handle game creation: {:?}", e);
+                    let error_counter = counter!("op_succinct_fp_errors");
+                    error_counter.increment(1);
+                }
             }
 
             if let Err(e) = self.handle_game_defense().await {
