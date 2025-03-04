@@ -4485,6 +4485,7 @@ dependencies = [
  "serde_json",
  "sp1-sdk",
  "sysinfo 0.32.1",
+ "tempfile",
  "tokio",
  "tracing",
 ]
@@ -4523,6 +4524,7 @@ dependencies = [
  "sp1-sdk",
  "sqlx",
  "sysinfo 0.33.1",
+ "tempfile",
  "tikv-jemallocator",
  "tokio",
  "tower-http",

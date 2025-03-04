@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use op_succinct_client_utils::boot::hash_rollup_config;
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
+use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 
 #[derive(Parser)]
 struct Args {
@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
 
     dotenv::from_path(args.env_file).ok();
 
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
     println!(

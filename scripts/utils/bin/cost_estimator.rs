@@ -7,10 +7,10 @@ use op_succinct_host_utils::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
         split_range_basic, SpanBatchRange,
     },
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
+    fetcher::{CacheMode, OPSuccinctDataFetcher},
     get_proof_stdin, start_server_and_native_client,
     stats::ExecutionStats,
-    OPSuccinctHost, ProgramType, RANGE_ELF_EMBEDDED,
+    OPSuccinctHost, RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -33,10 +33,8 @@ async fn execute_blocks_and_write_stats_csv(
     l2_chain_id: u64,
     start: u64,
     end: u64,
-) {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev)
-        .await
-        .unwrap();
+) -> Result<()> {
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Fetch all of the execution stats block ranges in parallel.
     let block_data = futures::stream::iter(ranges.clone())
@@ -124,6 +122,8 @@ async fn execute_blocks_and_write_stats_csv(
     });
 
     info!("Execution is complete.");
+
+    Ok(())
 }
 /// Aggregate the execution statistics for an array of execution stats objects.
 fn aggregate_execution_stats(
@@ -188,7 +188,7 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
     let (l2_start_block, l2_end_block) = if args.rolling {
@@ -222,7 +222,7 @@ async fn main() -> Result<()> {
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             data_fetcher
-                .get_host_args(range.start, range.end, None, ProgramType::Multi, cache_mode)
+                .get_host_args(range.start, range.end, None, cache_mode)
                 .await
                 .expect("Failed to get host CLI args")
         })
@@ -237,7 +237,7 @@ async fn main() -> Result<()> {
         l2_start_block,
         l2_end_block,
     )
-    .await;
+    .await?;
 
     // Get the path to the execution report CSV file.
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();

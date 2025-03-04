@@ -64,3 +64,4 @@ clap.workspace = true
 sysinfo = "0.32.0"
 async-trait.workspace = true
 tracing.workspace = true
+tempfile = "3.17.1"

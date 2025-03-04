@@ -46,12 +46,6 @@ sol! {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ProgramType {
-    Single,
-    Multi,
-}
-
 sol! {
     struct L2Output {
         uint64 zero;

@@ -4,7 +4,7 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
-    fetcher::{OPSuccinctDataFetcher, RPCMode, RunContext},
+    fetcher::{OPSuccinctDataFetcher, RPCMode},
     AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
 };
 use serde::{Deserialize, Serialize};
@@ -71,7 +71,7 @@ fn get_address(env_var: &str, private_key_by_default: bool) -> String {
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
 async fn update_l2oo_config() -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let workspace_root = cargo_metadata::MetadataCommand::new()
         .exec()?

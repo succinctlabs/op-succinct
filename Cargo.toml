@@ -75,12 +75,12 @@ op-succinct-build-utils = { path = "utils/build" }
 op-succinct-proposer = { path = "proposer/succinct" }
 
 # Alloy (Network)
-alloy-signer-local = { version = "0.11.1", default-features = false }
-alloy-provider = { version = "0.11.1", default-features = false }
-alloy-transport = { version = "0.11.1", default-features = false }
-alloy-transport-http = { version = "0.11.1", default-features = false }
-alloy-contract = { version = "0.11.1", default-features = false }
-alloy-network = { version = "0.11.1", default-features = false }
+alloy-signer-local = { version = "0.11.1" }
+alloy-provider = { version = "0.11.1" }
+alloy-transport = { version = "0.11.1" }
+alloy-transport-http = { version = "0.11.1" }
+alloy-contract = { version = "0.11.1" }
+alloy-network = { version = "0.11.1" }
 
 # Alloy
 alloy-rlp = { version = "0.3.10", default-features = false }

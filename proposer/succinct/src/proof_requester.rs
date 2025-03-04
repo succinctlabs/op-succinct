@@ -4,8 +4,8 @@ use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::{CacheMode, OPSuccinctDataFetcher},
-    get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, ProgramType,
-    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+    get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, AGGREGATION_ELF,
+    RANGE_ELF_EMBEDDED,
 };
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
@@ -62,7 +62,6 @@ impl OPSuccinctProofRequester {
                 request.start_block as u64,
                 request.end_block as u64,
                 None,
-                ProgramType::Multi,
                 CacheMode::DeleteCache,
             )
             .await

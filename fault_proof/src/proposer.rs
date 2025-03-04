@@ -21,9 +21,9 @@ use crate::{
 };
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, ProgramType,
-    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    get_agg_proof_stdin, get_proof_stdin, start_server_and_native_client, AGGREGATION_ELF,
+    RANGE_ELF_EMBEDDED,
 };
 
 struct SP1Prover {
@@ -78,7 +78,7 @@ where
     }
 
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
-        let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await {
+        let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config().await {
             Ok(f) => f,
             Err(e) => {
                 tracing::error!("Failed to create data fetcher: {}", e);
@@ -97,7 +97,6 @@ where
                 l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks,
                 l2_block_number.to::<u64>(),
                 Some(l1_head_hash),
-                ProgramType::Multi,
                 CacheMode::DeleteCache,
             )
             .await

@@ -4,8 +4,8 @@ use futures::StreamExt;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
-    fetcher::{CacheMode, OPSuccinctDataFetcher, RunContext},
-    get_proof_stdin, start_server_and_native_client, ProgramType, RANGE_ELF_EMBEDDED,
+    fetcher::{CacheMode, OPSuccinctDataFetcher},
+    get_proof_stdin, start_server_and_native_client, RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::utils;
@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file).ok();
     utils::setup_logger();
 
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
     let (l2_start_block, l2_end_block) =
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             data_fetcher
-                .get_host_args(range.start, range.end, None, ProgramType::Multi, cache_mode)
+                .get_host_args(range.start, range.end, None, cache_mode)
                 .await
                 .expect("Failed to get host CLI args")
         })

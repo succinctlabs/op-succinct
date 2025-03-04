@@ -6,7 +6,6 @@ use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
-use cargo_metadata::MetadataCommand;
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
 use kona_protocol::calculate_tx_l1_cost_fjord;
@@ -22,6 +21,7 @@ use op_succinct_client_utils::boot::BootInfoStruct;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use std::{
     cmp::{min, Ordering},
     env, fs,
@@ -32,7 +32,6 @@ use std::{
 
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
-use crate::{rollup_config::get_rollup_config_path, ProgramType};
 use crate::{L2Output, OPSuccinctHost};
 
 #[derive(Clone)]
@@ -44,12 +43,12 @@ pub struct OPSuccinctDataFetcher {
     pub l1_provider: Arc<RootProvider>,
     pub l2_provider: Arc<RootProvider<Optimism>>,
     pub rollup_config: Option<RollupConfig>,
-    pub run_context: RunContext,
+    pub rollup_config_path: Option<PathBuf>,
 }
 
 impl Default for OPSuccinctDataFetcher {
     fn default() -> Self {
-        OPSuccinctDataFetcher::new(RunContext::Dev)
+        OPSuccinctDataFetcher::new()
     }
 }
 
@@ -75,13 +74,6 @@ pub enum RPCMode {
 pub enum CacheMode {
     KeepCache,
     DeleteCache,
-}
-
-/// Dev or Docker context.
-#[derive(Clone, Copy)]
-pub enum RunContext {
-    Dev,
-    Docker,
 }
 
 fn get_rpcs() -> RPCConfig {
@@ -119,7 +111,7 @@ pub struct FeeData {
 
 impl OPSuccinctDataFetcher {
     /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
-    pub fn new(run_context: RunContext) -> Self {
+    pub fn new() -> Self {
         let rpc_config = get_rpcs();
 
         let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
@@ -130,25 +122,26 @@ impl OPSuccinctDataFetcher {
             l1_provider,
             l2_provider,
             rollup_config: None,
-            run_context,
+            rollup_config_path: None,
         }
     }
 
     /// Initialize the fetcher with a rollup config.
-    pub async fn new_with_rollup_config(run_context: RunContext) -> Result<Self> {
+    pub async fn new_with_rollup_config() -> Result<Self> {
         let rpc_config = get_rpcs();
 
         let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
         let l2_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l2_rpc.clone()));
 
-        let rollup_config = Self::fetch_and_save_rollup_config(&rpc_config, run_context).await?;
+        let (rollup_config, rollup_config_path) =
+            Self::fetch_and_save_rollup_config(&rpc_config).await?;
 
         Ok(OPSuccinctDataFetcher {
             rpc_config,
             l1_provider,
             l2_provider,
             rollup_config: Some(rollup_config),
-            run_context,
+            rollup_config_path: Some(rollup_config_path),
         })
     }
 
@@ -487,28 +480,27 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// Fetch and save the rollup config to the rollup config file.
+    /// Fetch and save the rollup config to a temporary file.
     async fn fetch_and_save_rollup_config(
         rpc_config: &RPCConfig,
-        run_context: RunContext,
-    ) -> Result<RollupConfig> {
+    ) -> Result<(RollupConfig, PathBuf)> {
         let rollup_config: RollupConfig =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
-        // Save rollup config to the rollup config file.
-        let rollup_config_path = get_rollup_config_path(rollup_config.l2_chain_id, run_context)?;
+        // Create configs directory if it doesn't exist
+        let rollup_config_dir = PathBuf::from("configs");
+        fs::create_dir_all(&rollup_config_dir)?;
 
-        // Create the directory for the rollup config if it doesn't exist.
-        let rollup_configs_dir = rollup_config_path.parent().unwrap();
-        if !rollup_configs_dir.exists() {
-            fs::create_dir_all(rollup_configs_dir)?;
-        }
+        // Save rollup config to a file named by chain ID
+        let rollup_config_path =
+            rollup_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
 
-        // Write the rollup config to the file.
+        // Write the rollup config to the file
         let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
-        fs::write(rollup_config_path, rollup_config_str)?;
+        fs::write(&rollup_config_path, rollup_config_str)?;
 
-        Ok(rollup_config)
+        // Return both the rollup config and the path to the temporary file
+        Ok((rollup_config, rollup_config_path))
     }
 
     async fn fetch_rpc_data<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
@@ -626,38 +618,17 @@ impl OPSuccinctDataFetcher {
         Ok(headers)
     }
 
-    /// Get the data directory for the given program type and run context.
-    ///
-    /// If the RunContext is Dev, prepend the workspace root.
+    /// Get the data directory path. Note: This path is relative to the location from which the program is run.
     fn get_data_directory(
         &self,
         l2_chain_id: u64,
         l2_start_block: u64,
         l2_end_block: u64,
-        multi_block: ProgramType,
     ) -> Result<String> {
-        let mut data_directory = match multi_block {
-            ProgramType::Single => {
-                format!("data/{}/{}", l2_chain_id, l2_end_block)
-            }
-            ProgramType::Multi => {
-                format!("data/{}/{}-{}", l2_chain_id, l2_start_block, l2_end_block)
-            }
-        };
-
-        // If the run context is Dev, prepend the workspace root.
-        match self.run_context {
-            RunContext::Dev => {
-                let metadata = MetadataCommand::new().exec().unwrap();
-                let workspace_root = metadata.workspace_root;
-                data_directory = format!("{}/{}", workspace_root, data_directory);
-                Ok(data_directory)
-            }
-            RunContext::Docker => {
-                data_directory = format!("/usr/local/{}", data_directory);
-                Ok(data_directory)
-            }
-        }
+        Ok(format!(
+            "data/{}/{}-{}",
+            l2_chain_id, l2_start_block, l2_end_block
+        ))
     }
 
     /// Get the L2 output data for a given block number and save the boot info to a file in the data
@@ -668,7 +639,6 @@ impl OPSuccinctDataFetcher {
         l2_start_block: u64,
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
-        multi_block: ProgramType,
         cache_mode: CacheMode,
     ) -> Result<OPSuccinctHost> {
         // If the rollup config is not already loaded, fetch and save it.
@@ -758,8 +728,7 @@ impl OPSuccinctDataFetcher {
         };
 
         // Get the workspace root, which is where the data directory is.
-        let data_directory =
-            self.get_data_directory(l2_chain_id, l2_start_block, l2_end_block, multi_block)?;
+        let data_directory = self.get_data_directory(l2_chain_id, l2_start_block, l2_end_block)?;
 
         // Delete the data directory if the cache mode is DeleteCache.
         match cache_mode {
@@ -770,9 +739,6 @@ impl OPSuccinctDataFetcher {
                 }
             }
         }
-
-        // Create the path to the rollup config file.
-        let rollup_config_path = get_rollup_config_path(l2_chain_id, self.run_context)?;
 
         // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
         // witness data.
@@ -811,7 +777,7 @@ impl OPSuccinctDataFetcher {
                 data_dir: Some(data_directory.into()),
                 native: false,
                 server: true,
-                rollup_config_path: Some(rollup_config_path),
+                rollup_config_path: self.rollup_config_path.clone(),
             },
         })
     }

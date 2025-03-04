@@ -1,6 +1,6 @@
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RunContext};
+use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_proposer::{
     read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
 };
@@ -29,7 +29,7 @@ async fn main() -> Result<()> {
 
     setup_proposer_logger();
 
-    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await?;
+    let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Read the environment variables.
     let env_config = read_proposer_env()?;
