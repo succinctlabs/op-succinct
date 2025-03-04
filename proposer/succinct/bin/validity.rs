@@ -23,6 +23,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let provider = rustls::crypto::ring::default_provider();
+    provider
+        .install_default()
+        .map_err(|e| anyhow::anyhow!("Failed to install default provider: {:?}", e))?;
+
     let args = Args::parse();
 
     dotenv::from_filename(args.env_file).ok();
