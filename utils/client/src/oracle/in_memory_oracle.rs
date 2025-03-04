@@ -1,5 +1,5 @@
 use crate::BytesHasherBuilder;
-use alloy_primitives::{keccak256, FixedBytes};
+use alloy_primitives::{hex, keccak256, FixedBytes};
 use anyhow::Result;
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
@@ -13,6 +13,7 @@ use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{from_bytes, Archive};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use tracing::{error, info};
 
 use super::StoreOracle;
 
@@ -55,7 +56,12 @@ impl InMemoryOracle {
 
         // Iterate over each key-value pair in the cache
         for (key, value) in cache_guard.iter() {
+            // Check which keys are not present here
             let key_bytes: [u8; 32] = (*key).into();
+            if key.key_type() == PreimageKeyType::GlobalGeneric {
+                println!("Populating Key Type {:?}", key.key_type());
+                println!("Key value {:?}", hex::encode(key_bytes));
+            }
             cache.insert(key_bytes, value.clone());
         }
         Ok(Self { cache })
@@ -66,10 +72,11 @@ impl InMemoryOracle {
 impl PreimageOracleClient for InMemoryOracle {
     async fn get(&self, key: PreimageKey) -> Result<Vec<u8>, PreimageOracleError> {
         let key_bytes: [u8; 32] = key.into();
+        println!("Key Type Request: {:?}", key.key_type());
         self.cache
             .get(&key_bytes)
             .cloned()
-            .ok_or_else(|| PreimageOracleError::KeyNotFound)
+            .ok_or_else(|| PreimageOracleError::KeyNotFound(key.key_type()))
     }
 
     async fn get_exact(&self, key: PreimageKey, buf: &mut [u8]) -> Result<(), PreimageOracleError> {
@@ -102,12 +109,13 @@ struct Blob {
 }
 
 pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<()> {
+    info!("verifying preimage");
     let key_type = key.key_type();
     let preimage = match key_type {
         PreimageKeyType::Keccak256 => Some(keccak256(value).0),
         PreimageKeyType::Sha256 => Some(Sha256::digest(value).into()),
         PreimageKeyType::Precompile | PreimageKeyType::Blob => unimplemented!(),
-        PreimageKeyType::Local | PreimageKeyType::GlobalGeneric => None,
+        PreimageKeyType::Local | PreimageKeyType::GlobalGeneric | PreimageKeyType::Null => None,
     };
 
     if let Some(preimage) = preimage {
@@ -129,8 +137,10 @@ impl InMemoryOracle {
             HashMap::with_hasher(BytesHasherBuilder);
 
         for (key, value) in self.cache.iter() {
+            // check if verify is doing anything funky since we use altda
             let preimage_key = PreimageKey::try_from(*key).unwrap();
             if preimage_key.key_type() == PreimageKeyType::Blob {
+                println!("found blob key when using Celestia DA");
                 // We should verify the keys using the Blob provider.
                 let blob_data_key: [u8; 32] =
                     PreimageKey::new(*key, PreimageKeyType::Keccak256).into();

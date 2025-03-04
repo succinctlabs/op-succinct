@@ -114,24 +114,22 @@ impl OPSuccinctHost {
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;
 
-        let server_task = {
-            #[cfg(feature = "celestia")]
-            {
-                let celestia_host = CelestiaChainHost {
-                    single_host: self.kona_args.clone(),
-                    celestia_args: self.hana_args.clone(),
-                };
-
-                celestia_host.start_server(hint.host, preimage.host).await?
-            }
-
-            #[cfg(not(feature = "celestia"))]
-            {
-                self.kona_args
-                    .start_server(hint.host, preimage.host)
-                    .await?
-            }
+        let celestia_host = CelestiaChainHost {
+            single_host: self.kona_args.clone(),
+            celestia_args: self.hana_args.clone(),
         };
+
+        let server_task = celestia_host.start_server(hint.host, preimage.host).await?;
+
+        // #[cfg(feature = "celestia")]
+
+        // #[cfg(not(feature = "celestia"))]
+        // {
+        //     self.kona_args
+        //         .start_server(hint.host, preimage.host)
+        //         .await?
+        //     // }
+        // };
 
         let in_memory_oracle = self
             .run_witnessgen_client(preimage.client, hint.client)

@@ -119,7 +119,7 @@ where
         beacon,
         l1_provider.clone(),
         l2_provider.clone(),
-        celestia_provider.clone(),
+        celestia_provider,
     );
 
     // TODO: Hide the Celestia Oracle Pipeline behind a feature flag
