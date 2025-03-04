@@ -24,24 +24,26 @@ pub struct EnvironmentConfig {
 }
 
 /// Helper function to get environment variables with a default value and parse them.
-fn get_env_var<T: std::str::FromStr>(key: &str, default: Option<&str>) -> Result<T>
+fn get_env_var<T>(key: &str, default: Option<T>) -> Result<T>
 where
+    T: std::str::FromStr,
     T::Err: std::fmt::Debug,
 {
-    let value = match default {
-        Some(default_val) => env::var(key).unwrap_or_else(|_| default_val.to_string()),
-        None => env::var(key).expect(&format!("{} is not set", key)),
-    };
-
-    value
-        .parse::<T>()
-        .map_err(|e| anyhow::anyhow!("Failed to parse {}: {:?}", key, e))
+    match env::var(key) {
+        Ok(value) => value
+            .parse::<T>()
+            .map_err(|e| anyhow::anyhow!("Failed to parse {}: {:?}", key, e)),
+        Err(_) => match default {
+            Some(default_val) => Ok(default_val),
+            None => anyhow::bail!("{} is not set", key),
+        },
+    }
 }
 
 /// Read proposer environment variables and return a config.
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     // Parse strategy values
-    let range_proof_strategy = if get_env_var::<String>("RANGE_PROOF_STRATEGY", Some("reserved"))?
+    let range_proof_strategy = if get_env_var("RANGE_PROOF_STRATEGY", Some("reserved".to_string()))?
         .to_lowercase()
         == "hosted"
     {
@@ -50,7 +52,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         FulfillmentStrategy::Reserved
     };
 
-    let agg_proof_strategy = if get_env_var::<String>("AGG_PROOF_STRATEGY", Some("reserved"))?
+    let agg_proof_strategy = if get_env_var("AGG_PROOF_STRATEGY", Some("reserved".to_string()))?
         .to_lowercase()
         == "hosted"
     {
@@ -61,7 +63,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
 
     // Parse proof mode
     let agg_proof_mode =
-        if get_env_var::<String>("AGG_PROOF_MODE", Some("groth16"))?.to_lowercase() == "plonk" {
+        if get_env_var("AGG_PROOF_MODE", Some("groth16".to_string()))?.to_lowercase() == "plonk" {
             SP1ProofMode::Plonk
         } else {
             SP1ProofMode::Groth16
@@ -73,20 +75,20 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"));
 
     let config = EnvironmentConfig {
-        metrics_port: get_env_var("METRICS_PORT", Some("8080"))?,
+        metrics_port: get_env_var("METRICS_PORT", Some(8080))?,
         l1_rpc: get_env_var("L1_RPC", None)?,
         private_key: get_env_var("PRIVATE_KEY", None)?,
         db_url: get_env_var("DATABASE_URL", None)?,
         range_proof_strategy,
         agg_proof_strategy,
         agg_proof_mode,
-        l2oo_address: get_env_var("L2OO_ADDRESS", None)?,
-        dgf_address: get_env_var("DGF_ADDRESS", None)?,
-        range_proof_interval: get_env_var("RANGE_PROOF_INTERVAL", Some("10"))?,
-        max_concurrent_witness_gen: get_env_var("MAX_CONCURRENT_WITNESS_GEN", Some("10"))?,
-        max_concurrent_proof_requests: get_env_var("MAX_CONCURRENT_PROOF_REQUESTS", Some("10"))?,
-        submission_interval: get_env_var("SUBMISSION_INTERVAL", Some("10"))?,
-        mock: get_env_var("OP_SUCCINCT_MOCK", Some("false"))?,
+        l2oo_address: get_env_var("L2OO_ADDRESS", Some(Address::ZERO))?,
+        dgf_address: get_env_var("DGF_ADDRESS", Some(Address::ZERO))?,
+        range_proof_interval: get_env_var("RANGE_PROOF_INTERVAL", Some(10))?,
+        max_concurrent_witness_gen: get_env_var("MAX_CONCURRENT_WITNESS_GEN", Some(10))?,
+        max_concurrent_proof_requests: get_env_var("MAX_CONCURRENT_PROOF_REQUESTS", Some(10))?,
+        submission_interval: get_env_var("SUBMISSION_INTERVAL", Some(10))?,
+        mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
     };
 

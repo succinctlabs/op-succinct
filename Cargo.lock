@@ -3276,7 +3276,7 @@ dependencies = [
 [[package]]
 name = "kona-cli"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-primitives",
  "clap",
@@ -3289,7 +3289,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3325,7 +3325,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3345,7 +3345,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -3366,7 +3366,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3385,7 +3385,7 @@ dependencies = [
 [[package]]
 name = "kona-genesis"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3402,7 +3402,7 @@ dependencies = [
 [[package]]
 name = "kona-hardforks"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -3412,7 +3412,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3459,7 +3459,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3480,7 +3480,7 @@ dependencies = [
 [[package]]
 name = "kona-mpt"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3493,7 +3493,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.2.1"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -3507,7 +3507,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.2.3"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3538,7 +3538,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.1.1"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3565,7 +3565,7 @@ dependencies = [
 [[package]]
 name = "kona-protocol"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -3590,7 +3590,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3614,7 +3614,7 @@ dependencies = [
 [[package]]
 name = "kona-registry"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -3628,7 +3628,7 @@ dependencies = [
 [[package]]
 name = "kona-rpc"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -3643,7 +3643,7 @@ dependencies = [
 [[package]]
 name = "kona-serde"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -3653,7 +3653,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -3666,7 +3666,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.1.2"
-source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#09e2b0a0a28df5eb4ab34d23bb965d76a9a65e21"
+source = "git+https://github.com/succinctlabs/kona?branch=ratan%2Fchain-op-config#9eab41a79d0bd43eceab64358a24db67c701e036"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
