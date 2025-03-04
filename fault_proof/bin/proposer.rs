@@ -8,7 +8,8 @@ use clap::Parser;
 use op_alloy_network::EthereumWallet;
 
 use fault_proof::{
-    contract::DisputeGameFactory, proposer::OPSuccinctProposer, utils::setup_logging,
+    contract::DisputeGameFactory, prometheus::init_metrics, proposer::OPSuccinctProposer,
+    utils::setup_logging,
 };
 
 #[derive(Parser)]
@@ -23,6 +24,14 @@ async fn main() {
 
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
+
+    // Initialize metrics
+    let metrics_port = env::var("METRICS_PORT")
+        .unwrap_or_else(|_| "9000".to_string())
+        .parse::<u16>()
+        .unwrap_or(9000);
+
+    init_metrics(&metrics_port);
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")

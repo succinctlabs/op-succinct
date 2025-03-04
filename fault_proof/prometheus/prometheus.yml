@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'proposer'
+    static_configs:
+      - targets: ['proposer:9000'] 
