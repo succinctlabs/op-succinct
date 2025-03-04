@@ -1,3 +1,4 @@
+/// Set up the logger for the proposer.
 pub fn setup_proposer_logger() {
     // Set up logging using the provided format
     let format = tracing_subscriber::fmt::format()

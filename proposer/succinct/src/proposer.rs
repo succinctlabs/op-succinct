@@ -376,6 +376,9 @@ where
         }
 
         // Get the completed range proofs with a start block greater than the latest proposed block number.
+        // TODO: Materializing this may be the source of the issue. Each block this gets larger.
+        // TODO: Confirm whether the issue is resolved after not materializing the entire range.
+        // TODO: Print the size of this.
         let completed_range_proofs = self
             .driver_config
             .driver_db_client
