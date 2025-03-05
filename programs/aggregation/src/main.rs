@@ -98,6 +98,7 @@ pub fn main() {
         l2BlockNumber: final_boot_info.l2BlockNumber,
         rollupConfigHash: final_boot_info.rollupConfigHash,
         multiBlockVKey: multi_block_vkey_b256,
+        prover: agg_inputs.prover,
     };
 
     // Commit to the aggregated [`AggregationOutputs`].
