@@ -237,7 +237,7 @@ impl OPSuccinctProofRequester {
     /// Otherwise, the same request is inserted again with a new ID.
     pub async fn retry_request(
         &self,
-        request: &OPSuccinctRequest,
+        request: OPSuccinctRequest,
         execution_status: ExecutionStatus,
     ) -> Result<()> {
         info!(
@@ -303,7 +303,7 @@ impl OPSuccinctProofRequester {
         }
 
         self.db_client
-            .insert_request(&OPSuccinctRequest::new_retry_request(request))
+            .insert_request(&OPSuccinctRequest::new_retry_request(&request))
             .await?;
 
         Ok(())

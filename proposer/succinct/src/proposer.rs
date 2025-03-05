@@ -23,8 +23,10 @@ use sp1_sdk::{
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofMode,
     SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
 };
+use std::collections::HashMap;
 use std::{str::FromStr, sync::Arc, time::Duration};
-use tracing::{debug, info};
+use tokio::sync::Mutex;
+use tracing::{debug, error, info};
 
 pub struct ContractConfig<P, N>
 where
@@ -90,6 +92,9 @@ where
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
     proof_requester: Arc<OPSuccinctProofRequester>,
+    tasks: Arc<
+        Mutex<HashMap<tokio::task::Id, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>>,
+    >,
 }
 
 // 5 confirmations (1 minute)
@@ -170,6 +175,7 @@ where
             program_config,
             requester_config,
             proof_requester,
+            tasks: Arc::new(Mutex::new(HashMap::new())),
         };
         Ok(proposer)
     }
@@ -332,7 +338,7 @@ where
                     .await?;
             } else if status.fulfillment_status == FulfillmentStatus::Unfulfillable as i32 {
                 self.proof_requester
-                    .retry_request(&request, execution_status)
+                    .retry_request(request, execution_status)
                     .await?;
             }
         } else {
@@ -552,10 +558,7 @@ where
             return Ok(());
         }
 
-        // Get the next proof to request.
-        let next_request = self.get_next_unrequested_proof().await?;
-
-        if let Some(request) = next_request {
+        if let Some(request) = self.get_next_unrequested_proof().await? {
             info!(
                 request_id = request.id,
                 request_type = ?request.req_type,
@@ -563,27 +566,14 @@ where
                 end_block = request.end_block,
                 "Making proof request"
             );
-
+            let request_clone = request.clone();
             let proof_requester = self.proof_requester.clone();
-
-            // Spawn a task to handle the proof request lifecycle.
-            tokio::spawn(async move {
-                if let Err(e) = proof_requester.make_proof_request(request.clone()).await {
-                    // If the proof request failed, retry it.
-                    tracing::error!("Failed to make proof request: {}", e);
-
-                    // Update the error gauge
-                    let error_gauge = gauge!("succinct_error_count");
-                    error_gauge.increment(1.0);
-
-                    if let Err(e) = proof_requester
-                        .retry_request(&request, ExecutionStatus::UnspecifiedExecutionStatus)
-                        .await
-                    {
-                        tracing::error!("Failed to retry proof request: {}", e);
-                    }
-                }
-            });
+            let handle =
+                tokio::spawn(
+                    async move { proof_requester.make_proof_request(request_clone).await },
+                );
+            let id = handle.id();
+            self.tasks.lock().await.insert(id, (handle, request));
         }
 
         Ok(())
@@ -748,6 +738,79 @@ where
             );
             return Err(anyhow::anyhow!("Config mismatches detected."));
         }
+
+        Ok(())
+    }
+
+    /// Spawns thread for handling task completion and error handling.
+    async fn spawn_task_completion_handler(&self) -> Result<()> {
+        let tasks = self.tasks.clone();
+        let proof_requester = self.proof_requester.clone();
+
+        tokio::spawn(async move {
+            loop {
+                let mut tasks = tasks.lock().await;
+                let mut completed = Vec::new();
+
+                // Check and process completed tasks
+                for (id, (handle, _)) in tasks.iter() {
+                    if handle.is_finished() {
+                        completed.push(*id);
+                    }
+                }
+
+                // Process completed tasks - this will properly await and drop them
+                for id in completed {
+                    if let Some((handle, request)) = tasks.remove(&id) {
+                        // First await the handle to properly clean up the task.
+                        match handle.await {
+                            Ok(result) => {
+                                if let Err(e) = result {
+                                    error!(
+                                        request_id = request.id,
+                                        request_type = ?request.req_type,
+                                        error = ?e,
+                                        "Task failed with error"
+                                    );
+                                    // Now safe to retry as original task is cleaned up
+                                    if let Err(retry_err) = proof_requester
+                                        .retry_request(
+                                            request,
+                                            ExecutionStatus::UnspecifiedExecutionStatus,
+                                        )
+                                        .await
+                                    {
+                                        error!(error = ?retry_err, "Failed to retry request");
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                error!(
+                                    request_id = request.id,
+                                    request_type = ?request.req_type,
+                                    error = ?e,
+                                    "Task panicked"
+                                );
+                                // Now safe to retry as original task is cleaned up
+                                if let Err(retry_err) = proof_requester
+                                    .retry_request(
+                                        request,
+                                        ExecutionStatus::UnspecifiedExecutionStatus,
+                                    )
+                                    .await
+                                {
+                                    error!(error = ?retry_err, "Failed to retry request after panic");
+                                }
+                            }
+                        }
+                    }
+                }
+
+                drop(tasks);
+                // TODO: Update this loop interval.
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+            }
+        });
 
         Ok(())
     }
@@ -984,6 +1047,9 @@ where
 
     #[tracing::instrument(name = "proposer.run", skip(self))]
     pub async fn run(&self) -> Result<()> {
+        // Spawn the task completion handler.
+        self.spawn_task_completion_handler().await?;
+
         // Handle the case where the proposer is being re-started and the proposer state needs to be updated.
         self.initialize_proposer().await?;
 
