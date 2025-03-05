@@ -463,7 +463,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
                     normalModeCredit[gameCreator()] = address(this).balance - CHALLENGER_BOND;
                 }
             } else {
-                // We shouldn't get here, but sanity check just in case.
+                // This edge case shouldn't be reached, sanity check just in case.
                 revert InvalidProposalStatus();
             }
         }
@@ -616,7 +616,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         if (bondDistributionMode == BondDistributionMode.REFUND) {
             credit_ = refundModeCredit[_recipient];
         } else {
-            // Always return normal credit balance by default unless we're in refund mode.
+            // Always return normal credit balance by default unless in refund mode.
             credit_ = normalModeCredit[_recipient];
         }
     }
