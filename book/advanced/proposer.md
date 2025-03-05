@@ -78,7 +78,7 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `MAX_CONCURRENT_WITNESS_GEN` | Default: `3`. The maximum number of concurrent witness generation processes to run on the `op-succinct-server`. |
 | `RANGE_PROOF_INTERVAL` | Default: `1800`. The number of blocks to include in each range proof. For chains with high throughput, you need to decrease this value. |
 | `OP_SUCCINCT_MOCK` | Default: `false`. Set to `true` to run in mock proof mode. The `OPSuccinctL2OutputOracle` contract must be configured to use an `SP1MockVerifier`. |
-| `METRICS_PORT` | Default: `7300`. The port to run the metrics server on. |
+| `METRICS_PORT` | Default: `8080`. The port to run the metrics server on. |
 | `DB_PATH` | Default: `/usr/local/bin/dbdata`. The path to the database directory within the container. |
 | `LOOP_INTERVAL` | Default: `60`. The interval (in seconds) between each iteration of the OP Succinct service. |
 
