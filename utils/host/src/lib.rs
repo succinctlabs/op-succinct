@@ -4,7 +4,7 @@ pub mod rollup_config;
 pub mod stats;
 
 use alloy_consensus::Header;
-use alloy_primitives::B256;
+use alloy_primitives::{Address, B256};
 use alloy_sol_types::sol;
 use anyhow::Result;
 use kona_host::single::SingleChainHost;
@@ -72,6 +72,7 @@ pub fn get_agg_proof_stdin(
     headers: Vec<Header>,
     multi_block_vkey: &sp1_sdk::SP1VerifyingKey,
     latest_checkpoint_head: B256,
+    prover: Address,
 ) -> Result<SP1Stdin> {
     let mut stdin = SP1Stdin::new();
     for proof in proofs {
@@ -86,6 +87,7 @@ pub fn get_agg_proof_stdin(
         boot_infos,
         latest_l1_checkpoint_head: latest_checkpoint_head,
         multi_block_vkey: multi_block_vkey.hash_u32(),
+        prover,
     });
     // The headers have issues serializing with bincode, so use serde_json instead.
     let headers_bytes = serde_cbor::to_vec(&headers).unwrap();

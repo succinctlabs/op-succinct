@@ -4216,6 +4216,7 @@ name = "op-succinct-proposer"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
+ "alloy-signer-local",
  "anyhow",
  "axum",
  "base64 0.22.1",
