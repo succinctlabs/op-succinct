@@ -1,5 +1,6 @@
 pub mod config;
 pub mod contract;
+pub mod prometheus;
 pub mod proposer;
 pub mod utils;
 
