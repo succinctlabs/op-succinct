@@ -31,6 +31,8 @@ async fn main() {
             .unwrap(),
     );
 
+    let l1_address = wallet.default_signer().address();
+
     let l1_provider_with_wallet = ProviderBuilder::new()
         .wallet(wallet.clone())
         .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
@@ -43,7 +45,7 @@ async fn main() {
         l1_provider_with_wallet.clone(),
     );
 
-    let proposer = OPSuccinctProposer::new(l1_provider_with_wallet, factory)
+    let proposer = OPSuccinctProposer::new(l1_address, l1_provider_with_wallet, factory)
         .await
         .unwrap();
     proposer.run().await.expect("Runs in an infinite loop");

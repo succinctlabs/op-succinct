@@ -30,6 +30,8 @@ async fn test_proposer_defends_successfully() -> Result<()> {
             .unwrap(),
     );
 
+    let l1_address = wallet.default_signer().address();
+
     let l1_provider_with_wallet = ProviderBuilder::new()
         .wallet(wallet.clone())
         .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
@@ -42,9 +44,10 @@ async fn test_proposer_defends_successfully() -> Result<()> {
         l1_provider_with_wallet.clone(),
     );
 
-    let proposer = OPSuccinctProposer::new(l1_provider_with_wallet.clone(), factory.clone())
-        .await
-        .unwrap();
+    let proposer =
+        OPSuccinctProposer::new(l1_address, l1_provider_with_wallet.clone(), factory.clone())
+            .await
+            .unwrap();
     let game_address = proposer.handle_game_creation().await?.unwrap();
 
     // Malicious challenger challenging a valid game
