@@ -43,7 +43,7 @@ pub async fn run_opsuccinct_client<O>(
     handle_register: Option<KonaHandleRegister<OracleL2ChainProvider<O>, OracleL2ChainProvider<O>>>,
 ) -> Result<BootInfo>
 where
-    O: CommsClient + FlushableCache + Send + Sync + Debug,
+    O: CommsClient + FlushableCache + Send + Sync + Debug + Clone,
 {
     ////////////////////////////////////////////////////////////////
     //                          PROLOGUE                          //
@@ -112,7 +112,8 @@ where
         beacon,
         l1_provider.clone(),
         l2_provider.clone(),
-    );
+    )
+    .await?;
     let executor = KonaExecutor::new(
         &rollup_config,
         l2_provider.clone(),
