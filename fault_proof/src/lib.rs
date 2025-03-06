@@ -675,7 +675,7 @@ where
         Ok(())
     }
 
-    /// Attempts to resolve all challenged games that the challenger won, up to `max_games_to_check_for_resolution`.
+    /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
     async fn resolve_games(
         &self,
         mode: Mode,

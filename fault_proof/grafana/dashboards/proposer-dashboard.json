@@ -336,18 +336,58 @@
             "pluginVersion": "11.5.2",
             "targets": [
                 {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "PBFA97CFB590B2093"
+                    },
                     "disableTextWrap": false,
                     "editorMode": "builder",
-                    "expr": "op_succinct_fp_latest_game_l2_block_number",
+                    "expr": "op_succinct_fp_finalized_l2_block_number",
                     "fullMetaSearch": false,
+                    "hide": false,
                     "includeNullMetadata": true,
+                    "instant": false,
                     "legendFormat": "__auto",
                     "range": true,
                     "refId": "A",
                     "useBackend": false
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "PBFA97CFB590B2093"
+                    },
+                    "disableTextWrap": false,
+                    "editorMode": "builder",
+                    "expr": "op_succinct_fp_latest_game_l2_block_number",
+                    "fullMetaSearch": false,
+                    "hide": false,
+                    "includeNullMetadata": true,
+                    "instant": false,
+                    "legendFormat": "__auto",
+                    "range": true,
+                    "refId": "B",
+                    "useBackend": false
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "PBFA97CFB590B2093"
+                    },
+                    "disableTextWrap": false,
+                    "editorMode": "builder",
+                    "expr": "op_succinct_fp_anchor_game_l2_block_number",
+                    "fullMetaSearch": false,
+                    "hide": false,
+                    "includeNullMetadata": true,
+                    "instant": false,
+                    "legendFormat": "__auto",
+                    "range": true,
+                    "refId": "C",
+                    "useBackend": false
                 }
             ],
-            "title": "Latest Game L2 Block Number",
+            "title": "Proposer Progress",
             "type": "timeseries"
         },
         {
@@ -416,7 +456,7 @@
                 "x": 12,
                 "y": 10
             },
-            "id": 3,
+            "id": 9,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -435,16 +475,16 @@
                 {
                     "disableTextWrap": false,
                     "editorMode": "builder",
-                    "expr": "op_succinct_fp_finalized_l2_block_number",
+                    "expr": "{__name__=\"op_succinct_fp_finalized_l2_block_number\"} - {__name__=\"op_succinct_fp_latest_game_l2_block_number\"}",
                     "fullMetaSearch": false,
                     "includeNullMetadata": true,
-                    "legendFormat": "__auto",
+                    "legendFormat": "op_succinct_fp_finalized_l2_block_number - op_succinct_fp_latest_game_l2_block_number ",
                     "range": true,
                     "refId": "A",
                     "useBackend": false
                 }
             ],
-            "title": "Finalized L2 Block Number",
+            "title": "L2 Finalized Delta",
             "type": "timeseries"
         },
         {
@@ -455,7 +495,40 @@
             "fieldConfig": {
                 "defaults": {
                     "color": {
-                        "mode": "thresholds"
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "barWidthFactor": 0.6,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
                     },
                     "mappings": [],
                     "thresholds": {
@@ -478,21 +551,17 @@
             },
             "id": 2,
             "options": {
-                "colorMode": "value",
-                "graphMode": "area",
-                "justifyMode": "auto",
-                "orientation": "auto",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                    "calcs": [
-                        "lastNotNull"
-                    ],
-                    "fields": "",
-                    "values": false
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
                 },
-                "showPercentChange": false,
-                "textMode": "auto",
-                "wideLayout": true
+                "tooltip": {
+                    "hideZeros": false,
+                    "mode": "single",
+                    "sort": "none"
+                }
             },
             "pluginVersion": "11.5.2",
             "targets": [
@@ -503,10 +572,44 @@
                     },
                     "expr": "op_succinct_fp_games_created",
                     "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "PBFA97CFB590B2093"
+                    },
+                    "disableTextWrap": false,
+                    "editorMode": "builder",
+                    "expr": "op_succinct_fp_games_resolved",
+                    "fullMetaSearch": false,
+                    "hide": false,
+                    "includeNullMetadata": true,
+                    "instant": false,
+                    "legendFormat": "__auto",
+                    "range": true,
+                    "refId": "B",
+                    "useBackend": false
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "PBFA97CFB590B2093"
+                    },
+                    "disableTextWrap": false,
+                    "editorMode": "builder",
+                    "expr": "op_succinct_fp_games_bonds_claimed",
+                    "fullMetaSearch": false,
+                    "hide": false,
+                    "includeNullMetadata": true,
+                    "instant": false,
+                    "legendFormat": "__auto",
+                    "range": true,
+                    "refId": "C",
+                    "useBackend": false
                 }
             ],
             "title": "Total Games Created",
-            "type": "stat"
+            "type": "timeseries"
         }
     ],
     "preload": false,
@@ -522,8 +625,8 @@
     },
     "timepicker": {},
     "timezone": "",
-    "title": "Proposer Dashboard",
-    "uid": "proposer-dashboard",
-    "version": 8,
+    "title": "OP Succinct Lite Dashboard",
+    "uid": "op-succinct-lite-dashboard",
+    "version": 26,
     "weekStart": ""
 }

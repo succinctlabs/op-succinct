@@ -7,7 +7,7 @@ use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{fillers::TxFiller, Provider, ProviderBuilder};
 use alloy_sol_types::SolValue;
 use anyhow::{Context, Result};
-use metrics::{counter, gauge};
+use metrics::gauge;
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProvingKey,
     SP1VerifyingKey,
@@ -384,12 +384,24 @@ where
                         game_address,
                         receipt.transaction_hash
                     );
+
+                    Ok(())
                 }
                 Err(e) => {
-                    tracing::error!("Failed to claim bond from game {:?}: {:?}", game_address, e);
+                    return Err(anyhow::anyhow!(
+                        "Failed to claim bond from game {:?}: {:?}",
+                        game_address,
+                        e
+                    ));
                 }
             }
+        } else {
+            tracing::info!("No new games to claim bonds from");
+
+            Ok(())
         }
+    }
+
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
         let finalized_l2_block_number = self
@@ -420,6 +432,14 @@ where
             }
         };
 
+        let anchor_game_l2_block_number = self
+            .factory
+            .get_anchor_l2_block_number(self.config.game_type)
+            .await?;
+
+        let anchor_game_l2_block_gauge = gauge!("op_succinct_fp_anchor_game_l2_block_number");
+        anchor_game_l2_block_gauge.set(anchor_game_l2_block_number.to::<u64>() as f64);
+
         Ok(())
     }
 
@@ -432,34 +452,55 @@ where
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                match self.handle_game_creation().await {
-                    Ok(Some(_)) => {
-                        let game_created_counter = counter!("op_succinct_fp_games_created");
-                            game_created_counter.increment(1);
+                    match self.handle_game_creation().await {
+                        Ok(Some(_)) => {
+                            let game_created_gauge = gauge!("op_succinct_fp_games_created");
+                                game_created_gauge.increment(1.0);
+                            }
+                            Ok(None) => {}
+                            Err(e) => {
+                                tracing::warn!("Failed to handle game creation: {:?}", e);
+                                let error_gauge = gauge!("op_succinct_fp_errors");
+                                error_gauge.increment(1.0);
+                            }
                         }
-                        Ok(None) => {}
-                        Err(e) => {
-                            tracing::warn!("Failed to handle game creation: {:?}", e);
-                            let error_counter = counter!("op_succinct_fp_errors");
-                            error_counter.increment(1);
-                        }
-                    }
 
                     if let Err(e) = self.handle_game_defense().await {
                         tracing::warn!("Failed to handle game defense: {:?}", e);
+                        let error_gauge = gauge!("op_succinct_fp_errors");
+                        error_gauge.increment(1.0);
                     }
 
-                    if let Err(e) = self.handle_game_resolution().await {
-                        tracing::warn!("Failed to handle game resolution: {:?}", e);
+                    match self.handle_game_resolution().await {
+                        Ok(_) => {
+                            let game_resolved_gauge = gauge!("op_succinct_fp_games_resolved");
+                            game_resolved_gauge.increment(1.0);
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to handle game resolution: {:?}", e);
+                            let error_gauge = gauge!("op_succinct_fp_errors");
+                            error_gauge.increment(1.0);
+                        }
                     }
 
-                    if let Err(e) = self.handle_bond_claiming().await {
-                        tracing::warn!("Failed to handle bond claiming: {:?}", e);
+                    match self.handle_bond_claiming().await {
+                        Ok(_) => {
+                            let game_bonds_claimed_gauge =
+                                gauge!("op_succinct_fp_games_bonds_claimed");
+                            game_bonds_claimed_gauge.increment(1.0);
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to handle bond claiming: {:?}", e);
+                            let error_gauge = gauge!("op_succinct_fp_errors");
+                            error_gauge.increment(1.0);
+                        }
                     }
                 }
                 _ = metrics_interval.tick() => {
                     if let Err(e) = self.fetch_proposer_metrics().await {
                         tracing::warn!("Failed to fetch metrics: {:?}", e);
+                        let error_gauge = gauge!("op_succinct_fp_errors");
+                        error_gauge.increment(1.0);
                     }
                 }
             }
