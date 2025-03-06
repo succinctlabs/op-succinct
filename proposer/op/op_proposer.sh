@@ -22,4 +22,5 @@
     --use-cached-db=${USE_CACHED_DB:-false} \
     --metrics.enabled=${METRICS_ENABLED:-true} \
     --metrics.port=${METRICS_PORT:-7300} \
-    --mock=${OP_SUCCINCT_MOCK:-false}
+    --mock=${OP_SUCCINCT_MOCK:-false} \
+    --agglayer=${OP_SUCCINCT_AGGLAYER:-false}
