@@ -830,31 +830,24 @@ impl OPSuccinctDataFetcher {
     /// relevant L2 block data can be derived.
     /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
     async fn get_l1_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
-        // If the rollup config is not already loaded, fetch and save it.
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
 
-        // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
-        let result = self.get_l1_head_with_safe_head(l2_end_block).await;
-
-        if let Ok(safe_head_at_l1_block) = result {
-            Ok(safe_head_at_l1_block)
-        } else {
-            // Estimate the L1 block necessary based on the chain config. This is based on the maximum
-            // delay between batches being posted on the L2 chain.
-            let max_batch_post_delay_minutes = 30; // 30 minutes.
-
-            // Get L1 head.
-            let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
-            let finalized_l1_timestamp = self.get_l1_header(BlockId::finalized()).await?.timestamp;
-
-            // Ensure that the target timestamp is not greater than the finalized L1 timestamp.
-            let target_timestamp = min(
-                l2_block_timestamp + (max_batch_post_delay_minutes * 60),
-                finalized_l1_timestamp,
-            );
-            Ok(self.find_l1_block_by_timestamp(target_timestamp).await?)
+        match self.get_l1_head_with_safe_head(l2_end_block).await {
+            Ok(safe_head) => Ok(safe_head),
+            Err(_) => {
+                // Fallback: estimate L1 block based on timestamp
+                let max_batch_post_delay_minutes = 30;
+                let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
+                let finalized_l1_timestamp = self.get_l1_header(BlockId::finalized()).await?.timestamp;
+                
+                let target_timestamp = min(
+                    l2_block_timestamp + (max_batch_post_delay_minutes * 60),
+                    finalized_l1_timestamp,
+                );
+                self.find_l1_block_by_timestamp(target_timestamp).await
+            }
         }
     }
 
