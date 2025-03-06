@@ -43,3 +43,4 @@ futures.workspace = true
 num-format.workspace = true
 serde.workspace = true
 reqwest.workspace = true
+tracing.workspace = true

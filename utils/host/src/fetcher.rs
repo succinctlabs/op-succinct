@@ -29,7 +29,6 @@ use std::{
     str::FromStr,
     sync::Arc,
 };
-
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
 use crate::{L2Output, OPSuccinctHost};
@@ -835,7 +834,6 @@ impl OPSuccinctDataFetcher {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
-        let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
 
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
@@ -845,12 +843,7 @@ impl OPSuccinctDataFetcher {
         } else {
             // Estimate the L1 block necessary based on the chain config. This is based on the maximum
             // delay between batches being posted on the L2 chain.
-            let max_batch_post_delay_minutes = match l2_chain_id {
-                11155420 => 10,
-                10 => 10,
-                8453 => 10,
-                _ => 60,
-            };
+            let max_batch_post_delay_minutes = 30; // 30 minutes.
 
             // Get L1 head.
             let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
