@@ -92,12 +92,16 @@ impl OPSuccinctProofRequester {
         let l1_head = request
             .checkpointed_l1_block_hash
             .as_ref()
-            .expect("Aggregation proof has no checkpointed block.");
+            .ok_or_else(|| anyhow::anyhow!("Aggregation proof has no checkpointed block."))?;
 
+        // This can fail for a few reasons:
+        // 1. The L1 RPC is down (e.g. error code 32001). Double-check the L1 RPC is running correctly.
+        // 2. The L1 head was re-orged and the block is no longer available. This is unlikely given we wait for 3 confirmations on a transaction.
         let headers = self
             .fetcher
             .get_header_preimages(&boot_infos, B256::from_slice(l1_head))
-            .await?;
+            .await
+            .context("Failed to get header preimages")?;
 
         let stdin = get_agg_proof_stdin(
             proofs,
@@ -105,7 +109,8 @@ impl OPSuccinctProofRequester {
             headers,
             &self.program_config.range_vk,
             B256::from_slice(l1_head),
-        )?;
+        )
+        .context("Failed to get agg proof stdin")?;
 
         Ok(stdin)
     }
