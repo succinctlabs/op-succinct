@@ -45,9 +45,8 @@ cd ../aggregation
 cargo prove build --elf-name aggregation-elf --docker --tag v4.1.2
 ```
 
-Now, verify the binaries by confirming the output of `vkey` matches the vkeys on the contract. The `vkey` program outputs the verification keys
-based on the ELFs in `/elf`.
+Now, you can verify the binaries. The `config` script outputs the rollup config hash, aggregation verification key, and range verification key commitment based on the ELFs in `/elf`.
 
 ```bash
-cargo run --bin vkey --release
+cargo run --bin config --release
 ```

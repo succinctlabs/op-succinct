@@ -81,6 +81,9 @@ pub struct DriverConfig {
     pub max_concurrent_witness_gen: u64,
     pub loop_interval_seconds: u64,
 }
+/// Type alias for a map of task IDs to their join handles and associated requests
+pub type TaskMap =
+    HashMap<tokio::task::Id, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
 
 pub struct Proposer<P, N>
 where
@@ -92,9 +95,7 @@ where
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
     proof_requester: Arc<OPSuccinctProofRequester>,
-    tasks: Arc<
-        Mutex<HashMap<tokio::task::Id, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>>,
-    >,
+    tasks: Arc<Mutex<TaskMap>>,
 }
 
 // 5 confirmations (1 minute)
@@ -736,7 +737,32 @@ where
                 range_vkey_commitment_match = range_vkey_commitment_match,
                 "Config mismatches detected."
             );
-            return Err(anyhow::anyhow!("Config mismatches detected."));
+
+            if !rollup_config_hash_match {
+                tracing::error!(
+                    received = ?contract_rollup_config_hash,
+                    expected = ?self.program_config.commitments.rollup_config_hash,
+                    "Rollup config hash mismatch"
+                );
+            }
+
+            if !agg_vkey_hash_match {
+                tracing::error!(
+                    received = ?contract_agg_vkey_hash,
+                    expected = ?self.program_config.commitments.agg_vkey_hash,
+                    "Aggregation vkey hash mismatch"
+                );
+            }
+
+            if !range_vkey_commitment_match {
+                tracing::error!(
+                    received = ?contract_range_vkey_commitment,
+                    expected = ?self.program_config.commitments.range_vkey_commitment,
+                    "Range vkey commitment mismatch"
+                );
+            }
+
+            return Err(anyhow::anyhow!("Config mismatches detected. Please run {{cargo run --bin config --release -- --env-file ENV_FILE}} to get the expected config for your contract."));
         }
 
         Ok(())

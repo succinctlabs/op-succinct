@@ -12,8 +12,8 @@ name = "fetch-and-save-proof"
 path = "bin/fetch_and_save_proof.rs"
 
 [[bin]]
-name = "vkey"
-path = "bin/vkey.rs"
+name = "config"
+path = "bin/config.rs"
 
 [[bin]]
 name = "cost-estimator"
@@ -30,10 +30,6 @@ path = "bin/fetch_rollup_config.rs"
 [[bin]]
 name = "gen-sp1-test-artifacts"
 path = "bin/gen_sp1_test_artifacts.rs"
-
-[[bin]]
-name = "fetch-rollup-config-hash"
-path = "bin/fetch_rollup_config_hash.rs"
 
 [dependencies]
 
