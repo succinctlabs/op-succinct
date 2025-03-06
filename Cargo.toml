@@ -47,25 +47,25 @@ tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
 # TODO: Switch back to kona tag once the chain-op-config branch is merged into main
-kona-mpt = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
-kona-derive = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", default-features = false }
-kona-driver = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
-kona-preimage = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "4800d79", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "4800d79", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
-kona-proof = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
 
-kona-client = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
-kona-host = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
-kona-providers-alloy = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config" }
-kona-rpc = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", default-features = false, features = [
+kona-client = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
+kona-rpc = { git = "https://github.com/op-rs/kona", rev = "4800d79", default-features = false, features = [
     "serde",
 ] }
-kona-protocol = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", default-features = false }
-kona-registry = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", default-features = false }
-kona-genesis = { git = "https://github.com/succinctlabs/kona", branch = "ratan/chain-op-config", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", rev = "4800d79", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", rev = "4800d79", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", rev = "4800d79", default-features = false }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -103,10 +103,10 @@ alloy-sol-types = { version = "0.8.21", default-features = false }
 alloy-sol-macro = { version = "0.8.21", default-features = false }
 
 # OP Alloy
-op-alloy-consensus = { version = "0.10.5", default-features = false }
-op-alloy-rpc-types = { version = "0.10.5", default-features = false }
-op-alloy-rpc-types-engine = { version = "0.10.5", default-features = false }
-op-alloy-network = { version = "0.10.5", default-features = false }
+op-alloy-consensus = { version = "0.10.7", default-features = false }
+op-alloy-rpc-types = { version = "0.10.7", default-features = false }
+op-alloy-rpc-types-engine = { version = "0.10.7", default-features = false }
+op-alloy-network = { version = "0.10.7", default-features = false }
 
 # Revm
 revm = { version = "19.5.0", default-features = false, features = ["kzg-rs"] }
