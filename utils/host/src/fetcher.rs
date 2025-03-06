@@ -161,18 +161,6 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    pub async fn get_l2_header_by_number(&self, block_number: u64) -> Result<Header> {
-        let block = self
-            .l2_provider
-            .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
-            .await?;
-        if let Some(block) = block {
-            Ok(block.header.inner)
-        } else {
-            bail!("Failed to get L2 header for block {block_number}");
-        }
-    }
-
     /// Manually calculate the L1 fee data for a range of blocks. Allows for modifying the L1 fee scalar.
     pub async fn get_l2_fee_data_with_modified_l1_fee_scalar(
         &self,
@@ -782,29 +770,6 @@ impl OPSuccinctDataFetcher {
         })
     }
 
-    /// Get the L1 block time in seconds.
-    #[allow(dead_code)]
-    async fn get_l1_block_time(&self) -> Result<u64> {
-        let finalized_l1_header = self.get_l1_header(BlockId::finalized()).await?;
-
-        let finalized_l1_header_minus_1 = finalized_l1_header.number - 1;
-        let l1_block_minus_1 = self
-            .get_l1_header(finalized_l1_header_minus_1.into())
-            .await?;
-        Ok(finalized_l1_header.timestamp - l1_block_minus_1.timestamp)
-    }
-
-    /// Get the L2 block time in seconds.
-    pub async fn get_l2_block_time(&self) -> Result<u64> {
-        let finalized_l2_header = self.get_l2_header(BlockId::finalized()).await?;
-
-        let finalized_l2_header_minus_1 = finalized_l2_header.number - 1;
-        let l2_block_minus_1 = self
-            .get_l2_header(finalized_l2_header_minus_1.into())
-            .await?;
-        Ok(finalized_l2_header.timestamp - l2_block_minus_1.timestamp)
-    }
-
     pub async fn get_l2_output_at_block(&self, block_number: u64) -> Result<OutputResponse> {
         let block_number_hex = format!("0x{:x}", block_number);
         let l2_output_data: OutputResponse = self
@@ -945,28 +910,5 @@ impl OPSuccinctDataFetcher {
             )
             .await;
         Ok(result.is_ok())
-    }
-
-    /// Get the l2_end_block number given the l2_start_block number and the ideal block interval.
-    /// Picks the l2 end block that minimizes the derivation cost by picking the l2 block that can be derived from the same batch as the l2_start_block.
-    pub async fn get_l2_end_block(
-        &self,
-        l2_start_block: u64,
-        ideal_block_interval: u64,
-    ) -> Result<u64> {
-        let ideal_l2_block_end = l2_start_block + ideal_block_interval;
-        let l2_end_block_info = self.l2_block_info_by_number(ideal_l2_block_end).await?;
-
-        let l2_derivable_block_end = self
-            .get_l2_safe_head_from_l1_block_number(l2_end_block_info.l1_origin.number)
-            .await?;
-
-        // If blocks are in same batch or if derivable end is past ideal end, use ideal end block, as it will just pull in one batch.
-        if l2_derivable_block_end < l2_start_block || l2_derivable_block_end > ideal_l2_block_end {
-            Ok(ideal_l2_block_end)
-        } else {
-            // Otherwise use derivable end to avoid pulling in multiple batches.
-            Ok(l2_derivable_block_end)
-        }
     }
 }

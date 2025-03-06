@@ -4479,7 +4479,6 @@ dependencies = [
  "chrono",
  "clap",
  "dotenv",
- "futures",
  "futures-util",
  "metrics",
  "metrics-exporter-prometheus",
