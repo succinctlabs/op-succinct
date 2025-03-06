@@ -24,9 +24,9 @@ func (*noopMetrics) RecordProposerStatus(metrics ProposerMetrics) {}
 func (*noopMetrics) RecordError(label string, num uint64)         {}
 func (*noopMetrics) RecordProveFailure(reason string)             {}
 func (*noopMetrics) RecordWitnessGenFailure(reason string)        {}
-
-func (*noopMetrics) RecordInfo(version string) {}
-func (*noopMetrics) RecordUp()                 {}
+func (*noopMetrics) RecordL2Proposal(seqNum uint64)               {}
+func (*noopMetrics) RecordInfo(version string)                    {}
+func (*noopMetrics) RecordUp()                                    {}
 
 func (*noopMetrics) RecordL2BlocksProposed(l2ref eth.L2BlockRef) {}
 

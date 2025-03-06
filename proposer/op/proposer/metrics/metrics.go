@@ -37,6 +37,8 @@ type OPSuccinctMetrics struct {
 	txmetrics.TxMetrics
 	opmetrics.RPCMetrics
 
+	proposalSequenceNum prometheus.Gauge
+
 	info prometheus.GaugeVec
 	up   prometheus.Gauge
 
@@ -166,6 +168,10 @@ const (
 // RecordL2BlocksProposed should be called when new L2 block is proposed
 func (m *OPSuccinctMetrics) RecordL2BlocksProposed(l2ref eth.L2BlockRef) {
 	m.RecordL2Ref(BlockProposed, l2ref)
+}
+
+func (m *OPSuccinctMetrics) RecordL2Proposal(seqNum uint64) {
+	m.proposalSequenceNum.Set(float64(seqNum))
 }
 
 func (m *OPSuccinctMetrics) Document() []opmetrics.DocumentedMetric {
