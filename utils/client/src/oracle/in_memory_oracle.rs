@@ -1,5 +1,5 @@
 use crate::BytesHasherBuilder;
-use alloy_primitives::{hex, keccak256, FixedBytes};
+use alloy_primitives::{keccak256, FixedBytes};
 use anyhow::Result;
 use anyhow::{anyhow, Result as AnyhowResult};
 use async_trait::async_trait;
@@ -13,7 +13,7 @@ use kzg_rs::{get_kzg_settings, Blob as KzgRsBlob, Bytes48};
 use rkyv::{from_bytes, Archive};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use tracing::{error, info};
+use tracing::info;
 
 use super::StoreOracle;
 

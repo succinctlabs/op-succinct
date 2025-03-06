@@ -1513,8 +1513,7 @@ dependencies = [
 [[package]]
 name = "celestia-proto"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4429b21a37997c08390d6f8fc325d29b8e72f3dca39f7acfe48d639e2f82a553"
+source = "git+https://github.com/Ferret-san/lumina?rev=25ae7d6#25ae7d66028193e7fb267d971d0bea7b51d33244"
 dependencies = [
  "bytes",
  "prost",
@@ -1529,8 +1528,7 @@ dependencies = [
 [[package]]
 name = "celestia-rpc"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc214d362b640e22d255b1c8684c0a364dd71b52c78d3203b40e19d4083df75a"
+source = "git+https://github.com/Ferret-san/lumina?rev=25ae7d6#25ae7d66028193e7fb267d971d0bea7b51d33244"
 dependencies = [
  "async-trait",
  "celestia-types",
@@ -1545,8 +1543,7 @@ dependencies = [
 [[package]]
 name = "celestia-types"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f374b7b5c9545815ff4aeaa66007abe0ed121626677880a001938a36c3a66a8"
+source = "git+https://github.com/Ferret-san/lumina?rev=25ae7d6#25ae7d66028193e7fb267d971d0bea7b51d33244"
 dependencies = [
  "base64 0.22.1",
  "bech32",
@@ -2803,7 +2800,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#0926f6fe9ac392c3698619df00f48f922ae12737"
+source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -2818,7 +2815,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#0926f6fe9ac392c3698619df00f48f922ae12737"
+source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -2838,13 +2835,18 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#0926f6fe9ac392c3698619df00f48f922ae12737"
+source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
 dependencies = [
+ "alloy-contract",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
  "alloy-rpc-client",
+ "alloy-rpc-types",
+ "alloy-sol-types",
+ "alloy-transport",
  "alloy-transport-http",
+ "alloy-trie",
  "anyhow",
  "async-trait",
  "celestia-rpc",
@@ -2873,11 +2875,13 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#0926f6fe9ac392c3698619df00f48f922ae12737"
+source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
+ "alloy-trie",
  "async-trait",
+ "bincode",
  "celestia-types",
  "hana-celestia",
  "kona-derive",
@@ -2887,6 +2891,7 @@ dependencies = [
  "maili-genesis",
  "maili-protocol",
  "maili-rpc",
+ "serde",
  "spin",
  "tracing",
 ]

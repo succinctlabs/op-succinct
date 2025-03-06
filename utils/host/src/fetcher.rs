@@ -112,17 +112,20 @@ fn get_celestia_cfg() -> CelestiaCfg {
                 env::var("CELESTIA_NODE_RPC").expect("CELESTIA_NODE_RPC must be set");
             let namespace = env::var("NAMESPACE").expect("NAMESPACE must be set");
             let auth_token = env::var("AUTH_TOKEN").expect("AUTH_TOKEN must be set");
+            let blobstream_address = env::var("BLOBSTREAM").expect("BLOBSTREAM must be set");
 
             return CelestiaCfg {
                 celestia_connection: Some(celestia_rpc),
                 auth_token: Some(auth_token),
                 namespace: Some(namespace),
+                blobstream_address: Some(blobstream_address),
             };
         }
         false => CelestiaCfg {
             celestia_connection: None,
             auth_token: None,
             namespace: None,
+            blobstream_address: None,
         },
     }
 }

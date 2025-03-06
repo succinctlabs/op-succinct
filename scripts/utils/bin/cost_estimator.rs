@@ -1,8 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
-use hana_host::celestia::CelestiaCfg;
-use kona_host::single::SingleChainHost;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{
