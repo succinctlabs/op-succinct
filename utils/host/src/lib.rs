@@ -1,10 +1,11 @@
 pub mod block_range;
+mod contract;
 pub mod fetcher;
 pub mod stats;
+pub use contract::*;
 
 use alloy_consensus::Header;
 use alloy_primitives::B256;
-use alloy_sol_types::sol;
 use anyhow::Result;
 use kona_host::single::SingleChainHost;
 use kona_preimage::{BidirectionalChannel, HintWriter, NativeChannel, OracleReader};
@@ -19,40 +20,6 @@ use std::sync::Arc;
 pub const RANGE_ELF_BUMP: &[u8] = include_bytes!("../../../elf/range-elf-bump");
 pub const RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
-
-sol! {
-    #[sol(rpc)]
-    contract OPSuccinctL2OutputOracle {
-        bytes32 public aggregationVkey;
-        bytes32 public rangeVkeyCommitment;
-        bytes32 public rollupConfigHash;
-        uint256 public submissionInterval;
-
-        function latestBlockNumber() public view returns (uint256);
-
-        function updateAggregationVKey(bytes32 _aggregationVKey) external onlyOwner;
-
-        function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner;
-
-        // Checkpointing L1 block hashes.
-        function checkpointBlockHash(uint256 _blockNumber) external;
-
-        // Proposing outputs when the output oracle is set to ZK mode.
-        function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
-        external
-        payable
-        whenNotOptimistic;
-    }
-}
-
-sol! {
-    struct L2Output {
-        uint64 zero;
-        bytes32 l2_state_root;
-        bytes32 l2_storage_hash;
-        bytes32 l2_claim_hash;
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct OPSuccinctHost {

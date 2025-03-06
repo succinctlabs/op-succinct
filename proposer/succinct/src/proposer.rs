@@ -5,6 +5,7 @@ use crate::{
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
+use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
@@ -12,8 +13,9 @@ use metrics::gauge;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
+    DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
-    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+    ValidityDisputeGameExtraData, AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
 };
 use sp1_sdk::{
     network::{
@@ -36,6 +38,7 @@ where
     pub l2oo_address: Address,
     pub dgf_address: Address,
     pub l2oo_contract: OPSuccinctL2OOContract<(), P, N>,
+    pub dgf_contract: DisputeGameFactoryContract<(), P, N>,
 }
 
 #[derive(Debug, Clone)]
@@ -107,7 +110,7 @@ const TIMEOUT: u64 = 120;
 // TODO: Add support for DGF.
 impl<P, N> Proposer<P, N>
 where
-    P: Provider<N> + 'static,
+    P: Provider<N> + 'static + Clone,
     N: Network,
 {
     pub async fn new(
@@ -152,7 +155,10 @@ where
             requester_config.agg_proof_mode,
         ));
 
-        let l2oo_contract = OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider);
+        let l2oo_contract =
+            OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider.clone());
+
+        let dgf_contract = DisputeGameFactoryContract::new(requester_config.dgf_address, provider);
 
         // 1 minute default loop interval.
         const DEFAULT_LOOP_INTERVAL: u64 = 60;
@@ -173,6 +179,7 @@ where
                 l2oo_address: requester_config.l2oo_address,
                 dgf_address: requester_config.dgf_address,
                 l2oo_contract,
+                dgf_contract,
             },
             program_config,
             requester_config,
@@ -652,38 +659,12 @@ where
             None => return Ok(()),
         };
 
-        // Get the output at the end block of the last completed aggregation proof.
-        let output = self
-            .driver_config
-            .fetcher
-            .get_l2_output_at_block(completed_agg_proof.end_block as u64)
-            .await?;
-
-        // Propose the L2 output.
-        let receipt = self
-            .contract_config
-            .l2oo_contract
-            .proposeL2Output(
-                output.output_root,
-                U256::from(completed_agg_proof.end_block),
-                U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
-                completed_agg_proof.proof.unwrap().into(),
-            )
-            .send()
-            .await?
-            .with_required_confirmations(NUM_CONFIRMATIONS)
-            .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-            .get_receipt()
-            .await?;
-
-        // If the transaction reverted, log the error.
-        if !receipt.status() {
-            tracing::error!("Transaction reverted: {:?}", receipt);
-        }
+        // Relay the aggregation proof.
+        let transaction_hash = self.relay_aggregation_proof(&completed_agg_proof).await?;
 
         info!(
             "Relayed aggregation proof. Transaction hash: {:?}",
-            receipt.transaction_hash()
+            transaction_hash
         );
 
         // Update the request to status RELAYED.
@@ -691,12 +672,89 @@ where
             .driver_db_client
             .update_request_to_relayed(
                 completed_agg_proof.id,
-                receipt.transaction_hash(),
+                transaction_hash,
                 self.contract_config.l2oo_address,
             )
             .await?;
 
         Ok(())
+    }
+
+    /// Submit the transaction to create a validity dispute game.
+    ///
+    /// If the DGF address is set, use it to create a new validity dispute game that will resolve with the proof. Otherwise, propose the L2 output.
+    async fn relay_aggregation_proof(
+        &self,
+        completed_agg_proof: &OPSuccinctRequest,
+    ) -> Result<B256> {
+        // Get the output at the end block of the last completed aggregation proof.
+        let output = self
+            .driver_config
+            .fetcher
+            .get_l2_output_at_block(completed_agg_proof.end_block as u64)
+            .await?;
+
+        // If the DisputeGameFactory address is set, use it to create a new validity dispute game that will resolve with the proof.
+        // Note: In the DGF setting, the proof immediately resolves the game.
+        // Otherwise, propose the L2 output.
+        let receipt = if self.contract_config.dgf_address != Address::ZERO {
+            // Validity game type: https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/src/dispute/lib/Types.sol#L64.
+            const OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE: u32 = 6;
+
+            // Get the initialization bond for the validity dispute game.
+            let init_bond = self
+                .contract_config
+                .dgf_contract
+                .initBonds(OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE)
+                .call()
+                .await?
+                ._0;
+
+            let extra_data = ValidityDisputeGameExtraData {
+                l2_block_number: completed_agg_proof.end_block as u64,
+                l1_block_number: completed_agg_proof.checkpointed_l1_block_number.unwrap() as u64,
+                proof: completed_agg_proof.proof.as_ref().unwrap().clone().into(),
+            }
+            .abi_encode();
+
+            self.contract_config
+                .dgf_contract
+                .create(
+                    OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE,
+                    output.output_root,
+                    extra_data.into(),
+                )
+                .value(init_bond)
+                .send()
+                .await?
+                .with_required_confirmations(NUM_CONFIRMATIONS)
+                .with_timeout(Some(Duration::from_secs(TIMEOUT)))
+                .get_receipt()
+                .await?
+        } else {
+            // Propose the L2 output.
+            self.contract_config
+                .l2oo_contract
+                .proposeL2Output(
+                    output.output_root,
+                    U256::from(completed_agg_proof.end_block),
+                    U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
+                    completed_agg_proof.proof.clone().unwrap().into(),
+                )
+                .send()
+                .await?
+                .with_required_confirmations(NUM_CONFIRMATIONS)
+                .with_timeout(Some(Duration::from_secs(TIMEOUT)))
+                .get_receipt()
+                .await?
+        };
+
+        // If the transaction reverted, log the error.
+        if !receipt.status() {
+            tracing::error!("Transaction reverted: {:?}", receipt);
+        }
+
+        Ok(receipt.transaction_hash())
     }
 
     /// Validate the requester config matches the contract.

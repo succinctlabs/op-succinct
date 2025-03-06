@@ -4473,6 +4473,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-signer-local",
+ "alloy-sol-types",
  "anyhow",
  "base64 0.22.1",
  "bincode",
