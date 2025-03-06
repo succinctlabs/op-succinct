@@ -46,7 +46,7 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
-# TODO: Switch back to kona tag once the chain-op-config branch is merged into main
+# TODO: Use tag once new kona release is made
 kona-mpt = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
 kona-derive = { git = "https://github.com/op-rs/kona", rev = "4800d79", default-features = false }
 kona-driver = { git = "https://github.com/op-rs/kona", rev = "4800d79" }
