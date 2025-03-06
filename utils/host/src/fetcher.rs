@@ -825,10 +825,7 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// For OP Sepolia, OP Mainnet and Base, the batcher posts at least every 10 minutes. Otherwise,
-    /// the batcher may post as infrequently as every couple hours. The l1Head is set as the l1 block from which all of the
-    /// relevant L2 block data can be derived.
-    /// E.g. Origin Advance Error: BlockInfoFetch(Block number past L1 head.).
+    /// If the safeDB is not activated, then  estimate the L1 head based on the timestamp of the L2 block and the finalized L1 block.
     async fn get_l1_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
@@ -840,8 +837,9 @@ impl OPSuccinctDataFetcher {
                 // Fallback: estimate L1 block based on timestamp
                 let max_batch_post_delay_minutes = 30;
                 let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
-                let finalized_l1_timestamp = self.get_l1_header(BlockId::finalized()).await?.timestamp;
-                
+                let finalized_l1_timestamp =
+                    self.get_l1_header(BlockId::finalized()).await?.timestamp;
+
                 let target_timestamp = min(
                     l2_block_timestamp + (max_batch_post_delay_minutes * 60),
                     finalized_l1_timestamp,
