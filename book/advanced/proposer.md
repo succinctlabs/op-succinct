@@ -1,7 +1,7 @@
 # Proposer
 
 The `op-succinct` service consists of two containers:
-- [`op-succinct/succinct-proposer`](https://ghcr.io/succinctlabs/op-succinct/succinct-proposer): Receives proof requests from the `op-succinct/op-proposer`, generates the witness for the proof, and submits the proof to the Succinct Prover Network. Handles the communication with the [Succinct's Prover Network](https://docs.succinct.xyz/docs/generating-proofs/prover-network) to fetch the proof status and completed proof data.
+- [`op-succinct/succinct-proposer`](https://ghcr.io/succinctlabs/op-succinct/succinct-proposer): Receives proof requests from the `op-succinct/op-proposer`, generates the witness for the proof, and submits the proof to the Succinct Prover Network. Handles the communication with the [Succinct's Prover Network](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network) to fetch the proof status and completed proof data.
 - [`op-succinct/op-proposer`](https://ghcr.io/succinctlabs/op-succinct/op-proposer): Monitors L1 state to determine when to request a proof. Sends proof requests to the `op-succinct/succinct-proposer`. Once proofs have been generated for a sufficiently large range, aggregates range proofs into an aggregation proof. Submits the aggregation proof to the `OPSuccinctL2OutputOracle` contract which includes the L2 state outputs.
 
 We've packaged the `op-succinct` service in a docker compose file to make it easier to run.
@@ -46,7 +46,7 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
-| `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/docs/generating-proofs/prover-network). |
+| `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network). |
 
 ### `op-succinct/op-proposer`
 
