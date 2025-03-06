@@ -82,6 +82,7 @@ pub struct DriverConfig {
     pub loop_interval_seconds: u64,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
+// TODO: Investigate whether we can use DashMap for this.
 pub type TaskMap =
     HashMap<tokio::task::Id, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
 
