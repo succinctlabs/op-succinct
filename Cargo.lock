@@ -2798,14 +2798,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hana-blobstream"
+version = "0.1.0"
+source = "git+https://github.com/celestiaorg/hana?rev=d9797f2#d9797f2d8a9f8fef4f2f6053dd3fbcaf5fcf35ab"
+dependencies = [
+ "alloy-contract",
+ "alloy-primitives",
+ "alloy-sol-types",
+ "alloy-trie",
+ "bincode",
+ "celestia-types",
+ "serde",
+]
+
+[[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
+source = "git+https://github.com/celestiaorg/hana?rev=d9797f2#d9797f2d8a9f8fef4f2f6053dd3fbcaf5fcf35ab"
 dependencies = [
  "alloy-primitives",
- "alloy-rlp",
  "async-trait",
- "bytes",
  "celestia-types",
  "kona-derive",
  "maili-protocol",
@@ -2815,7 +2827,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
+source = "git+https://github.com/celestiaorg/hana?rev=d9797f2#d9797f2d8a9f8fef4f2f6053dd3fbcaf5fcf35ab"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -2835,27 +2847,18 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
+source = "git+https://github.com/celestiaorg/hana?rev=d9797f2#d9797f2d8a9f8fef4f2f6053dd3fbcaf5fcf35ab"
 dependencies = [
- "alloy-contract",
  "alloy-primitives",
  "alloy-provider",
- "alloy-rlp",
- "alloy-rpc-client",
- "alloy-rpc-types",
- "alloy-sol-types",
- "alloy-transport",
- "alloy-transport-http",
- "alloy-trie",
  "anyhow",
  "async-trait",
  "celestia-rpc",
  "celestia-types",
  "clap",
- "hana-celestia",
  "hana-client",
  "hana-oracle",
- "kona-derive",
+ "hana-proofs",
  "kona-host",
  "kona-preimage",
  "kona-proof",
@@ -2863,8 +2866,6 @@ dependencies = [
  "kona-std-fpvm",
  "maili-genesis",
  "op-alloy-network",
- "op-alloy-rpc-types-engine",
- "reqwest",
  "serde",
  "serde_json",
  "tokio",
@@ -2875,14 +2876,13 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana#8f2ff0cfaf07bb6d50559952425a5b51c46a885e"
+source = "git+https://github.com/celestiaorg/hana?rev=d9797f2#d9797f2d8a9f8fef4f2f6053dd3fbcaf5fcf35ab"
 dependencies = [
  "alloy-primitives",
- "alloy-rlp",
- "alloy-trie",
  "async-trait",
  "bincode",
  "celestia-types",
+ "hana-blobstream",
  "hana-celestia",
  "kona-derive",
  "kona-driver",
@@ -2893,6 +2893,22 @@ dependencies = [
  "maili-rpc",
  "serde",
  "spin",
+ "tracing",
+]
+
+[[package]]
+name = "hana-proofs"
+version = "0.1.0"
+source = "git+https://github.com/celestiaorg/hana?rev=d9797f2#d9797f2d8a9f8fef4f2f6053dd3fbcaf5fcf35ab"
+dependencies = [
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-sol-types",
+ "anyhow",
+ "celestia-rpc",
+ "celestia-types",
+ "hana-blobstream",
  "tracing",
 ]
 
