@@ -14,8 +14,8 @@ We recommend the following hardware configuration for the `op-succinct` validity
 
 Using the docker compose file:
 
-- Full `op-succinct` service: 16 vCPUs, 4GB RAM.
-- Mock `op-succinct` service: 32 vCPUs, 16GB RAM. Increased memory because the machine is executing the proofs locally.
+- Full `op-succinct` service: 2 vCPUs, 8GB RAM.
+- Mock `op-succinct` service: 2 vCPUs, 16GB RAM. Increased memory because the machine is executing the proofs locally.
 
 For advanced configurations, depending on the number of concurrent requests you expect, you may need to increase the number of vCPUs and memory allocated to the `op-succinct` container.
 
