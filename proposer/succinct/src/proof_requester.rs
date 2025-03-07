@@ -320,7 +320,6 @@ impl OPSuccinctProofRequester {
             RequestType::Range => self.range_proof_witnessgen(request).await?,
             RequestType::Aggregation => {
                 // Fetch consecutive range proofs from the database.
-                // TODO: This is a pontential culprit for the memory usage.
                 let range_proofs_raw = self
                     .db_client
                     .get_consecutive_complete_range_proofs(

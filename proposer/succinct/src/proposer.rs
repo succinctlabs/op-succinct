@@ -102,12 +102,13 @@ where
     tasks: Arc<Mutex<TaskMap>>,
 }
 
-// 5 confirmations (1 minute)
+/// 5 L1 confirmations (1 minute)
 const NUM_CONFIRMATIONS: u64 = 5;
-// 2 minute timeout.
+/// 2 minute timeout.
 const TIMEOUT: u64 = 120;
+/// Task completion handler interval.
+const TASK_COMPLETION_HANDLER_INTERVAL: u64 = 1;
 
-// TODO: Add support for DGF.
 impl<P, N> Proposer<P, N>
 where
     P: Provider<N> + 'static + Clone,
@@ -391,9 +392,6 @@ where
         }
 
         // Get the completed range proofs with a start block greater than the latest proposed block number.
-        // TODO: Materializing this may be the source of the issue. Each block this gets larger.
-        // TODO: Confirm whether the issue is resolved after not materializing the entire range.
-        // TODO: Print the size of this.
         let completed_range_proofs = self
             .driver_config
             .driver_db_client
@@ -516,7 +514,7 @@ where
     /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status, return.
     /// If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or Execute status, return.
     ///
-    /// TODO: Submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
+    /// Note: In the future, submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
     async fn request_queued_proofs(&self) -> Result<()> {
         let commitments = self.program_config.commitments.clone();
@@ -892,8 +890,7 @@ where
                 }
 
                 drop(tasks);
-                // TODO: Update this loop interval.
-                tokio::time::sleep(Duration::from_millis(1000)).await;
+                tokio::time::sleep(Duration::from_secs(TASK_COMPLETION_HANDLER_INTERVAL)).await;
             }
         });
 
