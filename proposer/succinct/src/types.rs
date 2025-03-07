@@ -131,8 +131,7 @@ impl RequestExecutionStatistics {
 
         Self {
             total_instruction_cycles: execution_report.total_instruction_count(),
-            // TODO: Add this when SP1 prover gas is available.
-            total_sp1_gas: 0,
+            total_sp1_gas: execution_report.gas.unwrap_or(0),
             block_execution_cycles: get_cycles("block-execution"),
             oracle_verify_cycles: get_cycles("oracle-verify"),
             derivation_cycles: get_cycles("payload-derivation"),
