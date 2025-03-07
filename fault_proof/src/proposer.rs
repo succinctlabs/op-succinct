@@ -41,6 +41,7 @@ where
     P: Provider<Ethereum> + Clone + Send + Sync,
 {
     pub config: ProposerConfig,
+    pub l1_address: Address,
     pub l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>>,
@@ -55,6 +56,7 @@ where
 {
     /// Creates a new challenger instance with the provided L1 provider with wallet and factory contract instance.
     pub async fn new(
+        l1_address: Address,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
         factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
     ) -> Result<Self> {
@@ -66,6 +68,7 @@ where
 
         Ok(Self {
             config: config.clone(),
+            l1_address,
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
             factory: Arc::new(factory.clone()),
@@ -156,6 +159,7 @@ where
             headers,
             &self.prover.range_vk,
             boot_info.l1Head,
+            self.l1_address,
         ) {
             Ok(s) => s,
             Err(e) => {
