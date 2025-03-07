@@ -58,7 +58,6 @@ where
 
     let boot_clone = boot.clone();
 
-    let boot_arc = Arc::new(boot.clone());
     let rollup_config = Arc::new(boot.rollup_config);
     let safe_head_hash = fetch_safe_head_hash(oracle.as_ref(), boot.agreed_l2_output_root).await?;
 
@@ -157,11 +156,14 @@ where
         output_root = output_root
     );
 
-    forget(driver);
-    forget(l1_provider);
-    forget(boot_arc);
-    forget(oracle);
-    forget(rollup_config);
+    // Only need to forget resources on non-zkvm targets
+    #[cfg(target_os = "zkvm")]
+    {
+        forget(driver);
+        forget(l1_provider);
+        forget(oracle);
+        forget(rollup_config);
+    }
 
     Ok(boot_clone)
 }
