@@ -9,5 +9,5 @@ struct AggregationOutputs {
     uint256 claimBlockNum;
     bytes32 rollupConfigHash;
     bytes32 rangeVkeyCommitment;
-    address prover_address;
+    address proverAddress;
 }

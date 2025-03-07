@@ -345,7 +345,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             claimBlockNum: _l2BlockNumber,
             rollupConfigHash: rollupConfigHash,
             rangeVkeyCommitment: rangeVkeyCommitment,
-            prover_address: msg.sender
+            proverAddress: msg.sender
         });
 
         ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);

@@ -376,7 +376,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
             claimBlockNum: l2BlockNumber(),
             rollupConfigHash: ROLLUP_CONFIG_HASH,
             rangeVkeyCommitment: RANGE_VKEY_COMMITMENT,
-            prover_address: msg.sender
+            proverAddress: msg.sender
         });
 
         // Verify the proof. Reverts if the proof is invalid.
