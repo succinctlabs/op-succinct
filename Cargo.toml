@@ -90,10 +90,10 @@ alloy-sol-types = { version = "0.8.19", default-features = false }
 alloy-sol-macro = { version = "0.8.19", default-features = false }
 
 # OP Alloy
-op-alloy-consensus = { version = "0.10.0", default-features = false }
-op-alloy-rpc-types = { version = "0.10.0", default-features = false }
-op-alloy-rpc-types-engine = { version = "0.10.0", default-features = false }
-op-alloy-network = { version = "0.10.0", default-features = false }
+op-alloy-consensus = { version = "=0.10.3", default-features = false }
+op-alloy-rpc-types = { version = "=0.10.3", default-features = false }
+op-alloy-rpc-types-engine = { version = "=0.10.3", default-features = false }
+op-alloy-network = { version = "=0.10.3", default-features = false }
 
 # Maili
 maili-consensus = { version = "0.2.6", default-features = false }
