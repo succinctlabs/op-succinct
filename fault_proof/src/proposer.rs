@@ -249,14 +249,17 @@ where
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
         let _span = tracing::info_span!("[[Proposing]]").entered();
 
-        // Get the safe L2 head block number
-        let safe_l2_head_block_number = self
+        // Get the finalized L2 head block number
+        let finalized_l2_head_block_number = self
             .l2_provider
-            .get_l2_block_by_number(BlockNumberOrTag::Safe)
+            .get_l2_block_by_number(BlockNumberOrTag::Finalized)
             .await?
             .header
             .number;
-        tracing::debug!("Safe L2 head block number: {:?}", safe_l2_head_block_number);
+        tracing::debug!(
+            "Finalized L2 head block number: {:?}",
+            finalized_l2_head_block_number
+        );
 
         // Get the latest valid proposal.
         let latest_valid_proposal = self
@@ -295,8 +298,8 @@ where
         };
 
         // There's always a new game to propose, as the chain is always moving forward from the genesis block set for the game type.
-        // Only create a new game if the safe L2 head block number is greater than the next L2 block number for proposal.
-        if U256::from(safe_l2_head_block_number) > next_l2_block_number_for_proposal {
+        // Only create a new game if the finalized L2 head block number is greater than the next L2 block number for proposal.
+        if U256::from(finalized_l2_head_block_number) > next_l2_block_number_for_proposal {
             let game_address = self
                 .create_game(next_l2_block_number_for_proposal, parent_game_index)
                 .await?;

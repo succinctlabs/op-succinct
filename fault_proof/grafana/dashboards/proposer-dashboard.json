@@ -122,8 +122,8 @@
                         "uid": "PBFA97CFB590B2093"
                     },
                     "disableTextWrap": false,
-                    "editorMode": "builder",
-                    "expr": "process_cpu_seconds_total",
+                    "editorMode": "code",
+                    "expr": "100 * rate(process_cpu_seconds_total[5m])",
                     "fullMetaSearch": false,
                     "hide": false,
                     "includeNullMetadata": true,
@@ -626,7 +626,7 @@
     "timepicker": {},
     "timezone": "",
     "title": "OP Succinct Lite Dashboard",
-    "uid": "op-succinct-lite-dashboard",
-    "version": 26,
+    "uid": "proposer-dashboard",
+    "version": 28,
     "weekStart": ""
 }

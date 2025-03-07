@@ -10,7 +10,7 @@ services:
       - .env.proposer
     command: ["proposer"]
     ports:
-      - "${PROPOSER_METRICS_PORT:-9000}:9000"  # Expose metrics port
+      - "9010:9000"  # Expose metrics port
 
   # challenger:
   #   build:
