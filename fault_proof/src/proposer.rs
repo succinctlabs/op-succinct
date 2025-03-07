@@ -352,7 +352,7 @@ where
     }
 
     /// Handles claiming bonds from resolved games.
-    pub async fn handle_bond_claiming(&self) -> Result<()> {
+    pub async fn handle_bond_claiming(&self) -> Result<Option<()>> {
         let _span = tracing::info_span!("[[Claiming Bonds]]").entered();
 
         if let Some(game_address) = self
@@ -388,20 +388,18 @@ where
                         receipt.transaction_hash
                     );
 
-                    Ok(())
+                    Ok(Some(()))
                 }
-                Err(e) => {
-                    return Err(anyhow::anyhow!(
-                        "Failed to claim bond from game {:?}: {:?}",
-                        game_address,
-                        e
-                    ));
-                }
+                Err(e) => Err(anyhow::anyhow!(
+                    "Failed to claim bond from game {:?}: {:?}",
+                    game_address,
+                    e
+                )),
             }
         } else {
             tracing::info!("No new games to claim bonds from");
 
-            Ok(())
+            Ok(None)
         }
     }
 
@@ -475,10 +473,7 @@ where
                     }
 
                     match self.handle_game_resolution().await {
-                        Ok(_) => {
-                            let game_resolved_gauge = gauge!("op_succinct_fp_games_resolved");
-                            game_resolved_gauge.increment(1.0);
-                        }
+                        Ok(_) => {}
                         Err(e) => {
                             tracing::warn!("Failed to handle game resolution: {:?}", e);
                             let error_gauge = gauge!("op_succinct_fp_errors");
@@ -487,11 +482,12 @@ where
                     }
 
                     match self.handle_bond_claiming().await {
-                        Ok(_) => {
+                        Ok(Some(_)) => {
                             let game_bonds_claimed_gauge =
                                 gauge!("op_succinct_fp_games_bonds_claimed");
                             game_bonds_claimed_gauge.increment(1.0);
                         }
+                        Ok(None) => {}
                         Err(e) => {
                             tracing::warn!("Failed to handle bond claiming: {:?}", e);
                             let error_gauge = gauge!("op_succinct_fp_errors");

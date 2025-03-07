@@ -15,6 +15,7 @@ use alloy_rpc_types_eth::Block;
 use alloy_sol_types::SolValue;
 use anyhow::{bail, Result};
 use async_trait::async_trait;
+use metrics::gauge;
 use op_alloy_network::{primitives::BlockTransactionsKind, Optimism};
 use op_alloy_rpc_types::Transaction;
 use tokio::time::Duration;
@@ -231,7 +232,7 @@ where
         mode: Mode,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
         l2_provider: L2Provider,
-    ) -> Result<()>;
+    ) -> Result<Option<()>>;
 
     /// Attempts to resolve all challenged games that the challenger won, up to `max_games_to_check_for_resolution`.
     async fn resolve_games(
@@ -605,7 +606,7 @@ where
         mode: Mode,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
         l2_provider: L2Provider,
-    ) -> Result<()> {
+    ) -> Result<Option<()>> {
         let game_address = self.fetch_game_address_by_index(index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet.clone());
         if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
@@ -614,7 +615,7 @@ where
                 game_address,
                 index
             );
-            return Ok(());
+            return Ok(None);
         }
 
         let claim_data = game.claimData().call().await?.claimData_;
@@ -626,7 +627,7 @@ where
                         game_address,
                         index
                     );
-                    return Ok(());
+                    return Ok(None);
                 }
             }
             Mode::Challenger => {
@@ -636,7 +637,7 @@ where
                         game_address,
                         index
                     );
-                    return Ok(());
+                    return Ok(None);
                 }
             }
         }
@@ -654,7 +655,7 @@ where
                 index,
                 deadline
             );
-            return Ok(());
+            return Ok(None);
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
@@ -672,7 +673,7 @@ where
             index,
             receipt.transaction_hash
         );
-        Ok(())
+        Ok(Some(()))
     }
 
     /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
@@ -699,15 +700,21 @@ where
             self.should_attempt_resolution(oldest_game_index).await?;
 
         if should_attempt_resolution {
+            let game_resolved_gauge = gauge!("op_succinct_fp_games_resolved");
+
             for i in 0..games_to_check.to::<u64>() {
                 let index = oldest_game_index + U256::from(i);
-                self.try_resolve_games(
-                    index,
-                    mode,
-                    l1_provider_with_wallet.clone(),
-                    l2_provider.clone(),
-                )
-                .await?;
+                if let Ok(Some(())) = self
+                    .try_resolve_games(
+                        index,
+                        mode,
+                        l1_provider_with_wallet.clone(),
+                        l2_provider.clone(),
+                    )
+                    .await
+                {
+                    game_resolved_gauge.increment(1.0);
+                }
             }
         } else {
             tracing::info!(
