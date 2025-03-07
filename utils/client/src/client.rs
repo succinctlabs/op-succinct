@@ -112,7 +112,7 @@ where
         beacon,
         l1_provider.clone(),
         l2_provider.clone(),
-    );
+    ).await?;
     let executor = KonaExecutor::new(
         &rollup_config,
         l2_provider.clone(),
@@ -156,7 +156,6 @@ where
         output_root = output_root
     );
 
-    forget(driver);
     forget(l1_provider);
     forget(boot_arc);
     forget(oracle);

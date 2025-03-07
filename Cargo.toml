@@ -40,25 +40,25 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
-kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "2514afb", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "2514afb", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
 
-kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11" }
-kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", default-features = false, features = [
+kona-client = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "2514afb" }
+kona-rpc = { git = "https://github.com/op-rs/kona", rev = "2514afb", default-features = false, features = [
     "serde",
 ] }
-kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.11", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", rev = "2514afb", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", rev = "2514afb", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", rev = "2514afb", default-features = false }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -68,38 +68,39 @@ op-succinct-build-utils = { path = "utils/build" }
 op-succinct-proposer = { path = "proposer/succinct" }
 
 # Alloy (Network)
-alloy-network = { version = "0.11.0", default-features = false }
+alloy-network = { version = "0.12.0", default-features = false }
 alloy-signer-local = { version = "0.11.0", default-features = false }
-alloy-provider = { version = "0.11.0", default-features = false }
-alloy-transport = { version = "0.11.0", default-features = false }
+alloy-provider = { version = "0.12.0", default-features = false }
+alloy-transport = { version = "0.12.0", default-features = false }
 alloy-transport-http = { version = "0.11.0", default-features = false }
 alloy-contract = { version = "0.11.0", default-features = false }
 
 # Alloy
-alloy-rlp = { version = "0.3.10", default-features = false }
-alloy-trie = { version = "0.7.8", default-features = false }
-alloy-eips = { version = "0.11.0", default-features = false }
-alloy-serde = { version = "0.11.0", default-features = false }
-alloy-consensus = { version = "0.11.0", default-features = false }
-alloy-rpc-types = { version = "0.11.0", default-features = false }
-alloy-rpc-client = { version = "0.11.0", default-features = false }
-alloy-node-bindings = { version = "0.11.0", default-features = false }
-alloy-rpc-types-engine = { version = "0.11.0", default-features = false }
-alloy-rpc-types-beacon = { version = "0.11.0", default-features = false }
-alloy-rpc-types-eth = { version = "0.11.0", default-features = false }
+alloy-rlp = { version = "0.3.11", default-features = false }
+alloy-trie = { version = "0.7.9", default-features = false }
+alloy-eips = { version = "0.12.0", default-features = false }
+alloy-serde = { version = "0.12.0", default-features = false }
+alloy-consensus = { version = "0.12.0", default-features = false }
+alloy-rpc-types = { version = "0.12.0", default-features = false }
+alloy-rpc-client = { version = "0.12.0", default-features = false }
+alloy-node-bindings = { version = "0.12.0", default-features = false }
+alloy-rpc-types-engine = { version = "0.12.0", default-features = false }
+alloy-rpc-types-beacon = { version = "0.12.0", default-features = false }
+alloy-rpc-types-eth = { version = "0.12.0", default-features = false }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
-alloy-primitives = { version = "0.8.19", default-features = false, features = [
-    "sha3-keccak",
-] }
-alloy-sol-types = { version = "0.8.19", default-features = false }
+alloy-primitives = { version = "0.8.21", default-features = false }
+alloy-sol-types = { version = "0.8.22", default-features = false }
 alloy-sol-macro = { version = "0.8.19", default-features = false }
 
 # OP Alloy
-op-alloy-consensus = { version = "0.10.0", default-features = false }
-op-alloy-rpc-types = { version = "0.10.0", default-features = false }
-op-alloy-rpc-types-engine = { version = "0.10.0", default-features = false }
-op-alloy-network = { version = "0.10.0", default-features = false }
+op-alloy-consensus = { version = "0.11.0", default-features = false }
+op-alloy-rpc-types = { version = "0.11.0", default-features = false }
+op-alloy-rpc-types-engine = { version = "0.11.0", default-features = false }
+op-alloy-network = { version = "0.11.0", default-features = false }
+op-alloy-provider = { version = "0.11.0", default-features = false }
+op-alloy-flz = { version = "0.11.0", default-features = false }
+op-alloy-rpc-jsonrpsee = { version = "0.11.0", default-features = false }
 
 # Revm
 revm = { version = "19.5.0", default-features = false, features = ["kzg-rs"] }

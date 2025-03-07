@@ -18,7 +18,7 @@ fn build_zkvm_program(program: &str) {
             elf_name: Some(format!("{}-elf", program)),
             output_directory: Some("../../elf".to_string()),
             docker: true,
-            tag: "v4.0.0-rc.10".to_string(),
+            tag: "main".to_string(),
             workspace_directory: Some("../../".to_string()),
             ..Default::default()
         },

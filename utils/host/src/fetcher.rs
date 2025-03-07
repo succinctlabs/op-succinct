@@ -14,7 +14,7 @@ use kona_protocol::L2BlockInfo;
 use kona_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_consensus::OpBlock;
 use op_alloy_network::{
-    primitives::{BlockTransactions, BlockTransactionsKind, HeaderResponse},
+    primitives::{BlockTransactions, HeaderResponse},
     BlockResponse, Network, Optimism,
 };
 use op_alloy_rpc_types::OpTransactionReceipt;
@@ -32,10 +32,7 @@ use std::{
 
 use alloy_primitives::{keccak256, map::HashMap, Bytes, U256, U64};
 
-use crate::{
-    rollup_config::{get_rollup_config_path, merge_rollup_config},
-    ProgramType,
-};
+use crate::{rollup_config::get_rollup_config_path, ProgramType};
 use crate::{L2Output, OPSuccinctHost};
 
 #[derive(Clone)]
@@ -162,7 +159,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l2_head(&self) -> Result<Header> {
         let block = self
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest, BlockTransactionsKind::Hashes)
+            .get_block_by_number(BlockNumberOrTag::Latest)
             .await?;
         if let Some(block) = block {
             Ok(block.header.inner)
@@ -174,7 +171,7 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l2_header_by_number(&self, block_number: u64) -> Result<Header> {
         let block = self
             .l2_provider
-            .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
+            .get_block_by_number(block_number.into())
             .await?;
         if let Some(block) = block {
             Ok(block.header.inner)
@@ -196,10 +193,7 @@ impl OPSuccinctDataFetcher {
         // Return a tuple of the block number and the transactions.
         let transactions: Vec<(u64, Vec<B256>)> = stream::iter(start..=end)
             .map(|block_number| async move {
-                let block = self
-                    .l2_provider
-                    .get_block(block_number.into(), BlockTransactionsKind::Hashes)
-                    .await?;
+                let block = self.l2_provider.get_block(block_number.into()).await?;
                 if let Some(block) = block {
                     match block.transactions {
                         BlockTransactions::Hashes(txs) => Ok((block_number, txs)),
@@ -355,7 +349,7 @@ impl OPSuccinctDataFetcher {
             .map(|block_number| async move {
                 let block = self
                     .l2_provider
-                    .get_block_by_number(block_number.into(), BlockTransactionsKind::Hashes)
+                    .get_block_by_number(block_number.into())
                     .await?
                     .unwrap();
                 let receipts = self
@@ -393,10 +387,7 @@ impl OPSuccinctDataFetcher {
     }
 
     pub async fn get_l1_header(&self, block_number: BlockId) -> Result<Header> {
-        let block = self
-            .l1_provider
-            .get_block(block_number, alloy_rpc_types::BlockTransactionsKind::Hashes)
-            .await?;
+        let block = self.l1_provider.get_block(block_number).await?;
 
         if let Some(block) = block {
             Ok(block.header.inner)
@@ -406,10 +397,7 @@ impl OPSuccinctDataFetcher {
     }
 
     pub async fn get_l2_header(&self, block_number: BlockId) -> Result<Header> {
-        let block = self
-            .l2_provider
-            .get_block(block_number, BlockTransactionsKind::Full)
-            .await?;
+        let block = self.l2_provider.get_block(block_number).await?;
 
         if let Some(block) = block {
             Ok(block.header.inner)
@@ -439,9 +427,7 @@ impl OPSuccinctDataFetcher {
     where
         N: Network,
     {
-        let latest_block = provider
-            .get_block(BlockId::finalized(), BlockTransactionsKind::Hashes)
-            .await?;
+        let latest_block = provider.get_block(BlockId::finalized()).await?;
         let mut low = 0;
         let mut high = if let Some(block) = latest_block {
             block.header().number()
@@ -451,9 +437,7 @@ impl OPSuccinctDataFetcher {
 
         while low <= high {
             let mid = (low + high) / 2;
-            let block = provider
-                .get_block(mid.into(), BlockTransactionsKind::Hashes)
-                .await?;
+            let block = provider.get_block(mid.into()).await?;
             if let Some(block) = block {
                 let block_timestamp = block.header().timestamp();
 
@@ -470,9 +454,7 @@ impl OPSuccinctDataFetcher {
         }
 
         // Return the block hash of the closest block after the target timestamp
-        let block = provider
-            .get_block(low.into(), BlockTransactionsKind::Hashes)
-            .await?;
+        let block = provider.get_block(low.into()).await?;
         if let Some(block) = block {
             Ok((block.header().hash().0.into(), block.header().number()))
         } else {
@@ -497,11 +479,8 @@ impl OPSuccinctDataFetcher {
         rpc_config: &RPCConfig,
         run_context: RunContext,
     ) -> Result<RollupConfig> {
-        let rollup_config =
+        let rollup_config: RollupConfig =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
-        let chain_config =
-            Self::fetch_rpc_data(&rpc_config.l2_rpc, "debug_chainConfig", vec![]).await?;
-        let rollup_config = merge_rollup_config(&rollup_config, &chain_config)?;
 
         // Save rollup config to the rollup config file.
         let rollup_config_path = get_rollup_config_path(rollup_config.l2_chain_id, run_context)?;
@@ -697,7 +676,7 @@ impl OPSuccinctDataFetcher {
 
         // Get L2 output data.
         let l2_output_block = l2_provider
-            .get_block_by_number(l2_start_block.into(), BlockTransactionsKind::Hashes)
+            .get_block_by_number(l2_start_block.into())
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!("Block not found for block number {}", l2_start_block)
@@ -723,7 +702,7 @@ impl OPSuccinctDataFetcher {
 
         // Get L2 claim data.
         let l2_claim_block = l2_provider
-            .get_block_by_number(l2_end_block.into(), BlockTransactionsKind::Hashes)
+            .get_block_by_number(l2_end_block.into())
             .await?
             .unwrap();
         let l2_claim_state_root = l2_claim_block.header.state_root;
@@ -900,7 +879,6 @@ impl OPSuccinctDataFetcher {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
-        let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
 
         // See if optimism_safeHeadAtL1Block is available. If there's an error, then estimate the L1 block necessary based on the chain config.
         let result = self.get_l1_head_with_safe_head(l2_end_block).await;
@@ -910,12 +888,7 @@ impl OPSuccinctDataFetcher {
         } else {
             // Estimate the L1 block necessary based on the chain config. This is based on the maximum
             // delay between batches being posted on the L2 chain.
-            let max_batch_post_delay_minutes = match l2_chain_id {
-                11155420 => 10,
-                10 => 10,
-                8453 => 10,
-                _ => 60,
-            };
+            let max_batch_post_delay_minutes = 720;
 
             // Get L1 head.
             let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
