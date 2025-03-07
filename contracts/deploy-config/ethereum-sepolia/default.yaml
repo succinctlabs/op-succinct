@@ -1,4 +1,4 @@
-chainId: 17000
+chainId: 11155111
   
 envs:
   F_WALLET_TYPE: LEDGER # options: AWS_KMS, PRIVATE_KEY, LEDGER, MNEMONIC
@@ -6,24 +6,24 @@ envs:
   F_MNEMONIC: ""
   F_MNEMONIC_INDEX: 0
   F_AWS_KMS_KEY_ID: ""
-  F_SENDER: "0x207E804758e28F2b3fD6E4219671B327100b82f8" 
+  F_SENDER: "0xc675f727fB9f19C31f10A15dDad8D05A27504C46" 
   F_VERBOSE: true
-  F_RPC_URL: https://rpc.ankr.com/eth
+  F_RPC_URL: https://rpc.ankr.com/eth_sepolia
   VERIFIER_URL: ""
 
 explorers: {}
 
 config:
-  challenger: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
-  finalizationPeriod: 3600
+  challenger: "0x428E2D9C04B2c09D5480c82cFfBDDb0c73278d50"
+  finalizationPeriod: 150
   l2BlockTime: 2
-  owner: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
-  proposer: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
-  rollupConfigHash: "0x71241d0f92749d7365aaaf6a015de550816632a4e4e84e273f865f582e8190aa"
-  startingBlockNumber: 228600
-  startingOutputRoot: "0x92f0c5d048ecf1baecd500a0f74e74e448c90d025e1537e8e5a980b1d04ea333"
-  startingTimestamp: 1734404604
+  owner: "0xc675f727fB9f19C31f10A15dDad8D05A27504C46"
+  proposer: "0x9361Fb131A1c3928BB22C316257EeA7608b26177"
+  rollupConfigHash: "0xbc38c439082a874a2da4db07a9e270074b690e51f92a80fa1803c70dc0590a12"
+  startingBlockNumber: 325709
+  startingOutputRoot: "0xe90f309512fd27b4a0df4b59bc6f5a8a55e7be6610e02e665bc81e4d3168dd18"
+  startingTimestamp: 1702196091
   submissionInterval: 450
   verifier: "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
-  aggregationVkey: "0x000fd40837604d14c32f0a0c6cb7f011274195f8029cec268be80aea22c561e1"
-  rangeVkeyCommitment: "0x38a92ced5bf5edbf6b1affb013c9f75c4ecec3223743088b734e6dd34d7f046c"
+  aggregationVkey: "0x004f113a89b4e8d162197047643c9d710b42a30e7da7052703855d5c4716a81d"
+  rangeVkeyCommitment: "0x019aad6a06c795903de1dde50a355f213dbd8fb9165563360e3c176250282340"
