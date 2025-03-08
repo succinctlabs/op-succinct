@@ -1,5 +1,5 @@
 //! Sourced from: https://github.com/Layr-Labs/eigensdk-rs/blob/dev/crates/signer/src/web3_signer.rs
-//!
+//! Replace with Web3Signer from Alloy when it's released.
 use alloy_consensus::{transaction::RlpEcdsaTx, SignableTransaction, TxLegacy};
 use alloy_network::TxSigner;
 use alloy_primitives::{Address, Bytes, TxKind, U256};
