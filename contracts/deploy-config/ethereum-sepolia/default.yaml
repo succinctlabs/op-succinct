@@ -15,7 +15,7 @@ explorers: {}
 
 config:
   challenger: "0x428E2D9C04B2c09D5480c82cFfBDDb0c73278d50"
-  finalizationPeriod: 150
+  finalizationPeriod: 300
   l2BlockTime: 2
   owner: "0xb6e11c5980d014dc8bd3087377685f3d86d85b85"
   proposer: "0x9361Fb131A1c3928BB22C316257EeA7608b26177"
@@ -27,3 +27,6 @@ config:
   verifier: "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
   aggregationVkey: "0x004f113a89b4e8d162197047643c9d710b42a30e7da7052703855d5c4716a81d"
   rangeVkeyCommitment: "0x019aad6a06c795903de1dde50a355f213dbd8fb9165563360e3c176250282340"
+
+proxyAddress:
+  0x4121dc8e48Bc6196795eb4867772A5e259fecE07

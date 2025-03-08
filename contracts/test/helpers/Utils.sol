@@ -85,4 +85,13 @@ contract Utils is Test, JSONDecoder {
         bytes memory data = vm.parseJson(json, ".config");
         return abi.decode(data, (Config));
     }
+
+    // Read the proxy address from the json file.
+    function readUpgradeProxyAddress(string memory filepath) public view returns (address) {
+        string memory root = vm.projectRoot();
+        string memory path = string.concat(root, "/", filepath);
+        string memory json = vm.readFile(path);
+        bytes memory data = vm.parseJson(json, ".proxyAddress");
+        return abi.decode(data, (address));
+    }
 }

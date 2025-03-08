@@ -1,4 +1,4 @@
-chainId: 31337
+chainId: 11155111
   
 envs:
   F_WALLET_TYPE: PRIVATE_KEY # options: AWS_KMS, PRIVATE_KEY, LEDGER, MNEMONIC
@@ -14,15 +14,18 @@ explorers: {}
 
 config:
   challenger: "0xEaE9f288E4F1486dC864c257346105D720A89655"
-  finalizationPeriod: 3600
+  finalizationPeriod: 300
   l2BlockTime: 2
   owner: "0xEaE9f288E4F1486dC864c257346105D720A89655"
   proposer: "0x7630EeA78459A7668e2288d5679FCdc290ddEF75"
   rollupConfigHash: "0x3fb52823d66e7e7ddb4f18d3c84174429d8f52a997e9e469c78ad2dd03e33bc5"
-  startingBlockNumber: 384750
-  startingOutputRoot: "0xedddbc4e19d7f24f11e1ca640156f7a58e277bd7fcbd6e3670b2630ee4b51274"
-  startingTimestamp: 1736149308
+  startingBlockNumber: 0
+  startingOutputRoot: "0x9a3a2bc81b260739b26d860e5c298faba65ee87929af3c8a54560b47b25ed65c"
+  startingTimestamp: 1735384596
   submissionInterval: 450
-  verifier: "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
-  aggregationVkey: "0x000fd40837604d14c32f0a0c6cb7f011274195f8029cec268be80aea22c561e1"
-  rangeVkeyCommitment: "0x5870973b69d7dbfd571ca7c65c602f6d4a2ab4f82eebaae64fca99382bbc0ec4"
+  verifier: "0x8f72ec5679caddd344c7b631a15b1871eb6fc7fc"
+  aggregationVkey: "0x004f113a89b4e8d162197047643c9d710b42a30e7da7052703855d5c4716a81d"
+  rangeVkeyCommitment: "0x019aad6a06c795903de1dde50a355f213dbd8fb9165563360e3c176250282340"
+
+proxyAddress:
+  0x01f9FC616F1f9ec0D52D1f978eD805DBb54dBC04
