@@ -54,6 +54,8 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `METRICS_PORT` | Default: `8080`. The port to run the metrics server on. |
 | `LOOP_INTERVAL` | Default: `60`. The interval (in seconds) between each iteration of the OP Succinct service. |
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a validity dispute game that will resolve with the proof. Compatible with `OptimismPortal2`. |
+| `SIGNER_URL` | URL for the Web3Signer. Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
+| `SIGNER_ADDRESS` | Address of the account that will be posting output roots to L1. Note: Only set this if the signer is a Web3Signer. Note: Required if `SIGNER_URL` is set. |
 
 # Build the Proposer Service
 
