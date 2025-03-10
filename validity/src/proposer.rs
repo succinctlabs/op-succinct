@@ -89,7 +89,7 @@ where
     P: Provider<N> + 'static,
     N: Network,
 {
-    driver_config: DriverConfig,
+    pub driver_config: DriverConfig,
     contract_config: ContractConfig<P, N>,
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
@@ -505,7 +505,7 @@ where
     ///
     /// Note: In the future, submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
-    async fn request_queued_proofs(&self) -> Result<()> {
+    pub async fn request_queued_proofs(&self) -> Result<()> {
         let commitments = self.program_config.commitments.clone();
         let l1_chain_id = self.requester_config.l1_chain_id;
         let l2_chain_id = self.requester_config.l2_chain_id;
@@ -745,7 +745,7 @@ where
     }
 
     /// Validate the requester config matches the contract.
-    async fn validate_contract_config(&self) -> Result<()> {
+    pub async fn validate_contract_config(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         let contract_rollup_config_hash = self
             .contract_config
@@ -815,7 +815,7 @@ where
     }
 
     /// Spawns thread for handling task completion and error handling.
-    async fn spawn_task_completion_handler(&self) -> Result<()> {
+    pub async fn spawn_task_completion_handler(&self) -> Result<()> {
         let tasks = self.tasks.clone();
         let proof_requester = self.proof_requester.clone();
 
@@ -898,7 +898,7 @@ where
     /// The goal is to ensure the database is in a clean state and all block ranges
     /// between the latest proposed block and finalized block have corresponding requests.
     #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
-    async fn initialize_proposer(&self) -> Result<()> {
+    pub async fn initialize_proposer(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         self.validate_contract_config()
             .await
@@ -1009,7 +1009,7 @@ where
     }
 
     /// Fetch and log the proposer metrics.
-    async fn log_proposer_metrics(&self) -> Result<()> {
+    pub async fn log_proposer_metrics(&self) -> Result<()> {
         // Get the latest proposed block number on the contract.
         let latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
@@ -1152,7 +1152,7 @@ where
     }
 
     // Run a single loop of the validity proposer.
-    async fn run_loop_iteration(&self) -> Result<()> {
+    pub async fn run_loop_iteration(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         self.validate_contract_config().await?;
 

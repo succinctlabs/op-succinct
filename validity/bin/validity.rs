@@ -2,7 +2,7 @@ use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_validity::{
-    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
+    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, ProposerAgglayer, RequesterConfig,
 };
 use std::sync::Arc;
 use tikv_jemallocator::Jemalloc;
@@ -70,33 +70,18 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    // Spawn a thread for the proposer.
-    info!("Starting proposer.");
-    let proposer_handle = tokio::spawn(async move {
-        let agglayer = ProposerAgglayer::new(&proposer);
-        if env_config.agglayer {
-            if let Err(e) = agglayer.run(&env_config.grpc_addr).await {
-                tracing::error!("Agglayer error: {}", e);
-                return Err(e);
-            }
-        } else {
-            if let Err(e) = proposer.run().await {
-                tracing::error!("Proposer error: {}", e);
-                return Err(e);
-            }
-        }
-        Ok(())
-    });
-
     // Initialize metrics exporter.
     info!("Initializing metrics on port {}", env_config.metrics_port);
     op_succinct_validity::init_metrics(&env_config.metrics_port);
 
-    // Wait for all tasks to complete.
-    let proposer_res = proposer_handle.await?;
-    if let Err(e) = proposer_res {
-        tracing::error!("Proposer task failed: {}", e);
-        return Err(e);
+    // Run either the standard proposer or the Agglayer proposer based on configuration
+    if env_config.agglayer {
+        info!("Starting proposer in Agglayer mode");
+        let agglayer = ProposerAgglayer::new(&proposer);
+        agglayer.run(&env_config.grpc_addr).await?;
+    } else {
+        info!("Starting proposer in standard mode");
+        proposer.run().await?;
     }
 
     Ok(())

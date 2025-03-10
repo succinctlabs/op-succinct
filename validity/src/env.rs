@@ -21,6 +21,7 @@ pub struct EnvironmentConfig {
     pub max_concurrent_proof_requests: u64,
     pub submission_interval: u64,
     pub mock: bool,
+    pub agglayer: bool,
     pub grpc_addr: String,
 }
 
@@ -91,6 +92,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         submission_interval: get_env_var("SUBMISSION_INTERVAL", Some(1800))?,
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
+        agglayer: get_env_var("AGGLAYER", Some(false))?,
         grpc_addr: get_env_var("GRPC_ADDRESS", Some("localhost:50051".to_string()))?,
     };
 
