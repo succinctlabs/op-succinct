@@ -21,6 +21,7 @@ pub struct EnvironmentConfig {
     pub max_concurrent_proof_requests: u64,
     pub submission_interval: u64,
     pub mock: bool,
+    pub grpc_addr: String,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -90,6 +91,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         submission_interval: get_env_var("SUBMISSION_INTERVAL", Some(1800))?,
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
+        grpc_addr: get_env_var("GRPC_ADDRESS", Some("localhost:50051".to_string()))?,
     };
 
     Ok(config)
