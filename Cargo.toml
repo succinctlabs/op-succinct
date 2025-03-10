@@ -40,18 +40,18 @@ tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
 
 # kona
-kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0", features = [
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0", features = [
     "rkyv",
     "serde",
 ] }
-kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0" }
-kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0"}
-kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0", default-features = false }
-kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0" }
-kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0" }
-kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0" }
-kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0" }
-eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.0.0" }
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0" }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0"}
+kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0", default-features = false }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0" }
+kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0" }
+eigen-da = { git = "https://github.com/mantle-xyz/kona", tag = "v1.1.0" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -97,7 +97,7 @@ op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", ta
 op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v1.0.0", default-features = false }
 
 # Revm
-revm = { git = "https://github.com/mantle-xyz/revm", tag = "v1.0.0", default-features = false, features = [
+revm = { git = "https://github.com/mantle-xyz/revm", tag = "v1.1.0", default-features = false, features = [
     "kzg-rs",
 ] }
 
