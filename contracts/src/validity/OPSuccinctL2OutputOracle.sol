@@ -162,7 +162,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     string public constant version = "v1.0.0";
 
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
-    uint8 public constant initializerVersion = 1;
+    uint8 public constant initializerVersion = 2;
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
@@ -344,7 +344,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             claimRoot: _outputRoot,
             claimBlockNum: _l2BlockNumber,
             rollupConfigHash: rollupConfigHash,
-            rangeVkeyCommitment: rangeVkeyCommitment
+            rangeVkeyCommitment: rangeVkeyCommitment,
+            proverAddress: msg.sender
         });
 
         ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
