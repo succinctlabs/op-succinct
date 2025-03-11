@@ -49,14 +49,9 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         (uint256 l2BlockNumber_, uint256 l1BlockNumber_, bytes memory proof_) =
             abi.decode(extraData(), (uint256, uint256, bytes));
 
-        console.log("HERE1!!!");
-
         OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(
             rootClaim().raw(), l2BlockNumber_, l1BlockNumber_, proof_
         );
-
-        // Log the output root
-        console.log("HERE2!!!");
 
         this.resolve();
     }

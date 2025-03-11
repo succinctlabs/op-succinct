@@ -7,8 +7,6 @@ import {Types} from "@optimism/src/libraries/Types.sol";
 import {AggregationOutputs} from "../lib/Types.sol";
 import {Constants} from "@optimism/src/libraries/Constants.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {console} from "forge-std/console.sol";
 
 /// @custom:proxied
 /// @title OPSuccinctL2OutputOracle
@@ -16,7 +14,6 @@ import {console} from "forge-std/console.sol";
 ///         commitment to the state of the L2 chain. Other contracts like the OptimismPortal use
 ///         these outputs to verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
-
 contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
     struct InitParams {
@@ -165,7 +162,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     string public constant version = "v1.0.0";
 
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
-    uint8 public constant initializerVersion = 2;
+    uint8 public constant initializerVersion = 1;
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
