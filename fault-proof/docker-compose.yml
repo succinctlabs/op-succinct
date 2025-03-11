@@ -2,35 +2,31 @@ services:
   proposer:
     build:
       context: ..
-      dockerfile: fault_proof/Dockerfile.proposer
+      dockerfile: fault-proof/Dockerfile.proposer
     image: op-succinct-fp-proposer:latest
     container_name: op-succinct-fp-proposer
     restart: unless-stopped
     env_file:
       - .env.proposer
     command: ["proposer"]
-  #   ports:
-  #     - "9010:9000"  # Expose metrics port
 
   challenger:
     build:
       context: ..
-      dockerfile: fault_proof/Dockerfile.challenger
+      dockerfile: fault-proof/Dockerfile.challenger
     image: op-succinct-fp-challenger:latest
     container_name: op-succinct-fp-challenger
     restart: unless-stopped
     env_file:
       - .env.challenger
     command: ["challenger"]
-    # ports:
-    #   - "9001:9001"  # Expose metrics port
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
     ports:
-      - "${PROPOSER_PROMETHEUS_PORT:-9090}:9090"
+      - "${FP_PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - /home/op_succinct_lite_prometheus_data:/prometheus
@@ -47,7 +43,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - "${PROPOSER_GRAFANA_PORT:-3000}:3000"
+      - "${FP_GRAFANA_PORT:-3000}:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
