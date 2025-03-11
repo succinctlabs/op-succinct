@@ -4,7 +4,7 @@ use serde_json::Value;
 use sqlx::Error;
 use sqlx::{postgres::PgQueryResult, PgPool};
 
-use crate::{CommitmentConfig, DriverDBClient, OPSuccinctRequest, RequestStatus};
+use crate::{CommitmentConfig, DriverDBClient, OPSuccinctRequest, RequestStatus, RequestType};
 
 impl DriverDBClient {
     pub async fn new(database_url: &str) -> Result<Self> {
