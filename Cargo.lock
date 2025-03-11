@@ -4119,7 +4119,7 @@ dependencies = [
  "mach2",
  "metrics",
  "once_cell",
- "procfs",
+ "procfs 0.17.0",
  "rlimit",
  "windows 0.58.0",
 ]
@@ -4618,10 +4618,14 @@ dependencies = [
  "dotenv",
  "futures",
  "hex",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "metrics-process",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
+ "prometheus",
  "rand 0.9.0",
  "sp1-sdk",
  "tokio",
@@ -4651,6 +4655,8 @@ dependencies = [
  "kona-protocol",
  "kona-rpc",
  "metrics",
+ "metrics-exporter-prometheus",
+ "metrics-process",
  "num-format",
  "op-alloy-consensus",
  "op-alloy-network",
@@ -5388,14 +5394,37 @@ dependencies = [
 
 [[package]]
 name = "procfs"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "731e0d9356b0c25f16f33b5be79b1c57b562f141ebfcdb0ad8ac2c13a24293b4"
+dependencies = [
+ "bitflags",
+ "hex",
+ "lazy_static",
+ "procfs-core 0.16.0",
+ "rustix",
+]
+
+[[package]]
+name = "procfs"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc5b72d8145275d844d4b5f6d4e1eef00c8cd889edb6035c21675d1bb1f45c9f"
 dependencies = [
  "bitflags",
  "hex",
- "procfs-core",
+ "procfs-core 0.17.0",
  "rustix",
+]
+
+[[package]]
+name = "procfs-core"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d3554923a69f4ce04c4a754260c338f505ce22642d3830e049a399fc2059a29"
+dependencies = [
+ "bitflags",
+ "hex",
 ]
 
 [[package]]
@@ -5406,6 +5435,23 @@ checksum = "239df02d8349b06fc07398a3a1697b06418223b1c7725085e801e7c0fc6a12ec"
 dependencies = [
  "bitflags",
  "hex",
+]
+
+[[package]]
+name = "prometheus"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d33c28a30771f7f96db69893f78b857f7450d7e0237e9c8fc6427a81bae7ed1"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "libc",
+ "memchr",
+ "parking_lot",
+ "procfs 0.16.0",
+ "protobuf",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -5450,6 +5496,12 @@ dependencies = [
  "quote",
  "syn 2.0.98",
 ]
+
+[[package]]
+name = "protobuf"
+version = "2.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
 name = "ptr_meta"
