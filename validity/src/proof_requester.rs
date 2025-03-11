@@ -128,7 +128,7 @@ impl OPSuccinctProofRequester {
             .compressed()
             .strategy(self.range_strategy)
             .skip_simulation(true)
-            .cycle_limit(10_000_000_000)
+            .cycle_limit(1_000_000_000_000)
             .request_async()
             .await
     }

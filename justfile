@@ -157,8 +157,7 @@ upgrade-oracle env_file=".env":
             --verify \
             --verifier etherscan \
             --etherscan-api-key $ETHERSCAN_API_KEY \
-            --broadcast \
-            --resume
+            --broadcast
     fi
 
 # Update the parameters of the OPSuccinct L2 Output Oracle
