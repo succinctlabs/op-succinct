@@ -7,6 +7,7 @@ use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
 use clap::Parser;
+use metrics::gauge;
 use op_alloy_network::EthereumWallet;
 use tokio::time;
 
@@ -16,6 +17,7 @@ use fault_proof::{
         DisputeGameFactory::{self, DisputeGameFactoryInstance},
         OPSuccinctFaultDisputeGame,
     },
+    prometheus::init_challenger_metrics,
     utils::setup_logging,
     FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
@@ -128,12 +130,29 @@ where
         loop {
             interval.tick().await;
 
-            if let Err(e) = self.handle_game_challenging().await {
-                tracing::warn!("Failed to handle game challenging: {:?}", e);
+            match self.handle_game_challenging().await {
+                Ok(_) => {
+                    let games_challenged_gauge =
+                        gauge!("op_succinct_fp_challenger_games_challenged");
+                    games_challenged_gauge.increment(1.0);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to handle game challenging: {:?}", e);
+                    let challenger_error_gauge = gauge!("op_succinct_fp_challenger_errors");
+                    challenger_error_gauge.increment(1.0);
+                }
             }
 
-            if let Err(e) = self.handle_game_resolution().await {
-                tracing::warn!("Failed to handle game resolution: {:?}", e);
+            match self.handle_game_resolution().await {
+                Ok(_) => {
+                    let games_resolved_gauge = gauge!("op_succinct_fp_challenger_games_resolved");
+                    games_resolved_gauge.increment(1.0);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to handle game resolution: {:?}", e);
+                    let challenger_error_gauge = gauge!("op_succinct_fp_challenger_errors");
+                    challenger_error_gauge.increment(1.0);
+                }
             }
         }
     }
@@ -142,6 +161,8 @@ where
 #[tokio::main]
 async fn main() {
     setup_logging();
+
+    init_challenger_metrics();
 
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();

@@ -7,7 +7,8 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    contract::DisputeGameFactory, proposer::OPSuccinctProposer, utils::setup_logging,
+    contract::DisputeGameFactory, prometheus::init_proposer_metrics, proposer::OPSuccinctProposer,
+    utils::setup_logging,
 };
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::{
@@ -26,6 +27,9 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
+
+    // Initialize metrics
+    init_proposer_metrics();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")
