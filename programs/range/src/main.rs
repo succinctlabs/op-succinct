@@ -50,5 +50,7 @@ fn main() {
             .expect("failed to run client");
 
         sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
+        #[cfg(not(feature = "embedded"))]
+        sp1_zkvm::io::commit(&sp1_zkvm::syscalls::used_memory())
     });
 }
