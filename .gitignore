@@ -50,5 +50,4 @@ sp1-testing-suite-artifacts/
 contracts/opsuccinctl2ooconfig.json
 
 # Rollup Configs
-configs/
 *.log

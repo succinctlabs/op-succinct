@@ -28,5 +28,6 @@
   "deposit_contract_address": "0x44866c80979b1bce44ea0ce9091f217009d59564",
   "l1_system_config_address": "0x42cd68793b3c23db389b340fbef2b87f9ec6995f",
   "mantle_da_switch": true,
-  "datalayr_service_manager_addr": "0xFFEEDDCcBbAA0000000000000000000000000000"
+  "datalayr_service_manager_addr": "0xFFEEDDCcBbAA0000000000000000000000000000",
+  "shanghai_time": 0
 }
