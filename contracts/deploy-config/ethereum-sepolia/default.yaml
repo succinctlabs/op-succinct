@@ -6,7 +6,7 @@ envs:
   F_MNEMONIC: ""
   F_MNEMONIC_INDEX: 0
   F_AWS_KMS_KEY_ID: ""
-  F_SENDER: "0x809b16EECa569da9217A9758c8A440bDD2580564" 
+  F_SENDER: "0xc675f727fb9f19c31f10a15ddad8d05a27504c46" 
   F_VERBOSE: true
   F_RPC_URL: https://rpc.ankr.com/eth_sepolia
   VERIFIER_URL: ""
@@ -16,11 +16,11 @@ explorers: {}
 config:
   aggregationVkey: "0x004f113a89b4e8d162197047643c9d710b42a30e7da7052703855d5c4716a81d"
   challenger: "0x428E2D9C04B2c09D5480c82cFfBDDb0c73278d50"
-  executeUpgradeCall: true
+  executeUpgradeCall: false
   finalizationPeriod: 300
   l2BlockTime: 2
   opSuccinctL2OutputOracleImpl: "0x0000000000000000000000000000000000000000"
-  owner: "0xb6e11c5980d014dc8bd3087377685f3d86d85b85"
+  owner: "0x809b16eeca569da9217a9758c8a440bdd2580564"
   proposer: "0x9361Fb131A1c3928BB22C316257EeA7608b26177"
   proxyAdmin: "0x2EFAE081b4DC3D7D31aeDf865c1C39599C7eEcac"
   rangeVkeyCommitment: "0x4fbeb97c65279a432decbbbf33ae9b9454c8714a2cbca7814fdd098d508a5f5e"
