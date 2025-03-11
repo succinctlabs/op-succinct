@@ -7,6 +7,7 @@ import {ISemver} from "interfaces/universal/ISemver.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
+import {console} from "forge-std/console.sol";
 
 contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////////
@@ -48,9 +49,14 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         (uint256 l2BlockNumber_, uint256 l1BlockNumber_, bytes memory proof_) =
             abi.decode(extraData(), (uint256, uint256, bytes));
 
+        console.log("HERE1!!!");
+
         OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(
             rootClaim().raw(), l2BlockNumber_, l1BlockNumber_, proof_
         );
+
+        // Log the output root
+        console.log("HERE2!!!");
 
         this.resolve();
     }
