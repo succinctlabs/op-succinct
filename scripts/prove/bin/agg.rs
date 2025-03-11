@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
         header.hash_slow(),
         args.prover,
     )
-    .unwrap();
+    .expect("Failed to get agg proof stdin");
 
     let (agg_pk, agg_vk) = prover.setup(AGGREGATION_ELF);
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());

@@ -113,7 +113,7 @@ impl OPSuccinctProofRequester {
                 request
                     .prover_address
                     .as_ref()
-                    .expect("Prover address must be set for aggregation proofs."),
+                    .context("Prover address must be set for aggregation proofs.")?,
             ),
         )
         .context("Failed to get agg proof stdin")?;
