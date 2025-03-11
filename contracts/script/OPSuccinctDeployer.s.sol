@@ -4,7 +4,7 @@ pragma solidity ^0.8.15;
 import {Script} from "forge-std/Script.sol";
 import {OPSuccinctL2OutputOracle} from "../src/validity/OPSuccinctL2OutputOracle.sol";
 import {Utils} from "../test/helpers/Utils.sol";
-import {Proxy} from "@optimism/src/universal/Proxy.sol";
+import {Proxy} from "@optimism/contracts/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
 
 contract OPSuccinctDeployer is Script, Utils {
@@ -18,7 +18,7 @@ contract OPSuccinctDeployer is Script, Utils {
             vm.startBroadcast();
         }
 
-        Config memory config = readJson("opsuccinctl2ooconfig.json");
+        Config memory config = readJson(string.concat("deploy-config/", vm.envString("NETWORK"), "/default.json"));
 
         // Set the implementation address if it is not already set.
         if (config.opSuccinctL2OutputOracleImpl == address(0)) {
@@ -26,10 +26,14 @@ contract OPSuccinctDeployer is Script, Utils {
             config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         }
 
-        // If the Admin PK is set, use it as the owner of the proxy.
-        address proxyOwner = adminPk != uint256(0) ? vm.addr(adminPk) : msg.sender;
+        if (config.l2OutputOracleProxy == address(0)) {
+            // If the Admin PK is set, use it as the owner of the proxy.
+            address proxyOwner = adminPk != uint256(0) ? vm.addr(adminPk) : msg.sender;
 
-        Proxy proxy = new Proxy(proxyOwner);
+            Proxy proxy = new Proxy(proxyOwner);
+            config.l2OutputOracleProxy = address(proxy);
+        }
+
 
         vm.stopBroadcast();
 
@@ -39,10 +43,10 @@ contract OPSuccinctDeployer is Script, Utils {
             vm.startBroadcast();
         }
 
-        upgradeAndInitialize(config, address(proxy), true);
+        upgradeAndInitialize(config);
 
         vm.stopBroadcast();
 
-        return address(proxy);
+        return address(config.l2OutputOracleProxy);
     }
 }

@@ -4,16 +4,13 @@ pragma solidity ^0.8.15;
 import {Script} from "forge-std/Script.sol";
 import {OPSuccinctL2OutputOracle} from "../src/validity/OPSuccinctL2OutputOracle.sol";
 import {Utils} from "../test/helpers/Utils.sol";
-import {Proxy} from "@optimism/src/universal/Proxy.sol";
+import {Proxy} from "@optimism/contracts/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
 
 contract OPSuccinctUpgrader is Script, Utils {
     function run() public {
-        Config memory cfg = readJson("opsuccinctl2ooconfig.json");
-
-        address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
-        bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
-
+        Config memory cfg = readJson(string.concat("deploy-config/", vm.envString("NETWORK"), "/default.json"));
+        
         // Use implementation address from config
         address OPSuccinctL2OutputOracleImpl = cfg.opSuccinctL2OutputOracleImpl;
 
@@ -30,7 +27,7 @@ contract OPSuccinctUpgrader is Script, Utils {
 
         if (OPSuccinctL2OutputOracleImpl == address(0)) {
             console.log("Deploying new OPSuccinctL2OutputOracle impl");
-            OPSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+            cfg.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         }
 
         vm.stopBroadcast();
@@ -41,7 +38,7 @@ contract OPSuccinctUpgrader is Script, Utils {
             vm.startBroadcast();
         }
 
-        upgradeAndInitialize(cfg, l2OutputOracleProxy, executeUpgradeCall);
+        upgradeAndInitialize(cfg);
 
         vm.stopBroadcast();
     }

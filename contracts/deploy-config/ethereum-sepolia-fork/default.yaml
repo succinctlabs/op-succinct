@@ -1,0 +1,28 @@
+chainId: 31337
+  
+envs:
+  F_WALLET_TYPE: PRIVATE_KEY # options: AWS_KMS, PRIVATE_KEY, LEDGER, MNEMONIC
+  F_PRIVATE_KEY: ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+  F_MNEMONIC: "test test test test test test test test test test test junk"
+  F_MNEMONIC_INDEX: 0
+  F_AWS_KMS_KEY_ID: ""
+  F_SENDER: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" 
+  F_VERBOSE: true
+  F_RPC_URL: http://localhost:8545
+
+explorers: {}
+
+config:
+  challenger: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
+  finalizationPeriod: 3600
+  l2BlockTime: 2
+  owner: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
+  proposer: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
+  rollupConfigHash: "0x71241d0f92749d7365aaaf6a015de550816632a4e4e84e273f865f582e8190aa"
+  startingBlockNumber: 228600
+  startingOutputRoot: "0x92f0c5d048ecf1baecd500a0f74e74e448c90d025e1537e8e5a980b1d04ea333"
+  startingTimestamp: 1734404604
+  submissionInterval: 450
+  verifier: "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
+  aggregationVkey: "0x000fd40837604d14c32f0a0c6cb7f011274195f8029cec268be80aea22c561e1"
+  rangeVkeyCommitment: "0x38a92ced5bf5edbf6b1affb013c9f75c4ecec3223743088b734e6dd34d7f046c"

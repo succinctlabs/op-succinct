@@ -483,8 +483,8 @@ func (l *L2OutputSubmitter) ProposeL2OutputDGFTxData(output *eth.OutputResponse,
 	)
 }
 
-func (l *L2OutputSubmitter) CheckpointBlockHashTxData(blockNumber *big.Int, blockHash common.Hash) ([]byte, error) {
-	return l.l2ooABI.Pack("checkpointBlockHash", blockNumber, blockHash)
+func (l *L2OutputSubmitter) CheckpointBlockHashTxData(blockNumber *big.Int) ([]byte, error) {
+	return l.l2ooABI.Pack("checkpointBlockHash", blockNumber)
 }
 
 // Wait for L1 head to advance beyond blocknum to ensure proposal transaction validity.
@@ -721,7 +721,7 @@ func (l *L2OutputSubmitter) checkpointBlockHash(ctx context.Context) (uint64, co
 	blockNumber := header.Number
 
 	var receipt *types.Receipt
-	data, err := l.CheckpointBlockHashTxData(blockNumber, blockHash)
+	data, err := l.CheckpointBlockHashTxData(blockNumber)
 	if err != nil {
 		return 0, common.Hash{}, err
 	}

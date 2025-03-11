@@ -4,9 +4,11 @@ pragma solidity ^0.8.0;
 import {Test, console} from "forge-std/Test.sol";
 import {JSONDecoder} from "./JSONDecoder.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {Proxy} from "@optimism/src/universal/Proxy.sol";
-import {ProxyAdmin} from "@optimism/src/universal/ProxyAdmin.sol";
+import {Proxy} from "@optimism/contracts/universal/Proxy.sol";
+import {ProxyAdmin} from "@optimism/contracts/universal/ProxyAdmin.sol";
 import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
+import {Safe} from "@safe-contracts/contracts/Safe.sol";
+import {Enum} from "@safe-contracts/contracts/common/Enum.sol";
 
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
@@ -15,13 +17,13 @@ contract Utils is Test, JSONDecoder {
         }
 
         Proxy l2OutputOracleProxy = new Proxy(msg.sender);
-        upgradeAndInitialize(cfg, address(l2OutputOracleProxy), true);
+        upgradeAndInitialize(cfg);
 
         return address(l2OutputOracleProxy);
     }
 
     // If `executeUpgradeCall` is false, the upgrade call will not be executed.
-    function upgradeAndInitialize(Config memory cfg, address l2OutputOracleProxy, bool executeUpgradeCall) public {
+    function upgradeAndInitialize(Config memory cfg) public {
         // Require that the verifier gateway is deployed
         require(
             address(cfg.verifier).code.length > 0, "OPSuccinctL2OutputOracleUpgrader: verifier gateway not deployed"
@@ -46,14 +48,17 @@ contract Utils is Test, JSONDecoder {
         bytes memory initializationParams =
             abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
 
-        if (executeUpgradeCall) {
+        console.log("The impl are:", cfg.opSuccinctL2OutputOracleImpl);
+        console.log("msg.sender:", msg.sender);
+
+        if (cfg.executeUpgradeCall) {
             if (cfg.proxyAdmin == address(0)) {
-                Proxy existingProxy = Proxy(payable(l2OutputOracleProxy));
+                Proxy existingProxy = Proxy(payable(cfg.l2OutputOracleProxy));
                 existingProxy.upgradeToAndCall(cfg.opSuccinctL2OutputOracleImpl, initializationParams);
             } else {
                 // This is used if the ProxyAdmin contract is deployed.
                 ProxyAdmin(payable(cfg.proxyAdmin)).upgradeAndCall(
-                    payable(l2OutputOracleProxy), cfg.opSuccinctL2OutputOracleImpl, initializationParams
+                    payable(cfg.l2OutputOracleProxy), cfg.opSuccinctL2OutputOracleImpl, initializationParams
                 );
             }
         } else {
@@ -66,10 +71,12 @@ contract Utils is Test, JSONDecoder {
                 );
             } else {
                 multisigCalldata = abi.encodeWithSelector(
-                    ProxyAdmin.upgradeAndCall.selector, cfg.opSuccinctL2OutputOracleImpl, initializationParams
+                    ProxyAdmin.upgradeAndCall.selector, cfg.l2OutputOracleProxy, cfg.opSuccinctL2OutputOracleImpl, initializationParams
                 );
             }
 
+            console.log("proxyAdmin:", cfg.proxyAdmin);
+            console.log("l2OutputOracleProxy:", cfg.l2OutputOracleProxy);
             console.log("The calldata for upgrading the contract with the new initialization parameters is:");
             console.logBytes(multisigCalldata);
         }
@@ -80,7 +87,8 @@ contract Utils is Test, JSONDecoder {
         string memory root = vm.projectRoot();
         string memory path = string.concat(root, "/", filepath);
         string memory json = vm.readFile(path);
-        bytes memory data = vm.parseJson(json);
+        bytes memory data = vm.parseJson(json, ".config");
         return abi.decode(data, (Config));
     }
+
 }

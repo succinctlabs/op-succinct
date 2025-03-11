@@ -2,10 +2,10 @@
 pragma solidity ^0.8.15;
 
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {ISemver} from "@optimism/src/universal/interfaces/ISemver.sol";
-import {Types} from "@optimism/src/libraries/Types.sol";
+import {Semver} from "@optimism/contracts/universal/Semver.sol";
+import {Types} from "@optimism/contracts/libraries/Types.sol";
 import {AggregationOutputs} from "../lib/Types.sol";
-import {Constants} from "@optimism/src/libraries/Constants.sol";
+import {Constants} from "@optimism/contracts/libraries/Constants.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 
 /// @custom:proxied
@@ -14,7 +14,7 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 ///         commitment to the state of the L2 chain. Other contracts like the OptimismPortal use
 ///         these outputs to verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
-contract OPSuccinctL2OutputOracle is Initializable, ISemver {
+contract OPSuccinctL2OutputOracle is Initializable, Semver {
     /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
     struct InitParams {
         address challenger;
@@ -157,12 +157,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The L1 block hash is not checkpointed.
     error L1BlockHashNotCheckpointed();
 
-    /// @notice Semantic version.
-    /// @custom:semver v1.0.0
-    string public constant version = "v1.0.0";
-
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
-    uint8 public constant initializerVersion = 1;
+    uint8 public constant initializerVersion = 2;
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
@@ -188,7 +184,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ////////////////////////////////////////////////////////////
 
     /// @notice Constructs the OPSuccinctL2OutputOracle contract. Disables initializers.
-    constructor() {
+    constructor() Semver(2, 0, 0) {
         _disableInitializers();
     }
 
@@ -420,13 +416,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Checkpoints a block hash at a given block number.
     /// @param _blockNumber Block number to checkpoint the hash at.
     /// @dev If the block hash is not available, this will revert.
-    /// TODO: just for testing
-    function checkpointBlockHash(uint256 _blockNumber, bytes32 l1BlockHash) external {
-        // bytes32 blockHash = blockhash(_blockNumber);
-        // if (blockHash == bytes32(0)) {
-        //     revert L1BlockHashNotAvailable();
-        // }
-        historicBlockHashes[_blockNumber] = l1BlockHash;
+    function checkpointBlockHash(uint256 _blockNumber) external {
+        bytes32 blockHash = blockhash(_blockNumber);
+        if (blockHash == bytes32(0)) {
+            revert L1BlockHashNotAvailable();
+        }
+        historicBlockHashes[_blockNumber] = blockHash;
     }
 
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.

@@ -5,8 +5,10 @@ contract JSONDecoder {
     struct Config {
         bytes32 aggregationVkey;
         address challenger;
+        bool executeUpgradeCall;
         uint256 finalizationPeriod;
         uint256 l2BlockTime;
+        address l2OutputOracleProxy;
         address opSuccinctL2OutputOracleImpl;
         address owner;
         address proposer;

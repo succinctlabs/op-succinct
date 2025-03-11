@@ -1,0 +1,32 @@
+chainId: 11155111
+  
+envs:
+  F_WALLET_TYPE: PRIVATE_KEY # options: AWS_KMS, PRIVATE_KEY, LEDGER, MNEMONIC
+  F_PRIVATE_KEY: 912fc84711ed0edd5d4a17791afcff6395c2a0ec8513d36c8cc7f9cd175e7ea1
+  F_MNEMONIC: ""
+  F_MNEMONIC_INDEX: 0
+  F_AWS_KMS_KEY_ID: ""
+  F_SENDER: "0x692681443876f556A7fB5b5D41aB4cAf020363C5" 
+  F_VERBOSE: true
+  F_RPC_URL: https://rpc.ankr.com/eth_sepolia
+
+explorers: {}
+
+config:
+  aggregationVkey: "0x004f113a89b4e8d162197047643c9d710b42a30e7da7052703855d5c4716a81d"
+  challenger: "0x692681443876f556A7fB5b5D41aB4cAf020363C5"
+  executeUpgradeCall: false
+  finalizationPeriod: 300
+  l2BlockTime: 2
+  opSuccinctL2OutputOracleImpl: "0x0000000000000000000000000000000000000000"
+  owner: "0x692681443876f556A7fB5b5D41aB4cAf020363C5"
+  proposer: "0x7630EeA78459A7668e2288d5679FCdc290ddEF75"
+  proxyAdmin: "0xf141FEfaa1dEAC7f51fA11373005f333351455B5"
+  rangeVkeyCommitment: "0x4fbeb97c65279a432decbbbf33ae9b9454c8714a2cbca7814fdd098d508a5f5e"
+  rollupConfigHash: "0xca31b9e8270a56b41fc7a672527d565d279a056fcc1d6f68bc14405b369587ac"
+  startingBlockNumber: 0
+  startingOutputRoot: "0x9a3a2bc81b260739b26d860e5c298faba65ee87929af3c8a54560b47b25ed65c"
+  startingTimestamp: 1735384596
+  submissionInterval: 450
+  verifier: "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
+  l2OutputOracleProxy: "0x01f9FC616F1f9ec0D52D1f978eD805DBb54dBC04"
