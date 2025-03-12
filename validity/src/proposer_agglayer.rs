@@ -79,14 +79,8 @@ where
         // Get all proof statuses of all requests in the proving state
         self.inner.handle_proving_requests().await?;
 
-        // Create aggregation proofs based on the completed range proofs
-        self.inner.create_aggregation_proofs().await?;
-
         // Request all unrequested proofs from the prover network
         self.inner.request_queued_proofs().await?;
-
-        // Deliberately skip the submit_agg_proofs step as it will be handled by Agglayer
-        // self.inner.submit_agg_proofs().await?;
 
         Ok(())
     }
