@@ -67,8 +67,7 @@ async fn main() -> Result<()> {
         Arc::new(fetcher),
         proposer_config,
         env_config.loop_interval,
-    )
-    .await?;
+    )?;
 
     // Spawn a thread for the proposer.
     info!("Starting proposer.");

@@ -109,7 +109,7 @@ where
     P: Provider<N> + 'static + Clone,
     N: Network,
 {
-    pub async fn new(
+    pub fn new(
         provider: P,
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
@@ -149,6 +149,8 @@ where
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
         ));
+
+        info!("Initialized proof requester");
 
         let l2oo_contract =
             OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider.clone());
@@ -1118,6 +1120,8 @@ where
 
     #[tracing::instrument(name = "proposer.run", skip(self))]
     pub async fn run(&self) -> Result<()> {
+        info!("Starting proposer");
+
         // Spawn the task completion handler.
         self.spawn_task_completion_handler().await?;
 
@@ -1125,6 +1129,8 @@ where
         self.initialize_proposer().await?;
 
         gauge!("succinct_error_count").set(0.0);
+
+        info!("Proposer initialized");
 
         // Loop interval in seconds.
         loop {
