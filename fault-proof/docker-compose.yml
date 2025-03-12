@@ -29,8 +29,7 @@ services:
       - "${FP_PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - /home/op_succinct_lite_prometheus_data:/prometheus
-    user: root
+      - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -48,21 +47,12 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
       - ./grafana/alerts:/var/lib/grafana/alerts
-      - /home/op_succinct_lite_grafana_data:/var/lib/grafana
-    user: root
+      - grafana_data:/var/lib/grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
 
 volumes:
-  prometheus_data:    
-    driver_opts:
-      type: none
-      device: /home/op_succinct_lite_prometheus_data
-      o: bind
+  prometheus_data:
   grafana_data:
-    driver_opts:
-      type: none
-      device: /home/op_succinct_lite_grafana_data
-      o: bind
