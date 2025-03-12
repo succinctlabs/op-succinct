@@ -4,12 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
+      - '*'
     tags:
       - '*'
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build:
@@ -22,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }} # Check out the PR head, rather than the merge commit.
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
