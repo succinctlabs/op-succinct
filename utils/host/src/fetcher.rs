@@ -835,7 +835,7 @@ impl OPSuccinctDataFetcher {
             Ok(safe_head) => Ok(safe_head),
             Err(_) => {
                 // Fallback: estimate L1 block based on timestamp
-                let max_batch_post_delay_minutes = 30;
+                let max_batch_post_delay_minutes = 40;
                 let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
                 let finalized_l1_timestamp =
                     self.get_l1_header(BlockId::finalized()).await?.timestamp;
