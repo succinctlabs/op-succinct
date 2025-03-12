@@ -73,6 +73,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/server /usr/local/bin/server
+COPY resources ./resources
 
 # Expose port based on environment variable or default to 3000
 ENV PORT=${PORT:-3000}
