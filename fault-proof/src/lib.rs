@@ -200,7 +200,7 @@ where
     /// Get the oldest game address with claimable bonds.
     ///
     /// Claimable games are games that have been finalized and have a determined bond distribution mode.
-    /// We check if the game is finalized by checking if it's not in progress (status is Resolved).
+    /// Check if the game is finalized by checking if it's not in progress (status is Resolved).
     ///
     /// This function checks a window of recent games, starting from
     /// (latest_game_index - max_games_to_check_for_bond_claiming) up to latest_game_index.
@@ -211,7 +211,7 @@ where
         claimant: Address,
     ) -> Result<Option<Address>>;
 
-    /// Determines if we should attempt resolution or not. The `oldest_game_index` is configured
+    /// Determines whether to attempt resolution or not. The `oldest_game_index` is configured
     /// to be `latest_game_index` - `max_games_to_check_for_resolution`.
     ///
     /// If the oldest game has no parent (i.e., it's a first game), we always attempt resolution.
@@ -396,7 +396,7 @@ where
         let claim_data = game.claimData().call().await?.claimData_;
 
         // NOTE(fakedev9999): This is a redundant check with the is_game_finalized check below,
-        // but we keep it for better game state tracking.
+        // but is useful for better logging.
         if claim_data.status != ProposalStatus::Resolved {
             tracing::info!("Game {:?} is not resolved yet", game_address);
             return Ok(false);
@@ -530,7 +530,7 @@ where
     /// Get the oldest game address with claimable bonds.
     ///
     /// Claimable games are games that have been finalized and have a determined bond distribution mode.
-    /// We check if the game is finalized by checking if it's not in progress (status is Resolved).
+    /// Check if the game is finalized by checking if it's not in progress (status is Resolved).
     ///
     /// This function checks a window of recent games, starting from
     /// (latest_game_index - max_games_to_check_for_bond_claiming) up to latest_game_index.
@@ -565,7 +565,7 @@ where
         Ok(None)
     }
 
-    /// Determines if we should attempt resolution or not. The `oldest_game_index` is configured
+    /// Determines whether to attempt resolution or not. The `oldest_game_index` is configured
     /// to be `latest_game_index` - `max_games_to_check_for_resolution`.
     ///
     /// If the oldest game has no parent (i.e., it's a first game), we always attempt resolution.
