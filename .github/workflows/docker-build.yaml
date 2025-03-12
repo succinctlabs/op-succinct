@@ -3,10 +3,6 @@ name: Docker Build
 on:
   workflow_dispatch:
   push:
-    branches:
-      - '*'
-    tags:
-      - '*'
 
 jobs:
   build:
