@@ -193,16 +193,14 @@ async fn main() {
 
     // Initialize challenger gauges.
     challenger_gauges();
-    let challenger_games_challenged = gauge!("op_succinct_fp_challenger_games_challenged");
-    let challenger_games_resolved = gauge!("op_succinct_fp_challenger_games_resolved");
-    let challenger_errors = gauge!("op_succinct_fp_challenger_errors");
-
-    challenger_games_challenged.set(0.0);
-    challenger_games_resolved.set(0.0);
-    challenger_errors.set(0.0);
 
     // Initialize metrics exporter.
     init_metrics(&challenger.config.metrics_port);
+
+    // Set initial values for challenger metrics.
+    gauge!("op_succinct_fp_challenger_games_challenged").set(0.0);
+    gauge!("op_succinct_fp_challenger_games_resolved").set(0.0);
+    gauge!("op_succinct_fp_challenger_errors").set(0.0);
 
     challenger.run().await.expect("Runs in an infinite loop");
 }

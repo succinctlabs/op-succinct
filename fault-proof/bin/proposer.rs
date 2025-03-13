@@ -69,18 +69,15 @@ async fn main() -> Result<()> {
 
     // Initalize proposer gauges.
     proposer_gauges();
-    let proposer_games_created = gauge!("op_succinct_fp_proposer_games_created");
-    let proposer_games_resolved = gauge!("op_succinct_fp_proposer_games_resolved");
-    let proposer_games_bonds_claimed = gauge!("op_succinct_fp_proposer_games_bonds_claimed");
-    let proposer_errors = gauge!("op_succinct_fp_proposer_errors");
-
-    proposer_games_created.set(0.0);
-    proposer_games_resolved.set(0.0);
-    proposer_games_bonds_claimed.set(0.0);
-    proposer_errors.set(0.0);
 
     // Initialize metrics exporter.
     init_metrics(&proposer.config.metrics_port);
+
+    // Set initial values for proposer metrics.
+    gauge!("op_succinct_fp_games_created").set(0.0);
+    gauge!("op_succinct_fp_games_resolved").set(0.0);
+    gauge!("op_succinct_fp_games_bonds_claimed").set(0.0);
+    gauge!("op_succinct_fp_errors").set(0.0);
 
     proposer.run().await.expect("Runs in an infinite loop");
 
