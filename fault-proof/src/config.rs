@@ -47,7 +47,7 @@ pub struct ProposerConfig {
     /// The maximum number of games to check for bond claiming.
     pub max_games_to_check_for_bond_claiming: u64,
 
-    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated.
+    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
     pub no_safe_db: bool,
 }
 
