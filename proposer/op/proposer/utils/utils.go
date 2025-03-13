@@ -386,7 +386,7 @@ func SetupBeacon(l1BeaconUrl string) (*sources.L1BeaconClient, error) {
 // TODO: Ask Optimism team to export this function.
 func processFrames(cfg reassemble.Config, rollupCfg *rollup.Config, id derive.ChannelID, frames []reassemble.FrameWithMetadata) reassemble.ChannelWithMetadata {
 	spec := rollup.NewChainSpec(rollupCfg)
-	ch := derive.NewChannel(id, eth.L1BlockRef{Number: frames[0].InclusionBlock})
+	ch := derive.NewChannel(id, eth.L1BlockRef{Number: frames[0].InclusionBlock}, false)
 	invalidFrame := false
 
 	for _, frame := range frames {

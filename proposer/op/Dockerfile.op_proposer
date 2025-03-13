@@ -1,5 +1,5 @@
 # Use a multi-stage build for efficiency
-FROM golang:1.22 AS go-builder
+FROM golang:1.23 AS go-builder
 
 # Set up Go environment
 FROM go-builder AS optimism-builder
@@ -35,12 +35,8 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # Copy the built op-proposer binary from the previous stage
 COPY --from=optimism-builder /optimism/op-proposer/proposer/bin/op-proposer /usr/local/bin/op-proposer
 
-# Set the entrypoint to run op-proposer with environment variables
-COPY ./proposer/op/op_proposer.sh /usr/local/bin/op_proposer.sh
-
 # Make the binary and entrypoint executable.
 RUN ls -l /usr/local/bin/
 RUN chmod +x /usr/local/bin/op-proposer
-RUN chmod +x /usr/local/bin/op_proposer.sh
 
-ENTRYPOINT ["/usr/local/bin/op_proposer.sh"]
+ENTRYPOINT ["/usr/local/bin/op-proposer"]

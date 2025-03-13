@@ -198,6 +198,8 @@ func (m *OPSuccinctMetrics) RecordProposerStatus(metrics ProposerMetrics) {
 	m.MinBlockToProveToAgg.Set(float64(metrics.MinBlockToProveToAgg))
 }
 
+func (m *OPSuccinctMetrics) RecordL2Proposal(sequenceNum uint64) {}
+
 type ProposerMetrics struct {
 	L2UnsafeHeadBlock              uint64
 	L2FinalizedBlock               uint64
