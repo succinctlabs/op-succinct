@@ -10,6 +10,7 @@ use fault_proof::{
     contract::DisputeGameFactory, prometheus::proposer_gauges, proposer::OPSuccinctProposer,
     utils::setup_logging,
 };
+use metrics::gauge;
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::default::SingleChainOPSuccinctHost,
@@ -66,8 +67,19 @@ async fn main() -> Result<()> {
     .await
     .unwrap();
 
-    // Initialize metrics exporter.
+    // Initalize proposer gauges.
     proposer_gauges();
+    let proposer_games_created = gauge!("op_succinct_fp_proposer_games_created");
+    let proposer_games_resolved = gauge!("op_succinct_fp_proposer_games_resolved");
+    let proposer_games_bonds_claimed = gauge!("op_succinct_fp_proposer_games_bonds_claimed");
+    let proposer_errors = gauge!("op_succinct_fp_proposer_errors");
+
+    proposer_games_created.set(0.0);
+    proposer_games_resolved.set(0.0);
+    proposer_games_bonds_claimed.set(0.0);
+    proposer_errors.set(0.0);
+
+    // Initialize metrics exporter.
     init_metrics(&proposer.config.metrics_port);
 
     proposer.run().await.expect("Runs in an infinite loop");

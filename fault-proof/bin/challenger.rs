@@ -89,7 +89,7 @@ where
     }
 
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
-    async fn handle_game_challenging(&self) -> Result<()> {
+    async fn handle_game_challenging(&self) -> Result<Option<()>> {
         let _span = tracing::info_span!("[[Challenging]]").entered();
 
         if let Some(game_address) = self
@@ -102,9 +102,10 @@ where
         {
             tracing::info!("Attempting to challenge game {:?}", game_address);
             self.challenge_game(game_address).await?;
+            Ok(Some(()))
+        } else {
+            Ok(None)
         }
-
-        Ok(())
     }
 
     /// Handles resolution of challenged games that are ready to be resolved.
@@ -132,11 +133,12 @@ where
             interval.tick().await;
 
             match self.handle_game_challenging().await {
-                Ok(_) => {
+                Ok(Some(_)) => {
                     let games_challenged_gauge =
                         gauge!("op_succinct_fp_challenger_games_challenged");
                     games_challenged_gauge.increment(1.0);
                 }
+                Ok(None) => {}
                 Err(e) => {
                     tracing::warn!("Failed to handle game challenging: {:?}", e);
                     let challenger_error_gauge = gauge!("op_succinct_fp_challenger_errors");
@@ -189,8 +191,17 @@ async fn main() {
         .await
         .unwrap();
 
-    // Initialize metrics exporter.
+    // Initialize challenger gauges.
     challenger_gauges();
+    let challenger_games_challenged = gauge!("op_succinct_fp_challenger_games_challenged");
+    let challenger_games_resolved = gauge!("op_succinct_fp_challenger_games_resolved");
+    let challenger_errors = gauge!("op_succinct_fp_challenger_errors");
+
+    challenger_games_challenged.set(0.0);
+    challenger_games_resolved.set(0.0);
+    challenger_errors.set(0.0);
+
+    // Initialize metrics exporter.
     init_metrics(&challenger.config.metrics_port);
 
     challenger.run().await.expect("Runs in an infinite loop");
