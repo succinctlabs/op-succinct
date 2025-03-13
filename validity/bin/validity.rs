@@ -54,6 +54,7 @@ async fn main() -> Result<()> {
         submission_interval: env_config.submission_interval,
         mock: env_config.mock,
         prover_address: env_config.prover_address,
+        no_safe_db: env_config.no_safe_db,
     };
 
     // Read all config from env vars

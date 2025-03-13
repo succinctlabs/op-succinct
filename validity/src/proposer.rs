@@ -73,6 +73,8 @@ pub struct RequesterConfig {
     pub agg_proof_strategy: FulfillmentStrategy,
     pub agg_proof_mode: SP1ProofMode,
     pub mock: bool,
+    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
+    pub no_safe_db: bool,
 }
 
 /// Configuration for the driver.
@@ -151,6 +153,7 @@ where
             requester_config.range_proof_strategy,
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
+            requester_config.no_safe_db,
         ));
 
         let l2oo_contract =

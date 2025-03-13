@@ -612,6 +612,7 @@ impl OPSuccinctDataFetcher {
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
         cache_mode: CacheMode,
+        no_safe_db: bool,
     ) -> Result<OPSuccinctHost> {
         // If the rollup config is not already loaded, fetch and save it.
         if self.rollup_config.is_none() {
@@ -682,7 +683,7 @@ impl OPSuccinctDataFetcher {
         let l1_head_hash = match l1_head_hash {
             Some(l1_head_hash) => l1_head_hash,
             None => {
-                let (_, l1_head_number) = self.get_l1_head(l2_end_block).await?;
+                let (_, l1_head_number) = self.get_l1_head(l2_end_block, no_safe_db).await?;
 
                 // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block.
                 let l1_head_number = l1_head_number + 20;
@@ -810,27 +811,33 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// If the safeDB is not activated, then  estimate the L1 head based on the timestamp of the L2 block and the finalized L1 block.
-    async fn get_l1_head(&self, l2_end_block: u64) -> Result<(B256, u64)> {
+    /// If the safeDB is not activated but `no_safe_db` flag is true, then estimate the L1 head based on the timestamp of the L2 block and the finalized L1 block.
+    /// If `no_safe_db` is false, then panic if `get_l1_head_with_safe_head` returns an error.
+    async fn get_l1_head(&self, l2_end_block: u64, no_safe_db: bool) -> Result<(B256, u64)> {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
 
         match self.get_l1_head_with_safe_head(l2_end_block).await {
             Ok(safe_head) => Ok(safe_head),
-            Err(_) => {
-                tracing::warn!("SafeDB not activated - falling back to timestamp-based L1 head estimation. WARNING: This fallback method is more expensive and less reliable. Derivation may fail if the L2 block batch is posted after our estimated L1 head. Enable SafeDB on op-node to fix this.");
-                // Fallback: estimate L1 block based on timestamp
-                let max_batch_post_delay_minutes = 40;
-                let l2_block_timestamp = self.get_l2_header(l2_end_block.into()).await?.timestamp;
-                let finalized_l1_timestamp =
-                    self.get_l1_header(BlockId::finalized()).await?.timestamp;
+            Err(e) => {
+                if no_safe_db {
+                    tracing::warn!("SafeDB not activated - falling back to timestamp-based L1 head estimation. WARNING: This fallback method is more expensive and less reliable. Derivation may fail if the L2 block batch is posted after our estimated L1 head. Enable SafeDB on op-node to fix this.");
+                    // Fallback: estimate L1 block based on timestamp
+                    let max_batch_post_delay_minutes = 40;
+                    let l2_block_timestamp =
+                        self.get_l2_header(l2_end_block.into()).await?.timestamp;
+                    let finalized_l1_timestamp =
+                        self.get_l1_header(BlockId::finalized()).await?.timestamp;
 
-                let target_timestamp = min(
-                    l2_block_timestamp + (max_batch_post_delay_minutes * 60),
-                    finalized_l1_timestamp,
-                );
-                self.find_l1_block_by_timestamp(target_timestamp).await
+                    let target_timestamp = min(
+                        l2_block_timestamp + (max_batch_post_delay_minutes * 60),
+                        finalized_l1_timestamp,
+                    );
+                    self.find_l1_block_by_timestamp(target_timestamp).await
+                } else {
+                    panic!("SafeDB is required but not available: {}", e);
+                }
             }
         }
     }

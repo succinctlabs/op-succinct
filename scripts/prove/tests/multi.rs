@@ -21,7 +21,13 @@ async fn execute_batch() -> Result<()> {
         get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?;
 
     let host_args = data_fetcher
-        .get_host_args(l2_start_block, l2_end_block, None, CacheMode::DeleteCache)
+        .get_host_args(
+            l2_start_block,
+            l2_end_block,
+            None,
+            CacheMode::DeleteCache,
+            false,
+        )
         .await?;
 
     let oracle = start_server_and_native_client(host_args.clone()).await?;
