@@ -13,7 +13,7 @@ use fault_proof::{
 
 #[derive(Parser)]
 struct Args {
-    #[clap(long, default_value = ".env.proposer")]
+    #[arg(long, default_value = ".env.proposer")]
     env_file: String,
 }
 
