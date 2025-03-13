@@ -1,12 +1,4 @@
 use metrics::describe_gauge;
-use metrics_exporter_prometheus::PrometheusBuilder;
-use metrics_process::Collector;
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    thread,
-    time::Duration,
-};
-use tracing::warn;
 
 pub fn proposer_gauges() {
     // Proposer metrics
@@ -42,7 +34,7 @@ pub fn proposer_gauges() {
     );
 }
 
-fn challenger_gauges() {
+pub fn challenger_gauges() {
     describe_gauge!(
         "op_succinct_fp_challenger_games_challenged",
         "Total number of games challenged by the challenger"
@@ -55,51 +47,4 @@ fn challenger_gauges() {
         "op_succinct_fp_challenger_errors",
         "Total number of errors encountered by the challenger"
     );
-}
-
-pub fn init_proposer_metrics() {
-    proposer_gauges();
-
-    let builder = PrometheusBuilder::new();
-
-    if let Err(e) = builder.install() {
-        warn!(
-            "Failed to start metrics server: {}. Will continue without metrics.",
-            e
-        );
-    }
-
-    // Spawn a thread to collect proposer metrics
-    thread::spawn(move || {
-        let collector = Collector::default();
-        collector.describe();
-        loop {
-            collector.collect();
-            thread::sleep(Duration::from_millis(750));
-        }
-    });
-}
-
-pub fn init_challenger_metrics() {
-    challenger_gauges();
-
-    let builder = PrometheusBuilder::new()
-        .with_http_listener(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 9001));
-
-    if let Err(e) = builder.install() {
-        warn!(
-            "Failed to start challenger metrics server: {}. Will continue without metrics.",
-            e
-        );
-    }
-
-    // Spawn a thread to collect challenger metrics
-    thread::spawn(move || {
-        let collector = Collector::default();
-        collector.describe();
-        loop {
-            collector.collect();
-            thread::sleep(Duration::from_millis(750));
-        }
-    });
 }

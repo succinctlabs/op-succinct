@@ -7,12 +7,13 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    contract::DisputeGameFactory, prometheus::init_proposer_metrics, proposer::OPSuccinctProposer,
+    contract::DisputeGameFactory, prometheus::proposer_gauges, proposer::OPSuccinctProposer,
     utils::setup_logging,
 };
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::default::SingleChainOPSuccinctHost,
+    metrics::init_metrics,
 };
 
 #[derive(Parser)]
@@ -27,9 +28,6 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
-
-    // Initialize metrics
-    init_proposer_metrics();
 
     let wallet = EthereumWallet::from(
         env::var("PRIVATE_KEY")
@@ -67,7 +65,12 @@ async fn main() -> Result<()> {
     )
     .await
     .unwrap();
-    proposer.run().await?;
+
+    // Initialize metrics exporter.
+    proposer_gauges();
+    init_metrics(&proposer.config.metrics_port);
+
+    proposer.run().await.expect("Runs in an infinite loop");
 
     Ok(())
 }

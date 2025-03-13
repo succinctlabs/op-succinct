@@ -28,14 +28,19 @@ services:
     ports:
       - "${FP_PROMETHEUS_PORT:-9090}:9090"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - ./.env.proposer:/tmp/.env.proposer
+      - ./.env.challenger:/tmp/.env.challenger
+    user: root
+    entrypoint: >
+      /bin/sh -c "
+        PROPOSER_PORT=$(grep PROPOSER_METRICS_PORT /tmp/.env.proposer | cut -d= -f2) &&
+        CHALLENGER_PORT=$(grep CHALLENGER_METRICS_PORT /tmp/.env.challenger | cut -d= -f2) &&
+        sed -i \"s/proposer:9000/proposer:$${PROPOSER_PORT}/g\" /etc/prometheus/prometheus.yml &&
+        sed -i \"s/challenger:9001/challenger:$${CHALLENGER_PORT}/g\" /etc/prometheus/prometheus.yml &&
+        exec /bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/prometheus --web.console.libraries=/etc/prometheus/console_libraries --web.console.templates=/etc/prometheus/consoles --web.enable-lifecycle
+      "
 
   grafana:
     image: grafana/grafana:latest
