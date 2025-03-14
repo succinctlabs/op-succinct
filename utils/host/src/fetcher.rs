@@ -811,8 +811,10 @@ impl OPSuccinctDataFetcher {
         }
     }
 
-    /// If the safeDB is not activated but `safe_db_fallback` flag is true, then estimate the L1 head based on the timestamp of the L2 block and the finalized L1 block.
-    /// If `safe_db_fallback` is false, then panic if `get_l1_head_with_safe_head` returns an error.
+    /// If the safeDB is activated, use it to fetch the L1 block where the batch including the data for the end L2 block was posted.
+    /// If the safeDB is not activated:
+    ///   - If the `SAFE_DB_FALLBACK` flag is set to `true`, estimate the L1 head based on the L2 block timestamp.
+    ///   - Else, return an error.
     async fn get_l1_head(&self, l2_end_block: u64, safe_db_fallback: bool) -> Result<(B256, u64)> {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
