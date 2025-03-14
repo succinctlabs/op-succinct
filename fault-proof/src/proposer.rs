@@ -383,7 +383,7 @@ where
                         receipt.transaction_hash
                     );
 
-                    Ok(Action::Performed(()))
+                    Ok(Action::Performed)
                 }
                 Err(e) => Err(anyhow::anyhow!(
                     "Failed to claim bond from game {:?}: {:?}",
@@ -477,7 +477,7 @@ where
                     }
 
                     match self.handle_bond_claiming().await {
-                        Ok(Action::Performed(_)) => {
+                        Ok(Action::Performed) => {
                             let game_bonds_claimed_gauge =
                                 gauge!("op_succinct_fp_games_bonds_claimed");
                             game_bonds_claimed_gauge.increment(1.0);

@@ -40,8 +40,8 @@ pub enum Mode {
 }
 
 #[derive(Debug)]
-pub enum Action<T = ()> {
-    Performed(T),
+pub enum Action {
+    Performed,
     Skipped,
 }
 
@@ -677,7 +677,7 @@ where
             index,
             receipt.transaction_hash
         );
-        Ok(Action::Performed(()))
+        Ok(Action::Performed)
     }
 
     /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
@@ -708,7 +708,7 @@ where
 
             for i in 0..games_to_check.to::<u64>() {
                 let index = oldest_game_index + U256::from(i);
-                if let Ok(Action::Performed(_)) = self
+                if let Ok(Action::Performed) = self
                     .try_resolve_games(
                         index,
                         mode,
