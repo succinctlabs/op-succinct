@@ -62,6 +62,14 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .host
             .fetch(request.start_block as u64, request.end_block as u64, None)
             .await?;
+
+        if let Some(l1_head) = self.host.get_l1_head_hash(&host_args) {
+            let l1_head_block_number = self.fetcher.get_l1_header(l1_head.into()).await?.number;
+            self.db_client
+                .update_l1_head_block_number(request.id, l1_head_block_number as i64)
+                .await?;
+        }
+
         let mem_kv_store = self.host.run(&host_args).await?;
         let sp1_stdin = get_proof_stdin(mem_kv_store).context("Failed to get proof stdin")?;
 

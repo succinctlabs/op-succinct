@@ -41,6 +41,9 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
     ) -> Result<Self::Args>;
+
+    /// Get the L1 head hash from the host args.
+    fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;
 }
 
 /// Initialize the host.
