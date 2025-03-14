@@ -20,7 +20,7 @@ pub fn init_metrics(port: &u16) {
         );
     }
 
-    // Spawn a thread to collect process metrics
+    // Spawn a thread to collect process metrics.
     thread::spawn(move || {
         let collector = Collector::default();
         collector.describe();

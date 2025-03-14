@@ -244,7 +244,7 @@ where
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
         let _span = tracing::info_span!("[[Proposing]]").entered();
 
-        // Get the finalized L2 head block number
+        // Get the finalized L2 head block number.
         let finalized_l2_head_block_number = self
             .l2_provider
             .get_l2_block_by_number(BlockNumberOrTag::Finalized)
@@ -410,7 +410,7 @@ where
         let finalized_l2_block_gauge = gauge!("op_succinct_fp_finalized_l2_block_number");
         finalized_l2_block_gauge.set(finalized_l2_block_number as f64);
 
-        // Get the latest valid proposal
+        // Get the latest valid proposal.
         match self
             .factory
             .get_latest_valid_proposal(self.l2_provider.clone())
