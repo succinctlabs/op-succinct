@@ -1,6 +1,7 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, OPSuccinctProofRequester,
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, init_gauges,
+    OPSuccinctProofRequester,
 };
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -322,9 +323,21 @@ where
                 .unwrap()
                 .as_secs();
             if current_time > status.deadline {
-                self.proof_requester
+                match self
+                    .proof_requester
                     .retry_request(request.clone(), status.execution_status())
-                    .await?;
+                    .await
+                {
+                    Ok(_) => {
+                        gauge!("succinct_proof_request_retry_error_count").increment(1.0);
+                    }
+                    Err(e) => {
+                        gauge!("succinct_proof_request_retry_error_count").increment(1.0);
+                        return Err(e);
+                    }
+                }
+
+                gauge!("succinct_proof_request_timeout_error_count").increment(1.0);
 
                 tracing::error!(
                     "Proof request has timed out for request id: {:?}",
@@ -360,6 +373,7 @@ where
                 self.proof_requester
                     .retry_request(request, status.execution_status())
                     .await?;
+                gauge!("proof_request_retry_count").increment(1.0);
             }
         } else {
             // There should never be a proof request in Prove status without a proof request id.
@@ -669,7 +683,13 @@ where
         };
 
         // Relay the aggregation proof.
-        let transaction_hash = self.relay_aggregation_proof(&completed_agg_proof).await?;
+        let transaction_hash = match self.relay_aggregation_proof(&completed_agg_proof).await {
+            Ok(transaction_hash) => transaction_hash,
+            Err(e) => {
+                gauge!("succinct_relay_agg_proof_error_count").increment(1.0);
+                return Err(e);
+            }
+        };
 
         info!(
             "Relayed aggregation proof. Transaction hash: {:?}",
@@ -760,7 +780,7 @@ where
 
         // If the transaction reverted, log the error.
         if !receipt.status() {
-            tracing::error!("Transaction reverted: {:?}", receipt);
+            return Err(anyhow!("Transaction reverted: {:?}", receipt));
         }
 
         Ok(receipt.transaction_hash())
@@ -867,14 +887,21 @@ where
                                         "Task failed with error"
                                     );
                                     // Now safe to retry as original task is cleaned up
-                                    if let Err(retry_err) = proof_requester
+                                    match proof_requester
                                         .retry_request(
                                             request,
                                             ExecutionStatus::UnspecifiedExecutionStatus,
                                         )
                                         .await
                                     {
-                                        error!(error = ?retry_err, "Failed to retry request");
+                                        Ok(_) => {
+                                            gauge!("succinct_proof_request_retry_count")
+                                                .increment(1.0);
+                                        }
+                                        Err(retry_err) => {
+                                            error!(error = ?retry_err, "Failed to retry request");
+                                            gauge!("succinct_retry_error_count").increment(1.0);
+                                        }
                                     }
                                 }
                             }
@@ -886,14 +913,20 @@ where
                                     "Task panicked"
                                 );
                                 // Now safe to retry as original task is cleaned up
-                                if let Err(retry_err) = proof_requester
+                                match proof_requester
                                     .retry_request(
                                         request,
                                         ExecutionStatus::UnspecifiedExecutionStatus,
                                     )
                                     .await
                                 {
-                                    error!(error = ?retry_err, "Failed to retry request after panic");
+                                    Ok(_) => {
+                                        gauge!("succinct_proof_request_retry_count").increment(1.0);
+                                    }
+                                    Err(retry_err) => {
+                                        error!(error = ?retry_err, "Failed to retry request after panic");
+                                        gauge!("succinct_retry_error_count").increment(1.0);
+                                    }
                                 }
                             }
                         }
@@ -1146,7 +1179,8 @@ where
         // Handle the case where the proposer is being re-started and the proposer state needs to be updated.
         self.initialize_proposer().await?;
 
-        gauge!("succinct_error_count").set(0.0);
+        // Initialize the metrics gauges.
+        init_gauges();
 
         // Loop interval in seconds.
         loop {
@@ -1163,8 +1197,7 @@ where
                     // Log the error
                     tracing::error!("Error in proposer loop: {}", e);
                     // Update the error gauge
-                    let error_gauge = gauge!("succinct_error_count");
-                    error_gauge.increment(1.0);
+                    gauge!("succinct_total_error_count").increment(1.0);
                     // Pause for 10 seconds before restarting
                     tracing::info!("Pausing for 10 seconds before restarting the process");
                     tokio::time::sleep(Duration::from_secs(10)).await;

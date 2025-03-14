@@ -38,6 +38,7 @@ base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
+metrics = "0.24.1"
 
 # kona
 kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.13" }
@@ -88,6 +89,7 @@ alloy-node-bindings = { version = "0.12.4", default-features = false }
 alloy-rpc-types-engine = { version = "0.12.4", default-features = false }
 alloy-rpc-types-beacon = { version = "0.12.4", default-features = false }
 alloy-rpc-types-eth = { version = "0.12.4", default-features = false }
+alloy-json-rpc = { version = "0.12.4", default-features = false }
 alloy-signer = { version = "0.12.4", default-features = false }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
