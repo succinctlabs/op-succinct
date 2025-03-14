@@ -29,9 +29,7 @@ CREATE TABLE IF NOT EXISTS requests (
     total_tx_fees NUMERIC(38,0) NOT NULL,
     l1_chain_id BIGINT NOT NULL,
     l2_chain_id BIGINT NOT NULL,
-    contract_address BYTEA,
-    prover_address BYTEA,
-    l1_head_block_number BIGINT
+    contract_address BYTEA
 );
 
 -- Create eth_metrics table

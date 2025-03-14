@@ -128,11 +128,6 @@ impl OPSuccinctRequest {
             .get_l2_block_data_range(start_block as u64, end_block as u64)
             .await?;
 
-        let l1_head_block_number = fetcher
-            .get_l1_head_with_safe_head(end_block as u64)
-            .await?
-            .1;
-
         Ok(Self::new_range_request(
             mode,
             start_block,
@@ -142,7 +137,6 @@ impl OPSuccinctRequest {
             block_data,
             l1_chain_id,
             l2_chain_id,
-            l1_head_block_number as i64,
         ))
     }
 
@@ -157,7 +151,6 @@ impl OPSuccinctRequest {
         block_data: Vec<BlockInfo>,
         l1_chain_id: i64,
         l2_chain_id: i64,
-        l1_head_block_number: i64,
     ) -> Self {
         let now = Local::now().naive_local();
 
@@ -184,7 +177,6 @@ impl OPSuccinctRequest {
             total_tx_fees: total_tx_fees.into(),
             l1_chain_id,
             l2_chain_id,
-            l1_head_block_number: Some(l1_head_block_number),
             ..Default::default()
         }
     }

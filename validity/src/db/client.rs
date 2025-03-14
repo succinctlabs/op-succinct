@@ -373,6 +373,23 @@ impl DriverDBClient {
             .collect())
     }
 
+    /// Update the l1_head_block_number for a request.
+    pub async fn update_l1_head_block_number(
+        &self,
+        id: i64,
+        l1_head_block_number: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query!(
+            r#"
+            UPDATE requests SET l1_head_block_number = $1 WHERE id = $2
+            "#,
+            l1_head_block_number,
+            id,
+        )
+        .execute(&self.pool)
+        .await
+    }
+
     /// Update the prove_duration based on the current time and the proof_request_time.
     pub async fn update_prove_duration(&self, id: i64) -> Result<PgQueryResult, Error> {
         sqlx::query!(
