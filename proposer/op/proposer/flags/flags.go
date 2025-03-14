@@ -164,6 +164,7 @@ var optionalFlags = []cli.Flag{
 	MaxConcurrentProofRequestsFlag,
 	MockFlag,
 	WitnessGenTimeoutFlag,
+	AgglayerFlag,
 }
 
 func init() {
