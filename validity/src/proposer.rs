@@ -319,6 +319,10 @@ where
                 .unwrap()
                 .as_secs();
             if current_time > status.deadline {
+                self.proof_requester
+                    .retry_request(request.clone(), status.execution_status())
+                    .await?;
+
                 return Err(anyhow!(
                     "Proof request has timed out for request id: {:?}",
                     proof_request_id
