@@ -836,7 +836,10 @@ impl OPSuccinctDataFetcher {
                     );
                     self.find_l1_block_by_timestamp(target_timestamp).await
                 } else {
-                    panic!("SafeDB is required but not available: {}", e);
+                    Err(anyhow::anyhow!(
+                        "SafeDB is not activated on your op-node and the `SAFE_DB_FALLBACK` flag is set to false. Please enable the safeDB on your op-node to fix this, or set `SAFE_DB_FALLBACK` flag to true, which will be more expensive: {}",
+                        e
+                    ))
                 }
             }
         }
