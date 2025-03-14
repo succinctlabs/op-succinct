@@ -42,7 +42,7 @@ async fn main() -> Result<()> {
             l2_end_block,
             None,
             cache_mode,
-            args.no_safe_db,
+            args.safe_db_fallback,
         )
         .await?;
 

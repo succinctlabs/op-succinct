@@ -222,7 +222,13 @@ async fn main() -> Result<()> {
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             data_fetcher
-                .get_host_args(range.start, range.end, None, cache_mode, args.no_safe_db)
+                .get_host_args(
+                    range.start,
+                    range.end,
+                    None,
+                    cache_mode,
+                    args.safe_db_fallback,
+                )
                 .await
                 .expect("Failed to get host CLI args")
         })

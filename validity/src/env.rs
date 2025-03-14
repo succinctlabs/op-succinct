@@ -22,7 +22,7 @@ pub struct EnvironmentConfig {
     pub max_concurrent_proof_requests: u64,
     pub submission_interval: u64,
     pub mock: bool,
-    pub no_safe_db: bool,
+    pub safe_db_fallback: bool,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -96,7 +96,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         submission_interval: get_env_var("SUBMISSION_INTERVAL", Some(1800))?,
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
-        no_safe_db: get_env_var("NO_SAFE_DB", Some(true))?,
+        safe_db_fallback: get_env_var("SAFE_DB_FALLBACK", Some(false))?,
     };
 
     Ok(config)

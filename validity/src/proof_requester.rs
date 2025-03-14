@@ -28,7 +28,7 @@ pub struct OPSuccinctProofRequester {
     pub range_strategy: FulfillmentStrategy,
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
-    pub no_safe_db: bool,
+    pub safe_db_fallback: bool,
 }
 
 impl OPSuccinctProofRequester {
@@ -42,7 +42,7 @@ impl OPSuccinctProofRequester {
         range_strategy: FulfillmentStrategy,
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
-        no_safe_db: bool,
+        safe_db_fallback: bool,
     ) -> Self {
         Self {
             network_prover,
@@ -53,7 +53,7 @@ impl OPSuccinctProofRequester {
             range_strategy,
             agg_strategy,
             agg_mode,
-            no_safe_db,
+            safe_db_fallback,
         }
     }
 
@@ -66,7 +66,7 @@ impl OPSuccinctProofRequester {
                 request.end_block as u64,
                 None,
                 CacheMode::DeleteCache,
-                self.no_safe_db,
+                self.safe_db_fallback,
             )
             .await
             .context("Failed to get host CLI args")?;
