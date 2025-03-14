@@ -433,7 +433,7 @@ func (l *L2OutputSubmitter) ProposeL2OutputTxData(output *eth.OutputResponse, pr
 // proposeL2OutputTxData creates the transaction data for the ProposeL2Output function
 func proposeL2OutputTxData(abi *abi.ABI, output *eth.OutputResponse, proof []byte, l1BlockNum uint64) ([]byte, error) {
 	return abi.Pack(
-		"proposeL2Output",
+		"proposeL2Output0",
 		output.OutputRoot,
 		new(big.Int).SetUint64(output.BlockRef.Number),
 		new(big.Int).SetUint64(l1BlockNum),
