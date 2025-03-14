@@ -4648,6 +4648,7 @@ dependencies = [
  "kona-preimage",
  "kona-protocol",
  "kona-rpc",
+ "metrics",
  "num-format",
  "op-alloy-consensus",
  "op-alloy-network",
@@ -4714,6 +4715,7 @@ name = "op-succinct-validity"
 version = "0.1.0"
 dependencies = [
  "alloy-eips 0.12.4",
+ "alloy-json-rpc 0.12.4",
  "alloy-primitives",
  "alloy-provider",
  "alloy-signer-local 0.12.4",
@@ -4737,6 +4739,7 @@ dependencies = [
  "serde_repr",
  "sp1-sdk",
  "sqlx",
+ "thiserror 2.0.11",
  "tikv-jemallocator",
  "tokio",
  "tracing",
