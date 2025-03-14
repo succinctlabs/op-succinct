@@ -7,6 +7,7 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Context;
 use anyhow::Result;
 use op_alloy_network::EthereumWallet;
+use op_succinct_host_utils::hosts::default::SingleChainOPSuccinctHost;
 use tokio::time::Duration;
 
 use fault_proof::{
@@ -46,6 +47,7 @@ async fn test_proposer_defends_successfully() -> Result<()> {
         wallet.default_signer().address(),
         l1_provider_with_wallet.clone(),
         factory.clone(),
+        SingleChainOPSuccinctHost { fetcher },
     )
     .await
     .unwrap();

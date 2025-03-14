@@ -8,6 +8,7 @@ edition.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
+async-trait.workspace = true
 
 # local
 op-succinct-client-utils.workspace = true

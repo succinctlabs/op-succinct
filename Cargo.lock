@@ -4642,6 +4642,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-sol-types",
  "anyhow",
+ "async-trait",
  "futures",
  "kona-genesis",
  "kona-host",
