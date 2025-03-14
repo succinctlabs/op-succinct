@@ -103,7 +103,7 @@ where
         {
             tracing::info!("Attempting to challenge game {:?}", game_address);
             self.challenge_game(game_address).await?;
-            Ok(Action::Performed(()))
+            Ok(Action::Performed)
         } else {
             Ok(Action::Skipped)
         }
@@ -134,7 +134,7 @@ where
             interval.tick().await;
 
             match self.handle_game_challenging().await {
-                Ok(Action::Performed(_)) => {
+                Ok(Action::Performed) => {
                     let games_challenged_gauge =
                         gauge!("op_succinct_fp_challenger_games_challenged");
                     games_challenged_gauge.increment(1.0);
