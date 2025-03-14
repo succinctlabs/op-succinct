@@ -46,6 +46,7 @@ where
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>>,
     pub init_bond: U256,
+    pub safe_db_fallback: bool,
     prover: SP1Prover,
 }
 
@@ -73,6 +74,7 @@ where
             l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
             factory: Arc::new(factory.clone()),
             init_bond: factory.fetch_init_bond(config.game_type).await?,
+            safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
                 network_prover,
                 range_pk: Arc::new(range_pk),
@@ -103,6 +105,7 @@ where
                 l2_block_number.to::<u64>(),
                 Some(l1_head_hash),
                 CacheMode::DeleteCache,
+                self.config.safe_db_fallback,
             )
             .await
         {

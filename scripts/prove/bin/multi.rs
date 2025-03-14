@@ -37,7 +37,13 @@ async fn main() -> Result<()> {
         get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?;
 
     let host_args = data_fetcher
-        .get_host_args(l2_start_block, l2_end_block, None, cache_mode)
+        .get_host_args(
+            l2_start_block,
+            l2_end_block,
+            None,
+            cache_mode,
+            args.safe_db_fallback,
+        )
         .await?;
 
     debug!("Host args: {:?}", host_args);
