@@ -47,9 +47,10 @@ impl DriverDBClient {
                 l1_chain_id,
                 l2_chain_id,
                 contract_address,
-                prover_address
+                prover_address,
+                l1_head_block_number
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
             )
             "#,
             req.status as i16,
@@ -81,6 +82,7 @@ impl DriverDBClient {
             req.l2_chain_id,
             req.contract_address.as_ref().map(|arr| &arr[..]),
             req.prover_address.as_ref().map(|arr| &arr[..]),
+            req.l1_head_block_number.map(|n| n as i64),
         )
         .execute(&self.pool)
         .await
@@ -606,7 +608,7 @@ impl DriverDBClient {
                     execution_duration, prove_duration, range_vkey_commitment,
                     aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, 
                     total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, 
-                    l1_chain_id, l2_chain_id, contract_address) ",
+                    l1_chain_id, l2_chain_id, contract_address, prover_address, l1_head_block_number) ",
             );
 
             query_builder.push_values(chunk, |mut b, req| {
@@ -636,7 +638,9 @@ impl DriverDBClient {
                     .push_bind(req.total_tx_fees.clone())
                     .push_bind(req.l1_chain_id)
                     .push_bind(req.l2_chain_id)
-                    .push_bind(req.contract_address.as_ref().map(|arr| &arr[..]));
+                    .push_bind(req.contract_address.as_ref().map(|arr| &arr[..]))
+                    .push_bind(req.prover_address.as_ref().map(|arr| &arr[..]))
+                    .push_bind(req.l1_head_block_number);
             });
 
             query_builder.build().execute(&mut *tx).await?;

@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS requests (
     l1_chain_id BIGINT NOT NULL,
     l2_chain_id BIGINT NOT NULL,
     contract_address BYTEA,
-    prover_address BYTEA
+    prover_address BYTEA,
+    l1_head_block_number BIGINT
 );
 
 -- Create eth_metrics table
