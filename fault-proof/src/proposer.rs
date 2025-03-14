@@ -17,8 +17,8 @@ use tokio::time;
 use crate::{
     config::ProposerConfig,
     contract::{DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame},
-    FactoryTrait, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode, NUM_CONFIRMATIONS,
-    TIMEOUT_SECONDS,
+    Action, FactoryTrait, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode,
+    NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
@@ -347,7 +347,7 @@ where
     }
 
     /// Handles claiming bonds from resolved games.
-    pub async fn handle_bond_claiming(&self) -> Result<Option<()>> {
+    pub async fn handle_bond_claiming(&self) -> Result<Action> {
         let _span = tracing::info_span!("[[Claiming Bonds]]").entered();
 
         if let Some(game_address) = self
@@ -383,7 +383,7 @@ where
                         receipt.transaction_hash
                     );
 
-                    Ok(Some(()))
+                    Ok(Action::Performed(()))
                 }
                 Err(e) => Err(anyhow::anyhow!(
                     "Failed to claim bond from game {:?}: {:?}",
@@ -394,7 +394,7 @@ where
         } else {
             tracing::info!("No new games to claim bonds from");
 
-            Ok(None)
+            Ok(Action::Skipped)
         }
     }
 
@@ -477,12 +477,12 @@ where
                     }
 
                     match self.handle_bond_claiming().await {
-                        Ok(Some(_)) => {
+                        Ok(Action::Performed(_)) => {
                             let game_bonds_claimed_gauge =
                                 gauge!("op_succinct_fp_games_bonds_claimed");
                             game_bonds_claimed_gauge.increment(1.0);
                         }
-                        Ok(None) => {}
+                        Ok(Action::Skipped) => {}
                         Err(e) => {
                             tracing::warn!("Failed to handle bond claiming: {:?}", e);
                             let error_gauge = gauge!("op_succinct_fp_errors");

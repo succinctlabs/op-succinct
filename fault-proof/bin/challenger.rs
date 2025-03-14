@@ -19,7 +19,8 @@ use fault_proof::{
     },
     prometheus::challenger_gauges,
     utils::setup_logging,
-    FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
+    Action, FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS,
+    TIMEOUT_SECONDS,
 };
 use op_succinct_host_utils::metrics::init_metrics;
 
@@ -89,7 +90,7 @@ where
     }
 
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
-    async fn handle_game_challenging(&self) -> Result<Option<()>> {
+    async fn handle_game_challenging(&self) -> Result<Action> {
         let _span = tracing::info_span!("[[Challenging]]").entered();
 
         if let Some(game_address) = self
@@ -102,9 +103,9 @@ where
         {
             tracing::info!("Attempting to challenge game {:?}", game_address);
             self.challenge_game(game_address).await?;
-            Ok(Some(()))
+            Ok(Action::Performed(()))
         } else {
-            Ok(None)
+            Ok(Action::Skipped)
         }
     }
 
@@ -133,12 +134,12 @@ where
             interval.tick().await;
 
             match self.handle_game_challenging().await {
-                Ok(Some(_)) => {
+                Ok(Action::Performed(_)) => {
                     let games_challenged_gauge =
                         gauge!("op_succinct_fp_challenger_games_challenged");
                     games_challenged_gauge.increment(1.0);
                 }
-                Ok(None) => {}
+                Ok(Action::Skipped) => {}
                 Err(e) => {
                     tracing::warn!("Failed to handle game challenging: {:?}", e);
                     let challenger_error_gauge = gauge!("op_succinct_fp_challenger_errors");

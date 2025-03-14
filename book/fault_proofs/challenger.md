@@ -45,7 +45,7 @@ The challenger is configured through environment variables. Create a `.env.chall
 | `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `MAX_GAMES_TO_CHECK_FOR_CHALLENGE` | Maximum number of games to scan for challenges | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
-| `CHALLENGER_METRICS_PORT` | The port to expose metrics on | `9001` |
+| `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 
 ```env
 # Required Configuration

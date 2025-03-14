@@ -39,6 +39,12 @@ pub enum Mode {
     Challenger,
 }
 
+#[derive(Debug)]
+pub enum Action<T = ()> {
+    Performed(T),
+    Skipped,
+}
+
 #[async_trait]
 pub trait L2ProviderTrait {
     /// Get the L2 block by number.
@@ -230,7 +236,7 @@ where
         mode: Mode,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
         l2_provider: L2Provider,
-    ) -> Result<Option<()>>;
+    ) -> Result<Action>;
 
     /// Attempts to resolve all challenged games that the challenger won, up to `max_games_to_check_for_resolution`.
     async fn resolve_games(
@@ -604,7 +610,7 @@ where
         mode: Mode,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
         l2_provider: L2Provider,
-    ) -> Result<Option<()>> {
+    ) -> Result<Action> {
         let game_address = self.fetch_game_address_by_index(index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet.clone());
         if game.status().call().await?.status_ != GameStatus::IN_PROGRESS {
@@ -613,7 +619,7 @@ where
                 game_address,
                 index
             );
-            return Ok(None);
+            return Ok(Action::Skipped);
         }
 
         let claim_data = game.claimData().call().await?.claimData_;
@@ -625,7 +631,7 @@ where
                         game_address,
                         index
                     );
-                    return Ok(None);
+                    return Ok(Action::Skipped);
                 }
             }
             Mode::Challenger => {
@@ -635,7 +641,7 @@ where
                         game_address,
                         index
                     );
-                    return Ok(None);
+                    return Ok(Action::Skipped);
                 }
             }
         }
@@ -653,7 +659,7 @@ where
                 index,
                 deadline
             );
-            return Ok(None);
+            return Ok(Action::Skipped);
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
@@ -671,7 +677,7 @@ where
             index,
             receipt.transaction_hash
         );
-        Ok(Some(()))
+        Ok(Action::Performed(()))
     }
 
     /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
@@ -702,7 +708,7 @@ where
 
             for i in 0..games_to_check.to::<u64>() {
                 let index = oldest_game_index + U256::from(i);
-                if let Ok(Some(())) = self
+                if let Ok(Action::Performed(_)) = self
                     .try_resolve_games(
                         index,
                         mode,
