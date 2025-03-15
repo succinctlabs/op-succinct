@@ -44,7 +44,7 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 }
 
 /// Initialize the host.
-/// 
+///
 /// In the future, there will be a feature gated function to initialize the host (ex. for Alt-DA).
 pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
     Arc::new(SingleChainOPSuccinctHost::new(fetcher))

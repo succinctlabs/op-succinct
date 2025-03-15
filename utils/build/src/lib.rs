@@ -32,7 +32,11 @@ fn build_program(program_name: &str, elf_name: &str, features: Option<Vec<String
 /// Build all the native programs and the native host runner. Optional flag to build the zkVM
 /// programs.
 pub fn build_all() {
-    // build_program("aggregation", "aggregation-elf", None);
-    // build_program("range", "range-elf-bump", None);
-    // build_program("range", "range-elf-embedded", Some(vec!["embedded".to_string()]));
+    build_program("aggregation", "aggregation-elf", None);
+    build_program("range", "range-elf-bump", None);
+    build_program(
+        "range",
+        "range-elf-embedded",
+        Some(vec!["embedded".to_string()]),
+    );
 }
