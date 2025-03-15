@@ -30,6 +30,7 @@ alloy-eips.workspace = true
 alloy-provider = { workspace = true }
 alloy-signer-local.workspace = true
 alloy-sol-types.workspace = true
+alloy-json-rpc.workspace =true
 
 anyhow.workspace = true
 dotenv.workspace = true
@@ -53,9 +54,10 @@ futures-util = "0.3.31"
 clap.workspace = true
 tikv-jemallocator = "0.6.0"
 metrics-exporter-prometheus = "0.16.2"
-metrics = "0.24.1"
+metrics.workspace = true
 metrics-process = "2.4.0"
 rustls = "0.23.23"
+thiserror.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
