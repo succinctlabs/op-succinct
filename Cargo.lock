@@ -4717,12 +4717,24 @@ dependencies = [
 name = "op-succinct-validity"
 version = "0.1.0"
 dependencies = [
+<<<<<<< HEAD
  "alloy-eips 0.12.4",
  "alloy-primitives",
  "alloy-provider",
  "alloy-signer-local 0.12.4",
+=======
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-client",
+ "alloy-signer",
+ "alloy-signer-local",
+>>>>>>> b854d91 (chore: add kms signer mode)
  "alloy-sol-types",
  "anyhow",
+ "async-trait",
  "base64 0.22.1",
  "bincode",
  "chrono",
@@ -4735,6 +4747,7 @@ dependencies = [
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
+ "reqwest",
  "rustls",
  "serde",
  "serde_json",
@@ -4745,6 +4758,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
