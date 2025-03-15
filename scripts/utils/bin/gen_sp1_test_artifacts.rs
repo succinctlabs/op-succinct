@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
 
     let mut successful_ranges = Vec::new();
     for (range, host_args) in split_ranges.iter().zip(host_args.iter()) {
-        let oracle = host.run(&host_args).await.unwrap();
+        let oracle = host.run(host_args).await.unwrap();
         let sp1_stdin = get_proof_stdin(oracle).unwrap();
         successful_ranges.push((sp1_stdin, range.clone()));
     }

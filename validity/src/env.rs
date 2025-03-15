@@ -3,7 +3,6 @@ use std::env;
 use alloy_primitives::Address;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_host_utils::DAConfig;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
 
 pub struct EnvironmentConfig {
