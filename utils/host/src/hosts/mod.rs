@@ -1,6 +1,4 @@
-pub mod celestia;
 pub mod default;
-pub mod eigenda;
 
 use crate::fetcher::OPSuccinctDataFetcher;
 use alloy_primitives::B256;
@@ -45,17 +43,9 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     ) -> Result<Self::Args>;
 }
 
-#[cfg(feature = "celestia")]
-pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<CelestiaChainHost> {
-    todo!()
-}
-
-#[cfg(feature = "eigenda")]
-pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<EigenDAChainHost> {
-    todo!()
-}
-
-#[cfg(not(any(feature = "celestia", feature = "eigenda")))]
+/// Initialize the host.
+/// 
+/// In the future, there will be a feature gated function to initialize the host (ex. for Alt-DA).
 pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
     Arc::new(SingleChainOPSuccinctHost::new(fetcher))
 }

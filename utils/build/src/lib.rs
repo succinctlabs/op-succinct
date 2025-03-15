@@ -35,6 +35,4 @@ pub fn build_all() {
     // build_program("aggregation", "aggregation-elf", None);
     // build_program("range", "range-elf-bump", None);
     // build_program("range", "range-elf-embedded", Some(vec!["embedded".to_string()]));
-    // build_program("range", "celestia-range-elf-embedded", Some(vec!["embedded".to_string(), "celestia".to_string()]));
-    // build_program("range", "eigenda-range-elf-embedded", Some(vec!["embedded".to_string(), "eigenda".to_string()]));
 }

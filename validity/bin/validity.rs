@@ -1,10 +1,6 @@
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
-use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher,
-    hosts::{default::SingleChainOPSuccinctHost, initialize_host, OPSuccinctHost},
-    DAConfig,
-};
+use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, hosts::initialize_host};
 use op_succinct_validity::{
     read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
 };

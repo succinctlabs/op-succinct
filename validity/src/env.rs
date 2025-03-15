@@ -23,7 +23,6 @@ pub struct EnvironmentConfig {
     pub max_concurrent_proof_requests: u64,
     pub submission_interval: u64,
     pub mock: bool,
-    pub da_config: DAConfig,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -80,9 +79,6 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         .ok()
         .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"));
 
-    // Parse DA config
-    let da_config = get_env_var("DA_CONFIG", Some(DAConfig::Default))?;
-
     let config = EnvironmentConfig {
         metrics_port: get_env_var("METRICS_PORT", Some(8080))?,
         l1_rpc: get_env_var("L1_RPC", None)?,
@@ -100,7 +96,6 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         submission_interval: get_env_var("SUBMISSION_INTERVAL", Some(1800))?,
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
-        da_config,
     };
 
     Ok(config)
