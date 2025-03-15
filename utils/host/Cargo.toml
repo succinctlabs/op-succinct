@@ -8,7 +8,6 @@ edition.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
-async-trait.workspace = true
 
 # local
 op-succinct-client-utils.workspace = true
@@ -45,3 +44,11 @@ num-format.workspace = true
 serde.workspace = true
 reqwest.workspace = true
 tracing.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+strum_macros = "0.27.1"
+strum = "0.27.1"
+
+[features]
+celestia = []
+eigenda = []

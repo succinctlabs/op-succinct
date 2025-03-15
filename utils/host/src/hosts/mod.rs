@@ -1,9 +1,12 @@
 pub mod celestia;
 pub mod default;
+pub mod eigenda;
 
+use crate::fetcher::OPSuccinctDataFetcher;
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
+use default::SingleChainOPSuccinctHost;
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use op_succinct_client_utils::client::run_opsuccinct_client;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
@@ -12,7 +15,7 @@ use std::sync::Arc;
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
-    type Args: Clone + Sync + Send + 'static;
+    type Args: Send + Sync + 'static + Clone;
 
     /// Run the host and client program.
     ///
@@ -40,4 +43,19 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
     ) -> Result<Self::Args>;
+}
+
+#[cfg(feature = "celestia")]
+pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<CelestiaChainHost> {
+    todo!()
+}
+
+#[cfg(feature = "eigenda")]
+pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<EigenDAChainHost> {
+    todo!()
+}
+
+#[cfg(not(any(feature = "celestia", feature = "eigenda")))]
+pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
+    Arc::new(SingleChainOPSuccinctHost::new(fetcher))
 }
