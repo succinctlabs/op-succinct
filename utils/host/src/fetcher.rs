@@ -626,7 +626,7 @@ impl OPSuccinctDataFetcher {
 
         let l1_origin = optimism_output_data.block_ref.l1_origin;
 
-        // Binary search for the first L1 block with L2 safe head >= l2_end_block
+        // Binary search for the first L1 block with L2 safe head >= l2_end_block.
         let mut low = l1_origin.number;
         let mut high = latest_l1_header.number;
         let mut first_valid = None;
@@ -644,7 +644,7 @@ impl OPSuccinctDataFetcher {
             let l2_safe_head = result.safe_head.number;
 
             if l2_safe_head >= l2_end_block {
-                // Found a valid block, save it and keep searching lower
+                // Found a valid block, save it and keep searching lower.
                 first_valid = Some((result.l1_block.hash, result.l1_block.number));
                 high = mid - 1;
             } else {
