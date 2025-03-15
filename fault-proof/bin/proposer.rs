@@ -7,11 +7,14 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    contract::DisputeGameFactory, proposer::OPSuccinctProposer, utils::setup_logging,
+    contract::DisputeGameFactory, prometheus::proposer_gauges, proposer::OPSuccinctProposer,
+    utils::setup_logging,
 };
+use metrics::gauge;
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::default::SingleChainOPSuccinctHost,
+    metrics::init_metrics,
 };
 
 #[derive(Parser)]
@@ -63,7 +66,20 @@ async fn main() -> Result<()> {
     )
     .await
     .unwrap();
-    proposer.run().await?;
+
+    // Initalize proposer gauges.
+    proposer_gauges();
+
+    // Initialize metrics exporter.
+    init_metrics(&proposer.config.metrics_port);
+
+    // Set initial values for proposer metrics.
+    gauge!("op_succinct_fp_games_created").set(0.0);
+    gauge!("op_succinct_fp_games_resolved").set(0.0);
+    gauge!("op_succinct_fp_games_bonds_claimed").set(0.0);
+    gauge!("op_succinct_fp_errors").set(0.0);
+
+    proposer.run().await.expect("Runs in an infinite loop");
 
     Ok(())
 }

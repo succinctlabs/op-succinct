@@ -7,6 +7,7 @@ use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
 use clap::Parser;
+use metrics::gauge;
 use op_alloy_network::EthereumWallet;
 use tokio::time;
 
@@ -16,9 +17,12 @@ use fault_proof::{
         DisputeGameFactory::{self, DisputeGameFactoryInstance},
         OPSuccinctFaultDisputeGame,
     },
+    prometheus::challenger_gauges,
     utils::setup_logging,
-    FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
+    Action, FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS,
+    TIMEOUT_SECONDS,
 };
+use op_succinct_host_utils::metrics::init_metrics;
 
 #[derive(Parser)]
 struct Args {
@@ -86,7 +90,7 @@ where
     }
 
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
-    async fn handle_game_challenging(&self) -> Result<()> {
+    async fn handle_game_challenging(&self) -> Result<Action> {
         let _span = tracing::info_span!("[[Challenging]]").entered();
 
         if let Some(game_address) = self
@@ -99,9 +103,10 @@ where
         {
             tracing::info!("Attempting to challenge game {:?}", game_address);
             self.challenge_game(game_address).await?;
+            Ok(Action::Performed)
+        } else {
+            Ok(Action::Skipped)
         }
-
-        Ok(())
     }
 
     /// Handles resolution of challenged games that are ready to be resolved.
@@ -128,12 +133,30 @@ where
         loop {
             interval.tick().await;
 
-            if let Err(e) = self.handle_game_challenging().await {
-                tracing::warn!("Failed to handle game challenging: {:?}", e);
+            match self.handle_game_challenging().await {
+                Ok(Action::Performed) => {
+                    let games_challenged_gauge =
+                        gauge!("op_succinct_fp_challenger_games_challenged");
+                    games_challenged_gauge.increment(1.0);
+                }
+                Ok(Action::Skipped) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to handle game challenging: {:?}", e);
+                    let challenger_error_gauge = gauge!("op_succinct_fp_challenger_errors");
+                    challenger_error_gauge.increment(1.0);
+                }
             }
 
-            if let Err(e) = self.handle_game_resolution().await {
-                tracing::warn!("Failed to handle game resolution: {:?}", e);
+            match self.handle_game_resolution().await {
+                Ok(_) => {
+                    let games_resolved_gauge = gauge!("op_succinct_fp_challenger_games_resolved");
+                    games_resolved_gauge.increment(1.0);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to handle game resolution: {:?}", e);
+                    let challenger_error_gauge = gauge!("op_succinct_fp_challenger_errors");
+                    challenger_error_gauge.increment(1.0);
+                }
             }
         }
     }
@@ -168,5 +191,17 @@ async fn main() {
     let mut challenger = OPSuccinctChallenger::new(l1_provider_with_wallet, factory)
         .await
         .unwrap();
+
+    // Initialize challenger gauges.
+    challenger_gauges();
+
+    // Initialize metrics exporter.
+    init_metrics(&challenger.config.metrics_port);
+
+    // Set initial values for challenger metrics.
+    gauge!("op_succinct_fp_challenger_games_challenged").set(0.0);
+    gauge!("op_succinct_fp_challenger_games_resolved").set(0.0);
+    gauge!("op_succinct_fp_challenger_errors").set(0.0);
+
     challenger.run().await.expect("Runs in an infinite loop");
 }
