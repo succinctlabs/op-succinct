@@ -34,7 +34,7 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         Ok(in_memory_oracle)
     }
 
-    /// Fetch the host arguments. Optionally supply an L1 block number which is used as the L1 origin.
+    /// Fetch the host arguments.
     ///
     /// Parameters:
     /// - `l2_start_block`: The starting L2 block number
