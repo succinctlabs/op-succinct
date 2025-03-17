@@ -4720,7 +4720,6 @@ version = "0.1.0"
 dependencies = [
  "alloy-consensus 0.12.4",
  "alloy-eips 0.12.4",
- "alloy-json-rpc 0.12.4",
  "alloy-network 0.12.4",
  "alloy-primitives",
  "alloy-provider",
@@ -4751,7 +4750,6 @@ dependencies = [
  "sqlx",
  "strum 0.27.1",
  "strum_macros 0.27.1",
- "thiserror 2.0.11",
  "tikv-jemallocator",
  "tokio",
  "tracing",
