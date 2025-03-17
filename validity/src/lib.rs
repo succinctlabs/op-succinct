@@ -6,6 +6,7 @@ mod prom;
 mod proof_requester;
 mod proposer;
 mod proposer_agglayer;
+mod signer;
 mod types;
 mod utils;
 
@@ -17,5 +18,6 @@ pub use prom::*;
 pub use proof_requester::*;
 pub use proposer::*;
 pub use proposer_agglayer::*;
+pub use signer::*;
 pub use types::*;
 pub use utils::*;

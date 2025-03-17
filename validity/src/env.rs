@@ -3,13 +3,16 @@ use std::env;
 use alloy_primitives::Address;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
+use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
+use std::str::FromStr;
 
 pub struct EnvironmentConfig {
     pub db_url: String,
     pub metrics_port: u16,
     pub l1_rpc: String,
     pub private_key: PrivateKeySigner,
+    pub prover_address: Address,
     pub loop_interval: Option<u64>,
     pub range_proof_strategy: FulfillmentStrategy,
     pub agg_proof_strategy: FulfillmentStrategy,
@@ -21,6 +24,8 @@ pub struct EnvironmentConfig {
     pub max_concurrent_proof_requests: u64,
     pub submission_interval: u64,
     pub mock: bool,
+    pub signer_url: Option<Url>,
+    pub signer_address: Option<Address>,
     pub agglayer: bool,
     pub grpc_addr: String,
 }
@@ -44,6 +49,9 @@ where
 
 /// Read proposer environment variables and return a config.
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
+    // Parse private key
+    let private_key = get_env_var::<PrivateKeySigner>("PRIVATE_KEY", None)?;
+
     // Parse strategy values
     let range_proof_strategy = if get_env_var("RANGE_PROOF_STRATEGY", Some("reserved".to_string()))?
         .to_lowercase()
@@ -76,10 +84,19 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         .ok()
         .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"));
 
+    let signer_url = env::var("SIGNER_URL")
+        .ok()
+        .map(|v| Url::parse(&v).expect("Failed to parse SIGNER_URL"));
+
+    let signer_address = env::var("SIGNER_ADDRESS")
+        .ok()
+        .map(|v| Address::from_str(&v).expect("Failed to parse SIGNER_ADDRESS"));
+
     let config = EnvironmentConfig {
         metrics_port: get_env_var("METRICS_PORT", Some(8080))?,
         l1_rpc: get_env_var("L1_RPC", None)?,
-        private_key: get_env_var("PRIVATE_KEY", None)?,
+        private_key: private_key.clone(),
+        prover_address: get_env_var("PROVER_ADDRESS", Some(private_key.address()))?,
         db_url: get_env_var("DATABASE_URL", None)?,
         range_proof_strategy,
         agg_proof_strategy,
@@ -92,6 +109,8 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         submission_interval: get_env_var("SUBMISSION_INTERVAL", Some(1800))?,
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
+        signer_url,
+        signer_address,
         agglayer: get_env_var("AGGLAYER", Some(false))?,
         grpc_addr: get_env_var("GRPC_ADDRESS", Some("localhost:50051".to_string()))?,
     };

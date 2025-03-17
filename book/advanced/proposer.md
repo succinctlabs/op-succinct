@@ -1,6 +1,6 @@
 # Proposer
 
-The `op-succinct` service consists of one service that monitors the state of the L2 chain, requests proofs and submits them to the L1. Proofs are submitted to the [Succinct Prover Network](https://docs.succinct.xyz/docs/generating-proofs/prover-network)
+The `op-succinct` service consists of one service that monitors the state of the L2 chain, requests proofs and submits them to the L1. Proofs are submitted to the [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network)
 
 # Prerequisites
 
@@ -33,7 +33,7 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
-| `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/docs/generating-proofs/prover-network). |
+| `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. Get access [here](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network). |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
 | `PRIVATE_KEY` | Private key for the account that will be posting output roots to L1. |
 | `DATABASE_URL` | The address of a Postgres database for storing the intermediate proposer state. |
@@ -54,6 +54,9 @@ Before starting the proposer, ensure you have deployed the L2 Output Oracle and 
 | `METRICS_PORT` | Default: `8080`. The port to run the metrics server on. |
 | `LOOP_INTERVAL` | Default: `60`. The interval (in seconds) between each iteration of the OP Succinct service. |
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a validity dispute game that will resolve with the proof. Compatible with `OptimismPortal2`. |
+| `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. |
+| `SIGNER_URL` | URL for the Web3Signer. Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
+| `SIGNER_ADDRESS` | Address of the account that will be posting output roots to L1. Note: Only set this if the signer is a Web3Signer. Note: Required if `SIGNER_URL` is set. |
 
 # Build the Proposer Service
 
