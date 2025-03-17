@@ -94,6 +94,16 @@ pub enum GaugeMetric {
     )]
     ExecutionErrorCount,
     #[strum(
+        serialize = "succinct_range_proof_request_error_count",
+        message = "Number of range proof request errors"
+    )]
+    RangeProofRequestErrorCount,
+    #[strum(
+        serialize = "succinct_agg_proof_request_error_count",
+        message = "Number of aggregation proof request errors"
+    )]
+    AggProofRequestErrorCount,
+    #[strum(
         serialize = "succinct_relay_agg_proof_error_count",
         message = "Number of relay aggregation proof errors"
     )]

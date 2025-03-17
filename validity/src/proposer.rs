@@ -367,13 +367,6 @@ where
                     .update_prove_duration(request.id)
                     .await?;
             } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable {
-                // Increment the error gauge based on the request status.
-                if request.status == RequestStatus::WitnessGeneration {
-                    GaugeMetric::WitnessgenErrorCount.increment(1.0);
-                } else if request.status == RequestStatus::Execution {
-                    GaugeMetric::ExecutionErrorCount.increment(1.0);
-                }
-
                 self.proof_requester
                     .retry_request(request, status.execution_status())
                     .await?;

@@ -1,7 +1,6 @@
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
-use metrics::gauge;
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, hosts::OPSuccinctHost,
@@ -16,7 +15,8 @@ use tracing::info;
 
 use crate::db::DriverDBClient;
 use crate::{
-    OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus, RequestType,
+    GaugeMetric, OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus,
+    RequestType,
 };
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
@@ -147,7 +147,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         {
             Ok(proof_id) => proof_id,
             Err(e) => {
-                gauge!("succinct_range_proof_request_error_count").increment(1.0);
+                GaugeMetric::RangeProofRequestErrorCount.increment(1.0);
                 return Err(e);
             }
         };
@@ -167,7 +167,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         {
             Ok(proof_id) => proof_id,
             Err(e) => {
-                gauge!("succinct_agg_proof_request_error_count").increment(1.0);
+                GaugeMetric::AggProofRequestErrorCount.increment(1.0);
                 return Err(e);
             }
         };
@@ -199,7 +199,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         {
             Ok((pv, report)) => (pv, report),
             Err(e) => {
-                gauge!("succinct_mock_range_proof_request_error_count").increment(1.0);
+                GaugeMetric::ExecutionErrorCount.increment(1.0);
                 return Err(e);
             }
         };
@@ -253,7 +253,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         {
             Ok((pv, report)) => (pv, report),
             Err(e) => {
-                gauge!("succinct_mock_agg_proof_request_error_count").increment(1.0);
+                GaugeMetric::ExecutionErrorCount.increment(1.0);
                 return Err(e);
             }
         };
@@ -420,7 +420,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         let stdin = match self.generate_proof_stdin(&request).await {
             Ok(stdin) => stdin,
             Err(e) => {
-                gauge!("succinct_witnessgen_error_count").increment(1.0);
+                GaugeMetric::WitnessgenErrorCount.increment(1.0);
                 return Err(e);
             }
         };
