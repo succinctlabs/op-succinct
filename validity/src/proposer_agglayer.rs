@@ -5,24 +5,27 @@ use tracing::{error, info};
 
 use crate::proposer::Proposer;
 use alloy_provider::{Network, Provider};
+use op_succinct_host_utils::hosts::OPSuccinctHost;
 
 /// ProposerAgglayer wraps the standard Proposer but modifies the run loop
 /// to skip the submit_agg_proofs step, as that will be handled by Agglayer.
-pub struct ProposerAgglayer<'a, P, N>
+pub struct ProposerAgglayer<'a, P, N, H>
 where
     P: Provider<N> + 'static,
     N: Network,
+    H: OPSuccinctHost,
 {
-    inner: &'a Proposer<P, N>,
+    inner: &'a Proposer<P, N, H>,
 }
 
-impl<'a, P, N> ProposerAgglayer<'a, P, N>
+impl<'a, P, N, H> ProposerAgglayer<'a, P, N, H>
 where
     P: Provider<N> + 'static + Clone,
     N: Network,
+    H: OPSuccinctHost,
 {
     /// Create a new ProposerAgglayer that wraps an existing Proposer
-    pub fn new(proposer: &'a Proposer<P, N>) -> Self {
+    pub fn new(proposer: &'a Proposer<P, N, H>) -> Self {
         Self { inner: proposer }
     }
 
