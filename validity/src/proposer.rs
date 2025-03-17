@@ -1058,15 +1058,10 @@ where
         info!("Inserting new range proof requests into the database.");
 
         // Insert the new range proof requests into the database.
-        if let Err(e) = self
-            .driver_config
+        self.driver_config
             .driver_db_client
             .insert_requests(&new_range_requests)
-            .await
-        {
-            GaugeMetric::RangeProofRequestErrorCount.increment(1.0);
-            return Err(e.into());
-        }
+            .await?;
 
         Ok(())
     }
