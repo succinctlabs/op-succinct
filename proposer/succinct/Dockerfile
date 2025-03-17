@@ -12,19 +12,22 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     pkg-config \
-    libssl-dev && rm -rf /var/lib/apt/lists/*
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
-RUN rustup install stable
-RUN rustup default stable
+RUN rustup install nightly
+RUN rustup default nightly
 
 # Verify Rust installation
 RUN rustc --version && cargo --version
 
 # Install SP1
-RUN curl -L https://sp1.succinct.xyz | bash && ~/.sp1/bin/sp1up && ~/.sp1/bin/cargo-prove prove --version
-
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    ~/.sp1/bin/sp1up && \
+    ~/.sp1/bin/cargo-prove prove --version
+    
 # Copy only what's needed for the build
 COPY Cargo.toml Cargo.lock ./
 COPY proposer/succinct ./proposer/succinct
@@ -38,9 +41,8 @@ COPY scripts ./scripts
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --bin server --release
-
-RUN cp target/release/server /build/server
+    cargo build --bin server --release && \
+    cp target/release/server /build/server
 
 # Final stage
 FROM ubuntu:24.04
@@ -54,9 +56,8 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     pkg-config \
-    libssl-dev
-
-RUN rm -rf /var/lib/apt/lists/*
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
@@ -67,9 +68,9 @@ RUN rustup default nightly
 RUN rustc --version && cargo --version
 
 # Install SP1
-RUN curl -L https://sp1.succinct.xyz | bash
-RUN ~/.sp1/bin/sp1up
-RUN ~/.sp1/bin/cargo-prove prove --version
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    ~/.sp1/bin/sp1up && \
+    ~/.sp1/bin/cargo-prove prove --version
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/server /usr/local/bin/server
