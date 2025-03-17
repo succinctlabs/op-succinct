@@ -323,10 +323,12 @@ where
                     .retry_request(request.clone(), status.execution_status())
                     .await?;
 
-                return Err(anyhow!(
+                tracing::error!(
                     "Proof request has timed out for request id: {:?}",
                     proof_request_id
-                ));
+                );
+
+                return Ok(());
             }
 
             // If the proof request has been fulfilled, update the request to status Complete and add the proof bytes to the database.
