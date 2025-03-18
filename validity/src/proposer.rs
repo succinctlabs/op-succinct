@@ -803,7 +803,7 @@ where
         Ok(())
     }
 
-    /// Spawns thread for handling task completion and error handling.
+    /// Spawns thread for handling task completion and error handling. Use this to handle tasks that panic or error in a more graceful way.
     async fn spawn_task_completion_handler(&self) -> Result<()> {
         let tasks = self.tasks.clone();
         let proof_requester = self.proof_requester.clone();
