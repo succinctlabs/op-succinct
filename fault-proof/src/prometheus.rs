@@ -2,7 +2,7 @@ use op_succinct_host_utils::metrics::MetricsGauge;
 use strum::EnumMessage;
 use strum_macros::{Display, EnumIter};
 
-// Define an enum for all proposer gauge metrics.
+// Define an enum for all fault proof proposer metrics gauges.
 #[derive(Debug, Clone, Copy, Display, EnumIter, EnumMessage)]
 pub enum ProposerGauge {
     // Proposer metrics
@@ -46,7 +46,7 @@ pub enum ProposerGauge {
 
 impl MetricsGauge for ProposerGauge {}
 
-// Define an enum for all challenger gauge metrics.
+// Define an enum for all fault proof challenger metrics gauges.
 #[derive(Debug, Clone, Copy, Display, EnumIter, EnumMessage)]
 pub enum ChallengerGauge {
     // Challenger metrics

@@ -1,7 +1,9 @@
 use strum::EnumMessage;
 use strum_macros::{Display, EnumIter};
 
-// Define an enum for all gauge metrics.
+use op_succinct_host_utils::metrics::MetricsGauge;
+
+// Define an enum for all validity metrics gauges.
 #[derive(Debug, Clone, Copy, Display, EnumIter, EnumMessage)]
 pub enum ValidityGauge {
     // Proof status gauges
@@ -101,4 +103,4 @@ pub enum ValidityGauge {
     RelayAggProofErrorCount,
 }
 
-impl op_succinct_host_utils::metrics::MetricsGauge for ValidityGauge {}
+impl MetricsGauge for ValidityGauge {}
