@@ -2,10 +2,11 @@ use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::initialize_host, metrics::init_metrics,
+    metrics::MetricsGauge,
 };
 use op_succinct_validity::{
-    custom_gauges, read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer,
-    RequesterConfig, Web3Signer,
+    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
+    ValidityGauge, Web3Signer,
 };
 use std::sync::Arc;
 use tikv_jemallocator::Jemalloc;
@@ -95,7 +96,7 @@ async fn main() -> Result<()> {
 
     // Initialize metrics exporter.
     info!("Initializing metrics on port {}", env_config.metrics_port);
-    custom_gauges();
+    ValidityGauge::register_all();
     init_metrics(&env_config.metrics_port);
 
     // Wait for all tasks to complete.

@@ -1,3 +1,4 @@
+use metrics::{describe_gauge, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use metrics_process::Collector;
 use std::{
@@ -5,7 +6,40 @@ use std::{
     thread,
     time::Duration,
 };
+use strum::{EnumMessage, IntoEnumIterator};
 use tracing::warn;
+
+/// Trait for gauge metrics that provides common functionality
+pub trait MetricsGauge: Sized + IntoEnumIterator + EnumMessage + ToString {
+    /// Describe the gauge metric
+    fn describe(&self) {
+        describe_gauge!(self.to_string(), self.get_message().unwrap());
+    }
+
+    /// Set the gauge value
+    fn set(&self, value: f64) {
+        gauge!(self.to_string()).set(value);
+    }
+
+    /// Increment the gauge value
+    fn increment(&self, value: f64) {
+        gauge!(self.to_string()).increment(value);
+    }
+
+    /// Register all gauges
+    fn register_all() {
+        for metric in Self::iter() {
+            metric.describe();
+        }
+    }
+
+    /// Initialize all gauges to 0.0
+    fn init_all() {
+        for metric in Self::iter() {
+            metric.set(0.0);
+        }
+    }
+}
 
 pub fn init_metrics(port: &u16) {
     let builder = PrometheusBuilder::new().with_http_listener(SocketAddr::new(

@@ -1,5 +1,5 @@
-use metrics::{describe_gauge, gauge};
-use strum::{EnumMessage, IntoEnumIterator};
+use op_succinct_host_utils::metrics::MetricsGauge;
+use strum::EnumMessage;
 use strum_macros::{Display, EnumIter};
 
 // Define an enum for all proposer gauge metrics.
@@ -44,36 +44,7 @@ pub enum ProposerGauge {
     Errors,
 }
 
-impl ProposerGauge {
-    // Helper to describe the proposer gauge.
-    pub fn describe(&self) {
-        describe_gauge!(self.to_string(), self.get_message().unwrap());
-    }
-
-    // Helper to set the proposer gauge value.
-    pub fn set(&self, value: f64) {
-        gauge!(self.to_string()).set(value);
-    }
-
-    // Helper to increment the proposer gauge value.
-    pub fn increment(&self, value: f64) {
-        gauge!(self.to_string()).increment(value);
-    }
-}
-
-pub fn proposer_gauges() {
-    // Register all proposer gauges.
-    for metric in ProposerGauge::iter() {
-        metric.describe();
-    }
-}
-
-pub fn init_proposer_gauges() {
-    // Initialize all proposer gauges to 0.0.
-    for metric in ProposerGauge::iter() {
-        metric.set(0.0);
-    }
-}
+impl MetricsGauge for ProposerGauge {}
 
 // Define an enum for all challenger gauge metrics.
 #[derive(Debug, Clone, Copy, Display, EnumIter, EnumMessage)]
@@ -97,33 +68,4 @@ pub enum ChallengerGauge {
     Errors,
 }
 
-impl ChallengerGauge {
-    // Helper to describe the challenger gauge.
-    pub fn describe(&self) {
-        describe_gauge!(self.to_string(), self.get_message().unwrap());
-    }
-
-    // Helper to set the challenger gauge value.
-    pub fn set(&self, value: f64) {
-        gauge!(self.to_string()).set(value);
-    }
-
-    // Helper to increment the challenger gauge value.
-    pub fn increment(&self, value: f64) {
-        gauge!(self.to_string()).increment(value);
-    }
-}
-
-pub fn challenger_gauges() {
-    // Register all challenger gauges.
-    for metric in ChallengerGauge::iter() {
-        metric.describe();
-    }
-}
-
-pub fn init_challenger_gauges() {
-    // Initialize all challenger gauges to 0.0.
-    for metric in ChallengerGauge::iter() {
-        metric.set(0.0);
-    }
-}
+impl MetricsGauge for ChallengerGauge {}

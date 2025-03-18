@@ -16,12 +16,12 @@ use fault_proof::{
         DisputeGameFactory::{self, DisputeGameFactoryInstance},
         OPSuccinctFaultDisputeGame,
     },
-    prometheus::{challenger_gauges, init_challenger_gauges, ChallengerGauge},
+    prometheus::ChallengerGauge,
     utils::setup_logging,
     Action, FactoryTrait, L1ProviderWithWallet, L2Provider, Mode, NUM_CONFIRMATIONS,
     TIMEOUT_SECONDS,
 };
-use op_succinct_host_utils::metrics::init_metrics;
+use op_succinct_host_utils::metrics::{init_metrics, MetricsGauge};
 
 #[derive(Parser)]
 struct Args {
@@ -187,13 +187,13 @@ async fn main() -> Result<()> {
         .unwrap();
 
     // Initialize challenger gauges.
-    challenger_gauges();
+    ChallengerGauge::register_all();
 
     // Initialize metrics exporter.
     init_metrics(&challenger.config.metrics_port);
 
     // Initialize the metrics gauges.
-    init_challenger_gauges();
+    ChallengerGauge::init_all();
 
     challenger.run().await.expect("Runs in an infinite loop");
 

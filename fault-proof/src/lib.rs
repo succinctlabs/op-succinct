@@ -26,6 +26,7 @@ use crate::{
     },
     prometheus::ProposerGauge,
 };
+use op_succinct_host_utils::metrics::MetricsGauge;
 
 pub type L1Provider = RootProvider;
 pub type L2Provider = RootProvider<Optimism>;
