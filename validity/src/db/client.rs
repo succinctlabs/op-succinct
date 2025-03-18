@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use serde_json::Value;
