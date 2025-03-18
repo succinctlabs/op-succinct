@@ -313,7 +313,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             start_block = request.start_block,
             end_block = request.end_block,
             req_type = ?request.req_type,
-            "Retrying request"
+            "Setting request to failed"
         );
 
         // Mark the existing request as failed.
@@ -338,7 +338,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
             // NOTE: The failed_requests check here can be removed in V5 once the only failures that occur are unexecutable requests.
             if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
-                info!("Splitting request into two: {:?}", request.id);
+                info!("Splitting failed request into two: {:?}", request.id);
                 let mid_block = (request.start_block + request.end_block) / 2;
                 let new_requests = vec![
                     OPSuccinctRequest::create_range_request(

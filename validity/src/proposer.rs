@@ -183,10 +183,12 @@ where
             self.requester_config.range_proof_interval as i64,
         );
 
-        info!(
-            "Inserting {} range proof requests into the database.",
-            ranges_to_prove.len()
-        );
+        if ranges_to_prove.len() > 0 {
+            info!(
+                "Inserting {} range proof requests into the database.",
+                ranges_to_prove.len()
+            );
+        }
 
         // Create range proof requests for the ranges to prove in parallel
         let new_range_requests = stream::iter(ranges_to_prove)
@@ -953,8 +955,6 @@ where
             )
             .await?;
 
-        info!("Deleted all unrecoverable requests.");
-
         // Cancel all requests in PROVE state for the same chain id's that have a different commitment config.
         self.driver_config
             .driver_db_client
@@ -964,6 +964,8 @@ where
                 self.requester_config.l2_chain_id,
             )
             .await?;
+
+        info!("Deleted all unrequested, execution, and witness generation requests and canceled all prove requests with different commitment configs.");
 
         Ok(())
     }
@@ -1101,7 +1103,7 @@ where
                     // Update the error gauge
                     ValidityGauge::TotalErrorCount.increment(1.0);
                     // Pause for 10 seconds before restarting
-                    tracing::info!("Pausing for 10 seconds before restarting the process");
+                    tracing::debug!("Pausing for 10 seconds before restarting the process");
                     tokio::time::sleep(Duration::from_secs(10)).await;
                 }
             }
