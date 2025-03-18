@@ -1,5 +1,5 @@
 syntax = "proto3";
-package agglayer;
+package proofs;
 
 // Service for proof requests
 service Proofs {

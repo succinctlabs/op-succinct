@@ -3,6 +3,7 @@ use metrics::gauge;
 use std::time::Duration;
 use tracing::{error, info};
 
+use crate::proofs_service::{self, ProofsService};
 use crate::proposer::Proposer;
 use alloy_provider::{Network, Provider};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
@@ -45,6 +46,15 @@ where
         gauge!("succinct_error_count").set(0.0);
 
         info!("Starting ProposerAgglayer run loop");
+
+        // Start the gRPC server
+        let addr = self.grpc_addr.parse().unwrap();
+        info!("Starting Agglayer gRPC server on {}", addr);
+        tokio::spawn(
+            tonic::transport::Server::builder()
+                .add_service(ProofsService::new(self.inner))
+                .serve(addr),
+        );
 
         // Loop interval in seconds
         loop {

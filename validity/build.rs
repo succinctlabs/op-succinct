@@ -1,10 +1,8 @@
 use op_succinct_build_utils::build_all;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     build_all();
 
-    tonic_build::configure()
-        .build_server(true)
-        .compile_protos(&["proto/agglayer.proto"], &["proto"])
-        .unwrap();
+    tonic_build::compile_protos("proto/proofs.proto")?;
+    Ok(())
 }
