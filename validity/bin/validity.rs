@@ -85,8 +85,8 @@ async fn main() -> Result<()> {
     if env_config.agglayer {
         info!("Starting proposer in Agglayer mode");
         proposer_handle = tokio::spawn(async move {
-            let agglayer = ProposerAgglayer::new(&proposer);
-            if let Err(e) = agglayer.run(&env_config.grpc_addr).await {
+            let agglayer = ProposerAgglayer::new(&proposer, &env_config.grpc_addr);
+            if let Err(e) = agglayer.run().await {
                 tracing::error!("Proposer error: {}", e);
                 return Err(e);
             }

@@ -6,6 +6,10 @@ use tracing::{error, info};
 use crate::proposer::Proposer;
 use alloy_provider::{Network, Provider};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
+use std::sync::Arc;
+
+// Import the gRPC server
+use crate::grpc::server::start_grpc_server;
 
 /// ProposerAgglayer wraps the standard Proposer but modifies the run loop
 /// to skip the submit_agg_proofs step, as that will be handled by Agglayer.
@@ -16,6 +20,7 @@ where
     H: OPSuccinctHost,
 {
     inner: &'a Proposer<P, N, H>,
+    grpc_addr: String, // Add grpc_addr field
 }
 
 impl<'a, P, N, H> ProposerAgglayer<'a, P, N, H>
@@ -25,12 +30,15 @@ where
     H: OPSuccinctHost,
 {
     /// Create a new ProposerAgglayer that wraps an existing Proposer
-    pub fn new(proposer: &'a Proposer<P, N, H>) -> Self {
-        Self { inner: proposer }
+    pub fn new(proposer: &'a Proposer<P, N, H>, grpc_addr: String) -> Self {
+        Self {
+            inner: proposer,
+            grpc_addr, // Initialize grpc_addr
+        }
     }
 
     /// Run the proposer in Agglayer mode, which skips the submit_agg_proofs step
-    pub async fn run(&self, _grpc_addr: &str) -> Result<()> {
+    pub async fn run(&self) -> Result<()> {
         // Spawn the task completion handler from the inner proposer
         self.inner.spawn_task_completion_handler().await?;
 
@@ -41,6 +49,15 @@ where
         gauge!("succinct_error_count").set(0.0);
 
         info!("Starting ProposerAgglayer run loop");
+
+        // Start the gRPC server
+        let proposer_arc = Arc::new(self);
+        let grpc_addr = self.grpc_addr.clone();
+        tokio::spawn(async move {
+            if let Err(e) = start_grpc_server(proposer_arc, &grpc_addr).await {
+                error!("gRPC server error: {}", e);
+            }
+        });
 
         // Loop interval in seconds
         loop {

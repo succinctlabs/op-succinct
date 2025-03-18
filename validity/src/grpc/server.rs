@@ -17,29 +17,32 @@ use agglayer::{
 };
 
 /// Implementation of the Proofs service
-pub struct ProofsService<'a, P, N>
+pub struct ProofsService<'a, P, N, H>
 where
     P: alloy_provider::Provider<N> + 'static + Clone + Send + Sync,
     N: alloy_provider::Network + Send + Sync + 'static,
+    H: op_succinct_host_utils::hosts::OPSuccinctHost,
 {
-    proposer: Arc<ProposerAgglayer<'a, P, N>>,
+    proposer: Arc<ProposerAgglayer<'a, P, N, H>>,
 }
 
-impl<'a, P, N> ProofsService<'a, P, N>
+impl<'a, P, N, H> ProofsService<'a, P, N, H>
 where
     P: alloy_provider::Provider<N> + 'static + Clone + Send + Sync,
     N: alloy_provider::Network + Send + Sync + 'static,
+    H: op_succinct_host_utils::hosts::OPSuccinctHost,
 {
-    pub fn new(proposer: Arc<ProposerAgglayer<'a, P, N>>) -> Self {
+    pub fn new(proposer: Arc<ProposerAgglayer<'a, P, N, H>>) -> Self {
         Self { proposer }
     }
 }
 
 #[async_trait]
-impl<'a, P, N> Proofs for ProofsService<'a, P, N>
+impl<'a, P, N, H> Proofs for ProofsService<'a, P, N, H>
 where
     P: alloy_provider::Provider<N> + 'static + Clone + Send + Sync,
     N: alloy_provider::Network + Send + Sync + 'static,
+    H: op_succinct_host_utils::hosts::OPSuccinctHost,
 {
     async fn request_agg_proof(
         &self,
@@ -89,13 +92,14 @@ where
 }
 
 /// Start the gRPC server
-pub async fn start_grpc_server<'a, P, N>(
-    proposer: Arc<ProposerAgglayer<'a, P, N>>,
+pub async fn start_grpc_server<'a, P, N, H>(
+    proposer: Arc<ProposerAgglayer<'a, P, N, H>>,
     grpc_addr: &str,
 ) -> Result<()>
 where
     P: alloy_provider::Provider<N> + 'static + Clone + Send + Sync,
     N: alloy_provider::Network + Send + Sync + 'static,
+    H: op_succinct_host_utils::hosts::OPSuccinctHost,
 {
     let addr = grpc_addr.parse()?;
     let proofs_service = ProofsService::new(proposer);
