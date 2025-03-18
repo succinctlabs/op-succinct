@@ -6,10 +6,6 @@ use tracing::{error, info};
 use crate::proposer::Proposer;
 use alloy_provider::{Network, Provider};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
-use std::sync::Arc;
-
-// Import the gRPC server
-use crate::grpc::server::start_grpc_server;
 
 /// ProposerAgglayer wraps the standard Proposer but modifies the run loop
 /// to skip the submit_agg_proofs step, as that will be handled by Agglayer.
@@ -49,15 +45,6 @@ where
         gauge!("succinct_error_count").set(0.0);
 
         info!("Starting ProposerAgglayer run loop");
-
-        // Start the gRPC server
-        let proposer_arc = Arc::new(self);
-        let grpc_addr = self.grpc_addr.clone();
-        tokio::spawn(async move {
-            if let Err(e) = start_grpc_server(proposer_arc, &grpc_addr).await {
-                error!("gRPC server error: {}", e);
-            }
-        });
 
         // Loop interval in seconds
         loop {

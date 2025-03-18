@@ -1,7 +1,6 @@
 mod contract;
 mod db;
 mod env;
-mod grpc;
 mod logger;
 mod prom;
 mod proof_requester;
@@ -14,7 +13,6 @@ mod utils;
 pub use contract::*;
 pub use db::*;
 pub use env::*;
-pub use grpc::*;
 pub use logger::*;
 pub use prom::*;
 pub use proof_requester::*;
