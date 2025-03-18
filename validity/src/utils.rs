@@ -37,9 +37,9 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
 /// Determines the block ranges to be proven based on disjoint ranges and a specified interval.
 ///
 /// Given a set of disjoint block ranges and a range proof interval, this function calculates
-/// and returns the specific block ranges that need to be proven. Only ranges that are exactly
-/// equal to the range proof interval size are included in the result. Partial ranges at the
-/// end of each disjoint range are intentionally excluded.
+/// and returns the specific block ranges that need to be proven. Ensures that all disjoint ranges
+/// are fully covered by conditionally inserting a single range smaller than the range proof interval
+/// if necessary.
 ///
 /// # Example
 ///
