@@ -96,7 +96,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         prover_address: Address,
     ) -> Result<SP1Stdin> {
         // Fetch consecutive range proofs from the database.
-        let range_proofs_raw = self
+        let range_proofs = self
             .db_client
             .get_consecutive_complete_range_proofs(
                 start_block,
@@ -106,22 +106,20 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 l2_chain_id,
             )
             .await?;
-        let mut range_proofs: Vec<SP1ProofWithPublicValues> = range_proofs_raw
+
+        // Deserialize the proofs and extract the boot infos and proofs.
+        let (boot_infos, proofs): (Vec<BootInfoStruct>, Vec<SP1Proof>) = range_proofs
             .iter()
             .map(|proof| {
-                bincode::deserialize(proof.proof.as_ref().unwrap())
-                    .expect("Deserialization failure for range proof")
+                let mut proof_with_pv: SP1ProofWithPublicValues =
+                    bincode::deserialize(proof.proof.as_ref().unwrap())
+                        .expect("Deserialization failure for range proof");
+                (
+                    proof_with_pv.public_values.read(),
+                    proof_with_pv.proof.clone(),
+                )
             })
-            .collect();
-        let boot_infos: Vec<BootInfoStruct> = range_proofs
-            .iter_mut()
-            .map(|proof| proof.public_values.read())
-            .collect();
-
-        let proofs: Vec<SP1Proof> = range_proofs
-            .iter_mut()
-            .map(|proof| proof.proof.clone())
-            .collect();
+            .unzip();
 
         // This can fail for a few reasons:
         // 1. The L1 RPC is down (e.g. error code 32001). Double-check the L1 RPC is running correctly.
