@@ -1169,12 +1169,6 @@ where
 
     #[tracing::instrument(name = "proposer.run", skip(self))]
     pub async fn run(&self) -> Result<()> {
-        // Spawn a server.
-        // Server exposes request_agg_proof
-        // Reads from the DB
-        // Sends via RPC.
-        // Agglayer folder.
-
         // Spawn the task completion handler.
         self.spawn_task_completion_handler().await?;
 
