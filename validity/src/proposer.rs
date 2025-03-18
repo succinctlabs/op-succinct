@@ -1,5 +1,7 @@
 use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus}, find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig, ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
+    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
 };
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
