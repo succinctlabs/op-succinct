@@ -1119,7 +1119,7 @@ where
         // Handle the ongoing tasks.
         self.handle_ongoing_tasks().await?;
 
-        // Set orphaned tasks to status FAILED.
+        // Set orphaned WitnessGeneration and Execution tasks to status Failed.
         self.set_orphaned_tasks_to_failed().await?;
 
         // Get all proof statuses of all requests in the proving state.
