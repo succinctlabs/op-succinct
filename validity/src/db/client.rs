@@ -14,7 +14,7 @@ impl DriverDBClient {
         // Run migrations.
         sqlx::migrate!("./migrations").run(&pool).await?;
 
-        info!("Database migrations applied successfully.");
+        info!("Database configured successfully.");
 
         Ok(DriverDBClient { pool })
     }

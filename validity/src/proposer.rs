@@ -35,8 +35,7 @@ pub struct DriverConfig {
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
 // TODO: Investigate whether we can use DashMap for this.
-pub type TaskMap =
-    HashMap<tokio::task::Id, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
+pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
 
 pub struct Proposer<P, N, H: OPSuccinctHost>
 where
@@ -554,8 +553,10 @@ where
                 tokio::spawn(
                     async move { proof_requester.make_proof_request(request_clone).await },
                 );
-            let id = handle.id();
-            self.tasks.lock().await.insert(id, (handle, request));
+            self.tasks
+                .lock()
+                .await
+                .insert(request.id, (handle, request));
         }
 
         Ok(())
@@ -801,6 +802,45 @@ where
             }
 
             return Err(anyhow::anyhow!("Config mismatches detected. Please run {{cargo run --bin config --release -- --env-file ENV_FILE}} to get the expected config for your contract."));
+        }
+
+        Ok(())
+    }
+
+    /// Set orphaned tasks to status FAILED. If a task is in the database in status Execution or WitnessGeneration but not in the tasks map, set it to status FAILED.
+    async fn set_orphaned_tasks_to_failed(&self) -> Result<()> {
+        let witnessgen_requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_requests_by_status(
+                RequestStatus::WitnessGeneration,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
+            )
+            .await?;
+
+        let execution_requests = self
+            .driver_config
+            .driver_db_client
+            .fetch_requests_by_status(
+                RequestStatus::Execution,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
+            )
+            .await?;
+
+        let requests = [witnessgen_requests, execution_requests].concat();
+
+        // If a task is in the database in status Execution or WitnessGeneration but not in the tasks map, set it to status FAILED.
+        for request in requests {
+            if !self.tasks.lock().await.contains_key(&request.id) {
+                self.driver_config
+                    .driver_db_client
+                    .update_request_status(request.id, RequestStatus::Failed)
+                    .await?;
+            }
         }
 
         Ok(())
@@ -1079,6 +1119,9 @@ where
 
         // Handle the ongoing tasks.
         self.handle_ongoing_tasks().await?;
+
+        // Set orphaned tasks to status FAILED.
+        self.set_orphaned_tasks_to_failed().await?;
 
         // Get all proof statuses of all requests in the proving state.
         self.handle_proving_requests().await?;
