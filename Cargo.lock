@@ -4628,6 +4628,8 @@ dependencies = [
  "prometheus",
  "rand 0.9.0",
  "sp1-sdk",
+ "strum 0.27.1",
+ "strum_macros 0.27.1",
  "tokio",
  "tracing",
  "tracing-subscriber",

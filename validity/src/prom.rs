@@ -2,7 +2,7 @@ use metrics::{describe_gauge, gauge};
 use strum::{EnumMessage, IntoEnumIterator};
 use strum_macros::{Display, EnumIter};
 
-// Define an enum for all gauge metrics
+// Define an enum for all gauge metrics.
 #[derive(Debug, Clone, Copy, Display, EnumIter, EnumMessage)]
 pub enum GaugeMetric {
     // Proof status gauges
@@ -103,31 +103,31 @@ pub enum GaugeMetric {
 }
 
 impl GaugeMetric {
-    // Helper to describe the gauge
+    // Helper to describe the gauge.
     pub fn describe(&self) {
         describe_gauge!(self.to_string(), self.get_message().unwrap());
     }
 
-    // Helper to set the gauge value
+    // Helper to set the gauge value.
     pub fn set(&self, value: f64) {
         gauge!(self.to_string()).set(value);
     }
 
-    // Helper to increment the gauge value
+    // Helper to increment the gauge value.
     pub fn increment(&self, value: f64) {
         gauge!(self.to_string()).increment(value);
     }
 }
 
 pub fn custom_gauges() {
-    // Register all gauges
+    // Register all gauges.
     for metric in GaugeMetric::iter() {
         metric.describe();
     }
 }
 
 pub fn init_gauges() {
-    // Initialize all gauges to 0.0
+    // Initialize all gauges to 0.0.
     for metric in GaugeMetric::iter() {
         metric.set(0.0);
     }

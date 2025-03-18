@@ -15,14 +15,16 @@ use alloy_rpc_types_eth::Block;
 use alloy_sol_types::SolValue;
 use anyhow::{bail, Result};
 use async_trait::async_trait;
-use metrics::gauge;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
 use tokio::time::Duration;
 
-use crate::contract::{
-    AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L2Output,
-    OPSuccinctFaultDisputeGame, ProposalStatus,
+use crate::{
+    contract::{
+        AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L2Output,
+        OPSuccinctFaultDisputeGame, ProposalStatus,
+    },
+    prometheus::ProposerGauge,
 };
 
 pub type L1Provider = RootProvider;
@@ -704,8 +706,6 @@ where
             self.should_attempt_resolution(oldest_game_index).await?;
 
         if should_attempt_resolution {
-            let game_resolved_gauge = gauge!("op_succinct_fp_games_resolved");
-
             for i in 0..games_to_check.to::<u64>() {
                 let index = oldest_game_index + U256::from(i);
                 if let Ok(Action::Performed) = self
@@ -717,7 +717,7 @@ where
                     )
                     .await
                 {
-                    game_resolved_gauge.increment(1.0);
+                    ProposerGauge::GamesResolved.increment(1.0);
                 }
             }
         } else {
