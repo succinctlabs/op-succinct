@@ -18,7 +18,7 @@
     "editable": true,
     "fiscalYearStartMonth": 0,
     "graphTooltip": 0,
-    "id": 2,
+    "id": 1,
     "links": [],
     "panels": [
         {
@@ -557,7 +557,10 @@
                         "type": "prometheus",
                         "uid": "PBFA97CFB590B2093"
                     },
+                    "editorMode": "code",
                     "expr": "op_succinct_fp_games_created",
+                    "legendFormat": "Number of Games Created",
+                    "range": true,
                     "refId": "A"
                 },
                 {
@@ -572,7 +575,7 @@
                     "hide": false,
                     "includeNullMetadata": true,
                     "instant": false,
-                    "legendFormat": "__auto",
+                    "legendFormat": "Number of Games Resolved",
                     "range": true,
                     "refId": "B",
                     "useBackend": false
@@ -589,7 +592,7 @@
                     "hide": false,
                     "includeNullMetadata": true,
                     "instant": false,
-                    "legendFormat": "__auto",
+                    "legendFormat": "Number of Games Bonds Claimed",
                     "range": true,
                     "refId": "C",
                     "useBackend": false
@@ -825,6 +828,6 @@
     "timezone": "",
     "title": "OP Succinct Lite Dashboard",
     "uid": "proposer-dashboard",
-    "version": 7,
+    "version": 1,
     "weekStart": ""
 }
