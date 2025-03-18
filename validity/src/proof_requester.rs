@@ -298,11 +298,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         ))
     }
 
-    /// Handles a failed proof request by inserting a new request.
+    /// Handles a failed proof request.
     ///
     /// If the request is a range proof and the number of failed requests is greater than 2 or the execution status is unexecutable, the request is split into two new requests.
-    /// Otherwise, the same request is inserted again with a new ID.
-    pub async fn retry_request(
+    /// Otherwise, add_new_ranges will insert the new request. This ensures better idempotency. If the request to add two range requests fails, add_new_ranges will handle it gracefully by submitting
+    /// the same range.
+    pub async fn handle_failed_request(
         &self,
         request: OPSuccinctRequest,
         execution_status: ExecutionStatus,
@@ -365,13 +366,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 ];
 
                 self.db_client.insert_requests(&new_requests).await?;
-                return Ok(());
             }
         }
-
-        self.db_client
-            .insert_request(&OPSuccinctRequest::new_retry_request(&request))
-            .await?;
 
         Ok(())
     }
