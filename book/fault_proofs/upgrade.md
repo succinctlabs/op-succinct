@@ -60,7 +60,7 @@ just -f fault-proof/justfile --dotenv-filename contracts/.env upgrade-fault-disp
 
 You can verify the upgrade by running the following command:
 ```bash
-cast call <FACTORY_ADDRESS> "gameImpls(uint32)" <GAME_TYPE>
+cast call <FACTORY_ADDRESS> "gameImpls(uint32)" <GAME_TYPE> --rpc-url <L1_RPC_URL>
 ```
 
 ## Troubleshooting
