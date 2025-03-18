@@ -65,6 +65,8 @@ func TestMaxBlockL1Limit(t *testing.T) {
 					l1Number = 50
 				case 60:
 					l1Number = 100
+				case 59:
+					l1Number = 99
 				default:
 					w.WriteHeader(http.StatusBadRequest)
 					return
@@ -110,10 +112,10 @@ func TestMaxBlockL1Limit(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	l1BlockNumber := uint64(50)
 
 	t.Run("success", func(t *testing.T) {
 		maxBlock := uint64(100)
+		l1BlockNumber := uint64(50)
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
 		assert.Equal(t, maxBlock, result)
@@ -121,12 +123,15 @@ func TestMaxBlockL1Limit(t *testing.T) {
 
 	t.Run("decrease maxBlock", func(t *testing.T) {
 		maxBlock := uint64(60)
+		l1BlockNumber := uint64(99)
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(99), result)
+		assert.Equal(t, uint64(59), result)
 	})
 
 	t.Run("error getting L1 head", func(t *testing.T) {
+		maxBlock := uint64(15)
+		l1BlockNumber := uint64(50)
 		// Create a mock HTTP server that returns an error
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
