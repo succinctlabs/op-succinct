@@ -34,7 +34,6 @@ pub struct DriverConfig {
     pub loop_interval_seconds: u64,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
-// TODO: Investigate whether we can use DashMap for this.
 pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
 
 pub struct Proposer<P, N, H: OPSuccinctHost>
@@ -150,7 +149,7 @@ where
             .await?
             .number;
 
-        // Get all requests in PROVE or COMPLETE status with the same commitment config and start block >= latest_proposed_block_number.
+        // Get all active (non-failed) requests with the same commitment config and start block >= latest_proposed_block_number.
         // These requests are non-overlapping.
         let mut requests = self
             .driver_config
