@@ -51,9 +51,14 @@ Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 
 ## Upgrade Command
 
+Dry run the upgrade command in the root directory of the project:
+```bash
+DRY_RUN=true just -f fault-proof/justfile --dotenv-filename contracts/.env upgrade-fault-dispute-game
+```
+
 Run the upgrade command in the root directory of the project:
 ```bash
-just -f fault-proof/justfile --dotenv-filename contracts/.env upgrade-fault-dispute-game
+DRY_RUN=false just -f fault-proof/justfile --dotenv-filename contracts/.env upgrade-fault-dispute-game
 ```
 
 ## Verification
