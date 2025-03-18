@@ -89,10 +89,9 @@ To stop the OP Succinct validity service, run:
 docker compose stop
 ```
 
-
 ## Lifecycle
 
-The proposer service will run indefinitely, but will only submit proofs to the L1 if there are new output roots to submit.
+The following diagrams show the lifecycle of range and aggregation proofs.
 
 ### Range Proof Lifecycle
 
@@ -126,3 +125,18 @@ stateDiagram-v2
     Failed --> Unrequested: retry same range
     Complete --> Relayed: submit_agg_proofs
 ```
+
+### Operations
+The proposer performs the following operations each loop:
+
+1. Validates that the requester config matches the contract configuration
+2. Logs proposer metrics like number of requests in each state
+3. Handles ongoing tasks by checking completed/failed tasks and cleaning them up
+4. Sets orphaned tasks (in WitnessGeneration/Execution but not in tasks map) to Failed status
+5. Gets proof statuses for all requests in proving state from the Prover Network
+6. Adds new range requests to cover gaps between latest proposed and finalized blocks. If a request failed, this is where the request is re-tried.
+7. Creates aggregation proofs from completed contiguous range proofs.
+8. Requests proofs for any unrequested proofs from the prover network/generates mock proofs.
+9. Submits any completed aggregation proofs to the L2 output oracle contract.
+
+The loop runs continuously with a configurable interval (default 60 seconds) between iterations.
