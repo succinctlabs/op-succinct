@@ -1,7 +1,8 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, init_gauges, GaugeMetric,
-    OPSuccinctProofRequester,
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, init_gauges,
+    CommitmentConfig, ContractConfig, GaugeMetric, OPSuccinctProofRequester, ProgramConfig,
+    RequesterConfig,
 };
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -18,64 +19,13 @@ use op_succinct_host_utils::{
     ValidityDisputeGameExtraData, AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
 };
 use sp1_sdk::{
-    network::{
-        proto::network::{ExecutionStatus, FulfillmentStatus},
-        FulfillmentStrategy,
-    },
-    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey,
+    network::proto::network::{ExecutionStatus, FulfillmentStatus},
+    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use std::collections::HashMap;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
-
-pub struct ContractConfig<P, N>
-where
-    P: Provider<N> + 'static,
-    N: Network,
-{
-    pub l2oo_address: Address,
-    pub dgf_address: Address,
-    pub l2oo_contract: OPSuccinctL2OOContract<(), P, N>,
-    pub dgf_contract: DisputeGameFactoryContract<(), P, N>,
-}
-
-#[derive(Debug, Clone)]
-pub struct CommitmentConfig {
-    pub range_vkey_commitment: B256,
-    pub agg_vkey_hash: B256,
-    pub rollup_config_hash: B256,
-}
-
-#[derive(Clone)]
-pub struct ProgramConfig {
-    pub range_vk: Arc<SP1VerifyingKey>,
-    pub range_pk: Arc<SP1ProvingKey>,
-    pub agg_vk: Arc<SP1VerifyingKey>,
-    pub agg_pk: Arc<SP1ProvingKey>,
-    pub commitments: CommitmentConfig,
-}
-
-pub struct RequesterConfig {
-    pub l1_chain_id: i64,
-    pub l2_chain_id: i64,
-    // The address being committed to when generating the aggregation proof to prevent front-running attacks.
-    // This should be the same address that is being used to send `proposeL2Output` transactions.
-    pub prover_address: Address,
-    pub l2oo_address: Address,
-    pub dgf_address: Address,
-    pub range_proof_interval: u64,
-    pub submission_interval: u64,
-    pub max_concurrent_witness_gen: u64,
-    pub max_concurrent_proof_requests: u64,
-    pub range_proof_strategy: FulfillmentStrategy,
-    pub agg_proof_strategy: FulfillmentStrategy,
-    pub agg_proof_mode: SP1ProofMode,
-    pub mock: bool,
-    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
-    pub safe_db_fallback: bool,
-}
 
 /// Configuration for the driver.
 pub struct DriverConfig {
@@ -1023,7 +973,10 @@ where
             self.requester_config.range_proof_interval as i64,
         );
 
-        info!("Found {} ranges to prove.", ranges_to_prove.len());
+        info!(
+            "Inserting {} new range proof requests into the database.",
+            ranges_to_prove.len()
+        );
 
         // Create range proof requests for the ranges to prove in parallel
         let new_range_requests = stream::iter(ranges_to_prove)

@@ -63,9 +63,7 @@ pub fn get_ranges_to_prove(
         let mut current_start = start;
         while current_start < end {
             let current_end = std::cmp::min(current_start + range_proof_interval, end);
-            if current_end - current_start == range_proof_interval {
-                ranges.push((current_start, current_end));
-            }
+            ranges.push((current_start, current_end));
             current_start = current_end;
         }
     }
@@ -132,7 +130,8 @@ mod tests {
             (100, 125),
             (125, 150),
             (150, 175),
-            (175, 200)
+            (175, 200),
+            (200, 210)
         ]
     );
 
@@ -161,6 +160,13 @@ mod tests {
         test_get_ranges_to_prove_case_5,
         &[(0, 5), (10, 15), (20, 25)],
         3,
-        &[(0, 3), (10, 13), (20, 23)]
+        &[(0, 3), (3, 5), (10, 13), (13, 15), (20, 23), (23, 25)]
+    );
+
+    test_get_ranges_to_prove!(
+        test_get_ranges_to_prove_case_interval_larger_than_range,
+        &[(0, 5), (10, 15), (20, 25)],
+        30,
+        &[(0, 5), (10, 15), (20, 25)]
     );
 }

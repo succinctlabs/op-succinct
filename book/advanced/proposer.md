@@ -88,3 +88,41 @@ To stop the OP Succinct validity service, run:
 ```bash
 docker compose stop
 ```
+
+
+## Lifecycle
+
+The proposer service will run indefinitely, but will only submit proofs to the L1 if there are new output roots to submit.
+
+### Range Proof Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unrequested: New Request for Range of Blocks
+    Unrequested --> WitnessGeneration: make_proof_request
+    WitnessGeneration --> Execution: mock=true
+    WitnessGeneration --> Prove: mock=false
+    Execution --> Complete: generate_mock_range_proof
+    Execution --> Failed: error
+    Prove --> Complete: proof fulfilled
+    Prove --> Failed: proof unfulfillable/error
+    Failed --> Split: range AND (2+ failures OR unexecutable)
+    Split --> Unrequested: two new smaller ranges
+    Failed --> Unrequested: retry same range
+```
+
+### Aggregation Proof Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unrequested: Total interval of completed range proofs > submissionInterval.
+    Unrequested --> WitnessGeneration: make_proof_request
+    WitnessGeneration --> Execution: mock=true
+    WitnessGeneration --> Prove: mock=false
+    Execution --> Complete: generate_mock_agg_proof
+    Execution --> Failed: error
+    Prove --> Complete: proof fulfilled
+    Prove --> Failed: proof unfulfillable/error
+    Failed --> Unrequested: retry same range
+    Complete --> Relayed: submit_agg_proofs
+```
