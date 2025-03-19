@@ -15,7 +15,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
-    ValidityDisputeGameExtraData, AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
 };
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
