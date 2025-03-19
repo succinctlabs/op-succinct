@@ -19,7 +19,7 @@ sol! {
         function checkpointBlockHash(uint256 _blockNumber) external;
 
         // Proposing outputs when the output oracle is set to ZK mode.
-        function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
+        function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof, address _proverAddress)
         external
         payable
         whenNotOptimistic;
