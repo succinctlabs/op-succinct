@@ -312,11 +312,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _proverAddress The address of the prover that submitted the proof. Note: proverAddress is not required to be the msg.sender as there is no reason to front-run the prover.
     /// @dev Modified the function signature to exclude the `_l1BlockHash` parameter, as it's redundant
     /// for OP Succinct given the `_l1BlockNumber` parameter.
-    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof, address _proverAddress)
-        external
-        payable
-        whenNotOptimistic
-    {
+    function proposeL2Output(
+        bytes32 _outputRoot,
+        uint256 _l2BlockNumber,
+        uint256 _l1BlockNumber,
+        bytes memory _proof,
+        address _proverAddress
+    ) external payable whenNotOptimistic {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
         require(
             approvedProposers[msg.sender] || approvedProposers[address(0)],
