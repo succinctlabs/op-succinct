@@ -52,7 +52,7 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
 /// let ranges_to_prove = get_ranges_to_prove(&disjoint_ranges, range_proof_interval);
 /// assert_eq!(ranges_to_prove, [(0, 25), (25, 50), (100, 125), (125, 150), (150, 175), (175, 200), (200, 210)]);
 /// ```
-///
+/// TODO: Determine what the best way to ensure that we don't insert a bunch of small requests near the tip is.
 pub fn get_ranges_to_prove(
     disjoint_ranges: &[(i64, i64)],
     range_proof_interval: i64,
