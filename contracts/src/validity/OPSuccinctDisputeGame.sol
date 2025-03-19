@@ -46,11 +46,7 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         wasRespectedGameTypeWhenCreated = true;
 
         OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(
-            rootClaim().raw(),
-            l2BlockNumber(),
-            l1BlockNumber(),
-            proof(),
-            proverAddress()
+            rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
         );
 
         this.resolve();
@@ -146,11 +142,7 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     /// @return gameType_ The type of proof system being used.
     /// @return rootClaim_ The root claim of the DisputeGame.
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function gameData()
-        external
-        pure
-        returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_)
-    {
+    function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();
