@@ -693,6 +693,7 @@ where
                 l2_block_number: completed_agg_proof.end_block as u64,
                 l1_block_number: completed_agg_proof.checkpointed_l1_block_number.unwrap() as u64,
                 proof: completed_agg_proof.proof.as_ref().unwrap().clone().into(),
+                prover_address: self.requester_config.prover_address,
             }
             .abi_encode();
 
