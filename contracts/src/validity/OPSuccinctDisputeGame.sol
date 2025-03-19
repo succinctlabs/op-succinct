@@ -7,6 +7,7 @@ import {ISemver} from "interfaces/universal/ISemver.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
+
 contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////////
     //                         Events                             //
