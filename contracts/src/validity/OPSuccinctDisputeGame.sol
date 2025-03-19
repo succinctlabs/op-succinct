@@ -96,29 +96,12 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     /// @dev `clones-with-immutable-args` argument #4
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
     function extraData() public pure returns (bytes memory extraData_) {
-        // The extra data starts at the second word within the cwia calldata
+        // The extra data starts at the second word within the cwia calldata and
+        // has arbitrary length since proof data is variable length. The extra data
+        // is constructed as `abi.encodePacked(l2BlockNumber, l1BlockNumber, proof)`.
         uint256 offset = _getImmutableArgsOffset();
-        /// @solidity memory-safe-assembly
-        assembly {
-            // Calculate the starting position (offset + 0x54)
-            let startPos := add(offset, 0x54)
-            // Calculate length (total calldata size minus the starting position)
-            let length := sub(calldatasize(), startPos)
-
-            // Allocate memory for the result
-            extraData_ := mload(0x40)
-            // Store the length
-            mstore(extraData_, length)
-            // Copy the calldata starting from offset+0x54
-            calldatacopy(add(extraData_, 0x20), startPos, length)
-
-            // Zeroize the slot after the bytes
-            let endPos := add(add(extraData_, 0x20), length)
-            mstore(endPos, 0)
-
-            // Update the free memory pointer
-            mstore(0x40, add(endPos, 0x20))
-        }
+        uint256 length = msg.data.length;
+        extraData_ = _getArgBytes(0x54, length - offset);
     }
 
     /// @notice If all necessary information has been gathered, this function should mark the game
