@@ -336,7 +336,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 )
                 .await?;
 
-            // NOTE: The failed_requests check here can be removed in V5 once the only failures that occur are unexecutable requests.
+            // NOTE: The failed_requests check here can be removed in V5.
             if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
                 info!("Splitting failed request into two: {:?}", request.id);
                 let mid_block = (request.start_block + request.end_block) / 2;
