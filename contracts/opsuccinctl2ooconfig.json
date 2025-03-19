@@ -10,7 +10,7 @@
   "startingOutputRoot": "0x0e380e370510c229403a2380c4038667826ef4a57e14945a1b64f8da4f2dca09",
   "startingTimestamp": 1742341894,
   "submissionInterval": 1,
-  "verifier": "0xda10a9199d56AD03ee1C832758fb02341db66A32",
+  "verifier": "0xAe7161E312197c0138Cb531fB8af1352fb5DB1d8",
   "aggregationVkey": "0x000c4887ab85d744c36666ede14c801f31fd5bcfe2c1905ba40ca0600e77d8ba",
   "rangeVkeyCommitment": "0x21dd1d9f4c2a3a8547746fad0cb0e1aa520e89874996df760f7e81a25d1435d0",
   "proxyAdmin": "0x0000000000000000000000000000000000000000"
