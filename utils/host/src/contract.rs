@@ -99,9 +99,9 @@ sol! {
     }
 
     struct ValidityDisputeGameExtraData {
-        uint64 l2_block_number;
-        uint64 l1_block_number;
-        bytes proof;
+        uint256 l2_block_number;
+        uint256 l1_block_number;
         address prover_address;
+        bytes proof;
     }
 }

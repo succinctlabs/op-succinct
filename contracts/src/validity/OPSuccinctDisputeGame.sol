@@ -7,7 +7,7 @@ import {ISemver} from "interfaces/universal/ISemver.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
-
+import {console} from "forge-std/console.sol";
 contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////////
     //                         Events                             //
@@ -45,11 +45,12 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         status = GameStatus.IN_PROGRESS;
         wasRespectedGameTypeWhenCreated = true;
 
-        (uint256 l2BlockNumber_, uint256 l1BlockNumber_, bytes memory proof_, address proverAddress_) =
-            abi.decode(extraData(), (uint256, uint256, bytes, address));
-
         OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(
-            rootClaim().raw(), l2BlockNumber_, l1BlockNumber_, proof_, proverAddress_
+            rootClaim().raw(),
+            l2BlockNumber(),
+            l1BlockNumber(),
+            proof(),
+            proverAddress()
         );
 
         this.resolve();
@@ -92,13 +93,31 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         l2BlockNumber_ = _getArgUint256(0x54);
     }
 
+    /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
+    function l1BlockNumber() public pure returns (uint256 l1BlockNumber_) {
+        l1BlockNumber_ = _getArgUint256(0x74);
+    }
+
+    /// @notice The prover address of the disputed output root in the `L2OutputOracle`.
+    function proverAddress() public pure returns (address proverAddress_) {
+        proverAddress_ = _getArgAddress(0x94);
+    }
+
+    /// @notice The prover address of the disputed output root in the `L2OutputOracle`.
+    function proof() public pure returns (bytes memory proof_) {
+        uint256 offset = _getImmutableArgsOffset();
+        uint256 length = msg.data.length;
+        // The total message length is the offset (4 bytes) + the length of all the arguments + 2 bytes (length at end of calldata).
+        proof_ = _getArgBytes(0xA8, length - offset - 0xA8 - 2);
+    }
+
     /// @notice Getter for the extra data.
     /// @dev `clones-with-immutable-args` argument #4
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
     function extraData() public pure returns (bytes memory extraData_) {
         // The extra data starts at the second word within the cwia calldata and
         // has arbitrary length since proof data is variable length. The extra data
-        // is constructed as `abi.encodePacked(l2BlockNumber, l1BlockNumber, proof)`.
+        // is constructed as `abi.encodePacked(l2BlockNumber, l1BlockNumber, proverAddress, proof)`.
         uint256 offset = _getImmutableArgsOffset();
         uint256 length = msg.data.length;
         extraData_ = _getArgBytes(0x54, length - offset);
@@ -127,7 +146,11 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     /// @return gameType_ The type of proof system being used.
     /// @return rootClaim_ The root claim of the DisputeGame.
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
+    function gameData()
+        external
+        pure
+        returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_)
+    {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();

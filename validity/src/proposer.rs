@@ -4,7 +4,7 @@ use crate::{
     ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
 };
 use alloy_eips::BlockId;
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Network, Provider};
 use alloy_sol_types::SolValue;
 use anyhow::anyhow;
@@ -689,13 +689,19 @@ where
                 .await?
                 ._0;
 
-            let extra_data = ValidityDisputeGameExtraData {
-                l2_block_number: completed_agg_proof.end_block as u64,
-                l1_block_number: completed_agg_proof.checkpointed_l1_block_number.unwrap() as u64,
-                proof: completed_agg_proof.proof.as_ref().unwrap().clone().into(),
-                prover_address: self.requester_config.prover_address,
-            }
-            .abi_encode();
+            let extra_data = <(U256, U256, Address, Bytes)>::abi_encode_packed(&(
+                U256::from(completed_agg_proof.end_block as u64),
+                U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap() as u64),
+                self.requester_config.prover_address,
+                completed_agg_proof.proof.as_ref().unwrap().clone().into(),
+            ));
+
+            info!(
+                "OP Succinct Validity Dispute Game Type: {:?}",
+                OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE
+            );
+            info!("Output Root: {:?}", output.output_root);
+            info!("Extra data: {:?}", Bytes::from(extra_data.clone()));
 
             self.contract_config
                 .dgf_contract
@@ -1099,7 +1105,7 @@ where
                 }
                 Err(e) => {
                     // Log the error
-                    tracing::error!("Error in proposer loop: {}", e);
+                    tracing::error!("Error in proposer loop: {:?}", e);
                     // Update the error gauge
                     ValidityGauge::TotalErrorCount.increment(1.0);
                     // Pause for 10 seconds before restarting
