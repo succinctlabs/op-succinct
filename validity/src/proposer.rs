@@ -696,13 +696,6 @@ where
                 completed_agg_proof.proof.as_ref().unwrap().clone().into(),
             ));
 
-            info!(
-                "OP Succinct Validity Dispute Game Type: {:?}",
-                OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE
-            );
-            info!("Output Root: {:?}", output.output_root);
-            info!("Extra data: {:?}", Bytes::from(extra_data.clone()));
-
             self.contract_config
                 .dgf_contract
                 .create(
