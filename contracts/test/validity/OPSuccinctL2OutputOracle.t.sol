@@ -10,8 +10,7 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     uint256 checkpointedL1BlockNum = 7931837;
     bytes32 claimedOutputRoot = 0xfb2b5dde22744d80ef752a49227a8a4927f998999a66338a22b06f093e9ccd3c;
     uint256 claimedL2BlockNum = 1432001;
-    bytes proof =
-        hex"";
+    bytes proof = hex"";
     address proverAddress = 0x788c45CafaB3ea427b9079889BE43D7d3cd7500C;
 
     // The owner of the L2OO.
