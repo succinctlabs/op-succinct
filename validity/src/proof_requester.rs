@@ -301,7 +301,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     /// Handles a failed proof request.
     ///
     /// If the request is a range proof and the number of failed requests is greater than 2 or the execution status is unexecutable, the request is split into two new requests.
-    /// Otherwise, add_new_ranges will insert the new request. This ensures better idempotency. If the request to add two range requests fails, add_new_ranges will handle it gracefully by submitting
+    /// Otherwise, add_new_ranges will insert the new request. This ensures better failure-resilience. If the request to add two range requests fails, add_new_ranges will handle it gracefully by submitting
     /// the same range.
     pub async fn handle_failed_request(
         &self,
