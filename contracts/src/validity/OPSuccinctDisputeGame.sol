@@ -57,10 +57,7 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ///      i.e. The game type should indicate the security model.
     /// @return gameType_ The type of proof system being used.
     function gameType() public pure returns (GameType) {
-        // TODO: Once a new version of the Optimism contracts containing the PR below is released,
-        // update this to return the correct game type: GameTypes.OP_SUCCINCT
-        // https://github.com/ethereum-optimism/optimism/pull/13780
-        return GameType.wrap(6);
+        return GameTypes.OP_SUCCINCT;
     }
 
     /// @notice Getter for the creator of the dispute game.
@@ -103,7 +100,8 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     function proof() public pure returns (bytes memory proof_) {
         uint256 offset = _getImmutableArgsOffset();
         uint256 length = msg.data.length;
-        // The total message length is the offset (4 bytes) + the length of all the arguments + 2 bytes (length at end of calldata).
+        // The total message length is the offset + the length of all the arguments + 2 bytes (length at end of calldata). Get the proof from the end of the calldata,
+        // before the length.
         proof_ = _getArgBytes(0xA8, length - offset - 0xA8 - 2);
     }
 
