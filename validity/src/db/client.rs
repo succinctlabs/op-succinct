@@ -279,12 +279,14 @@ impl DriverDBClient {
         l2_chain_id: i64,
     ) -> Result<i64, Error> {
         let result = sqlx::query!(
-            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 AND l1_chain_id = $8 AND l2_chain_id = $9",
+            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status IN ($4, $5, $6, $7) AND req_type = $8 AND start_block = $9 AND l1_chain_id = $10 AND l2_chain_id = $11",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             &commitment.agg_vkey_hash[..],
-            RequestStatus::Failed as i16,
-            RequestStatus::Cancelled as i16,
+            RequestStatus::Unrequested as i16,
+            RequestStatus::WitnessGeneration as i16,
+            RequestStatus::Execution as i16,
+            RequestStatus::Prove as i16,
             RequestType::Aggregation as i16,
             start_block,
             l1_chain_id,
