@@ -55,10 +55,10 @@ kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-b
 kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.9" }
 
 # hana
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "d9797f2"}
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "d9797f2"}
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "d9797f2"}
-hana-client = { git = "https://github.com/celestiaorg/hana", rev = "d9797f2"}
+hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "a703d25"}
+hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "a703d25"}
+hana-host = { git = "https://github.com/celestiaorg/hana", rev = "a703d25"}
+hana-client = { git = "https://github.com/celestiaorg/hana", rev = "a703d25"}
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
