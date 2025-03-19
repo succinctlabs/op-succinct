@@ -183,7 +183,7 @@ where
             self.requester_config.range_proof_interval as i64,
         );
 
-        if ranges_to_prove.len() > 0 {
+        if !ranges_to_prove.is_empty() {
             info!(
                 "Inserting {} range proof requests into the database.",
                 ranges_to_prove.len()
