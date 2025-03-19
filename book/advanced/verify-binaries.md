@@ -10,7 +10,7 @@ Recall there are two programs used in OP Succinct:
 
 ## Prerequisites
 
-To reproduce the OP Succinct program binaries, you first need to install the [cargo prove](https://docs.succinct.xyz/docs/getting-started/install.html#option-1-prebuilt-binaries-recommended) toolchain.
+To reproduce the OP Succinct program binaries, you first need to install the [cargo prove](https://docs.succinct.xyz/docs/sp1/getting-started/install#option-1-prebuilt-binaries-recommended) toolchain.
 
 Ensure that you have the latest version of the toolchain by running:
 
@@ -36,17 +36,17 @@ Then build the binaries:
 
 ```bash
 cd programs/range
-# Build the range-elf
-cargo prove build --elf-name range-elf --docker --tag v4.0.0-rc.10
+# Build the range elfs
+cargo prove build --elf-name range-elf-bump --docker --tag v4.1.2
+cargo prove build --elf-name range-elf-embedded --docker --tag v4.1.2 --features embedded
 
 cd ../aggregation
 # Build the aggregation-elf
-cargo prove build --elf-name aggregation-elf --docker --tag v4.0.0-rc.10
+cargo prove build --elf-name aggregation-elf --docker --tag v4.1.2
 ```
 
-Now, verify the binaries by confirming the output of `vkey` matches the vkeys on the contract. The `vkey` program outputs the verification keys
-based on the ELFs in `/elf`.
+Now, you can verify the binaries. The `config` script outputs the rollup config hash, aggregation verification key, and range verification key commitment based on the ELFs in `/elf`.
 
 ```bash
-cargo run --bin vkey --release
+cargo run --bin config --release
 ```

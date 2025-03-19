@@ -9,7 +9,6 @@ remappings = [
     "@optimism/=lib/optimism/packages/contracts-bedrock/",
     "@forge-std/=lib/forge-std/src/",
     "@solady/=lib/solady/src",
-    "@solady-v0.0.281/=lib/solady-v0.0.281/src",
     # Note: Use zobront/sp1-contracts as the current version for SP1 contracts is not compatible with the hard
     # version for 0.8.15 on some Optimism contracts.
     "@sp1-contracts/=lib/sp1-contracts/contracts/",
@@ -23,10 +22,7 @@ remappings = [
     "@lib-keccak/=lib/lib-keccak/contracts/lib"
 ]
 
-# Enable read-write access to opsuccinctl2ooconfig.json
-fs_permissions = [
-    { access = "read-write", path = "./opsuccinctl2ooconfig.json" },
-    { access = "read-write", path = "./opsuccinctl2ooconfig-test.json" }
-]
+# Enable read-write access to all files in current directory
+fs_permissions = [{ access = "read-write", path = "." }]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

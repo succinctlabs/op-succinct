@@ -49,8 +49,13 @@ To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill ou
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
+| `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
+| `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
+| `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. | (Only used if `FAST_FINALITY_MODE` is `true`) |
+| `SAFE_DB_FALLBACK` | Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node. When `false`, proposer will return an error if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. | `false` |
+| `PROPOSER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9000` |
 
 ```env
 # Required Configuration
@@ -61,11 +66,14 @@ GAME_TYPE=               # Type identifier for the dispute game (must match fact
 PRIVATE_KEY=             # Private key for transaction signing
 
 # Optional Configuration
-FAST_FINALITY_MODE=false # Whether to use fast finality mode
-PROPOSAL_INTERVAL_IN_BLOCKS=1800    # Number of L2 blocks between proposals
-FETCH_INTERVAL=30                   # Polling interval in seconds
-ENABLE_GAME_RESOLUTION=false        # Whether to enable automatic game resolution
-MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100  # Maximum number of games to check for resolution
+FAST_FINALITY_MODE=false                 # Whether to use fast finality mode
+PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
+FETCH_INTERVAL=30                        # Polling interval in seconds
+ENABLE_GAME_RESOLUTION=false             # Whether to enable automatic game resolution
+MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100    # Maximum number of games to check for resolution
+MAX_GAMES_TO_CHECK_FOR_DEFENSE=100       # Maximum number of recent games to check for defense
+MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
+PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
 ```
 
 ### Configuration Steps
@@ -93,12 +101,28 @@ The proposer will run indefinitely, creating new games and optionally resolving 
 - Handles bond requirements for game creation.
 - Supports fast finality mode with proofs. (Set `FAST_FINALITY_MODE=true` in `.env.proposer`)
 
+### Game Defense
+- Monitors games for challenges against valid claims
+- Automatically defends valid claims by providing proofs
+- Checks games within a configurable window (set by `MAX_GAMES_TO_CHECK_FOR_DEFENSE`)
+- Only defends games that:
+  - Have been challenged
+  - Are within their proof submission window
+  - Have valid output root claims
+- Generates and submits proofs using the Succinct Prover Network
+
 ### Game Resolution
 When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
 - Monitors unchallenged games
 - Resolves games after their challenge period expires
 - Respects parent-child game relationships in resolution
 - Only resolves games whose parent games are already resolved
+
+### Bond Claiming
+- Monitors games for bond claiming opportunities
+- Only claims bonds from games that:
+  - Are finalized (resolved and airgapped)
+  - Has credit left to claim
 
 ### Chain Monitoring
 - Monitors the L2 chain's finalized (safe) head
@@ -129,7 +153,7 @@ Errors are logged with appropriate context to aid in debugging.
 The proposer is built around the `OPSuccinctProposer` struct which manages:
 - Configuration state.
 - Wallet management for transactions.
-- Game creation and resolution logic.
+- Game creation, defense, and resolution logic.
 - Chain monitoring and interval management.
 
 Key components:
@@ -138,14 +162,18 @@ Key components:
   - Monitors the L2 chain's safe head.
   - Determines appropriate block numbers for proposals.
   - Creates new games with proper parent-child relationships.
+- `handle_game_defense`: Main function for defending challenged games that:
+  - Finds the oldest defensible game
+  - Generates and submits proofs for valid claims
+  - Manages proof generation through the Succinct Prover Network
 - `handle_game_resolution`: Main function for resolving games that:
   - Checks if resolution is enabled.
   - Manages resolution of unchallenged games.
   - Respects parent-child relationships.
 - `run`: Main loop that:
   - Runs at configurable intervals.
-  - Handles both game creation and resolution.
-  - Provides error isolation between creation and resolution tasks.
+  - Handles game creation, defense, and resolution.
+  - Provides error isolation between tasks.
 
 ### Helper Functions
 - `create_game`: Creates individual games with proper bonding.

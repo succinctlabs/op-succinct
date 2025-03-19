@@ -24,10 +24,7 @@ cargo_metadata.workspace = true
 anyhow.workspace = true
 dotenv.workspace = true
 csv.workspace = true
-
-# kona
-kona-host.workspace = true
-kona-preimage.workspace = true
+tracing.workspace = true
 
 # hana
 hana-host.workspace = true
@@ -36,7 +33,6 @@ hana-host.workspace = true
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
-async-trait.workspace = true
 
 # alloy
 alloy-primitives.workspace = true

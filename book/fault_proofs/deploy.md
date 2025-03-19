@@ -76,7 +76,7 @@ For production, remove the `USE_SP1_MOCK_VERIFIER` environment variable and set 
 | `AGGREGATION_VKEY` | Verification key for aggregation | `0x...` |
 | `RANGE_VKEY_COMMITMENT` | Commitment to range verification key | `0x...` |
 
-#### Getting the Rollup Config Hash, Aggregation VKEY, and Range VKEY Commitment
+#### Getting the Rollup Config Hash, Aggregation Verification Key, and Range Verification Key Commitment
 
 First, create a `.env` file in the root directory with the following variables:
 ```bash
@@ -86,27 +86,22 @@ L2_RPC=<L2_RPC_URL>
 L2_NODE_RPC=<L2_NODE_RPC_URL>
 ```
 
-Then run the following command to get the Rollup Config Hash:
-```bash
-cargo run --bin fetch-rollup-config-hash
-```
-
-You can get the aggregation program verification key, and range program verification key commitment by running the following command:
+You can get the aggregation program verification key, range program verification key commitment, and rollup config hash by running the following command:
 
 ```bash
-cargo run --bin vkey --release
+cargo run --bin config --release -- --env-file <PATH_TO_ENV_FILE>
 ```
 
 ## Deployment
 
-1. Install dependencies:
-   ```bash
-   forge install
-   ```
-
-2. Change directory to contracts:
+1. Change directory to contracts:
    ```bash
    cd contracts
+   ```
+
+2. Install dependencies:
+   ```bash
+   forge install
    ```
 
 3. Build the contracts:
@@ -119,14 +114,22 @@ cargo run --bin vkey --release
    forge script script/fp/DeployOPSuccinctFDG.s.sol --broadcast --rpc-url <RPC_URL> --private-key <PRIVATE_KEY>
    ```
 
-## Contract Parameters
+## Optional Environment Variables
 
 The deployment script deploys the contract with the following parameters:
 
-- **Initial Bond**: 0.01 ETH by default (configurable via `INITIAL_BOND` in wei, so 10000000000000000 wei for 0.01 ETH).
-- **Proof Reward**: 0.01 ETH by default (configurable via `PROOF_REWARD` in wei, so 10000000000000000 wei for 0.01 ETH).
-- **Starting Anchor Root**: Genesis configuration with block number 0.
-- **Access Control**: Permissionless (address(0) can propose and challenge).
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `INITIAL_BOND_WEI` | Initial bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
+| `CHALLENGER_BOND_WEI` | Challenger bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
+| `OPTIMISM_PORTAL2_ADDRESS` | Address of an existing OptimismPortal2 contract. If not provided, a mock will be deployed. | `0x...` |
+| `PERMISSIONLESS_MODE` | If set to true, anyone can propose or challenge games. | `true` or `false` |
+| `PROPOSER_ADDRESSES` | Comma-separated list of addresses allowed to propose games. Ignored if PERMISSIONLESS_MODE is true. | `0x123...,0x456...` |
+| `CHALLENGER_ADDRESSES` | Comma-separated list of addresses allowed to challenge games. Ignored if PERMISSIONLESS_MODE is true. | `0x123...,0x456...` |
+
+Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
+
+These values depend on the L2 chain, and the total value secured. Generally, to prevent frivolous challenges, `CHALLENGER_BOND` should be set to at least 10x of the proving cost needed to prove a game.
 
 ## Post-Deployment
 
@@ -134,7 +137,7 @@ After deployment, the script will output the addresses of:
 - Factory Proxy.
 - Game Implementation.
 - SP1 Verifier.
-- Portal2.
+- OptimismPortal2.
 - Anchor State Registry.
 - Access Manager.
 

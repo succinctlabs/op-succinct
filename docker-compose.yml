@@ -1,27 +1,26 @@
 services:
-  # OP Succinct Server
-  op-succinct-server:
-    build:
-      context: .
-      dockerfile: ./proposer/succinct/Dockerfile
-    env_file:
-      - ${ENV_FILE:-.env}
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-
-  # OP Succinct Proposer
-  op-succinct-proposer:
-    build:
-      context: .
-      dockerfile: ./proposer/op/Dockerfile.op_proposer
-    env_file:
-      - ${ENV_FILE:-.env}
-    restart: unless-stopped
-    depends_on:
-      - op-succinct-server
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: op-succinct
+      POSTGRES_DB: op-succinct
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - ./db:/usr/local/bin/dbdata
-    # The metrics port is the default port for the OP Proposer.
+      - postgres-data:/var/lib/postgresql/data
     ports:
-      - "7300:7300"
+      - "5432:5432"
+
+  op-succinct:
+    build:
+      context: .
+      dockerfile: ./validity/Dockerfile
+    env_file:
+      - ${ENV_FILE:-.env}
+    environment:
+      - DATABASE_URL=postgres://op-succinct@postgres:5432/op-succinct
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

@@ -4,7 +4,7 @@ Running OP Succinct in full mode will generate proofs of valid OP Stack L2 outpu
 
 ## Prerequisites
 
-You will need a whitelisted key on the Succinct Prover Network. Follow the instructions [here](https://docs.succinct.xyz/docs/generating-proofs/prover-network) to get your key whitelisted.
+You will need a whitelisted key on the Succinct Prover Network. Follow the instructions [here](https://docs.succinct.xyz/docs/sp1/generating-proofs/prover-network) to get your key whitelisted.
 
 To get access to the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
 
@@ -79,6 +79,7 @@ To start the `op-succinct` service, add the following parameters to the `.env` f
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `NETWORK_PRIVATE_KEY` | The private key for the account that will be submitting proofs to the L1. |
 | `NETWORK_RPC_URL` | The RPC endpoint for the Succinct Prover Network. The default endpoint (`https://rpc.succinct.xyz`) is not suitable for use in OP Succinct. Reach out to the Succinct team to get access with OP Succinct. |
+| `DATABASE_URL` | The address of a Postgres database for storing the intermediate proposer state. |
 
 Now, you should have the following in your `.env` file:
 
@@ -93,6 +94,7 @@ Now, you should have the following in your `.env` file:
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `NETWORK_PRIVATE_KEY` | The private key for the account that will be submitting proofs to the L1. |
 | `NETWORK_RPC_URL` | Reach out to the Succinct team to get access [here](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The default endpoint (`https://rpc.succinct.xyz`) is not suitable for use in OP Succinct. |
+| `DATABASE_URL` | The address of a Postgres database for storing the intermediate proposer state. |
 
 ### 4) Start the `op-succinct` service.
 
