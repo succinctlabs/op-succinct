@@ -149,3 +149,25 @@ func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumbe
 
 	return maxBlock, nil
 }
+
+func (pa *ProofsAPI) GetAggProof(ctx context.Context, id int) ([]byte, error) {
+	pa.logger.Info("getting agg proof from server", "id", id)
+
+	// Get the proof request by the proof request ID
+	preq, err := pa.db.GetProofRequestByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proof request by prover request ID: %w", err)
+	}
+
+	// If the proof request is not found, return an error
+	if preq == nil {
+		return nil, fmt.Errorf("proof request not found")
+	}
+
+	// If the proof request is not complete, return an error
+	if preq.Status != proofrequest.StatusCOMPLETE {
+		return nil, fmt.Errorf("proof request not complete")
+	}
+
+	return preq.Proof, nil
+}

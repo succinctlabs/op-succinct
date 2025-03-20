@@ -543,3 +543,15 @@ func (db *ProofDB) GetProofRequestsWithBlockRange(proofType proofrequest.Type, s
 	}
 	return proofs, nil
 }
+
+func (db *ProofDB) GetProofRequestByID(id int) (*ent.ProofRequest, error) {
+	proof, err := db.readClient.ProofRequest.Query().
+		Where(
+			proofrequest.ID(id),
+		).
+		Only(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query proof by prover request ID: %w", err)
+	}
+	return proof, nil
+}
