@@ -52,4 +52,9 @@ metrics.workspace = true
 metrics-process.workspace = true
 metrics-exporter-prometheus.workspace = true
 
+# hana
+hana-host.workspace = true
+
 [features]
+default = ["celestia"]
+celestia = []

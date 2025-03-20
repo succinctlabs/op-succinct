@@ -6,6 +6,7 @@ use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
+use hana_host::celestia::CelestiaCfg;
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
 use kona_protocol::calculate_tx_l1_cost_fjord;
@@ -78,6 +79,34 @@ fn get_rpcs() -> RPCConfig {
         l1_beacon_rpc: Url::parse(&l1_beacon_rpc).expect("L1_BEACON_RPC must be a valid URL"),
         l2_rpc: Url::parse(&l2_rpc).expect("L2_RPC must be a valid URL"),
         l2_node_rpc: Url::parse(&l2_node_rpc).expect("L2_NODE_RPC must be a valid URL"),
+    }
+}
+
+fn get_celestia_cfg() -> CelestiaCfg {
+    let is_celestia = env::var("IS_CELESTIA")
+        .map(|val| val.to_lowercase() == "true")
+        .unwrap_or(false);
+    match is_celestia {
+        true => {
+            let celestia_rpc =
+                env::var("CELESTIA_NODE_RPC").expect("CELESTIA_NODE_RPC must be set");
+            let namespace = env::var("NAMESPACE").expect("NAMESPACE must be set");
+            let auth_token = env::var("AUTH_TOKEN").expect("AUTH_TOKEN must be set");
+            let blobstream_address = env::var("BLOBSTREAM").expect("BLOBSTREAM must be set");
+
+            return CelestiaCfg {
+                celestia_connection: Some(celestia_rpc),
+                auth_token: Some(auth_token),
+                namespace: Some(namespace),
+                blobstream_address: Some(blobstream_address),
+            };
+        }
+        false => CelestiaCfg {
+            celestia_connection: None,
+            auth_token: None,
+            namespace: None,
+            blobstream_address: None,
+        },
     }
 }
 

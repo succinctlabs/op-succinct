@@ -56,6 +56,7 @@ impl InMemoryOracle {
 
         // Iterate over each key-value pair in the cache
         for (key, value) in cache_guard.iter() {
+            // Check which keys are not present here
             let key_bytes: [u8; 32] = (*key).into();
             cache.insert(key_bytes, value.clone());
         }
@@ -103,6 +104,7 @@ struct Blob {
 }
 
 pub fn verify_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<()> {
+    info!("verifying preimage");
     let key_type = key.key_type();
     let preimage = match key_type {
         PreimageKeyType::Keccak256 => Some(keccak256(value).0),
@@ -130,8 +132,10 @@ impl InMemoryOracle {
             HashMap::with_hasher(BytesHasherBuilder);
 
         for (key, value) in self.cache.iter() {
+            // check if verify is doing anything funky since we use altda
             let preimage_key = PreimageKey::try_from(*key).unwrap();
             if preimage_key.key_type() == PreimageKeyType::Blob {
+                println!("found blob key when using Celestia DA");
                 // We should verify the keys using the Blob provider.
                 let blob_data_key: [u8; 32] =
                     PreimageKey::new(*key, PreimageKeyType::Keccak256).into();

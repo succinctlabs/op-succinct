@@ -26,6 +26,9 @@ dotenv.workspace = true
 csv.workspace = true
 tracing.workspace = true
 
+# hana
+hana-host.workspace = true
+
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
