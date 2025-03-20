@@ -24,7 +24,7 @@ use sp1_sdk::{
 use std::collections::HashMap;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// Configuration for the driver.
 pub struct DriverConfig {
@@ -72,7 +72,7 @@ where
             .is_chain_locked(
                 requester_config.l1_chain_id,
                 requester_config.l2_chain_id,
-                Duration::from_secs(60),
+                Duration::from_secs(DEFAULT_LOOP_INTERVAL),
             )
             .await?;
         if is_locked {
@@ -128,7 +128,7 @@ where
         let dgf_contract = DisputeGameFactoryContract::new(requester_config.dgf_address, provider);
 
         // 1 minute default loop interval.
-        const DEFAULT_LOOP_INTERVAL: u64 = 60;
+        const DEFAULT_LOOP_INTERVAL: u64 = 30;
 
         let proposer = Proposer {
             driver_config: DriverConfig {
