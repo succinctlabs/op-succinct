@@ -57,9 +57,6 @@ type RequestAggProofResponse struct {
 func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
 	pa.logger.Info("requesting agg proof from server", "start", startBlock, "max end", maxBlock)
 
-	// Return the proof request ID or the mock proof request ID
-	proverRequestID := "mock_prover_request_id"
-
 	maxBlock, err := pa.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get max block L1 limit: %w", err)
@@ -82,7 +79,7 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	// End the loop when we find a proof request with status PROVING or COMPLETE
-	for len(preqs) <= 0 {
+	for {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context cancelled")
@@ -99,36 +96,43 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 
 			// Take only the last one
 			var preq *ent.ProofRequest
-			if len(preqs) > 1 {
+			if len(preqs) > 0 {
 				preq = preqs[len(preqs)-1]
-			}
-
-			// We want to check all but we're only interested in the last one
-
-			if pa.mock {
-				// If we're mocking, return the DB id as the proof request ID
-				proverRequestID = strconv.Itoa(preq.ID)
 			} else {
-				// If we're not mocking, then we should return the proof request ID
-				proverRequestID = preq.ProverRequestID
+				continue
 			}
 
 			switch preq.Status {
 			case proofrequest.StatusPROVING, proofrequest.StatusCOMPLETE:
-				pa.logger.Info(fmt.Sprintf("agg proof request is %s", preq.Status), "proof_request_id", proverRequestID)
+				pa.logger.Info(fmt.Sprintf("agg proof request is %s", preq.Status), "proof_request_id", preq.ID)
 			case proofrequest.StatusFAILED:
 				pa.logger.Warn("agg proof request failed", "proof_request_id", preq.ID)
 			default:
-				pa.logger.Info("agg proof request is still pending", "proof_request_id", proverRequestID)
+				pa.logger.Info("agg proof request is still pending", "proof_request_id", preq.ID)
+			}
+
+			// We want to check all but we're only interested in the last one
+			if pa.mock {
+				// If we're mocking, return the DB id as the proof request ID
+				proverRequestID := strconv.Itoa(preq.ID)
+				return &RequestAggProofResponse{
+					StartBlock:     startBlock,
+					EndBlock:       endBlock,
+					ProofRequestID: proverRequestID,
+				}, nil
+
+			} else {
+				if preq.ProverRequestID != "" {
+					// If we're not mocking, then we should return the proof request ID
+					return &RequestAggProofResponse{
+						StartBlock:     startBlock,
+						EndBlock:       endBlock,
+						ProofRequestID: preq.ProverRequestID,
+					}, nil
+				}
 			}
 		}
 	}
-
-	return &RequestAggProofResponse{
-		StartBlock:     startBlock,
-		EndBlock:       endBlock,
-		ProofRequestID: proverRequestID,
-	}, nil
 }
 
 func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumber uint64) (uint64, error) {
