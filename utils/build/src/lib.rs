@@ -33,7 +33,7 @@ fn build_program(program_name: &str, elf_name: &str, features: Option<Vec<String
 /// programs.
 pub fn build_all() {
     // Build range program.
-    build_zkvm_program("range");
+    //build_program("range");
 
     // Build aggregation program.
     // build_zkvm_program("aggregation");

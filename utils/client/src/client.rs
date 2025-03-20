@@ -21,7 +21,7 @@ use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::errors::OracleProviderError;
 use kona_proof::executor::KonaExecutor;
-use kona_proof::l1::{OracleL1ChainProvider, OraclePipeline};
+use kona_proof::l1::OracleL1ChainProvider;
 use kona_proof::l2::OracleL2ChainProvider;
 use kona_proof::sync::new_pipeline_cursor;
 use kona_proof::{BootInfo, FlushableCache, HintType};

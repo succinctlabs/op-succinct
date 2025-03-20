@@ -6,7 +6,6 @@ use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
 use anyhow::Result;
 use anyhow::{anyhow, bail};
-use cargo_metadata::MetadataCommand;
 use hana_host::celestia::CelestiaCfg;
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
