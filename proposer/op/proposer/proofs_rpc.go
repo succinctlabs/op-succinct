@@ -3,6 +3,8 @@ package proposer
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/dial"
@@ -72,16 +74,6 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 	if created {
 		pa.logger.Info("created new AGG proof", "from", startBlock, "to", endBlock)
 	} else {
-		// Return an error or mock
-		if pa.mock {
-			return &RequestAggProofResponse{
-				StartBlock:     startBlock,
-				EndBlock:       endBlock,
-				ProofRequestID: "mock_proof_request_id",
-			}, nil
-		}
-
-		// TODO: Should we return here the proof request ID or the proof?
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: already exists")
 	}
 
@@ -100,19 +92,34 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 				return nil, fmt.Errorf("failed to get proof request with block range: %w", err)
 			}
 
-			// We want to check all but we're only interested in the last one
-			for _, preq := range preqs {
-				if !pa.mock {
-					// If we're not mocking, then we should return the proof request ID
-					proverRequestID = preq.ProverRequestID
-				}
+			// sort the proof requests by ID
+			sort.Slice(preqs, func(i, j int) bool {
+				return preqs[i].ID < preqs[j].ID
+			})
 
-				switch preq.Status {
-				case proofrequest.StatusPROVING, proofrequest.StatusCOMPLETE:
-					pa.logger.Info(fmt.Sprintf("agg proof request is %s", preq.Status), "proof_request_id", proverRequestID)
-				case proofrequest.StatusFAILED:
-					pa.logger.Warn("agg proof request failed", "proof_request_id", preq.ID)
-				}
+			// Take only the last one
+			var preq *ent.ProofRequest
+			if len(preqs) > 1 {
+				preq = preqs[len(preqs)-1]
+			}
+
+			// We want to check all but we're only interested in the last one
+
+			if pa.mock {
+				// If we're mocking, return the DB id as the proof request ID
+				proverRequestID = strconv.Itoa(preq.ID)
+			} else {
+				// If we're not mocking, then we should return the proof request ID
+				proverRequestID = preq.ProverRequestID
+			}
+
+			switch preq.Status {
+			case proofrequest.StatusPROVING, proofrequest.StatusCOMPLETE:
+				pa.logger.Info(fmt.Sprintf("agg proof request is %s", preq.Status), "proof_request_id", proverRequestID)
+			case proofrequest.StatusFAILED:
+				pa.logger.Warn("agg proof request failed", "proof_request_id", preq.ID)
+			default:
+				pa.logger.Info("agg proof request is still pending", "proof_request_id", proverRequestID)
 			}
 		}
 	}
