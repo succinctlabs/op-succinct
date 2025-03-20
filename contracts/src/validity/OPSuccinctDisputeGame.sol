@@ -98,23 +98,22 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
 
     /// @notice The prover address of the disputed output root in the `L2OutputOracle`.
     function proof() public pure returns (bytes memory proof_) {
-        uint256 offset = _getImmutableArgsOffset();
-        uint256 length = msg.data.length;
-        // The total message length is the offset + the length of all the arguments + 2 bytes (length at end of calldata). Get the proof from the end of the calldata,
-        // before the length.
-        proof_ = _getArgBytes(0xA8, length - offset - 0xA8 - 2);
+        uint256 len;
+        assembly {
+            len := sub(shr(240, calldataload(sub(calldatasize(), 2))), 0xA8)
+        }
+        proof_ = _getArgBytes(0xA8, len);
     }
 
     /// @notice Getter for the extra data.
     /// @dev `clones-with-immutable-args` argument #4
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
     function extraData() public pure returns (bytes memory extraData_) {
-        // The extra data starts at the second word within the cwia calldata and
-        // has arbitrary length since proof data is variable length. The extra data
-        // is constructed as `abi.encodePacked(l2BlockNumber, l1BlockNumber, proverAddress, proof)`.
-        uint256 offset = _getImmutableArgsOffset();
-        uint256 length = msg.data.length;
-        extraData_ = _getArgBytes(0x54, length - offset);
+        uint256 len;
+        assembly {
+            len := sub(shr(240, calldataload(sub(calldatasize(), 2))), 0x54)
+        }
+        extraData_ = _getArgBytes(0x54, len);
     }
 
     /// @notice If all necessary information has been gathered, this function should mark the game
