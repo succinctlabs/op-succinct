@@ -56,6 +56,10 @@ Dry run the upgrade command in the root directory of the project:
 DRY_RUN=true just -f fault-proof/justfile --dotenv-filename contracts/.env upgrade-fault-dispute-game
 ```
 
+This will output the upgrade calldata that can be used to execute the upgrade through a multi-sig wallet or governance system.
+
+<br>
+
 Run the upgrade command in the root directory of the project:
 ```bash
 DRY_RUN=false just -f fault-proof/justfile --dotenv-filename contracts/.env upgrade-fault-dispute-game
