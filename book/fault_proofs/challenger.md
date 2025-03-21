@@ -6,22 +6,20 @@ The fault proof challenger is a component responsible for monitoring and challen
 
 Before running the challenger, ensure you have:
 
-1. Rust toolchain installed (latest stable version)
-2. Access to L1 and L2 network nodes
+1. [Rust](https://www.rust-lang.org/tools/install) (latest stable version) installed.
+2. Access to L1 and L2 network nodes. L2 node should be configured with SafeDB enabled. See [SafeDB Configuration](./best_practices.md#safe-db-configuration) for more details.
 3. The DisputeGameFactory contract deployed (See [Deploy](./deploy.md))
 4. Sufficient ETH balance for:
    - Transaction fees
    - Challenger bonds (proof rewards)
-5. Required environment variables properly configured (See [Configuration](#configuration))
 
 ## Overview
 
 The challenger performs several key functions:
 
-1. **Game Monitoring**: Continuously scans for invalid games that need to be challenged
-2. **Game Challenging**: Challenges invalid games by providing counter-proofs
-3. **Game Resolution**: Optionally resolves challenged games after their deadline passes
-4. **Bond Management**: Handles proof rewards and challenge bonds
+1. **Game Challenging**: Challenges invalid games with challenger bonds.
+2. **Game Resolution**: Resolves challenged games after their deadline passes.
+3. **Bond Claiming**: Claims bonds from resolved games.
 
 ## Configuration
 
@@ -48,31 +46,12 @@ The challenger is configured through environment variables. Create a `.env.chall
 | `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 
-```env
-# Required Configuration
-L1_RPC=                  # L1 RPC endpoint URL
-L2_RPC=                  # L2 RPC endpoint URL
-FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract
-GAME_TYPE=               # Type identifier for the dispute game
-PRIVATE_KEY=             # Private key for transaction signing
-
-# Optional Configuration
-FETCH_INTERVAL=30                     # Polling interval in seconds
-ENABLE_GAME_RESOLUTION=true           # Whether to enable automatic game resolution
-MAX_GAMES_TO_CHECK_FOR_CHALLENGE=100  # Maximum number of games to scan for challenges
-MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for resolution
-MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
-CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
-```
-
 ## Running
 
 To run the challenger:
 ```bash
 cargo run --bin challenger
 ```
-
-The challenger will run indefinitely, monitoring for invalid games and challenging them as needed.
 
 ## Features
 
@@ -89,19 +68,14 @@ The challenger will run indefinitely, monitoring for invalid games and challengi
 - Provides detailed logging of challenge actions
 
 ### Game Resolution
-When enabled (`ENABLE_GAME_RESOLUTION=true`), the challenger:
-- Monitors challenged games
-- Resolves games after their resolution period expires
-- Handles resolution of multiple games efficiently
-- Respects game resolution requirements
+When `ENABLE_GAME_RESOLUTION=true`, the challenger resolves challenged games after their resolution period expires.
 
 ## Architecture
 
 The challenger is built around the `OPSuccinctChallenger` struct which manages:
-- Configuration state
-- Wallet management for transactions
-- Game challenging and resolution logic
-- Chain monitoring and interval management
+- Configuration state.
+- Wallet management for transactions.
+- Game challenging, resolution, and bond claiming logic.
 
 Key components:
 - `ChallengerConfig`: Handles environment-based configuration
@@ -114,19 +88,9 @@ Key components:
   - Manages resolution of challenged games
   - Handles resolution confirmations
 - `run`: Main loop that:
-  - Runs at configurable intervals
-  - Handles both challenging and resolution
+  - Runs at configurable intervals.
+  - Handles game challenging, resolution, and bond claiming.
   - Provides error isolation between tasks
-
-## Error Handling
-
-The challenger includes robust error handling for:
-- RPC connection issues
-- Transaction failures
-- Contract interaction errors
-- Invalid configurations
-
-Errors are logged with appropriate context to aid in debugging.
 
 ## Development
 
