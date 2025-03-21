@@ -6,13 +6,28 @@
 
 ## Overview
 
-OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https://vitalik.eth.limo/general/2022/08/04/zkevm.html) with [SP1](https://docs.succinct.xyz/docs/sp1/introduction). This means your rollup can benefit from the security of zero-knowledge proofs while maintaining compatibility with the OP Stack ecosystem.
+OP Succinct is the production-grade proving engine for the OP Stack, powered by Succinct.
 
 ### Key Benefits
 
 - **1 hour finality** secured by ZKPs, a dramatic improvement over the 7-day withdrawal window of standard OP Stack rollups.
 - **Unlimited customization** for rollup modifications in pure Rust and easy maintainability.
 - **Cost-effective proving** with an average cost of proving only fractions of cent per transaction (with an expected 5-10x improvement by EOY), thanks to SP1's blazing fast performance.
+
+## OP Stack Proving Options
+
+| Feature | OP Succinct | OP Succinct Lite | Standard OP Stack |
+|---------|-------------|------------------|-------------------|
+| Proof System | Full validity proofs with SP1 | ZK fault proofs (with optional fast finality) | Interactive fraud proofs |
+| Decentralization | Stage 1 - Stage 2 | Configurable: Stage 0 or Stage 1 | Stage 1 |
+| Finality Time | 1 hour | 1 day | 7 days |
+| Security Level | Highest | High | High |
+| Alt DA Support | ✅ | ✅ | ❌ |
+| Dispute Process | Prove every transcation | Prove when there is a dispute | Replay transactions on L1 with FPVM |
+| Dispute Capital Requirements | 0 | Configurable: 5-15 ETH (Less than worst-case prover cost) | Scales with TVL; up to 1000s of ETH |
+| Ongoing proving costs | Less than a tenth of a cent per transaction; can be paid by users | $0; Proofs only generated with disputes | $0 |
+| Designed for | Large L2s, DeFi Chains, and other high-value chains | Cost-sensitive L2s, appchains and gaming chains | 🐢 |
+
 
 ## Getting Started
 
