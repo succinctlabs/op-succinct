@@ -1,10 +1,12 @@
 # OP Succinct
 
-*Documentation for OP Stack rollup operators and developers looking to upgrade to a Type-1 ZK rollup.*
+<a href="https://github.com/succinctlabs/op-succinct/actions/workflows/docker-build.yaml"><img src="https://img.shields.io/github/actions/workflow/status/succinctlabs/op-succinct/docker-build.yaml?style=flat&labelColor=1C2C2E&label=ci&color=BEC5C9&logo=GitHub%20Actions&logoColor=BEC5C9" alt="CI"></a>
+   <a href="https://github.com/succinctlabs/op-succinct/blob/main/LICENSE-MIT"><img src="https://img.shields.io/badge/License-MIT-d1d1f6.svg?style=flat&labelColor=1C2C2E&color=BEC5C9&logo=googledocs&label=license&logoColor=BEC5C9" alt="License"></a>
+   <a href="https://succinctlabs.github.io/op-succinct"><img src="https://img.shields.io/badge/Book-854a15?style=flat&labelColor=1C2C2E&color=BEC5C9&logo=mdBook&logoColor=BEC5C9" alt="Book"></a>
 
 ## Overview
 
-OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https://vitalik.eth.limo/general/2022/08/04/zkevm.html) using SP1. This means your rollup can benefit from the security of zero-knowledge proofs while maintaining compatibility with the OP Stack ecosystem.
+OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https://vitalik.eth.limo/general/2022/08/04/zkevm.html) with [SP1](https://docs.succinct.xyz/docs/sp1/introduction). This means your rollup can benefit from the security of zero-knowledge proofs while maintaining compatibility with the OP Stack ecosystem.
 
 ### Key Benefits
 
