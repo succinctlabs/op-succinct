@@ -36,6 +36,12 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           POST_TO_GITHUB: true
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+
+      - name: Save PR Stats
+        run: |
+          mkdir -p /tmp/stats
+          cp -r execution-reports/* /tmp/stats/
 
       - name: Checkout Main Branch
         run: |
@@ -55,14 +61,16 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           POST_TO_GITHUB: false
+          GITHUB_REF_NAME: main
 
       - name: Compare Performance
         run: |
           echo "## Performance Comparison" > performance_report.md
           
-          # Read JSON files
-          PR_STATS=$(cat execution-reports/stats_${{ github.head_ref }}.json)
-          MAIN_STATS=$(cat execution-reports/stats_main.json)
+          # Find the chain ID directory and latest stats files
+          CHAIN_DIR=$(ls execution-reports)
+          PR_STATS=$(cat /tmp/stats/$CHAIN_DIR/${{ github.head_ref }}*.json)
+          MAIN_STATS=$(cat execution-reports/$CHAIN_DIR/main*.json)
           
           # Convert to markdown tables
           echo "### PR Branch Stats (${{ github.head_ref }})" >> performance_report.md

@@ -19,6 +19,7 @@ async fn execute_batch() -> Result<()> {
     dotenv::dotenv()?;
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
     // Take the latest blocks
     let (l2_start_block, l2_end_block) =
@@ -56,15 +57,21 @@ async fn execute_batch() -> Result<()> {
     // Save stats to a file in the execution-reports directory
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec()?;
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let reports_dir = root_dir.join("execution-reports");
+    let reports_dir = root_dir.join(format!("execution-reports/{}", l2_chain_id));
     fs::create_dir_all(&reports_dir)?;
 
     // Save stats with branch identifier
-    let branch_name = std::env::var("GITHUB_REF_NAME").unwrap_or_else(|_| "unknown".to_string());
-    let stats_file = reports_dir.join(format!("stats_{}.json", branch_name));
+    let branch_name = std::env::var("GITHUB_HEAD_REF")
+        .or_else(|_| std::env::var("GITHUB_REF_NAME"))
+        .unwrap_or_else(|_| "unknown".to_string());
+    let stats_file = reports_dir.join(format!(
+        "{}-{}-{}.json",
+        branch_name, l2_start_block, l2_end_block
+    ));
     fs::write(&stats_file, serde_json::to_string_pretty(&stats)?)?;
 
-    println!("Execution Stats: \n{:?}", stats.to_string());
+    println!("Execution Stats saved to: {}", stats_file.display());
+    println!("Stats:\n{}", stats.to_string());
 
     if std::env::var("POST_TO_GITHUB")
         .ok()
