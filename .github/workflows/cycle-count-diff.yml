@@ -35,12 +35,7 @@ jobs:
           REPO_NAME: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POST_TO_GITHUB: false
-
-      - name: Save PR Branch Stats
-        run: |
-          mkdir -p /tmp/stats
-          cp execution-reports/* /tmp/stats/pr_stats.txt || true
+          POST_TO_GITHUB: true
 
       - name: Checkout Main Branch
         run: |
@@ -64,37 +59,40 @@ jobs:
       - name: Compare Performance
         run: |
           echo "## Performance Comparison" > performance_report.md
-          echo "\`\`\`" >> performance_report.md
-          echo "PR Branch Stats:" >> performance_report.md
-          cat /tmp/stats/pr_stats.txt >> performance_report.md
-          echo "\nMain Branch Stats:" >> performance_report.md
-          cat execution-reports/* >> performance_report.md
-          echo "\`\`\`" >> performance_report.md
-
-          # Calculate percentage differences for key metrics
-          PR_STATS=$(cat /tmp/stats/pr_stats.txt)
-          MAIN_STATS=$(cat execution-reports/*)
           
+          # Read JSON files
+          PR_STATS=$(cat execution-reports/stats_${{ github.head_ref }}.json)
+          MAIN_STATS=$(cat execution-reports/stats_main.json)
+          
+          # Convert to markdown tables
+          echo "### PR Branch Stats (${{ github.head_ref }})" >> performance_report.md
+          echo "\`\`\`" >> performance_report.md
+          echo "$PR_STATS" | jq -r 'to_entries | .[] | "| \(.key) | \(.value) |"' >> performance_report.md
+          echo "\`\`\`" >> performance_report.md
+          
+          echo "\n### Main Branch Stats" >> performance_report.md
+          echo "\`\`\`" >> performance_report.md
+          echo "$MAIN_STATS" | jq -r 'to_entries | .[] | "| \(.key) | \(.value) |"' >> performance_report.md
+          echo "\`\`\`" >> performance_report.md
+          
+          # Compare key metrics
           echo "\n### Key Metrics Comparison" >> performance_report.md
           echo "| Metric | PR Branch | Main Branch | % Change |" >> performance_report.md
           echo "|--------|-----------|-------------|----------|" >> performance_report.md
           
-          # Extract and compare key metrics using awk
-          for metric in "Total Instruction Count" "Execution Duration (seconds)" "Cycles per Block" "Cycles per Transaction"; do
-            PR_VAL=$(echo "$PR_STATS" | grep "$metric" | awk -F'|' '{print $3}' | tr -d ' ,')
-            MAIN_VAL=$(echo "$MAIN_STATS" | grep "$metric" | awk -F'|' '{print $3}' | tr -d ' ,')
+          for metric in "total_instruction_count" "total_execution_time_sec" "cycles_per_block" "cycles_per_transaction"; do
+            PR_VAL=$(echo "$PR_STATS" | jq ".$metric")
+            MAIN_VAL=$(echo "$MAIN_STATS" | jq ".$metric")
             if [ ! -z "$PR_VAL" ] && [ ! -z "$MAIN_VAL" ]; then
               PERCENT_CHANGE=$(awk "BEGIN {printf \"%.2f\", (($PR_VAL - $MAIN_VAL) / $MAIN_VAL) * 100}")
               echo "| $metric | $PR_VAL | $MAIN_VAL | $PERCENT_CHANGE% |" >> performance_report.md
             fi
           done
-
-          # Add warning if performance degraded significantly
-          awk -v pr="$PR_VAL" -v main="$MAIN_VAL" 'BEGIN {
-            if ((pr - main) / main > 0.05) {
-              print "\n⚠️ **Warning:** Performance has degraded by more than 5% in some metrics."
-            }
-          }' >> performance_report.md
+          
+          # Add warning for significant degradation
+          if jq -e '.total_instruction_count > 1.05 * '$MAIN_VAL' or .cycles_per_block > 1.05 * '$MAIN_VAL' or .cycles_per_transaction > 1.05 * '$MAIN_VAL'' <<< "$PR_STATS" > /dev/null; then
+            echo "\n⚠️ **Warning:** Performance has degraded by more than 5% in some metrics." >> performance_report.md
+          fi
 
       - name: Comment PR
         uses: actions/github-script@v7

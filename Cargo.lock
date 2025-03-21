@@ -4679,6 +4679,7 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "cargo_metadata",
+ "chrono",
  "clap",
  "csv",
  "dotenv",

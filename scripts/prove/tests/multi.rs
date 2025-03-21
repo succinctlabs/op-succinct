@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Result;
 use common::post_to_github_pr;
 use op_succinct_host_utils::{
@@ -10,6 +8,9 @@ use op_succinct_host_utils::{
     stats::{ExecutionStats, MarkdownExecutionStats},
 };
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
+use std::fs;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 mod common;
 
@@ -51,6 +52,17 @@ async fn execute_batch() -> Result<()> {
         0,
         execution_duration.as_secs(),
     );
+
+    // Save stats to a file in the execution-reports directory
+    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec()?;
+    let root_dir = PathBuf::from(cargo_metadata.workspace_root);
+    let reports_dir = root_dir.join("execution-reports");
+    fs::create_dir_all(&reports_dir)?;
+
+    // Save stats with branch identifier
+    let branch_name = std::env::var("GITHUB_REF_NAME").unwrap_or_else(|_| "unknown".to_string());
+    let stats_file = reports_dir.join(format!("stats_{}.json", branch_name));
+    fs::write(&stats_file, serde_json::to_string_pretty(&stats)?)?;
 
     println!("Execution Stats: \n{:?}", stats.to_string());
 

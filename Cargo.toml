@@ -12,6 +12,7 @@ repository = "https://github.com/succinctlabs/op-succinct"
 [workspace.dependencies]
 # general
 anyhow = { version = "1.0.86", default-features = false }
+chrono = "0.4"
 thiserror = { version = "2.0.3" }
 cfg-if = "1.0.0"
 spin = { version = "0.9.8" }
