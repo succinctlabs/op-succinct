@@ -142,20 +142,13 @@ func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumbe
 		return 0, err
 	}
 
-	// If the L1 head corresponding to the maxBlock is higher than the L1 block number,
-	// we need to decrease the maxBlock and query the L1 head again until we find an L1 head,
-	// that is lower or equal to the L1 block number.
-	for maxL1Block := uint64(0); ; maxBlock-- {
-		// Get the L1 origin of the end block.
-		outputResponse, err := rollupClient.OutputAtBlock(ctx, maxBlock)
-		if err != nil {
-			return 0, fmt.Errorf("failed to get l1 origin: %w", err)
-		}
+	safeHead, err := rollupClient.SafeHeadAtL1Block(ctx, l1BlockNumber)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get l1 origin: %w", err)
+	}
 
-		maxL1Block = outputResponse.BlockRef.L1Origin.Number
-		if maxL1Block <= l1BlockNumber {
-			break
-		}
+	if safeHead.SafeHead.Number+20 < maxBlock {
+		return safeHead.SafeHead.Number + 20, nil
 	}
 
 	return maxBlock, nil
