@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use common::post_to_github_pr;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
@@ -20,10 +20,12 @@ async fn execute_batch() -> Result<()> {
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
+    println!("Chain ID: {}", l2_chain_id);
 
     // Take the latest blocks
     let (l2_start_block, l2_end_block) =
         get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?;
+    println!("Block range: {} to {}", l2_start_block, l2_end_block);
 
     let host = SingleChainOPSuccinctHost {
         fetcher: Arc::new(data_fetcher.clone()),
@@ -55,22 +57,38 @@ async fn execute_batch() -> Result<()> {
     );
 
     // Save stats to a file in the execution-reports directory
-    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec()?;
+    let cargo_metadata = cargo_metadata::MetadataCommand::new()
+        .exec()
+        .context("Failed to get cargo metadata")?;
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let reports_dir = root_dir.join(format!("execution-reports/{}", l2_chain_id));
-    fs::create_dir_all(&reports_dir)?;
+    println!("Workspace root: {}", root_dir.display());
+
+    let reports_dir = root_dir
+        .join("execution-reports")
+        .join(l2_chain_id.to_string());
+    println!("Creating reports directory: {}", reports_dir.display());
+    fs::create_dir_all(&reports_dir).context(format!(
+        "Failed to create directory: {}",
+        reports_dir.display()
+    ))?;
 
     // Save stats with branch identifier
     let branch_name = std::env::var("GITHUB_HEAD_REF")
         .or_else(|_| std::env::var("GITHUB_REF_NAME"))
         .unwrap_or_else(|_| "unknown".to_string());
+    println!("Branch name: {}", branch_name);
+
     let stats_file = reports_dir.join(format!(
         "{}-{}-{}.json",
         branch_name, l2_start_block, l2_end_block
     ));
-    fs::write(&stats_file, serde_json::to_string_pretty(&stats)?)?;
+    println!("Writing stats to: {}", stats_file.display());
+    fs::write(&stats_file, serde_json::to_string_pretty(&stats)?).context(format!(
+        "Failed to write stats file: {}",
+        stats_file.display()
+    ))?;
 
-    println!("Execution Stats saved to: {}", stats_file.display());
+    println!("Successfully wrote stats to: {}", stats_file.display());
     println!("Stats:\n{}", stats.to_string());
 
     if std::env::var("POST_TO_GITHUB")

@@ -25,6 +25,7 @@ jobs:
 
       - name: Run PR Branch Test
         run: |
+          mkdir -p execution-reports
           RUST_LOG=info cargo test --release execute_batch -- --exact --nocapture
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
@@ -41,7 +42,13 @@ jobs:
       - name: Save PR Stats
         run: |
           mkdir -p /tmp/stats
-          cp -r execution-reports/* /tmp/stats/
+          if [ -d "execution-reports" ]; then
+            echo "Saving PR stats..."
+            cp -r execution-reports/* /tmp/stats/ || echo "No stats to copy yet"
+            ls -la /tmp/stats || true
+          else
+            echo "No execution-reports directory found"
+          fi
 
       - name: Checkout Main Branch
         run: |
@@ -50,6 +57,7 @@ jobs:
 
       - name: Run Main Branch Test
         run: |
+          mkdir -p execution-reports
           RUST_LOG=info cargo test --release execute_batch -- --exact --nocapture
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
@@ -67,10 +75,39 @@ jobs:
         run: |
           echo "## Performance Comparison" > performance_report.md
           
-          # Find the chain ID directory and latest stats files
-          CHAIN_DIR=$(ls execution-reports)
-          PR_STATS=$(cat /tmp/stats/$CHAIN_DIR/${{ github.head_ref }}*.json)
-          MAIN_STATS=$(cat execution-reports/$CHAIN_DIR/main*.json)
+          # Debug directory contents
+          echo "Contents of /tmp/stats:"
+          ls -R /tmp/stats || true
+          echo "Contents of execution-reports:"
+          ls -R execution-reports || true
+          
+          # Find the chain ID directory
+          if [ ! -d "execution-reports" ] || [ ! -d "/tmp/stats" ]; then
+            echo "Error: Missing required directories" >> performance_report.md
+            exit 1
+          fi
+          
+          CHAIN_DIR=$(ls execution-reports | head -n1)
+          if [ -z "$CHAIN_DIR" ]; then
+            echo "Error: No chain directory found" >> performance_report.md
+            exit 1
+          fi
+          
+          echo "Using chain directory: $CHAIN_DIR"
+          
+          # Find the stats files
+          PR_STATS_FILE=$(ls /tmp/stats/$CHAIN_DIR/${{ github.head_ref }}*.json 2>/dev/null | head -n1)
+          MAIN_STATS_FILE=$(ls execution-reports/$CHAIN_DIR/main*.json 2>/dev/null | head -n1)
+          
+          if [ ! -f "$PR_STATS_FILE" ] || [ ! -f "$MAIN_STATS_FILE" ]; then
+            echo "Error: Missing stats files" >> performance_report.md
+            echo "PR stats file: $PR_STATS_FILE" >> performance_report.md
+            echo "Main stats file: $MAIN_STATS_FILE" >> performance_report.md
+            exit 1
+          fi
+          
+          PR_STATS=$(cat "$PR_STATS_FILE")
+          MAIN_STATS=$(cat "$MAIN_STATS_FILE")
           
           # Convert to markdown tables
           echo "### PR Branch Stats (${{ github.head_ref }})" >> performance_report.md
@@ -103,6 +140,7 @@ jobs:
           fi
 
       - name: Comment PR
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
