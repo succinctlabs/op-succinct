@@ -75,8 +75,9 @@ async fn execute_batch() -> Result<()> {
     // Save stats with branch identifier
     let branch_name = std::env::var("GITHUB_HEAD_REF")
         .or_else(|_| std::env::var("GITHUB_REF_NAME"))
-        .unwrap_or_else(|_| "unknown".to_string());
-    println!("Branch name: {}", branch_name);
+        .unwrap_or_else(|_| "unknown".to_string())
+        .replace('/', "_");
+    println!("Branch name (sanitized): {}", branch_name);
 
     let stats_file = reports_dir.join(format!(
         "{}-{}-{}.json",

@@ -95,8 +95,10 @@ jobs:
           
           echo "Using chain directory: $CHAIN_DIR"
           
-          # Find the stats files
-          PR_STATS_FILE=$(ls /tmp/stats/$CHAIN_DIR/${{ github.head_ref }}*.json 2>/dev/null | head -n1)
+          # Find the stats files with sanitized branch names
+          BRANCH_NAME="${{ github.head_ref }}"
+          BRANCH_NAME_SANITIZED="${BRANCH_NAME//\//_}"
+          PR_STATS_FILE=$(ls /tmp/stats/$CHAIN_DIR/${BRANCH_NAME_SANITIZED}*.json 2>/dev/null | head -n1)
           MAIN_STATS_FILE=$(ls execution-reports/$CHAIN_DIR/main*.json 2>/dev/null | head -n1)
           
           if [ ! -f "$PR_STATS_FILE" ] || [ ! -f "$MAIN_STATS_FILE" ]; then
