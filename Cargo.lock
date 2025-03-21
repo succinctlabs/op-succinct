@@ -4688,8 +4688,10 @@ dependencies = [
  "op-succinct-host-utils",
  "op-succinct-scripts",
  "reqwest",
+ "serde",
  "serde_json",
  "sp1-sdk",
+ "thousands",
  "tokio",
  "tracing",
 ]
@@ -7646,6 +7648,12 @@ dependencies = [
  "quote",
  "syn 2.0.98",
 ]
+
+[[package]]
+name = "thousands"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bf63baf9f5039dadc247375c29eb13706706cfde997d0330d05aa63a77d8820"
 
 [[package]]
 name = "thread_local"

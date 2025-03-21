@@ -38,6 +38,10 @@ alloy-primitives.workspace = true
 # sp1
 sp1-sdk.workspace = true
 
+# serde
+serde = { version = "1.0", features = ["derive"] }
+thousands = "0.2"
+
 [dev-dependencies]
 reqwest = { version = "0.12.4", features = ["json"] }
 serde_json.workspace = true

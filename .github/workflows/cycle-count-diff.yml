@@ -25,30 +25,13 @@ jobs:
 
       - name: Run PR Branch Test
         run: |
-          mkdir -p execution-reports
-          RUST_LOG=info cargo test --release execute_batch -- --exact --nocapture
+          RUST_LOG=info cargo test test_cycle_count -- --exact --nocapture
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POST_TO_GITHUB: true
           GITHUB_HEAD_REF: ${{ github.head_ref }}
-
-      - name: Save PR Stats
-        run: |
-          mkdir -p /tmp/stats
-          if [ -d "execution-reports" ]; then
-            echo "Saving PR stats..."
-            cp -r execution-reports/* /tmp/stats/ || echo "No stats to copy yet"
-            ls -la /tmp/stats || true
-          else
-            echo "No execution-reports directory found"
-          fi
 
       - name: Checkout Main Branch
         run: |
@@ -57,89 +40,12 @@ jobs:
 
       - name: Run Main Branch Test
         run: |
-          mkdir -p execution-reports
-          RUST_LOG=info cargo test --release execute_batch -- --exact --nocapture
+          RUST_LOG=info BASE_BRANCH=1 cargo test test_cycle_count -- --exact --nocapture
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          REPO_OWNER: ${{ github.repository_owner }}
-          REPO_NAME: ${{ github.event.repository.name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POST_TO_GITHUB: false
-          GITHUB_REF_NAME: main
-
-      - name: Compare Performance
-        run: |
-          echo "## Performance Comparison" > performance_report.md
-          
-          # Debug directory contents
-          echo "Contents of /tmp/stats:"
-          ls -R /tmp/stats || true
-          echo "Contents of execution-reports:"
-          ls -R execution-reports || true
-          
-          # Find the chain ID directory
-          if [ ! -d "execution-reports" ] || [ ! -d "/tmp/stats" ]; then
-            echo "Error: Missing required directories" >> performance_report.md
-            exit 1
-          fi
-          
-          CHAIN_DIR=$(ls execution-reports | head -n1)
-          if [ -z "$CHAIN_DIR" ]; then
-            echo "Error: No chain directory found" >> performance_report.md
-            exit 1
-          fi
-          
-          echo "Using chain directory: $CHAIN_DIR"
-          
-          # Find the stats files with sanitized branch names
-          BRANCH_NAME="${{ github.head_ref }}"
-          BRANCH_NAME_SANITIZED="${BRANCH_NAME//\//_}"
-          PR_STATS_FILE=$(ls /tmp/stats/$CHAIN_DIR/${BRANCH_NAME_SANITIZED}*.json 2>/dev/null | head -n1)
-          MAIN_STATS_FILE=$(ls execution-reports/$CHAIN_DIR/main*.json 2>/dev/null | head -n1)
-          
-          if [ ! -f "$PR_STATS_FILE" ] || [ ! -f "$MAIN_STATS_FILE" ]; then
-            echo "Error: Missing stats files" >> performance_report.md
-            echo "PR stats file: $PR_STATS_FILE" >> performance_report.md
-            echo "Main stats file: $MAIN_STATS_FILE" >> performance_report.md
-            exit 1
-          fi
-          
-          PR_STATS=$(cat "$PR_STATS_FILE")
-          MAIN_STATS=$(cat "$MAIN_STATS_FILE")
-          
-          # Convert to markdown tables
-          echo "### PR Branch Stats (${{ github.head_ref }})" >> performance_report.md
-          echo "\`\`\`" >> performance_report.md
-          echo "$PR_STATS" | jq -r 'to_entries | .[] | "| \(.key) | \(.value) |"' >> performance_report.md
-          echo "\`\`\`" >> performance_report.md
-          
-          echo "\n### Main Branch Stats" >> performance_report.md
-          echo "\`\`\`" >> performance_report.md
-          echo "$MAIN_STATS" | jq -r 'to_entries | .[] | "| \(.key) | \(.value) |"' >> performance_report.md
-          echo "\`\`\`" >> performance_report.md
-          
-          # Compare key metrics
-          echo "\n### Key Metrics Comparison" >> performance_report.md
-          echo "| Metric | PR Branch | Main Branch | % Change |" >> performance_report.md
-          echo "|--------|-----------|-------------|----------|" >> performance_report.md
-          
-          for metric in "total_instruction_count" "total_execution_time_sec" "cycles_per_block" "cycles_per_transaction"; do
-            PR_VAL=$(echo "$PR_STATS" | jq ".$metric")
-            MAIN_VAL=$(echo "$MAIN_STATS" | jq ".$metric")
-            if [ ! -z "$PR_VAL" ] && [ ! -z "$MAIN_VAL" ]; then
-              PERCENT_CHANGE=$(awk "BEGIN {printf \"%.2f\", (($PR_VAL - $MAIN_VAL) / $MAIN_VAL) * 100}")
-              echo "| $metric | $PR_VAL | $MAIN_VAL | $PERCENT_CHANGE% |" >> performance_report.md
-            fi
-          done
-          
-          # Add warning for significant degradation
-          if jq -e '.total_instruction_count > 1.05 * '$MAIN_VAL' or .cycles_per_block > 1.05 * '$MAIN_VAL' or .cycles_per_transaction > 1.05 * '$MAIN_VAL'' <<< "$PR_STATS" > /dev/null; then
-            echo "\n⚠️ **Warning:** Performance has degraded by more than 5% in some metrics." >> performance_report.md
-          fi
 
       - name: Comment PR
         if: always()
