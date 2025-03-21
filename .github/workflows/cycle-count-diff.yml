@@ -3,9 +3,7 @@ name: Cycle Count Diff
 on:
   pull_request:
     paths:
-      - '**/*.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
+      - 'elf/range-elf-embedded'
 
 jobs:
   cycle-count-diff:
