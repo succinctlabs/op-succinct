@@ -12,55 +12,26 @@ This guide explains how to run the OP Succinct fault proof system using Docker C
 ## Docker Setup Overview
 
 The fault proof system consists of two main components:
-- **Proposer**: Creates and defends claims about L2 state. See `fault_proof/Dockerfile.proposer`.
-- **Challenger**: Monitors and challenges invalid claims. See `fault_proof/Dockerfile.challenger`.
+- **Proposer**: Creates and defends claims about L2 state. See `fault-proof/Dockerfile.proposer`.
+- **Challenger**: Monitors and challenges invalid claims. See `fault-proof/Dockerfile.challenger`.
 
 ## Quick Start
 
-1. Create environment files under the `fault_proof` directory for both components:
+1. Create environment files under the `fault-proof` directory for both components:
 
-### Proposer Configuration (.env.proposer)
+    ### Proposer Configuration (.env.proposer)
 
-```
-# Required Configuration
-L1_RPC=                  # L1 RPC endpoint URL
-L2_RPC=                  # L2 RPC endpoint URL
-FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract
-GAME_TYPE=               # Type identifier for the dispute game
-PRIVATE_KEY=             # Private key for transaction signing
-NETWORK_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000001
+    See [Proposer Configuration](./proposer.md#configuration) for more details.
 
-# Optional Configuration
-FAST_FINALITY_MODE=false # Whether to use fast finality mode
-PROPOSAL_INTERVAL_IN_BLOCKS=1800    # Number of L2 blocks between proposals
-FETCH_INTERVAL=30                   # Polling interval in seconds
-ENABLE_GAME_RESOLUTION=true         # Whether to enable automatic game resolution
-MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100  # Maximum number of games to check for resolution
-MAX_GAMES_TO_CHECK_FOR_DEFENSE=100    # Maximum number of recent games to check for defense
-```
+    ### Challenger Configuration (.env.challenger)
 
-### Challenger Configuration (.env.challenger)
-
-```
-# Required Configuration
-L1_RPC=                  # L1 RPC endpoint URL
-L2_RPC=                  # L2 RPC endpoint URL
-FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract
-GAME_TYPE=               # Type identifier for the dispute game
-PRIVATE_KEY=             # Private key for transaction signing
-
-# Optional Configuration
-FETCH_INTERVAL=30        # Polling interval in seconds
-MAX_GAMES_TO_CHECK_FOR_CHALLENGE=100  # Maximum number of games to check for challenges
-ENABLE_GAME_RESOLUTION=true           # Whether to enable automatic game resolution
-MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for resolution
-```
+    See [Challenger Configuration](./challenger.md#configuration) for more details.
 
 2. Start the services:
 
 ```bash
-# Navigate to the fault_proof directory
-cd fault_proof
+# Navigate to the fault-proof directory
+cd fault-proof
 
 # Start both proposer and challenger
 docker compose up -d
@@ -82,10 +53,10 @@ If the default port 9090 and 3000 for Prometheus and Grafana are already in use,
 View logs for the services:
 
 ```bash
-# View logs for both services
+# View logs for both services.
 docker compose logs -f
 
-# View logs for a specific service
+# View logs for a specific service.
 docker logs -f op-succinct-fp-proposer
 docker logs -f op-succinct-fp-challenger
 ```
@@ -96,26 +67,13 @@ docker logs -f op-succinct-fp-challenger
 docker compose down
 ```
 
-## Advanced Configuration
-
-For fast finality mode, add these to your `.env.proposer`:
-
-```
-FAST_FINALITY_MODE=true
-NETWORK_PRIVATE_KEY=     # Private key for the Succinct Prover Network
-L1_BEACON_RPC=           # L1 Beacon RPC endpoint URL
-L2_NODE_RPC=             # L2 Node RPC endpoint URL
-```
-
-To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/).
-
 ## Building Images Manually
 
 If you need to build the Docker images manually:
 
 ```bash
-# Navigate to the fault_proof directory
-cd fault_proof
+# Navigate to the fault-proof directory
+cd fault-proof
 
 # Build the proposer image
 docker build -f Dockerfile.proposer -t op-succinct-fp-proposer:latest ..
@@ -128,14 +86,13 @@ docker build -f Dockerfile.challenger -t op-succinct-fp-challenger:latest ..
 
 If you encounter issues:
 
-1. Check the logs for error messages
-2. Verify your RPC endpoints are accessible
-3. Ensure your private key has sufficient ETH
-4. Confirm the factory address and contract deployment environment variables were set as expected
-5. Check that the Docker images built successfully with `docker images`
+1. Check the logs for error messages.
+2. Verify your RPC endpoints are accessible.
+3. Ensure your private key has sufficient ETH.
+4. Confirm the factory address and contract deployment environment variables were set as expected.
+5. Check that the Docker images built successfully with `docker images`.
 
 For more detailed information, refer to the documentation:
+- [Deployment Guide](./deploy.md)
 - [Proposer Documentation](./proposer.md)
 - [Challenger Documentation](./challenger.md)
-- [Deployment Guide](./deploy.md)
-- [Quick Start Guide](./quick_start.md) 
