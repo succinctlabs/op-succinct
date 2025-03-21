@@ -1,0 +1,112 @@
+name: Cycle Count Diff
+
+on:
+  pull_request:
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+jobs:
+  cycle-count-diff:
+    runs-on:
+      - runs-on
+      - cpu=32
+      - ram=128
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
+      - run-id=${{ github.run_id }}
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Run PR Branch Test
+        run: |
+          RUST_LOG=info cargo test --release execute_batch -- --exact --nocapture
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POST_TO_GITHUB: false
+
+      - name: Save PR Branch Stats
+        run: |
+          mkdir -p /tmp/stats
+          cp execution-reports/* /tmp/stats/pr_stats.txt || true
+
+      - name: Checkout Main Branch
+        run: |
+          git fetch origin main
+          git checkout main
+
+      - name: Run Main Branch Test
+        run: |
+          RUST_LOG=info cargo test --release execute_batch -- --exact --nocapture
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          POST_TO_GITHUB: false
+
+      - name: Compare Performance
+        run: |
+          echo "## Performance Comparison" > performance_report.md
+          echo "\`\`\`" >> performance_report.md
+          echo "PR Branch Stats:" >> performance_report.md
+          cat /tmp/stats/pr_stats.txt >> performance_report.md
+          echo "\nMain Branch Stats:" >> performance_report.md
+          cat execution-reports/* >> performance_report.md
+          echo "\`\`\`" >> performance_report.md
+
+          # Calculate percentage differences for key metrics
+          PR_STATS=$(cat /tmp/stats/pr_stats.txt)
+          MAIN_STATS=$(cat execution-reports/*)
+          
+          echo "\n### Key Metrics Comparison" >> performance_report.md
+          echo "| Metric | PR Branch | Main Branch | % Change |" >> performance_report.md
+          echo "|--------|-----------|-------------|----------|" >> performance_report.md
+          
+          # Extract and compare key metrics using awk
+          for metric in "Total Instruction Count" "Execution Duration (seconds)" "Cycles per Block" "Cycles per Transaction"; do
+            PR_VAL=$(echo "$PR_STATS" | grep "$metric" | awk -F'|' '{print $3}' | tr -d ' ,')
+            MAIN_VAL=$(echo "$MAIN_STATS" | grep "$metric" | awk -F'|' '{print $3}' | tr -d ' ,')
+            if [ ! -z "$PR_VAL" ] && [ ! -z "$MAIN_VAL" ]; then
+              PERCENT_CHANGE=$(awk "BEGIN {printf \"%.2f\", (($PR_VAL - $MAIN_VAL) / $MAIN_VAL) * 100}")
+              echo "| $metric | $PR_VAL | $MAIN_VAL | $PERCENT_CHANGE% |" >> performance_report.md
+            fi
+          done
+
+          # Add warning if performance degraded significantly
+          awk -v pr="$PR_VAL" -v main="$MAIN_VAL" 'BEGIN {
+            if ((pr - main) / main > 0.05) {
+              print "\n⚠️ **Warning:** Performance has degraded by more than 5% in some metrics."
+            }
+          }' >> performance_report.md
+
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('performance_report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.name,
+              body: report
+            });
