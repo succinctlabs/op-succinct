@@ -158,7 +158,7 @@ fn create_diff_report(
 async fn test_cycle_count_diff() -> Result<()> {
     dotenv::dotenv()?;
 
-    let is_base_branch = env::var("BASE_BRANCH").is_ok();
+    let is_main_branch = env::var("IS_MAIN_BRANCH").is_ok();
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Take the latest blocks
@@ -197,7 +197,7 @@ async fn test_cycle_count_diff() -> Result<()> {
         MarkdownExecutionStats::new(stats.clone())
     );
 
-    if is_base_branch {
+    if is_main_branch {
         // Save base branch stats
         serde_json::to_writer(File::create("cycle_stats.json")?, &stats)?;
     } else {
