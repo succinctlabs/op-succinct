@@ -39,7 +39,7 @@ jobs:
 
       - name: Checkout PR Branch
         run: |
-          git checkout ${{ github.head_ref }} -- . ':(exclude)cycle_stats.json'
+          git checkout origin/${{ github.head_ref }} -- . ':(exclude)cycle_stats.json'
 
       - name: Run PR Branch Test
         run: |
