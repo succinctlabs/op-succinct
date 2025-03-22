@@ -15,31 +15,31 @@ jobs:
       - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}
     steps:
-      - name: Checkout PR Branch
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout Main Branch
+        run: |
+          git fetch origin main
+          git checkout main
 
       - name: Setup CI
         uses: ./.github/actions/setup
-
-      - name: Run PR Branch Test
+      
+      - name: Run Main Branch Test
         run: |
-          RUST_LOG=info cargo test test_cycle_count_diff -- --exact --nocapture
+          RUST_LOG=info IS_MAIN_BRANCH=1 cargo test test_cycle_count_diff -- --exact --nocapture
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
 
-      - name: Checkout Main Branch
-        run: |
-          git fetch origin main
-          git checkout main
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Run Main Branch Test
+      - name: Run PR Branch Test
         run: |
-          RUST_LOG=info IS_MAIN_BRANCH=1 cargo test test_cycle_count_diff -- --exact --nocapture
+          RUST_LOG=info cargo test test_cycle_count_diff -- --exact --nocapture
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
