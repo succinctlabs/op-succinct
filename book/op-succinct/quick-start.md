@@ -1,0 +1,122 @@
+# Quick Start
+
+This guide provides a quick start for running OP Succinct in mock mode.
+
+## Prerequisites
+
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Rust](https://www.rust-lang.org/tools/install) (latest stable version)
+- [Docker](https://docs.docker.com/engine/install/)
+- L1 and L2 RPC node endpoints. Reference the [Node Setup Guide](../advanced/node-setup.md) for more information.
+
+## Step 1: Set environment variables.
+
+In the root directory, create a file called `.env` and set the following environment variables:
+
+| Parameter | Description |
+|-----------|-------------|
+| `L1_RPC` | L1 Archive Node. |
+| `L1_BEACON_RPC` | L1 Beacon Node. |
+| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
+| `PRIVATE_KEY` | Private key for the account that will be deploying the contract. |
+| `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
+
+There are additional optional parameters that you can set in the `.env` file. See the [Advanced Parameters](../contracts/configuration.md#optional-advanced-parameters) section for more information.
+
+## Step 2: Deploy an `SP1MockVerifier` for verifying mock proofs
+
+Deploy an `SP1MockVerifier` for verifying mock proofs by running the following command:
+
+```shell
+% just deploy-mock-verifier
+[⠊] Compiling...
+[⠑] Compiling 1 files with Solc 0.8.15
+[⠘] Solc 0.8.15 finished in 615.84ms
+Compiler run successful!
+Script ran successfully.
+
+== Return ==
+0: address 0x4cb20fa9e6FdFE8FDb6CE0942c5f40d49c898646
+
+....
+```
+
+In these deployment logs, `0x4cb20fa9e6FdFE8FDb6CE0942c5f40d49c898646` is the address of the `SP1MockVerifier` contract.
+
+## Step 3: Deploy the `OPSuccinctL2OutputOracle` contract
+
+This contract is a modification of Optimism's `L2OutputOracle` contract which verifies a proof along with the proposed state root.
+
+First, add the address of the `SP1MockVerifier` contract from the previous step to the `.env` file in the root directory.
+
+| Parameter | Description |
+|-----------|-------------|
+| `VERIFIER_ADDRESS` | The address of the `SP1MockVerifier` contract. |
+
+Then, deploy the `OPSuccinctL2OutputOracle` contract by running the following command:
+
+```shell
+% just deploy-oracle    
+...
+
+== Return ==
+0: address 0xde4656D4FbeaC0c0863Ab428727e3414Fa251A4C
+```
+
+In these deployment logs, `0xde4656D4FbeaC0c0863Ab428727e3414Fa251A4C` is the address of the proxy for the `OPSuccinctL2OutputOracle` contract. This deployed proxy contract is used to track the verified state roots of the OP Stack chain on L1.
+
+## Step 4: Set `op-succinct` service environment variables
+
+To start the mock `op-succinct` service, add the following parameters to the `.env` file in the root directory:
+
+| Parameter | Description |
+|-----------|-------------|
+| `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
+| `OP_SUCCINCT_MOCK` | Set to `true` for mock mode. |
+
+Now, you should have the following in your `.env` file:
+
+| Parameter | Description |
+|-----------|-------------|
+| `L1_RPC` | L1 Archive Node. |
+| `L1_BEACON_RPC` | L1 Beacon Node. |
+| `L2_RPC` | L2 Execution Node (`op-geth`). |
+| `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
+| `PRIVATE_KEY` | Private key for the account that will be deploying the contract and relaying proofs on-chain. |
+| `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
+| `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
+| `OP_SUCCINCT_MOCK` | Set to `true` for mock mode. |
+
+### 5) Start the `op-succinct` service in mock mode.
+
+We provide a Docker Compose file for running the `op-succinct` service.
+
+#### Build the Docker Compose setup.
+
+```shell
+docker compose build
+```
+
+#### Run the Proposer
+
+This command launches the [op-succinct service](../advanced/proposer.md) in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original op-proposer service.
+
+After a few minutes, you should see the OP Succinct service start to generate mock range proofs. Once enough range proofs have been generated, a mock aggregate proof will be created and submitted to the L1.
+
+```shell
+docker compose up
+```
+
+To see the logs of the `op-succinct` service, run:
+
+```shell
+docker compose logs -f
+```
+
+To stop the `op-succinct` service, run:
+
+```shell
+docker compose stop
+```
+

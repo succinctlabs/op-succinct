@@ -1,16 +1,33 @@
 # OP Succinct
 
-*Documentation for OP Stack rollup operators and developers looking to upgrade to a Type-1 ZK rollup.*
+<a href="https://github.com/succinctlabs/op-succinct/actions/workflows/docker-build.yaml"><img src="https://img.shields.io/github/actions/workflow/status/succinctlabs/op-succinct/docker-build.yaml?style=flat&labelColor=1C2C2E&label=ci&color=BEC5C9&logo=GitHub%20Actions&logoColor=BEC5C9" alt="CI"></a>
+   <a href="https://github.com/succinctlabs/op-succinct/blob/main/LICENSE-MIT"><img src="https://img.shields.io/badge/License-MIT-d1d1f6.svg?style=flat&labelColor=1C2C2E&color=BEC5C9&logo=googledocs&label=license&logoColor=BEC5C9" alt="License"></a>
+   <a href="https://succinctlabs.github.io/op-succinct"><img src="https://img.shields.io/badge/Book-854a15?style=flat&labelColor=1C2C2E&color=BEC5C9&logo=mdBook&logoColor=BEC5C9" alt="Book"></a>
 
 ## Overview
 
-OP Succinct transforms any OP Stack rollup into a [fully type-1 ZK rollup](https://vitalik.eth.limo/general/2022/08/04/zkevm.html) using SP1. This means your rollup can benefit from the security of zero-knowledge proofs while maintaining compatibility with the OP Stack ecosystem.
+OP Succinct is the production-grade proving engine for the OP Stack, powered by Succinct.
 
 ### Key Benefits
 
 - **1 hour finality** secured by ZKPs, a dramatic improvement over the 7-day withdrawal window of standard OP Stack rollups.
 - **Unlimited customization** for rollup modifications in pure Rust and easy maintainability.
 - **Cost-effective proving** with an average cost of proving only fractions of cent per transaction (with an expected 5-10x improvement by EOY), thanks to SP1's blazing fast performance.
+
+## OP Stack Proving Options
+
+| Feature | OP Succinct | OP Succinct Lite | Standard OP Stack |
+|---------|-------------|------------------|-------------------|
+| Proof System | Full validity proofs with SP1 | ZK fault proofs (with optional fast finality) | Interactive fraud proofs |
+| Decentralization | Stage 1 - Stage 2 | Configurable: Stage 0 or Stage 1 | Stage 1 |
+| Finality Time | 1 hour | 1 day | 7 days |
+| Security Level | Highest | High | High |
+| Alt DA Support | ✅ | ✅ | ❌ |
+| Dispute Process | Prove every transcation | Prove when there is a dispute | Replay transactions on L1 with FPVM |
+| Dispute Capital Requirements | 0 | Configurable: 5-15 ETH (Less than worst-case prover cost) | Scales with TVL; up to 1000s of ETH |
+| Ongoing proving costs | Less than a tenth of a cent per transaction; can be paid by users | $0; Proofs only generated with disputes | $0 |
+| Designed for | Large L2s, DeFi Chains, and other high-value chains | Cost-sensitive L2s, appchains and gaming chains | 🐢 |
+
 
 ## Getting Started
 
