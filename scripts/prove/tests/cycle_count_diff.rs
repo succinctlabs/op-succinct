@@ -1,15 +1,14 @@
 use anyhow::Result;
-use std::{env, fmt::Write as _, fs::File, sync::Arc};
+use std::{fmt::Write as _, fs::File, sync::Arc};
 
 use common::post_to_github_pr;
 use op_succinct_host_utils::{
-    block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin,
     hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
     stats::{ExecutionStats, MarkdownExecutionStats},
 };
-use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
+use op_succinct_prove::execute_multi;
 
 mod common;
 
@@ -135,22 +134,6 @@ fn create_diff_report(
         current.p256_verify_cycles,
     );
 
-    // Add warning for significant degradation (>5% increase in key metrics)
-    let has_degradation = diff_percentage(
-        base.total_instruction_count,
-        current.total_instruction_count,
-    ) > 5.0
-        || diff_percentage(base.cycles_per_block, current.cycles_per_block) > 5.0
-        || diff_percentage(base.cycles_per_transaction, current.cycles_per_transaction) > 5.0;
-
-    if has_degradation {
-        writeln!(
-            report,
-            "\n⚠️ **Warning:** Performance has degraded by more than 5% in some metrics."
-        )
-        .unwrap();
-    }
-
     report
 }
 
@@ -158,17 +141,16 @@ fn create_diff_report(
 async fn test_cycle_count_diff() -> Result<()> {
     dotenv::dotenv()?;
 
-    let is_main_branch = env::var("IS_MAIN_BRANCH").is_ok();
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
-
-    // Take the latest blocks
-    let (l2_start_block, l2_end_block) =
-        get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?;
-    println!("Block range: {} to {}", l2_start_block, l2_end_block);
 
     let host = SingleChainOPSuccinctHost {
         fetcher: Arc::new(data_fetcher.clone()),
     };
+
+    let base_stats =
+        serde_json::from_reader::<_, ExecutionStats>(File::open("base_cycle_stats.json")?)?;
+    let l2_start_block = base_stats.batch_start;
+    let l2_end_block = base_stats.batch_end;
 
     let host_args = host
         .fetch(l2_start_block, l2_end_block, None, Some(false))
@@ -184,7 +166,7 @@ async fn test_cycle_count_diff() -> Result<()> {
         .await
         .unwrap()
         .number;
-    let stats = ExecutionStats::new(
+    let new_stats = ExecutionStats::new(
         l1_block_number,
         &block_data,
         &report,
@@ -194,33 +176,25 @@ async fn test_cycle_count_diff() -> Result<()> {
 
     println!(
         "Execution Stats:\n{}",
-        MarkdownExecutionStats::new(stats.clone())
+        MarkdownExecutionStats::new(new_stats.clone())
     );
 
-    if is_main_branch {
-        // Save base branch stats
-        serde_json::to_writer(File::create("cycle_stats.json")?, &stats)?;
-    } else {
-        // Compare with base branch stats
-        let base_stats =
-            serde_json::from_reader::<_, ExecutionStats>(File::open("cycle_stats.json")?)?;
-        let report = create_diff_report(&base_stats, &stats, (l2_start_block, l2_end_block));
+    let report = create_diff_report(&base_stats, &new_stats, (l2_start_block, l2_end_block));
 
-        if std::env::var("POST_TO_GITHUB")
-            .ok()
-            .and_then(|v| v.parse::<bool>().ok())
-            .unwrap_or_default()
-        {
-            if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
-                std::env::var("REPO_OWNER"),
-                std::env::var("REPO_NAME"),
-                std::env::var("PR_NUMBER"),
-                std::env::var("GITHUB_TOKEN"),
-            ) {
-                post_to_github_pr(&owner, &repo, &pr_number, &token, &report)
-                    .await
-                    .unwrap();
-            }
+    if std::env::var("POST_TO_GITHUB")
+        .ok()
+        .and_then(|v| v.parse::<bool>().ok())
+        .unwrap_or_default()
+    {
+        if let (Ok(owner), Ok(repo), Ok(pr_number), Ok(token)) = (
+            std::env::var("REPO_OWNER"),
+            std::env::var("REPO_NAME"),
+            std::env::var("PR_NUMBER"),
+            std::env::var("GITHUB_TOKEN"),
+        ) {
+            post_to_github_pr(&owner, &repo, &pr_number, &token, &report)
+                .await
+                .unwrap();
         }
     }
 
