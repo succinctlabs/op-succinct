@@ -102,9 +102,9 @@ docker compose build
 
 #### Run the Proposer
 
-This command launches the [op-succinct service](../advanced/proposer.md) in the background.
+This command launches the [op-succinct](./proposer.md) in the background.
 
-After a few minutes, you should see the OP Succinct service start to generate mock range proofs. Once enough range proofs have been generated, a mock aggregation proof will be created and submitted to the L1.
+After a few minutes, you should see the OP Succinct proposer start to generate mock range proofs. Once enough range proofs have been generated, a mock aggregation proof will be created and submitted to the L1.
 
 ```shell
 docker compose up
