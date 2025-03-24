@@ -21,7 +21,7 @@ For advanced configurations, depending on the number of concurrent requests you 
 
 Make sure to include *all* of the required environment variables in the `.env` file.
 
-Before starting the proposer, ensure you have deployed the L2 Output Oracle and have the address of the proxy contract ready. Follow the steps in the [Contract Configuration](../contracts/configuration.md) section.
+Before starting the proposer, ensure you have deployed the L2 Output Oracle and have the address of the proxy contract ready. Follow the steps in the [Environment Variables](../contracts/environment.md) section.
 
 ### Required Environment Variables
 

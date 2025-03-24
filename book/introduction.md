@@ -10,9 +10,9 @@ OP Succinct is the production-grade proving engine for the OP Stack, powered by 
 
 ## Proving Options
 
-OP Succinct provides two new proving options for the OP Stack: OP Succinct [Validity] and OP Succinct Lite.
+OP Succinct provides two new proving options for the OP Stack: OP Succinct (Validity) and OP Succinct Lite.
 
-| | OP Succinct [Validity] | OP Succinct Lite | Standard OP Stack |
+| | OP Succinct (Validity) | OP Succinct Lite | Standard OP Stack |
 |---------|-------------|------------------|-------------------|
 | Proof System | Full validity proofs with SP1 | ZK fault proofs with SP1 (optional fast finality) | Interactive fraud proofs |
 | Time to Finality | < 1 hour | 7 days* | 7 days |

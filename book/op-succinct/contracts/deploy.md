@@ -13,7 +13,7 @@ Check out the latest release of `op-succinct` from [here](https://github.com/suc
 
 ## 2. Configure your environment
 
-First, ensure that you have the correct environment variables set in your `.env` file. See the [Configuration](./configuration.md) section for more information.
+First, ensure that you have the correct environment variables set in your `.env` file. See the [Environment Variables](./environment.md) section for more information.
 
 
 ## 3. Deploy `OPSuccinctL2OutputOracle`
