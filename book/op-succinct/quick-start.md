@@ -1,13 +1,17 @@
 # Quick Start
 
-This guide provides a quick start for running OP Succinct in mock mode.
+This guide will walk you through the steps to deploy OP Succinct for your OP Stack chain. By the end of this guide, you will have a deployed smart contract on L1 that is tracking the state of your OP Stack chain with mock SP1 proofs.
 
 ## Prerequisites
 
+- Compatible RPCs. If you don't have these already, see [Node Setup](../advanced/node-setup.md) for more information.
+  - L1 Archive Node (`L1_RPC`)
+  - L1 Consensus (Beacon) Node (`L1_BEACON_RPC`)
+  - L2 Execution Node (`L2_RPC`)
+  - L2 Rollup Node (`L2_NODE_RPC`)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable version)
-- [Docker](https://docs.docker.com/engine/install/)
-- L1 and L2 RPC node endpoints. Reference the [Node Setup Guide](../advanced/node-setup.md) for more information.
+- [Docker](https://docs.docker.com/get-started/)
+- [Rust](https://www.rust-lang.org/tools/install)
 
 ## Step 1: Set environment variables.
 
@@ -21,8 +25,6 @@ In the root directory, create a file called `.env` and set the following environ
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract. |
 | `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
-
-There are additional optional parameters that you can set in the `.env` file. See the [Advanced Parameters](../contracts/configuration.md#optional-advanced-parameters) section for more information.
 
 ## Step 2: Deploy an `SP1MockVerifier` for verifying mock proofs
 
@@ -100,9 +102,9 @@ docker compose build
 
 #### Run the Proposer
 
-This command launches the [op-succinct service](../advanced/proposer.md) in the background. It launches two containers: one container that manages proof generation and another container that is a small fork of the original op-proposer service.
+This command launches the [op-succinct service](../advanced/proposer.md) in the background.
 
-After a few minutes, you should see the OP Succinct service start to generate mock range proofs. Once enough range proofs have been generated, a mock aggregate proof will be created and submitted to the L1.
+After a few minutes, you should see the OP Succinct service start to generate mock range proofs. Once enough range proofs have been generated, a mock aggregation proof will be created and submitted to the L1.
 
 ```shell
 docker compose up
