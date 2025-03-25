@@ -94,14 +94,14 @@ cargo run --bin config --release -- --env-file <PATH_TO_ENV_FILE>
 
 ## Deployment
 
-1. Install dependencies:
-   ```bash
-   forge install
-   ```
-
-2. Change directory to contracts:
+1. Change directory to contracts:
    ```bash
    cd contracts
+   ```
+
+2. Install dependencies:
+   ```bash
+   forge install
    ```
 
 3. Build the contracts:
@@ -122,6 +122,10 @@ The deployment script deploys the contract with the following parameters:
 |----------|-------------|---------|
 | `INITIAL_BOND_WEI` | Initial bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
 | `CHALLENGER_BOND_WEI` | Challenger bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
+| `OPTIMISM_PORTAL2_ADDRESS` | Address of an existing OptimismPortal2 contract. If not provided, a mock will be deployed. | `0x...` |
+| `PERMISSIONLESS_MODE` | If set to true, anyone can propose or challenge games. | `true` or `false` |
+| `PROPOSER_ADDRESSES` | Comma-separated list of addresses allowed to propose games. Ignored if PERMISSIONLESS_MODE is true. | `0x123...,0x456...` |
+| `CHALLENGER_ADDRESSES` | Comma-separated list of addresses allowed to challenge games. Ignored if PERMISSIONLESS_MODE is true. | `0x123...,0x456...` |
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 

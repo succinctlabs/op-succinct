@@ -28,6 +28,7 @@ pub struct EnvironmentConfig {
     pub signer_address: Option<Address>,
     pub agglayer: bool,
     pub grpc_addr: String,
+    pub safe_db_fallback: bool,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -111,6 +112,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         loop_interval,
         signer_url,
         signer_address,
+        safe_db_fallback: get_env_var("SAFE_DB_FALLBACK", Some(false))?,
         agglayer: get_env_var("AGGLAYER", Some(false))?,
         grpc_addr: get_env_var("GRPC_ADDRESS", Some("localhost:50051".to_string()))?,
     };

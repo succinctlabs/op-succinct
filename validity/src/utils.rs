@@ -34,12 +34,12 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
     gaps
 }
 
-/// Determines the block ranges to be proven based on disjoint ranges and a specified interval.
+/// Determines the block ranges to be proven based on a set of ranges and a specified interval.
 ///
-/// Given a set of disjoint block ranges and a range proof interval, this function calculates
-/// and returns the specific block ranges that need to be proven. Only ranges that are exactly
-/// equal to the range proof interval size are included in the result. Partial ranges at the
-/// end of each disjoint range are intentionally excluded.
+/// Given a set block ranges that overlap at most on the boundaries and a range proof interval, this function calculates
+/// and returns the specific block ranges that need to be proven. Ensures that all disjoint ranges
+/// are fully covered by conditionally inserting a single range smaller than the range proof interval
+/// if necessary.
 ///
 /// # Example
 ///
@@ -52,7 +52,6 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
 /// let ranges_to_prove = get_ranges_to_prove(&disjoint_ranges, range_proof_interval);
 /// assert_eq!(ranges_to_prove, [(0, 25), (25, 50), (100, 125), (125, 150), (150, 175), (175, 200)]);
 /// ```
-///
 pub fn get_ranges_to_prove(
     disjoint_ranges: &[(i64, i64)],
     range_proof_interval: i64,
@@ -63,10 +62,16 @@ pub fn get_ranges_to_prove(
         let mut current_start = start;
         while current_start < end {
             let current_end = std::cmp::min(current_start + range_proof_interval, end);
-            if current_end - current_start == range_proof_interval {
-                ranges.push((current_start, current_end));
-            }
+            ranges.push((current_start, current_end));
             current_start = current_end;
+        }
+    }
+
+    // For the last range, remove it if it's less than range_proof_interval. This is to ensure when inserting the ranges
+    // near the tip, only requests of size range_proof_interval are inserted.
+    if let Some(&(start, end)) = ranges.last() {
+        if end - start < range_proof_interval {
+            ranges.pop();
         }
     }
 
@@ -161,6 +166,13 @@ mod tests {
         test_get_ranges_to_prove_case_5,
         &[(0, 5), (10, 15), (20, 25)],
         3,
-        &[(0, 3), (10, 13), (20, 23)]
+        &[(0, 3), (3, 5), (10, 13), (13, 15), (20, 23)]
+    );
+
+    test_get_ranges_to_prove!(
+        test_get_ranges_to_prove_case_interval_larger_than_range,
+        &[(0, 5), (10, 15), (20, 25)],
+        30,
+        &[(0, 5), (10, 15)]
     );
 }

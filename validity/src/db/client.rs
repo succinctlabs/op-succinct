@@ -1,8 +1,11 @@
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use serde_json::Value;
+use sqlx::postgres::types::PgInterval;
 use sqlx::Error;
 use sqlx::{postgres::PgQueryResult, PgPool};
+use std::time::Duration;
+use tracing::info;
 
 use crate::{CommitmentConfig, DriverDBClient, OPSuccinctRequest, RequestStatus, RequestType};
 
@@ -13,9 +16,65 @@ impl DriverDBClient {
         // Run migrations.
         sqlx::migrate!("./migrations").run(&pool).await?;
 
+        info!("Database configured successfully.");
+
         Ok(DriverDBClient { pool })
     }
 
+    /// Adds a chain lock to the database.
+    pub async fn add_chain_lock(
+        &self,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query!(
+            "INSERT INTO chain_locks (l1_chain_id, l2_chain_id, locked_at) 
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (l1_chain_id, l2_chain_id) 
+             DO UPDATE SET locked_at = NOW()",
+            l1_chain_id,
+            l2_chain_id
+        )
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Checks if a proposer already has a lock on the chain.
+    pub async fn is_chain_locked(
+        &self,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+        interval: Duration,
+    ) -> Result<bool, Error> {
+        let result = sqlx::query!(
+            r#"
+            SELECT EXISTS(SELECT 1 FROM chain_locks WHERE l1_chain_id = $1 AND l2_chain_id = $2 AND locked_at > NOW() - $3::interval)
+            "#,
+            l1_chain_id,
+            l2_chain_id,
+            PgInterval::try_from(interval).unwrap()
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(result.exists.unwrap_or(false))
+    }
+
+    /// Updates the chain lock for a given chain.
+    pub async fn update_chain_lock(
+        &self,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query!(
+            "UPDATE chain_locks SET locked_at = NOW() WHERE l1_chain_id = $1 AND l2_chain_id = $2",
+            l1_chain_id,
+            l2_chain_id
+        )
+        .execute(&self.pool)
+        .await
+    }
+
+    /// Inserts a request into the database.
     pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<PgQueryResult, Error> {
         sqlx::query!(
             r#"
@@ -47,9 +106,10 @@ impl DriverDBClient {
                 l1_chain_id,
                 l2_chain_id,
                 contract_address,
-                prover_address
+                prover_address,
+                l1_head_block_number
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
             )
             "#,
             req.status as i16,
@@ -81,6 +141,7 @@ impl DriverDBClient {
             req.l2_chain_id,
             req.contract_address.as_ref().map(|arr| &arr[..]),
             req.prover_address.as_ref().map(|arr| &arr[..]),
+            req.l1_head_block_number.map(|n| n as i64),
         )
         .execute(&self.pool)
         .await
@@ -273,13 +334,20 @@ impl DriverDBClient {
         l1_chain_id: i64,
         l2_chain_id: i64,
     ) -> Result<i64, Error> {
+        let status_values: Vec<i16> = vec![
+            RequestStatus::Unrequested as i16,
+            RequestStatus::WitnessGeneration as i16,
+            RequestStatus::Execution as i16,
+            RequestStatus::Prove as i16,
+            RequestStatus::Complete as i16,
+        ];
+        // Note: Relayed is not included in the status list in case the user re-starts the proposer with the same DB and a different contract at the same starting block.
         let result = sqlx::query!(
-            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status != $4 AND status != $5 AND req_type = $6 AND start_block = $7 AND l1_chain_id = $8 AND l2_chain_id = $9",
+            "SELECT COUNT(*) as count FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND aggregation_vkey_hash = $3 AND status = ANY($4) AND req_type = $5 AND start_block = $6 AND l1_chain_id = $7 AND l2_chain_id = $8",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             &commitment.agg_vkey_hash[..],
-            RequestStatus::Failed as i16,
-            RequestStatus::Cancelled as i16,
+            &status_values[..],
             RequestType::Aggregation as i16,
             start_block,
             l1_chain_id,
@@ -369,6 +437,23 @@ impl DriverDBClient {
             .iter()
             .map(|block| (block.start_block, block.end_block))
             .collect())
+    }
+
+    /// Update the l1_head_block_number for a request.
+    pub async fn update_l1_head_block_number(
+        &self,
+        id: i64,
+        l1_head_block_number: i64,
+    ) -> Result<PgQueryResult, Error> {
+        sqlx::query!(
+            r#"
+            UPDATE requests SET l1_head_block_number = $1 WHERE id = $2
+            "#,
+            l1_head_block_number,
+            id,
+        )
+        .execute(&self.pool)
+        .await
     }
 
     /// Update the prove_duration based on the current time and the proof_request_time.
@@ -606,7 +691,7 @@ impl DriverDBClient {
                     execution_duration, prove_duration, range_vkey_commitment,
                     aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, 
                     total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, 
-                    l1_chain_id, l2_chain_id, contract_address) ",
+                    l1_chain_id, l2_chain_id, contract_address, prover_address, l1_head_block_number) ",
             );
 
             query_builder.push_values(chunk, |mut b, req| {
@@ -636,7 +721,9 @@ impl DriverDBClient {
                     .push_bind(req.total_tx_fees.clone())
                     .push_bind(req.l1_chain_id)
                     .push_bind(req.l2_chain_id)
-                    .push_bind(req.contract_address.as_ref().map(|arr| &arr[..]));
+                    .push_bind(req.contract_address.as_ref().map(|arr| &arr[..]))
+                    .push_bind(req.prover_address.as_ref().map(|arr| &arr[..]))
+                    .push_bind(req.l1_head_block_number);
             });
 
             query_builder.build().execute(&mut *tx).await?;
