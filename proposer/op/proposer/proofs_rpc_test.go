@@ -44,7 +44,7 @@ func TestMaxBlockL1Limit(t *testing.T) {
 				return
 			}
 
-			if req.Method == "optimism_outputAtBlock" {
+			if req.Method == "optimism_safeHeadAtL1Block" {
 				blockNumberHex, ok := req.Params[0].(string)
 				if !ok {
 					w.WriteHeader(http.StatusBadRequest)
@@ -59,14 +59,14 @@ func TestMaxBlockL1Limit(t *testing.T) {
 					return
 				}
 
-				var l1Number uint64
+				var safeHead uint64
 				switch blockNumber {
-				case 100:
-					l1Number = 50
+				case 50:
+					safeHead = 200
 				case 60:
-					l1Number = 100
-				case 59:
-					l1Number = 99
+					safeHead = 100
+				case 70:
+					w.WriteHeader(http.StatusInternalServerError)
 				default:
 					w.WriteHeader(http.StatusBadRequest)
 					return
@@ -75,17 +75,10 @@ func TestMaxBlockL1Limit(t *testing.T) {
 				response := map[string]interface{}{
 					"jsonrpc": "2.0",
 					"id":      req.ID, // Use the same ID from the request
-					"result": &eth.OutputResponse{ // Your actual result data
-						Version:    eth.Bytes32{},
-						OutputRoot: eth.Bytes32{},
-						BlockRef: eth.L2BlockRef{
-							Number: l1Number,
+					"result": &eth.SafeHeadResponse{
+						SafeHead: eth.BlockID{
+							Number: safeHead,
 							Hash:   common.Hash{},
-							Time:   0,
-							L1Origin: eth.BlockID{
-								Number: l1Number,
-								Hash:   common.Hash{},
-							},
 						},
 					},
 				}
@@ -122,29 +115,15 @@ func TestMaxBlockL1Limit(t *testing.T) {
 	})
 
 	t.Run("decrease maxBlock", func(t *testing.T) {
-		maxBlock := uint64(60)
-		l1BlockNumber := uint64(99)
+		maxBlock := uint64(200)
+		l1BlockNumber := uint64(60)
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(59), result)
+		assert.Equal(t, uint64(120), result)
 	})
 
 	t.Run("error getting L1 head", func(t *testing.T) {
-		maxBlock := uint64(15)
-		l1BlockNumber := uint64(50)
-		// Create a mock HTTP server that returns an error
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-		defer server.Close()
-
-		proofsAPI := &ProofsAPI{
-			logger:    logger,
-			driver:    mockDriver,
-			rollupRPC: server.URL,
-		}
-
-		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
+		result, err := proofsAPI.maxBlockL1Limit(ctx, 70, 70)
 		assert.Error(t, err)
 		assert.Equal(t, uint64(0), result)
 	})
