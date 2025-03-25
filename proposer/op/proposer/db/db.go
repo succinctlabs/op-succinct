@@ -434,46 +434,6 @@ func (db *ProofDB) GetMaxContiguousSpanProofRange(start uint64) (uint64, error) 
 	return currentBlock, nil
 }
 
-// TryCreateAggProofFromSpanProofsLimit tries to create an AGG proof from the span proofs that cover the range [from, maxTo).
-// Returns true if a new AGG proof was created, false otherwise.
-func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumber uint64, l1BlockHash string) (bool, uint64, error) {
-	// If there's already an AGG proof in progress/completed with the same start block, return.
-	count, err := db.readClient.ProofRequest.Query().
-		Where(
-			proofrequest.TypeEQ(proofrequest.TypeAGG),
-			proofrequest.StartBlockEQ(from),
-			proofrequest.StatusNEQ(proofrequest.StatusFAILED),
-		).
-		Count(context.Background())
-	if err != nil {
-		return false, 0, fmt.Errorf("failed to query DB for AGG proof with start block %d: %w", from, err)
-	}
-	if count > 0 {
-		// There's already an AGG proof in progress/completed with the same start block.
-		return false, 0, nil
-	}
-
-	// Get the limited contiguous span proof chain we have with an end block <= maxTo and an l1BlockNumber.
-	_, maxContigousEnd, err := db.GetConsecutiveSpanProofs(from, maxTo)
-	if err != nil {
-		return false, 0, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
-	}
-
-	if maxContigousEnd == 0 {
-		// There's no contiguous span proof chain that ends before maxTo, so we can't create an AGG proof.
-		return false, 0, nil
-	}
-
-	// Create a new AGG proof request
-	err = db.NewEntryWithL1BlockInfo(proofrequest.TypeAGG, from, maxContigousEnd, l1BlockNumber, l1BlockHash)
-	// err = db.NewEntry(proofrequest.TypeAGG, from, maxContigousEnd)
-	if err != nil {
-		return false, 0, fmt.Errorf("failed to insert AGG proof request: %w", err)
-	}
-
-	return true, maxContigousEnd, nil
-}
-
 // GetConsecutiveSpanProofs returns the span proofs that cover the range [start, end].
 // If there's a gap in the proofs, or the proofs don't fully cover the range, return an error.
 func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, uint64, error) {
@@ -511,6 +471,83 @@ func (db *ProofDB) GetConsecutiveSpanProofs(start, end uint64) ([][]byte, uint64
 		return nil, 0, fmt.Errorf("incomplete proof chain: ends at block %d, expected %d", currentBlock, end)
 	}
 
+	return result, currentBlock, nil
+}
+
+// TryCreateAggProofFromSpanProofsLimit tries to create an AGG proof from the span proofs that cover the range [from, maxTo).
+// Returns true if a new AGG proof was created, false otherwise.
+func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumber uint64, l1BlockHash string) (bool, uint64, error) {
+	// If there's already an AGG proof in progress/completed with the same start block, return.
+	count, err := db.readClient.ProofRequest.Query().
+		Where(
+			proofrequest.TypeEQ(proofrequest.TypeAGG),
+			proofrequest.StartBlockEQ(from),
+			proofrequest.StatusNEQ(proofrequest.StatusFAILED),
+		).
+		Count(context.Background())
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to query DB for AGG proof with start block %d: %w", from, err)
+	}
+	if count > 0 {
+		// There's already an AGG proof in progress/completed with the same start block.
+		return false, 0, nil
+	}
+
+	// Get the limited contiguous span proof chain we have with an end block <= maxTo and an l1BlockNumber.
+	_, maxContigousEnd, err := db.GetConsecutiveSpanProofsLimit(from, maxTo)
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
+	}
+
+	if maxContigousEnd == 0 {
+		// There's no contiguous span proof chain that ends before maxTo, so we can't create an AGG proof.
+		return false, 0, nil
+	}
+
+	// Create a new AGG proof request
+	err = db.NewEntryWithL1BlockInfo(proofrequest.TypeAGG, from, maxContigousEnd, l1BlockNumber, l1BlockHash)
+	// err = db.NewEntry(proofrequest.TypeAGG, from, maxContigousEnd)
+	if err != nil {
+		return false, 0, fmt.Errorf("failed to insert AGG proof request: %w", err)
+	}
+
+	return true, maxContigousEnd, nil
+}
+
+// GetConsecutiveSpanProofs returns the span proofs that cover the range [start, end].
+// If there's a gap in the proofs, or the proofs don't fully cover the range, return an error.
+func (db *ProofDB) GetConsecutiveSpanProofsLimit(start, end uint64) ([][]byte, uint64, error) {
+	ctx := context.Background()
+
+	// Query the DB for the span proofs that cover the range [start, end].
+	query := db.readClient.ProofRequest.Query().
+		Where(
+			proofrequest.TypeEQ(proofrequest.TypeSPAN),
+			proofrequest.StatusEQ(proofrequest.StatusCOMPLETE),
+			proofrequest.StartBlockGTE(start),
+			proofrequest.EndBlockLTE(end),
+		).
+		Order(ent.Asc(proofrequest.FieldStartBlock))
+
+	// Execute the query.
+	spans, err := query.All(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query span proofs: %w", err)
+	}
+
+	// Verify that the proofs are consecutive and cover the entire range.
+	var result [][]byte
+	currentBlock := start
+
+	for _, span := range spans {
+		if span.StartBlock != currentBlock {
+			return nil, 0, fmt.Errorf("gap in proof chain: expected start block %d, got %d", currentBlock, span.StartBlock)
+		}
+		result = append(result, span.Proof)
+		currentBlock = span.EndBlock
+	}
+
+	// Return the span end block as the limited end block
 	return result, currentBlock, nil
 }
 
