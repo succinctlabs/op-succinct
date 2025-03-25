@@ -1,7 +1,9 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove,
+    proofs_service::ProofsService,
+    CommitmentConfig, ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig,
+    ValidityGauge,
 };
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, Bytes, B256, U256};
@@ -1109,6 +1111,17 @@ where
         // Initialize the metrics gauges.
         ValidityGauge::init_all();
 
+        // Start the gRPC server
+        let addr = self.requester_config.grpc_addr.parse().unwrap();
+        info!("Starting Agglayer gRPC server on {}", addr);
+        tokio::spawn(
+            tonic::transport::Server::builder()
+                .add_service(ProofsServer::new(ProofsService::new(Arc::new(Arc::clone(
+                    &self,
+                )))))
+                .serve(addr),
+        );
+
         // Loop interval in seconds.
         loop {
             // Wrap the entire loop body in a match to handle errors
@@ -1155,13 +1168,13 @@ where
 
         // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
         // in advance.
-        self.create_aggregation_proofs().await?;
+        // self.create_aggregation_proofs().await?;
 
         // Request all unrequested proofs from the prover network.
         self.request_queued_proofs().await?;
 
         // Submit any aggregation proofs that are complete.
-        self.submit_agg_proofs().await?;
+        // self.submit_agg_proofs().await?;
 
         // Update the chain lock.
         self.proof_requester

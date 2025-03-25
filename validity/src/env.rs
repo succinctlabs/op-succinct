@@ -27,8 +27,8 @@ pub struct EnvironmentConfig {
     pub signer_url: Option<Url>,
     pub signer_address: Option<Address>,
     pub agglayer: bool,
-    pub grpc_addr: String,
     pub safe_db_fallback: bool,
+    pub grpc_addr: String,
 }
 
 /// Helper function to get environment variables with a default value and parse them.

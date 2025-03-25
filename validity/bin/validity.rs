@@ -5,8 +5,7 @@ use op_succinct_host_utils::{
     metrics::MetricsGauge,
 };
 use op_succinct_validity::{
-    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, ProposerAgglayer,
-    RequesterConfig,
+    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
     ValidityGauge, Web3Signer,
 };
 use std::sync::Arc;
@@ -60,6 +59,7 @@ async fn main() -> Result<()> {
         mock: env_config.mock,
         prover_address: env_config.prover_address,
         safe_db_fallback: env_config.safe_db_fallback,
+        grpc_addr: env_config.grpc_addr,
     };
 
     // Read all config from env vars. If both signer_url and signer_address are provided, use Web3Signer.
@@ -85,28 +85,15 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    // Run either the standard proposer or the Agglayer proposer based on configuration
-    let proposer_handle;
-    if env_config.agglayer {
-        info!("Starting proposer in Agglayer mode");
-        proposer_handle = tokio::spawn(async move {
-            let agglayer = ProposerAgglayer::new(&proposer, env_config.grpc_addr);
-            if let Err(e) = agglayer.run().await {
-                tracing::error!("Proposer error: {}", e);
-                return Err(e);
-            }
-            Ok(())
-        });
-    } else {
-        info!("Starting proposer in standard mode");
-        proposer_handle = tokio::spawn(async move {
-            if let Err(e) = proposer.run().await {
-                tracing::error!("Proposer error: {}", e);
-                return Err(e);
-            }
-            Ok(())
-        });
-    }
+    // Spawn a thread for the proposer.
+    info!("Starting proposer.");
+    let proposer_handle = tokio::spawn(async move {
+        if let Err(e) = proposer.run().await {
+            tracing::error!("Proposer error: {}", e);
+            return Err(e);
+        }
+        Ok(())
+    });
 
     // Initialize metrics exporter.
     info!("Initializing metrics on port {}", env_config.metrics_port);

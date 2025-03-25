@@ -8,33 +8,33 @@ use op_succinct_host_utils::hosts::OPSuccinctHost;
 
 // Include the generated protobuf code
 pub mod proofs_server {
-    tonic::include_proto!("proofs"); // Replace "agglayer" with the actual package name in your proto file
+    tonic::include_proto!("proofs");
 }
 
 use proofs_server::{AggProofRequest, AggProofResponse}; // Update imports
+use std::sync::Arc;
 
-pub struct ProofsService<'a, P, N, H>
+pub struct ProofsService<P, N, H>
 where
     P: Provider<N> + 'static + Clone,
     N: Network,
     H: OPSuccinctHost,
 {
-    proposer: &'a Proposer<P, N, H>,
+    proposer: Arc<Proposer<P, N, H>>,
 }
 
-impl<'a, P, N, H> ProofsService<'a, P, N, H>
+impl<P, N, H> ProofsService<P, N, H>
 where
     P: Provider<N> + 'static + Clone,
     N: Network,
     H: OPSuccinctHost,
 {
-    pub fn new(proposer: &'a Proposer<P, N, H>) -> Self {
+    pub fn new(proposer: Arc<Proposer<P, N, H>>) -> Self {
         Self { proposer }
     }
 }
-
 #[tonic::async_trait]
-impl<'a, P, N, H> Proofs for ProofsService<'a, P, N, H>
+impl<P, N, H> Proofs for ProofsService<P, N, H>
 // Update trait implementation
 where
     P: Provider<N> + 'static + Clone,
