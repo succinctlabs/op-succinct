@@ -76,6 +76,7 @@ async fn main() -> Result<()> {
     // Set the aggregation proof type based on environment variable. Default to groth16.
     let agg_proof_mode = match env::var("AGG_PROOF_MODE") {
         Ok(proof_type) if proof_type.to_lowercase() == "plonk" => SP1ProofMode::Plonk,
+        Ok(proof_type) if proof_type.to_lowercase() == "compressed" => SP1ProofMode::Compressed,
         _ => SP1ProofMode::Groth16,
     };
 
