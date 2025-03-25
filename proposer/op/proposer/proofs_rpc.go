@@ -136,7 +136,6 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 }
 
 func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumber uint64) (uint64, error) {
-	// Get the L1 head for the L2 block
 	rollupClient, err := dial.DialRollupClientWithTimeout(ctx, dial.DefaultDialTimeout, pa.logger, pa.rollupRPC)
 	if err != nil {
 		return 0, err
