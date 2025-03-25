@@ -1,28 +1,33 @@
-chainId: 31337
+chainId: 11155111
   
 envs:
   F_WALLET_TYPE: PRIVATE_KEY # options: AWS_KMS, PRIVATE_KEY, LEDGER, MNEMONIC
-  F_PRIVATE_KEY: ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-  F_MNEMONIC: "test test test test test test test test test test test junk"
+  F_PRIVATE_KEY: "675d00041421502a43c60a479b6b452bae13c9083555037820a38562c1abc78b"
+  F_MNEMONIC: ""
   F_MNEMONIC_INDEX: 0
   F_AWS_KMS_KEY_ID: ""
-  F_SENDER: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" 
+  F_SENDER: "0x16fcf349b60262C4A87350757085784E39804810" 
   F_VERBOSE: true
-  F_RPC_URL: http://localhost:8545
+  F_RPC_URL: https://eth-sepolia.g.alchemy.com/v2/XMS1J6f654XZolfd7oaMe-kaNPEpWifX 
+  VERIFIER_URL: ""
 
 explorers: {}
 
 config:
-  challenger: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
-  finalizationPeriod: 3600
+  aggregationVkey: "0x004f113a89b4e8d162197047643c9d710b42a30e7da7052703855d5c4716a81d"
+  challenger: "0x428E2D9C04B2c09D5480c82cFfBDDb0c73278d50"
+  executeUpgradeCall: true
+  finalizationPeriod: 300
   l2BlockTime: 2
-  owner: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
-  proposer: "0xDEd0000E32f8F40414d3ab3a830f735a3553E18e"
-  rollupConfigHash: "0x71241d0f92749d7365aaaf6a015de550816632a4e4e84e273f865f582e8190aa"
-  startingBlockNumber: 228600
-  startingOutputRoot: "0x92f0c5d048ecf1baecd500a0f74e74e448c90d025e1537e8e5a980b1d04ea333"
-  startingTimestamp: 1734404604
-  submissionInterval: 450
+  opSuccinctL2OutputOracleImpl: "0x0000000000000000000000000000000000000000"
+  owner: "0x16fcf349b60262C4A87350757085784E39804810"
+  proposer: "0x9361Fb131A1c3928BB22C316257EeA7608b26177"
+  proxyAdmin: "0x0000000000000000000000000000000000000000"
+  rangeVkeyCommitment: "0x70fa107203a13dae4706ae5608219fbf66e86aac6087e68908eee8e82c78cbd0"
+  rollupConfigHash: "0xbc38c439082a874a2da4db07a9e270074b690e51f92a80fa1803c70dc0590a12"
+  startingBlockNumber: 20366909
+  startingOutputRoot: "0xacdb406dfe64b4adb98d720287be5538f7a7c73ffbe528d1814287a5c7e0220c"
+  startingTimestamp: 1742279940
+  submissionInterval: 1800
   verifier: "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
-  aggregationVkey: "0x000fd40837604d14c32f0a0c6cb7f011274195f8029cec268be80aea22c561e1"
-  rangeVkeyCommitment: "0x38a92ced5bf5edbf6b1affb013c9f75c4ecec3223743088b734e6dd34d7f046c"
+  l2OutputOracleProxy: "0x19d72b31a1A88c2a71F49856174525221a44E0F3"
