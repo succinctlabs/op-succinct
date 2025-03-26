@@ -1,3 +1,4 @@
+pub mod celestia;
 pub mod default;
 
 use crate::fetcher::OPSuccinctDataFetcher;

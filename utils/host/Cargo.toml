@@ -24,6 +24,9 @@ kona-rpc.workspace = true
 kona-host.workspace = true
 kona-preimage.workspace = true
 
+# hana
+hana-host.workspace = true
+
 # alloy
 alloy-provider.workspace = true
 alloy-rlp.workspace = true
