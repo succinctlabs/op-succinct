@@ -105,10 +105,10 @@ op-alloy-network = { version = "0.10.0", default-features = false }
 revm = { version = "19.5.0", default-features = false, features = ["kzg-rs"] }
 
 # SP1
-sp1-lib = { version = "4.1.0", features = ["verify"] }
-sp1-sdk = { version = "4.1.0" }
-sp1-zkvm = { version = "4.1.0", features = ["verify", "embedded"] }
-sp1-build = { version = "4.1.0" }
+sp1-lib = { version = "=4.1.4", features = ["verify"] }
+sp1-sdk = { version = "=4.1.4" }
+sp1-zkvm = { version = "=4.1.4", features = ["verify", "embedded"] }
+sp1-build = { version = "=4.1.4" }
 kzg-rs = { version = "0.2.5" }
 
 [profile.release-client-lto]
