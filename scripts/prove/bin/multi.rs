@@ -1,18 +1,20 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
-    block_range::get_validated_block_range,
-    fetcher::OPSuccinctDataFetcher,
-    get_proof_stdin,
-    hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
-    stats::ExecutionStats,
-    RANGE_ELF_EMBEDDED,
+    block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, get_proof_stdin,
+    hosts::OPSuccinctHost, stats::ExecutionStats,
 };
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
 use std::{fs, sync::Arc, time::Instant};
 use tracing::debug;
+
+#[cfg(feature = "celestia")]
+use op_succinct_host_utils::{hosts::initialize_celestia_host, CELESTIA_RANGE_ELF_EMBEDDED};
+
+#[cfg(not(feature = "celestia"))]
+use op_succinct_host_utils::{hosts::initialize_host, RANGE_ELF_EMBEDDED};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -31,8 +33,15 @@ async fn main() -> Result<()> {
     let (l2_start_block, l2_end_block) =
         get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?;
 
-    let host = SingleChainOPSuccinctHost {
-        fetcher: Arc::new(data_fetcher.clone()),
+    let host = {
+        #[cfg(feature = "celestia")]
+        {
+            initialize_celestia_host(Arc::new(data_fetcher.clone()))
+        }
+        #[cfg(not(feature = "celestia"))]
+        {
+            initialize_host(Arc::new(data_fetcher.clone()))
+        }
     };
     let host_args = host
         .fetch(
@@ -56,8 +65,16 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(RANGE_ELF_EMBEDDED);
-
+        let (pk, _) = {
+            #[cfg(feature = "celestia")]
+            {
+                prover.setup(CELESTIA_RANGE_ELF_EMBEDDED)
+            }
+            #[cfg(not(feature = "celestia"))]
+            {
+                prover.setup(RANGE_ELF_EMBEDDED)
+            }
+        };
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
 
@@ -82,11 +99,24 @@ async fn main() -> Result<()> {
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
-        let l1_block_number = data_fetcher
-            .get_l1_header(host_args.l1_head.into())
-            .await
-            .unwrap()
-            .number;
+        let l1_block_number = {
+            #[cfg(feature = "celestia")]
+            {
+                data_fetcher
+                    .get_l1_header(host_args.single_host.l1_head.into())
+                    .await
+                    .unwrap()
+                    .number
+            }
+            #[cfg(not(feature = "celestia"))]
+            {
+                data_fetcher
+                    .get_l1_header(host_args.l1_head.into())
+                    .await
+                    .unwrap()
+                    .number
+            }
+        };
         let stats = ExecutionStats::new(
             l1_block_number,
             &block_data,
