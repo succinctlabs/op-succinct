@@ -11,6 +11,12 @@ use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
 use std::sync::Arc;
 
+#[cfg(feature = "celestia")]
+pub mod celestia;
+
+#[cfg(feature = "celestia")]
+use celestia::CelestiaOPSuccinctHost;
+
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
     type Args: Send + Sync + 'static + Clone;
@@ -55,8 +61,14 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 }
 
 /// Initialize the host.
-///
-/// In the future, there will be a feature gated function to initialize the host (ex. for Alt-DA).
 pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
     Arc::new(SingleChainOPSuccinctHost::new(fetcher))
+}
+
+/// Initialize the Celestia host.
+#[cfg(feature = "celestia")]
+pub fn initialize_celestia_host(
+    fetcher: Arc<OPSuccinctDataFetcher>,
+) -> Arc<CelestiaOPSuccinctHost> {
+    Arc::new(CelestiaOPSuccinctHost::new(fetcher))
 }

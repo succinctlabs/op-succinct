@@ -47,3 +47,14 @@ jobs:
           labels: ${{ steps.meta-succinct.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Build and push op-succinct-celestia
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: validity/Dockerfile.celestia
+          push: true
+          tags: ${{ steps.meta-succinct.outputs.tags }}
+          labels: ${{ steps.meta-succinct.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
