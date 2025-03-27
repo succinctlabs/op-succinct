@@ -141,13 +141,13 @@ func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumbe
 		return 0, err
 	}
 
-	safeHead, err := rollupClient.SafeHeadAtL1Block(ctx, l1BlockNumber)
+	safeHead, err := rollupClient.SafeHeadAtL1Block(ctx, l1BlockNumber-20)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get l1 origin: %w", err)
 	}
 
-	if safeHead.SafeHead.Number+20 < maxBlock {
-		return safeHead.SafeHead.Number + 20, nil
+	if safeHead.SafeHead.Number < maxBlock {
+		return safeHead.SafeHead.Number, nil
 	}
 
 	return maxBlock, nil

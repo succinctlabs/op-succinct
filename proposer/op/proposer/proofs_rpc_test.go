@@ -61,11 +61,11 @@ func TestMaxBlockL1Limit(t *testing.T) {
 
 				var safeHead uint64
 				switch blockNumber {
-				case 50:
+				case 50 - 20:
 					safeHead = 200
-				case 60:
+				case 60 - 20:
 					safeHead = 100
-				case 70:
+				case 70 - 20:
 					w.WriteHeader(http.StatusInternalServerError)
 				default:
 					w.WriteHeader(http.StatusBadRequest)
@@ -119,7 +119,7 @@ func TestMaxBlockL1Limit(t *testing.T) {
 		l1BlockNumber := uint64(60)
 		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
-		assert.Equal(t, uint64(120), result)
+		assert.Equal(t, uint64(100), result)
 	})
 
 	t.Run("error getting L1 head", func(t *testing.T) {
