@@ -1112,15 +1112,15 @@ where
         ValidityGauge::init_all();
 
         // Start the gRPC server
-        let addr = self.requester_config.grpc_addr.parse().unwrap();
-        info!("Starting Agglayer gRPC server on {}", addr);
-        tokio::spawn(
-            tonic::transport::Server::builder()
-                .add_service(ProofsServer::new(ProofsService::new(Arc::new(Arc::clone(
-                    &self,
-                )))))
-                .serve(addr),
-        );
+        // let addr = self.requester_config.grpc_addr.parse().unwrap();
+        // info!("Starting Agglayer gRPC server on {}", addr);
+        // tokio::spawn(
+        //     tonic::transport::Server::builder()
+        //         .add_service(ProofsServer::new(ProofsService::new(Arc::new(Arc::clone(
+        //             &self,
+        //         )))))
+        //         .serve(addr),
+        // );
 
         // Loop interval in seconds.
         loop {

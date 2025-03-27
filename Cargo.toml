@@ -1,5 +1,12 @@
 [workspace]
-members = ["utils/*", "programs/*", "scripts/*", "validity", "fault-proof"]
+members = [
+    "utils/*",
+    "programs/*",
+    "scripts/*",
+    "validity",
+    "fault-proof",
+    "grpc",
+]
 resolver = "2"
 
 [workspace.package]
@@ -121,6 +128,8 @@ kzg-rs = { version = "0.2.5" }
 tonic-build = "0.12.3"
 tonic = "0.12.3"
 prost = "0.13.5"
+
+grpc = { path = "./grpc" }
 
 [profile.release-client-lto]
 inherits = "release"

@@ -11,7 +11,6 @@ pub mod proofs_server {
     tonic::include_proto!("proofs");
 }
 
-use proofs_server::{AggProofRequest, AggProofResponse}; // Update imports
 use std::sync::Arc;
 
 pub struct ProofsService<P, N, H>
