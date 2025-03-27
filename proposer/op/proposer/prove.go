@@ -127,15 +127,9 @@ func (l *L2OutputSubmitter) RetryRequest(req *ent.ProofRequest, status ProofStat
 			return err
 		}
 	} else {
-		if l.Cfg.Agglayer {
-			// Retry the same request.
-			err = l.db.NewEntryWithL1BlockInfo(
-				req.Type,
-				req.StartBlock,
-				req.EndBlock,
-				req.L1BlockNumber,
-				req.L1BlockHash,
-			)
+		if l.Cfg.Agglayer && req.Type == proofrequest.TypeAGG {
+			// Do not retry the Aggproof request if the agglayer is enabled.
+			return nil
 		} else {
 			err = l.db.NewEntry(req.Type, req.StartBlock, req.EndBlock)
 		}
