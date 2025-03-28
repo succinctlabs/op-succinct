@@ -10,24 +10,12 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-type DriverMock struct {
-	mock.Mock
-}
-
-func (m *DriverMock) GetL1HeadForL2Block(ctx context.Context, rollupClient *sources.RollupClient, l2End uint64) (uint64, error) {
-	args := m.Called(ctx, rollupClient, l2End)
-	return args.Get(0).(uint64), args.Error(1)
-}
-
-func TestMaxBlockL1Limit(t *testing.T) {
-	mockDriver := &DriverMock{}
+func TestEndBlockL1Limit(t *testing.T) {
 	logger := log.New()
 
 	// Create a mock HTTP server
@@ -100,7 +88,6 @@ func TestMaxBlockL1Limit(t *testing.T) {
 
 	proofsAPI := &ProofsAPI{
 		logger:    logger,
-		driver:    mockDriver,
 		rollupRPC: server.URL,
 	}
 
@@ -109,7 +96,7 @@ func TestMaxBlockL1Limit(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		maxBlock := uint64(100)
 		l1BlockNumber := uint64(50)
-		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
+		result, err := proofsAPI.endBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
 		assert.Equal(t, maxBlock, result)
 	})
@@ -117,13 +104,13 @@ func TestMaxBlockL1Limit(t *testing.T) {
 	t.Run("decrease maxBlock", func(t *testing.T) {
 		maxBlock := uint64(200)
 		l1BlockNumber := uint64(60)
-		result, err := proofsAPI.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
+		result, err := proofsAPI.endBlockL1Limit(ctx, maxBlock, l1BlockNumber)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(100), result)
 	})
 
 	t.Run("error getting L1 head", func(t *testing.T) {
-		result, err := proofsAPI.maxBlockL1Limit(ctx, 70, 70)
+		result, err := proofsAPI.endBlockL1Limit(ctx, 70, 70)
 		assert.Error(t, err)
 		assert.Equal(t, uint64(0), result)
 	})

@@ -26,7 +26,6 @@ type ProofsAPI struct {
 	logger    log.Logger
 	db        db.ProofDB
 	mock      bool
-	driver    L2OutputSubmitterer
 	rollupRPC string
 }
 
@@ -35,7 +34,6 @@ func NewProofsAPI(db db.ProofDB, logger log.Logger, mock bool, driver *L2OutputS
 		logger:    logger,
 		db:        db,
 		mock:      mock,
-		driver:    driver,
 		rollupRPC: driver.Cfg.RollupRpc,
 	}, nil
 }
@@ -49,27 +47,27 @@ func GetProofsAPI(api *ProofsAPI) gethrpc.API {
 }
 
 type RequestAggProofResponse struct {
-	StartBlock     uint64 `json:"start_block"`
-	EndBlock       uint64 `json:"end_block"`
-	ProofRequestID string `json:"proof_request_id"`
+	LastProvenBlock uint64 `json:"last_proven_block"`
+	EndBlock        uint64 `json:"end_block"`
+	ProofRequestID  string `json:"proof_request_id"`
 }
 
-func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
-	pa.logger.Info("requesting agg proof from server", "start", startBlock, "max end", maxBlock)
+func (pa *ProofsAPI) RequestAggProof(ctx context.Context, lastProvenBlock, requestedEndBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
+	pa.logger.Info("requesting agg proof from server", "start", lastProvenBlock, "max end", requestedEndBlock)
 
-	maxBlock, err := pa.maxBlockL1Limit(ctx, maxBlock, l1BlockNumber)
+	requestedEndBlock, err := pa.endBlockL1Limit(ctx, requestedEndBlock, l1BlockNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get max block L1 limit: %w", err)
 	}
 
 	// Store an Agg proof creation entry in the DB using the start block and the max block
-	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(startBlock, maxBlock, l1BlockNumber, l1BlockHash.Hex())
+	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(lastProvenBlock, requestedEndBlock, l1BlockNumber, l1BlockHash.Hex())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: %w", err)
 	}
 
 	if created {
-		pa.logger.Info("created new AGG proof", "from", startBlock, "to", endBlock)
+		pa.logger.Info("created new AGG proof", "from", lastProvenBlock, "to", endBlock)
 	} else {
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: already exists")
 	}
@@ -84,7 +82,7 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 		case <-ctx.Done():
 			return nil, fmt.Errorf("context cancelled")
 		case <-ticker.C:
-			preqs, err = pa.db.GetProofRequestsWithBlockRange(proofrequest.TypeAGG, startBlock, endBlock)
+			preqs, err = pa.db.GetProofRequestsWithBlockRange(proofrequest.TypeAGG, lastProvenBlock, endBlock)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get proof request with block range: %w", err)
 			}
@@ -116,18 +114,18 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 				// If we're mocking, return the DB id as the proof request ID
 				proverRequestID := strconv.Itoa(preq.ID)
 				return &RequestAggProofResponse{
-					StartBlock:     startBlock,
-					EndBlock:       endBlock,
-					ProofRequestID: proverRequestID,
+					LastProvenBlock: lastProvenBlock,
+					EndBlock:        endBlock,
+					ProofRequestID:  proverRequestID,
 				}, nil
 
 			} else {
 				if preq.ProverRequestID != "" {
 					// If we're not mocking, then we should return the proof request ID
 					return &RequestAggProofResponse{
-						StartBlock:     startBlock,
-						EndBlock:       endBlock,
-						ProofRequestID: preq.ProverRequestID,
+						LastProvenBlock: lastProvenBlock,
+						EndBlock:        endBlock,
+						ProofRequestID:  preq.ProverRequestID,
 					}, nil
 				}
 			}
@@ -135,7 +133,7 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, startBlock, maxBlock, 
 	}
 }
 
-func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumber uint64) (uint64, error) {
+func (pa *ProofsAPI) endBlockL1Limit(ctx context.Context, requestedEndBlock, l1BlockNumber uint64) (uint64, error) {
 	rollupClient, err := dial.DialRollupClientWithTimeout(ctx, dial.DefaultDialTimeout, pa.logger, pa.rollupRPC)
 	if err != nil {
 		return 0, err
@@ -146,11 +144,11 @@ func (pa *ProofsAPI) maxBlockL1Limit(ctx context.Context, maxBlock, l1BlockNumbe
 		return 0, fmt.Errorf("failed to get l1 origin: %w", err)
 	}
 
-	if safeHead.SafeHead.Number < maxBlock {
+	if safeHead.SafeHead.Number < requestedEndBlock {
 		return safeHead.SafeHead.Number, nil
 	}
 
-	return maxBlock, nil
+	return requestedEndBlock, nil
 }
 
 func (pa *ProofsAPI) GetAggProof(ctx context.Context, id int) ([]byte, error) {
