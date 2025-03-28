@@ -14,10 +14,7 @@ on:
 jobs:
   build:
     name: Build Docker Images
-    runs-on:
-      - runs-on
-      - runner=ubuntu-latest-8-core
-      - run-id=${{ github.run_id }}
+    runs-on: ubuntu-latest-8-core
 
     steps:
       - name: Checkout code
