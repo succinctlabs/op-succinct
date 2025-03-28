@@ -10,7 +10,10 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest-8-core
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }} 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

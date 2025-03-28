@@ -16,6 +16,10 @@ jobs:
     name: Build Docker Images
     runs-on: ubuntu-latest-8-core
 
+    permissions:
+      packages: write
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
