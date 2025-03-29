@@ -5,6 +5,7 @@ use crate::fetcher::OPSuccinctDataFetcher;
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
+use celestia::CelestiaOPSuccinctHost;
 use default::SingleChainOPSuccinctHost;
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use op_succinct_client_utils::client::run_opsuccinct_client;
@@ -60,4 +61,11 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 /// In the future, there will be a feature gated function to initialize the host (ex. for Alt-DA).
 pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
     Arc::new(SingleChainOPSuccinctHost::new(fetcher))
+}
+
+/// Initialize the Celestia host.
+pub fn initialize_celestia_host(
+    fetcher: Arc<OPSuccinctDataFetcher>,
+) -> Arc<CelestiaOPSuccinctHost> {
+    Arc::new(CelestiaOPSuccinctHost::new(fetcher))
 }
