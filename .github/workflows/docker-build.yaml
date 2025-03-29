@@ -18,6 +18,9 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
+      - name: Setup environment
+        uses: ./.github/actions/setup
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
