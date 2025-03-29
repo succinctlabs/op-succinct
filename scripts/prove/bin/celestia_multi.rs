@@ -6,7 +6,7 @@ use op_succinct_host_utils::{
     get_proof_stdin,
     hosts::{celestia::CelestiaOPSuccinctHost, OPSuccinctHost},
     stats::ExecutionStats,
-    RANGE_ELF_EMBEDDED,
+    CELESTIA_RANGE_ELF_EMBEDDED,
 };
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(RANGE_ELF_EMBEDDED);
+        let (pk, _) = prover.setup(CELESTIA_RANGE_ELF_EMBEDDED);
 
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
