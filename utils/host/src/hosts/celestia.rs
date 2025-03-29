@@ -49,9 +49,17 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
                 safe_db_fallback.expect("`safe_db_fallback` must be set"),
             )
             .await?;
+
+        // Create `CelestiaCfg` directly from environment variables
+        let celestia_args = CelestiaCfg {
+            celestia_connection: std::env::var("CELESTIA_CONNECTION").ok(),
+            auth_token: std::env::var("AUTH_TOKEN").ok(),
+            namespace: std::env::var("NAMESPACE").ok(),
+        };
+
         Ok(CelestiaChainHost {
             single_host: host,
-            celestia_args: CelestiaCfg::parse(),
+            celestia_args,
         })
     }
 
