@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use alloy_primitives::B256;
 use async_trait::async_trait;
-use clap::Parser;
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
 use kona_preimage::BidirectionalChannel;
 use op_succinct_client_utils::InMemoryOracle;
