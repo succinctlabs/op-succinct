@@ -3,6 +3,8 @@ use alloy_primitives::{Sealed, B256};
 use alloy_rlp::Decodable;
 use anyhow::anyhow;
 use anyhow::Result;
+use hana_oracle::pipeline::OraclePipeline as CelestiaOraclePipeline;
+use hana_oracle::provider::OracleCelestiaProvider;
 use kona_derive::errors::PipelineError;
 use kona_derive::errors::PipelineErrorKind;
 use kona_derive::traits::Pipeline;
@@ -19,7 +21,7 @@ use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::errors::OracleProviderError;
 use kona_proof::executor::KonaExecutor;
-use kona_proof::l1::{OracleL1ChainProvider, OraclePipeline};
+use kona_proof::l1::OracleL1ChainProvider;
 use kona_proof::l2::OracleL2ChainProvider;
 use kona_proof::sync::new_pipeline_cursor;
 use kona_proof::{BootInfo, FlushableCache, HintType};
@@ -64,6 +66,7 @@ where
     let mut l2_provider =
         OracleL2ChainProvider::new(safe_head_hash, rollup_config.clone(), oracle.clone());
     let beacon = OPSuccinctOracleBlobProvider::new(oracle.clone());
+    let celestia_provider = OracleCelestiaProvider::new(oracle.clone());
 
     // Fetch the safe head's block header.
     let safe_head = l2_provider
@@ -103,13 +106,14 @@ where
     .await?;
     l2_provider.set_cursor(cursor.clone());
 
-    let pipeline = OraclePipeline::new(
+    let pipeline = CelestiaOraclePipeline::new(
         rollup_config.clone(),
         cursor.clone(),
         oracle.clone(),
         beacon,
         l1_provider.clone(),
         l2_provider.clone(),
+        celestia_provider,
     )
     .await?;
     let executor = KonaExecutor::new(

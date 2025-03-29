@@ -9,9 +9,9 @@ use op_succinct_host_utils::{
     },
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin,
-    hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
+    hosts::{celestia::CelestiaOPSuccinctHost, OPSuccinctHost},
     stats::ExecutionStats,
-    RANGE_ELF_EMBEDDED,
+    CELESTIA_RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -91,7 +91,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     // Execute the program for each block range in parallel.
     execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(RANGE_ELF_EMBEDDED, sp1_stdin).run();
+        let result = prover.execute(CELESTIA_RANGE_ELF_EMBEDDED, sp1_stdin).run();
 
         if let Some(err) = result.as_ref().err() {
             log::warn!(
@@ -218,7 +218,7 @@ async fn main() -> Result<()> {
     );
 
     // Get the host CLIs in order, in parallel.
-    let host = Arc::new(SingleChainOPSuccinctHost {
+    let host = Arc::new(CelestiaOPSuccinctHost {
         fetcher: Arc::new(data_fetcher),
     });
     let host_args = futures::stream::iter(split_ranges.iter())

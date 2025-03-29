@@ -11,6 +11,10 @@ homepage.workspace = true
 name = "validity"
 path = "bin/validity.rs"
 
+[[bin]]
+name = "celestia-validity"
+path = "bin/celestia_validity.rs"
+
 [dependencies]
 
 # workspace
