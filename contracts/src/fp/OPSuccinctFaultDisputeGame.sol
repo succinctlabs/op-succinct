@@ -176,6 +176,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
     /// @param _challengerBond The bond amount that must be submitted by the challenger.
     /// @param _anchorStateRegistry The anchor state registry for the L2 network.
     constructor(
+        GameType _gameType,
         Duration _maxChallengeDuration,
         Duration _maxProveDuration,
         IDisputeGameFactory _disputeGameFactory,
@@ -188,7 +189,7 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         AccessManager _accessManager
     ) {
         // Set up initial game state.
-        GAME_TYPE = GameType.wrap(42);
+        GAME_TYPE = _gameType;
         MAX_CHALLENGE_DURATION = _maxChallengeDuration;
         MAX_PROVE_DURATION = _maxProveDuration;
         DISPUTE_GAME_FACTORY = _disputeGameFactory;

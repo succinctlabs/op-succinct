@@ -138,6 +138,7 @@ contract DeployOPSuccinctFDG is Script {
         }
 
         OPSuccinctFaultDisputeGame gameImpl = new OPSuccinctFaultDisputeGame(
+            gameType,
             Duration.wrap(uint64(vm.envUint("MAX_CHALLENGE_DURATION"))),
             Duration.wrap(uint64(vm.envUint("MAX_PROVE_DURATION"))),
             IDisputeGameFactory(address(factory)),
