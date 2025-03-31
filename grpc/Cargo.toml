@@ -18,4 +18,4 @@ prost = "0.13"
 pbjson = "0.7"
 pbjson-types = "0.7"
 serde = "1.0"
-tonic = { version = "0.13", features = ["gzip"] }
+tonic = { workspace = true, features = ["codegen", "prost", "transport"] }

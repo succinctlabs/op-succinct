@@ -1,19 +1,15 @@
 use tonic::{Request, Response, Status};
 use tracing::info;
 
-use crate::proofs_server::proofs_server::Proofs;
 use crate::proposer::Proposer;
 use alloy_provider::{Network, Provider};
+use grpc::proofs::proofs_server::Proofs;
+use grpc::proofs::{AggProofRequest, AggProofResponse};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
-
-// Include the generated protobuf code
-pub mod proofs_server {
-    tonic::include_proto!("proofs");
-}
 
 use std::sync::Arc;
 
-pub struct ProofsService<P, N, H>
+pub struct Service<P, N, H>
 where
     P: Provider<N> + 'static + Clone,
     N: Network,
@@ -22,7 +18,7 @@ where
     proposer: Arc<Proposer<P, N, H>>,
 }
 
-impl<P, N, H> ProofsService<P, N, H>
+impl<P, N, H> Service<P, N, H>
 where
     P: Provider<N> + 'static + Clone,
     N: Network,
@@ -32,8 +28,9 @@ where
         Self { proposer }
     }
 }
+
 #[tonic::async_trait]
-impl<P, N, H> Proofs for ProofsService<P, N, H>
+impl<P, N, H> Proofs for Service<P, N, H>
 // Update trait implementation
 where
     P: Provider<N> + 'static + Clone,
@@ -48,7 +45,7 @@ where
         // Update response type
         info!("Received AggProofRequest: {:?}", request);
 
-        let req = request.into_inner();
+        let _req = request.into_inner();
 
         // TODO: Implement the logic to handle the proof request using the inner proposer.
         // This is a placeholder implementation.  You'll need to adapt it to your specific needs.

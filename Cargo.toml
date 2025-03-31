@@ -1,12 +1,5 @@
 [workspace]
-members = [
-    "utils/*",
-    "programs/*",
-    "scripts/*",
-    "validity",
-    "fault-proof",
-    "grpc",
-]
+members = ["utils/*", "programs/*", "scripts/*", "validity", "fault-proof"]
 resolver = "2"
 
 [workspace.package]

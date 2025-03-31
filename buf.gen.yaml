@@ -1,20 +1,23 @@
-version: v1
+version: v2
+
+managed:
+  enabled: true
+
 plugins:
-  - plugin: prost # Generates the core code
+  - local: protoc-gen-prost
     out: grpc/src
     opt:
       - bytes=.
-      - compile_well_known_types
-      - extern_path=.google.protobuf=::pbjson_types
       - file_descriptor_set
-  - plugin: prost-serde # Generates code compatible with JSON serde
+
+  - local: protoc-gen-prost-serde
     out: grpc/src
-  - plugin: tonic # Generates the Tonic services
+
+  - local: protoc-gen-prost-crate
     out: grpc/src
+    strategy: all
     opt:
-      - compile_well_known_types
-      - extern_path=.google.protobuf=::pbjson_types
-  - plugin: prost-crate # Makes the gen folder a crate
-    out: grpc
-    opt:
-      - gen_crate=grpc/Cargo.toml
+      - no_features
+
+  - local: protoc-gen-tonic
+    out: grpc/src

@@ -1,7 +1,7 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove,
-    proofs_service::ProofsService,
+    proofs::Service,
     CommitmentConfig, ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig,
     ValidityGauge,
 };
