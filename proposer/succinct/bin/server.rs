@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use bincode::Options;
 use log::{error, info};
 use op_succinct_client_utils::{
     boot::{hash_rollup_config, BootInfoStruct},
@@ -502,12 +503,26 @@ async fn request_mock_agg_proof(
         }
     };
 
+    // Check if the proof is compressed.
+    let proof_bytes: Vec<u8>;
+    if state.agg_proof_mode == SP1ProofMode::Compressed {
+        // If it's a compressed proof, we need to serialize the entire struct with bincode.
+        proof_bytes = bincode::DefaultOptions::new()
+            .with_big_endian()
+            .with_fixint_encoding()
+            .serialize(&proof)
+            .unwrap();
+    } else {
+        // If it's a groth16 proof, we need to get the proof bytes that we put on-chain.
+        proof_bytes = proof.bytes();
+    }
+
     Ok((
         StatusCode::OK,
         Json(ProofStatus {
             fulfillment_status: FulfillmentStatus::Fulfilled.into(),
             execution_status: ExecutionStatus::UnspecifiedExecutionStatus.into(),
-            proof: proof.bytes(),
+            proof: proof_bytes,
         }),
     ))
 }
