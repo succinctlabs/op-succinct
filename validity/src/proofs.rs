@@ -1,42 +1,52 @@
+use alloy_primitives::FixedBytes;
 use tonic::{Request, Response, Status};
 use tracing::info;
 
-use crate::proposer::Proposer;
-use alloy_provider::{Network, Provider};
+use crate::proof_requester::OPSuccinctProofRequester;
+use crate::OPSuccinctRequest;
+use crate::ProgramConfig;
+use crate::RequestMode;
+use crate::RequesterConfig;
+use crate::ValidityGauge;
 use grpc::proofs::proofs_server::Proofs;
 use grpc::proofs::{AggProofRequest, AggProofResponse};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
+use op_succinct_host_utils::metrics::MetricsGauge;
+use std::{sync::Arc, time::Instant};
 
-use std::sync::Arc;
-
-pub struct Service<P, N, H>
+pub struct Service<H>
 where
-    P: Provider<N> + 'static + Clone,
-    N: Network,
     H: OPSuccinctHost,
 {
-    proposer: Arc<Proposer<P, N, H>>,
+    proof_requester: Arc<OPSuccinctProofRequester<H>>,
+    program_config: ProgramConfig,
+    requester_config: RequesterConfig,
 }
 
-impl<P, N, H> Service<P, N, H>
+impl<H> Service<H>
 where
-    P: Provider<N> + 'static + Clone,
-    N: Network,
     H: OPSuccinctHost,
 {
-    pub fn new(proposer: Arc<Proposer<P, N, H>>) -> Self {
-        Self { proposer }
+    pub fn new(
+        proof_requester: Arc<OPSuccinctProofRequester<H>>,
+        program_config: ProgramConfig,
+        requester_config: RequesterConfig,
+    ) -> Self {
+        Self {
+            proof_requester,
+            program_config,
+            requester_config,
+        }
     }
 }
 
 #[tonic::async_trait]
-impl<P, N, H> Proofs for Service<P, N, H>
+impl<H> Proofs for Service<H>
 // Update trait implementation
 where
-    P: Provider<N> + 'static + Clone,
-    N: Network,
     H: OPSuccinctHost,
 {
+    #[tracing::instrument(name = "proofs.request_agg_proof", skip(self, request))]
     async fn request_agg_proof(
         // Update method name
         &self,
@@ -45,17 +55,89 @@ where
         // Update response type
         info!("Received AggProofRequest: {:?}", request);
 
-        let _req = request.into_inner();
+        let req = request.into_inner();
 
-        // TODO: Implement the logic to handle the proof request using the inner proposer.
-        // This is a placeholder implementation.  You'll need to adapt it to your specific needs.
-        let request_id = 12345; // Replace with actual request ID generation logic
+        // Prepare the request and query the proof requester
+        let op_request = OPSuccinctRequest::new_agg_request(
+            if self.requester_config.mock {
+                RequestMode::Mock
+            } else {
+                RequestMode::Real
+            },
+            req.last_proven_block,
+            req.requested_end_block,
+            self.program_config.commitments.range_vkey_commitment,
+            self.program_config.commitments.agg_vkey_hash,
+            self.program_config.commitments.rollup_config_hash,
+            self.requester_config.l1_chain_id,
+            self.requester_config.l2_chain_id,
+            req.l1_block_number,
+            FixedBytes::<32>::from(
+                <[u8; 32]>::try_from(req.l1_block_hash.as_bytes())
+                    .expect("l1_block_hash must be a fixed-size array"),
+            ),
+            self.requester_config.prover_address,
+        );
 
-        let reply = AggProofResponse {
-            success: true,
-            error: "".into(),
-            request_id: request_id,
+        info!(
+            request_type = ?op_request.req_type,
+            start_block = op_request.start_block,
+            end_block = op_request.end_block,
+            "Starting witness generation"
+        );
+
+        let witnessgen_duration = Instant::now();
+        // Generate the stdin needed for the proof. If this fails, retry the request.
+        let stdin = match self.proof_requester.generate_proof_stdin(&op_request).await {
+            Ok(stdin) => stdin,
+            Err(e) => {
+                ValidityGauge::WitnessgenErrorCount.increment(1.0);
+                return Err(Status::internal(format!(
+                    "Failed to generate proof stdin: {}",
+                    e
+                )));
+            }
         };
+        let duration = witnessgen_duration.elapsed();
+
+        info!(
+            start_block = op_request.start_block,
+            end_block = op_request.end_block,
+            request_type = ?op_request.req_type,
+            duration_s = duration.as_secs(),
+            "Completed witness generation"
+        );
+
+        let reply: AggProofResponse;
+        if self.proof_requester.mock {
+            let _proof = self
+                .proof_requester
+                .generate_mock_agg_proof(&op_request, stdin)
+                .await
+                .expect("Failed to generate mock proof");
+
+            reply = AggProofResponse {
+                success: true,
+                error: "".into(),
+                last_proven_block: req.last_proven_block,
+                end_block: req.requested_end_block,
+                proof_request_id: "0".into(),
+            };
+        } else {
+            let proof_id = self
+                .proof_requester
+                .request_agg_proof(stdin)
+                .await
+                .expect("Failed to request proof");
+
+            reply = AggProofResponse {
+                success: true,
+                error: "".into(),
+                last_proven_block: req.last_proven_block,
+                end_block: req.requested_end_block,
+                proof_request_id: proof_id.to_string(),
+            };
+        }
 
         Ok(Response::new(reply))
     }

@@ -7,10 +7,10 @@ impl serde::Serialize for AggProofRequest {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if self.start != 0 {
+        if self.last_proven_block != 0 {
             len += 1;
         }
-        if self.end != 0 {
+        if self.requested_end_block != 0 {
             len += 1;
         }
         if self.l1_block_number != 0 {
@@ -20,15 +20,15 @@ impl serde::Serialize for AggProofRequest {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("proofs.AggProofRequest", len)?;
-        if self.start != 0 {
+        if self.last_proven_block != 0 {
             #[allow(clippy::needless_borrow)]
             #[allow(clippy::needless_borrows_for_generic_args)]
-            struct_ser.serialize_field("start", ToString::to_string(&self.start).as_str())?;
+            struct_ser.serialize_field("lastProvenBlock", ToString::to_string(&self.last_proven_block).as_str())?;
         }
-        if self.end != 0 {
+        if self.requested_end_block != 0 {
             #[allow(clippy::needless_borrow)]
             #[allow(clippy::needless_borrows_for_generic_args)]
-            struct_ser.serialize_field("end", ToString::to_string(&self.end).as_str())?;
+            struct_ser.serialize_field("requestedEndBlock", ToString::to_string(&self.requested_end_block).as_str())?;
         }
         if self.l1_block_number != 0 {
             #[allow(clippy::needless_borrow)]
@@ -36,9 +36,7 @@ impl serde::Serialize for AggProofRequest {
             struct_ser.serialize_field("l1BlockNumber", ToString::to_string(&self.l1_block_number).as_str())?;
         }
         if !self.l1_block_hash.is_empty() {
-            #[allow(clippy::needless_borrow)]
-            #[allow(clippy::needless_borrows_for_generic_args)]
-            struct_ser.serialize_field("l1BlockHash", pbjson::private::base64::encode(&self.l1_block_hash).as_str())?;
+            struct_ser.serialize_field("l1BlockHash", &self.l1_block_hash)?;
         }
         struct_ser.end()
     }
@@ -50,8 +48,10 @@ impl<'de> serde::Deserialize<'de> for AggProofRequest {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "start",
-            "end",
+            "last_proven_block",
+            "lastProvenBlock",
+            "requested_end_block",
+            "requestedEndBlock",
             "l1_block_number",
             "l1BlockNumber",
             "l1_block_hash",
@@ -60,8 +60,8 @@ impl<'de> serde::Deserialize<'de> for AggProofRequest {
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Start,
-            End,
+            LastProvenBlock,
+            RequestedEndBlock,
             L1BlockNumber,
             L1BlockHash,
         }
@@ -85,8 +85,8 @@ impl<'de> serde::Deserialize<'de> for AggProofRequest {
                         E: serde::de::Error,
                     {
                         match value {
-                            "start" => Ok(GeneratedField::Start),
-                            "end" => Ok(GeneratedField::End),
+                            "lastProvenBlock" | "last_proven_block" => Ok(GeneratedField::LastProvenBlock),
+                            "requestedEndBlock" | "requested_end_block" => Ok(GeneratedField::RequestedEndBlock),
                             "l1BlockNumber" | "l1_block_number" => Ok(GeneratedField::L1BlockNumber),
                             "l1BlockHash" | "l1_block_hash" => Ok(GeneratedField::L1BlockHash),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
@@ -108,25 +108,25 @@ impl<'de> serde::Deserialize<'de> for AggProofRequest {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut start__ = None;
-                let mut end__ = None;
+                let mut last_proven_block__ = None;
+                let mut requested_end_block__ = None;
                 let mut l1_block_number__ = None;
                 let mut l1_block_hash__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
-                        GeneratedField::Start => {
-                            if start__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("start"));
+                        GeneratedField::LastProvenBlock => {
+                            if last_proven_block__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("lastProvenBlock"));
                             }
-                            start__ = 
+                            last_proven_block__ = 
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
                         }
-                        GeneratedField::End => {
-                            if end__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("end"));
+                        GeneratedField::RequestedEndBlock => {
+                            if requested_end_block__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("requestedEndBlock"));
                             }
-                            end__ = 
+                            requested_end_block__ = 
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
                         }
@@ -142,15 +142,13 @@ impl<'de> serde::Deserialize<'de> for AggProofRequest {
                             if l1_block_hash__.is_some() {
                                 return Err(serde::de::Error::duplicate_field("l1BlockHash"));
                             }
-                            l1_block_hash__ = 
-                                Some(map_.next_value::<::pbjson::private::BytesDeserialize<_>>()?.0)
-                            ;
+                            l1_block_hash__ = Some(map_.next_value()?);
                         }
                     }
                 }
                 Ok(AggProofRequest {
-                    start: start__.unwrap_or_default(),
-                    end: end__.unwrap_or_default(),
+                    last_proven_block: last_proven_block__.unwrap_or_default(),
+                    requested_end_block: requested_end_block__.unwrap_or_default(),
                     l1_block_number: l1_block_number__.unwrap_or_default(),
                     l1_block_hash: l1_block_hash__.unwrap_or_default(),
                 })
@@ -173,7 +171,13 @@ impl serde::Serialize for AggProofResponse {
         if !self.error.is_empty() {
             len += 1;
         }
-        if self.request_id != 0 {
+        if self.last_proven_block != 0 {
+            len += 1;
+        }
+        if self.end_block != 0 {
+            len += 1;
+        }
+        if !self.proof_request_id.is_empty() {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("proofs.AggProofResponse", len)?;
@@ -183,10 +187,18 @@ impl serde::Serialize for AggProofResponse {
         if !self.error.is_empty() {
             struct_ser.serialize_field("error", &self.error)?;
         }
-        if self.request_id != 0 {
+        if self.last_proven_block != 0 {
             #[allow(clippy::needless_borrow)]
             #[allow(clippy::needless_borrows_for_generic_args)]
-            struct_ser.serialize_field("requestId", ToString::to_string(&self.request_id).as_str())?;
+            struct_ser.serialize_field("lastProvenBlock", ToString::to_string(&self.last_proven_block).as_str())?;
+        }
+        if self.end_block != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("endBlock", ToString::to_string(&self.end_block).as_str())?;
+        }
+        if !self.proof_request_id.is_empty() {
+            struct_ser.serialize_field("proofRequestId", &self.proof_request_id)?;
         }
         struct_ser.end()
     }
@@ -200,15 +212,21 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
         const FIELDS: &[&str] = &[
             "success",
             "error",
-            "request_id",
-            "requestId",
+            "last_proven_block",
+            "lastProvenBlock",
+            "end_block",
+            "endBlock",
+            "proof_request_id",
+            "proofRequestId",
         ];
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
             Success,
             Error,
-            RequestId,
+            LastProvenBlock,
+            EndBlock,
+            ProofRequestId,
         }
         impl<'de> serde::Deserialize<'de> for GeneratedField {
             fn deserialize<D>(deserializer: D) -> std::result::Result<GeneratedField, D::Error>
@@ -232,7 +250,9 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
                         match value {
                             "success" => Ok(GeneratedField::Success),
                             "error" => Ok(GeneratedField::Error),
-                            "requestId" | "request_id" => Ok(GeneratedField::RequestId),
+                            "lastProvenBlock" | "last_proven_block" => Ok(GeneratedField::LastProvenBlock),
+                            "endBlock" | "end_block" => Ok(GeneratedField::EndBlock),
+                            "proofRequestId" | "proof_request_id" => Ok(GeneratedField::ProofRequestId),
                             _ => Err(serde::de::Error::unknown_field(value, FIELDS)),
                         }
                     }
@@ -254,7 +274,9 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
             {
                 let mut success__ = None;
                 let mut error__ = None;
-                let mut request_id__ = None;
+                let mut last_proven_block__ = None;
+                let mut end_block__ = None;
+                let mut proof_request_id__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
                         GeneratedField::Success => {
@@ -269,20 +291,36 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
                             }
                             error__ = Some(map_.next_value()?);
                         }
-                        GeneratedField::RequestId => {
-                            if request_id__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("requestId"));
+                        GeneratedField::LastProvenBlock => {
+                            if last_proven_block__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("lastProvenBlock"));
                             }
-                            request_id__ = 
+                            last_proven_block__ = 
                                 Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
                             ;
+                        }
+                        GeneratedField::EndBlock => {
+                            if end_block__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("endBlock"));
+                            }
+                            end_block__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
+                        }
+                        GeneratedField::ProofRequestId => {
+                            if proof_request_id__.is_some() {
+                                return Err(serde::de::Error::duplicate_field("proofRequestId"));
+                            }
+                            proof_request_id__ = Some(map_.next_value()?);
                         }
                     }
                 }
                 Ok(AggProofResponse {
                     success: success__.unwrap_or_default(),
                     error: error__.unwrap_or_default(),
-                    request_id: request_id__.unwrap_or_default(),
+                    last_proven_block: last_proven_block__.unwrap_or_default(),
+                    end_block: end_block__.unwrap_or_default(),
+                    proof_request_id: proof_request_id__.unwrap_or_default(),
                 })
             }
         }

@@ -34,6 +34,7 @@ pub struct ProgramConfig {
     pub commitments: CommitmentConfig,
 }
 
+#[derive(Clone)]
 pub struct RequesterConfig {
     pub l1_chain_id: i64,
     pub l2_chain_id: i64,

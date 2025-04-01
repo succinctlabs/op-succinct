@@ -1,9 +1,7 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove,
-    proofs::Service,
-    CommitmentConfig, ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig,
-    ValidityGauge,
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
+    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
 };
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, Bytes, B256, U256};
@@ -12,6 +10,7 @@ use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
+use grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
@@ -1112,15 +1111,17 @@ where
         ValidityGauge::init_all();
 
         // Start the gRPC server
-        // let addr = self.requester_config.grpc_addr.parse().unwrap();
-        // info!("Starting Agglayer gRPC server on {}", addr);
-        // tokio::spawn(
-        //     tonic::transport::Server::builder()
-        //         .add_service(ProofsServer::new(ProofsService::new(Arc::new(Arc::clone(
-        //             &self,
-        //         )))))
-        //         .serve(addr),
-        // );
+        let addr = self.requester_config.grpc_addr.parse().unwrap();
+        info!("Starting Agglayer gRPC server on {}", addr);
+        tokio::spawn(
+            tonic::transport::Server::builder()
+                .add_service(ProofsServer::new(crate::proofs::Service::new(
+                    self.proof_requester.clone(),
+                    self.program_config.clone(),
+                    self.requester_config.clone(),
+                )))
+                .serve(addr),
+        );
 
         // Loop interval in seconds.
         loop {
