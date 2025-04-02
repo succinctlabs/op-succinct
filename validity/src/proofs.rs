@@ -38,6 +38,26 @@ where
             requester_config,
         }
     }
+
+    // Limit the L1 block number to the safe head if it is greater than the requested end block
+    async fn limit_l1_block_number(
+        &self,
+        requested_end_block: u64,
+        l1_block_number: u64,
+    ) -> Result<u64, Status> {
+        let safe_head = self
+            .proof_requester
+            .fetcher
+            .get_l2_safe_head_from_l1_block_number(l1_block_number - 20)
+            .await
+            .expect("Failed to get safe head");
+
+        if safe_head < requested_end_block {
+            return Ok(safe_head);
+        }
+
+        Ok(requested_end_block)
+    }
 }
 
 #[tonic::async_trait]
@@ -57,6 +77,14 @@ where
 
         let req = request.into_inner();
 
+        let requested_end_block = self
+            .limit_l1_block_number(req.requested_end_block, req.l1_block_number)
+            .await
+            .map_err(|e| {
+                ValidityGauge::WitnessgenErrorCount.increment(1.0);
+                Status::internal(format!("Failed to limit L1 block number: {}", e))
+            })?;
+
         // Prepare the request and query the proof requester
         let op_request = OPSuccinctRequest::new_agg_request(
             if self.requester_config.mock {
@@ -64,14 +92,14 @@ where
             } else {
                 RequestMode::Real
             },
-            req.last_proven_block,
-            req.requested_end_block,
+            req.last_proven_block as i64,
+            requested_end_block as i64,
             self.program_config.commitments.range_vkey_commitment,
             self.program_config.commitments.agg_vkey_hash,
             self.program_config.commitments.rollup_config_hash,
             self.requester_config.l1_chain_id,
             self.requester_config.l2_chain_id,
-            req.l1_block_number,
+            req.l1_block_number as i64,
             FixedBytes::<32>::from(
                 <[u8; 32]>::try_from(req.l1_block_hash.as_bytes())
                     .expect("l1_block_hash must be a fixed-size array"),

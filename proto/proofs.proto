@@ -9,9 +9,9 @@ service Proofs {
 
 // Request for an aggregation proof
 message AggProofRequest {
-  int64 last_proven_block = 1;
-  int64 requested_end_block = 2;
-  int64 l1_block_number = 3;
+  uint64 last_proven_block = 1;
+  uint64 requested_end_block = 2;
+  uint64 l1_block_number = 3;
   string l1_block_hash = 4;
 }
 
@@ -19,7 +19,7 @@ message AggProofRequest {
 message AggProofResponse {
   bool success = 1;
   string error = 2;
-  int64 last_proven_block = 3;
-  int64 end_block = 4;
+  uint64 last_proven_block = 3;
+  uint64 end_block = 4;
   string proof_request_id = 5;
 }
