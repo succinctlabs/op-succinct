@@ -4122,6 +4122,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-elfs"
+version = "0.1.0"
+
+[[package]]
 name = "op-succinct-fees"
 version = "0.1.0"
 dependencies = [
@@ -4205,6 +4209,7 @@ dependencies = [
  "op-alloy-rpc-types",
  "op-alloy-rpc-types-engine",
  "op-succinct-client-utils",
+ "op-succinct-elfs",
  "reqwest",
  "revm",
  "rkyv",

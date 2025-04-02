@@ -63,6 +63,7 @@ kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
 op-succinct-client-utils = { path = "utils/client" }
+op-succinct-elfs = { path = "utils/elfs" }
 op-succinct-host-utils = { path = "utils/host" }
 op-succinct-build-utils = { path = "utils/build" }
 op-succinct-proposer = { path = "proposer/succinct" }
