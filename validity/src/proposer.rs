@@ -1110,9 +1110,14 @@ where
         // Initialize the metrics gauges.
         ValidityGauge::init_all();
 
-        // Start the gRPC server
-        let addr = self.requester_config.grpc_addr.parse().unwrap();
+        // Parse the url for the gRPC server.
+        let addr = self
+            .requester_config
+            .grpc_addr
+            .parse()
+            .context("Failed to parse gRPC address")?;
         info!("Starting Agglayer gRPC server on {}", addr);
+        // Start the gRPC server
         tokio::spawn(
             tonic::transport::Server::builder()
                 .add_service(ProofsServer::new(crate::proofs::Service::new(

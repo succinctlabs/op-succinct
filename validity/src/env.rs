@@ -114,7 +114,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         signer_address,
         safe_db_fallback: get_env_var("SAFE_DB_FALLBACK", Some(false))?,
         agglayer: get_env_var("AGGLAYER", Some(false))?,
-        grpc_addr: get_env_var("GRPC_ADDRESS", Some("localhost:50051".to_string()))?,
+        grpc_addr: get_env_var("GRPC_ADDRESS", Some("[::1]:50051".to_string()))?,
     };
 
     Ok(config)
