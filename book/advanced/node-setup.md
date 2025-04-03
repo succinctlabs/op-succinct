@@ -31,7 +31,7 @@ If you don't have access to these endpoints, you can run your own L2 nodes.
 
 ### Instructions
 1. Clone [simple-optimism-node](https://github.com/smartcontracts/simple-optimism-node) and follow the instructions in the README to set up your rollup.
-2. Ensure you configure the rollup with `NODE_TYPE`=`archive` and `OP_GETH__SYNCMODE`=snap. With this, you will be able to prove blocks in OP Succcinct using blocks after the snap sync.
+2. Ensure you configure the rollup with `NODE_TYPE`=`archive` and `OP_GETH__SYNCMODE`=snap. With this, you will be able to prove blocks in OP Succinct using blocks after the snap sync.
 
 Your `op-geth` endpoint will be available at the RPC port chosen [here](https://github.com/smartcontracts/simple-optimism-node/blob/main/scripts/start-op-geth.sh#L39), which in this case is `8545` (e.g. `http://localhost:8545`).
 
@@ -39,7 +39,7 @@ Your `op-node` endpoint (rollup node) will be available at the RPC port chosen [
 
 #### Check Sync Status
 
-After a few hours, your node should be fully synced and you can use it to begin generating ZKPs.
+After a few hours, your node should be fully synced, and you can use it to begin generating ZKPs.
 
 To check your node's sync status, you can run the following commands:
 
