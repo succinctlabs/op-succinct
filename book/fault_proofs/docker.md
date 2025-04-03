@@ -62,7 +62,7 @@ MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for res
 # Navigate to the fault_proof directory
 cd fault_proof
 
-# Start both proposer and challenger
+# Start both the proposer and challenger
 docker compose up -d
 
 # Or start them individually
@@ -77,7 +77,7 @@ To access the dashboard, open your browser and navigate to `http://localhost:300
 - Username: `admin`
 - Password: `admin`
 
-If the default port 9090 and 3000 for Prometheus and Grafana are already in use, you can change the port by setting the `FP_PROMETHEUS_PORT` and `FP_GRAFANA_PORT` environment variables in fault-proof/.env file.
+If the default ports 9090 and 3000 for Prometheus and Grafana are already in use, you can change the port by setting the `FP_PROMETHEUS_PORT` and `FP_GRAFANA_PORT` environment variables in fault-proof/.env file.
 
 View logs for the services:
 
