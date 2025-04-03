@@ -17,7 +17,7 @@ The deployment script performs the following actions:
 
 - [Foundry](https://book.getfoundry.sh/getting-started/installation) installed.
 - Access to an Ethereum node (local or network).
-- Environment variables properly configured.
+- Environment variables are properly configured.
 
 ## Configuration
 
