@@ -30,8 +30,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Setup environment
-        uses: ./.github/actions/setup
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt
 
       - name: Run rustfmt
         run: cargo fmt --all -- --check
