@@ -66,10 +66,11 @@ kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.15", default-features = false }
 
 # hana
-hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.2" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.2" }
-hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.2" }
-hana-client = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.2" }
+# TODO: use tag when https://github.com/celestiaorg/hana/pull/5 is merged and new release is cut.
+hana-oracle = { git = "https://github.com/fakedev9999/hana", rev = "2e02115e59855c873849ff01896c4ea20acbb6bb" }
+hana-celestia = { git = "https://github.com/fakedev9999/hana", rev = "2e02115e59855c873849ff01896c4ea20acbb6bb" }
+hana-host = { git = "https://github.com/fakedev9999/hana", rev = "2e02115e59855c873849ff01896c4ea20acbb6bb" }
+hana-client = { git = "https://github.com/fakedev9999/hana", rev = "2e02115e59855c873849ff01896c4ea20acbb6bb" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }

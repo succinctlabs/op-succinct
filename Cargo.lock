@@ -1562,10 +1562,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fdd1d3c0c2f5833f22386f252fe8ed005c7f59fdcddeef025c01b4c3b9fd9ac3"
 dependencies = [
  "once_cell",
- "proc-macro-crate 3.2.0",
+ "proc-macro-crate 3.3.0",
  "proc-macro2",
  "quote",
- "syn 2.0.98",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -2348,7 +2348,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18e4fdb82bd54a12e42fb58a800dcae6b9e13982238ce2296dc3570b92148e1f"
 dependencies = [
  "data-encoding",
- "syn 2.0.98",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -2658,7 +2658,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.98",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -3141,7 +3141,7 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.2#5eea67c24fda626587b2981cad2799715e0e44fc"
+source = "git+https://github.com/fakedev9999/hana?rev=2e02115e59855c873849ff01896c4ea20acbb6bb#2e02115e59855c873849ff01896c4ea20acbb6bb"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -3155,7 +3155,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.2#5eea67c24fda626587b2981cad2799715e0e44fc"
+source = "git+https://github.com/fakedev9999/hana?rev=2e02115e59855c873849ff01896c4ea20acbb6bb#2e02115e59855c873849ff01896c4ea20acbb6bb"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3168,9 +3168,9 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.2#5eea67c24fda626587b2981cad2799715e0e44fc"
+source = "git+https://github.com/fakedev9999/hana?rev=2e02115e59855c873849ff01896c4ea20acbb6bb#2e02115e59855c873849ff01896c4ea20acbb6bb"
 dependencies = [
- "alloy-consensus 0.12.4",
+ "alloy-consensus 0.12.6",
  "alloy-primitives",
  "cfg-if",
  "hana-oracle",
@@ -3181,14 +3181,14 @@ dependencies = [
  "kona-proof",
  "kona-std-fpvm",
  "kona-std-fpvm-proc",
- "thiserror 2.0.11",
+ "thiserror 2.0.12",
  "tracing",
 ]
 
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.2#5eea67c24fda626587b2981cad2799715e0e44fc"
+source = "git+https://github.com/fakedev9999/hana?rev=2e02115e59855c873849ff01896c4ea20acbb6bb#2e02115e59855c873849ff01896c4ea20acbb6bb"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -3218,7 +3218,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.2#5eea67c24fda626587b2981cad2799715e0e44fc"
+source = "git+https://github.com/fakedev9999/hana?rev=2e02115e59855c873849ff01896c4ea20acbb6bb#2e02115e59855c873849ff01896c4ea20acbb6bb"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3241,11 +3241,11 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.2#5eea67c24fda626587b2981cad2799715e0e44fc"
+source = "git+https://github.com/fakedev9999/hana?rev=2e02115e59855c873849ff01896c4ea20acbb6bb#2e02115e59855c873849ff01896c4ea20acbb6bb"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
- "alloy-rpc-types-eth 0.12.4",
+ "alloy-rpc-types-eth 0.12.6",
  "alloy-sol-types",
  "anyhow",
  "celestia-rpc",
@@ -3923,10 +3923,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e65763c942dfc9358146571911b0cd1c361c2d63e2d2305622d40d36376ca80"
 dependencies = [
  "heck 0.5.0",
- "proc-macro-crate 3.2.0",
+ "proc-macro-crate 3.3.0",
  "proc-macro2",
  "quote",
- "syn 2.0.98",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -4600,7 +4600,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex-syntax 0.8.5",
- "syn 2.0.98",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -4770,7 +4770,7 @@ checksum = "bf45bf44ab49be92fd1227a3be6fc6f617f1a337c06af54981048574d8783147"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.98",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -5907,7 +5907,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
 dependencies = [
  "fixedbitset",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
 ]
 
 [[package]]
@@ -6147,7 +6147,7 @@ dependencies = [
  "prost",
  "prost-types",
  "regex",
- "syn 2.0.98",
+ "syn 2.0.100",
  "tempfile",
 ]
 
@@ -6947,7 +6947,7 @@ dependencies = [
  "once_cell",
  "ring",
  "rustls-pki-types",
- "rustls-webpki",
+ "rustls-webpki 0.103.1",
  "subtle",
  "zeroize",
 ]
@@ -7009,7 +7009,7 @@ dependencies = [
  "rustls",
  "rustls-native-certs 0.7.3",
  "rustls-platform-verifier-android",
- "rustls-webpki",
+ "rustls-webpki 0.102.8",
  "security-framework 2.11.1",
  "security-framework-sys",
  "webpki-roots",
@@ -7021,6 +7021,16 @@ name = "rustls-platform-verifier-android"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
+
+[[package]]
+name = "rustls-webpki"
+version = "0.102.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64ca1bc8749bd4cf37b5ce386cc146580777b4e8572c7b97baf22c83f444bee9"
+dependencies = [
+ "rustls-pki-types",
+ "untrusted",
+]
 
 [[package]]
 name = "rustls-webpki"
