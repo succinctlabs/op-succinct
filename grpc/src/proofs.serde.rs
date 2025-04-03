@@ -198,7 +198,9 @@ impl serde::Serialize for AggProofResponse {
             struct_ser.serialize_field("endBlock", ToString::to_string(&self.end_block).as_str())?;
         }
         if !self.proof_request_id.is_empty() {
-            struct_ser.serialize_field("proofRequestId", &self.proof_request_id)?;
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("proofRequestId", pbjson::private::base64::encode(&self.proof_request_id).as_str())?;
         }
         struct_ser.end()
     }
@@ -311,7 +313,9 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
                             if proof_request_id__.is_some() {
                                 return Err(serde::de::Error::duplicate_field("proofRequestId"));
                             }
-                            proof_request_id__ = Some(map_.next_value()?);
+                            proof_request_id__ = 
+                                Some(map_.next_value::<::pbjson::private::BytesDeserialize<_>>()?.0)
+                            ;
                         }
                     }
                 }

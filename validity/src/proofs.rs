@@ -144,18 +144,21 @@ where
 
         let reply: AggProofResponse;
         if self.proof_requester.mock {
-            let _proof = self
+            let proof = self
                 .proof_requester
                 .generate_mock_agg_proof(&op_request, stdin)
                 .await
                 .expect("Failed to generate mock proof");
+
+            // If it's a compressed proof, we need to serialize the entire struct with bincode.
+            let proof_bytes = bincode::serialize(&proof).unwrap();
 
             reply = AggProofResponse {
                 success: true,
                 error: "".into(),
                 last_proven_block: req.last_proven_block,
                 end_block: req.requested_end_block,
-                proof_request_id: "0".into(),
+                proof_request_id: proof_bytes.into(),
             };
         } else {
             let proof_id = self
@@ -169,7 +172,7 @@ where
                 error: "".into(),
                 last_proven_block: req.last_proven_block,
                 end_block: req.requested_end_block,
-                proof_request_id: proof_id.to_string(),
+                proof_request_id: alloy_primitives::Bytes::from(proof_id).into(),
             };
         }
 

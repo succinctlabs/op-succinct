@@ -21,5 +21,5 @@ message AggProofResponse {
   string error = 2;
   uint64 last_proven_block = 3;
   uint64 end_block = 4;
-  string proof_request_id = 5;
+  bytes proof_request_id = 5;
 }
