@@ -1,3 +1,4 @@
+use alloy_primitives::hex::FromHex;
 use alloy_primitives::FixedBytes;
 use tonic::{Request, Response, Status};
 use tracing::info;
@@ -85,6 +86,13 @@ where
                 Status::internal(format!("Failed to limit L1 block number: {}", e))
             })?;
 
+        // Check if the requested end block is less than the requested start block
+        if requested_end_block <= req.last_proven_block {
+            return Err(Status::invalid_argument(
+                "Requested end block must be greater than the last proven block",
+            ));
+        }
+
         // Prepare the request and query the proof requester
         let op_request = OPSuccinctRequest::new_agg_request(
             if self.requester_config.mock {
@@ -100,10 +108,8 @@ where
             self.requester_config.l1_chain_id,
             self.requester_config.l2_chain_id,
             req.l1_block_number as i64,
-            FixedBytes::<32>::from(
-                <[u8; 32]>::try_from(req.l1_block_hash.as_bytes())
-                    .expect("l1_block_hash must be a fixed-size array"),
-            ),
+            FixedBytes::<32>::from_hex(req.l1_block_hash)
+                .expect("Invalid hex string for block hash"),
             self.requester_config.prover_address,
         );
 
