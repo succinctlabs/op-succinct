@@ -2,7 +2,7 @@
 
 ## What is Kurtosis?
 
-Kurtosis is a development tool that allows you spin up local testnets for blockchain development and testing. The ethPandaOps team has created a package for spinning up OP Stack devnets using Kurtosis called [optimism-package](https://github.com/ethpandaops/optimism-package).
+Kurtosis is a development tool that allows you to spin up local testnets for blockchain development and testing. The ethPandaOps team has created a package for spinning up OP Stack devnets using Kurtosis called [optimism-package](https://github.com/ethpandaops/optimism-package).
 
 ## Install Kurtosis
 
