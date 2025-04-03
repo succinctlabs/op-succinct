@@ -2,10 +2,11 @@
 
 ## Overview
 
-OP Succinct's fault proof mode offers faster finality without ZK proving costs for every block. This mode uses:
-- The same OP Succinct ZK program
-- `OPSuccinctFaultDisputeGame` contract integrated with OP Stack's [DisputeGameFactory](https://github.com/ethereum-optimism/optimism/blob/v1.11.1/packages/contracts-bedrock/src/dispute/DisputeGameFactory.sol)
-- Single-round dispute resolution with ZK proofs
+OP Succinct Lite offers a powerful, configurable fault proof system that enables a simplified on-chain dispute mechanism, reduced time to finality, configurable fast finality and support for Alt-DA.
+
+- The same OP Succinct program is used for both validity and fault proof modes.
+- `OPSuccinctFaultDisputeGame` contract integrated with OP Stack's [DisputeGameFactory](https://github.com/ethereum-optimism/optimism/blob/v1.11.1/packages/contracts-bedrock/src/dispute/DisputeGameFactory.sol).
+- Single-round dispute resolution with ZK proofs.
 
 We assume that the reader has a solid understanding of the OP Stack's `DisputeGameFactory` and `IDisputeGame` interface. Documentation can be found [here](https://specs.optimism.io/fault-proof/stage-one/dispute-game-interface.html). We implement the `IDisputeGame` interface with a ZK-enabled fault proof (using the OP Succinct ZK program) instead of the standard interactive bisection game that the vanilla OP Stack uses.
 
@@ -28,7 +29,7 @@ Once a proposal is published and a `OPSuccinctFaultDisputeGame` created, the dis
 - **ChallengedAndValidProofProvided**: A challenged proposal that has been proven valid with a verified proof.
 - **Resolved**: The final state after resolution, either `GameStatus.CHALLENGER_WINS` or `GameStatus.DEFENDER_WINS`.
 
-Note that "challenging" a proposal does not require a proof--as we want challenges to be able to be submitted quickly, without waiting for proof generation delay. Once a challenge is submitted, then the proposal's "timeout" is set to `MAX_PROVE_DURATION` parameter that allows for an extended amount of time to generate a proof to prove that the original proposal is correct. If a proof of validity is not submitted by the deadline, then the proposal is assumed to be invalid and the challenger wins. If a valid proof is submitted by the deadline, then the original proposer wins the dispute. Note that if a parent game is resolved in favor of a challenger wining, then any child game will also be considered invalid.
+Note that "challenging" a proposal does not require a proof--as we want challenges to be able to be submitted quickly, without waiting for proof generation delay. Once a challenge is submitted, then the proposal's "timeout" is set to `MAX_PROVE_DURATION` parameter that allows for an extended amount of time to generate a proof to prove that the original proposal is correct. If a proof of validity is not submitted by the deadline, then the proposal is assumed to be invalid and the challenger wins. If a valid proof is submitted by the deadline, then the original proposer wins the dispute. Note that if a parent game is resolved in favor of a challenger winning, then any child game will also be considered invalid.
 
 **Illustrative Example**
 
@@ -76,17 +77,19 @@ In this example, Proposal 3A would always resolve to `CHALLENGER_WINS`, as its p
 
 ### Immutable Variables
 
-- `MAX_CHALLENGE_DURATION`: Time window during which a proposal can be challenged.
-- `MAX_PROVE_DURATION`: Time allowed for proving a challenge.
-- `GAME_TYPE`: The type of the game, which is set in the `DisputeGameFactory` contract.
-- `DISPUTE_GAME_FACTORY`: The factory contract that creates this game.
-- `SP1_VERIFIER`: The verifier contract that verifies the SP1 proof.
-- `ROLLUP_CONFIG_HASH`: Hash of the chain's rollup configuration
-- `AGGREGATION_VKEY`: The verification key for the aggregation SP1 program.
-- `RANGE_VKEY_COMMITMENT`: The commitment to the BabyBear representation of the verification key of the range SP1 program.
-- `CHALLENGER_BOND`: Amount of ETH required to submit a challenge. If a prover supplies a valid proof, the bond is disbursed to the prover.
-- `ANCHOR_STATE_REGISTRY`: The anchor state registry contract.
-- `ACCESS_MANAGER`: The access manager contract.
+| Variable | Description |
+|----------|-------------|
+| `MAX_CHALLENGE_DURATION` | Time window during which a proposal can be challenged. |
+| `MAX_PROVE_DURATION` | Time allowed for proving a challenge. |
+| `GAME_TYPE` | The type of the game, which is set in the `DisputeGameFactory` contract. |
+| `DISPUTE_GAME_FACTORY` | The factory contract that creates this game. |
+| `SP1_VERIFIER` | The verifier contract that verifies the SP1 proof. |
+| `ROLLUP_CONFIG_HASH` | Hash of the chain's rollup configuration |
+| `AGGREGATION_VKEY` | The verification key for the aggregation SP1 program. |
+| `RANGE_VKEY_COMMITMENT` | The commitment to the BabyBear representation of the verification key of the range SP1 program. |
+| `CHALLENGER_BOND` | Amount of ETH required to submit a challenge. If a prover supplies a valid proof, the bond is disbursed to the prover. |
+| `ANCHOR_STATE_REGISTRY` | The anchor state registry contract. |
+| `ACCESS_MANAGER` | The access manager contract. |
 
 ### Types
 
