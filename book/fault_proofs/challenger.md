@@ -79,7 +79,7 @@ The challenger will run indefinitely, monitoring for invalid games and challengi
 ### Game Monitoring
 - Continuously scans for invalid games
 - Checks game validity against L2 state
-- Prioritizes oldest challengeable games
+- Prioritizes the oldest challengeable games
 - Maintains efficient scanning through configurable limits
 
 ### Game Challenging

@@ -139,10 +139,10 @@ struct ClaimData {
 
 Key differences from Optimism's implementation:
 - `parentIndex` is initialized on `initialize()`.
-- Simplified to single claim instead of array of claims.
+- Simplified to single claim instead of an array of claims.
 - Removed `claimant` and `position` fields since there is no bisection.
 - Removed `bond` field since bonds are stored in the game contract.
-- Added `prover` field to enable anyone to prove a proposal even the prover is not the proposer.
+- Added `prover` field to enable anyone to prove a proposal even if the prover is not the proposer.
 - Added proposal status.
 - Uses deadline instead of clock with period getters.
 

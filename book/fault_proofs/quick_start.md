@@ -104,7 +104,7 @@ To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill ou
 
 - Games are created every 1800 blocks by default (via `PROPOSAL_INTERVAL_IN_BLOCKS` in `.env.proposer`. See [Optional Environment Variables for Proposer](./proposer.md#optional-environment-variables))
 - Track games via block explorer using factory/game addresses and tx hashes from logs
-- Both proposer and challenger attempt to resolve eligible games after challenge period
+- Both proposer and challenger attempt to resolve eligible games after the challenge period
 
 ## Troubleshooting
 
