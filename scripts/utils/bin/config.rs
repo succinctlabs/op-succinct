@@ -3,13 +3,11 @@ use anyhow::Result;
 use clap::Parser;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, DAConfig, AGGREGATION_ELF, EIGENDA_RANGE_ELF_EMBEDDED,
-    RANGE_ELF_EMBEDDED,
+    fetcher::OPSuccinctDataFetcher, DAConfig, AGGREGATION_ELF, CELESTIA_RANGE_ELF_EMBEDDED,
+    EIGENDA_RANGE_ELF_EMBEDDED, RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::ConfigArgs;
 use sp1_sdk::{utils, HashableKey, Prover, ProverClient};
-
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
 
 // Get the verification keys for the ELFs and check them against the contract.
 #[tokio::main]
