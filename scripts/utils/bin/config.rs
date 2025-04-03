@@ -9,7 +9,6 @@ use op_succinct_host_utils::{
 use op_succinct_scripts::ConfigArgs;
 use sp1_sdk::{utils, HashableKey, Prover, ProverClient};
 
-#[cfg(feature = "celestia")]
 use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
 
 // Get the verification keys for the ELFs and check them against the contract.
@@ -22,7 +21,6 @@ async fn main() -> Result<()> {
     let (_, range_vk) = match args.da_config {
         DAConfig::Default => prover.setup(RANGE_ELF_EMBEDDED),
         DAConfig::EigenDA => prover.setup(EIGENDA_RANGE_ELF_EMBEDDED),
-        #[cfg(feature = "celestia")]
         DAConfig::Celestia => prover.setup(CELESTIA_RANGE_ELF_EMBEDDED),
     };
 
