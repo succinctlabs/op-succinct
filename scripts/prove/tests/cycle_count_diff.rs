@@ -199,11 +199,9 @@ async fn test_cycle_count_diff() -> Result<()> {
 
     let git_commit = std::process::Command::new("git")
         .arg("commit")
-        .arg("--author")
-        .arg("github-actions <41898282+github-actions[bot]@users.noreply.github.com>")
         .arg("-m")
         .arg(format!(
-            "Update base cycle stats for blocks {}~{}",
+            "chore: update base cycle stats for blocks {}~{}",
             l2_start_block, l2_end_block
         ))
         .output()?;
