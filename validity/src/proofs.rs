@@ -78,7 +78,7 @@ where
 
         let req = request.into_inner();
 
-        let requested_end_block = self
+        let l1_limited_end_block = self
             .limit_l1_block_number(req.requested_end_block, req.l1_block_number)
             .await
             .map_err(|e| {
@@ -87,11 +87,34 @@ where
             })?;
 
         // Check if the requested end block is less than the requested start block
-        if requested_end_block <= req.last_proven_block {
+        if l1_limited_end_block <= req.last_proven_block {
             return Err(Status::invalid_argument(
                 "Requested end block must be greater than the last proven block",
             ));
         }
+
+        // Limit according to the existing span proofs range
+        // Fetch consecutive range proofs from the database.
+        let range_proofs = self
+            .proof_requester
+            .db_client
+            .get_consecutive_complete_range_proofs(
+                req.last_proven_block as i64,
+                l1_limited_end_block as i64,
+                &self.program_config.commitments,
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
+            )
+            .await
+            .unwrap();
+
+        // Error in case there's no range proofs
+        if range_proofs.len() == 0 {
+            return Err(Status::internal("No consecutive span proof range found"));
+        }
+
+        // Set the requested_end_block to the last block from the range proofs
+        let end_block = range_proofs.last().unwrap().end_block;
 
         // Prepare the request and query the proof requester
         let op_request = OPSuccinctRequest::new_agg_request(
@@ -101,7 +124,7 @@ where
                 RequestMode::Real
             },
             req.last_proven_block as i64,
-            requested_end_block as i64,
+            end_block,
             self.program_config.commitments.range_vkey_commitment,
             self.program_config.commitments.agg_vkey_hash,
             self.program_config.commitments.rollup_config_hash,
@@ -157,7 +180,7 @@ where
                 success: true,
                 error: "".into(),
                 last_proven_block: req.last_proven_block,
-                end_block: req.requested_end_block,
+                end_block: end_block as u64,
                 proof_request_id: proof_bytes.into(),
             };
         } else {
@@ -171,7 +194,7 @@ where
                 success: true,
                 error: "".into(),
                 last_proven_block: req.last_proven_block,
-                end_block: req.requested_end_block,
+                end_block: end_block as u64,
                 proof_request_id: alloy_primitives::Bytes::from(proof_id).into(),
             };
         }
