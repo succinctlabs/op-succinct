@@ -231,7 +231,10 @@ deploy-dispute-game-factory env_file=".env":
     fi
     
     # Run the forge deployment script
-    L2OO_ADDRESS=$L2OO_ADDRESS forge script script/validity/OPSuccinctDGFDeployer.s.sol:OPSuccinctDFGDeployer \
+    env L2OO_ADDRESS=$L2OO_ADDRESS \
+        PERMISSIONLESS_MODE=${PERMISSIONLESS_MODE:=false} \
+        PROPOSER_ADDRESSES=$PROPOSER_ADDRESSES \
+        forge script script/validity/OPSuccinctDGFDeployer.s.sol:OPSuccinctDFGDeployer \
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast \
