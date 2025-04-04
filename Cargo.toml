@@ -118,6 +118,12 @@ sp1-zkvm = { version = "4.1.7", features = ["verify"] }
 sp1-build = { version = "4.1.7" }
 kzg-rs = { version = "0.2.5" }
 
+tonic-build = "0.12.3"
+tonic = "0.12.3"
+prost = "0.13.5"
+
+grpc = { path = "./grpc" }
+
 [profile.release-client-lto]
 inherits = "release"
 panic = "abort"

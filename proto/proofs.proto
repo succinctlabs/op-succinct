@@ -1,0 +1,25 @@
+syntax = "proto3";
+package proofs;
+
+// Service for proof requests
+service Proofs {
+  // Request an aggregation proof
+  rpc RequestAggProof(AggProofRequest) returns (AggProofResponse);
+}
+
+// Request for an aggregation proof
+message AggProofRequest {
+  uint64 last_proven_block = 1;
+  uint64 requested_end_block = 2;
+  uint64 l1_block_number = 3;
+  string l1_block_hash = 4;
+}
+
+// Response from an aggregation proof request
+message AggProofResponse {
+  bool success = 1;
+  string error = 2;
+  uint64 last_proven_block = 3;
+  uint64 end_block = 4;
+  bytes proof_request_id = 5;
+}

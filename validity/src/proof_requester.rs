@@ -377,7 +377,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     }
 
     /// Generates the stdin needed for a proof.
-    async fn generate_proof_stdin(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
+    pub async fn generate_proof_stdin(&self, request: &OPSuccinctRequest) -> Result<SP1Stdin> {
         let stdin = match request.req_type {
             RequestType::Range => self.range_proof_witnessgen(request).await?,
             RequestType::Aggregation => {
