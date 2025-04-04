@@ -7,6 +7,10 @@ import {ISemver} from "interfaces/universal/ISemver.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
+import {AccessManager} from "src/lib/AccessManager.sol";
+import {BadAuth} from "src/dispute/lib/Errors.sol";
+
+import {console} from "forge-std/console.sol";
 
 contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////////
@@ -14,7 +18,10 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////////
 
     /// @notice The address of the L2 output oracle proxy contract.
-    address internal immutable l2OutputOracle;
+    address internal immutable L2_OUTPUT_ORACLE;
+
+    /// @notice The access manager for the game.
+    AccessManager internal immutable ACCESS_MANAGER;
 
     /// @notice The timestamp of the game's global creation.
     Timestamp public createdAt;
@@ -32,8 +39,9 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     /// @custom:semver v2.0.0-beta
     string public constant version = "v2.0.0-beta";
 
-    constructor(address _l2OutputOracle) {
-        l2OutputOracle = _l2OutputOracle;
+    constructor(address _l2OutputOracle, AccessManager _accessManager) {
+        L2_OUTPUT_ORACLE = _l2OutputOracle;
+        ACCESS_MANAGER = _accessManager;
     }
 
     ////////////////////////////////////////////////////////////
@@ -41,11 +49,14 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////
 
     function initialize() external payable {
+        // INVARIANT: The proposer must be whitelisted.
+        if (!ACCESS_MANAGER.isAllowedProposer(gameCreator())) revert BadAuth();
+
         createdAt = Timestamp.wrap(uint64(block.timestamp));
         status = GameStatus.IN_PROGRESS;
         wasRespectedGameTypeWhenCreated = true;
 
-        OPSuccinctL2OutputOracle(l2OutputOracle).proposeL2Output(
+        OPSuccinctL2OutputOracle(L2_OUTPUT_ORACLE).proposeL2Output(
             rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
         );
 
@@ -151,5 +162,17 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();
+    }
+
+    /// @notice Getter for the l2OutputOracle.
+    /// @return l2OutputOracle_ The l2OutputOracle for the game.
+    function l2OutputOracle() external view returns (address l2OutputOracle_) {
+        l2OutputOracle_ = L2_OUTPUT_ORACLE;
+    }
+
+    /// @notice Getter for the access manager.
+    /// @return accessManager_ The access manager for the game.
+    function accessManager() external view returns (AccessManager accessManager_) {
+        accessManager_ = ACCESS_MANAGER;
     }
 }

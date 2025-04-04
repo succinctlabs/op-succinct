@@ -11,6 +11,7 @@ import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {GameType} from "src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
+import {AccessManager} from "src/lib/AccessManager.sol";
 
 contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
@@ -18,10 +19,16 @@ contract OPSuccinctDFGDeployer is Script, Utils {
 
         OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
 
+        // Proposer must be permissionless or else the check in `proposeL2Output` will fail.
         l2OutputOracleProxy.addProposer(address(0));
 
+        // Deploy the access manager.
+        AccessManager accessManager = new AccessManager();
+        // TODO(fakedev9999): Allow custom permissioning of proposers.
+        accessManager.setProposer(address(0), true);
+
         // Initialize the dispute game based on the existing L2OO_ADDRESS.
-        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy));
+        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy), accessManager);
 
         // Deploy the factory implementation
         DisputeGameFactory factoryImpl = new DisputeGameFactory();
