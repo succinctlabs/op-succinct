@@ -46,16 +46,9 @@ contract OPSuccinctDisputeGameTest is Test {
     OPSuccinctDisputeGame gameImpl;
     OPSuccinctDisputeGame game;
 
-    AnchorStateRegistry anchorStateRegistry;
     OPSuccinctL2OutputOracle l2OutputOracle;
 
     address proposer = address(0x123);
-    address challenger = address(0x456);
-    address prover = address(0x789);
-
-    MockOptimismPortal2 portal;
-
-    uint256 disputeGameFinalityDelaySeconds = 1000;
 
     // Fixed parameters.
     GameType gameType = GameType.wrap(6);
@@ -77,27 +70,6 @@ contract OPSuccinctDisputeGameTest is Test {
         // Cast the proxy to the factory contract.
         factory = DisputeGameFactory(address(factoryProxy));
 
-        // Create a mock portal
-        portal = new MockOptimismPortal2(gameType, disputeGameFinalityDelaySeconds);
-
-        // Create an anchor state registry.
-        SuperchainConfig superchainConfig = new SuperchainConfig();
-        OutputRoot memory startingAnchorRoot = OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0});
-
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(new AnchorStateRegistry()),
-            abi.encodeCall(
-                AnchorStateRegistry.initialize,
-                (
-                    ISuperchainConfig(address(superchainConfig)),
-                    IDisputeGameFactory(address(factory)),
-                    IOptimismPortal2(payable(address(portal))),
-                    startingAnchorRoot
-                )
-            )
-        );
-        anchorStateRegistry = AnchorStateRegistry(address(proxy));
-
         // Create a mock verifier.
         SP1MockVerifier sp1Verifier = new SP1MockVerifier();
 
@@ -106,7 +78,7 @@ contract OPSuccinctDisputeGameTest is Test {
             verifier: address(sp1Verifier),
             aggregationVkey: bytes32(0),
             rangeVkeyCommitment: bytes32(0),
-            startingOutputRoot: startingAnchorRoot.root.raw(),
+            startingOutputRoot: bytes32(0),
             rollupConfigHash: bytes32(0),
             proposer: address(0), // Should be permissionless when using game creation from the factory or else, the check in `proposeL2Output` will fail.
             challenger: address(0),
@@ -132,15 +104,11 @@ contract OPSuccinctDisputeGameTest is Test {
         // Deploy the implementation of OPSuccinctDisputeGame.
         gameImpl = new OPSuccinctDisputeGame(address(l2OutputOracle), accessManager);
 
-        // Set the init bond on the factory for the OPSuccinctDG specific GameType.
-        // factory.setInitBond(gameType,  ether);
-
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         // Create a game
         vm.startPrank(proposer);
-        vm.deal(proposer, 2 ether); // extra funds for testing.
 
         // Warp time forward to ensure the game is created after the respectedGameTypeUpdatedAt timestamp.
         vm.warp(block.timestamp + 4001);
@@ -153,7 +121,9 @@ contract OPSuccinctDisputeGameTest is Test {
 
         bytes memory proof = bytes("");
         game = OPSuccinctDisputeGame(
-            address(factory.create(gameType, rootClaim, abi.encodePacked(l2BlockNumber, l1BlockNumber, prover, proof)))
+            address(
+                factory.create(gameType, rootClaim, abi.encodePacked(l2BlockNumber, l1BlockNumber, proposer, proof))
+            )
         );
 
         vm.stopPrank();
@@ -178,7 +148,7 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(game.rootClaim().raw(), rootClaim.raw());
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         assertEq(game.l1BlockNumber(), l1BlockNumber);
-        assertEq(game.proverAddress(), prover);
+        assertEq(game.proverAddress(), proposer);
         assertEq(keccak256(game.proof()), keccak256(bytes("")));
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
     }
@@ -223,7 +193,7 @@ contract OPSuccinctDisputeGameTest is Test {
         factory.create(
             gameType,
             Claim.wrap(keccak256("new-claim")),
-            abi.encodePacked(l2BlockNumber + 1000, newL1BlockNumber, prover, proof)
+            abi.encodePacked(l2BlockNumber + 1000, newL1BlockNumber, maliciousProposer, proof)
         );
 
         vm.stopPrank();
