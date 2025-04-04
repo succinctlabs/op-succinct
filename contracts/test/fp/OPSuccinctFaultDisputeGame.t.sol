@@ -32,7 +32,7 @@ import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol"
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
-import {AccessManager} from "src/fp/AccessManager.sol";
+import {AccessManager} from "src/lib/AccessManager.sol";
 
 // Interfaces
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
