@@ -165,9 +165,19 @@ func (pa *ProofsAPI) GetAggProof(ctx context.Context, id int) ([]byte, error) {
 		return nil, fmt.Errorf("proof request not found")
 	}
 
-	// If the proof request is not complete, return an error
-	if preq.Status != proofrequest.StatusCOMPLETE {
-		return nil, fmt.Errorf("proof request not complete")
+	// Return the corresponding error depending on the status
+	switch preq.Status {
+	case proofrequest.StatusPROVING:
+		pa.logger.Info("agg proof request is still proving", "proof_request_id", preq.ID)
+		return nil, fmt.Errorf("agg proof request is still proving")
+	case proofrequest.StatusFAILED:
+		pa.logger.Warn("agg proof request failed", "proof_request_id", preq.ID)
+		return nil, fmt.Errorf("agg proof request failed")
+	case proofrequest.StatusCOMPLETE:
+		pa.logger.Info("agg proof request is complete", "proof_request_id", preq.ID)
+	default:
+		pa.logger.Info("agg proof request is still pending", "proof_request_id", preq.ID)
+		return nil, fmt.Errorf("agg proof request is still pending")
 	}
 
 	return preq.Proof, nil
