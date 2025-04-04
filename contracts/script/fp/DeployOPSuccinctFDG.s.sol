@@ -17,7 +17,7 @@ import {IOptimismPortal2} from "interfaces/L1/IOptimismPortal2.sol";
 
 // Contracts
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
-import {AccessManager} from "../../src/fp/AccessManager.sol";
+import {AccessManager} from "../../src/lib/AccessManager.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";

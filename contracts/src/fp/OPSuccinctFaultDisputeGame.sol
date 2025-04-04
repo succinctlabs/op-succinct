@@ -40,7 +40,7 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
 
 // Contracts
-import {AccessManager} from "src/fp/AccessManager.sol";
+import {AccessManager} from "src/lib/AccessManager.sol";
 
 /// @title OPSuccinctFaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.

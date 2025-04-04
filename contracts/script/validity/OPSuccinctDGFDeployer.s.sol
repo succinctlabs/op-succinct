@@ -11,6 +11,8 @@ import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {GameType} from "src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
+import {AccessManager} from "src/lib/AccessManager.sol";
+import {LibString} from "@solady/utils/LibString.sol";
 
 contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
@@ -18,10 +20,32 @@ contract OPSuccinctDFGDeployer is Script, Utils {
 
         OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
 
+        // Proposer must be permissionless or else the check in `proposeL2Output` will fail.
         l2OutputOracleProxy.addProposer(address(0));
 
+        // Deploy the access manager.
+        AccessManager accessManager = new AccessManager();
+        console.log("Access manager deployed: ", address(accessManager));
+        if (vm.envOr("PERMISSIONLESS_MODE", false)) {
+            accessManager.setProposer(address(0), true);
+            // TODO(fakedev9999): Figure out what's the case for challengers in OptimismPortal2 support.
+            console.log("Access manager configured for permissionless mode");
+        } else {
+            // Set proposers from comma-separated list.
+            string memory proposersStr = vm.envString("PROPOSER_ADDRESSES");
+            if (bytes(proposersStr).length > 0) {
+                string[] memory proposers = LibString.split(proposersStr, ",");
+                for (uint256 i = 0; i < proposers.length; i++) {
+                    address proposer = vm.parseAddress(proposers[i]);
+                    if (proposer != address(0)) {
+                        accessManager.setProposer(proposer, true);
+                        console.log("Added proposer:", proposer);
+                    }
+                }
+            }
+        }
         // Initialize the dispute game based on the existing L2OO_ADDRESS.
-        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy));
+        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy), accessManager);
 
         // Deploy the factory implementation
         DisputeGameFactory factoryImpl = new DisputeGameFactory();
