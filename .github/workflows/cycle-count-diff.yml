@@ -23,6 +23,11 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup
 
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
       - name: Run Test
         run: |
           RUST_LOG=info cargo test test_cycle_count_diff -- --exact --nocapture
