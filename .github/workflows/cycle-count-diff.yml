@@ -41,3 +41,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+
+      - name: Push Changes
+        run: |
+          git push origin HEAD:${{ github.head_ref }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
