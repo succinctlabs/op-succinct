@@ -15,7 +15,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
-    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+    AGGREGATION_ELF,
 };
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
@@ -25,6 +25,12 @@ use std::collections::HashMap;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+
+#[cfg(feature = "celestia")]
+use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
+
+#[cfg(not(feature = "celestia"))]
+use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 /// Configuration for the driver.
 pub struct DriverConfig {
