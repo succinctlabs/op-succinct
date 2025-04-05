@@ -65,3 +65,9 @@ strum_macros.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
+
+[features]
+# Building without --features will use `SingleChainOPSuccinctHost` with Ethereum DA.
+default = []
+# Feature flag for Celestia DA support.
+celestia = ["op-succinct-host-utils/celestia"]
