@@ -49,6 +49,7 @@ fn main() {
             .await
             .expect("failed to run client");
 
+        sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info.clone()));
         sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
     });
 }
