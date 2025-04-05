@@ -18,6 +18,7 @@ jobs:
       - name: Checkout PR Branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - name: Setup CI
@@ -44,7 +45,6 @@ jobs:
 
       - name: Push Changes
         run: |
-          git switch -c ${{ github.head_ref }}
           git push origin ${{ github.head_ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
