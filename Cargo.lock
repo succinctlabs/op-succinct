@@ -1758,7 +1758,7 @@ dependencies = [
 [[package]]
 name = "celestia-proto"
 version = "0.7.0"
-source = "git+https://github.com/Ferret-san/lumina?rev=30ac899#30ac899cf15f1866c64fc3ebfd99b3bfa628863f"
+source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
 dependencies = [
  "bytes",
  "prost",
@@ -1773,7 +1773,7 @@ dependencies = [
 [[package]]
 name = "celestia-rpc"
 version = "0.10.0"
-source = "git+https://github.com/Ferret-san/lumina?rev=30ac899#30ac899cf15f1866c64fc3ebfd99b3bfa628863f"
+source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1789,7 +1789,7 @@ dependencies = [
 [[package]]
 name = "celestia-types"
 version = "0.11.0"
-source = "git+https://github.com/Ferret-san/lumina?rev=30ac899#30ac899cf15f1866c64fc3ebfd99b3bfa628863f"
+source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
 dependencies = [
  "base64 0.22.1",
  "bech32",
@@ -3142,7 +3142,7 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=0bf53a52bf4d97c87ab62d5099a730b93df7a263#0bf53a52bf4d97c87ab62d5099a730b93df7a263"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc48f14bb2325d674d00c4e5f7d2f97"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -3156,7 +3156,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=0bf53a52bf4d97c87ab62d5099a730b93df7a263#0bf53a52bf4d97c87ab62d5099a730b93df7a263"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc48f14bb2325d674d00c4e5f7d2f97"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3169,7 +3169,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=0bf53a52bf4d97c87ab62d5099a730b93df7a263#0bf53a52bf4d97c87ab62d5099a730b93df7a263"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc48f14bb2325d674d00c4e5f7d2f97"
 dependencies = [
  "alloy-consensus 0.12.6",
  "alloy-primitives",
@@ -3189,7 +3189,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=0bf53a52bf4d97c87ab62d5099a730b93df7a263#0bf53a52bf4d97c87ab62d5099a730b93df7a263"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc48f14bb2325d674d00c4e5f7d2f97"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -3219,7 +3219,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=0bf53a52bf4d97c87ab62d5099a730b93df7a263#0bf53a52bf4d97c87ab62d5099a730b93df7a263"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc48f14bb2325d674d00c4e5f7d2f97"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3242,7 +3242,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=0bf53a52bf4d97c87ab62d5099a730b93df7a263#0bf53a52bf4d97c87ab62d5099a730b93df7a263"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc48f14bb2325d674d00c4e5f7d2f97"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",

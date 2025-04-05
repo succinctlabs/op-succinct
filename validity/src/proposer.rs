@@ -87,7 +87,12 @@ where
             .await?;
 
         let network_prover = Arc::new(ProverClient::builder().network().build());
+
+        #[cfg(feature = "celestia")]
+        let (range_pk, range_vk) = network_prover.setup(CELESTIA_RANGE_ELF_EMBEDDED);
+        #[cfg(not(feature = "celestia"))]
         let (range_pk, range_vk) = network_prover.setup(RANGE_ELF_EMBEDDED);
+
         let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
         let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
