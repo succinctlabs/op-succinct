@@ -44,6 +44,7 @@ jobs:
 
       - name: Push Changes
         run: |
+          git switch -c ${{ github.head_ref }}
           git push origin ${{ github.head_ref }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
