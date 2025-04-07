@@ -490,7 +490,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 	}
 	if count > 0 {
 		// There's already an AGG proof in progress/completed with the same start block.
-		return false, 0, nil
+		return false, 0, fmt.Errorf("AGG proof already exists with start block %d", from)
 	}
 
 	// Get the limited contiguous span proof chain we have with an end block <= maxTo and an l1BlockNumber.
@@ -501,7 +501,7 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 
 	if maxContigousEnd == 0 {
 		// There's no contiguous span proof chain that ends before maxTo, so we can't create an AGG proof.
-		return false, 0, nil
+		return false, 0, fmt.Errorf("no contiguous span proof chain found that ends before %d", maxTo)
 	}
 
 	// Create a new AGG proof request

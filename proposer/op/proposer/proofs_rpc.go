@@ -61,16 +61,12 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, lastProvenBlock, reque
 	}
 
 	// Store an Agg proof creation entry in the DB using the start block and the max block
-	created, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(lastProvenBlock, requestedEndBlock, l1BlockNumber, l1BlockHash.Hex())
+	_, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(lastProvenBlock, requestedEndBlock, l1BlockNumber, l1BlockHash.Hex())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create agg proof from span proofs: %w", err)
 	}
 
-	if created {
-		pa.logger.Info("created new AGG proof", "from", lastProvenBlock, "to", endBlock)
-	} else {
-		return nil, fmt.Errorf("failed to create agg proof from span proofs: already exists")
-	}
+	pa.logger.Info("created new AGG proof", "from", lastProvenBlock, "to", endBlock)
 
 	// Poll with a ticker for the aggproof request ID creation or the proof itself if it's a mock proof
 	preqs := []*ent.ProofRequest{}
