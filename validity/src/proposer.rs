@@ -172,12 +172,18 @@ where
         )
         .await?;
 
-        let finalized_block_number = self
+        let finalized_block_number = match self
             .driver_config
             .fetcher
-            .get_l2_header(BlockId::finalized())
+            .get_finalized_l2_block_number(latest_proposed_block_number)
             .await?
-            .number;
+        {
+            Some(block_number) => block_number,
+            None => {
+                tracing::info!("No new finalized block number found since last proposed block. No new range proof requests will be added.");
+                return Ok(());
+            }
+        };
 
         // Get all active (non-failed) requests with the same commitment config and start block >= latest_proposed_block_number.
         // These requests are non-overlapping.

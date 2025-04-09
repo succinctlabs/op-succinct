@@ -1758,6 +1758,21 @@ dependencies = [
 [[package]]
 name = "celestia-proto"
 version = "0.7.0"
+source = "git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0#62a725584c1aab0fb490d319cc7b4e85fedcf211"
+dependencies = [
+ "bytes",
+ "prost",
+ "prost-build",
+ "prost-types",
+ "protox",
+ "serde",
+ "subtle-encoding",
+ "tendermint-proto",
+]
+
+[[package]]
+name = "celestia-proto"
+version = "0.7.0"
 source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
 dependencies = [
  "bytes",
@@ -1773,17 +1788,62 @@ dependencies = [
 [[package]]
 name = "celestia-rpc"
 version = "0.10.0"
-source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
+source = "git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0#62a725584c1aab0fb490d319cc7b4e85fedcf211"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
- "celestia-types",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
  "http",
  "jsonrpsee",
  "prost",
  "serde",
  "thiserror 1.0.69",
  "tracing",
+]
+
+[[package]]
+name = "celestia-rpc"
+version = "0.10.0"
+source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "http",
+ "jsonrpsee",
+ "prost",
+ "serde",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "celestia-types"
+version = "0.11.0"
+source = "git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0#62a725584c1aab0fb490d319cc7b4e85fedcf211"
+dependencies = [
+ "base64 0.22.1",
+ "bech32",
+ "bitvec",
+ "blockstore",
+ "bytes",
+ "celestia-proto 0.7.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
+ "cid",
+ "const_format",
+ "enum_dispatch",
+ "leopard-codec",
+ "libp2p-identity",
+ "multiaddr",
+ "multihash",
+ "nmt-rs",
+ "prost",
+ "ruint",
+ "serde",
+ "serde_repr",
+ "sha2 0.10.8",
+ "tendermint",
+ "tendermint-proto",
+ "thiserror 1.0.69",
+ "time",
 ]
 
 [[package]]
@@ -1796,7 +1856,7 @@ dependencies = [
  "bitvec",
  "blockstore",
  "bytes",
- "celestia-proto",
+ "celestia-proto 0.7.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
  "cid",
  "const_format",
  "enum_dispatch",
@@ -3149,7 +3209,7 @@ dependencies = [
  "alloy-sol-types",
  "alloy-trie",
  "bincode",
- "celestia-types",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
  "serde",
 ]
 
@@ -3160,7 +3220,7 @@ source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.5#37bb192c3dc4
 dependencies = [
  "alloy-primitives",
  "async-trait",
- "celestia-types",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
  "kona-derive",
  "kona-protocol",
  "tracing",
@@ -3195,8 +3255,8 @@ dependencies = [
  "alloy-provider",
  "anyhow",
  "async-trait",
- "celestia-rpc",
- "celestia-types",
+ "celestia-rpc 0.10.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
  "clap",
  "hana-client",
  "hana-oracle",
@@ -3224,7 +3284,7 @@ dependencies = [
  "alloy-primitives",
  "async-trait",
  "bincode",
- "celestia-types",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
  "hana-blobstream",
  "hana-celestia",
  "kona-derive",
@@ -3249,8 +3309,8 @@ dependencies = [
  "alloy-rpc-types-eth 0.12.6",
  "alloy-sol-types",
  "anyhow",
- "celestia-rpc",
- "celestia-types",
+ "celestia-rpc 0.10.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
  "hana-blobstream",
  "tracing",
 ]
@@ -5414,10 +5474,14 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bincode",
+ "celestia-rpc 0.10.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
+ "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
  "chrono",
  "clap",
  "dotenv",
  "futures-util",
+ "kona-derive",
+ "kona-rpc",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",

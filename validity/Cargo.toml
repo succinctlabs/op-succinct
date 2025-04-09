@@ -63,6 +63,14 @@ url = "2.5.4"
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
 
+# kona
+kona-derive.workspace = true
+kona-rpc.workspace = true
+
+# celestia
+celestia-rpc = { git = "https://github.com/eigerco/lumina", tag = "lumina-utils-v0.1.0" }
+celestia-types = { git = "https://github.com/eigerco/lumina", tag = "lumina-utils-v0.1.0" }
+
 [build-dependencies]
 op-succinct-build-utils.workspace = true
 

@@ -7,7 +7,6 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin,
     hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
-    RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::utils;
@@ -16,6 +15,12 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
+
+#[cfg(feature = "celestia")]
+use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
+
+#[cfg(not(feature = "celestia"))]
+use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -59,7 +64,7 @@ async fn main() -> Result<()> {
     }
 
     // Now, write the successful ranges to /sp1-testing-suite-artifacts/op-succinct-chain-{l2_chain_id}-{start}-{end}
-    // The folders should each have the RANGE_ELF_EMBEDDED as program.bin, and the serialized stdin should be
+    // The folders should each have the RANGE_ELF_EMBEDDED/CELESTIA_RANGE_ELF_EMBEDDED as program.bin, and the serialized stdin should be
     // written to stdin.bin.
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root).join("sp1-testing-suite-artifacts");
@@ -75,7 +80,11 @@ async fn main() -> Result<()> {
         ));
         fs::create_dir_all(&program_dir)?;
 
+        #[cfg(feature = "celestia")]
+        fs::write(program_dir.join("program.bin"), CELESTIA_RANGE_ELF_EMBEDDED)?;
+        #[cfg(not(feature = "celestia"))]
         fs::write(program_dir.join("program.bin"), RANGE_ELF_EMBEDDED)?;
+
         fs::write(
             program_dir.join("stdin.bin"),
             bincode::serialize(&sp1_stdin).unwrap(),
