@@ -52,18 +52,38 @@ type RequestAggProofResponse struct {
 	ProofRequestID  string `json:"proof_request_id"`
 }
 
-func (pa *ProofsAPI) RequestAggProof(ctx context.Context, lastProvenBlock, requestedEndBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, error) {
+type ProofsRPCError struct {
+	// The error message
+	Message string `json:"message"`
+	// The error code
+	Code int `json:"code"`
+}
+
+func (pa *ProofsRPCError) Error() string {
+	return pa.Message
+}
+func (pa *ProofsRPCError) ErrorCode() int {
+	return pa.Code
+}
+
+func (pa *ProofsAPI) RequestAggProof(ctx context.Context, lastProvenBlock, requestedEndBlock, l1BlockNumber uint64, l1BlockHash common.Hash) (*RequestAggProofResponse, gethrpc.Error) {
 	pa.logger.Info("requesting agg proof from server", "start", lastProvenBlock, "max end", requestedEndBlock)
 
 	requestedEndBlock, err := pa.endBlockL1Limit(ctx, requestedEndBlock, l1BlockNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get max block L1 limit: %w", err)
+		return nil, &ProofsRPCError{
+			fmt.Errorf("failed to get max block L1 limit: %w", err).Error(),
+			-1000,
+		}
 	}
 
 	// Store an Agg proof creation entry in the DB using the start block and the max block
 	_, endBlock, err := pa.db.TryCreateAggProofFromSpanProofsLimit(lastProvenBlock, requestedEndBlock, l1BlockNumber, l1BlockHash.Hex())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create agg proof from span proofs: %w", err)
+		return nil, &ProofsRPCError{
+			Message: fmt.Errorf("failed to create agg proof from span proofs: %w", err).Error(),
+			Code:    -2000,
+		}
 	}
 
 	pa.logger.Info("created new AGG proof", "from", lastProvenBlock, "to", endBlock)
@@ -76,11 +96,17 @@ func (pa *ProofsAPI) RequestAggProof(ctx context.Context, lastProvenBlock, reque
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("context cancelled")
+			return nil, &ProofsRPCError{
+				Message: fmt.Sprintf("context done: %s", ctx.Err()),
+				Code:    -3000,
+			}
 		case <-ticker.C:
 			preqs, err = pa.db.GetProofRequestsWithBlockRange(proofrequest.TypeAGG, lastProvenBlock, endBlock)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get proof request with block range: %w", err)
+				return nil, &ProofsRPCError{
+					Message: fmt.Sprintf("failed to get proof requests with block range: %s", err.Error()),
+					Code:    -4000,
+				}
 			}
 
 			// sort the proof requests by ID
@@ -165,15 +191,24 @@ func (pa *ProofsAPI) GetAggProof(ctx context.Context, id int) ([]byte, error) {
 	switch preq.Status {
 	case proofrequest.StatusPROVING:
 		pa.logger.Info("agg proof request is still proving", "proof_request_id", preq.ID)
-		return nil, fmt.Errorf("agg proof request is still proving")
+		return nil, &ProofsRPCError{
+			Message: fmt.Sprintf("agg proof request is still proving: %d", preq.ID),
+			Code:    -5000,
+		}
 	case proofrequest.StatusFAILED:
 		pa.logger.Warn("agg proof request failed", "proof_request_id", preq.ID)
-		return nil, fmt.Errorf("agg proof request failed")
+		return nil, &ProofsRPCError{
+			Message: fmt.Sprintf("agg proof request failed: %d", preq.ID),
+			Code:    -6000,
+		}
 	case proofrequest.StatusCOMPLETE:
 		pa.logger.Info("agg proof request is complete", "proof_request_id", preq.ID)
 	default:
 		pa.logger.Info("agg proof request is still pending", "proof_request_id", preq.ID)
-		return nil, fmt.Errorf("agg proof request is still pending")
+		return nil, &ProofsRPCError{
+			Message: fmt.Sprintf("agg proof request is still pending: %d", preq.ID),
+			Code:    -7000,
+		}
 	}
 
 	return preq.Proof, nil
