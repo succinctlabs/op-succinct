@@ -80,7 +80,7 @@ contract OPSuccinctDisputeGameTest is Test {
             rangeVkeyCommitment: bytes32(0),
             startingOutputRoot: bytes32(0),
             rollupConfigHash: bytes32(0),
-            proposer: address(0), // Should be permissionless when using game creation from the factory or else, the check in `proposeL2Output` will fail.
+            proposer: address(proposer), // Should be permissionless when using game creation from the factory or else, the check in `proposeL2Output` will fail.
             challenger: address(0),
             owner: address(this),
             finalizationPeriodSeconds: 1000 seconds,
@@ -108,7 +108,7 @@ contract OPSuccinctDisputeGameTest is Test {
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
         // Create a game
-        vm.startPrank(proposer);
+        vm.startBroadcast(proposer);
 
         // Warp time forward to ensure the game is created after the respectedGameTypeUpdatedAt timestamp.
         vm.warp(block.timestamp + 4001);
@@ -126,7 +126,7 @@ contract OPSuccinctDisputeGameTest is Test {
             )
         );
 
-        vm.stopPrank();
+        vm.stopBroadcast();
     }
 
     // =========================================
@@ -165,8 +165,10 @@ contract OPSuccinctDisputeGameTest is Test {
     // Test: Cannot re-initialize game
     // =========================================
     function testCannotReInitializeGame() public {
+        vm.startBroadcast(proposer);
         vm.expectRevert("L2OutputOracle: block number must be greater than or equal to next expected block number");
         game.initialize();
+        vm.stopBroadcast();
     }
 
     // =========================================

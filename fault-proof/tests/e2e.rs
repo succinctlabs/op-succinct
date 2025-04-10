@@ -1,3 +1,4 @@
+use dotenv::dotenv;
 use std::{collections::HashSet, env};
 
 use alloy_primitives::{Address, FixedBytes, U256};
@@ -21,6 +22,9 @@ use fault_proof::{
 
 #[tokio::test]
 async fn test_e2e_proposer_wins() -> Result<()> {
+    // Load .env file.
+    dotenv().ok();
+
     const NUM_GAMES: usize = 3;
 
     setup_logging();
@@ -128,6 +132,9 @@ async fn test_e2e_proposer_wins() -> Result<()> {
 
 #[tokio::test]
 async fn test_e2e_challenger_wins() -> Result<()> {
+    // Load .env file.
+    dotenv().ok();
+
     const NUM_GAMES: usize = 3;
 
     setup_logging();
@@ -160,8 +167,8 @@ async fn test_e2e_challenger_wins() -> Result<()> {
         .expect("Failed to spawn challenger");
 
     // Create games in background
-    let mut l2_block_number = factory.get_anchor_l2_block_number(game_type).await? +
-        U256::from(proposer_config.proposal_interval_in_blocks);
+    let mut l2_block_number = factory.get_anchor_l2_block_number(game_type).await?
+        + U256::from(proposer_config.proposal_interval_in_blocks);
     let parent_game_index = u32::MAX;
 
     for i in 0..NUM_GAMES {
