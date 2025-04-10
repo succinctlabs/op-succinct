@@ -10,6 +10,7 @@ use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
+use grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
@@ -41,7 +42,7 @@ where
     P: Provider<N> + 'static,
     N: Network,
 {
-    driver_config: DriverConfig,
+    pub driver_config: DriverConfig,
     contract_config: ContractConfig<P, N>,
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
@@ -508,7 +509,7 @@ where
     ///
     /// Note: In the future, submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
-    async fn request_queued_proofs(&self) -> Result<()> {
+    pub async fn request_queued_proofs(&self) -> Result<()> {
         let commitments = self.program_config.commitments.clone();
         let l1_chain_id = self.requester_config.l1_chain_id;
         let l2_chain_id = self.requester_config.l2_chain_id;
@@ -757,7 +758,7 @@ where
     }
 
     /// Validate the requester config matches the contract.
-    async fn validate_contract_config(&self) -> Result<()> {
+    pub async fn validate_contract_config(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         let contract_rollup_config_hash = self
             .contract_config
@@ -958,7 +959,7 @@ where
     /// The goal is to ensure the database is in a clean state and all block ranges
     /// between the latest proposed block and finalized block have corresponding requests.
     #[tracing::instrument(name = "proposer.initialize_proposer", skip(self))]
-    async fn initialize_proposer(&self) -> Result<()> {
+    pub async fn initialize_proposer(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         self.validate_contract_config()
             .await
@@ -994,7 +995,7 @@ where
     }
 
     /// Fetch and log the proposer metrics.
-    async fn log_proposer_metrics(&self) -> Result<()> {
+    pub async fn log_proposer_metrics(&self) -> Result<()> {
         // Get the latest proposed block number on the contract.
         let latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
@@ -1109,6 +1110,24 @@ where
         // Initialize the metrics gauges.
         ValidityGauge::init_all();
 
+        // Parse the url for the gRPC server.
+        let addr = self
+            .requester_config
+            .grpc_addr
+            .parse()
+            .context("Failed to parse gRPC address")?;
+        info!("Starting Agglayer gRPC server on {}", addr);
+        // Start the gRPC server
+        tokio::spawn(
+            tonic::transport::Server::builder()
+                .add_service(ProofsServer::new(crate::proofs::Service::new(
+                    self.proof_requester.clone(),
+                    self.program_config.clone(),
+                    self.requester_config.clone(),
+                )))
+                .serve(addr),
+        );
+
         // Loop interval in seconds.
         loop {
             // Wrap the entire loop body in a match to handle errors
@@ -1134,7 +1153,7 @@ where
     }
 
     // Run a single loop of the validity proposer.
-    async fn run_loop_iteration(&self) -> Result<()> {
+    pub async fn run_loop_iteration(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         self.validate_contract_config().await?;
 
@@ -1155,13 +1174,13 @@ where
 
         // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
         // in advance.
-        self.create_aggregation_proofs().await?;
+        // self.create_aggregation_proofs().await?;
 
         // Request all unrequested proofs from the prover network.
         self.request_queued_proofs().await?;
 
         // Submit any aggregation proofs that are complete.
-        self.submit_agg_proofs().await?;
+        // self.submit_agg_proofs().await?;
 
         // Update the chain lock.
         self.proof_requester

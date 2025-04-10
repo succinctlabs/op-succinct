@@ -59,6 +59,7 @@ async fn main() -> Result<()> {
         mock: env_config.mock,
         prover_address: env_config.prover_address,
         safe_db_fallback: env_config.safe_db_fallback,
+        grpc_addr: env_config.grpc_addr,
     };
 
     // Read all config from env vars. If both signer_url and signer_address are provided, use Web3Signer.

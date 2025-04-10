@@ -34,6 +34,7 @@ pub struct ProgramConfig {
     pub commitments: CommitmentConfig,
 }
 
+#[derive(Clone)]
 pub struct RequesterConfig {
     pub l1_chain_id: i64,
     pub l2_chain_id: i64,
@@ -52,4 +53,5 @@ pub struct RequesterConfig {
     pub mock: bool,
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
     pub safe_db_fallback: bool,
+    pub grpc_addr: String,
 }
