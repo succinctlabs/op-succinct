@@ -17,9 +17,43 @@ pub struct SingleChainOPSuccinctHost {
 
 #[async_trait]
 impl OPSuccinctHost for SingleChainOPSuccinctHost {
-    type Args = SingleChainHost;
+    async fn fetch_and_run(
+        &self,
+        l2_start_block: u64,
+        l2_end_block: u64,
+        l1_head_hash: Option<B256>,
+        safe_db_fallback: Option<bool>,
+    ) -> Result<InMemoryOracle> {
+        let args = self
+            .fetch(l2_start_block, l2_end_block, l1_head_hash, safe_db_fallback)
+            .await?;
+        self.run(&args).await
+    }
+}
 
-    async fn run(&self, args: &Self::Args) -> Result<InMemoryOracle> {
+impl SingleChainOPSuccinctHost {
+    pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
+        Self { fetcher }
+    }
+
+    async fn fetch(
+        &self,
+        l2_start_block: u64,
+        l2_end_block: u64,
+        l1_head_hash: Option<B256>,
+        safe_db_fallback: Option<bool>,
+    ) -> Result<SingleChainHost> {
+        self.fetcher
+            .get_host_args(
+                l2_start_block,
+                l2_end_block,
+                l1_head_hash,
+                safe_db_fallback.expect("`safe_db_fallback` must be set"),
+            )
+            .await
+    }
+
+    async fn run(&self, args: &SingleChainHost) -> Result<InMemoryOracle> {
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;
 
@@ -30,34 +64,5 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         server_task.abort();
 
         Ok(in_memory_oracle)
-    }
-
-    async fn fetch(
-        &self,
-        l2_start_block: u64,
-        l2_end_block: u64,
-        l1_head_hash: Option<B256>,
-        safe_db_fallback: Option<bool>,
-    ) -> Result<SingleChainHost> {
-        let host = self
-            .fetcher
-            .get_host_args(
-                l2_start_block,
-                l2_end_block,
-                l1_head_hash,
-                safe_db_fallback.expect("`safe_db_fallback` must be set"),
-            )
-            .await?;
-        Ok(host)
-    }
-
-    fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
-        Some(args.l1_head)
-    }
-}
-
-impl SingleChainOPSuccinctHost {
-    pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher }
     }
 }

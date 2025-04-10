@@ -43,19 +43,16 @@ async fn main() -> Result<()> {
             initialize_host(Arc::new(data_fetcher.clone()))
         }
     };
-    let host_args = host
-        .fetch(
+
+    let start_time = Instant::now();
+    let oracle = host
+        .fetch_and_run(
             l2_start_block,
             l2_end_block,
             None,
             Some(args.safe_db_fallback),
         )
         .await?;
-
-    debug!("Host args: {:?}", host_args);
-
-    let start_time = Instant::now();
-    let oracle = host.run(&host_args).await?;
     let witness_generation_duration = start_time.elapsed();
 
     // Get the stdin for the block.

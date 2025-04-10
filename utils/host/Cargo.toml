@@ -25,7 +25,7 @@ kona-host.workspace = true
 kona-preimage.workspace = true
 
 # hana
-hana-host = { workspace = true, optional = true }
+hana-host = { workspace = true }
 
 # alloy
 alloy-provider.workspace = true
@@ -57,4 +57,3 @@ metrics-exporter-prometheus.workspace = true
 
 [features]
 default = []
-celestia = ["hana-host"]

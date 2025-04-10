@@ -102,18 +102,15 @@ where
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
         let l2_block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
 
-        let host_args = self
+        let mem_kv_store = self
             .host
-            .fetch(
+            .fetch_and_run(
                 l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks,
                 l2_block_number.to::<u64>(),
                 Some(l1_head_hash),
                 Some(self.config.safe_db_fallback),
             )
-            .await
-            .context("Failed to get host CLI args")?;
-
-        let mem_kv_store = self.host.run(&host_args).await?;
+            .await?;
 
         let sp1_stdin = match get_proof_stdin(mem_kv_store) {
             Ok(stdin) => stdin,

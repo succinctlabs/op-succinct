@@ -17,9 +17,26 @@ pub struct CelestiaOPSuccinctHost {
 
 #[async_trait]
 impl OPSuccinctHost for CelestiaOPSuccinctHost {
-    type Args = CelestiaChainHost;
+    async fn fetch_and_run(
+        &self,
+        l2_start_block: u64,
+        l2_end_block: u64,
+        l1_head_hash: Option<B256>,
+        safe_db_fallback: Option<bool>,
+    ) -> Result<InMemoryOracle> {
+        let args = self
+            .fetch(l2_start_block, l2_end_block, l1_head_hash, safe_db_fallback)
+            .await?;
+        self.run(&args).await
+    }
+}
 
-    async fn run(&self, args: &Self::Args) -> Result<InMemoryOracle> {
+impl CelestiaOPSuccinctHost {
+    pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
+        Self { fetcher }
+    }
+
+    async fn run(&self, args: &CelestiaChainHost) -> Result<InMemoryOracle> {
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;
 
@@ -60,15 +77,5 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
             single_host: host,
             celestia_args,
         })
-    }
-
-    fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
-        Some(args.single_host.l1_head)
-    }
-}
-
-impl CelestiaOPSuccinctHost {
-    pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher }
     }
 }

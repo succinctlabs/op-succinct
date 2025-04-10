@@ -5,7 +5,8 @@ use anyhow::Result;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
-    AGGREGATION_ELF,
+    DAConfig, AGGREGATION_ELF, CELESTIA_RANGE_ELF_EMBEDDED, EIGENDA_RANGE_ELF_EMBEDDED,
+    RANGE_ELF_EMBEDDED,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,13 +15,6 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
 };
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 /// The config for deploying the OPSuccinctL2OutputOracle.
@@ -76,7 +70,7 @@ fn get_address(env_var: &str, private_key_by_default: bool) -> String {
 /// - chain_id: Get the chain id from the rollup config.
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
-async fn update_l2oo_config() -> Result<()> {
+async fn update_l2oo_config(da_config: DAConfig) -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let workspace_root = cargo_metadata::MetadataCommand::new()
@@ -145,10 +139,11 @@ async fn update_l2oo_config() -> Result<()> {
     let (_, agg_vkey) = prover.setup(AGGREGATION_ELF);
     let aggregation_vkey = agg_vkey.vk.bytes32();
 
-    #[cfg(feature = "celestia")]
-    let (_, range_vkey) = prover.setup(CELESTIA_RANGE_ELF_EMBEDDED);
-    #[cfg(not(feature = "celestia"))]
-    let (_, range_vkey) = prover.setup(RANGE_ELF_EMBEDDED);
+    let (_, range_vkey) = match da_config {
+        DAConfig::Celestia => prover.setup(CELESTIA_RANGE_ELF_EMBEDDED),
+        DAConfig::EigenDA => prover.setup(EIGENDA_RANGE_ELF_EMBEDDED),
+        DAConfig::Default => prover.setup(RANGE_ELF_EMBEDDED),
+    };
 
     let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.vk.hash_u32())));
 
@@ -208,6 +203,10 @@ struct Args {
     /// L2 chain ID
     #[arg(long, default_value = ".env")]
     env_file: String,
+
+    /// DA mode
+    #[arg(long, default_value = "default")]
+    da_config: DAConfig,
 }
 
 #[tokio::main]
@@ -225,7 +224,7 @@ async fn main() -> Result<()> {
         );
     }
 
-    update_l2oo_config().await?;
+    update_l2oo_config(args.da_config).await?;
 
     Ok(())
 }

@@ -63,4 +63,4 @@ op-succinct-build-utils.workspace = true
 
 [features]
 default = []
-celestia = ["op-succinct-host-utils/celestia", "op-succinct-client-utils/celestia"]
+celestia = ["op-succinct-client-utils/celestia"]

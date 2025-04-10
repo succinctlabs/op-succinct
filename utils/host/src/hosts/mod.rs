@@ -11,20 +11,26 @@ use op_succinct_client_utils::precompiles::zkvm_handle_register;
 use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
 use std::sync::Arc;
 
-#[cfg(feature = "celestia")]
 pub mod celestia;
 
-#[cfg(feature = "celestia")]
 use celestia::CelestiaOPSuccinctHost;
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
-    type Args: Send + Sync + 'static + Clone;
+    // type Args: Send + Sync + 'static + Clone;
 
-    /// Run the host and client program.
-    ///
-    /// Returns the in-memory oracle which can be supplied to the zkVM.
-    async fn run(&self, args: &Self::Args) -> Result<InMemoryOracle>;
+    async fn fetch_and_run(
+        &self,
+        l2_start_block: u64,
+        l2_end_block: u64,
+        l1_head_hash: Option<B256>,
+        safe_db_fallback: Option<bool>,
+    ) -> Result<InMemoryOracle>;
+
+    // /// Run the host and client program.
+    // ///
+    // /// Returns the in-memory oracle which can be supplied to the zkVM.
+    // async fn run(&self, args: &Self::Args) -> Result<InMemoryOracle>;
 
     /// Run the witness generation client.
     async fn run_witnessgen_client(
@@ -40,24 +46,24 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         Ok(in_memory_oracle)
     }
 
-    /// Fetch the host arguments.
-    ///
-    /// Parameters:
-    /// - `l2_start_block`: The starting L2 block number
-    /// - `l2_end_block`: The ending L2 block number
-    /// - `l1_head_hash`: Optionally supplied L1 head block hash used as the L1 origin.
-    /// - `safe_db_fallback`: Optionally supplied flag to indicate whether to fallback to timestamp-based L1 head estimation
-    ///   when SafeDB is not available. This is optional to support abstraction across different node implementations.
-    async fn fetch(
-        &self,
-        l2_start_block: u64,
-        l2_end_block: u64,
-        l1_head_hash: Option<B256>,
-        safe_db_fallback: Option<bool>,
-    ) -> Result<Self::Args>;
+    // /// Fetch the host arguments.
+    // ///
+    // /// Parameters:
+    // /// - `l2_start_block`: The starting L2 block number
+    // /// - `l2_end_block`: The ending L2 block number
+    // /// - `l1_head_hash`: Optionally supplied L1 head block hash used as the L1 origin.
+    // /// - `safe_db_fallback`: Optionally supplied flag to indicate whether to fallback to timestamp-based L1 head estimation
+    // ///   when SafeDB is not available. This is optional to support abstraction across different node implementations.
+    // async fn fetch(
+    //     &self,
+    //     l2_start_block: u64,
+    //     l2_end_block: u64,
+    //     l1_head_hash: Option<B256>,
+    //     safe_db_fallback: Option<bool>,
+    // ) -> Result<Self::Args>;
 
-    /// Get the L1 head hash from the host args.
-    fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;
+    // /// Get the L1 head hash from the host args.
+    // fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;
 }
 
 /// Initialize the host.
@@ -66,7 +72,6 @@ pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOP
 }
 
 /// Initialize the Celestia host.
-#[cfg(feature = "celestia")]
 pub fn initialize_celestia_host(
     fetcher: Arc<OPSuccinctDataFetcher>,
 ) -> Arc<CelestiaOPSuccinctHost> {
