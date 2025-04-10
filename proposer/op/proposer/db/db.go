@@ -488,15 +488,25 @@ func (db *ProofDB) TryCreateAggProofFromSpanProofsLimit(from, maxTo, l1BlockNumb
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to query DB for AGG proof with start block %d: %w", from, err)
 	}
-	if count > 0 {
-		// There's already an AGG proof in progress/completed with the same start block.
-		return false, 0, fmt.Errorf("AGG proof already exists with start block %d", from)
-	}
 
 	// Get the limited contiguous span proof chain we have with an end block <= maxTo and an l1BlockNumber.
 	_, maxContigousEnd, err := db.GetConsecutiveSpanProofsLimit(from, maxTo)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to get max contiguous span proof range: %w", err)
+	}
+
+	if from == maxContigousEnd {
+		// There's no contiguous span proof chain that ends before maxTo, so we can't create an AGG proof.
+		return false, 0, fmt.Errorf("no contiguous span proof chain found that ends before %d", maxTo)
+	}
+
+	if count > 0 {
+		// There's already an AGG proof in progress/completed with the same start block
+		// we can remove it.
+		err = db.DeleteAggProof(from)
+		if err != nil {
+			return false, 0, fmt.Errorf("failed to remove existing AGG proof: %w", err)
+		}
 	}
 
 	if maxContigousEnd == 0 {
@@ -592,4 +602,18 @@ func (db *ProofDB) GetProofRequestByID(id int) (*ent.ProofRequest, error) {
 		return nil, fmt.Errorf("failed to query proof by prover request ID: %w", err)
 	}
 	return proof, nil
+}
+
+// DeleteAggProof removes the AGG proof with the given start block from the database.
+func (db *ProofDB) DeleteAggProof(startBlock uint64) error {
+	_, err := db.writeClient.ProofRequest.Delete().
+		Where(
+			proofrequest.TypeEQ(proofrequest.TypeAGG),
+			proofrequest.StartBlockEQ(startBlock),
+		).
+		Exec(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to delete AGG proof: %w", err)
+	}
+	return nil
 }
