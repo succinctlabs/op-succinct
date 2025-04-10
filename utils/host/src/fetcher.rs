@@ -677,10 +677,6 @@ impl OPSuccinctDataFetcher {
                 if found_valid_tx {
                     low = mid + 1; // Keep looking for potentially later blocks.
                 } else {
-                    // Break early if a valid tx is already found.
-                    if l2_block_number.is_some() {
-                        break;
-                    }
                     high = mid - 1; // No valid tx found, look in earlier blocks.
                 }
             }

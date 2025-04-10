@@ -178,9 +178,12 @@ where
             .get_finalized_l2_block_number(latest_proposed_block_number)
             .await?
         {
-            Some(block_number) => block_number,
+            Some(block_number) => {
+                tracing::debug!("Found finalized block number: {}", block_number);
+                block_number
+            }
             None => {
-                tracing::info!("No new finalized block number found since last proposed block. No new range proof requests will be added.");
+                tracing::debug!("No new finalized block number found since last proposed block. No new range proof requests will be added.");
                 return Ok(());
             }
         };
