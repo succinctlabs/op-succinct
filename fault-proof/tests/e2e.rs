@@ -1,4 +1,3 @@
-use dotenv::dotenv;
 use std::{collections::HashSet, env};
 
 use alloy_primitives::{Address, FixedBytes, U256};
@@ -22,9 +21,6 @@ use fault_proof::{
 
 #[tokio::test]
 async fn test_e2e_proposer_wins() -> Result<()> {
-    // Load .env file.
-    dotenv().ok();
-
     const NUM_GAMES: usize = 3;
 
     setup_logging();
@@ -132,9 +128,6 @@ async fn test_e2e_proposer_wins() -> Result<()> {
 
 #[tokio::test]
 async fn test_e2e_challenger_wins() -> Result<()> {
-    // Load .env file.
-    dotenv().ok();
-
     const NUM_GAMES: usize = 3;
 
     setup_logging();
