@@ -18,7 +18,7 @@ contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
         vm.startBroadcast();
 
-        OPSuccinctL2OutputOracle l`2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
+        OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
 
         // Deploy the access manager.
         AccessManager accessManager = new AccessManager();
