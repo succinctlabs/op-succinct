@@ -20,16 +20,11 @@ pub async fn execute_multi(
     let start_time = Instant::now();
     let prover = ProverClient::builder().mock().build();
 
-    let (_, report) = prover
-        .execute(get_range_elf_embedded(), &sp1_stdin)
-        .run()
-        .unwrap();
+    let (_, report) = prover.execute(get_range_elf_embedded(), &sp1_stdin).run().unwrap();
 
     let execution_duration = start_time.elapsed();
 
-    let block_data = data_fetcher
-        .get_l2_block_data_range(l2_start_block, l2_end_block)
-        .await?;
+    let block_data = data_fetcher.get_l2_block_data_range(l2_start_block, l2_end_block).await?;
 
     Ok((block_data, report, execution_duration))
 }

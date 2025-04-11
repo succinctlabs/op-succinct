@@ -1,5 +1,4 @@
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use alloy_consensus::Transaction;
 use alloy_eips::BlockId;
@@ -11,9 +10,11 @@ use kona_preimage::BidirectionalChannel;
 use kona_rpc::SafeHeadResponse;
 use op_succinct_client_utils::InMemoryOracle;
 
-use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
-use crate::hosts::OPSuccinctHost;
-use crate::SP1Blobstream;
+use crate::{
+    fetcher::{OPSuccinctDataFetcher, RPCMode},
+    hosts::OPSuccinctHost,
+    SP1Blobstream,
+};
 use anyhow::{anyhow, Result};
 
 #[derive(Clone)]
@@ -32,7 +33,8 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         let server_task = args.start_server(hint.host, preimage.host).await?;
 
         let in_memory_oracle = Self::run_witnessgen_client(preimage.client, hint.client).await?;
-        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both tasks to complete.
+        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
+        // tasks to complete.
         server_task.abort();
 
         Ok(in_memory_oracle)
@@ -62,24 +64,23 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
             namespace: std::env::var("NAMESPACE").ok(),
         };
 
-        Ok(CelestiaChainHost {
-            single_host: host,
-            celestia_args,
-        })
+        Ok(CelestiaChainHost { single_host: host, celestia_args })
     }
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
         Some(args.single_host.l1_head)
     }
 
-    /// Converts the latest Celestia block height in Blobstream to the highest L2 block that can be included in a rnage proof.
+    /// Converts the latest Celestia block height in Blobstream to the highest L2 block that can be
+    /// included in a rnage proof.
     ///
     /// 1. Get the latest Celestia block included in a Blobstream commitment.
-    /// 2. Loop over the `BatchInbox` from the l1 origin of the latest proposed block number to the finalized L1 block number.
-    /// 3. For each `BatchInbox` transaction, check if it contains a Celestia block number greater than the latest Celestia block.
+    /// 2. Loop over the `BatchInbox` from the l1 origin of the latest proposed block number to the
+    ///    finalized L1 block number.
+    /// 3. For each `BatchInbox` transaction, check if it contains a Celestia block number greater
+    ///    than the latest Celestia block.
     /// 4. If it does, return the L2 block number.
     /// 5. If it doesn't, return None.
-    ///
     async fn get_finalized_l2_block_number(
         &self,
         fetcher: &OPSuccinctDataFetcher,
@@ -94,24 +95,25 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         // Get the latest Celestia block included in a Blobstream commitment.
         let latest_celestia_block = blobstream_contract.latestBlock().call().await?.latestBlock;
 
-        let mut low = fetcher
-            .get_safe_l1_block_for_l2_block(latest_proposed_block_number)
-            .await?
-            .1;
+        let mut low = fetcher.get_safe_l1_block_for_l2_block(latest_proposed_block_number).await?.1;
         let mut high = fetcher.get_l1_header(BlockId::finalized()).await?.number;
 
         let mut l2_block_number = None;
 
-        // Binary search between the latest proposed block number and the finalized L1 block number for the batch transaction
-        // that has the highest Celestia height less than the latest Celestia height in the latest Blobstream commitment.
+        // Binary search between the latest proposed block number and the finalized L1 block number
+        // for the batch transaction that has the highest Celestia height less than the
+        // latest Celestia height in the latest Blobstream commitment.
         //
-        // At each block in the binary search, get the current safe head (this returns the L1 block where the batch was posted).
-        // Then, get the block at the safe head and check if it contains a batch transaction with a Celestia height greater than the latest Celestia height in the latest Blobstream commitment.
+        // At each block in the binary search, get the current safe head (this returns the L1 block
+        // where the batch was posted). Then, get the block at the safe head and check if it
+        // contains a batch transaction with a Celestia height greater than the latest Celestia
+        // height in the latest Blobstream commitment.
         while low <= high {
             let mid = (high + low) / 2;
             let l1_block_hex = format!("0x{:x}", mid);
 
-            // Get the safe head for the chain at the midpoint. This will return the latest transaction with a batch.
+            // Get the safe head for the chain at the midpoint. This will return the latest
+            // transaction with a batch.
             let result: SafeHeadResponse = fetcher
                 .fetch_rpc_data_with_mode(
                     RPCMode::L2Node,
@@ -142,7 +144,8 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
                             return Err(anyhow!("Invalid prefix for Celestia batch transaction"));
                         }
 
-                        // The encoding of the commitment is the Celestia block height followed by the Celestia commitment.
+                        // The encoding of the commitment is the Celestia block height followed by
+                        // the Celestia commitment.
                         let height_bytes = &calldata[3..11];
                         let celestia_height = u64::from_le_bytes(height_bytes.try_into().unwrap());
 
@@ -154,12 +157,15 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
                 }
             }
 
-            // If a batch b with a lower Celestia height, h1, than the latest Blobstream Celestia height, h, in the latest Blobstream commitment was found,
-            // we should try to find a batch b' with a Celestia height, h2, that is h1 < h2 <= h.
+            // If a batch b with a lower Celestia height, h1, than the latest Blobstream Celestia
+            // height, h, in the latest Blobstream commitment was found, we should try
+            // to find a batch b' with a Celestia height, h2, that is h1 < h2 <= h.
             if found_valid_tx {
-                low = mid + 1; // Look in higher blocks for a batch with a higher Celestia height that's less than the latest Blobstream Celestia height.
+                low = mid + 1; // Look in higher blocks for a batch with a higher Celestia height
+                               // that's less than the latest Blobstream Celestia height.
             } else {
-                high = mid - 1; // The Celestia height in the latest committed batch is greater than the latest Blobstream Celestia height, so look in earlier blocks.
+                high = mid - 1; // The Celestia height in the latest committed batch is greater than
+                                // the latest Blobstream Celestia height, so look in earlier blocks.
             }
         }
 
