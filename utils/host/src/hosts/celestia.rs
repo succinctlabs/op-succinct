@@ -1,5 +1,3 @@
-use std::{str::FromStr, sync::Arc};
-
 use alloy_consensus::Transaction;
 use alloy_eips::BlockId;
 use alloy_primitives::{address, Address, B256};
@@ -9,6 +7,7 @@ use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
 use kona_preimage::BidirectionalChannel;
 use kona_rpc::SafeHeadResponse;
 use op_succinct_client_utils::InMemoryOracle;
+use std::sync::Arc;
 
 use crate::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
