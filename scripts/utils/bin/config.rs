@@ -4,7 +4,6 @@ use clap::Parser;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_range_elf_embedded, AGGREGATION_ELF,
-    CELESTIA_RANGE_ELF_EMBEDDED, EIGENDA_RANGE_ELF_EMBEDDED, RANGE_ELF_EMBEDDED,
 };
 use op_succinct_scripts::ConfigArgs;
 use sp1_sdk::{utils, HashableKey, Prover, ProverClient};
