@@ -6,7 +6,13 @@ use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
 use op_alloy_network::EthereumWallet;
+<<<<<<< HEAD
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, hosts::initialize_host};
+=======
+use op_succinct_host_utils::{
+    fetcher::OPSuccinctDataFetcher, hosts::default::SingleChainOPSuccinctHost,
+};
+>>>>>>> origin/main
 use tokio::time::Duration;
 
 use fault_proof::{
