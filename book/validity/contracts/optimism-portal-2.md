@@ -21,7 +21,7 @@ After deploying the `OPSuccinctL2OutputOracle` [contract](./deploy.md), set the 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract | `0x123...` |
-| `PROPOSER_ADDRESSES` | Comma-separated list of addresses allowed to propose games. Ignored if PERMISSIONLESS_MODE is true | `0x123...,0x456...` |
+| `PROPOSER_ADDRESSES` | Comma-separated list of addresses allowed to propose games. | `0x123...,0x456...` |
 
 
 Run the following command to deploy the `OPSuccinctDisputeGame` contract:

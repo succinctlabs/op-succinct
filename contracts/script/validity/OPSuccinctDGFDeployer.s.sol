@@ -18,7 +18,7 @@ contract OPSuccinctDFGDeployer is Script, Utils {
     function run() public returns (address) {
         vm.startBroadcast();
 
-        OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
+        OPSuccinctL2OutputOracle l`2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
 
         // Deploy the access manager.
         AccessManager accessManager = new AccessManager();
@@ -30,8 +30,10 @@ contract OPSuccinctDFGDeployer is Script, Utils {
             string[] memory proposers = LibString.split(proposersStr, ",");
             for (uint256 i = 0; i < proposers.length; i++) {
                 address proposer = vm.parseAddress(proposers[i]);
+
                 l2OutputOracleProxy.addProposer(proposer);
                 console.log("Added proposer for L2OO:", proposer);
+
                 accessManager.setProposer(proposer, true);
                 console.log("Added proposer for OPSuccinctDisputeGame:", proposer);
             }
