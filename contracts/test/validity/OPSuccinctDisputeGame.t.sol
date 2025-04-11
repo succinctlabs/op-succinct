@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Libraries
-import {Claim, GameStatus, GameType, Hash, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
+import {Claim, GameStatus, GameType, GameTypes, Hash, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
 import {
     BadAuth,
     AlreadyInitialized,
@@ -51,7 +51,7 @@ contract OPSuccinctDisputeGameTest is Test {
     address proposer = address(0x123);
 
     // Fixed parameters.
-    GameType gameType = GameType.wrap(6);
+    GameType gameType = GameTypes.OP_SUCCINCT;
     Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
 
     // Game creation parameters.
@@ -199,5 +199,27 @@ contract OPSuccinctDisputeGameTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Real Proof
+    // =========================================
+    function testRealProof() public {
+        uint256 checkpointedL1BlockNum = 8093968;
+        vm.createSelectFork(vm.envString("L1_RPC"), checkpointedL1BlockNum + 1);
+
+        proposer = 0x9193a78157957F3E03beE50A3E6a51F0f1669E23;
+
+        factory = DisputeGameFactory(0x62985aeB77b55aDAfAA21cCE41a7D8765D6B9507);
+
+        // Example proof data for a real proof for Phala Testnet. Tx: https://sepolia.etherscan.io/tx/0xeb3ccf9d86b5495da24df4ecfbb02b03404ef3a72de4fc29326c996be4c10005
+        rootClaim = Claim.wrap(0x80d3ec53fbda02abff3780477d29c5c7a51647bc1b4a0a296817c66d1426229d);
+        bytes memory extraData = bytes(
+            hex"000000000000000000000000000000000000000000000000000000000018ce4400000000000000000000000000000000000000000000000000000000007b81109193a78157957f3e03bee50a3e6a51f0f1669e2311b6a09d0f21aea5d178d355dc1799f78c1e82237dea7c175c01b1935588352d42d88ad92e9e7bc2ab4032b3137b71668be972c49b4e8a3797cb6aef1dc502ee5a79d92413408e8d4ca8a843156edfe2daa113bb48d541ef645953a8fc48a531fb033f5e253952f4174024cbd8f56b6c6a45de761c27bfb7518eb94837efc3f5f83728f628268cc82c127a83691b22b614ca8eeeaee49a9aa68f6cdb4a02078f968985282f2321941993b79cf426a012518bb89ac1bba3543cab9d11cf0698605924257a0909309b0a5e8f7bd5d5b1c63d35dfce67ee19abe6cce8a0911ce518af84edd322b2d48b71d146a319a502163e41e012c8872644f8737324fe91675a3d7f0dbb"
+        );
+
+        vm.startBroadcast(proposer);
+        factory.create(gameType, rootClaim, extraData);
+        vm.stopBroadcast();
     }
 }
