@@ -13,7 +13,7 @@ use fault_proof::{
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    hosts::{initialize_host, OPSuccinctHost},
+    hosts::initialize_host,
     metrics::{init_metrics, MetricsGauge},
 };
 
@@ -49,7 +49,8 @@ async fn main() -> Result<()> {
         l1_provider_with_wallet.clone(),
     );
 
-    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from the private key.
+    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from
+    // the private key.
     let prover_address = env::var("PROVER_ADDRESS")
         .ok()
         .and_then(|addr| addr.parse::<Address>().ok())

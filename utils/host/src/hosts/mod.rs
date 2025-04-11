@@ -3,14 +3,10 @@ use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
-use op_succinct_client_utils::client::run_opsuccinct_client;
-use op_succinct_client_utils::precompiles::zkvm_handle_register;
-use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
+use op_succinct_client_utils::{
+    client::run_opsuccinct_client, precompiles::zkvm_handle_register, InMemoryOracle, StoreOracle,
+};
 use std::sync::Arc;
-
-#[cfg(feature = "celestia")]
-mod celestia;
-mod default;
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
@@ -41,8 +37,9 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// - `l2_start_block`: The starting L2 block number
     /// - `l2_end_block`: The ending L2 block number
     /// - `l1_head_hash`: Optionally supplied L1 head block hash used as the L1 origin.
-    /// - `safe_db_fallback`: Optionally supplied flag to indicate whether to fallback to timestamp-based L1 head estimation
-    ///   when SafeDB is not available. This is optional to support abstraction across different node implementations.
+    /// - `safe_db_fallback`: Optionally supplied flag to indicate whether to fallback to
+    ///   timestamp-based L1 head estimation when SafeDB is not available. This is optional to
+    ///   support abstraction across different node implementations.
     async fn fetch(
         &self,
         l2_start_block: u64,
@@ -54,7 +51,8 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Get the L1 head hash from the host args.
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;
 
-    /// Get the finalized L2 block number. This is used to determine the highest block that can be included in a range proof.
+    /// Get the finalized L2 block number. This is used to determine the highest block that can be
+    /// included in a range proof.
     ///
     /// For ETH DA, this is the finalized L2 block number.
     /// For Celestia, this is the highest L2 block included in the latest Blobstream commitment.
@@ -70,6 +68,7 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "celestia")] {
+        mod celestia;
         use crate::hosts::celestia::CelestiaOPSuccinctHost;
 
         /// Initialize the Celestia host.
@@ -79,6 +78,7 @@ cfg_if::cfg_if! {
             Arc::new(CelestiaOPSuccinctHost::new(fetcher))
         }
     } else {
+        mod default;
         use crate::hosts::default::SingleChainOPSuccinctHost;
 
         /// Initialize the default (ETH-DA) host.

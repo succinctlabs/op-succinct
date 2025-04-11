@@ -178,12 +178,12 @@ impl CelestiaOPSuccinctHost {
 /// The addresses can be found here: https://docs.celestia.org/how-to-guides/blobstream
 fn get_blobstream_address(l1_chain_id: u64) -> Address {
     match l1_chain_id {
-        1 => address!("0x7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe"),
-        42161 => address!("0xA83ca7775Bc289825BcDeDFfa5b758cf69e8794"),
-        8453 => address!("0xA83ca7775Bc289825BcDeDFfa5b758cf69e8794"),
-        11155111 => address!("0xf0c6429ebab2e7dc6e05dafb61128be21f13cb1e"),
-        421614 => address!("0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
-        84532 => address!("0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
+        1 => address!("7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe"),
+        42161 => address!("A83ca7775Bc2889825BcDeDfFa5b758cf69e8794"),
+        8453 => address!("A83ca7775Bc2889825BcDeDfFa5b758cf69e8794"),
+        11155111 => address!("f0c6429ebab2e7dc6e05dafb61128be21f13cb1e"),
+        421614 => address!("c3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
+        84532 => address!("c3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
         _ => panic!("Unsupported L1 chain ID: {}", l1_chain_id),
     }
 }
