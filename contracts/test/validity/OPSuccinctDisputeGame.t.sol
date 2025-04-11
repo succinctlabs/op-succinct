@@ -7,13 +7,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 // Libraries
 import {Claim, GameStatus, GameType, GameTypes, Hash, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
-import {
-    BadAuth,
-    AlreadyInitialized,
-    GameNotInProgress,
-    NoCreditToClaim,
-    GameNotFinalized
-} from "src/dispute/lib/Errors.sol";
+import {AlreadyInitialized, GameNotInProgress, NoCreditToClaim, GameNotFinalized} from "src/dispute/lib/Errors.sol";
 import {Utils} from "../helpers/Utils.sol";
 
 // Contracts
@@ -24,7 +18,6 @@ import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
-import {AccessManager} from "src/lib/AccessManager.sol";
 
 // Interfaces
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
@@ -97,12 +90,8 @@ contract OPSuccinctDisputeGameTest is Test {
 
         l2OutputOracle = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
 
-        // Deploy the access manager with the proposer as the only allowed proposer.
-        AccessManager accessManager = new AccessManager();
-        accessManager.setProposer(proposer, true);
-
         // Deploy the implementation of OPSuccinctDisputeGame.
-        gameImpl = new OPSuccinctDisputeGame(address(l2OutputOracle), accessManager);
+        gameImpl = new OPSuccinctDisputeGame(address(l2OutputOracle));
 
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
@@ -191,7 +180,7 @@ contract OPSuccinctDisputeGameTest is Test {
         l2OutputOracle.checkpointBlockHash(newL1BlockNumber);
 
         bytes memory proof = bytes("");
-        vm.expectRevert(BadAuth.selector);
+        vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
         factory.create(
             gameType,
             Claim.wrap(keccak256("new-claim")),

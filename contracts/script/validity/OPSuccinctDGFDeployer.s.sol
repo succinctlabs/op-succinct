@@ -11,7 +11,7 @@ import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {GameType, GameTypes} from "src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
-import {AccessManager} from "src/lib/AccessManager.sol";
+import {AccessManager} from "src/fp/AccessManager.sol";
 import {LibString} from "@solady/utils/LibString.sol";
 
 contract OPSuccinctDFGDeployer is Script, Utils {
@@ -19,10 +19,6 @@ contract OPSuccinctDFGDeployer is Script, Utils {
         vm.startBroadcast();
 
         OPSuccinctL2OutputOracle l2OutputOracleProxy = OPSuccinctL2OutputOracle(vm.envAddress("L2OO_ADDRESS"));
-
-        // Deploy the access manager.
-        AccessManager accessManager = new AccessManager();
-        console.log("Access manager deployed:", address(accessManager));
 
         // Set proposers from comma-separated list.
         string memory proposersStr = vm.envString("PROPOSER_ADDRESSES");
@@ -33,14 +29,11 @@ contract OPSuccinctDFGDeployer is Script, Utils {
 
                 l2OutputOracleProxy.addProposer(proposer);
                 console.log("Added proposer for L2OO:", proposer);
-
-                accessManager.setProposer(proposer, true);
-                console.log("Added proposer for OPSuccinctDisputeGame:", proposer);
             }
         }
 
         // Initialize the dispute game based on the existing L2OO_ADDRESS.
-        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy), accessManager);
+        OPSuccinctDisputeGame game = new OPSuccinctDisputeGame(address(l2OutputOracleProxy));
 
         // Deploy the factory implementation
         DisputeGameFactory factoryImpl = new DisputeGameFactory();

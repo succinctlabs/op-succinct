@@ -15,7 +15,7 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 // Contracts
 import {OPSuccinctFaultDisputeGame} from "../../src/fp/OPSuccinctFaultDisputeGame.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
-import {AccessManager} from "../../src/lib/AccessManager.sol";
+import {AccessManager} from "../../src/fp/AccessManager.sol";
 
 contract UpgradeOPSuccinctFDG is Script {
     function run() public {
