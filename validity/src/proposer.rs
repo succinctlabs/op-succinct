@@ -12,7 +12,8 @@ use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher, get_range_elf_embedded, hosts::OPSuccinctHost,
+    metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
     AGGREGATION_ELF,
@@ -25,12 +26,6 @@ use std::collections::HashMap;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 /// Configuration for the driver.
 pub struct DriverConfig {
@@ -94,10 +89,7 @@ where
 
         let network_prover = Arc::new(ProverClient::builder().network().build());
 
-        #[cfg(feature = "celestia")]
-        let (range_pk, range_vk) = network_prover.setup(CELESTIA_RANGE_ELF_EMBEDDED);
-        #[cfg(not(feature = "celestia"))]
-        let (range_pk, range_vk) = network_prover.setup(RANGE_ELF_EMBEDDED);
+        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
 
         let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
         let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
@@ -173,9 +165,12 @@ where
         .await?;
 
         let finalized_block_number = match self
-            .driver_config
-            .fetcher
-            .get_finalized_l2_block_number(latest_proposed_block_number)
+            .proof_requester
+            .host
+            .get_finalized_l2_block_number(
+                self.driver_config.fetcher.as_ref(),
+                latest_proposed_block_number,
+            )
             .await?
         {
             Some(block_number) => {

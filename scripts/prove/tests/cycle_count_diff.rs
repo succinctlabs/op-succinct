@@ -5,7 +5,7 @@ use common::post_to_github_pr;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin,
-    hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
+    hosts::{initialize_host, OPSuccinctHost},
     stats::{ExecutionStats, MarkdownExecutionStats},
 };
 use op_succinct_prove::execute_multi;
@@ -143,9 +143,7 @@ async fn test_cycle_count_diff() -> Result<()> {
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
-    let host = SingleChainOPSuccinctHost {
-        fetcher: Arc::new(data_fetcher.clone()),
-    };
+    let host = initialize_host(Arc::new(data_fetcher.clone()));
 
     let base_stats =
         serde_json::from_reader::<_, ExecutionStats>(File::open("base_cycle_stats.json")?)?;

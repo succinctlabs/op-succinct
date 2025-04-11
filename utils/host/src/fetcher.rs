@@ -27,15 +27,6 @@ use std::{
 
 use crate::L2Output;
 
-#[cfg(feature = "celestia")]
-mod celestia {
-    pub use crate::SP1Blobstream;
-    pub use alloy_consensus::Transaction;
-}
-
-#[cfg(feature = "celestia")]
-pub use celestia::*;
-
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
 /// given block number. It is used to generate the boot info for the native host program.
@@ -613,81 +604,6 @@ impl OPSuccinctDataFetcher {
             )
             .await?;
         Ok(result.safe_head.number)
-    }
-
-    pub async fn get_finalized_l2_block_number(
-        &self,
-        latest_proposed_block_number: u64,
-    ) -> Result<Option<u64>> {
-        #[cfg(feature = "celestia")]
-        {
-            let batch_inbox_address = self.rollup_config.as_ref().unwrap().batch_inbox_address;
-
-            let blobstream_contract = SP1Blobstream::new(
-                Address::from_str("0xF0c6429ebAB2e7DC6e05DaFB61128bE21f13cb1e").unwrap(),
-                self.l1_provider.clone(),
-            );
-            let latest_celestia_block = blobstream_contract.latestBlock().call().await?.latestBlock;
-
-            let mut low = self
-                .get_safe_l1_block_for_l2_block(latest_proposed_block_number)
-                .await?
-                .1;
-            let mut high = self.get_l1_header(BlockId::finalized()).await?.number;
-
-            let mut l2_block_number = None;
-
-            while low <= high {
-                let mid = low + (high - low) / 2;
-                let l1_block_hex = format!("0x{:x}", mid);
-                let result: SafeHeadResponse = self
-                    .fetch_rpc_data_with_mode(
-                        RPCMode::L2Node,
-                        "optimism_safeHeadAtL1Block",
-                        vec![l1_block_hex.into()],
-                    )
-                    .await?;
-                let safe_head_l1_block_number = result.l1_block.number;
-                let l2_safe_head_number = result.safe_head.number;
-                let block = self
-                    .l1_provider
-                    .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(
-                        safe_head_l1_block_number,
-                    ))
-                    .full()
-                    .await?
-                    .unwrap();
-
-                let mut found_valid_tx = false;
-                for tx in block.transactions.txns() {
-                    if let Some(to_addr) = tx.to() {
-                        if to_addr == batch_inbox_address {
-                            let calldata = tx.input();
-                            let celestia_block_number =
-                                u64::from_le_bytes(calldata[3..11].try_into().unwrap());
-
-                            if celestia_block_number < latest_celestia_block {
-                                found_valid_tx = true;
-                                l2_block_number = Some(l2_safe_head_number);
-                            }
-                        }
-                    }
-                }
-                // Always try higher blocks first, only go lower if no valid tx found.
-                if found_valid_tx {
-                    low = mid + 1; // Keep looking for potentially later blocks.
-                } else {
-                    high = mid - 1; // No valid tx found, look in earlier blocks.
-                }
-            }
-
-            Ok(l2_block_number)
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            let finalized_l1_header = self.get_l1_header(BlockId::finalized()).await?;
-            Ok(Some(finalized_l1_header.number))
-        }
     }
 
     /// Check if the safeDB is activated on the L2 node.

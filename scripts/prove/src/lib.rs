@@ -1,14 +1,11 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Ok, Result};
-use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
+use op_succinct_host_utils::{
+    fetcher::{BlockInfo, OPSuccinctDataFetcher},
+    get_range_elf_embedded,
+};
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 pub const DEFAULT_RANGE: u64 = 5;
 pub const TWO_WEEKS: Duration = Duration::from_secs(14 * 24 * 60 * 60);
@@ -23,14 +20,8 @@ pub async fn execute_multi(
     let start_time = Instant::now();
     let prover = ProverClient::builder().mock().build();
 
-    #[cfg(feature = "celestia")]
     let (_, report) = prover
-        .execute(CELESTIA_RANGE_ELF_EMBEDDED, &sp1_stdin)
-        .run()
-        .unwrap();
-    #[cfg(not(feature = "celestia"))]
-    let (_, report) = prover
-        .execute(RANGE_ELF_EMBEDDED, &sp1_stdin)
+        .execute(get_range_elf_embedded(), &sp1_stdin)
         .run()
         .unwrap();
 

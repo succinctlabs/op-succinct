@@ -1,14 +1,20 @@
+use std::str::FromStr;
 use std::sync::Arc;
 
-use alloy_primitives::B256;
+use alloy_consensus::Transaction;
+use alloy_eips::BlockId;
+use alloy_primitives::{address, Address, B256};
+use alloy_provider::Provider;
 use async_trait::async_trait;
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
 use kona_preimage::BidirectionalChannel;
+use kona_rpc::SafeHeadResponse;
 use op_succinct_client_utils::InMemoryOracle;
 
-use crate::fetcher::OPSuccinctDataFetcher;
+use crate::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use crate::hosts::OPSuccinctHost;
-use anyhow::Result;
+use crate::SP1Blobstream;
+use anyhow::{anyhow, Result};
 
 #[derive(Clone)]
 pub struct CelestiaOPSuccinctHost {
@@ -65,10 +71,119 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
         Some(args.single_host.l1_head)
     }
+
+    /// Converts the latest Celestia block height in Blobstream to the highest L2 block that can be included in a rnage proof.
+    ///
+    /// 1. Get the latest Celestia block included in a Blobstream commitment.
+    /// 2. Loop over the `BatchInbox` from the l1 origin of the latest proposed block number to the finalized L1 block number.
+    /// 3. For each `BatchInbox` transaction, check if it contains a Celestia block number greater than the latest Celestia block.
+    /// 4. If it does, return the L2 block number.
+    /// 5. If it doesn't, return None.
+    ///
+    async fn get_finalized_l2_block_number(
+        &self,
+        fetcher: &OPSuccinctDataFetcher,
+        latest_proposed_block_number: u64,
+    ) -> Result<Option<u64>> {
+        let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
+
+        let blobstream_contract = SP1Blobstream::new(
+            get_blobstream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id),
+            fetcher.l1_provider.clone(),
+        );
+        // Get the latest Celestia block included in a Blobstream commitment.
+        let latest_celestia_block = blobstream_contract.latestBlock().call().await?.latestBlock;
+
+        let mut low = fetcher
+            .get_safe_l1_block_for_l2_block(latest_proposed_block_number)
+            .await?
+            .1;
+        let mut high = fetcher.get_l1_header(BlockId::finalized()).await?.number;
+
+        let mut l2_block_number = None;
+
+        // Binary search between the latest proposed block number and the finalized L1 block number for the batch transaction
+        // that has the highest Celestia height less than the latest Celestia height in the latest Blobstream commitment.
+        //
+        // At each block in the binary search, get the current safe head (this returns the L1 block where the batch was posted).
+        // Then, get the block at the safe head and check if it contains a batch transaction with a Celestia height greater than the latest Celestia height in the latest Blobstream commitment.
+        while low <= high {
+            let mid = (high + low) / 2;
+            let l1_block_hex = format!("0x{:x}", mid);
+
+            // Get the safe head for the chain at the midpoint. This will return the latest transaction with a batch.
+            let result: SafeHeadResponse = fetcher
+                .fetch_rpc_data_with_mode(
+                    RPCMode::L2Node,
+                    "optimism_safeHeadAtL1Block",
+                    vec![l1_block_hex.into()],
+                )
+                .await?;
+            let safe_head_l1_block_number = result.l1_block.number;
+            let l2_safe_head_number = result.safe_head.number;
+            let block = fetcher
+                .l1_provider
+                .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(
+                    safe_head_l1_block_number,
+                ))
+                .full()
+                .await?
+                .unwrap();
+
+            let mut found_valid_tx = false;
+            for tx in block.transactions.txns() {
+                if let Some(to_addr) = tx.to() {
+                    if to_addr == batch_inbox_address {
+                        let calldata = tx.input();
+
+                        // Check that the DA layer byte prefix is correct.
+                        // https://github.com/ethereum-optimism/specs/discussions/135.
+                        if calldata[2] != 0x0c {
+                            return Err(anyhow!("Invalid prefix for Celestia batch transaction"));
+                        }
+
+                        // The encoding of the commitment is the Celestia block height followed by the Celestia commitment.
+                        let height_bytes = &calldata[3..11];
+                        let celestia_height = u64::from_le_bytes(height_bytes.try_into().unwrap());
+
+                        if celestia_height < latest_celestia_block {
+                            found_valid_tx = true;
+                            l2_block_number = Some(l2_safe_head_number);
+                        }
+                    }
+                }
+            }
+
+            // If a batch b with a lower Celestia height, h1, than the latest Blobstream Celestia height, h, in the latest Blobstream commitment was found,
+            // we should try to find a batch b' with a Celestia height, h2, that is h1 < h2 <= h.
+            if found_valid_tx {
+                low = mid + 1; // Look in higher blocks for a batch with a higher Celestia height that's less than the latest Blobstream Celestia height.
+            } else {
+                high = mid - 1; // The Celestia height in the latest committed batch is greater than the latest Blobstream Celestia height, so look in earlier blocks.
+            }
+        }
+
+        Ok(l2_block_number)
+    }
 }
 
 impl CelestiaOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
         Self { fetcher }
+    }
+}
+
+/// Get the Blobstream contract address for a given L1 chain ID.
+///
+/// The addresses can be found here: https://docs.celestia.org/how-to-guides/blobstream
+fn get_blobstream_address(l1_chain_id: u64) -> Address {
+    match l1_chain_id {
+        1 => address!("0x7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe"),
+        42161 => address!("0xA83ca7775Bc289825BcDeDFfa5b758cf69e8794"),
+        8453 => address!("0xA83ca7775Bc289825BcDeDFfa5b758cf69e8794"),
+        11155111 => address!("0xf0c6429ebab2e7dc6e05dafb61128be21f13cb1e"),
+        421614 => address!("0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
+        84532 => address!("0xc3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
+        _ => panic!("Unsupported L1 chain ID: {}", l1_chain_id),
     }
 }

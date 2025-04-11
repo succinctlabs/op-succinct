@@ -31,3 +31,14 @@ pub enum DAConfig {
     /// The EigenDA DA configuration.
     EigenDA,
 }
+
+/// Get the range ELF depending on the feature flag.
+pub fn get_range_elf_embedded() -> &'static [u8] {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "celestia")] {
+            CELESTIA_RANGE_ELF_EMBEDDED
+        } else {
+            RANGE_ELF_EMBEDDED
+        }
+    }
+}

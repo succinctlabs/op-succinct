@@ -1,10 +1,7 @@
-pub mod default;
-
 use crate::fetcher::OPSuccinctDataFetcher;
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
-use default::SingleChainOPSuccinctHost;
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use op_succinct_client_utils::client::run_opsuccinct_client;
 use op_succinct_client_utils::precompiles::zkvm_handle_register;
@@ -12,10 +9,8 @@ use op_succinct_client_utils::{InMemoryOracle, StoreOracle};
 use std::sync::Arc;
 
 #[cfg(feature = "celestia")]
-pub mod celestia;
-
-#[cfg(feature = "celestia")]
-use celestia::CelestiaOPSuccinctHost;
+mod celestia;
+mod default;
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
@@ -58,17 +53,39 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 
     /// Get the L1 head hash from the host args.
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;
+
+    /// Get the finalized L2 block number. This is used to determine the highest block that can be included in a range proof.
+    ///
+    /// For ETH DA, this is the finalized L2 block number.
+    /// For Celestia, this is the highest L2 block included in the latest Blobstream commitment.
+    ///
+    /// The latest proposed block number is assumed to be the highest block number that has been
+    /// successfully processed by the host.
+    async fn get_finalized_l2_block_number(
+        &self,
+        fetcher: &OPSuccinctDataFetcher,
+        latest_proposed_block_number: u64,
+    ) -> Result<Option<u64>>;
 }
 
-/// Initialize the host.
-pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
-    Arc::new(SingleChainOPSuccinctHost::new(fetcher))
-}
+cfg_if::cfg_if! {
+    if #[cfg(feature = "celestia")] {
+        use crate::hosts::celestia::CelestiaOPSuccinctHost;
 
-/// Initialize the Celestia host.
-#[cfg(feature = "celestia")]
-pub fn initialize_celestia_host(
-    fetcher: Arc<OPSuccinctDataFetcher>,
-) -> Arc<CelestiaOPSuccinctHost> {
-    Arc::new(CelestiaOPSuccinctHost::new(fetcher))
+        /// Initialize the Celestia host.
+        pub fn initialize_host(
+            fetcher: Arc<OPSuccinctDataFetcher>,
+        ) -> Arc<CelestiaOPSuccinctHost> {
+            Arc::new(CelestiaOPSuccinctHost::new(fetcher))
+        }
+    } else {
+        use crate::hosts::default::SingleChainOPSuccinctHost;
+
+        /// Initialize the default (ETH-DA) host.
+        pub fn initialize_host(
+            fetcher: Arc<OPSuccinctDataFetcher>,
+        ) -> Arc<SingleChainOPSuccinctHost> {
+            Arc::new(SingleChainOPSuccinctHost::new(fetcher))
+        }
+    }
 }

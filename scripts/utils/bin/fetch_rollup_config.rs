@@ -5,7 +5,7 @@ use anyhow::Result;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
-    AGGREGATION_ELF,
+    get_range_elf_embedded, AGGREGATION_ELF,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -14,12 +14,6 @@ use std::{
     env, fs,
     path::{Path, PathBuf},
 };
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -145,10 +139,7 @@ async fn update_l2oo_config() -> Result<()> {
     let (_, agg_vkey) = prover.setup(AGGREGATION_ELF);
     let aggregation_vkey = agg_vkey.vk.bytes32();
 
-    #[cfg(feature = "celestia")]
-    let (_, range_vkey) = prover.setup(CELESTIA_RANGE_ELF_EMBEDDED);
-    #[cfg(not(feature = "celestia"))]
-    let (_, range_vkey) = prover.setup(RANGE_ELF_EMBEDDED);
+    let (_, range_vkey) = prover.setup(get_range_elf_embedded());
 
     let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.vk.hash_u32())));
 

@@ -5,8 +5,8 @@ use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
-    get_proof_stdin,
-    hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
+    get_proof_stdin, get_range_elf_embedded,
+    hosts::{initialize_host, OPSuccinctHost},
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::utils;
@@ -15,12 +15,6 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,9 +37,7 @@ async fn main() -> Result<()> {
     );
 
     // Get the host CLIs in order, in parallel.
-    let host = Arc::new(SingleChainOPSuccinctHost {
-        fetcher: Arc::new(data_fetcher),
-    });
+    let host = Arc::new(initialize_host(Arc::new(data_fetcher)));
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             host.fetch(range.start, range.end, None, Some(args.safe_db_fallback))
@@ -80,10 +72,7 @@ async fn main() -> Result<()> {
         ));
         fs::create_dir_all(&program_dir)?;
 
-        #[cfg(feature = "celestia")]
-        fs::write(program_dir.join("program.bin"), CELESTIA_RANGE_ELF_EMBEDDED)?;
-        #[cfg(not(feature = "celestia"))]
-        fs::write(program_dir.join("program.bin"), RANGE_ELF_EMBEDDED)?;
+        fs::write(program_dir.join("program.bin"), get_range_elf_embedded())?;
 
         fs::write(
             program_dir.join("stdin.bin"),

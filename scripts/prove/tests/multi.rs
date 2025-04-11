@@ -6,7 +6,7 @@ use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin,
-    hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
+    hosts::{initialize_host, OPSuccinctHost},
     stats::{ExecutionStats, MarkdownExecutionStats},
 };
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
@@ -23,9 +23,7 @@ async fn execute_batch() -> Result<()> {
     let (l2_start_block, l2_end_block) =
         get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?;
 
-    let host = SingleChainOPSuccinctHost {
-        fetcher: Arc::new(data_fetcher.clone()),
-    };
+    let host = initialize_host(Arc::new(data_fetcher.clone()));
 
     let host_args = host
         .fetch(l2_start_block, l2_end_block, None, Some(false))

@@ -34,13 +34,15 @@ use tracing::error;
 use tracing::info;
 use tracing::warn;
 
-#[cfg(feature = "celestia")]
-use hana_oracle::{
-    pipeline::OraclePipeline as CelestiaOraclePipeline, provider::OracleCelestiaProvider,
-};
-
-#[cfg(not(feature = "celestia"))]
-use kona_proof::l1::OraclePipeline;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "celestia")] {
+        use hana_oracle::{
+            pipeline::OraclePipeline as CelestiaOraclePipeline, provider::OracleCelestiaProvider,
+        };
+    } else {
+        use kona_proof::l1::OraclePipeline;
+    }
+}
 
 use crate::oracle::OPSuccinctOracleBlobProvider;
 

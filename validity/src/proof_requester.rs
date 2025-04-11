@@ -3,8 +3,8 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, hosts::OPSuccinctHost,
-    metrics::MetricsGauge, AGGREGATION_ELF,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, get_range_elf_embedded,
+    hosts::OPSuccinctHost, metrics::MetricsGauge, AGGREGATION_ELF,
 };
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
@@ -18,12 +18,6 @@ use crate::{
     OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus, RequestType,
     ValidityGauge,
 };
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub host: Arc<H>,
@@ -209,16 +203,9 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         let network_prover = self.network_prover.clone();
         // Move the CPU-intensive operation to a dedicated thread.
         let (pv, report) = match tokio::task::spawn_blocking(move || {
-            #[cfg(feature = "celestia")]
-            {
-                network_prover
-                    .execute(CELESTIA_RANGE_ELF_EMBEDDED, &stdin)
-                    .run()
-            }
-            #[cfg(not(feature = "celestia"))]
-            {
-                network_prover.execute(RANGE_ELF_EMBEDDED, &stdin).run()
-            }
+            network_prover
+                .execute(get_range_elf_embedded(), &stdin)
+                .run()
         })
         .await?
         {

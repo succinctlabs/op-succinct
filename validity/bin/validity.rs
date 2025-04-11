@@ -1,7 +1,9 @@
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, metrics::init_metrics, metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher,
+    hosts::initialize_host,
+    metrics::{init_metrics, MetricsGauge},
 };
 use op_succinct_validity::{
     read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
@@ -10,12 +12,6 @@ use op_succinct_validity::{
 use std::sync::Arc;
 use tikv_jemallocator::Jemalloc;
 use tracing::info;
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::hosts::initialize_celestia_host;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::hosts::initialize_host;
 
 #[global_allocator]
 static ALLOCATOR: Jemalloc = Jemalloc;
@@ -77,16 +73,7 @@ async fn main() -> Result<()> {
         .wallet(wallet)
         .on_http(env_config.l1_rpc.parse().expect("Failed to parse L1_RPC"));
 
-    let host = {
-        #[cfg(feature = "celestia")]
-        {
-            initialize_celestia_host(fetcher.clone().into())
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            initialize_host(fetcher.clone().into())
-        }
-    };
+    let host = initialize_host(fetcher.clone().into());
 
     let proposer = Proposer::new(
         l1_provider,

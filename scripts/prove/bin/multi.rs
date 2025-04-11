@@ -1,20 +1,17 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
-    block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, get_proof_stdin,
-    hosts::OPSuccinctHost, stats::ExecutionStats,
+    block_range::get_validated_block_range,
+    fetcher::OPSuccinctDataFetcher,
+    get_proof_stdin, get_range_elf_embedded,
+    hosts::{initialize_host, OPSuccinctHost},
+    stats::ExecutionStats,
 };
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
 use std::{fs, sync::Arc, time::Instant};
 use tracing::debug;
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::{hosts::initialize_celestia_host, CELESTIA_RANGE_ELF_EMBEDDED};
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::{hosts::initialize_host, RANGE_ELF_EMBEDDED};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -33,16 +30,7 @@ async fn main() -> Result<()> {
     let (l2_start_block, l2_end_block) =
         get_validated_block_range(&data_fetcher, args.start, args.end, DEFAULT_RANGE).await?;
 
-    let host = {
-        #[cfg(feature = "celestia")]
-        {
-            initialize_celestia_host(Arc::new(data_fetcher.clone()))
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            initialize_host(Arc::new(data_fetcher.clone()))
-        }
-    };
+    let host = initialize_host(Arc::new(data_fetcher.clone()));
     let host_args = host
         .fetch(
             l2_start_block,
@@ -65,16 +53,7 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = {
-            #[cfg(feature = "celestia")]
-            {
-                prover.setup(CELESTIA_RANGE_ELF_EMBEDDED)
-            }
-            #[cfg(not(feature = "celestia"))]
-            {
-                prover.setup(RANGE_ELF_EMBEDDED)
-            }
-        };
+        let (pk, _) = prover.setup(get_range_elf_embedded());
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
 
