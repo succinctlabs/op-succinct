@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
+use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use kona_host::single::SingleChainHost;
 use kona_preimage::BidirectionalChannel;
 use op_succinct_client_utils::InMemoryOracle;
 
-use crate::fetcher::OPSuccinctDataFetcher;
-use crate::hosts::OPSuccinctHost;
+use crate::{fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost};
 use anyhow::Result;
 
 #[derive(Clone)]
@@ -26,7 +26,8 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         let server_task = args.start_server(hint.host, preimage.host).await?;
 
         let in_memory_oracle = Self::run_witnessgen_client(preimage.client, hint.client).await?;
-        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both tasks to complete.
+        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
+        // tasks to complete.
         server_task.abort();
 
         Ok(in_memory_oracle)
@@ -53,6 +54,15 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
         Some(args.l1_head)
+    }
+
+    async fn get_finalized_l2_block_number(
+        &self,
+        fetcher: &OPSuccinctDataFetcher,
+        _: u64,
+    ) -> Result<Option<u64>> {
+        let finalized_l2_block_number = fetcher.get_l2_header(BlockId::finalized()).await?;
+        Ok(Some(finalized_l2_block_number.number))
     }
 }
 

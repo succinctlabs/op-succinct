@@ -3202,7 +3202,7 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=acb8c45#acb8c4543b11e67e2d0b071ef17748523f9e5e04"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.6#5623a1df0b8ab3d86c9c55da14c80aad88058746"
 dependencies = [
  "alloy-contract",
  "alloy-primitives",
@@ -3216,7 +3216,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=acb8c45#acb8c4543b11e67e2d0b071ef17748523f9e5e04"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.6#5623a1df0b8ab3d86c9c55da14c80aad88058746"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3229,7 +3229,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=acb8c45#acb8c4543b11e67e2d0b071ef17748523f9e5e04"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.6#5623a1df0b8ab3d86c9c55da14c80aad88058746"
 dependencies = [
  "alloy-consensus 0.12.6",
  "alloy-primitives",
@@ -3249,7 +3249,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=acb8c45#acb8c4543b11e67e2d0b071ef17748523f9e5e04"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.6#5623a1df0b8ab3d86c9c55da14c80aad88058746"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -3279,7 +3279,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=acb8c45#acb8c4543b11e67e2d0b071ef17748523f9e5e04"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.6#5623a1df0b8ab3d86c9c55da14c80aad88058746"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3302,7 +3302,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=acb8c45#acb8c4543b11e67e2d0b071ef17748523f9e5e04"
+source = "git+https://github.com/celestiaorg/hana?tag=v0.1.0-beta.6#5623a1df0b8ab3d86c9c55da14c80aad88058746"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -5313,6 +5313,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "cfg-if",
  "hana-oracle",
  "itertools 0.13.0",
  "kona-derive",
@@ -5383,6 +5384,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "cfg-if",
  "clap",
  "futures",
  "hana-host",
@@ -6204,8 +6206,8 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
- "itertools 0.13.0",
+ "heck 0.4.1",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -8558,9 +8560,9 @@ dependencies = [
 
 [[package]]
 name = "tendermint"
-version = "0.40.1"
+version = "0.40.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9703e34d940c2a293804752555107f8dbe2b84ec4c6dd5203831235868105d2"
+checksum = "ab2972a56891bc9173eaebdd51290bc848e448aa281881f3a4712bd8fe1899b3"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -8588,9 +8590,9 @@ dependencies = [
 
 [[package]]
 name = "tendermint-proto"
-version = "0.40.1"
+version = "0.40.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ae9e1705aa0fa5ecb2c6aa7fb78c2313c4a31158ea5f02048bf318f849352eb"
+checksum = "ca44b9eaaa98e8440fbafe5593b8a32a1c395c094ac566b3eb50497f8bd2bee0"
 dependencies = [
  "bytes",
  "flex-error",
@@ -9499,7 +9501,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

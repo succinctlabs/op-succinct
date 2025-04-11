@@ -4,18 +4,12 @@ use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, AGGREGATION_ELF,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_range_elf_embedded, AGGREGATION_ELF,
 };
 use sp1_sdk::{
     utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
 use std::fs;
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -58,9 +52,7 @@ fn load_aggregation_proof_data(
         }
         let mut deserialized_proof =
             SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
-        prover
-            .verify(&deserialized_proof, range_vkey)
-            .expect("proof verification failed");
+        prover.verify(&deserialized_proof, range_vkey).expect("proof verification failed");
         proofs.push(deserialized_proof.proof);
 
         // The public values are the BootInfoStruct.
@@ -83,42 +75,24 @@ async fn main() -> Result<()> {
     let prover = ProverClient::from_env();
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
-    #[cfg(feature = "celestia")]
-    let (_, vkey) = prover.setup(CELESTIA_RANGE_ELF_EMBEDDED);
-    #[cfg(not(feature = "celestia"))]
-    let (_, vkey) = prover.setup(RANGE_ELF_EMBEDDED);
+    let (_, vkey) = prover.setup(get_range_elf_embedded());
 
     let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
 
     let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
-    let headers = fetcher
-        .get_header_preimages(&boot_infos, header.hash_slow())
-        .await?;
+    let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
     let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
     let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
-    println!(
-        "Range ELF Verification Key Commitment: {}",
-        multi_block_vkey_b256
-    );
-    let stdin = get_agg_proof_stdin(
-        proofs,
-        boot_infos,
-        headers,
-        &vkey,
-        header.hash_slow(),
-        args.prover,
-    )
-    .expect("Failed to get agg proof stdin");
+    println!("Range ELF Verification Key Commitment: {}", multi_block_vkey_b256);
+    let stdin =
+        get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
+            .expect("Failed to get agg proof stdin");
 
     let (agg_pk, agg_vk) = prover.setup(AGGREGATION_ELF);
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
-        prover
-            .prove(&agg_pk, &stdin)
-            .groth16()
-            .run()
-            .expect("proving failed");
+        prover.prove(&agg_pk, &stdin).groth16().run().expect("proving failed");
     } else {
         let (_, report) = prover.execute(AGGREGATION_ELF, &stdin).run().unwrap();
         println!("report: {:?}", report);

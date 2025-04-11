@@ -1,7 +1,9 @@
 use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, metrics::init_metrics, metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher,
+    hosts::initialize_host,
+    metrics::{init_metrics, MetricsGauge},
 };
 use op_succinct_validity::{
     read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
@@ -10,12 +12,6 @@ use op_succinct_validity::{
 use std::sync::Arc;
 use tikv_jemallocator::Jemalloc;
 use tracing::info;
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::hosts::initialize_celestia_host;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::hosts::initialize_host;
 
 #[global_allocator]
 static ALLOCATOR: Jemalloc = Jemalloc;
@@ -66,8 +62,8 @@ async fn main() -> Result<()> {
         safe_db_fallback: env_config.safe_db_fallback,
     };
 
-    // Read all config from env vars. If both signer_url and signer_address are provided, use Web3Signer.
-    // Otherwise, use the private key.
+    // Read all config from env vars. If both signer_url and signer_address are provided, use
+    // Web3Signer. Otherwise, use the private key.
     let wallet = match (env_config.signer_url, env_config.signer_address) {
         (Some(url), Some(address)) => EthereumWallet::new(Web3Signer::new(address, url)),
         _ => EthereumWallet::new(env_config.private_key),
@@ -77,16 +73,7 @@ async fn main() -> Result<()> {
         .wallet(wallet)
         .on_http(env_config.l1_rpc.parse().expect("Failed to parse L1_RPC"));
 
-    let host = {
-        #[cfg(feature = "celestia")]
-        {
-            initialize_celestia_host(fetcher.clone().into())
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            initialize_host(fetcher.clone().into())
-        }
-    };
+    let host = initialize_host(fetcher.clone().into());
 
     let proposer = Proposer::new(
         l1_provider,

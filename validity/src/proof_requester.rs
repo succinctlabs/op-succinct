@@ -3,8 +3,8 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, hosts::OPSuccinctHost,
-    metrics::MetricsGauge, AGGREGATION_ELF,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, get_range_elf_embedded,
+    hosts::OPSuccinctHost, metrics::MetricsGauge, AGGREGATION_ELF,
 };
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
@@ -13,17 +13,10 @@ use sp1_sdk::{
 use std::{sync::Arc, time::Instant};
 use tracing::{info, warn};
 
-use crate::db::DriverDBClient;
 use crate::{
-    OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus, RequestType,
-    ValidityGauge,
+    db::DriverDBClient, OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics,
+    RequestStatus, RequestType, ValidityGauge,
 };
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::CELESTIA_RANGE_ELF_EMBEDDED;
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::RANGE_ELF_EMBEDDED;
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub host: Arc<H>,
@@ -120,16 +113,15 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 let mut proof_with_pv: SP1ProofWithPublicValues =
                     bincode::deserialize(proof.proof.as_ref().unwrap())
                         .expect("Deserialization failure for range proof");
-                (
-                    proof_with_pv.public_values.read(),
-                    proof_with_pv.proof.clone(),
-                )
+                (proof_with_pv.public_values.read(), proof_with_pv.proof.clone())
             })
             .unzip();
 
         // This can fail for a few reasons:
-        // 1. The L1 RPC is down (e.g. error code 32001). Double-check the L1 RPC is running correctly.
-        // 2. The L1 head was re-orged and the block is no longer available. This is unlikely given we wait for 3 confirmations on a transaction.
+        // 1. The L1 RPC is down (e.g. error code 32001). Double-check the L1 RPC is running
+        //    correctly.
+        // 2. The L1 head was re-orged and the block is no longer available. This is unlikely given
+        //    we wait for 3 confirmations on a transaction.
         let headers = self
             .fetcher
             .get_header_preimages(&boot_infos, checkpointed_l1_block_hash)
@@ -209,16 +201,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         let network_prover = self.network_prover.clone();
         // Move the CPU-intensive operation to a dedicated thread.
         let (pv, report) = match tokio::task::spawn_blocking(move || {
-            #[cfg(feature = "celestia")]
-            {
-                network_prover
-                    .execute(CELESTIA_RANGE_ELF_EMBEDDED, &stdin)
-                    .run()
-            }
-            #[cfg(not(feature = "celestia"))]
-            {
-                network_prover.execute(RANGE_ELF_EMBEDDED, &stdin).run()
-            }
+            network_prover.execute(get_range_elf_embedded(), &stdin).run()
         })
         .await?
         {
@@ -269,10 +252,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         let network_prover = self.network_prover.clone();
         // Move the CPU-intensive operation to a dedicated thread.
         let (pv, report) = match tokio::task::spawn_blocking(move || {
-            network_prover
-                .execute(AGGREGATION_ELF, &stdin)
-                .deferred_proof_verification(false)
-                .run()
+            network_prover.execute(AGGREGATION_ELF, &stdin).deferred_proof_verification(false).run()
         })
         .await?
         {
@@ -315,9 +295,11 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Handles a failed proof request.
     ///
-    /// If the request is a range proof and the number of failed requests is greater than 2 or the execution status is unexecutable, the request is split into two new requests.
-    /// Otherwise, add_new_ranges will insert the new request. This ensures better failure-resilience. If the request to add two range requests fails, add_new_ranges will handle it gracefully by submitting
-    /// the same range.
+    /// If the request is a range proof and the number of failed requests is greater than 2 or the
+    /// execution status is unexecutable, the request is split into two new requests. Otherwise,
+    /// add_new_ranges will insert the new request. This ensures better failure-resilience. If the
+    /// request to add two range requests fails, add_new_ranges will handle it gracefully by
+    /// submitting the same range.
     #[tracing::instrument(
         name = "proof_requester.handle_failed_request",
         skip(self, request, execution_status)
@@ -336,9 +318,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         );
 
         // Mark the existing request as failed.
-        self.db_client
-            .update_request_status(request.id, RequestStatus::Failed)
-            .await?;
+        self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
 
         let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
         let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
@@ -415,16 +395,14 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         Ok(stdin)
     }
 
-    /// Makes a proof request by updating statuses, generating witnesses, and then either requesting or
-    /// mocking the proof depending on configuration.
+    /// Makes a proof request by updating statuses, generating witnesses, and then either requesting
+    /// or mocking the proof depending on configuration.
     ///
     /// Note: Any error from this function will cause the proof to be retried.
     #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
     pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
         // Update status to WitnessGeneration.
-        self.db_client
-            .update_request_status(request.id, RequestStatus::WitnessGeneration)
-            .await?;
+        self.db_client.update_request_status(request.id, RequestStatus::WitnessGeneration).await?;
 
         info!(
             request_id = request.id,
@@ -445,9 +423,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         };
         let duration = witnessgen_duration.elapsed();
 
-        self.db_client
-            .update_witnessgen_duration(request.id, duration.as_secs() as i64)
-            .await?;
+        self.db_client.update_witnessgen_duration(request.id, duration.as_secs() as i64).await?;
 
         info!(
             request_id = request.id,
@@ -460,9 +436,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         // For mock mode, update status to Execution before proceeding.
         if self.mock {
-            self.db_client
-                .update_request_status(request.id, RequestStatus::Execution)
-                .await?;
+            self.db_client.update_request_status(request.id, RequestStatus::Execution).await?;
         }
 
         match request.req_type {
@@ -470,27 +444,19 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 if self.mock {
                     let proof = self.generate_mock_range_proof(&request, stdin).await?;
                     let proof_bytes = bincode::serialize(&proof).unwrap();
-                    self.db_client
-                        .update_proof_to_complete(request.id, &proof_bytes)
-                        .await?;
+                    self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
-                    self.db_client
-                        .update_request_to_prove(request.id, proof_id)
-                        .await?;
+                    self.db_client.update_request_to_prove(request.id, proof_id).await?;
                 }
             }
             RequestType::Aggregation => {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
-                    self.db_client
-                        .update_proof_to_complete(request.id, &proof.bytes())
-                        .await?;
+                    self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;
-                    self.db_client
-                        .update_request_to_prove(request.id, proof_id)
-                        .await?;
+                    self.db_client.update_request_to_prove(request.id, proof_id).await?;
                 }
             }
         }

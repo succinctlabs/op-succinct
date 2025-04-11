@@ -8,8 +8,8 @@ use op_succinct_host_utils::{
         split_range_basic, SpanBatchRange,
     },
     fetcher::OPSuccinctDataFetcher,
-    get_proof_stdin,
-    hosts::OPSuccinctHost,
+    get_proof_stdin, get_range_elf_embedded,
+    hosts::{initialize_host, OPSuccinctHost},
     stats::ExecutionStats,
 };
 use op_succinct_scripts::HostExecutorArgs;
@@ -23,12 +23,6 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-
-#[cfg(feature = "celestia")]
-use op_succinct_host_utils::{hosts::initialize_celestia_host, CELESTIA_RANGE_ELF_EMBEDDED};
-
-#[cfg(not(feature = "celestia"))]
-use op_succinct_host_utils::{hosts::initialize_host, RANGE_ELF_EMBEDDED};
 
 const ONE_WEEK: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
@@ -59,10 +53,8 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let report_path = root_dir.join(format!(
-        "execution-reports/{}/{}-{}-report.csv",
-        l2_chain_id, start, end
-    ));
+    let report_path =
+        root_dir.join(format!("execution-reports/{}/{}-{}-report.csv", l2_chain_id, start, end));
     // Create the parent directory if it doesn't exist
     if let Some(parent) = report_path.parent() {
         if !parent.exists() {
@@ -96,16 +88,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     // Execute the program for each block range in parallel.
     execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = {
-            #[cfg(feature = "celestia")]
-            {
-                prover.execute(CELESTIA_RANGE_ELF_EMBEDDED, sp1_stdin).run()
-            }
-            #[cfg(not(feature = "celestia"))]
-            {
-                prover.execute(RANGE_ELF_EMBEDDED, sp1_stdin).run()
-            }
-        };
+        let result = prover.execute(get_range_elf_embedded(), sp1_stdin).run();
 
         if let Some(err) = result.as_ref().err() {
             log::warn!(
@@ -226,22 +209,10 @@ async fn main() -> Result<()> {
         split_range_basic(l2_start_block, l2_end_block, args.batch_size)
     };
 
-    info!(
-        "The span batch ranges which will be executed: {:?}",
-        split_ranges
-    );
+    info!("The span batch ranges which will be executed: {:?}", split_ranges);
 
     // Get the host CLIs in order, in parallel.
-    let host = {
-        #[cfg(feature = "celestia")]
-        {
-            initialize_celestia_host(Arc::new(data_fetcher))
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            initialize_host(Arc::new(data_fetcher))
-        }
-    };
+    let host = initialize_host(Arc::new(data_fetcher));
 
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
