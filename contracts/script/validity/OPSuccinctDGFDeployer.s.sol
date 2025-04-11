@@ -11,7 +11,6 @@ import {console} from "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {GameType, GameTypes} from "src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
-import {AccessManager} from "src/fp/AccessManager.sol";
 import {LibString} from "@solady/utils/LibString.sol";
 
 contract OPSuccinctDFGDeployer is Script, Utils {
