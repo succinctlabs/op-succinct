@@ -309,10 +309,21 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockNumber The block number with the specified block hash.
     /// @param _proof The aggregation proof that proves the transition from the latest L2 output to the new L2 output.
-    /// @param _proverAddress The address of the prover that submitted the proof. Note: proverAddress is not required to be the tx.origin as there is no reason to front-run the prover.
-    /// in the full validity setting.
+    /// @param _proverAddress The address of the prover that submitted the proof. Note: proverAddress is not required to be the tx.origin as there is no reason to front-run the prover in the full validity setting.
     /// @dev Modified the function signature to exclude the `_l1BlockHash` parameter, as it's redundant
-    /// for OP Succinct given the `_l1BlockNumber` parameter.
+    ///      for OP Succinct given the `_l1BlockNumber` parameter.
+    /// @dev Security Note: This contract uses `tx.origin` for proposer permission control due to usage of this contract
+    ///      in the OPSuccinctDisputeGame, created via DisputeGameFactory using the Clone With Immutable Arguments (CWIA) pattern.
+    ///
+    ///      In this setup:
+    ///      - `msg.sender` is the newly created game contract, not an approved proposer.
+    ///      - `tx.origin` identifies the actual user initiating the transaction.
+    ///
+    ///      While `tx.origin` can be vulnerable in general, it is safe here because:
+    ///      - Only trusted proposers/relayers call this contract.
+    ///      - Proposers are expected to interact solely with trusted contracts.
+    ///
+    ///      As long as proposers avoid untrusted contracts, `tx.origin` is as secure as `msg.sender` in this context.
     function proposeL2Output(
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
