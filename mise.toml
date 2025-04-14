@@ -1,0 +1,8 @@
+[tools]
+cast = { version = "latest", exe = "cast" }
+forge = { version = "latest", exe = "forge" }
+just = "latest"
+rust = "1.85"
+
+# System Dependencies (need to be installed manually outside of mise)
+# for `just deploy-oracle`: cc, openssl, pkg-config, clang, libclang-dev
