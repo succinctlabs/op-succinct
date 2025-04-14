@@ -27,7 +27,7 @@ RUN rustc --version && cargo --version
 RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/sp1up && \
     ~/.sp1/bin/cargo-prove prove --version
-    
+
 # Copy only what's needed for the build
 COPY Cargo.toml Cargo.lock ./
 COPY proposer/succinct ./proposer/succinct
@@ -43,6 +43,13 @@ RUN --mount=type=ssh \
     --mount=type=cache,target=/build/target \
     cargo build --bin server --release && \
     cp target/release/server /build/server
+
+# Build the fetch-rollup-config-hash
+RUN --mount=type=ssh \
+    --mount=type=cache,target=/root/.cargo/registry \
+    --mount=type=cache,target=/build/target \
+    cargo build --bin fetch-rollup-config-hash --release && \
+    cp target/release/fetch-rollup-config-hash /build/fetch-rollup-config-hash
 
 # Final stage
 FROM ubuntu:24.04
@@ -73,6 +80,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/cargo-prove prove --version
 
 # Copy only the built binaries from builder
+COPY --from=builder /build/fetch-rollup-config-hash /usr/local/bin/fetch-rollup-config-hash
 COPY --from=builder /build/server /usr/local/bin/server
 
 # Expose port based on environment variable or default to 3000
