@@ -44,12 +44,12 @@ RUN --mount=type=ssh \
     cargo build --bin server --release && \
     cp target/release/server /build/server
 
-# Build the fetch-rollup-config-hash
+# Build the fetch-rollup-config
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --bin fetch-rollup-config-hash --release && \
-    cp target/release/fetch-rollup-config-hash /build/fetch-rollup-config-hash
+    cargo build --bin fetch-rollup-config --release && \
+    cp target/release/fetch-rollup-config /build/fetch-rollup-config
 
 # Final stage
 FROM ubuntu:24.04
@@ -80,7 +80,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/cargo-prove prove --version
 
 # Copy only the built binaries from builder
-COPY --from=builder /build/fetch-rollup-config-hash /usr/local/bin/fetch-rollup-config-hash
+COPY --from=builder /build/fetch-rollup-config /usr/local/bin/fetch-rollup-config
 COPY --from=builder /build/server /usr/local/bin/server
 
 # Expose port based on environment variable or default to 3000
