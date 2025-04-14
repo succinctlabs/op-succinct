@@ -1,7 +1,6 @@
-version: v1
-breaking:
-  use:
-    - FILE
+version: v2
+modules:
+  - path: proto
 lint:
   use:
     - DEFAULT
@@ -9,4 +8,6 @@ lint:
     - RPC_RESPONSE_STANDARD_NAME
     - RPC_REQUEST_RESPONSE_UNIQUE
     - IMPORT_NO_WEAK
-  allow_comment_ignores: true
+breaking:
+  use:
+    - FILE
