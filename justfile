@@ -81,7 +81,7 @@ deploy-mock-verifier env_file=".env":
     cd contracts
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ "$ETHERSCAN_API_KEY" != "" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
@@ -91,10 +91,15 @@ deploy-mock-verifier env_file=".env":
     --broadcast \
     $VERIFY
 
+    cd ..
+    CHAIN_ID=$(cast chain-id --rpc-url $L1_RPC)
+    MOCK_VERIFIER_ADDRESS=$(cat ./contracts/broadcast/DeployMockVerifier.s.sol/$CHAIN_ID/run-latest.json | jq -r ".transactions.[0].contractAddress")
+    echo "VERIFIER_ADDRESS=$MOCK_VERIFIER_ADDRESS" >> {{env_file}}
+
 # Deploy the OPSuccinct L2 Output Oracle
 deploy-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -eo pipefail
     
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
@@ -111,7 +116,7 @@ deploy-oracle env_file=".env" *features='':
     cd contracts
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ "$ETHERSCAN_API_KEY" != "" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
@@ -125,6 +130,12 @@ deploy-oracle env_file=".env" *features='':
         --private-key $PRIVATE_KEY \
         --broadcast \
         $VERIFY
+    
+    cd ..
+    CHAIN_ID=$(cast chain-id --rpc-url $L1_RPC)
+    L2OO_ADDRESS=$(cat ./contracts/broadcast/OPSuccinctDeployer.s.sol/$CHAIN_ID/run-latest.json | jq -r ".transactions.[1].contractAddress")
+    echo "L2OO_ADDRESS=$L2OO_ADDRESS" >> {{env_file}}
+    echo "OP_SUCCINCT_MOCK=true" >> {{env_file}}
 
 # Upgrade the OPSuccinct L2 Output Oracle
 upgrade-oracle env_file=".env" *features='':
