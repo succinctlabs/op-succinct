@@ -87,6 +87,7 @@ Now, you should have the following in your `.env` file:
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract and relaying proofs on-chain. |
 | `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
+| `VERIFIER_ADDRESS` | The address of the `SP1MockVerifier` contract. |
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `OP_SUCCINCT_MOCK` | Set to `true` for mock mode. |
 
