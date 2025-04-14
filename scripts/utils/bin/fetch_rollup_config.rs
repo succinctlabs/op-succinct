@@ -71,7 +71,7 @@ fn get_address(env_var: &str, private_key_by_default: bool) -> String {
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
 async fn update_l2oo_config() -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Dev).await?;
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config(RunContext::Docker).await?;
 
     let workspace_root = cargo_metadata::MetadataCommand::new()
         .exec()?
