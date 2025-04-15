@@ -122,7 +122,12 @@ sp1-sdk = { version = "4.1.7" }
 sp1-lib = { version = "4.1.7", features = ["verify"] }
 sp1-zkvm = { version = "4.1.7", features = ["verify"] }
 sp1-build = { version = "4.1.7" }
-kzg-rs = { version = "0.2.5" }
+
+# kzg-rs
+# TODO(r): Publish new version of kzg-rs.
+# Derive rkyv, serde on the kzg-rs crate.
+kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "ratan/rkyv" }
+# kzg-rs = { version = "0.2.5" }
 
 [profile.release-client-lto]
 inherits = "release"

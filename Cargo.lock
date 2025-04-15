@@ -1400,7 +1400,7 @@ dependencies = [
  "bitflags",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "log",
@@ -2409,7 +2409,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18e4fdb82bd54a12e42fb58a800dcae6b9e13982238ce2296dc3570b92148e1f"
 dependencies = [
  "data-encoding",
- "syn 1.0.109",
+ "syn 2.0.100",
 ]
 
 [[package]]
@@ -4482,6 +4482,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "kzg-rs"
+version = "0.2.5"
+source = "git+https://github.com/succinctlabs/kzg-rs?branch=ratan%2Frkyv#2b342f53f1e20c407a8458d620aa715f5df573e6"
+dependencies = [
+ "ff 0.13.1",
+ "hex",
+ "rkyv",
+ "serde",
+ "serde_arrays",
+ "sha2 0.10.8",
+ "sp1_bls12_381",
+ "spin 0.9.8",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5325,7 +5340,7 @@ dependencies = [
  "kona-proof",
  "kona-protocol",
  "kona-rpc",
- "kzg-rs",
+ "kzg-rs 0.2.5 (git+https://github.com/succinctlabs/kzg-rs?branch=ratan%2Frkyv)",
  "op-alloy-consensus",
  "revm",
  "rkyv",
@@ -5384,15 +5399,19 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "c-kzg",
  "cfg-if",
  "clap",
  "futures",
  "hana-host",
+ "kona-derive",
  "kona-genesis",
  "kona-host",
  "kona-preimage",
+ "kona-proof",
  "kona-protocol",
  "kona-rpc",
+ "kzg-rs 0.2.5 (git+https://github.com/succinctlabs/kzg-rs?branch=ratan%2Frkyv)",
  "metrics",
  "metrics-exporter-prometheus",
  "metrics-process",
@@ -6502,6 +6521,7 @@ dependencies = [
  "anyhow",
  "kona-proof",
  "op-succinct-client-utils",
+ "rkyv",
  "sp1-zkvm",
  "tracing",
  "tracing-subscriber",
@@ -6739,7 +6759,7 @@ dependencies = [
  "c-kzg",
  "cfg-if",
  "k256",
- "kzg-rs",
+ "kzg-rs 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
  "p256",
  "revm-primitives",
@@ -6766,7 +6786,7 @@ dependencies = [
  "dyn-clone",
  "enumn",
  "hex",
- "kzg-rs",
+ "kzg-rs 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -7287,6 +7307,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_arrays"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94a16b99c5ea4fe3daccd14853ad260ec00ea043b2708d1fd1da3106dcd8d9df"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

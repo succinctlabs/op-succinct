@@ -7,6 +7,7 @@ pub mod stats;
 pub use contract::*;
 pub use proof::*;
 pub mod metrics;
+pub mod witness_generation;
 
 pub const RANGE_ELF_BUMP: &[u8] = include_bytes!("../../../elf/range-elf-bump");
 pub const RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
