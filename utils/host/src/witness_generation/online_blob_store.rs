@@ -41,7 +41,7 @@ impl<T: BlobProvider + Send> BlobProvider for OnlineBlobStore<T> {
 }
 
 /// Get the blob data for the given blob with the given settings.
-fn get_blob_data(blob: &Box<Blob>, settings: &EnvKzgSettings) -> (KzgRsBlob, Bytes48, Bytes48) {
+fn get_blob_data(blob: &Blob, settings: &EnvKzgSettings) -> (KzgRsBlob, Bytes48, Bytes48) {
     let c_kzg_blob = c_kzg::Blob::from_bytes(blob.as_slice()).unwrap();
     let commitment =
         c_kzg::KzgCommitment::blob_to_kzg_commitment(&c_kzg_blob, settings.get()).unwrap();

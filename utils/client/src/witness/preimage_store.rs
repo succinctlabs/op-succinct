@@ -35,7 +35,7 @@ impl PreimageStore {
 pub fn check_preimage(key: &PreimageKey, value: &[u8]) -> PreimageOracleResult<()> {
     if let Some(expected_hash) = match key.key_type() {
         PreimageKeyType::Keccak256 => Some(keccak256(value).0),
-        PreimageKeyType::Sha256 => Some(sha2::Sha256::digest(value).try_into().unwrap()),
+        PreimageKeyType::Sha256 => Some(sha2::Sha256::digest(value).into()),
         PreimageKeyType::Local | PreimageKeyType::GlobalGeneric => None,
         PreimageKeyType::Precompile => unimplemented!("Precompile not supported in zkVM"),
         PreimageKeyType::Blob => unreachable!("Blob keys validated in blob witness"),

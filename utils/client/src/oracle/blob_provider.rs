@@ -21,7 +21,7 @@ impl From<BlobData> for BlobStore {
             .commitments
             .iter()
             .map(|c| kzg_to_versioned_hash(c.as_slice()))
-            .zip(blobs.iter().map(|b| Blob::from(b.0.clone())))
+            .zip(blobs.iter().map(|b| Blob::from(b.0)))
             .rev()
             .collect();
 
