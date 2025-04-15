@@ -180,16 +180,6 @@ fn write_l2oo_config(config: L2OOConfig, workspace_root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn find_project_root() -> Option<PathBuf> {
-    let mut path = std::env::current_dir().ok()?;
-    while !path.join(".git").exists() {
-        if !path.pop() {
-            return None;
-        }
-    }
-    Some(path)
-}
-
 use clap::Parser;
 
 #[derive(Parser, Debug)]
@@ -204,16 +194,7 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // This fetches the .env file from the project root. If the command is invoked in the contracts/ directory,
-    // the .env file in the root of the repo is used.
-    if let Some(root) = find_project_root() {
-        dotenv::from_path(root.join(args.env_file)).ok();
-    } else {
-        eprintln!(
-            "Warning: Could not find project root. {} file not loaded.",
-            args.env_file
-        );
-    }
+    dotenv::from_path(args.env_file).ok();
 
     update_l2oo_config().await?;
 
