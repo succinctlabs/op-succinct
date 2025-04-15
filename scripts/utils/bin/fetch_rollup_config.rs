@@ -9,7 +9,7 @@ use serde_json::Value;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
 use std::{
     env, fs,
-    path::{Path, PathBuf},
+    path::{Path},
 };
 
 pub const AGG_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
@@ -194,7 +194,7 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    dotenv::from_path(args.env_file).ok();
+    dotenv::from_path(args.env_file)?;
 
     update_l2oo_config().await?;
 
