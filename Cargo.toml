@@ -125,8 +125,10 @@ sp1-build = { version = "4.1.7" }
 
 # kzg-rs
 # TODO(r): Publish new version of kzg-rs.
-# Derive rkyv, serde on the kzg-rs crate.
-kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "ratan/rkyv" }
+kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", features = [
+    "rkyv",
+    "serde",
+] }
 # kzg-rs = { version = "0.2.5" }
 
 [profile.release-client-lto]

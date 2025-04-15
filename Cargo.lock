@@ -4484,7 +4484,7 @@ dependencies = [
 [[package]]
 name = "kzg-rs"
 version = "0.2.5"
-source = "git+https://github.com/succinctlabs/kzg-rs?branch=ratan%2Frkyv#2b342f53f1e20c407a8458d620aa715f5df573e6"
+source = "git+https://github.com/succinctlabs/kzg-rs#0f4e73be49e4de0d01e2c099f395159f13dcf9ca"
 dependencies = [
  "ff 0.13.1",
  "hex",
@@ -5340,7 +5340,7 @@ dependencies = [
  "kona-proof",
  "kona-protocol",
  "kona-rpc",
- "kzg-rs 0.2.5 (git+https://github.com/succinctlabs/kzg-rs?branch=ratan%2Frkyv)",
+ "kzg-rs 0.2.5 (git+https://github.com/succinctlabs/kzg-rs)",
  "op-alloy-consensus",
  "revm",
  "rkyv",
@@ -5411,7 +5411,7 @@ dependencies = [
  "kona-proof",
  "kona-protocol",
  "kona-rpc",
- "kzg-rs 0.2.5 (git+https://github.com/succinctlabs/kzg-rs?branch=ratan%2Frkyv)",
+ "kzg-rs 0.2.5 (git+https://github.com/succinctlabs/kzg-rs)",
  "metrics",
  "metrics-exporter-prometheus",
  "metrics-process",
