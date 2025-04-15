@@ -66,10 +66,10 @@ kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.16", default-features = false }
 
 # hana
-hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.7" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.7" }
-hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.7" }
-hana-client = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.7" }
+hana-oracle = { git = "https://github.com/ratankaliani/hana", branch = "bump-kona.16" }
+hana-celestia = { git = "https://github.com/ratankaliani/hana", branch = "bump-kona.16" }
+hana-host = { git = "https://github.com/ratankaliani/hana", branch = "bump-kona.16" }
+hana-client = { git = "https://github.com/ratankaliani/hana", branch = "bump-kona.16" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -124,12 +124,10 @@ sp1-zkvm = { version = "4.1.7", features = ["verify"] }
 sp1-build = { version = "4.1.7" }
 
 # kzg-rs
-# TODO(r): Publish new version of kzg-rs.
-kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", features = [
+kzg-rs = { version = "0.2.6", features = [
     "rkyv",
     "serde",
 ] }
-# kzg-rs = { version = "0.2.5" }
 
 [profile.release-client-lto]
 inherits = "release"
