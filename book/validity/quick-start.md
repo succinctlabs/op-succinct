@@ -14,10 +14,10 @@ This guide will walk you through the steps to deploy OP Succinct for your OP Sta
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Just](https://github.com/casey/just?tab=readme-ov-file#installation)
 
-:::note
+``` admonish info
 On Ubuntu, you'll need some system dependencies to run the service: `curl`, `clang`, `pkg-config`,
 `libssl-dev`, `ca-certificates`, `git`, `libclang-dev`, `llvm-dev`, and `jq`. You can see the [Dockerfile](https://github.com/succinctlabs/op-succinct/blob/main/validity/Dockerfile#L38) for more details.
-:::
+```
 
 ## Step 1: Set environment variables.
 
@@ -108,9 +108,9 @@ Now, you should have the following in your `.env` file:
 | `L2OO_ADDRESS` | The address of the `OPSuccinctL2OutputOracle` contract from the previous step. |
 | `OP_SUCCINCT_MOCK` | When set to `true`, the `op-succinct` service will generate mock proofs. For this quick start guide, set to `true`. |
 
-:::note
+``` admonish info
 When running just the proposer, you won't need the `ETHERSCAN_API_KEY` or `VERIFIER_ADDRESS` environment variables. These are only required for contract deployment.
-:::
+```
 
 ## Step 5: Start the `op-succinct` service in mock mode.
 
