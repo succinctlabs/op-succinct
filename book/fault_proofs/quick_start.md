@@ -58,7 +58,6 @@ Save the output addresses, particularly the `FACTORY_ADDRESS` output as "Factory
     FACTORY_ADDRESS=<FACTORY_ADDRESS_FROM_DEPLOYMENT>
     GAME_TYPE=42
     PRIVATE_KEY=<YOUR_PRIVATE_KEY>
-    NETWORK_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000001 # Dummy network private key for mock mode
     MOCK_MODE=true # Set to true for mock mode
     ```
 
