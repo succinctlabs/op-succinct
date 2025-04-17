@@ -36,6 +36,7 @@ fn main() {
             .await
             .expect("Failed to run client with witness data.");
 
+        sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info.clone()));
         sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
     });
 }
