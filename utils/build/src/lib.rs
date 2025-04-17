@@ -14,8 +14,8 @@ fn build_program(program_name: &str, elf_name: &str, features: Option<Vec<String
         rustflags: vec![
             "-C".to_string(),
             "opt-level=3".to_string(),
-            "-C".to_string(),
-            "lto=fat".to_string(),
+            // "-C".to_string(),
+            // "lto=fat".to_string(), // Not compatible with embed-bitcode=no
             "-C".to_string(),
             "codegen-units=1".to_string(),
         ],
