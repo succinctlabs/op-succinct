@@ -137,20 +137,33 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
                     if to_addr == batch_inbox_address {
                         let calldata = tx.input();
 
-                        // Check that the DA layer byte prefix is correct.
-                        // https://github.com/ethereum-optimism/specs/discussions/135.
-                        if calldata[2] != 0x0c {
-                            return Err(anyhow!("Invalid prefix for Celestia batch transaction"));
-                        }
-
-                        // The encoding of the commitment is the Celestia block height followed by
-                        // the Celestia commitment.
-                        let height_bytes = &calldata[3..11];
-                        let celestia_height = u64::from_le_bytes(height_bytes.try_into().unwrap());
-
-                        if celestia_height < latest_celestia_block {
+                        // Check version byte to determine if it is ETH DA or Alt DA.
+                        // https://specs.optimism.io/protocol/derivation.html#batcher-transaction-format.
+                        if calldata[0] == 0x00 {
                             found_valid_tx = true;
-                            l2_block_number = Some(l2_safe_head_number);
+                            l2_block_number =
+                                Some(fetcher.get_l2_header(BlockId::finalized()).await?.number);
+                        } else if calldata[0] == 0x01 {
+                            // Check that the DA layer byte prefix is correct.
+                            // https://github.com/ethereum-optimism/specs/discussions/135.
+                            if calldata[2] != 0x0c {
+                                return Err(anyhow!(
+                                    "Invalid prefix for Celestia batcher transaction"
+                                ));
+                            }
+
+                            // The encoding of the commitment is the Celestia block height followed
+                            // by the Celestia commitment.
+                            let height_bytes = &calldata[3..11];
+                            let celestia_height =
+                                u64::from_le_bytes(height_bytes.try_into().unwrap());
+
+                            if celestia_height < latest_celestia_block {
+                                found_valid_tx = true;
+                                l2_block_number = Some(l2_safe_head_number);
+                            }
+                        } else {
+                            return Err(anyhow!("Invalid version byte for batcher transaction"));
                         }
                     }
                 }
