@@ -28,8 +28,3 @@ tracing-subscriber = { workspace = true, optional = true }
 embedded = ["sp1-zkvm/embedded"]
 tracing-subscriber = ["dep:tracing-subscriber"]
 celestia = ["op-succinct-client-utils/celestia"]
-
-[target.'cfg(target_os = "zkvm")'.profile.release.range]
-codegen-units = 1
-opt-level = 3
-lto = "fat"
