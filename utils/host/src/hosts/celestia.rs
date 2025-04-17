@@ -71,7 +71,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
     }
 
     /// Converts the latest Celestia block height in Blobstream to the highest L2 block that can be
-    /// included in a rnage proof.
+    /// included in a range proof.
     ///
     /// 1. Get the latest Celestia block included in a Blobstream commitment.
     /// 2. Loop over the `BatchInbox` from the l1 origin of the latest proposed block number to the
