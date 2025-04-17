@@ -18,7 +18,7 @@ alloy-sol-types.workspace = true
 serde_cbor.workspace = true
 bincode.workspace = true
 
-[target.'cfg(target_os = "zkvm")'.profile.release]
+[target.'cfg(target_os = "zkvm")'.profile.release.aggregation]
 codegen-units = 1
 opt-level = 3
 lto = "fat"
