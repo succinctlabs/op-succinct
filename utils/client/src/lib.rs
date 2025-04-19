@@ -12,4 +12,6 @@ extern crate alloc;
 
 pub mod client;
 
+pub mod eigenda_client;
+
 pub mod witness;

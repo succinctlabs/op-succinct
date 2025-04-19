@@ -29,6 +29,12 @@ kona-derive.workspace = true
 # hana
 hana-host = { workspace = true, optional = true }
 
+# hokulea
+hokulea-proof.workspace = true
+hokulea-client-bin.workspace = true
+hokulea-host-bin.workspace = true
+hokulea-eigenda.workspace = true
+
 # alloy
 alloy-provider.workspace = true
 alloy-rlp.workspace = true

@@ -13,6 +13,7 @@ use op_succinct_client_utils::{
     boot::BootInfoStruct, client::run_witness_client, witness::WitnessData,
 };
 use rkyv::rancor::Error;
+use hokulea_proof::{eigenda_blob_witness::EigenDABlobWitnessData, preloaded_eigenda_provider::PreloadedEigenDABlobProvider};
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
