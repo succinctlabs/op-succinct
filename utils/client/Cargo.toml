@@ -31,7 +31,6 @@ hana-oracle = { workspace = true, optional = true }
 # hokulea
 hokulea-eigenda.workspace = true
 hokulea-proof.workspace = true
-hokulea-host-bin.workspace = true
 
 # general
 anyhow.workspace = true
@@ -43,6 +42,7 @@ sha2.workspace = true
 tracing.workspace = true
 itertools.workspace = true
 spin.workspace = true
+serde_cbor.workspace = true
 
 # kzg
 kzg-rs.workspace = true

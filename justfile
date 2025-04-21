@@ -40,16 +40,15 @@ cost-estimator *args='':
   L2_NODE_RPC="$(kurtosis port print eigenda-devnet op-cl-1-op-node-op-geth-op-kurtosis http)"
   EIGENDA_PROXY_ADDRESS="$(kurtosis port print eigenda-devnet da-server-op-kurtosis http)"
   set +a
-  echo $EIGENDA_PROXY_ADDRESS
 
   if [ -z "{{args}}" ]; then
-    cargo run --bin cost-estimator --release
+    cargo run --bin cost-estimator --release -vv
   else
-    cargo run --bin cost-estimator --release -- {{args}}
+    cargo run --bin cost-estimator --release -vv -- {{args}} 
   fi
 
   # Output the data required for the ZKVM execution.
-  echo "$L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
+  echo "address $L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
 
 upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
   #!/usr/bin/env bash

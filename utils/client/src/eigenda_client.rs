@@ -22,9 +22,33 @@ use std::{fmt::Debug, sync::Arc};
 use tracing::{error, info, warn};
 
 use crate::{precompiles::zkvm_handle_register, witness::WitnessData, BlobStore};
+use hokulea_proof::{eigenda_blob_witness::EigenDABlobWitnessData, preloaded_eigenda_provider::PreloadedEigenDABlobProvider};
 
 use hokulea_proof::pipeline::OraclePipeline;
 use hokulea_eigenda::EigenDABlobProvider;
+
+/// Runs the OP Succinct client using the given witness data.
+pub async fn run_witness_eigenda_client(witness: WitnessData) -> Result<BootInfo> {
+    println!("cycle-tracker-report-start: oracle-verify");
+    // Check the preimages in the witness are valid.
+    witness.preimage_store.check_preimages().expect("Failed to validate preimages");
+    println!("cycle-tracker-report-end: oracle-verify");
+
+    // Create an Arc of the preimage store.
+    let oracle = Arc::new(witness.preimage_store);
+
+    // Create a BlobStore from the blobs in the witness and verifies them for correctness.
+    println!("cycle-tracker-report-start: blob-verification");
+    let beacon = BlobStore::from(witness.blob_data);
+    println!("cycle-tracker-report-end: blob-verification");
+
+    let eigenda_witness: EigenDABlobWitnessData = serde_cbor::from_slice(&&witness.eigenda_data).expect("cannot deserialize eigenda witness");
+
+    let preloaded_eigenda_provider: PreloadedEigenDABlobProvider = eigenda_witness.into();
+
+    // Run the client.
+    run_opsuccinct_eigenda_client(oracle, beacon, preloaded_eigenda_provider).await
+}
 
 // Sourced from https://github.com/op-rs/kona/tree/main/bin/client/src/single.rs
 /// Runs the OP Succinct client using the given oracle and blob provider.

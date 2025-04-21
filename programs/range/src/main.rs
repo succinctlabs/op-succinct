@@ -10,10 +10,9 @@
 sp1_zkvm::entrypoint!(main);
 
 use op_succinct_client_utils::{
-    boot::BootInfoStruct, client::run_witness_client, witness::WitnessData,
+    boot::BootInfoStruct, client::run_witness_client, witness::WitnessData, eigenda_client::run_witness_eigenda_client
 };
 use rkyv::rancor::Error;
-use hokulea_proof::{eigenda_blob_witness::EigenDABlobWitnessData, preloaded_eigenda_provider::PreloadedEigenDABlobProvider};
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
@@ -33,7 +32,7 @@ fn main() {
         let witness_data = rkyv::from_bytes::<WitnessData, Error>(&witness_rkyv_bytes)
             .expect("Failed to deserialize witness data.");
 
-        let boot_info = run_witness_client(witness_data)
+        let boot_info = run_witness_eigenda_client(witness_data)
             .await
             .expect("Failed to run client with witness data.");
 
