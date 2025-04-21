@@ -3573,7 +3573,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd#4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=8e4e606edb7071b3dab197d00cd028fae7c15f5b#8e4e606edb7071b3dab197d00cd028fae7c15f5b"
 dependencies = [
  "alloy-consensus 0.12.6",
  "hokulea-eigenda",
@@ -3590,7 +3590,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd#4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=8e4e606edb7071b3dab197d00cd028fae7c15f5b#8e4e606edb7071b3dab197d00cd028fae7c15f5b"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -3609,7 +3609,7 @@ dependencies = [
 [[package]]
 name = "hokulea-compute-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd#4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=8e4e606edb7071b3dab197d00cd028fae7c15f5b#8e4e606edb7071b3dab197d00cd028fae7c15f5b"
 dependencies = [
  "alloy-primitives",
  "num",
@@ -3620,7 +3620,7 @@ dependencies = [
 [[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd#4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=8e4e606edb7071b3dab197d00cd028fae7c15f5b#8e4e606edb7071b3dab197d00cd028fae7c15f5b"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3638,7 +3638,7 @@ dependencies = [
 [[package]]
 name = "hokulea-host-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd#4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=8e4e606edb7071b3dab197d00cd028fae7c15f5b#8e4e606edb7071b3dab197d00cd028fae7c15f5b"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3663,7 +3663,7 @@ dependencies = [
 [[package]]
 name = "hokulea-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd#4a4026a88a9c2595bedcb6f553d2e7d9e9a02cfd"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=8e4e606edb7071b3dab197d00cd028fae7c15f5b#8e4e606edb7071b3dab197d00cd028fae7c15f5b"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -5608,7 +5608,6 @@ dependencies = [
  "cfg-if",
  "hana-oracle",
  "hokulea-eigenda",
- "hokulea-host-bin",
  "hokulea-proof",
  "itertools 0.13.0",
  "kona-derive",
@@ -5625,6 +5624,7 @@ dependencies = [
  "revm",
  "rkyv",
  "serde",
+ "serde_cbor",
  "serde_json",
  "sha2 0.10.8",
  "spin 0.9.8",
@@ -6803,6 +6803,7 @@ name = "range"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "hokulea-proof",
  "kona-proof",
  "op-succinct-client-utils",
  "rkyv",

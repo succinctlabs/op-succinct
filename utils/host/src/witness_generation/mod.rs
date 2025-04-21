@@ -2,7 +2,6 @@ mod online_blob_store;
 mod preimage_witness_collector;
 
 use anyhow::Result;
-use hokulea_proof::eigenda_blob_witness;
 use hokulea_eigenda::EigenDABlobProvider;
 use hokulea_proof::eigenda_blob_witness::EigenDABlobWitnessData;
 use hokulea_client_bin::witness::OracleEigenDAWitnessProvider;
@@ -81,15 +80,14 @@ where
 
     let boot = run_opsuccinct_eigenda_client(oracle, beacon, eigenda_blob_and_witness_provider).await?;    
 
-    let witness = core::mem::take(eigenda_blobs_witness.lock().unwrap().deref_mut());       
+    let eigenda_witness = core::mem::take(eigenda_blobs_witness.lock().unwrap().deref_mut());       
 
-    let witness_byte = serde_cbor::to_vec(&witness)?;
+    let eigenda_witness_byte = serde_cbor::to_vec(&eigenda_witness)?;
 
     let witness = WitnessData {
         preimage_store: preimage_witness_store.lock().unwrap().clone(),
         blob_data: blob_data.lock().unwrap().clone(),
-        // TODO populate
-        eigenda_data: witness_byte,
+        eigenda_data: eigenda_witness_byte,
     };
 
     Ok((boot, witness))
