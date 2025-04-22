@@ -28,6 +28,9 @@ cfg_if::cfg_if! {
         use hana_oracle::{
             pipeline::OraclePipeline as CelestiaOraclePipeline, provider::OracleCelestiaProvider,
         };
+    } else if #[cfg(feature = "eigenda")] {
+        use hokulea_proof::{preloaded_eigenda_provider::PreloadedEigenDABlobProvider, pipeline::OraclePipeline as EigenDAOraclePipeline, eigenda_blob_witness::EigenDABlobWitnessData};
+        use hokulea_eigenda::EigenDABlobProvider;
     } else {
         use kona_proof::l1::OraclePipeline;
     }
@@ -48,16 +51,31 @@ pub async fn run_witness_client(witness: WitnessData) -> Result<BootInfo> {
     let beacon = BlobStore::from(witness.blob_data);
     println!("cycle-tracker-report-end: blob-verification");
 
+    let eigenda = match witness.eigenda_data {
+        Some(data) => {
+            let eigenda_witness: EigenDABlobWitnessData =
+                serde_cbor::from_slice(&data).expect("cannot deserialize eigenda witness");
+            let preloaded_eigenda_provider: PreloadedEigenDABlobProvider = eigenda_witness.into();
+            Some(preloaded_eigenda_provider)
+        }
+        None => None,
+    };
+
     // Run the client.
-    run_opsuccinct_client(oracle, beacon).await
+    run_opsuccinct_client(oracle, beacon, eigenda).await
 }
 
 // Sourced from https://github.com/op-rs/kona/tree/main/bin/client/src/single.rs
 /// Runs the OP Succinct client using the given oracle and blob provider.
-pub async fn run_opsuccinct_client<O, B>(oracle: Arc<O>, beacon: B) -> Result<BootInfo>
+pub async fn run_opsuccinct_client<O, B, E>(
+    oracle: Arc<O>,
+    beacon: B,
+    eigenda: Option<E>,
+) -> Result<BootInfo>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
     B: BlobProvider + Send + Sync + Debug + Clone,
+    E: EigenDABlobProvider + Send + Sync + Debug + Clone,
 {
     ////////////////////////////////////////////////////////////////
     //                          PROLOGUE                          //
@@ -114,30 +132,40 @@ where
     l2_provider.set_cursor(cursor.clone());
 
     let pipeline = {
-        #[cfg(feature = "celestia")]
-        {
-            CelestiaOraclePipeline::new(
-                rollup_config.clone(),
-                cursor.clone(),
-                oracle.clone(),
-                beacon,
-                l1_provider.clone(),
-                l2_provider.clone(),
-                OracleCelestiaProvider::new(oracle.clone()),
-            )
-            .await?
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            OraclePipeline::new(
-                rollup_config.clone(),
-                cursor.clone(),
-                oracle.clone(),
-                beacon,
-                l1_provider.clone(),
-                l2_provider.clone(),
-            )
-            .await?
+        cfg_if::cfg_if! {
+                if #[cfg(feature = "celestia")] {
+                    CelestiaOraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                    OracleCelestiaProvider::new(oracle.clone()),
+                )
+                .await?
+            } else if #[cfg(feature = "eigenda")] {
+                EigenDAOraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                    eigenda.expect("EigenDABlobProvider is required"),
+                )
+                .await?
+            } else {
+                OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                )
+                .await?
+            }
         }
     };
     let executor = KonaExecutor::new(

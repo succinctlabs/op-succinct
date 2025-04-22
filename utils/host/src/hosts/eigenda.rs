@@ -1,45 +1,51 @@
 use std::sync::Arc;
 
+use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use async_trait::async_trait;
 use kona_preimage::BidirectionalChannel;
-use alloy_eips::BlockId;
 use op_succinct_client_utils::witness::WitnessData;
 
-use crate::fetcher::OPSuccinctDataFetcher;
-use crate::hosts::OPSuccinctHost;
+use crate::{fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost};
 use anyhow::Result;
 
 use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
 
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 
-
-
-
-use crate::witness_generation::eigenda_witness_gen::generate_opsuccinct_eigenda_witness;
+use crate::witness_generation::witness_generator::{EigenDAWitnessGenerator, WitnessGenerator};
 use hokulea_proof::eigenda_provider::OracleEigenDAProvider;
-
 
 use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 
 #[derive(Clone)]
 pub struct EigenDAOPSuccinctHost {
-    pub fetcher: Arc<OPSuccinctDataFetcher>,    
+    pub fetcher: Arc<OPSuccinctDataFetcher>,
+    pub witness_generator: Arc<EigenDAWitnessGenerator>,
 }
 
 #[async_trait]
 impl OPSuccinctHost for EigenDAOPSuccinctHost {
     type Args = SingleChainHostWithEigenDA;
+    type WitnessGenerator = EigenDAWitnessGenerator;
 
+    fn witness_generator(&self) -> &Self::WitnessGenerator {
+        &self.witness_generator
+    }
+
+    /// Run the host and client program.
+    ///
+    /// Returns the witness which can be supplied to the zkVM.
     async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
-        
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;
 
         let server_task = args.start_server(hint.host, preimage.host).await?;
-        let witness = Self::run_eigenda_witnessgen_client(preimage.client, hint.client).await?;
-        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both tasks to complete.
+
+        let witness =
+            self.witness_generator().run_witnessgen_client(preimage.client, hint.client).await?;
+        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
+        // tasks to complete.
         server_task.abort();
 
         Ok(witness)
@@ -63,11 +69,7 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
             .await?;
 
         let eigenda_proxy_address = std::env::var("EIGENDA_PROXY_ADDRESS").ok();
-        Ok(SingleChainHostWithEigenDA{
-            kona_cfg: host,
-            eigenda_proxy_address: eigenda_proxy_address,
-            verbose: 1,
-        })
+        Ok(SingleChainHostWithEigenDA { kona_cfg: host, eigenda_proxy_address, verbose: 1 })
     }
 
     async fn get_finalized_l2_block_number(
@@ -86,26 +88,6 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
 
 impl EigenDAOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher }
-    }
-
-    /// Run the witness generation client.
-    async fn run_eigenda_witnessgen_client(        
-        preimage_chan: NativeChannel,
-        hint_chan: NativeChannel,
-    ) -> Result<WitnessData> {        
-        // Instantiate oracles
-        let preimage_oracle = Arc::new(CachingOracle::new(
-            2048,
-            OracleReader::new(preimage_chan),
-            HintWriter::new(hint_chan),
-        ));
-        let blob_provider = OracleBlobProvider::new(preimage_oracle.clone());        
-
-        let eigenda_blob_provider = OracleEigenDAProvider::new(preimage_oracle.clone());        
-
-        let (_, witness) = generate_opsuccinct_eigenda_witness(preimage_oracle.clone(), blob_provider, eigenda_blob_provider).await?;    
-                    
-        Ok(witness)
+        Self { fetcher, witness_generator: Arc::new(EigenDAWitnessGenerator) }
     }
 }

@@ -7,9 +7,8 @@ use std::fmt::Debug;
 #[derive(Clone, Debug, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct WitnessData {
     pub preimage_store: preimage_store::PreimageStore,
-    pub blob_data: BlobData,  
-    #[cfg(feature = "eigenda")]  
-    pub eigenda_data: Vec<u8>, //EigenDABlobWitnessData
+    pub blob_data: BlobData,
+    pub eigenda_data: Option<Vec<u8>>, //EigenDABlobWitnessData
 }
 
 #[derive(

@@ -13,6 +13,3 @@ extern crate alloc;
 pub mod client;
 
 pub mod witness;
-
-#[cfg(feature = "eigenda")]
-pub mod eigenda_client;

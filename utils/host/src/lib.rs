@@ -15,7 +15,7 @@ pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf"
 pub const CELESTIA_RANGE_ELF_EMBEDDED: &[u8] =
     include_bytes!("../../../elf/celestia-range-elf-embedded");
 
-pub const EIGENDA_RANGE_ELF_EMBEDDED: &[u8] = 
+pub const EIGENDA_RANGE_ELF_EMBEDDED: &[u8] =
     include_bytes!("../../../elf/eigenda-range-elf-embedded");
 
 /// Get the range ELF depending on the feature flag.
