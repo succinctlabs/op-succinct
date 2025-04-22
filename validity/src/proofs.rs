@@ -1,5 +1,6 @@
 use alloy_primitives::hex::FromHex;
 use alloy_primitives::FixedBytes;
+use bincode::Options;
 use tonic::{Request, Response, Status};
 use tracing::info;
 
@@ -174,7 +175,11 @@ where
                 .expect("Failed to generate mock proof");
 
             // If it's a compressed proof, we need to serialize the entire struct with bincode.
-            let proof_bytes = bincode::serialize(&proof).unwrap();
+            let proof_bytes = bincode::DefaultOptions::new()
+                .with_big_endian()
+                .with_fixint_encoding()
+                .serialize(&proof)
+                .unwrap();
 
             reply = AggProofResponse {
                 success: true,
