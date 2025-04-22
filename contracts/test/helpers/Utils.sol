@@ -11,7 +11,7 @@ import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOra
 contract Utils is Test, JSONDecoder {
     function deployWithConfig(Config memory cfg) public returns (address) {
         if (cfg.opSuccinctL2OutputOracleImpl == address(0)) {
-            cfg.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+            cfg.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle(address(0), bytes32(0), bytes32(0)));
         }
 
         Proxy l2OutputOracleProxy = new Proxy(msg.sender);

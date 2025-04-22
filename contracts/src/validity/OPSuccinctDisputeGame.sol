@@ -3,18 +3,16 @@ pragma solidity ^0.8.15;
 
 import {OPSuccinctL2OutputOracle} from "./OPSuccinctL2OutputOracle.sol";
 import {Clone} from "@solady/utils/Clone.sol";
+
 import {ISemver} from "interfaces/universal/ISemver.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {Claim, GameStatus, GameType, GameTypes, Hash, Timestamp} from "@optimism/src/dispute/lib/Types.sol";
 import {GameNotInProgress, OutOfOrderResolution} from "@optimism/src/dispute/lib/Errors.sol";
 
 contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
-    ////////////////////////////////////////////////////////////////
-    //                         Events                             //
-    ////////////////////////////////////////////////////////////////
 
     /// @notice The address of the L2 output oracle proxy contract.
-    address internal immutable L2_OUTPUT_ORACLE;
+    address internal immutable l2OutputOracle;
 
     /// @notice The timestamp of the game's global creation.
     Timestamp public createdAt;
@@ -29,11 +27,11 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     bool public wasRespectedGameTypeWhenCreated;
 
     /// @notice Semantic version.
-    /// @custom:semver v2.0.0-beta
-    string public constant version = "v2.0.0-beta";
+    /// @custom:semver v1.0.0-beta
+    string public constant version = "v1.0.0-beta";
 
     constructor(address _l2OutputOracle) {
-        L2_OUTPUT_ORACLE = _l2OutputOracle;
+        l2OutputOracle = _l2OutputOracle;
     }
 
     ////////////////////////////////////////////////////////////
@@ -41,15 +39,23 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ////////////////////////////////////////////////////////////
 
     function initialize() external payable {
+        // TODO (aleph) - Need to check that this is actually needed, since the main branch does not have it
+        require(Timestamp.unwrap(createdAt) == 0, "Already initialized");
+
         createdAt = Timestamp.wrap(uint64(block.timestamp));
         status = GameStatus.IN_PROGRESS;
         wasRespectedGameTypeWhenCreated = true;
 
-        OPSuccinctL2OutputOracle(L2_OUTPUT_ORACLE).proposeL2Output(
-            rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
-        );
+        (bool proposed, bool finalized) = OPSuccinctL2OutputOracle(l2OutputOracle).checkIfFinalized(rootClaim().raw());
 
-        this.resolve();
+        // We can check ahead of time
+        if (proposed && finalized) {
+            _resolve(GameStatus.DEFENDER_WINS);
+        } else if (!proposed) {
+            // The sequencer is REQUIRED to sequence the claimed root into the L2 output oracle BEFORE submitting to sequencing
+            _resolve(GameStatus.CHALLENGER_WINS);
+        }
+        // If the game hasn't been finalized we need to wait for the finalization so we leave the game as pending
     }
 
     /// @notice Getter for the game type.
@@ -57,7 +63,10 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     ///      i.e. The game type should indicate the security model.
     /// @return gameType_ The type of proof system being used.
     function gameType() public pure returns (GameType) {
-        return GameTypes.OP_SUCCINCT;
+        // TODO: Once a new version of the Optimism contracts containing the PR below is released,
+        // update this to return the correct game type: GameTypes.OP_SUCCINCT
+        // https://github.com/ethereum-optimism/optimism/pull/13780
+        return GameType.wrap(6);
     }
 
     /// @notice Getter for the creator of the dispute game.
@@ -81,48 +90,6 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         return Hash.wrap(_getArgBytes32(0x34));
     }
 
-    /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
-    function l2BlockNumber() public pure returns (uint256 l2BlockNumber_) {
-        l2BlockNumber_ = _getArgUint256(0x54);
-    }
-
-    /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
-    function l1BlockNumber() public pure returns (uint256 l1BlockNumber_) {
-        l1BlockNumber_ = _getArgUint256(0x74);
-    }
-
-    /// @notice The prover address of the disputed output root in the `L2OutputOracle`.
-    function proverAddress() public pure returns (address proverAddress_) {
-        proverAddress_ = _getArgAddress(0x94);
-    }
-
-    /// @notice The prover address of the disputed output root in the `L2OutputOracle`.
-    function proof() public pure returns (bytes memory proof_) {
-        uint256 len;
-        assembly {
-            // 0xA8 is the starting point of the proof in the calldata.
-            // calldataload(sub(calldatasize(), 2)) loads the last 2 bytes of the calldata, which gives the length of the immutable args.
-            // shr(240, calldataload(sub(calldatasize(), 2))) masks the last 30 bytes loaded in the previous step, so only the length of the immutable args is left.
-            // sub(sub(...)) subtracts the length of the immutable args (2 bytes) and the starting point of the proof (0xA8).
-            len := sub(sub(shr(240, calldataload(sub(calldatasize(), 2))), 2), 0xA8)
-        }
-        proof_ = _getArgBytes(0xA8, len);
-    }
-
-    /// @notice Getter for the extra data.
-    /// @dev `clones-with-immutable-args` argument #4
-    /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function extraData() public pure returns (bytes memory extraData_) {
-        uint256 len;
-        assembly {
-            // 0x54 is the starting point of the extra data in the calldata.
-            // calldataload(sub(calldatasize(), 2)) loads the last 2 bytes of the calldata, which gives the length of the immutable args.
-            // shr(240, calldataload(sub(calldatasize(), 2))) masks the last 30 bytes loaded in the previous step, so only the length of the immutable args is left.
-            // sub(sub(...)) subtracts the length of the immutable args (2 bytes) and the starting point of the extra data (0x54).
-            len := sub(sub(shr(240, calldataload(sub(calldatasize(), 2))), 2), 0x54)
-        }
-        extraData_ = _getArgBytes(0x54, len);
-    }
 
     /// @notice If all necessary information has been gathered, this function should mark the game
     ///         status as either `CHALLENGER_WINS` or `DEFENDER_WINS` and return the status of
@@ -134,11 +101,42 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         // INVARIANT: Resolution cannot occur unless the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
 
-        resolvedAt = Timestamp.wrap(uint64(block.timestamp));
-        status_ = GameStatus.DEFENDER_WINS;
+        (bool proposed, bool finalized) = OPSuccinctL2OutputOracle(l2OutputOracle).checkIfFinalized(rootClaim().raw());
 
-        emit Resolved(status = status_);
+        // We pick the game resolution based on if a root with higher number has finalized or this one has finalized
+        if (proposed && finalized) {
+            _resolve(GameStatus.DEFENDER_WINS);
+            return(GameStatus.DEFENDER_WINS);
+        } else if (!proposed) {
+            // We hit this case only when the root was proposed into the L2 oracle but was challenged successfully, so should be rolled back
+            _resolve(GameStatus.CHALLENGER_WINS);
+            return(GameStatus.CHALLENGER_WINS);
+        } else {
+            revert("Cannot Resolve");
+        }
     }
+
+    /// @notice Internal resolve function: sets the status, emits a resolution and sets all state variables
+    /// @param _status The status to resolve as
+    function _resolve(GameStatus _status) internal {
+        resolvedAt = Timestamp.wrap(uint64(block.timestamp));
+        status = _status;
+
+        emit Resolved(_status);
+    }
+
+    /// @notice Getter for the extra data.
+    /// @dev `clones-with-immutable-args` argument #4
+    /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
+    function extraData() public pure returns (bytes memory extraData_) {
+        return new bytes(0);
+    }
+
+    /// @notice The l2BlockNumber of the disputed output root in the `L2OutputOracle`.
+    function l2BlockNumber() public pure returns (uint256 l2BlockNumber_) {
+        l2BlockNumber_ = _getArgUint256(0x54);
+    }
+
 
     /// @notice A compliant implementation of this interface should return the components of the
     ///         game UUID's preimage provided in the cwia payload. The preimage of the UUID is
@@ -150,16 +148,6 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
-        extraData_ = extraData();
-    }
-
-    ////////////////////////////////////////////////////////////////
-    //                     IMMUTABLE GETTERS                      //
-    ////////////////////////////////////////////////////////////////
-
-    /// @notice Getter for the L2OutputOracle.
-    /// @return l2OutputOracle_ The address of the L2OutputOracle.
-    function l2OutputOracle() external view returns (address l2OutputOracle_) {
-        l2OutputOracle_ = L2_OUTPUT_ORACLE;
+        extraData_ = new bytes(0);
     }
 }

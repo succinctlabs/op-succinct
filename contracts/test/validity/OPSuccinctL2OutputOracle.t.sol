@@ -28,6 +28,6 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         l2oo = OPSuccinctL2OutputOracle(0x5f0c7178CF4d7520f347d1334e5fc219da9b8Da4);
         l2oo.checkpointBlockHash(checkpointedL1BlockNum);
         vm.prank(OWNER);
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
+        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof);
     }
 }

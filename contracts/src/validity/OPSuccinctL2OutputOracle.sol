@@ -8,6 +8,8 @@ import {AggregationOutputs} from "../lib/Types.sol";
 import {Constants} from "@optimism/src/libraries/Constants.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 
+import "./FlatR0ImportV1.2.0.sol";
+
 /// @custom:proxied
 /// @title OPSuccinctL2OutputOracle
 /// @notice The OPSuccinctL2OutputOracle contains an array of L2 state outputs, where each output is a
@@ -33,7 +35,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     }
 
     /// @notice The number of the first L2 block recorded in this contract.
-
     uint256 public startingBlockNumber;
 
     /// @notice The timestamp of the first L2 block recorded in this contract.
@@ -49,10 +50,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The time between L2 blocks in seconds. Once set, this value MUST NOT be modified.
     /// @custom:network-specific
     uint256 public l2BlockTime;
-
-    /// @notice The address of the challenger. Can be updated via upgrade.
-    /// @custom:network-specific
-    address public challenger;
 
     /// @notice The address of the proposer. Can be updated via upgrade. DEPRECATED: Use approvedProposers mapping instead.
     /// @custom:network-specific
@@ -82,11 +79,35 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The proposers that can propose new proofs.
     mapping(address => bool) public approvedProposers;
 
-    /// @notice A trusted mapping of block numbers to block hashes.
+    /// @notice A trusted mapping of block numbers to block hashes, by blocknumber
     mapping(uint256 => bytes32) public historicBlockHashes;
 
-    /// @notice Activate optimistic mode. When true, the contract will accept outputs without verification.
-    bool public optimisticMode;
+    /// A struct which will pack the index and l1 block number into a single storage slot
+    struct l2RootData {
+        uint128 arrayIndex;
+        uint128 l1BlockNumber;
+    }
+
+    /// @notice A mapping which tracks which L1 roots where used by l2 output root proofs.
+    mapping(bytes32 => l2RootData) public usedL1Roots;
+
+    /// @notice The RISC Zero verifier contract
+    IRiscZeroVerifier public immutable RISC_ZERO_VERIFIER;
+
+    /// @notice The RISC Zero image id of the fault proof program
+    bytes32 public immutable FPVM_IMAGE_ID;
+
+    /// @notice The hash of the game configuration
+    bytes32 public immutable ROLLUP_CONFIG_HASH;
+
+    /// @notice The circuit breaker value: true if two zkps have disagreed about l2 outputs
+    bool public circuitBreaker = false;
+
+    /// @notice We want people to be able to continue using the rollup if the sequencer goes offline so we have to open this contract up
+    uint256 public constant MAX_SEQUENCER_TIME = 86400;
+
+    /// @notice The sequencer's last submission time
+    uint256 public proposerLastSeen;
 
     ////////////////////////////////////////////////////////////
     //                         Events                         //
@@ -141,11 +162,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param newSubmissionInterval The new submission interval.
     event SubmissionIntervalUpdated(uint256 oldSubmissionInterval, uint256 newSubmissionInterval);
 
-    /// @notice Emitted when the optimistic mode is toggled.
-    /// @param enabled Indicates whether optimistic mode is enabled or disabled.
-    /// @param finalizationPeriodSeconds The new finalization period in seconds.
-    event OptimisticModeToggled(bool indexed enabled, uint256 finalizationPeriodSeconds);
-
     ////////////////////////////////////////////////////////////
     //                         Errors                         //
     ////////////////////////////////////////////////////////////
@@ -158,11 +174,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     error L1BlockHashNotCheckpointed();
 
     /// @notice Semantic version.
-    /// @custom:semver v2.0.0
-    string public constant version = "v2.0.0";
+    /// @custom:semver v1.0.0
+    string public constant version = "v1.0.0";
 
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
-    uint8 public constant initializerVersion = 2;
+    uint8 public constant initializerVersion = 1;
 
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
@@ -173,22 +189,20 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         _;
     }
 
-    modifier whenOptimistic() {
-        require(optimisticMode, "L2OutputOracle: optimistic mode is not enabled");
-        _;
-    }
-
-    modifier whenNotOptimistic() {
-        require(!optimisticMode, "L2OutputOracle: optimistic mode is enabled");
-        _;
-    }
-
     ////////////////////////////////////////////////////////////
     //                        Functions                       //
     ////////////////////////////////////////////////////////////
 
     /// @notice Constructs the OPSuccinctL2OutputOracle contract. Disables initializers.
-    constructor() {
+    constructor(
+        address _verifierContract,
+        bytes32 _imageId,
+        bytes32 _configHash
+    ) {
+        RISC_ZERO_VERIFIER = IRiscZeroSetVerifier(_verifierContract);
+        FPVM_IMAGE_ID = _imageId;
+        ROLLUP_CONFIG_HASH = _configHash;
+
         _disableInitializers();
     }
 
@@ -220,7 +234,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             startingTimestamp = _initParams.startingTimestamp;
         }
 
-        challenger = _initParams.challenger;
         finalizationPeriodSeconds = _initParams.finalizationPeriodSeconds;
 
         // Add the initial proposer.
@@ -232,6 +245,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         verifier = _initParams.verifier;
         rollupConfigHash = _initParams.rollupConfigHash;
         owner = _initParams.owner;
+        proposerLastSeen = block.timestamp;
     }
 
     /// @notice Getter for the submissionInterval.
@@ -248,14 +262,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:legacy
     function L2_BLOCK_TIME() external view returns (uint256) {
         return l2BlockTime;
-    }
-
-    /// @notice Getter for the challenger address.
-    ///         Public getter is legacy and will be removed in the future. Use `challenger` instead.
-    /// @return Address of the challenger.
-    /// @custom:legacy
-    function CHALLENGER() external view returns (address) {
-        return challenger;
     }
 
     /// @notice Getter for the proposer address.
@@ -278,8 +284,16 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         the given output index. Only the challenger address can delete outputs.
     /// @param _l2OutputIndex Index of the first L2 output to be deleted.
     ///                       All outputs after this output will also be deleted.
-    function deleteL2Outputs(uint256 _l2OutputIndex) external {
-        require(msg.sender == challenger, "L2OutputOracle: only the challenger address can delete outputs");
+    /// @param computedOutputHash The output hash which the risc0 proof can prove. Since the opstack
+    ///                           fraud program is supposed to be deterministic deviance implies a bug.
+    /// @param  encodedSeal The risc0 proof which will be verified.
+    function deleteL2Outputs(
+        uint256 _l2OutputIndex,
+        bytes32 computedOutputHash,
+        bytes calldata encodedSeal
+    ) external {
+        // We don't restrict challenges because they must must pass risc0 backup proof submission.
+        // require(msg.sender == challenger, "L2OutputOracle: only the challenger address can delete outputs");
 
         // Make sure we're not *increasing* the length of the array.
         require(
@@ -292,12 +306,53 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: cannot delete outputs that have already been finalized"
         );
 
+        // We need to be claiming actual fraud
+        require(
+            l2Outputs[_l2OutputIndex].outputRoot != computedOutputHash,
+            "L2OutputOracle: Must prove fraud using different root"
+        );
+
+        uint256 formerL1BlockNumber = (uint256)(usedL1Roots[l2Outputs[_l2OutputIndex].outputRoot].l1BlockNumber);
+        bytes32 formerL1BlockHash = historicBlockHashes[formerL1BlockNumber];
+
+        // Construct the expected journal
+        {
+            uint64 claimedBlockNumber = (uint64)(l2Outputs[_l2OutputIndex].l2BlockNumber);
+            bytes32 priorRoot = l2Outputs[_l2OutputIndex - 1].outputRoot;
+            bytes32 journalDigest = sha256(
+                abi.encodePacked(
+                    // Leftover payment address from the Kailua Risc0 implementation which we don't use
+                    address(0x0),
+                    // No precondition hash
+                    bytes32(0x0),
+                    // The head of the L1 which was used in the proof which was submitted before.
+                    formerL1BlockHash,
+                    // The latest finalized L2 output root.
+                    priorRoot,
+                    // The L2 output root claim.
+                    computedOutputHash,
+                    // The L2 claim block number.
+                    claimedBlockNumber,
+                    // The rollup configuration hash
+                    ROLLUP_CONFIG_HASH,
+                    // The FPVM Image ID
+                    FPVM_IMAGE_ID
+                )
+            );
+
+            // reverts on failure
+            RISC_ZERO_VERIFIER.verify(encodedSeal, FPVM_IMAGE_ID, journalDigest);
+        }
+
         uint256 prevNextL2OutputIndex = nextOutputIndex();
 
         // Use assembly to delete the array elements because Solidity doesn't allow it.
         assembly {
             sstore(l2Outputs.slot, _l2OutputIndex)
         }
+
+        // We set the circuit breaker value to indicated that there was a bug
+        circuitBreaker = true;
 
         emit OutputsDeleted(prevNextL2OutputIndex, _l2OutputIndex);
     }
@@ -308,34 +363,19 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _outputRoot    The L2 output of the checkpoint block.
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockNumber The block number with the specified block hash.
-    /// @param _proof The aggregation proof that proves the transition from the latest L2 output to the new L2 output.
-    /// @param _proverAddress The address of the prover that submitted the proof. Note: proverAddress is not required to be the tx.origin as there is no reason to front-run the prover in the full validity setting.
     /// @dev Modified the function signature to exclude the `_l1BlockHash` parameter, as it's redundant
-    ///      for OP Succinct given the `_l1BlockNumber` parameter.
-    /// @dev Security Note: This contract uses `tx.origin` for proposer permission control due to usage of this contract
-    ///      in the OPSuccinctDisputeGame, created via DisputeGameFactory using the Clone With Immutable Arguments (CWIA) pattern.
-    ///
-    ///      In this setup:
-    ///      - `msg.sender` is the newly created game contract, not an approved proposer.
-    ///      - `tx.origin` identifies the actual user initiating the transaction.
-    ///
-    ///      While `tx.origin` can be vulnerable in general, it is safe here because:
-    ///      - Only trusted proposers/relayers call this contract.
-    ///      - Proposers are expected to interact solely with trusted contracts.
-    ///
-    ///      As long as proposers avoid untrusted contracts, `tx.origin` is as secure as `msg.sender` in this context.
-    function proposeL2Output(
-        bytes32 _outputRoot,
-        uint256 _l2BlockNumber,
-        uint256 _l1BlockNumber,
-        bytes memory _proof,
-        address _proverAddress
-    ) external payable whenNotOptimistic {
+    /// for OP Succinct given the `_l1BlockNumber` parameter.
+    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof)
+        external
+        payable
+    {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
-        require(
-            approvedProposers[tx.origin] || approvedProposers[address(0)],
-            "L2OutputOracle: only approved proposers can propose new outputs"
-        );
+        if(!approvedProposers[msg.sender] && !approvedProposers[address(0)]) {
+            require(block.timestamp - proposerLastSeen > MAX_SEQUENCER_TIME, "Must be an approved Proposer");
+        } else {
+            // An approved proposer called so we can update the last seen time
+            proposerLastSeen == block.timestamp;
+        }
 
         require(
             _l2BlockNumber >= nextBlockNumber(),
@@ -353,6 +393,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         if (l1BlockHash == bytes32(0)) {
             revert L1BlockHashNotCheckpointed();
         }
+        // We store the index of this outputRoot and its l1BlockNumber
+        usedL1Roots[_outputRoot] = l2RootData({
+            arrayIndex: (uint128)(nextOutputIndex()),
+            l1BlockNumber: (uint128)(_l1BlockNumber)
+        });
 
         AggregationOutputs memory publicValues = AggregationOutputs({
             l1Head: l1BlockHash,
@@ -361,70 +406,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             claimBlockNum: _l2BlockNumber,
             rollupConfigHash: rollupConfigHash,
             rangeVkeyCommitment: rangeVkeyCommitment,
-            proverAddress: _proverAddress
+            proverAddress: address(0)
         });
 
         ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
-
-        emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
-
-        l2Outputs.push(
-            Types.OutputProposal({
-                outputRoot: _outputRoot,
-                timestamp: uint128(block.timestamp),
-                l2BlockNumber: uint128(_l2BlockNumber)
-            })
-        );
-    }
-
-    /// @notice Accepts an outputRoot and the timestamp of the corresponding L2 block.
-    ///         The timestamp must be equal to the current value returned by `nextTimestamp()` in
-    ///         order to be accepted. This function may only be called by the Proposer.
-    /// @param _outputRoot    The L2 output of the checkpoint block.
-    /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
-    /// @param _l1BlockHash   A block hash which must be included in the current chain.
-    /// @param _l1BlockNumber The block number with the specified block hash.
-    /// @dev This function is sourced from the original L2OutputOracle contract. The only modification is that the proposer address must be in the approvedProposers mapping, or permissionless proposing is enabled.
-    /// @dev This function is not compatible with the `OPSuccinctDisputeGame` contract as it uses `msg.sender` for proposer permission control.
-    ///      See `whenNotOptimistic` implementation of `proposeL2Output` for more details.
-    ///      If the functionality for optimistic mode is needed in the `OPSuccinctDisputeGame` contract, use mock mode instead.
-    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, bytes32 _l1BlockHash, uint256 _l1BlockNumber)
-        external
-        payable
-        whenOptimistic
-    {
-        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
-        require(
-            approvedProposers[msg.sender] || approvedProposers[address(0)],
-            "L2OutputOracle: only approved proposers can propose new outputs"
-        );
-
-        require(
-            _l2BlockNumber == nextBlockNumber(),
-            "L2OutputOracle: block number must be equal to next expected block number"
-        );
-
-        require(
-            computeL2Timestamp(_l2BlockNumber) < block.timestamp,
-            "L2OutputOracle: cannot propose L2 output in the future"
-        );
-
-        require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
-
-        if (_l1BlockHash != bytes32(0)) {
-            // This check allows the proposer to propose an output based on a given L1 block,
-            // without fear that it will be reorged out.
-            // It will also revert if the blockheight provided is more than 256 blocks behind the
-            // chain tip (as the hash will return as zero). This does open the door to a griefing
-            // attack in which the proposer's submission is censored until the block is no longer
-            // retrievable, if the proposer is experiencing this attack it can simply leave out the
-            // blockhash value, and delay submission until it is confident that the L1 block is
-            // finalized.
-            require(
-                blockhash(_l1BlockNumber) == _l1BlockHash,
-                "L2OutputOracle: block hash does not match the hash at the expected height"
-            );
-        }
 
         emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
 
@@ -453,6 +438,25 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @return The output at the given index.
     function getL2Output(uint256 _l2OutputIndex) external view returns (Types.OutputProposal memory) {
         return l2Outputs[_l2OutputIndex];
+    }
+
+    /// @notice Checks if (1) the root asked for is in the array of finalized outputs and (2) that the root has had a challenge period pass
+    /// @param claimedRoot The claimed l2 output root
+    /// @return exists - True if the index of the l2 blocknumber in the proposals array matches claimed root
+    ///                  finalized is true if that entry is at least "finalizationPeriodSeconds" old (not reliable if the root doesn't exist)
+    function checkIfFinalized(bytes32 claimedRoot) external view returns(bool exists, bool finalized) {
+        // Does a binary search over the proposed and proved L2 roots
+        uint256 index = uint256(usedL1Roots[claimedRoot].arrayIndex);
+        if (index >= l2Outputs.length) {
+            // This case only happens when the root was proved, then challenged so it is not proposed or finalized
+            return (false, false);
+        }
+        // Check that the root at this index is still the claimed root. (Note - in some edge cases this check is important)
+        bool isProposed = l2Outputs[index].outputRoot == claimedRoot;
+        // Now we see if this root is finalized
+        bool isFinalized = (block.timestamp - l2Outputs[index].timestamp) < finalizationPeriodSeconds;
+
+        return (isProposed, isFinalized);
     }
 
     /// @notice Returns the index of the L2 output that checkpoints a given L2 block number.
@@ -582,21 +586,5 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function removeProposer(address _proposer) external onlyOwner {
         approvedProposers[_proposer] = false;
         emit ProposerUpdated(_proposer, false);
-    }
-
-    /// @notice Enables optimistic mode.
-    /// @param _finalizationPeriodSeconds The new finalization window.
-    function enableOptimisticMode(uint256 _finalizationPeriodSeconds) external onlyOwner whenNotOptimistic {
-        finalizationPeriodSeconds = _finalizationPeriodSeconds;
-        optimisticMode = true;
-        emit OptimisticModeToggled(true, _finalizationPeriodSeconds);
-    }
-
-    /// @notice Disables optimistic mode.
-    /// @param _finalizationPeriodSeconds The new finalization window.
-    function disableOptimisticMode(uint256 _finalizationPeriodSeconds) external onlyOwner whenOptimistic {
-        finalizationPeriodSeconds = _finalizationPeriodSeconds;
-        optimisticMode = false;
-        emit OptimisticModeToggled(false, _finalizationPeriodSeconds);
     }
 }

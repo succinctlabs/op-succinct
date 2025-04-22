@@ -23,7 +23,7 @@ contract OPSuccinctDeployer is Script, Utils {
         // Set the implementation address if it is not already set.
         if (config.opSuccinctL2OutputOracleImpl == address(0)) {
             console.log("Deploying new OPSuccinctL2OutputOracle impl");
-            config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+            config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle(address(0), bytes32(0), bytes32(0)));
         }
 
         // If the Admin PK is set, use it as the owner of the proxy.

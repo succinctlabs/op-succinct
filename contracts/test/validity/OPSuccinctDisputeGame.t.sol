@@ -86,7 +86,7 @@ contract OPSuccinctDisputeGameTest is Test {
             abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
 
         Proxy l2OutputOracleProxy = new Proxy(address(this));
-        l2OutputOracleProxy.upgradeToAndCall(address(new OPSuccinctL2OutputOracle()), initializationParams);
+        l2OutputOracleProxy.upgradeToAndCall(address(new OPSuccinctL2OutputOracle(address(0), bytes32(0), bytes32(0))), initializationParams);
 
         l2OutputOracle = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
 
@@ -136,9 +136,6 @@ contract OPSuccinctDisputeGameTest is Test {
         assertEq(game.gameCreator(), proposer);
         assertEq(game.rootClaim().raw(), rootClaim.raw());
         assertEq(game.l2BlockNumber(), l2BlockNumber);
-        assertEq(game.l1BlockNumber(), l1BlockNumber);
-        assertEq(game.proverAddress(), proposer);
-        assertEq(keccak256(game.proof()), keccak256(bytes("")));
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
     }
 
