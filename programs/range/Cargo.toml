@@ -11,12 +11,10 @@ repository.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 rkyv.workspace = true
+cfg-if.workspace = true
 
 # kona
 kona-proof.workspace = true
-
-# hokulea_
-hokulea-proof.workspace = true
 
 # sp1
 sp1-zkvm.workspace = true
@@ -31,4 +29,4 @@ tracing-subscriber = { workspace = true, optional = true }
 embedded = ["sp1-zkvm/embedded"]
 tracing-subscriber = ["dep:tracing-subscriber"]
 celestia = ["op-succinct-client-utils/celestia"]
-#eigenda = ["op-succinct-client-utils/eigenda"]
+eigenda = ["op-succinct-client-utils/eigenda"]

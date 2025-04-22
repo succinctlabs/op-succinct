@@ -6804,7 +6804,7 @@ name = "range"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "hokulea-proof",
+ "cfg-if",
  "kona-proof",
  "op-succinct-client-utils",
  "rkyv",

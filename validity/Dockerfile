@@ -22,8 +22,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 # Copy only what's needed for the build
 COPY . .
 
-COPY resources /build/resources
-
 # Build the server
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
@@ -56,7 +54,6 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/validity-proposer /usr/local/bin/validity-proposer
-COPY --from=builder /build/resources  /app/resources
 
 # Run the server from its permanent location
 CMD ["/usr/local/bin/validity-proposer"]

@@ -79,3 +79,5 @@ op-succinct-build-utils.workspace = true
 default = []
 # Feature flag for Celestia DA support.
 celestia = ["op-succinct-host-utils/celestia"]
+# Feature flag for EigenDA support
+eigenda = ["op-succinct-host-utils/eigenda"]
