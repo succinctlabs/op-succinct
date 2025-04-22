@@ -9,11 +9,18 @@ pub use proof::*;
 pub mod metrics;
 pub mod witness_generation;
 
+<<<<<<< HEAD
 pub const RANGE_ELF_BUMP: &[u8] = include_bytes!("../../../elf/range-elf-bump");
 pub const RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
 pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
 pub const CELESTIA_RANGE_ELF_EMBEDDED: &[u8] =
     include_bytes!("../../../elf/celestia-range-elf-embedded");
+=======
+pub use op_succinct_elfs::{AGGREGATION_ELF, RANGE_ELF_BUMP, RANGE_ELF_EMBEDDED};
+
+// TODO: Update to Celestia Range ELF Embedded
+pub const CELESTIA_RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
+>>>>>>> 86f3e69 (build: move zkvm ELFs into a separate crate)
 
 // TODO: Update to EigenDA Range ELF Embedded
 pub const EIGENDA_RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
