@@ -10,7 +10,7 @@
 sp1_zkvm::entrypoint!(main);
 
 use op_succinct_client_utils::{
-    boot::BootInfoStruct, client::run_witness_client, witness::WitnessData
+    boot::BootInfoStruct, witness::WitnessData
 };
 use rkyv::rancor::Error;
 
@@ -35,12 +35,14 @@ fn main() {
         cfg_if::cfg_if! {
             if #[cfg(feature = "eigenda")] {
                 use op_succinct_client_utils::eigenda_client::run_witness_eigenda_client;
-                
+
                 let boot_info = run_witness_eigenda_client(witness_data)
                     .await
                     .expect("Failed to run client with witness data.");
                 sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info)); 
             } else {
+                use op_succinct_client_utils::client::run_witness_client;
+
                 let boot_info = run_witness_client(witness_data)
                     .await
                     .expect("Failed to run client with witness data.");

@@ -11,16 +11,15 @@ use crate::hosts::OPSuccinctHost;
 use anyhow::Result;
 
 use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
-use op_succinct_client_utils::precompiles::zkvm_handle_register;
+
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 
-use op_succinct_client_utils::client::run_opsuccinct_client;
-use hokulea_client_bin::witness::OracleEigenDAWitnessProvider;
-use hokulea_proof::eigenda_blob_witness::EigenDABlobWitnessData;
+
+
+
 use crate::witness_generation::eigenda_witness_gen::generate_opsuccinct_eigenda_witness;
 use hokulea_proof::eigenda_provider::OracleEigenDAProvider;
-use std::sync::Mutex;
-use std::ops::DerefMut;
+
 
 use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 
