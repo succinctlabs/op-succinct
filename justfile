@@ -32,23 +32,14 @@ run-multi start end use-cache="false" prove="false":
 # If no range is provided, runs for the last 5 finalized blocks.
 cost-estimator *args='':
   #!/usr/bin/env bash
-
-  set -a
-  L1_RPC="http://$(kurtosis port print eigenda-devnet el-1-geth-teku rpc)"
-  L1_BEACON_RPC="$(kurtosis port print eigenda-devnet cl-1-teku-geth http)"
-  L2_RPC="$(kurtosis port print eigenda-devnet op-el-1-op-geth-op-node-op-kurtosis rpc)"
-  L2_NODE_RPC="$(kurtosis port print eigenda-devnet op-cl-1-op-node-op-geth-op-kurtosis http)"
-  EIGENDA_PROXY_ADDRESS="$(kurtosis port print eigenda-devnet da-server-op-kurtosis http)"
-  set +a
-
   if [ -z "{{args}}" ]; then
-    cargo run --bin cost-estimator --release -vv
+    cargo run --bin cost-estimator --release
   else
-    cargo run --bin cost-estimator --release -vv -- {{args}} 
+    cargo run --bin cost-estimator --release -- {{args}}
   fi
 
   # Output the data required for the ZKVM execution.
-  echo "address $L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
+  echo "$L1_HEAD $L2_OUTPUT_ROOT $L2_CLAIM $L2_BLOCK_NUMBER $L2_CHAIN_ID"
 
 upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
   #!/usr/bin/env bash
@@ -250,17 +241,3 @@ deploy-dispute-game-factory env_file=".env":
         --private-key $PRIVATE_KEY \
         --broadcast \
         $VERIFY
-
-build-elf:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    cd programs/range
-
-    cargo prove build --elf-name range-elf-bump  --docker --tag v4.1.3 --output-directory /Users/bxue/Documents/eigenda-integration/op-succinct/elf
-    cargo prove build --elf-name range-elf-embedded --docker --tag v4.1.3 --features embedded --output-directory /Users/bxue/Documents/eigenda-integration/op-succinct/elf
-
-    cd ../aggregation
-    # Build the aggregation-elf
-    cargo prove build --elf-name aggregation-elf --docker --tag v4.1.3 --output-directory /Users/bxue/Documents/eigenda-integration/op-succinct/elf
-
