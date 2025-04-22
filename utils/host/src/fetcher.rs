@@ -112,7 +112,6 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Initialize the fetcher with a rollup config.
-    #[tracing::instrument(skip_all, name = "OPSuccinctDataFetcher::new_with_rollup_config")]
     pub async fn new_with_rollup_config() -> Result<Self> {
         let rpc_config = get_rpcs();
 
