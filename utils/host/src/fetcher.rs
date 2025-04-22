@@ -450,17 +450,6 @@ impl OPSuccinctDataFetcher {
         Ok(headers)
     }
 
-    /// Get the data directory path. Note: This path is relative to the location from which the
-    /// program is run.
-    pub fn get_data_directory(
-        &self,
-        l2_chain_id: u64,
-        l2_start_block: u64,
-        l2_end_block: u64,
-    ) -> Result<String> {
-        Ok(format!("data/{}/{}-{}", l2_chain_id, l2_start_block, l2_end_block))
-    }
-
     pub async fn get_l2_output_at_block(&self, block_number: u64) -> Result<OutputResponse> {
         let block_number_hex = format!("0x{:x}", block_number);
         let l2_output_data: OutputResponse = self
