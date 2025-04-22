@@ -6,8 +6,7 @@ use kona_derive::prelude::BlobProvider;
 use kona_preimage::CommsClient;
 use kona_proof::{BootInfo, FlushableCache};
 use crate::witness_generation::online_blob_store::OnlineBlobStore;
-use op_succinct_client_utils::{
-    client::run_opsuccinct_client,
+use op_succinct_client_utils::{    
     eigenda_client::run_opsuccinct_eigenda_client,
     witness::{preimage_store::PreimageStore, BlobData, WitnessData},
 };
