@@ -81,10 +81,7 @@ cfg_if::cfg_if! {
         ) -> Arc<CelestiaOPSuccinctHost> {
             Arc::new(CelestiaOPSuccinctHost::new(fetcher))
         }
-    } else {
-        //mod default;
-        //use crate::hosts::default::SingleChainOPSuccinctHost;
-
+    } else if #[cfg(feature = "eigenda")] {
         mod eigenda;
         use crate::hosts::eigenda::EigenDAOPSuccinctHost;
 
@@ -93,12 +90,17 @@ cfg_if::cfg_if! {
             fetcher: Arc<OPSuccinctDataFetcher>,
         ) -> Arc<EigenDAOPSuccinctHost> {
             Arc::new(EigenDAOPSuccinctHost::new(fetcher))
+        } 
+    } else {
+        mod default;
+        use crate::hosts::default::SingleChainOPSuccinctHost;
+
+        /// Initialize the default (ETH-DA) host.  
+        pub fn initialize_host(
+            fetcher: Arc<OPSuccinctDataFetcher>,
+        ) -> Arc<SingleChainOPSuccinctHost> {
+            Arc::new(SingleChainOPSuccinctHost::new(fetcher))
         }        
-        //pub fn initialize_host(
-        //    fetcher: Arc<OPSuccinctDataFetcher>,
-        //) -> Arc<SingleChainOPSuccinctHost> {
-        //    Arc::new(SingleChainOPSuccinctHost::new(fetcher))
-        //}
     }
 }
 

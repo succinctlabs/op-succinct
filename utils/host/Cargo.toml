@@ -30,10 +30,10 @@ kona-derive.workspace = true
 hana-host = { workspace = true, optional = true }
 
 # hokulea
-hokulea-proof.workspace = true
-hokulea-client-bin.workspace = true
-hokulea-host-bin.workspace = true
-hokulea-eigenda.workspace = true
+hokulea-proof = { workspace = true, optional = true }
+hokulea-client-bin = { workspace = true, optional = true }
+hokulea-host-bin = { workspace = true, optional = true }
+hokulea-eigenda = { workspace = true, optional = true }
 
 # alloy
 alloy-provider.workspace = true
@@ -70,3 +70,4 @@ c-kzg = "1.0.3"
 [features]
 default = []
 celestia = ["hana-host"]
+eigenda = ["hokulea-proof", "hokulea-client-bin", "hokulea-host-bin", "hokulea-eigenda"]

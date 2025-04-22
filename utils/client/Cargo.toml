@@ -29,8 +29,8 @@ kona-genesis.workspace = true
 hana-oracle = { workspace = true, optional = true }
 
 # hokulea
-hokulea-eigenda.workspace = true
-hokulea-proof.workspace = true
+hokulea-eigenda = { workspace = true, optional = true }
+hokulea-proof = { workspace = true, optional = true }
 
 # general
 anyhow.workspace = true
@@ -51,3 +51,4 @@ cfg-if.workspace = true
 [features]
 default = []
 celestia = ["hana-oracle"]
+eigenda = ["hokulea-eigenda", "hokulea-proof"]

@@ -10,7 +10,7 @@
 sp1_zkvm::entrypoint!(main);
 
 use op_succinct_client_utils::{
-    boot::BootInfoStruct, client::run_witness_client, witness::WitnessData, eigenda_client::run_witness_eigenda_client
+    boot::BootInfoStruct, client::run_witness_client, witness::WitnessData
 };
 use rkyv::rancor::Error;
 
@@ -31,11 +31,21 @@ fn main() {
         let witness_rkyv_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
         let witness_data = rkyv::from_bytes::<WitnessData, Error>(&witness_rkyv_bytes)
             .expect("Failed to deserialize witness data.");
-
-        let boot_info = run_witness_eigenda_client(witness_data)
-            .await
-            .expect("Failed to run client with witness data.");
-
-        sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
+        
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "eigenda")] {
+                use op_succinct_client_utils::eigenda_client::run_witness_eigenda_client;
+                
+                let boot_info = run_witness_eigenda_client(witness_data)
+                    .await
+                    .expect("Failed to run client with witness data.");
+                sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info)); 
+            } else {
+                let boot_info = run_witness_client(witness_data)
+                    .await
+                    .expect("Failed to run client with witness data.");
+                 sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info)); 
+            }
+        }    
     });
 }
