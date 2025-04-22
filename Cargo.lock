@@ -4651,6 +4651,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-elfs"
+version = "0.1.0"
+
+[[package]]
 name = "op-succinct-fees"
 version = "0.1.0"
 dependencies = [
@@ -4725,6 +4729,7 @@ dependencies = [
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
+ "op-succinct-elfs",
  "reqwest",
  "rkyv",
  "serde",
@@ -5331,7 +5336,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3672b37090dbd86368a4145bc067582552b29c27377cad4e0a306c97f9bd7772"
 dependencies = [
  "fixedbitset",
- "indexmap 2.7.1",
+ "indexmap 2.8.0",
 ]
 
 [[package]]
@@ -5571,7 +5576,7 @@ dependencies = [
  "prost",
  "prost-types",
  "regex",
- "syn 2.0.98",
+ "syn 2.0.100",
  "tempfile",
 ]
 
@@ -8090,7 +8095,7 @@ dependencies = [
  "prost-build",
  "prost-types",
  "quote",
- "syn 2.0.98",
+ "syn 2.0.100",
 ]
 
 [[package]]

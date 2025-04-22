@@ -11,9 +11,7 @@ pub mod metrics;
 use clap::{Parser, ValueEnum};
 use strum_macros::EnumString;
 
-pub const RANGE_ELF_BUMP: &[u8] = include_bytes!("../../../elf/range-elf-bump");
-pub const RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
-pub const AGGREGATION_ELF: &[u8] = include_bytes!("../../../elf/aggregation-elf");
+pub use op_succinct_elfs::{AGGREGATION_ELF, RANGE_ELF_BUMP, RANGE_ELF_EMBEDDED};
 
 // TODO: Update to Celestia Range ELF Embedded
 pub const CELESTIA_RANGE_ELF_EMBEDDED: &[u8] = include_bytes!("../../../elf/range-elf-embedded");
