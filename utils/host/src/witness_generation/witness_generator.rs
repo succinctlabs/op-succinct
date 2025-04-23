@@ -1,11 +1,15 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use hokulea_proof::eigenda_provider::OracleEigenDAProvider;
+use hokulea_eigenda::EigenDABlobProvider;
+use hokulea_proof::{
+    eigenda_provider::OracleEigenDAProvider,
+    preloaded_eigenda_provider::PreloadedEigenDABlobProvider,
+};
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 
-use crate::witness_generation::{generate_opsuccinct_eigenda_witness, generate_opsuccinct_witness};
+use crate::witness_generation::generate_opsuccinct_witness;
 use op_succinct_client_utils::witness::WitnessData;
 
 pub trait WitnessGenerator {
@@ -32,8 +36,12 @@ impl WitnessGenerator for DefaultWitnessGenerator {
         ));
         let blob_provider = OracleBlobProvider::new(preimage_oracle.clone());
 
-        let (_, witness) =
-            generate_opsuccinct_witness(preimage_oracle.clone(), blob_provider).await?;
+        let (_, witness) = generate_opsuccinct_witness(
+            preimage_oracle.clone(),
+            blob_provider,
+            None::<PreloadedEigenDABlobProvider>,
+        )
+        .await?;
 
         Ok(witness)
     }
@@ -57,10 +65,10 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
 
         let eigenda_blob_provider = OracleEigenDAProvider::new(preimage_oracle.clone());
 
-        let (_, witness) = generate_opsuccinct_eigenda_witness(
+        let (_, witness) = generate_opsuccinct_witness(
             preimage_oracle.clone(),
             blob_provider,
-            eigenda_blob_provider,
+            Some(eigenda_blob_provider),
         )
         .await?;
 

@@ -25,39 +25,10 @@ use std::{
 };
 
 /// Generate a witness with the given oracle and blob provider.
-pub async fn generate_opsuccinct_witness<O, B>(
+pub async fn generate_opsuccinct_witness<O, B, E>(
     preimage_oracle: Arc<O>,
     blob_provider: B,
-) -> Result<(BootInfo, WitnessData)>
-where
-    O: CommsClient + FlushableCache + Send + Sync + Debug,
-    B: BlobProvider + Send + Sync + Debug + Clone,
-{
-    let preimage_witness_store = Arc::new(Mutex::new(PreimageStore::default()));
-    let blob_data = Arc::new(Mutex::new(BlobData::default()));
-
-    let oracle = Arc::new(PreimageWitnessCollector {
-        preimage_oracle: preimage_oracle.clone(),
-        preimage_witness_store: preimage_witness_store.clone(),
-    });
-    let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
-
-    let boot = run_opsuccinct_client(oracle, beacon, None::<PreloadedEigenDABlobProvider>).await?;
-
-    let witness = WitnessData {
-        preimage_store: preimage_witness_store.lock().unwrap().clone(),
-        blob_data: blob_data.lock().unwrap().clone(),
-        eigenda_data: None::<Vec<u8>>,
-    };
-
-    Ok((boot, witness))
-}
-
-/// Generate a witness with the given oracle and blob provider.
-pub async fn generate_opsuccinct_eigenda_witness<O, B, E>(
-    preimage_oracle: Arc<O>,
-    blob_provider: B,
-    eigenda_blob_provider: E,
+    eigenda_blob_provider: Option<E>,
 ) -> Result<(BootInfo, WitnessData)>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
@@ -73,24 +44,38 @@ where
     });
     let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
 
-    let eigenda_blobs_witness = Arc::new(Mutex::new(EigenDABlobWitnessData::default()));
+    let boot: BootInfo;
+    let eigenda_witness_byte: Option<Vec<u8>>;
 
-    let eigenda_blob_and_witness_provider = OracleEigenDAWitnessProvider {
-        provider: eigenda_blob_provider,
-        witness: eigenda_blobs_witness.clone(),
-    };
+    match eigenda_blob_provider {
+        Some(eigenda_blob_provider) => {
+            let eigenda_blobs_witness = Arc::new(Mutex::new(EigenDABlobWitnessData::default()));
 
-    let boot =
-        run_opsuccinct_client(oracle, beacon, Some(eigenda_blob_and_witness_provider)).await?;
+            let eigenda_blob_and_witness_provider = OracleEigenDAWitnessProvider {
+                provider: eigenda_blob_provider,
+                witness: eigenda_blobs_witness.clone(),
+            };
 
-    let eigenda_witness = core::mem::take(eigenda_blobs_witness.lock().unwrap().deref_mut());
+            boot = run_opsuccinct_client(oracle, beacon, Some(eigenda_blob_and_witness_provider))
+                .await?;
 
-    let eigenda_witness_byte = serde_cbor::to_vec(&eigenda_witness)?;
+            let eigenda_witness =
+                core::mem::take(eigenda_blobs_witness.lock().unwrap().deref_mut());
+
+            eigenda_witness_byte = Some(serde_cbor::to_vec(&eigenda_witness)?);
+        }
+        None => {
+            boot =
+                run_opsuccinct_client(oracle, beacon, None::<PreloadedEigenDABlobProvider>).await?;
+
+            eigenda_witness_byte = None;
+        }
+    }
 
     let witness = WitnessData {
         preimage_store: preimage_witness_store.lock().unwrap().clone(),
         blob_data: blob_data.lock().unwrap().clone(),
-        eigenda_data: Some(eigenda_witness_byte),
+        eigenda_data: eigenda_witness_byte,
     };
 
     Ok((boot, witness))
