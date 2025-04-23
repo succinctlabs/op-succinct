@@ -103,6 +103,3 @@ cfg_if::cfg_if! {
         }        
     }
 }
-
-// ToDo move it behind a cfg
-// mod eigenda;
