@@ -5,6 +5,9 @@ package proofs;
 service Proofs {
   // Request an aggregation proof
   rpc RequestAggProof(AggProofRequest) returns (AggProofResponse);
+
+  // Retrieve a specific mock proof by its ID
+  rpc GetMockProof(GetMockProofRequest) returns (GetMockProofResponse);
 }
 
 // Request for an aggregation proof
@@ -22,4 +25,14 @@ message AggProofResponse {
   uint64 last_proven_block = 3;
   uint64 end_block = 4;
   bytes proof_request_id = 5;
+}
+
+// Request message for GetMockProof
+message GetMockProofRequest {
+  string proof_id = 1; // The ID of the mock proof to retrieve
+}
+
+// Response message for GetMockProof
+message GetMockProofResponse {
+  bytes proof = 1; // The mock proof data
 }

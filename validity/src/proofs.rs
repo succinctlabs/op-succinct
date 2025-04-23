@@ -11,7 +11,7 @@ use crate::RequestMode;
 use crate::RequesterConfig;
 use crate::ValidityGauge;
 use grpc::proofs::proofs_server::Proofs;
-use grpc::proofs::{AggProofRequest, AggProofResponse};
+use grpc::proofs::{AggProofRequest, AggProofResponse, GetMockProofRequest, GetMockProofResponse};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
 use op_succinct_host_utils::metrics::MetricsGauge;
 use std::{sync::Arc, time::Instant};
@@ -210,5 +210,28 @@ where
         }
 
         Ok(Response::new(reply))
+    }
+
+    #[tracing::instrument(name = "proofs.get_mock_proof", skip(self, request))]
+    async fn get_mock_proof(
+        &self,
+        request: Request<GetMockProofRequest>,
+    ) -> Result<Response<GetMockProofResponse>, Status> {
+        let req = request.into_inner();
+
+        // Fetch the mock proof from the database
+        let mock_proof = self
+            .proof_requester
+            .db_client
+            .get_agg_proof_by_id(req.proof_id)
+            .await
+            .map_err(|e| Status::not_found(format!("Mock proof not found: {}", e)))?;
+
+        // Return the mock proof in the response
+        let response = GetMockProofResponse {
+            proof: mock_proof.into(),
+        };
+
+        Ok(Response::new(response))
     }
 }

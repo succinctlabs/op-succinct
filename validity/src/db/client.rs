@@ -735,4 +735,18 @@ impl DriverDBClient {
         // Create a result with the total rows affected
         Ok(PgQueryResult::default())
     }
+
+    /// Fetch a AGG proof by its ID.
+    pub async fn get_agg_proof_by_id(&self, proof_id: String) -> Result<Vec<u8>, Error> {
+        let result = sqlx::query!(
+            r#"
+            SELECT proof FROM requests WHERE proof_request_id = $1
+            "#,
+            proof_id.as_bytes()
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        result.proof.ok_or_else(|| Error::RowNotFound)
+    }
 }

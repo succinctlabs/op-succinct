@@ -114,6 +114,30 @@ pub mod proofs_client {
                 .insert(GrpcMethod::new("proofs.Proofs", "RequestAggProof"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_mock_proof(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetMockProofRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetMockProofResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/proofs.Proofs/GetMockProof",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("proofs.Proofs", "GetMockProof"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -134,6 +158,13 @@ pub mod proofs_server {
             request: tonic::Request<super::AggProofRequest>,
         ) -> std::result::Result<
             tonic::Response<super::AggProofResponse>,
+            tonic::Status,
+        >;
+        async fn get_mock_proof(
+            &self,
+            request: tonic::Request<super::GetMockProofRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetMockProofResponse>,
             tonic::Status,
         >;
     }
@@ -241,6 +272,51 @@ pub mod proofs_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = RequestAggProofSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/proofs.Proofs/GetMockProof" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetMockProofSvc<T: Proofs>(pub Arc<T>);
+                    impl<
+                        T: Proofs,
+                    > tonic::server::UnaryService<super::GetMockProofRequest>
+                    for GetMockProofSvc<T> {
+                        type Response = super::GetMockProofResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetMockProofRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Proofs>::get_mock_proof(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetMockProofSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
