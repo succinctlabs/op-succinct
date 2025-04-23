@@ -187,8 +187,6 @@ where
                 .unwrap();
 
             reply = AggProofResponse {
-                success: true,
-                error: "".into(),
                 last_proven_block: req.last_proven_block,
                 end_block: end_block as u64,
                 proof_request_id: proof_bytes.into(),
@@ -201,8 +199,6 @@ where
                 .map_err(|e| Status::internal(format!("Failed to request proof: {}", e)))?;
 
             reply = AggProofResponse {
-                success: true,
-                error: "".into(),
                 last_proven_block: req.last_proven_block,
                 end_block: end_block as u64,
                 proof_request_id: alloy_primitives::Bytes::from(proof_id).into(),

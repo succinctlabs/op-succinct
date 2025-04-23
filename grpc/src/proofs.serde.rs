@@ -165,12 +165,6 @@ impl serde::Serialize for AggProofResponse {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if self.success {
-            len += 1;
-        }
-        if !self.error.is_empty() {
-            len += 1;
-        }
         if self.last_proven_block != 0 {
             len += 1;
         }
@@ -181,12 +175,6 @@ impl serde::Serialize for AggProofResponse {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("proofs.AggProofResponse", len)?;
-        if self.success {
-            struct_ser.serialize_field("success", &self.success)?;
-        }
-        if !self.error.is_empty() {
-            struct_ser.serialize_field("error", &self.error)?;
-        }
         if self.last_proven_block != 0 {
             #[allow(clippy::needless_borrow)]
             #[allow(clippy::needless_borrows_for_generic_args)]
@@ -212,8 +200,6 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
         D: serde::Deserializer<'de>,
     {
         const FIELDS: &[&str] = &[
-            "success",
-            "error",
             "last_proven_block",
             "lastProvenBlock",
             "end_block",
@@ -224,8 +210,6 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
 
         #[allow(clippy::enum_variant_names)]
         enum GeneratedField {
-            Success,
-            Error,
             LastProvenBlock,
             EndBlock,
             ProofRequestId,
@@ -250,8 +234,6 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
                         E: serde::de::Error,
                     {
                         match value {
-                            "success" => Ok(GeneratedField::Success),
-                            "error" => Ok(GeneratedField::Error),
                             "lastProvenBlock" | "last_proven_block" => Ok(GeneratedField::LastProvenBlock),
                             "endBlock" | "end_block" => Ok(GeneratedField::EndBlock),
                             "proofRequestId" | "proof_request_id" => Ok(GeneratedField::ProofRequestId),
@@ -274,25 +256,11 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
                 where
                     V: serde::de::MapAccess<'de>,
             {
-                let mut success__ = None;
-                let mut error__ = None;
                 let mut last_proven_block__ = None;
                 let mut end_block__ = None;
                 let mut proof_request_id__ = None;
                 while let Some(k) = map_.next_key()? {
                     match k {
-                        GeneratedField::Success => {
-                            if success__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("success"));
-                            }
-                            success__ = Some(map_.next_value()?);
-                        }
-                        GeneratedField::Error => {
-                            if error__.is_some() {
-                                return Err(serde::de::Error::duplicate_field("error"));
-                            }
-                            error__ = Some(map_.next_value()?);
-                        }
                         GeneratedField::LastProvenBlock => {
                             if last_proven_block__.is_some() {
                                 return Err(serde::de::Error::duplicate_field("lastProvenBlock"));
@@ -320,8 +288,6 @@ impl<'de> serde::Deserialize<'de> for AggProofResponse {
                     }
                 }
                 Ok(AggProofResponse {
-                    success: success__.unwrap_or_default(),
-                    error: error__.unwrap_or_default(),
                     last_proven_block: last_proven_block__.unwrap_or_default(),
                     end_block: end_block__.unwrap_or_default(),
                     proof_request_id: proof_request_id__.unwrap_or_default(),

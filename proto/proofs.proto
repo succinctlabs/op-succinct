@@ -20,11 +20,9 @@ message AggProofRequest {
 
 // Response from an aggregation proof request
 message AggProofResponse {
-  bool success = 1;
-  string error = 2;
-  uint64 last_proven_block = 3;
-  uint64 end_block = 4;
-  bytes proof_request_id = 5;
+  uint64 last_proven_block = 1;
+  uint64 end_block = 2;
+  bytes proof_request_id = 3;
 }
 
 // Request message for GetMockProof
