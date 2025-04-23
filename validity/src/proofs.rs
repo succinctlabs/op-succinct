@@ -1,7 +1,7 @@
 use alloy_primitives::hex::FromHex;
 use alloy_primitives::FixedBytes;
 use bincode::Options;
-use tonic::{Request, Response, Status};
+use tonic::{Code, Request, Response, Status};
 use tracing::info;
 
 use crate::proof_requester::OPSuccinctProofRequester;
@@ -52,7 +52,7 @@ where
             .fetcher
             .get_l2_safe_head_from_l1_block_number(l1_block_number - 20)
             .await
-            .expect("Failed to get safe head");
+            .map_err(|e| Status::internal(format!("Failed to get safe head: {}", e)))?;
 
         if safe_head < requested_end_block {
             return Ok(safe_head);
@@ -89,7 +89,8 @@ where
 
         // Check if the requested end block is less than the requested start block
         if l1_limited_end_block <= req.last_proven_block {
-            return Err(Status::invalid_argument(
+            return Err(Status::new(
+                Code::InvalidArgument,
                 "Requested end block must be greater than the last proven block",
             ));
         }
@@ -110,8 +111,11 @@ where
             .unwrap();
 
         // Error in case there's no range proofs
-        if range_proofs.len() == 0 {
-            return Err(Status::internal("No consecutive span proof range found"));
+        if range_proofs.is_empty() {
+            return Err(Status::new(
+                Code::NotFound,
+                "No consecutive span proof range found",
+            ));
         }
 
         // Set the requested_end_block to the last block from the range proofs
@@ -132,8 +136,9 @@ where
             self.requester_config.l1_chain_id,
             self.requester_config.l2_chain_id,
             req.l1_block_number as i64,
-            FixedBytes::<32>::from_hex(req.l1_block_hash)
-                .expect("Invalid hex string for block hash"),
+            FixedBytes::<32>::from_hex(req.l1_block_hash).map_err(|e| {
+                Status::invalid_argument(format!("Invalid hex string for block hash: {}", e))
+            })?,
             self.requester_config.prover_address,
         );
 
@@ -150,10 +155,10 @@ where
             Ok(stdin) => stdin,
             Err(e) => {
                 ValidityGauge::WitnessgenErrorCount.increment(1.0);
-                return Err(Status::internal(format!(
-                    "Failed to generate proof stdin: {}",
-                    e
-                )));
+                return Err(Status::new(
+                    Code::Internal,
+                    format!("Failed to generate proof stdin: {}", e),
+                ));
             }
         };
         let duration = witnessgen_duration.elapsed();
@@ -172,7 +177,7 @@ where
                 .proof_requester
                 .generate_mock_agg_proof(&op_request, stdin)
                 .await
-                .expect("Failed to generate mock proof");
+                .map_err(|e| Status::internal(format!("Failed to generate mock proof: {}", e)))?;
 
             // If it's a compressed proof, we need to serialize the entire struct with bincode.
             let proof_bytes = bincode::DefaultOptions::new()
@@ -193,7 +198,7 @@ where
                 .proof_requester
                 .request_agg_proof(stdin)
                 .await
-                .expect("Failed to request proof");
+                .map_err(|e| Status::internal(format!("Failed to request proof: {}", e)))?;
 
             reply = AggProofResponse {
                 success: true,
