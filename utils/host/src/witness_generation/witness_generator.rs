@@ -28,7 +28,7 @@ impl WitnessGenerator for DefaultWitnessGenerator {
         preimage_chan: NativeChannel,
         hint_chan: NativeChannel,
     ) -> Result<WitnessData> {
-        // Instantiate oracles
+        // Instantiate oracles.
         let preimage_oracle = Arc::new(CachingOracle::new(
             2048,
             OracleReader::new(preimage_chan),
@@ -55,7 +55,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         preimage_chan: NativeChannel,
         hint_chan: NativeChannel,
     ) -> Result<WitnessData> {
-        // Instantiate oracles
+        // Instantiate oracles.
         let preimage_oracle = Arc::new(CachingOracle::new(
             2048,
             OracleReader::new(preimage_chan),
