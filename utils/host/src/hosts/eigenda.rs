@@ -109,37 +109,3 @@ impl EigenDAOPSuccinctHost {
         Ok(witness)
     }
 }
-
-
-
-/*
-/// Generate a witness with the given oracle and blob provider.
-pub async fn generate_opsuccinct_witness<O, B, E>(
-    preimage_oracle: Arc<O>,
-    blob_provider: B,    
-) -> Result<(BootInfo, WitnessData)>
-where
-    O: CommsClient + FlushableCache + Send + Sync + Debug,
-    B: BlobProvider + Send + Sync + Debug + Clone,
-    E: OracleEigenDAProvider + Send + Sync + Debug + Clone,
-{
-    let preimage_witness_store = Arc::new(Mutex::new(PreimageStore::default()));
-    let blob_data = Arc::new(Mutex::new(BlobData::default()));
-
-    let oracle = Arc::new(PreimageWitnessCollector {
-        preimage_oracle: preimage_oracle.clone(),
-        preimage_witness_store: preimage_witness_store.clone(),
-    });
-    let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
-
-    let boot = run_opsuccinct_eigenda_client(oracle, beacon, eigenda_blob_provider).await?;
-
-    let witness = WitnessData {
-        preimage_store: preimage_witness_store.lock().unwrap().clone(),
-        blob_data: blob_data.lock().unwrap().clone(),
-        eigenda_data: vec![],
-    };
-
-    Ok((boot, witness))
-}
-*/
