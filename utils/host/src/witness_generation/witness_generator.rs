@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use hokulea_eigenda::EigenDABlobProvider;
+use async_trait::async_trait;
 use hokulea_proof::{
     eigenda_provider::OracleEigenDAProvider,
     preloaded_eigenda_provider::PreloadedEigenDABlobProvider,
@@ -12,6 +12,7 @@ use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 use crate::witness_generation::generate_opsuccinct_witness;
 use op_succinct_client_utils::witness::WitnessData;
 
+#[async_trait]
 pub trait WitnessGenerator {
     async fn run_witnessgen_client(
         &self,
@@ -22,6 +23,7 @@ pub trait WitnessGenerator {
 
 pub struct DefaultWitnessGenerator;
 
+#[async_trait]
 impl WitnessGenerator for DefaultWitnessGenerator {
     async fn run_witnessgen_client(
         &self,
@@ -49,6 +51,7 @@ impl WitnessGenerator for DefaultWitnessGenerator {
 
 pub struct EigenDAWitnessGenerator;
 
+#[async_trait]
 impl WitnessGenerator for EigenDAWitnessGenerator {
     async fn run_witnessgen_client(
         &self,

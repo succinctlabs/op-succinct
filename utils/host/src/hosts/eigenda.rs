@@ -2,21 +2,17 @@ use std::sync::Arc;
 
 use alloy_eips::BlockId;
 use alloy_primitives::B256;
+use anyhow::Result;
 use async_trait::async_trait;
+use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
 use kona_preimage::BidirectionalChannel;
 use op_succinct_client_utils::witness::WitnessData;
 
-use crate::{fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost};
-use anyhow::Result;
-
-use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
-
-use kona_preimage::{HintWriter, NativeChannel, OracleReader};
-
-use crate::witness_generation::witness_generator::{EigenDAWitnessGenerator, WitnessGenerator};
-use hokulea_proof::eigenda_provider::OracleEigenDAProvider;
-
-use kona_proof::{l1::OracleBlobProvider, CachingOracle};
+use crate::{
+    fetcher::OPSuccinctDataFetcher,
+    hosts::OPSuccinctHost,
+    witness_generation::witness_generator::{EigenDAWitnessGenerator, WitnessGenerator},
+};
 
 #[derive(Clone)]
 pub struct EigenDAOPSuccinctHost {
@@ -33,9 +29,6 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
         &self.witness_generator
     }
 
-    /// Run the host and client program.
-    ///
-    /// Returns the witness which can be supplied to the zkVM.
     async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;

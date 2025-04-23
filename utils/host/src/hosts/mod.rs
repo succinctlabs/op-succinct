@@ -4,8 +4,6 @@ use crate::{
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
-use kona_preimage::{HintWriter, NativeChannel, OracleReader};
-use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 use op_succinct_client_utils::witness::WitnessData;
 use std::sync::Arc;
 
@@ -44,7 +42,7 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Get the finalized L2 block number. This is used to determine the highest block that can be
     /// included in a range proof.
     ///
-    /// For ETH DA, this is the finalized L2 block number.
+    /// For ETH DA and EigenDA, this is the finalized L2 block number.
     /// For Celestia, this is the highest L2 block included in the latest Blobstream commitment.
     ///
     /// The latest proposed block number is assumed to be the highest block number that has been
@@ -71,7 +69,7 @@ cfg_if::cfg_if! {
         mod eigenda;
         use crate::hosts::eigenda::EigenDAOPSuccinctHost;
 
-        /// Initialize the default (ETH-DA) host.
+        /// Initialize the EigenDA host.
         pub fn initialize_host(
             fetcher: Arc<OPSuccinctDataFetcher>,
         ) -> Arc<EigenDAOPSuccinctHost> {

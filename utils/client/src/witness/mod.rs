@@ -8,7 +8,7 @@ use std::fmt::Debug;
 pub struct WitnessData {
     pub preimage_store: preimage_store::PreimageStore,
     pub blob_data: BlobData,
-    pub eigenda_data: Option<Vec<u8>>, //EigenDABlobWitnessData
+    pub eigenda_data: Option<Vec<u8>>, // EigenDABlobWitnessData
 }
 
 #[derive(

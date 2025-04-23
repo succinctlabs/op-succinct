@@ -45,7 +45,7 @@ where
     let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
 
     let boot: BootInfo;
-    let eigenda_witness_byte: Option<Vec<u8>>;
+    let eigenda_witness_bytes: Option<Vec<u8>>;
 
     match eigenda_blob_provider {
         Some(eigenda_blob_provider) => {
@@ -62,20 +62,20 @@ where
             let eigenda_witness =
                 core::mem::take(eigenda_blobs_witness.lock().unwrap().deref_mut());
 
-            eigenda_witness_byte = Some(serde_cbor::to_vec(&eigenda_witness)?);
+            eigenda_witness_bytes = Some(serde_cbor::to_vec(&eigenda_witness)?);
         }
         None => {
             boot =
                 run_opsuccinct_client(oracle, beacon, None::<PreloadedEigenDABlobProvider>).await?;
 
-            eigenda_witness_byte = None;
+            eigenda_witness_bytes = None;
         }
     }
 
     let witness = WitnessData {
         preimage_store: preimage_witness_store.lock().unwrap().clone(),
         blob_data: blob_data.lock().unwrap().clone(),
-        eigenda_data: eigenda_witness_byte,
+        eigenda_data: eigenda_witness_bytes,
     };
 
     Ok((boot, witness))

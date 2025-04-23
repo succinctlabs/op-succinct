@@ -69,6 +69,6 @@ kzg-rs.workspace = true
 c-kzg = "1.0.3"
 
 [features]
-default = []
+default = ["eigenda"]
 celestia = ["hana-host"]
 eigenda = ["hokulea-proof", "hokulea-client-bin", "hokulea-host-bin", "hokulea-eigenda"]

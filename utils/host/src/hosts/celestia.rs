@@ -31,9 +31,6 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         &self.witness_generator
     }
 
-    /// Run the host and client program.
-    ///
-    /// Returns the witness which can be supplied to the zkVM.
     async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
         let hint = BidirectionalChannel::new()?;
         let preimage = BidirectionalChannel::new()?;

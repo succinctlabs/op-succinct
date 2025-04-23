@@ -2,6 +2,11 @@ use alloy_consensus::BlockBody;
 use alloy_primitives::{Sealed, B256};
 use alloy_rlp::Decodable;
 use anyhow::{anyhow, Result};
+use hokulea_eigenda::EigenDABlobProvider;
+use hokulea_proof::{
+    eigenda_blob_witness::EigenDABlobWitnessData,
+    preloaded_eigenda_provider::PreloadedEigenDABlobProvider,
+};
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
     traits::{BlobProvider, Pipeline, SignalReceiver},
@@ -22,19 +27,6 @@ use std::{fmt::Debug, sync::Arc};
 use tracing::{error, info, warn};
 
 use crate::{precompiles::zkvm_handle_register, witness::WitnessData, BlobStore};
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "celestia")] {
-        use hana_oracle::{
-            pipeline::OraclePipeline as CelestiaOraclePipeline, provider::OracleCelestiaProvider,
-        };
-    } else if #[cfg(feature = "eigenda")] {
-        use hokulea_proof::{preloaded_eigenda_provider::PreloadedEigenDABlobProvider, pipeline::OraclePipeline as EigenDAOraclePipeline, eigenda_blob_witness::EigenDABlobWitnessData};
-        use hokulea_eigenda::EigenDABlobProvider;
-    } else {
-        use kona_proof::l1::OraclePipeline;
-    }
-}
 
 /// Runs the OP Succinct client using the given witness data.
 pub async fn run_witness_client(witness: WitnessData) -> Result<BootInfo> {
@@ -134,7 +126,9 @@ where
     let pipeline = {
         cfg_if::cfg_if! {
                 if #[cfg(feature = "celestia")] {
-                    CelestiaOraclePipeline::new(
+                    use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
+
+                    OraclePipeline::new(
                     rollup_config.clone(),
                     cursor.clone(),
                     oracle.clone(),
@@ -145,7 +139,9 @@ where
                 )
                 .await?
             } else if #[cfg(feature = "eigenda")] {
-                EigenDAOraclePipeline::new(
+                use hokulea_proof::pipeline::OraclePipeline;
+
+                OraclePipeline::new(
                     rollup_config.clone(),
                     cursor.clone(),
                     oracle.clone(),
@@ -156,6 +152,8 @@ where
                 )
                 .await?
             } else {
+                use kona_proof::l1::OraclePipeline;
+
                 OraclePipeline::new(
                     rollup_config.clone(),
                     cursor.clone(),
