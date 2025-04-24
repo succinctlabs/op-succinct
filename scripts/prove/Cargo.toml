@@ -43,7 +43,3 @@ serde_json.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
-
-[features]
-default = []
-celestia = ["op-succinct-host-utils/celestia"]
