@@ -90,7 +90,7 @@ async fn update_l2oo_config() -> Result<()> {
         Err(_) => data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number,
     };
 
-    let starting_block_number_hex = format!("0x{:x}", starting_block_number);
+    let starting_block_number_hex = format!("0x{starting_block_number:x}");
     let optimism_output_data: Value = data_fetcher
         .fetch_rpc_data_with_mode(
             RPCMode::L2Node,
