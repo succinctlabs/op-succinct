@@ -1,39 +1,23 @@
-use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::generate_opsuccinct_witness};
+use crate::{
+    fetcher::OPSuccinctDataFetcher, witness_generation::witness_generator::WitnessGenerator,
+};
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
-use kona_preimage::{HintWriter, NativeChannel, OracleReader};
-use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 use op_succinct_client_utils::witness::WitnessData;
 use std::sync::Arc;
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
     type Args: Send + Sync + 'static + Clone;
+    type WitnessGenerator: WitnessGenerator;
+
+    fn witness_generator(&self) -> &Self::WitnessGenerator;
 
     /// Run the host and client program.
     ///
     /// Returns the witness which can be supplied to the zkVM.
     async fn run(&self, args: &Self::Args) -> Result<WitnessData>;
-
-    /// Run the witness generation client.
-    async fn run_witnessgen_client(
-        preimage_chan: NativeChannel,
-        hint_chan: NativeChannel,
-    ) -> Result<WitnessData> {
-        // Instantiate oracles
-        let preimage_oracle = Arc::new(CachingOracle::new(
-            2048,
-            OracleReader::new(preimage_chan),
-            HintWriter::new(hint_chan),
-        ));
-        let blob_provider = OracleBlobProvider::new(preimage_oracle.clone());
-
-        let (_, witness) =
-            generate_opsuccinct_witness(preimage_oracle.clone(), blob_provider).await?;
-
-        Ok(witness)
-    }
 
     /// Fetch the host arguments.
     ///
@@ -58,7 +42,7 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Get the finalized L2 block number. This is used to determine the highest block that can be
     /// included in a range proof.
     ///
-    /// For ETH DA, this is the finalized L2 block number.
+    /// For ETH DA and EigenDA, this is the finalized L2 block number.
     /// For Celestia, this is the highest L2 block included in the latest Blobstream commitment.
     ///
     /// The latest proposed block number is assumed to be the highest block number that has been
@@ -80,6 +64,16 @@ cfg_if::cfg_if! {
             fetcher: Arc<OPSuccinctDataFetcher>,
         ) -> Arc<CelestiaOPSuccinctHost> {
             Arc::new(CelestiaOPSuccinctHost::new(fetcher))
+        }
+    } else if #[cfg(feature = "eigenda")] {
+        mod eigenda;
+        use crate::hosts::eigenda::EigenDAOPSuccinctHost;
+
+        /// Initialize the EigenDA host.
+        pub fn initialize_host(
+            fetcher: Arc<OPSuccinctDataFetcher>,
+        ) -> Arc<EigenDAOPSuccinctHost> {
+            Arc::new(EigenDAOPSuccinctHost::new(fetcher))
         }
     } else {
         mod default;

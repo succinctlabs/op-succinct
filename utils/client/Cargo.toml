@@ -28,6 +28,10 @@ kona-genesis.workspace = true
 # hana
 hana-oracle = { workspace = true, optional = true }
 
+# hokulea
+hokulea-eigenda.workspace = true
+hokulea-proof.workspace = true
+
 # general
 anyhow.workspace = true
 async-trait.workspace = true
@@ -38,6 +42,7 @@ sha2.workspace = true
 tracing.workspace = true
 itertools.workspace = true
 spin.workspace = true
+serde_cbor.workspace = true
 
 # kzg
 kzg-rs.workspace = true
@@ -46,3 +51,4 @@ cfg-if.workspace = true
 [features]
 default = []
 celestia = ["hana-oracle"]
+eigenda = []

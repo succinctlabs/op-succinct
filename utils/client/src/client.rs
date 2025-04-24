@@ -2,6 +2,11 @@ use alloy_consensus::BlockBody;
 use alloy_primitives::{Sealed, B256};
 use alloy_rlp::Decodable;
 use anyhow::{anyhow, Result};
+use hokulea_eigenda::EigenDABlobProvider;
+use hokulea_proof::{
+    eigenda_blob_witness::EigenDABlobWitnessData,
+    preloaded_eigenda_provider::PreloadedEigenDABlobProvider,
+};
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
     traits::{BlobProvider, Pipeline, SignalReceiver},
@@ -23,16 +28,6 @@ use tracing::{error, info, warn};
 
 use crate::{precompiles::zkvm_handle_register, witness::WitnessData, BlobStore};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "celestia")] {
-        use hana_oracle::{
-            pipeline::OraclePipeline as CelestiaOraclePipeline, provider::OracleCelestiaProvider,
-        };
-    } else {
-        use kona_proof::l1::OraclePipeline;
-    }
-}
-
 /// Runs the OP Succinct client using the given witness data.
 pub async fn run_witness_client(witness: WitnessData) -> Result<BootInfo> {
     println!("cycle-tracker-report-start: oracle-verify");
@@ -48,16 +43,31 @@ pub async fn run_witness_client(witness: WitnessData) -> Result<BootInfo> {
     let beacon = BlobStore::from(witness.blob_data);
     println!("cycle-tracker-report-end: blob-verification");
 
+    let eigenda = match witness.eigenda_data {
+        Some(data) => {
+            let eigenda_witness: EigenDABlobWitnessData =
+                serde_cbor::from_slice(&data).expect("cannot deserialize eigenda witness");
+            let preloaded_eigenda_provider: PreloadedEigenDABlobProvider = eigenda_witness.into();
+            Some(preloaded_eigenda_provider)
+        }
+        None => None,
+    };
+
     // Run the client.
-    run_opsuccinct_client(oracle, beacon).await
+    run_opsuccinct_client(oracle, beacon, eigenda).await
 }
 
 // Sourced from https://github.com/op-rs/kona/tree/main/bin/client/src/single.rs
 /// Runs the OP Succinct client using the given oracle and blob provider.
-pub async fn run_opsuccinct_client<O, B>(oracle: Arc<O>, beacon: B) -> Result<BootInfo>
+pub async fn run_opsuccinct_client<O, B, E>(
+    oracle: Arc<O>,
+    beacon: B,
+    eigenda: Option<E>,
+) -> Result<BootInfo>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
     B: BlobProvider + Send + Sync + Debug + Clone,
+    E: EigenDABlobProvider + Send + Sync + Debug + Clone,
 {
     ////////////////////////////////////////////////////////////////
     //                          PROLOGUE                          //
@@ -114,30 +124,46 @@ where
     l2_provider.set_cursor(cursor.clone());
 
     let pipeline = {
-        #[cfg(feature = "celestia")]
-        {
-            CelestiaOraclePipeline::new(
-                rollup_config.clone(),
-                cursor.clone(),
-                oracle.clone(),
-                beacon,
-                l1_provider.clone(),
-                l2_provider.clone(),
-                OracleCelestiaProvider::new(oracle.clone()),
-            )
-            .await?
-        }
-        #[cfg(not(feature = "celestia"))]
-        {
-            OraclePipeline::new(
-                rollup_config.clone(),
-                cursor.clone(),
-                oracle.clone(),
-                beacon,
-                l1_provider.clone(),
-                l2_provider.clone(),
-            )
-            .await?
+        cfg_if::cfg_if! {
+                if #[cfg(feature = "celestia")] {
+                    use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
+
+                    OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                    OracleCelestiaProvider::new(oracle.clone()),
+                )
+                .await?
+            } else if #[cfg(feature = "eigenda")] {
+                use hokulea_proof::pipeline::OraclePipeline;
+
+                OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                    eigenda.expect("EigenDABlobProvider is required"),
+                )
+                .await?
+            } else {
+                use kona_proof::l1::OraclePipeline;
+
+                OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                )
+                .await?
+            }
         }
     };
     let executor = KonaExecutor::new(

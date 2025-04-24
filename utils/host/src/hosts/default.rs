@@ -12,11 +12,17 @@ use anyhow::Result;
 #[derive(Clone)]
 pub struct SingleChainOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
+    pub witness_generator: Arc<DefaultWitnessGenerator>,
 }
 
 #[async_trait]
 impl OPSuccinctHost for SingleChainOPSuccinctHost {
     type Args = SingleChainHost;
+    type WitnessGenerator = DefaultWitnessGenerator;
+
+    fn witness_generator(&self) -> &Self::WitnessGenerator {
+        &self.witness_generator
+    }
 
     async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
         let hint = BidirectionalChannel::new()?;
@@ -24,7 +30,8 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
 
         let server_task = args.start_server(hint.host, preimage.host).await?;
 
-        let witness = Self::run_witnessgen_client(preimage.client, hint.client).await?;
+        let witness =
+            self.witness_generator().run_witnessgen_client(preimage.client, hint.client).await?;
         // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
         // tasks to complete.
         server_task.abort();
@@ -67,6 +74,6 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
 
 impl SingleChainOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher }
+        Self { fetcher, witness_generator: Arc::new(DefaultWitnessGenerator) }
     }
 }
