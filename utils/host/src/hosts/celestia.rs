@@ -4,26 +4,40 @@ use alloy_primitives::{address, Address, B256};
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
-use kona_preimage::BidirectionalChannel;
+use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
+use kona_preimage::{BidirectionalChannel, Channel, HintWriter, NativeChannel, OracleReader};
 use kona_rpc::SafeHeadResponse;
-use op_succinct_client_utils::witness::WitnessData;
-use std::sync::Arc;
+use op_succinct_client_utils::witness::{preimage_store::PreimageStore, BlobData, WitnessData};
+use std::sync::{Arc, Mutex};
+use tokio::task::JoinHandle;
 
 use crate::{
+    executor::{CelestiaDAWitnessExecutor, WitnessExecutor},
     fetcher::{OPSuccinctDataFetcher, RPCMode},
-    hosts::OPSuccinctHost,
+    hosts::{OPSuccinctHost, StartServer},
+    witness_generation::{
+        client::WitnessGenClient, online_blob_store::OnlineBlobStore,
+        preimage_witness_collector::PreimageWitnessCollector,
+    },
     SP1Blobstream,
 };
 use anyhow::{anyhow, Result};
+use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 
 #[derive(Clone)]
 pub struct CelestiaOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
+    witnessgen_client: CelestiaDAWitnessGenClient,
 }
 
 #[async_trait]
 impl OPSuccinctHost for CelestiaOPSuccinctHost {
     type Args = CelestiaChainHost;
+    type WitnessGenClient = CelestiaDAWitnessGenClient;
+
+    fn witnessgen_client(&self) -> &Self::WitnessGenClient {
+        &self.witnessgen_client
+    }
 
     async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
         let hint = BidirectionalChannel::new()?;
@@ -31,10 +45,61 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
         let server_task = args.start_server(hint.host, preimage.host).await?;
 
-        let witness = Self::run_witnessgen_client(preimage.client, hint.client).await?;
+        let witness = self.witnessgen_client().run(preimage.client, hint.client).await?;
         // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
         // tasks to complete.
         server_task.abort();
+
+        Ok(witness)
+    }
+
+    async fn run_witnessgen_client(
+        preimage_chan: NativeChannel,
+        hint_chan: NativeChannel,
+    ) -> Result<WitnessData> {
+        let executor = CelestiaDAWitnessExecutor;
+
+        let preimage_witness_store = Arc::new(Mutex::new(PreimageStore::default()));
+        let blob_data = Arc::new(Mutex::new(BlobData::default()));
+
+        let preimage_oracle = Arc::new(CachingOracle::new(
+            2048,
+            OracleReader::new(preimage_chan),
+            HintWriter::new(hint_chan),
+        ));
+        let blob_provider = OracleBlobProvider::new(preimage_oracle.clone());
+
+        let oracle = Arc::new(PreimageWitnessCollector {
+            preimage_oracle: preimage_oracle.clone(),
+            preimage_witness_store: preimage_witness_store.clone(),
+        });
+        let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
+
+        let (boot_info, input) = executor.get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        match input {
+            Some((cursor, l1_provider, l2_provider)) => {
+                let rollup_config = Arc::new(boot_info.rollup_config.clone());
+                let pipeline = OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon.clone(),
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                    OracleCelestiaProvider::new(oracle.clone()),
+                )
+                .await
+                .unwrap();
+
+                executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap();
+            }
+            None => {}
+        };
+
+        let witness = WitnessData {
+            preimage_store: preimage_witness_store.lock().unwrap().clone(),
+            blob_data: blob_data.lock().unwrap().clone(),
+        };
 
         Ok(witness)
     }
@@ -171,7 +236,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
 impl CelestiaOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher }
+        Self { fetcher, witnessgen_client: CelestiaDAWitnessGenClient }
     }
 }
 
@@ -224,5 +289,80 @@ fn extract_celestia_height(tx: &alloy_rpc_types::eth::Transaction) -> Result<Opt
             }
             _ => Err(anyhow!("Invalid version byte for batcher transaction")),
         }
+    }
+}
+
+pub struct CelestiaDAWitnessGenClient;
+
+#[async_trait]
+impl WitnessGenClient for CelestiaDAWitnessGenClient {
+    async fn run(
+        &self,
+        preimage_chan: NativeChannel,
+        hint_chan: NativeChannel,
+    ) -> Result<WitnessData> {
+        let executor = CelestiaDAWitnessExecutor;
+
+        let preimage_witness_store = Arc::new(Mutex::new(PreimageStore::default()));
+        let blob_data = Arc::new(Mutex::new(BlobData::default()));
+
+        let preimage_oracle = Arc::new(CachingOracle::new(
+            2048,
+            OracleReader::new(preimage_chan),
+            HintWriter::new(hint_chan),
+        ));
+        let blob_provider = OracleBlobProvider::new(preimage_oracle.clone());
+
+        let oracle = Arc::new(PreimageWitnessCollector {
+            preimage_oracle: preimage_oracle.clone(),
+            preimage_witness_store: preimage_witness_store.clone(),
+        });
+        let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
+
+        let (boot_info, input) = executor.get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        match input {
+            Some((cursor, l1_provider, l2_provider)) => {
+                let rollup_config = Arc::new(boot_info.rollup_config.clone());
+                let pipeline = OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon.clone(),
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                    OracleCelestiaProvider::new(oracle.clone()),
+                )
+                .await
+                .unwrap();
+
+                executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap();
+            }
+            None => {}
+        };
+
+        let witness = WitnessData {
+            preimage_store: preimage_witness_store.lock().unwrap().clone(),
+            blob_data: blob_data.lock().unwrap().clone(),
+        };
+
+        Ok(witness)
+    }
+}
+
+#[async_trait]
+impl StartServer<NativeChannel> for CelestiaChainHost {
+    async fn start_server(
+        &self,
+        hint: NativeChannel,
+        preimage: NativeChannel,
+    ) -> Result<JoinHandle<()>>
+    where
+        NativeChannel: Channel + Send + Sync + 'static,
+    {
+        let hint_writer = HintWriter::new(hint);
+        let preimage_reader = OracleReader::new(preimage);
+
+        let result = self.single_host.start_server(hint_writer, preimage_reader).await?;
+        Ok(result.into())
     }
 }

@@ -9,10 +9,16 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use kona_proof::l1::OraclePipeline;
 use op_succinct_client_utils::{
-    boot::BootInfoStruct, client::run_witness_client, witness::WitnessData,
+    boot::BootInfoStruct,
+    witness::{
+        executor::{ETHDAWitnessExecutor, WitnessExecutor},
+        WitnessData,
+    },
 };
 use rkyv::rancor::Error;
+use std::sync::Arc;
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
@@ -32,9 +38,27 @@ fn main() {
         let witness_data = rkyv::from_bytes::<WitnessData, Error>(&witness_rkyv_bytes)
             .expect("Failed to deserialize witness data.");
 
-        let boot_info = run_witness_client(witness_data)
-            .await
-            .expect("Failed to run client with witness data.");
+        let executor = ETHDAWitnessExecutor;
+        let (oracle, beacon) = executor.get_oracle_and_blob_provider(witness_data).await.unwrap();
+        let (boot_info, input) = executor.get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        let boot_info = match input {
+            Some((cursor, l1_provider, l2_provider)) => {
+                let rollup_config = Arc::new(boot_info.rollup_config.clone());
+                let pipeline = OraclePipeline::new(
+                    rollup_config.clone(),
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                )
+                .await
+                .unwrap();
+
+                executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap()
+            }
+            None => boot_info,
+        };
 
         sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
     });

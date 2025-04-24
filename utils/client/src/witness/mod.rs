@@ -1,3 +1,4 @@
+pub mod executor;
 pub mod preimage_store;
 
 use kzg_rs::{Blob, Bytes48};

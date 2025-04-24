@@ -1,36 +1,47 @@
-use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::generate_opsuccinct_witness};
+use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenClient};
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
-use kona_preimage::{HintWriter, NativeChannel, OracleReader};
-use kona_proof::{l1::OracleBlobProvider, CachingOracle};
+use hana_host::celestia::CelestiaChainHost;
+use kona_host::single::SingleChainHost;
+use kona_preimage::{BidirectionalChannel, Channel, NativeChannel};
 use op_succinct_client_utils::witness::WitnessData;
 use std::sync::Arc;
+use tokio::task::JoinHandle;
+
+#[async_trait]
+pub trait Host<C> {
+    async fn start_server(&self, hint: C, preimage: C) -> Result<JoinHandle<()>>
+    where
+        C: Channel + Send + Sync + 'static,
+    {
+        Ok(self.start_server(hint, preimage).await?.into())
+    }
+}
+
+impl Host<NativeChannel> for SingleChainHost {}
+impl Host<NativeChannel> for CelestiaChainHost {}
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
-    type Args: Send + Sync + 'static + Clone;
+    type Args: Send + Sync + 'static + Clone + Host<NativeChannel>;
+    type WitnessGenClient: WitnessGenClient;
+
+    fn witnessgen_client(&self) -> &Self::WitnessGenClient;
 
     /// Run the host and client program.
     ///
     /// Returns the witness which can be supplied to the zkVM.
-    async fn run(&self, args: &Self::Args) -> Result<WitnessData>;
+    async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
+        let preimage = BidirectionalChannel::new()?;
+        let hint = BidirectionalChannel::new()?;
 
-    /// Run the witness generation client.
-    async fn run_witnessgen_client(
-        preimage_chan: NativeChannel,
-        hint_chan: NativeChannel,
-    ) -> Result<WitnessData> {
-        // Instantiate oracles
-        let preimage_oracle = Arc::new(CachingOracle::new(
-            2048,
-            OracleReader::new(preimage_chan),
-            HintWriter::new(hint_chan),
-        ));
-        let blob_provider = OracleBlobProvider::new(preimage_oracle.clone());
+        let server_task = args.start_server(hint.host, preimage.host).await?;
 
-        let (_, witness) =
-            generate_opsuccinct_witness(preimage_oracle.clone(), blob_provider).await?;
+        let witness = self.witnessgen_client().run(preimage.client, hint.client).await?;
+        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
+        // tasks to complete.
+        server_task.abort();
 
         Ok(witness)
     }

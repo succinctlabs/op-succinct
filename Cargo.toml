@@ -1,5 +1,5 @@
 [workspace]
-members = ["utils/*", "programs/*", "scripts/*", "validity", "fault-proof"]
+members = ["utils/*", "programs/range/*", "programs/aggregation", "scripts/*", "validity", "fault-proof"]
 resolver = "2"
 
 [workspace.package]
@@ -14,7 +14,7 @@ repository = "https://github.com/succinctlabs/op-succinct"
 anyhow = { version = "1.0.86", default-features = false }
 thiserror = { version = "2.0.3" }
 cfg-if = "1.0.0"
-spin = { version = "0.9.8" }
+spin = { version = "0.10.0" }
 lru = "0.12.3"
 async-trait = "0.1.80"
 sha2 = "0.10.8"

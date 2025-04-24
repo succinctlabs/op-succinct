@@ -5785,6 +5785,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
+ "spin 0.10.0",
  "tracing",
 ]
 
@@ -5861,6 +5862,9 @@ dependencies = [
  "serde_json",
  "sp1-sdk",
  "strum 0.27.1",
+ "strum_macros 0.27.1",
+ "tempfile",
+ "tokio",
  "tracing",
 ]
 
@@ -7005,6 +7009,20 @@ dependencies = [
  "sp1-zkvm",
  "tracing",
  "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "range-celestia"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "hana-oracle",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "rkyv",
+ "sp1-zkvm",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
