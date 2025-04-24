@@ -211,11 +211,16 @@ where
                 .map_err(|e| Status::internal(format!("Failed to fetch agg proof ID: {}", e)))?
                 .unwrap();
 
+                // Convert the last ID to FixedBytes32
+                let last_id =
+                    FixedBytes::<32>::from_hex(format!("{:x}", last_id)).map_err(|e| {
+                        Status::internal(format!("Failed to convert ID to FixedBytes: {}", e))
+                    })?;
+
                 reply = AggProofResponse {
                     last_proven_block: req.last_proven_block,
                     end_block: end_block as u64,
-                    proof_request_id: alloy_primitives::Bytes::from(last_id.to_be_bytes().to_vec())
-                        .into(),
+                    proof_request_id: alloy_primitives::Bytes::from(last_id).into(),
                 };
             } else {
                 return Err(Status::internal(
