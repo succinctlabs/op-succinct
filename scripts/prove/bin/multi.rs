@@ -81,9 +81,8 @@ async fn main() -> Result<()> {
             fs::create_dir_all(&report_dir)?;
         }
 
-        let report_path = format!(
-            "execution-reports/multi/{l2_chain_id}/{l2_start_block}-{l2_end_block}.csv"
-        );
+        let report_path =
+            format!("execution-reports/multi/{l2_chain_id}/{l2_start_block}-{l2_end_block}.csv");
 
         // Write to CSV.
         let mut csv_writer = csv::Writer::from_path(report_path)?;
