@@ -186,11 +186,42 @@ where
                 .serialize(&proof)
                 .unwrap();
 
-            reply = AggProofResponse {
-                last_proven_block: req.last_proven_block,
-                end_block: end_block as u64,
-                proof_request_id: proof_bytes.into(),
+            let proved_op_request = OPSuccinctRequest {
+                proof: proof_bytes.into(),
+                ..op_request.clone()
             };
+
+            // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
+            let result = self
+                .proof_requester
+                .db_client
+                .insert_request(&proved_op_request)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to save request to DB: {}", e)))?;
+
+            if result.rows_affected() > 0 {
+                // Fetch the last inserted ID
+                let last_id: i64 = sqlx::query_scalar!(
+                    r#"
+                SELECT currval(pg_get_serial_sequence('requests', 'id'))
+                "#
+                )
+                .fetch_one(&self.proof_requester.db_client.pool)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to fetch agg proof ID: {}", e)))?
+                .unwrap();
+
+                reply = AggProofResponse {
+                    last_proven_block: req.last_proven_block,
+                    end_block: end_block as u64,
+                    proof_request_id: alloy_primitives::Bytes::from(last_id.to_be_bytes().to_vec())
+                        .into(),
+                };
+            } else {
+                return Err(Status::internal(
+                    "No AGG proof request inserted in the Database",
+                ));
+            }
         } else {
             let proof_id = self
                 .proof_requester
