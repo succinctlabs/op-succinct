@@ -27,7 +27,7 @@ message AggProofResponse {
 
 // Request message for GetMockProof
 message GetMockProofRequest {
-  string proof_id = 1; // The ID of the mock proof to retrieve
+  int64 proof_id = 1; // The ID of the mock proof to retrieve
 }
 
 // Response message for GetMockProof

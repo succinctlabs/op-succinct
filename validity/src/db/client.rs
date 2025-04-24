@@ -737,12 +737,12 @@ impl DriverDBClient {
     }
 
     /// Fetch a AGG proof by its ID.
-    pub async fn get_agg_proof_by_id(&self, proof_id: String) -> Result<Vec<u8>, Error> {
+    pub async fn get_agg_proof_by_id(&self, proof_id: i64) -> Result<Vec<u8>, Error> {
         let result = sqlx::query!(
             r#"
-            SELECT proof FROM requests WHERE proof_request_id = $1
+            SELECT proof FROM requests WHERE id = $1
             "#,
-            proof_id.as_bytes()
+            proof_id
         )
         .fetch_one(&self.pool)
         .await?;

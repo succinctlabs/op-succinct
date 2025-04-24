@@ -305,12 +305,14 @@ impl serde::Serialize for GetMockProofRequest {
     {
         use serde::ser::SerializeStruct;
         let mut len = 0;
-        if !self.proof_id.is_empty() {
+        if self.proof_id != 0 {
             len += 1;
         }
         let mut struct_ser = serializer.serialize_struct("proofs.GetMockProofRequest", len)?;
-        if !self.proof_id.is_empty() {
-            struct_ser.serialize_field("proofId", &self.proof_id)?;
+        if self.proof_id != 0 {
+            #[allow(clippy::needless_borrow)]
+            #[allow(clippy::needless_borrows_for_generic_args)]
+            struct_ser.serialize_field("proofId", ToString::to_string(&self.proof_id).as_str())?;
         }
         struct_ser.end()
     }
@@ -377,7 +379,9 @@ impl<'de> serde::Deserialize<'de> for GetMockProofRequest {
                             if proof_id__.is_some() {
                                 return Err(serde::de::Error::duplicate_field("proofId"));
                             }
-                            proof_id__ = Some(map_.next_value()?);
+                            proof_id__ = 
+                                Some(map_.next_value::<::pbjson::private::NumberDeserialize<_>>()?.0)
+                            ;
                         }
                     }
                 }
