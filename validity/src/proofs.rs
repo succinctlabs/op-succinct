@@ -11,7 +11,7 @@ use crate::RequestMode;
 use crate::RequesterConfig;
 use crate::ValidityGauge;
 use grpc::proofs::proofs_server::Proofs;
-use grpc::proofs::{AggProofRequest, AggProofResponse};
+use grpc::proofs::{AggProofRequest, AggProofResponse, GetMockProofRequest, GetMockProofResponse};
 use op_succinct_host_utils::hosts::OPSuccinctHost;
 use op_succinct_host_utils::metrics::MetricsGauge;
 use std::{sync::Arc, time::Instant};
@@ -186,13 +186,49 @@ where
                 .serialize(&proof)
                 .unwrap();
 
-            reply = AggProofResponse {
-                success: true,
-                error: "".into(),
-                last_proven_block: req.last_proven_block,
-                end_block: end_block as u64,
-                proof_request_id: proof_bytes.into(),
+            let proved_op_request = OPSuccinctRequest {
+                proof: proof_bytes.into(),
+                ..op_request.clone()
             };
+
+            // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
+            let result = self
+                .proof_requester
+                .db_client
+                .insert_request(&proved_op_request)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to save request to DB: {}", e)))?;
+
+            if result.rows_affected() > 0 {
+                // Fetch the last inserted ID
+                let last_id: i64 = sqlx::query_scalar!(
+                    r#"
+                SELECT currval(pg_get_serial_sequence('requests', 'id'))
+                "#
+                )
+                .fetch_one(&self.proof_requester.db_client.pool)
+                .await
+                .map_err(|e| Status::internal(format!("Failed to fetch agg proof ID: {}", e)))?
+                .ok_or(Status::internal(
+                    "Failed to fetch the last inserted ID from the database",
+                ))?;
+
+                // Convert the last ID to FixedBytes32
+                let last_id =
+                    FixedBytes::<32>::from_hex(format!("{:064x}", last_id)).map_err(|e| {
+                        Status::internal(format!("Failed to convert ID to FixedBytes: {}", e))
+                    })?;
+
+                reply = AggProofResponse {
+                    last_proven_block: req.last_proven_block,
+                    end_block: end_block as u64,
+                    proof_request_id: alloy_primitives::Bytes::from(last_id).into(),
+                };
+            } else {
+                return Err(Status::internal(
+                    "No AGG proof request inserted in the Database",
+                ));
+            }
         } else {
             let proof_id = self
                 .proof_requester
@@ -201,8 +237,6 @@ where
                 .map_err(|e| Status::internal(format!("Failed to request proof: {}", e)))?;
 
             reply = AggProofResponse {
-                success: true,
-                error: "".into(),
                 last_proven_block: req.last_proven_block,
                 end_block: end_block as u64,
                 proof_request_id: alloy_primitives::Bytes::from(proof_id).into(),
@@ -210,5 +244,28 @@ where
         }
 
         Ok(Response::new(reply))
+    }
+
+    #[tracing::instrument(name = "proofs.get_mock_proof", skip(self, request))]
+    async fn get_mock_proof(
+        &self,
+        request: Request<GetMockProofRequest>,
+    ) -> Result<Response<GetMockProofResponse>, Status> {
+        let req = request.into_inner();
+
+        // Fetch the mock proof from the database
+        let mock_proof = self
+            .proof_requester
+            .db_client
+            .get_agg_proof_by_id(req.proof_id)
+            .await
+            .map_err(|e| Status::not_found(format!("Mock proof not found: {}", e)))?;
+
+        // Return the mock proof in the response
+        let response = GetMockProofResponse {
+            proof: mock_proof.into(),
+        };
+
+        Ok(Response::new(response))
     }
 }
