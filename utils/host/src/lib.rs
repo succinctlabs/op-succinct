@@ -1,7 +1,7 @@
 pub mod block_range;
 mod contract;
 pub mod fetcher;
-pub mod hosts;
+pub mod host;
 mod proof;
 pub mod stats;
 pub use contract::*;

@@ -3,22 +3,13 @@ use std::{fmt::Debug, sync::Arc};
 use alloy_primitives::Sealed;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-use kona_derive::{
-    errors::{PipelineError, PipelineErrorKind},
-    traits::{BlobProvider, Pipeline, SignalReceiver},
-    types::Signal,
-};
+use kona_derive::traits::{Pipeline, SignalReceiver};
 use kona_driver::{Driver, DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
-use kona_genesis::RollupConfig;
 use kona_preimage::CommsClient;
 use kona_proof::{
-    errors::OracleProviderError,
-    executor::KonaExecutor,
-    l1::{OracleL1ChainProvider, OraclePipeline},
-    l2::OracleL2ChainProvider,
-    sync::new_pipeline_cursor,
-    BootInfo, FlushableCache, HintType,
+    executor::KonaExecutor, l1::OracleL1ChainProvider, l2::OracleL2ChainProvider,
+    sync::new_pipeline_cursor, BootInfo, FlushableCache,
 };
 use spin::RwLock;
 use tracing::info;

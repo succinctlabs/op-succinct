@@ -2,11 +2,12 @@ use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
 use log::info;
+use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin, get_range_elf_embedded,
-    hosts::{initialize_host, OPSuccinctHost},
+    host::OPSuccinctHost,
 };
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::utils;

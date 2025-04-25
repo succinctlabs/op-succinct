@@ -5,16 +5,19 @@ use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
 use kona_host::single::SingleChainHost;
+use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
 
-use crate::{
-    fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost,
-    witness_generation::eth_da_client::ETHDAWitnessGenClient,
-};
+use crate::client::ETHDAWitnessGenClient;
 
 #[derive(Clone)]
 pub struct SingleChainOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub witnessgen_client: Arc<ETHDAWitnessGenClient>,
+}
+
+// Initialize the default (ETH-DA) host.
+pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
+    Arc::new(SingleChainOPSuccinctHost::new(fetcher))
 }
 
 #[async_trait]

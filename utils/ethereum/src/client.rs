@@ -12,8 +12,7 @@ use op_succinct_client_utils::witness::{
     preimage_store::PreimageStore,
     BlobData, WitnessData,
 };
-
-use crate::witness_generation::{
+use op_succinct_host_utils::witness_generation::{
     client::WitnessGenClient, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };

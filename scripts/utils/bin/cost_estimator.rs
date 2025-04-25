@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
 use log::info;
+use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     block_range::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
@@ -9,7 +10,7 @@ use op_succinct_host_utils::{
     },
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin, get_range_elf_embedded,
-    hosts::{initialize_host, OPSuccinctHost},
+    host::OPSuccinctHost,
     stats::ExecutionStats,
 };
 use op_succinct_scripts::HostExecutorArgs;

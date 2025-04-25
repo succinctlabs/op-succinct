@@ -21,7 +21,7 @@ use crate::{
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, get_range_elf_embedded,
-    hosts::OPSuccinctHost, metrics::MetricsGauge, AGGREGATION_ELF,
+    host::OPSuccinctHost, metrics::MetricsGauge, AGGREGATION_ELF,
 };
 
 struct SP1Prover {

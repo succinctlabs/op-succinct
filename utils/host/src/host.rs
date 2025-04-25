@@ -1,4 +1,3 @@
-use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenClient};
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -6,8 +5,9 @@ use hana_host::celestia::CelestiaChainHost;
 use kona_host::single::SingleChainHost;
 use kona_preimage::{BidirectionalChannel, Channel, NativeChannel};
 use op_succinct_client_utils::witness::WitnessData;
-use std::sync::Arc;
 use tokio::task::JoinHandle;
+
+use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenClient};
 
 #[async_trait]
 pub trait Host<C> {
@@ -20,6 +20,7 @@ pub trait Host<C> {
 }
 
 impl Host<NativeChannel> for SingleChainHost {}
+
 impl Host<NativeChannel> for CelestiaChainHost {}
 
 #[async_trait]
@@ -79,28 +80,4 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         fetcher: &OPSuccinctDataFetcher,
         latest_proposed_block_number: u64,
     ) -> Result<Option<u64>>;
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(feature = "celestia")] {
-        mod celestia;
-        use crate::hosts::celestia::CelestiaOPSuccinctHost;
-
-        /// Initialize the Celestia host.
-        pub fn initialize_host(
-            fetcher: Arc<OPSuccinctDataFetcher>,
-        ) -> Arc<CelestiaOPSuccinctHost> {
-            Arc::new(CelestiaOPSuccinctHost::new(fetcher))
-        }
-    } else {
-        mod default;
-        use crate::hosts::default::SingleChainOPSuccinctHost;
-
-        /// Initialize the default (ETH-DA) host.
-        pub fn initialize_host(
-            fetcher: Arc<OPSuccinctDataFetcher>,
-        ) -> Arc<SingleChainOPSuccinctHost> {
-            Arc::new(SingleChainOPSuccinctHost::new(fetcher))
-        }
-    }
 }

@@ -1,8 +1,8 @@
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
+use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    hosts::initialize_host,
     metrics::{init_metrics, MetricsGauge},
 };
 use op_succinct_validity::{

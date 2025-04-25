@@ -11,9 +11,9 @@ use fault_proof::{
     utils::setup_logging,
 };
 use op_alloy_network::EthereumWallet;
+use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    hosts::initialize_host,
     metrics::{init_metrics, MetricsGauge},
 };
 

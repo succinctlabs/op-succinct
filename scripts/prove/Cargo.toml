@@ -30,6 +30,7 @@ tracing.workspace = true
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
+op-succinct-ethereum-utils.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
