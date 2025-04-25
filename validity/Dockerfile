@@ -26,7 +26,7 @@ COPY . .
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --bin validity --release && \
+    SQLX_OFFLINE=true cargo build --bin validity --release && \
     cp target/release/validity /build/validity-proposer
 
 # Final stage
