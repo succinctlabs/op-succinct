@@ -15,11 +15,6 @@ pub struct SingleChainOPSuccinctHost {
     pub witnessgen_client: Arc<ETHDAWitnessGenClient>,
 }
 
-// Initialize the default (ETH-DA) host.
-pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<SingleChainOPSuccinctHost> {
-    Arc::new(SingleChainOPSuccinctHost::new(fetcher))
-}
-
 #[async_trait]
 impl OPSuccinctHost for SingleChainOPSuccinctHost {
     type Args = SingleChainHost;

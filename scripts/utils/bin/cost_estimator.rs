@@ -2,17 +2,17 @@ use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
 use log::info;
-use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     block_range::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
         split_range_basic, SpanBatchRange,
     },
     fetcher::OPSuccinctDataFetcher,
-    get_proof_stdin, get_range_elf_embedded,
+    get_proof_stdin,
     host::OPSuccinctHost,
     stats::ExecutionStats,
 };
+use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use sp1_sdk::{utils, ProverClient};

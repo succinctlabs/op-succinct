@@ -22,11 +22,6 @@ pub struct CelestiaOPSuccinctHost {
     witnessgen_client: CelestiaDAWitnessGenClient,
 }
 
-// Initialize the Celestia host.
-pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<CelestiaOPSuccinctHost> {
-    Arc::new(CelestiaOPSuccinctHost::new(fetcher))
-}
-
 #[async_trait]
 impl OPSuccinctHost for CelestiaOPSuccinctHost {
     type Args = CelestiaChainHost;

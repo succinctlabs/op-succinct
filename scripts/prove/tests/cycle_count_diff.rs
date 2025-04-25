@@ -6,9 +6,10 @@ use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
     fetcher::OPSuccinctDataFetcher,
     get_proof_stdin,
-    hosts::{initialize_host, OPSuccinctHost},
+    hosts::OPSuccinctHost,
     stats::{ExecutionStats, MarkdownExecutionStats},
 };
+use op_succinct_proof_utils::initialize_host;
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
 
 mod common;

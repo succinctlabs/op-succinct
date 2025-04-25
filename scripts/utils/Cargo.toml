@@ -52,10 +52,9 @@ rayon = "1.10.0"
 serde_json.workspace = true
 
 # local
-op-succinct-ethereum-utils.workspace = true
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
-
+op-succinct-proof-utils.workspace = true
 # sp1
 sp1-sdk.workspace = true
 
