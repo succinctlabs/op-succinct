@@ -17,13 +17,12 @@ use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_range_elf_embedded, hosts::OPSuccinctHost,
+    fetcher::OPSuccinctDataFetcher, get_range_elf_embedded, host::OPSuccinctHost,
     metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
     AGGREGATION_ELF,
 };
-use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,

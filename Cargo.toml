@@ -79,6 +79,8 @@ op-succinct-host-utils = { path = "utils/host" }
 op-succinct-build-utils = { path = "utils/build" }
 op-succinct-validity = { path = "validity" }
 op-succinct-fp = { path = "fault-proof" }
+op-succinct-ethereum-utils = { path = "utils/ethereum" }
+op-succinct-celestia-utils = { path = "utils/celestia" }
 
 # Alloy (Network)
 alloy-signer-local = { version = "0.15.6" }

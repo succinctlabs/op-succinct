@@ -1,33 +1,30 @@
+use std::sync::Arc;
+
 use alloy_consensus::Transaction;
 use alloy_eips::BlockId;
 use alloy_primitives::{address, Address, B256};
 use alloy_provider::Provider;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
-use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
-use kona_preimage::{BidirectionalChannel, Channel, HintWriter, NativeChannel, OracleReader};
 use kona_rpc::SafeHeadResponse;
-use op_succinct_client_utils::witness::{preimage_store::PreimageStore, BlobData, WitnessData};
-use std::sync::{Arc, Mutex};
-use tokio::task::JoinHandle;
-
-use crate::{
-    executor::{CelestiaDAWitnessExecutor, WitnessExecutor},
+use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
-    hosts::{OPSuccinctHost, StartServer},
-    witness_generation::{
-        celestia_da_client::CelestiaDAWitnessGenClient, client::WitnessGenClient,
-        online_blob_store::OnlineBlobStore, preimage_witness_collector::PreimageWitnessCollector,
-    },
+    host::OPSuccinctHost,
     SP1Blobstream,
 };
-use anyhow::{anyhow, Result};
-use kona_proof::{l1::OracleBlobProvider, CachingOracle};
+
+use crate::client::CelestiaDAWitnessGenClient;
 
 #[derive(Clone)]
 pub struct CelestiaOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     witnessgen_client: CelestiaDAWitnessGenClient,
+}
+
+// Initialize the Celestia host.
+pub fn initialize_host(fetcher: Arc<OPSuccinctDataFetcher>) -> Arc<CelestiaOPSuccinctHost> {
+    Arc::new(CelestiaOPSuccinctHost::new(fetcher))
 }
 
 #[async_trait]
