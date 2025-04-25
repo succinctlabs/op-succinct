@@ -209,11 +209,13 @@ where
                 .fetch_one(&self.proof_requester.db_client.pool)
                 .await
                 .map_err(|e| Status::internal(format!("Failed to fetch agg proof ID: {}", e)))?
-                .unwrap();
+                .ok_or(Status::internal(
+                    "Failed to fetch the last inserted ID from the database",
+                ))?;
 
                 // Convert the last ID to FixedBytes32
                 let last_id =
-                    FixedBytes::<32>::from_hex(format!("{:x}", last_id)).map_err(|e| {
+                    FixedBytes::<32>::from_hex(format!("{:064x}", last_id)).map_err(|e| {
                         Status::internal(format!("Failed to convert ID to FixedBytes: {}", e))
                     })?;
 
