@@ -5788,7 +5788,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cfg-if",
- "hana-oracle",
+ "itertools 0.13.0",
  "kona-derive",
  "kona-driver",
  "kona-executor",
@@ -5847,9 +5847,9 @@ dependencies = [
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
- "op-succinct-ethereum-utils",
  "op-succinct-host-utils",
- "rand 0.9.1",
+ "op-succinct-proof-utils",
+ "rand 0.9.0",
  "sp1-sdk",
  "strum 0.27.1",
  "strum_macros 0.27.1",
@@ -5902,6 +5902,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-proof-utils"
+version = "0.1.0"
+dependencies = [
+ "cfg-if",
+ "op-succinct-celestia-utils",
+ "op-succinct-ethereum-utils",
+ "op-succinct-host-utils",
+]
+
+[[package]]
 name = "op-succinct-prove"
 version = "0.1.0"
 dependencies = [
@@ -5913,8 +5923,8 @@ dependencies = [
  "dotenv",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
- "op-succinct-ethereum-utils",
  "op-succinct-host-utils",
+ "op-succinct-proof-utils",
  "op-succinct-scripts",
  "reqwest",
  "serde_json",
@@ -5941,8 +5951,8 @@ dependencies = [
  "log",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
- "op-succinct-ethereum-utils",
  "op-succinct-host-utils",
+ "op-succinct-proof-utils",
  "rayon",
  "serde",
  "serde_json",
@@ -5971,8 +5981,8 @@ dependencies = [
  "futures-util",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
- "op-succinct-ethereum-utils",
  "op-succinct-host-utils",
+ "op-succinct-proof-utils",
  "reqwest",
  "rustls",
  "serde",

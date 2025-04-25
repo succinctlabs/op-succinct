@@ -1,0 +1,19 @@
+[package]
+name = "op-succinct-proof-utils"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+# local
+op-succinct-celestia-utils = { workspace = true, optional = true }
+op-succinct-ethereum-utils = { workspace = true, optional = true }
+op-succinct-host-utils.workspace = true
+
+# general
+cfg-if.workspace = true
+
+[features]
+default = ["op-succinct-ethereum-utils"]
+celestia = ["op-succinct-celestia-utils"]

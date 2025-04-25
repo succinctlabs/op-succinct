@@ -3,9 +3,10 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, get_range_elf_embedded,
-    host::OPSuccinctHost, metrics::MetricsGauge, AGGREGATION_ELF,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, host::OPSuccinctHost,
+    metrics::MetricsGauge,
 };
+use op_succinct_proof_utils::{get_range_elf_embedded, AGGREGATION_ELF};
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
     NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,

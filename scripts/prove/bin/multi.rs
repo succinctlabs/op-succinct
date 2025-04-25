@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, get_proof_stdin,
-    get_range_elf_embedded, host::OPSuccinctHost, stats::ExecutionStats,
+    host::OPSuccinctHost, stats::ExecutionStats,
 };
+use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};

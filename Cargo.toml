@@ -81,6 +81,7 @@ op-succinct-validity = { path = "validity" }
 op-succinct-fp = { path = "fault-proof" }
 op-succinct-ethereum-utils = { path = "utils/ethereum" }
 op-succinct-celestia-utils = { path = "utils/celestia" }
+op-succinct-proof-utils = { path = "utils/proof" }
 
 # Alloy (Network)
 alloy-signer-local = { version = "0.15.6" }

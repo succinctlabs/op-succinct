@@ -11,11 +11,11 @@ use fault_proof::{
     utils::setup_logging,
 };
 use op_alloy_network::EthereumWallet;
-use op_succinct_ethereum_utils::host::initialize_host;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     metrics::{init_metrics, MetricsGauge},
 };
+use op_succinct_proof_utils::initialize_host;
 
 #[derive(Parser)]
 struct Args {
