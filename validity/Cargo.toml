@@ -62,5 +62,9 @@ url = "2.5.4"
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
 
+# kona
+kona-derive.workspace = true
+kona-rpc.workspace = true
+
 [build-dependencies]
 op-succinct-build-utils.workspace = true
