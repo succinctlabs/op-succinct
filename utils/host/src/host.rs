@@ -2,30 +2,55 @@ use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
 use hana_host::celestia::CelestiaChainHost;
-use kona_host::single::SingleChainHost;
-use kona_preimage::{BidirectionalChannel, Channel, NativeChannel};
+use kona_host::single::{SingleChainHost, SingleChainHostError};
+use kona_preimage::{BidirectionalChannel, Channel};
 use op_succinct_client_utils::witness::WitnessData;
 use tokio::task::JoinHandle;
 
 use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenClient};
 
 #[async_trait]
-pub trait Host<C> {
-    async fn start_server(&self, hint: C, preimage: C) -> Result<JoinHandle<()>>
+pub trait PreimageServerStarter {
+    async fn start_server<C>(
+        &self,
+        hint: C,
+        preimage: C,
+    ) -> Result<JoinHandle<Result<(), SingleChainHostError>>, SingleChainHostError>
+    where
+        C: Channel + Send + Sync + 'static;
+}
+
+#[async_trait]
+impl PreimageServerStarter for SingleChainHost {
+    async fn start_server<C>(
+        &self,
+        hint: C,
+        preimage: C,
+    ) -> Result<JoinHandle<Result<(), SingleChainHostError>>, SingleChainHostError>
     where
         C: Channel + Send + Sync + 'static,
     {
-        Ok(self.start_server(hint, preimage).await?.into())
+        self.start_server(hint, preimage).await
     }
 }
 
-impl Host<NativeChannel> for SingleChainHost {}
-
-impl Host<NativeChannel> for CelestiaChainHost {}
+#[async_trait]
+impl PreimageServerStarter for CelestiaChainHost {
+    async fn start_server<C>(
+        &self,
+        hint: C,
+        preimage: C,
+    ) -> Result<JoinHandle<Result<(), SingleChainHostError>>, SingleChainHostError>
+    where
+        C: Channel + Send + Sync + 'static,
+    {
+        self.start_server(hint, preimage).await
+    }
+}
 
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
-    type Args: Send + Sync + 'static + Clone + Host<NativeChannel>;
+    type Args: Send + Sync + 'static + Clone + PreimageServerStarter;
     type WitnessGenClient: WitnessGenClient;
 
     fn witnessgen_client(&self) -> &Self::WitnessGenClient;
