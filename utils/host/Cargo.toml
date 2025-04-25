@@ -27,6 +27,7 @@ kona-derive.workspace = true
 
 # hana
 hana-host.workspace = true
+hana-oracle.workspace = true
 
 # alloy
 alloy-contract.workspace = true
