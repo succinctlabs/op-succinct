@@ -8,7 +8,7 @@ use kona_host::single::SingleChainHost;
 
 use crate::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost,
-    witness_generation::client::ETHDAWitnessGenClient,
+    witness_generation::eth_da_client::ETHDAWitnessGenClient,
 };
 
 #[derive(Clone)]

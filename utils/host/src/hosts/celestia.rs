@@ -16,8 +16,8 @@ use crate::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
     hosts::{OPSuccinctHost, StartServer},
     witness_generation::{
-        client::WitnessGenClient, online_blob_store::OnlineBlobStore,
-        preimage_witness_collector::PreimageWitnessCollector,
+        celestia_da_client::CelestiaDAWitnessGenClient, client::WitnessGenClient,
+        online_blob_store::OnlineBlobStore, preimage_witness_collector::PreimageWitnessCollector,
     },
     SP1Blobstream,
 };

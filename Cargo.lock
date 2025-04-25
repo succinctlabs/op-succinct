@@ -5840,6 +5840,7 @@ dependencies = [
  "cfg-if",
  "futures",
  "hana-host",
+ "hana-oracle",
  "kona-derive",
  "kona-genesis",
  "kona-host",
