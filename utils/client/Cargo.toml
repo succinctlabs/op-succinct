@@ -12,6 +12,11 @@ alloy-rlp.workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
+
+# Execution
+alloy-evm.workspace = true
+alloy-op-evm.workspace = true
+op-revm.workspace = true
 revm.workspace = true
 
 # kona
@@ -24,7 +29,7 @@ kona-driver.workspace = true
 kona-rpc.workspace = true
 kona-protocol.workspace = true
 kona-genesis.workspace = true
-
+kona-std-fpvm.workspace = true
 # hana
 hana-oracle = { workspace = true, optional = true }
 

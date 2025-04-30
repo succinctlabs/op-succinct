@@ -418,15 +418,8 @@ where
         };
 
         // Get the submission interval from the contract.
-        let contract_submission_interval: u64 = self
-            .contract_config
-            .l2oo_contract
-            .submissionInterval()
-            .call()
-            .await?
-            .submissionInterval
-            .try_into()
-            .unwrap();
+        let contract_submission_interval: u64 =
+            self.contract_config.l2oo_contract.submissionInterval().call().await?.to::<u64>();
 
         // Use the submission interval from the contract if it's greater than the one in the
         // proposer config.
@@ -714,8 +707,7 @@ where
                 .dgf_contract
                 .initBonds(OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE)
                 .call()
-                .await?
-                ._0;
+                .await?;
 
             let extra_data = <(U256, U256, Address, Bytes)>::abi_encode_packed(&(
                 U256::from(completed_agg_proof.end_block as u64),
@@ -769,16 +761,11 @@ where
     async fn validate_contract_config(&self) -> Result<()> {
         // Validate the requester config matches the contract.
         let contract_rollup_config_hash =
-            self.contract_config.l2oo_contract.rollupConfigHash().call().await?.rollupConfigHash;
+            self.contract_config.l2oo_contract.rollupConfigHash().call().await?;
         let contract_agg_vkey_hash =
-            self.contract_config.l2oo_contract.aggregationVkey().call().await?.aggregationVkey;
-        let contract_range_vkey_commitment = self
-            .contract_config
-            .l2oo_contract
-            .rangeVkeyCommitment()
-            .call()
-            .await?
-            .rangeVkeyCommitment;
+            self.contract_config.l2oo_contract.aggregationVkey().call().await?;
+        let contract_range_vkey_commitment =
+            self.contract_config.l2oo_contract.rangeVkeyCommitment().call().await?;
 
         let rollup_config_hash_match =
             contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;
@@ -1093,7 +1080,6 @@ where
             .submissionInterval()
             .call()
             .await?
-            .submissionInterval
             .try_into()
             .unwrap();
 

@@ -38,7 +38,7 @@ where
     challenger_address: Address,
     l2_provider: L2Provider,
     l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
-    factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
+    factory: DisputeGameFactoryInstance<L1ProviderWithWallet<F, P>>,
     challenger_bond: U256,
 }
 
@@ -52,7 +52,7 @@ where
     pub async fn new(
         challenger_address: Address,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
-        factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
+        factory: DisputeGameFactoryInstance<L1ProviderWithWallet<F, P>>,
     ) -> Result<Self> {
         let config = ChallengerConfig::from_env()?;
 
