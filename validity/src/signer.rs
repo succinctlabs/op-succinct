@@ -1,74 +1,69 @@
-//! Sourced from: https://github.com/Layr-Labs/eigensdk-rs/blob/dev/crates/signer/src/web3_signer.rs
-//! Replace with Web3Signer from Alloy when it's released.
-use alloy_consensus::{transaction::RlpEcdsaDecodableTx, SignableTransaction, TxLegacy};
-use alloy_network::TxSigner;
-use alloy_primitives::{Address, Bytes, TxKind, U256};
-use alloy_rpc_client::{ClientBuilder, ReqwestClient};
-use alloy_signer::Signature;
-use async_trait::async_trait;
-use serde::Serialize;
-use url::Url;
+use alloy_eips::Decodable2718;
+use alloy_network::{Ethereum, Network, TransactionBuilder};
+use alloy_primitives::{Address, Bytes};
+use alloy_provider::Provider;
 
-/// A signer that sends an RPC request to sign a transaction remotely
-/// Implements `eth_signTransaction` method of Consensys Web3 Signer
-/// Reference: https://docs.web3signer.consensys.io/reference/api/json-rpc#eth_signtransaction
-#[derive(Debug)]
-pub struct Web3Signer {
-    /// Client used to send an RPC request
-    pub client: ReqwestClient,
-    /// Address of the account that intends to sign a transaction.
-    /// It must match the `from` field in the transaction.
-    pub address: Address,
+/// A remote signer that leverages the underlying provider to sign transactions using
+/// `"eth_signTransaction"` requests.
+///
+/// For more information, please see [Web3Signer](https://docs.web3signer.consensys.io/)
+///
+/// Note:
+///
+/// `"eth_signTransaction"` is not supported by regular nodes.
+///
+/// [`ProviderBuilder`]: crate::ProviderBuilder
+#[derive(Debug, Clone)]
+pub struct Web3Signer<P: Provider<N> + Clone, N: Network = Ethereum> {
+    /// The provider used to make `"eth_signTransaction"` requests.
+    provider: P,
+    /// The address of the remote signer that will sign the transactions.
+    ///
+    /// This is set as the `from` field in the [`Network::TransactionRequest`]'s for the
+    /// `"eth_signTransaction"` requests.
+    address: Address,
+    _pd: std::marker::PhantomData<N>,
 }
 
-/// Parameters for the `eth_signTransaction` method
-#[derive(Serialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-struct SignTransactionParams {
-    from: String,
-    to: TxKind,
-    value: U256,
-    gas: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    gas_price: Option<String>,
-    nonce: String,
-    data: String,
-}
-
-impl Web3Signer {
-    pub fn new(address: Address, url: Url) -> Self {
-        Web3Signer { client: ClientBuilder::default().http(url), address }
-    }
-}
-
-#[async_trait]
-impl TxSigner<Signature> for Web3Signer {
-    fn address(&self) -> Address {
-        self.address
+impl<P: Provider<N> + Clone, N: Network> Web3Signer<P, N> {
+    /// Instantiates a new [`Web3Signer`] with the given [`Provider`] and the signer address.
+    ///
+    /// The `address` is used to set the `from` field in the transaction requests.
+    ///
+    /// The remote signer's address _must_ be the same as the signer address provided here.
+    pub fn new(provider: P, address: Address) -> Self {
+        Self { provider, address, _pd: std::marker::PhantomData }
     }
 
-    async fn sign_transaction(
+    /// Returns the underlying [`Provider`] used by the [`Web3Signer`].
+    pub fn provider(&self) -> P {
+        self.provider.clone()
+    }
+    /// Signs a transaction request and return the raw signed transaction in the form of [`Bytes`].
+    ///
+    /// The returned [`Bytes`] can be used to broadcast the transaction to the network using
+    /// [`Provider::send_raw_transaction`].
+    ///
+    /// Sets the `from` field to the provided `address`.
+    ///
+    /// If you'd like to receive a [`Network::TxEnvelope`] instead, use
+    /// [`Web3Signer::sign_and_decode`].
+    pub async fn sign_transaction(
         &self,
-        tx: &mut dyn SignableTransaction<Signature>,
-    ) -> alloy_signer::Result<Signature> {
-        let params = SignTransactionParams {
-            from: self.address.to_string(),
-            to: tx.to().into(),
-            value: tx.value(),
-            gas: format!("0x{:x}", tx.gas_limit()),
-            gas_price: tx.gas_price().map(|price| format!("0x{price:x}")),
-            nonce: format!("0x{:x}", tx.nonce()),
-            data: Bytes::copy_from_slice(tx.input()).to_string(),
-        };
+        mut tx: N::TransactionRequest,
+    ) -> alloy_signer::Result<Bytes> {
+        // Always overrides the `from` field with the web3 signer's address.
+        tx.set_from(self.address);
+        self.provider.sign_transaction(tx).await.map_err(alloy_signer::Error::other)
+    }
 
-        let request = self
-            .client
-            .request::<Vec<SignTransactionParams>, Bytes>("eth_signTransaction", vec![params]);
-        let rlp_encoded_signed_tx = request.await.map_err(alloy_signer::Error::other)?;
-
-        let signed_tx = TxLegacy::rlp_decode_signed(&mut rlp_encoded_signed_tx.as_ref())
-            .map_err(alloy_signer::Error::other)?;
-
-        Ok(*signed_tx.signature())
+    /// Signs a transaction request using [`Web3Signer::sign_transaction`] and decodes the raw bytes
+    /// returning a [`Network::TxEnvelope`].
+    pub async fn sign_and_decode(
+        &self,
+        tx: N::TransactionRequest,
+    ) -> alloy_signer::Result<N::TxEnvelope> {
+        let raw = self.sign_transaction(tx).await?;
+        N::TxEnvelope::decode_2718(&mut raw.as_ref()).map_err(alloy_signer::Error::other)
     }
 }
