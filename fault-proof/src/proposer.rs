@@ -84,7 +84,7 @@ where
             config: config.clone(),
             prover_address,
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
-            l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
+            l2_provider: ProviderBuilder::default().connect_http(config.l2_rpc),
             factory: Arc::new(factory.clone()),
             init_bond: factory.fetch_init_bond(config.game_type).await?,
             safe_db_fallback: config.safe_db_fallback,

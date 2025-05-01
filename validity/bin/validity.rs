@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
         safe_db_fallback: env_config.safe_db_fallback,
     };
 
-    let l1_provider = ProviderBuilder::new().on_http(env_config.l1_rpc.clone());
+    let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
 
     let host = initialize_host(fetcher.clone().into());
 

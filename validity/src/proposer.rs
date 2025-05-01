@@ -1,8 +1,8 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, EnvironmentConfig, OPSuccinctProofRequester, ProgramConfig, ProposerSigner,
-    RequesterConfig, ValidityGauge,
+    ContractConfig, OPSuccinctProofRequester, ProgramConfig, ProposerSigner, RequesterConfig,
+    ValidityGauge,
 };
 use alloy_consensus::{TxEnvelope, TypedTransaction};
 use alloy_eips::BlockId;
@@ -12,7 +12,6 @@ use alloy_provider::{
     network::ReceiptResponse, Network, PendingTransactionBuilder, Provider, ProviderBuilder,
     Web3Signer,
 };
-use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
@@ -1235,7 +1234,7 @@ where
             transaction_request.set_from(signer_address);
 
             // Use the signer_url to create the provider builder.
-            let web3_provider = ProviderBuilder::new().network::<N>().on_http(signer_url);
+            let web3_provider = ProviderBuilder::new().network::<N>().connect_http(signer_url);
             let signer = Web3Signer::new(web3_provider.clone(), signer_address);
 
             // Fill the transaction request with all of the relevant gas and nonce information.
@@ -1249,7 +1248,7 @@ where
             let provider = ProviderBuilder::new()
                 .network::<N>()
                 .wallet(EthereumWallet::new(private_key.clone()))
-                .on_http(l1_rpc);
+                .connect_http(l1_rpc);
 
             // Set the from address to the Ethereum wallet address.
             transaction_request.set_from(private_key.address());
