@@ -1,4 +1,4 @@
-use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder, Web3Signer};
+use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -62,18 +62,8 @@ async fn main() -> Result<()> {
         safe_db_fallback: env_config.safe_db_fallback,
     };
 
-    // Read all config from env vars. If both signer_url and signer_address are provided, use
-    // Web3Signer. Otherwise, use the private key.
-    let wallet = match (env_config.signer_url, env_config.signer_address) {
-        (Some(url), Some(address)) => {
-            EthereumWallet::new(Web3Signer::new(ProviderBuilder::new().on_http(url), address))
-        }
-        _ => EthereumWallet::new(env_config.private_key),
-    };
-
-    let l1_provider = ProviderBuilder::new()
-        .wallet(wallet)
-        .on_http(env_config.l1_rpc.parse().expect("Failed to parse L1_RPC"));
+    let l1_provider =
+        ProviderBuilder::new().on_http(env_config.l1_rpc.parse().expect("Failed to parse L1_RPC"));
 
     let host = initialize_host(fetcher.clone().into());
 
@@ -82,7 +72,7 @@ async fn main() -> Result<()> {
         db_client.clone(),
         fetcher.into(),
         proposer_config,
-        env_config.loop_interval,
+        env_config.clone(),
         host,
     )
     .await?;

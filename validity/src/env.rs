@@ -7,6 +7,7 @@ use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
 use std::str::FromStr;
 
+#[derive(Debug, Clone)]
 pub struct EnvironmentConfig {
     pub db_url: String,
     pub metrics_port: u16,

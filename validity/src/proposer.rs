@@ -1,11 +1,17 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
+    ContractConfig, EnvironmentConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig,
+    ValidityGauge,
 };
+use alloy_consensus::{TxEnvelope, TypedTransaction};
 use alloy_eips::BlockId;
+use alloy_network::{EthereumWallet, TransactionBuilder, TransactionBuilder4844};
 use alloy_primitives::{Address, Bytes, B256, U256};
-use alloy_provider::{network::ReceiptResponse, Network, Provider};
+use alloy_provider::{
+    network::ReceiptResponse, Network, PendingTransactionBuilder, Provider, ProviderBuilder,
+    Web3Signer,
+};
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
@@ -30,7 +36,7 @@ pub struct DriverConfig {
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
-    pub loop_interval_seconds: u64,
+    pub env_config: EnvironmentConfig,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
 pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
@@ -38,7 +44,8 @@ pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinct
 pub struct Proposer<P, N, H: OPSuccinctHost>
 where
     P: Provider<N> + 'static,
-    N: Network,
+    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    N::TransactionRequest: TransactionBuilder4844,
 {
     driver_config: DriverConfig,
     contract_config: ContractConfig<P, N>,
@@ -46,24 +53,28 @@ where
     requester_config: RequesterConfig,
     proof_requester: Arc<OPSuccinctProofRequester<H>>,
     tasks: Arc<Mutex<TaskMap>>,
+    provider: P,
 }
 
 /// 5 L1 confirmations (1 minute)
 const NUM_CONFIRMATIONS: u64 = 5;
 /// 2 minute timeout.
 const TIMEOUT: u64 = 120;
+// 1 minute default loop interval.
+const DEFAULT_LOOP_INTERVAL: u64 = 60;
 
 impl<P, N, H: OPSuccinctHost> Proposer<P, N, H>
 where
     P: Provider<N> + 'static + Clone,
-    N: Network,
+    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    N::TransactionRequest: TransactionBuilder4844,
 {
     pub async fn new(
         provider: P,
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         requester_config: RequesterConfig,
-        loop_interval_seconds: Option<u64>,
+        env_config: EnvironmentConfig,
         host: Arc<H>,
     ) -> Result<Self> {
         // This check prevents users from running multiple proposers for the same chain at the same
@@ -136,17 +147,15 @@ where
         let l2oo_contract =
             OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider.clone());
 
-        let dgf_contract = DisputeGameFactoryContract::new(requester_config.dgf_address, provider);
-
-        // 1 minute default loop interval.
-        const DEFAULT_LOOP_INTERVAL: u64 = 30;
+        let dgf_contract =
+            DisputeGameFactoryContract::new(requester_config.dgf_address, provider.clone());
 
         let proposer = Proposer {
             driver_config: DriverConfig {
                 network_prover,
                 fetcher,
                 driver_db_client: db_client,
-                loop_interval_seconds: loop_interval_seconds.unwrap_or(DEFAULT_LOOP_INTERVAL),
+                env_config,
             },
             contract_config: ContractConfig {
                 l2oo_address: requester_config.l2oo_address,
@@ -158,6 +167,7 @@ where
             requester_config,
             proof_requester,
             tasks: Arc::new(Mutex::new(HashMap::new())),
+            provider,
         };
         Ok(proposer)
     }
@@ -464,16 +474,14 @@ where
                     self.driver_config.fetcher.get_l1_header(BlockId::latest()).await?;
 
                 // Checkpoint the L1 block hash.
-                let receipt = self
+                let transaction_request = self
                     .contract_config
                     .l2oo_contract
                     .checkpointBlockHash(U256::from(latest_header.number))
-                    .send()
-                    .await?
-                    .with_required_confirmations(NUM_CONFIRMATIONS)
-                    .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-                    .get_receipt()
-                    .await?;
+                    .into_transaction_request();
+
+                let receipt =
+                    self.sign_transaction_request(transaction_request).await?.get_receipt().await?;
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
@@ -716,7 +724,8 @@ where
                 completed_agg_proof.proof.as_ref().unwrap().clone().into(),
             ));
 
-            self.contract_config
+            let transaction_request = self
+                .contract_config
                 .dgf_contract
                 .create(
                     OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE,
@@ -724,7 +733,9 @@ where
                     extra_data.into(),
                 )
                 .value(init_bond)
-                .send()
+                .into_transaction_request();
+
+            self.sign_transaction_request(transaction_request)
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
                 .with_timeout(Some(Duration::from_secs(TIMEOUT)))
@@ -732,7 +743,8 @@ where
                 .await?
         } else {
             // Propose the L2 output.
-            self.contract_config
+            let transaction_request = self
+                .contract_config
                 .l2oo_contract
                 .proposeL2Output(
                     output.output_root,
@@ -741,7 +753,9 @@ where
                     completed_agg_proof.proof.clone().unwrap().into(),
                     self.requester_config.prover_address,
                 )
-                .send()
+                .into_transaction_request();
+
+            self.sign_transaction_request(transaction_request)
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
                 .with_timeout(Some(Duration::from_secs(TIMEOUT)))
@@ -1107,7 +1121,10 @@ where
                 Ok(_) => {
                     // Normal sleep between iterations
                     tokio::time::sleep(Duration::from_secs(
-                        self.driver_config.loop_interval_seconds,
+                        self.driver_config
+                            .env_config
+                            .loop_interval
+                            .unwrap_or(DEFAULT_LOOP_INTERVAL),
                     ))
                     .await;
                 }
@@ -1183,5 +1200,46 @@ where
         }
 
         Ok(Some(current_end))
+    }
+
+    /// Sign a transaction request.
+    ///
+    /// If the signer_url and signer_address are provided, use the Web3Signer to sign the
+    /// transaction. Otherwise, use the provider to send the transaction.
+    async fn sign_transaction_request(
+        &self,
+        mut transaction_request: N::TransactionRequest,
+    ) -> Result<PendingTransactionBuilder<N>> {
+        if let (Some(signer_url), Some(signer_address)) = (
+            self.driver_config.env_config.signer_url.clone(),
+            self.driver_config.env_config.signer_address,
+        ) {
+            // Set the from address to the signer address.
+            transaction_request.set_from(signer_address);
+
+            // Use the signer_url to create the provider builder.
+            let web3_provider = ProviderBuilder::new().network::<N>().on_http(signer_url);
+            let signer = Web3Signer::new(web3_provider.clone(), signer_address);
+
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let filled_tx = web3_provider.fill(transaction_request).await?;
+
+            let signed_tx = signer.sign_and_decode(filled_tx.as_builder().unwrap().clone()).await?;
+
+            Ok(self.provider.send_tx_envelope(signed_tx).await?)
+        } else {
+            let provider = ProviderBuilder::new()
+                .network::<N>()
+                .wallet(EthereumWallet::new(self.driver_config.env_config.private_key.clone()))
+                .on_http(self.driver_config.env_config.l1_rpc.parse().unwrap());
+
+            // Set the from address to the Ethereum wallet address.
+            transaction_request.set_from(self.driver_config.env_config.private_key.address());
+
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let filled_tx = provider.fill(transaction_request).await?;
+
+            Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
+        }
     }
 }
