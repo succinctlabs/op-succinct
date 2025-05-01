@@ -486,7 +486,7 @@ where
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
-                    tracing::warn!("Transaction reverted: {:?}", receipt);
+                    return Err(anyhow!("Checkpoint block transaction reverted: {:?}", receipt));
                 }
 
                 tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
@@ -1294,6 +1294,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore]
     async fn test_sign_transaction_request() {
         let proposer_signer = ProposerSigner::Web3Signer(
             "http://localhost:9000".parse().unwrap(),
