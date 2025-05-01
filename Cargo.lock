@@ -5778,6 +5778,7 @@ dependencies = [
 name = "op-succinct-fp"
 version = "0.1.0"
 dependencies = [
+ "alloy-contract",
  "alloy-eips 0.15.7",
  "alloy-network 0.15.7",
  "alloy-primitives",

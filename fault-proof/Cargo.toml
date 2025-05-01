@@ -28,6 +28,7 @@ op-succinct-host-utils.workspace = true
 sp1-sdk.workspace = true
 
 # alloy
+alloy-contract.workspace = true
 alloy-eips.workspace = true
 alloy-network.workspace = true
 alloy-primitives.workspace = true
