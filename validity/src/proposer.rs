@@ -12,6 +12,7 @@ use alloy_provider::{
     network::ReceiptResponse, Network, PendingTransactionBuilder, Provider, ProviderBuilder,
     Web3Signer,
 };
+use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
@@ -30,6 +31,7 @@ use sp1_sdk::{
 use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+use url::Url;
 
 /// Configuration for the driver.
 pub struct DriverConfig {
@@ -1203,43 +1205,67 @@ where
     }
 
     /// Sign a transaction request.
-    ///
-    /// If the signer_url and signer_address are provided, use the Web3Signer to sign the
-    /// transaction. Otherwise, use the provider to send the transaction.
     async fn sign_transaction_request(
         &self,
-        mut transaction_request: N::TransactionRequest,
+        transaction_request: N::TransactionRequest,
     ) -> Result<PendingTransactionBuilder<N>> {
-        if let (Some(signer_url), Some(signer_address)) = (
+        sign_transaction_request_inner(
             self.driver_config.env_config.signer_url.clone(),
-            self.driver_config.env_config.signer_address,
-        ) {
-            // Set the from address to the signer address.
-            transaction_request.set_from(signer_address);
+            self.driver_config.env_config.signer_address.clone(),
+            self.driver_config.env_config.private_key.clone(),
+            self.driver_config.env_config.l1_rpc.clone(),
+            self.provider.clone(),
+            transaction_request,
+        )
+        .await
+    }
+}
 
-            // Use the signer_url to create the provider builder.
-            let web3_provider = ProviderBuilder::new().network::<N>().on_http(signer_url);
-            let signer = Web3Signer::new(web3_provider.clone(), signer_address);
+/// Sign a transaction request.
+///
+/// If the signer_url and signer_address are provided, use the Web3Signer to sign the
+/// transaction. Otherwise, use the provider to send the transaction.
+async fn sign_transaction_request_inner<P, N>(
+    signer_url: Option<Url>,
+    signer_address: Option<Address>,
+    private_key: Option<PrivateKeySigner>,
+    l1_rpc: Url,
+    provider: P,
+    mut transaction_request: N::TransactionRequest,
+) -> Result<PendingTransactionBuilder<N>>
+where
+    P: Provider<N> + 'static,
+    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    N::TransactionRequest: TransactionBuilder4844,
+{
+    if let (Some(signer_url), Some(signer_address)) = (signer_url, signer_address) {
+        // Set the from address to the signer address.
+        transaction_request.set_from(signer_address);
 
-            // Fill the transaction request with all of the relevant gas and nonce information.
-            let filled_tx = web3_provider.fill(transaction_request).await?;
+        // Use the signer_url to create the provider builder.
+        let web3_provider = ProviderBuilder::new().network::<N>().on_http(signer_url);
+        let signer = Web3Signer::new(web3_provider.clone(), signer_address);
 
-            let signed_tx = signer.sign_and_decode(filled_tx.as_builder().unwrap().clone()).await?;
+        // Fill the transaction request with all of the relevant gas and nonce information.
+        let filled_tx = web3_provider.fill(transaction_request).await?;
 
-            Ok(self.provider.send_tx_envelope(signed_tx).await?)
-        } else {
-            let provider = ProviderBuilder::new()
-                .network::<N>()
-                .wallet(EthereumWallet::new(self.driver_config.env_config.private_key.clone()))
-                .on_http(self.driver_config.env_config.l1_rpc.parse().unwrap());
+        let signed_tx = signer.sign_and_decode(filled_tx.as_builder().unwrap().clone()).await?;
 
-            // Set the from address to the Ethereum wallet address.
-            transaction_request.set_from(self.driver_config.env_config.private_key.address());
+        Ok(provider.send_tx_envelope(signed_tx).await?)
+    } else if let Some(private_key) = private_key {
+        let provider = ProviderBuilder::new()
+            .network::<N>()
+            .wallet(EthereumWallet::new(private_key.clone()))
+            .on_http(l1_rpc);
 
-            // Fill the transaction request with all of the relevant gas and nonce information.
-            let filled_tx = provider.fill(transaction_request).await?;
+        // Set the from address to the Ethereum wallet address.
+        transaction_request.set_from(private_key.address());
 
-            Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
-        }
+        // Fill the transaction request with all of the relevant gas and nonce information.
+        let filled_tx = provider.fill(transaction_request).await?;
+
+        Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
+    } else {
+        Err(anyhow!("No signer provided"))
     }
 }

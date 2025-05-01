@@ -11,8 +11,8 @@ use std::str::FromStr;
 pub struct EnvironmentConfig {
     pub db_url: String,
     pub metrics_port: u16,
-    pub l1_rpc: String,
-    pub private_key: PrivateKeySigner,
+    pub l1_rpc: Url,
+    pub private_key: Option<PrivateKeySigner>,
     pub prover_address: Address,
     pub loop_interval: Option<u64>,
     pub range_proof_strategy: FulfillmentStrategy,
@@ -50,7 +50,30 @@ where
 /// Read proposer environment variables and return a config.
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     // Parse private key
-    let private_key = get_env_var::<PrivateKeySigner>("PRIVATE_KEY", None)?;
+    let private_key = env::var("PRIVATE_KEY")
+        .ok()
+        .map(|v| PrivateKeySigner::from_str(&v).expect("Failed to parse PRIVATE_KEY"));
+
+    let signer_url =
+        env::var("SIGNER_URL").ok().map(|v| Url::parse(&v).expect("Failed to parse SIGNER_URL"));
+
+    let signer_address = env::var("SIGNER_ADDRESS")
+        .ok()
+        .map(|v| Address::from_str(&v).expect("Failed to parse SIGNER_ADDRESS"));
+
+    let default_prover_address = if let Some(signer_address) = signer_address {
+        signer_address
+    } else if let Some(private_key) = private_key.clone() {
+        private_key.address()
+    } else {
+        anyhow::bail!("Neither PRIVATE_KEY nor SIGNER_ADDRESS is set");
+    };
+
+    // The prover address is the following, by order of preference:
+    // 1. PROVER_ADDRESS
+    // 2. SIGNER_ADDRESS
+    // 3. PRIVATE_KEY
+    let prover_address = get_env_var("PROVER_ADDRESS", Some(default_prover_address))?;
 
     // Parse strategy values
     let range_proof_strategy = if get_env_var("RANGE_PROOF_STRATEGY", Some("reserved".to_string()))?
@@ -84,18 +107,11 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         .ok()
         .map(|v| v.parse::<u64>().expect("Failed to parse LOOP_INTERVAL"));
 
-    let signer_url =
-        env::var("SIGNER_URL").ok().map(|v| Url::parse(&v).expect("Failed to parse SIGNER_URL"));
-
-    let signer_address = env::var("SIGNER_ADDRESS")
-        .ok()
-        .map(|v| Address::from_str(&v).expect("Failed to parse SIGNER_ADDRESS"));
-
     let config = EnvironmentConfig {
         metrics_port: get_env_var("METRICS_PORT", Some(8080))?,
         l1_rpc: get_env_var("L1_RPC", None)?,
-        private_key: private_key.clone(),
-        prover_address: get_env_var("PROVER_ADDRESS", Some(private_key.address()))?,
+        private_key,
+        prover_address,
         db_url: get_env_var("DATABASE_URL", None)?,
         range_proof_strategy,
         agg_proof_strategy,
