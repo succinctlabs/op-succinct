@@ -5906,6 +5906,7 @@ dependencies = [
  "alloy-network 0.15.7",
  "alloy-primitives",
  "alloy-provider",
+ "alloy-rpc-types-eth 0.15.7",
  "alloy-signer-local 0.15.7",
  "alloy-sol-types",
  "anyhow",
