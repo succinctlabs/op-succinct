@@ -28,7 +28,6 @@ op-succinct-host-utils.workspace = true
 sp1-sdk.workspace = true
 
 # alloy
-alloy-contract.workspace = true
 alloy-eips.workspace = true
 alloy-network.workspace = true
 alloy-primitives.workspace = true
@@ -54,6 +53,5 @@ tokio.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing.workspace = true
 hex.workspace = true
-metrics-exporter-prometheus = "0.16.2"
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true

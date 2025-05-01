@@ -2036,21 +2036,6 @@ dependencies = [
 [[package]]
 name = "celestia-proto"
 version = "0.7.0"
-source = "git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0#62a725584c1aab0fb490d319cc7b4e85fedcf211"
-dependencies = [
- "bytes",
- "prost",
- "prost-build",
- "prost-types",
- "protox",
- "serde",
- "subtle-encoding",
- "tendermint-proto",
-]
-
-[[package]]
-name = "celestia-proto"
-version = "0.7.0"
 source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
 dependencies = [
  "bytes",
@@ -2066,62 +2051,17 @@ dependencies = [
 [[package]]
 name = "celestia-rpc"
 version = "0.10.0"
-source = "git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0#62a725584c1aab0fb490d319cc7b4e85fedcf211"
-dependencies = [
- "async-trait",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
- "http",
- "jsonrpsee",
- "prost",
- "serde",
- "thiserror 1.0.69",
- "tracing",
-]
-
-[[package]]
-name = "celestia-rpc"
-version = "0.10.0"
 source = "git+https://github.com/eigerco/lumina?rev=4751731#4751731c50345f7e78841497714b1e278471a0e5"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-types",
  "http",
  "jsonrpsee",
  "prost",
  "serde",
  "thiserror 1.0.69",
  "tracing",
-]
-
-[[package]]
-name = "celestia-types"
-version = "0.11.0"
-source = "git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0#62a725584c1aab0fb490d319cc7b4e85fedcf211"
-dependencies = [
- "base64 0.22.1",
- "bech32",
- "bitvec",
- "blockstore",
- "bytes",
- "celestia-proto 0.7.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
- "cid",
- "const_format",
- "enum_dispatch",
- "leopard-codec",
- "libp2p-identity",
- "multiaddr",
- "multihash",
- "nmt-rs",
- "prost",
- "ruint",
- "serde",
- "serde_repr",
- "sha2 0.10.8",
- "tendermint",
- "tendermint-proto",
- "thiserror 1.0.69",
- "time",
 ]
 
 [[package]]
@@ -2134,7 +2074,7 @@ dependencies = [
  "bitvec",
  "blockstore",
  "bytes",
- "celestia-proto 0.7.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-proto",
  "cid",
  "const_format",
  "enum_dispatch",
@@ -3562,7 +3502,7 @@ dependencies = [
  "alloy-sol-types",
  "alloy-trie",
  "bincode",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-types",
  "serde",
 ]
 
@@ -3573,7 +3513,7 @@ source = "git+https://github.com/ratankaliani/hana?branch=ratan%2F0.18-bump#6925
 dependencies = [
  "alloy-primitives",
  "async-trait",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-types",
  "kona-derive",
  "kona-protocol",
  "tracing",
@@ -3611,8 +3551,8 @@ dependencies = [
  "alloy-provider",
  "anyhow",
  "async-trait",
- "celestia-rpc 0.10.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-rpc",
+ "celestia-types",
  "clap",
  "hana-client",
  "hana-oracle",
@@ -3641,7 +3581,7 @@ dependencies = [
  "alloy-primitives",
  "async-trait",
  "bincode",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-types",
  "hana-blobstream",
  "hana-celestia",
  "kona-derive",
@@ -3666,8 +3606,8 @@ dependencies = [
  "alloy-rpc-types-eth 0.15.7",
  "alloy-sol-types",
  "anyhow",
- "celestia-rpc 0.10.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?rev=4751731)",
+ "celestia-rpc",
+ "celestia-types",
  "hana-blobstream",
  "tracing",
 ]
@@ -4673,7 +4613,6 @@ dependencies = [
  "alloy-rlp",
  "alloy-trie",
  "op-alloy-rpc-types-engine",
- "serde",
  "thiserror 2.0.12",
 ]
 
@@ -5816,17 +5755,14 @@ dependencies = [
  "async-trait",
  "cfg-if",
  "hana-oracle",
- "itertools 0.13.0",
  "kona-derive",
  "kona-driver",
  "kona-executor",
  "kona-genesis",
- "kona-mpt",
  "kona-preimage",
  "kona-proof",
  "kona-protocol",
  "kona-rpc",
- "kona-std-fpvm",
  "kzg-rs",
  "op-alloy-consensus",
  "op-revm",
@@ -5835,7 +5771,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "spin 0.9.8",
  "tracing",
 ]
 
@@ -5843,7 +5778,6 @@ dependencies = [
 name = "op-succinct-fp"
 version = "0.1.0"
 dependencies = [
- "alloy-contract",
  "alloy-eips 0.15.7",
  "alloy-network 0.15.7",
  "alloy-primitives",
@@ -5859,7 +5793,6 @@ dependencies = [
  "dotenv",
  "futures",
  "hex",
- "metrics-exporter-prometheus 0.16.2",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
@@ -5878,7 +5811,6 @@ name = "op-succinct-host-utils"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus 0.15.7",
- "alloy-contract",
  "alloy-eips 0.15.7",
  "alloy-primitives",
  "alloy-provider",
@@ -5889,7 +5821,6 @@ dependencies = [
  "async-trait",
  "c-kzg",
  "cfg-if",
- "clap",
  "futures",
  "hana-host",
  "kona-derive",
@@ -5906,7 +5837,6 @@ dependencies = [
  "num-format",
  "op-alloy-consensus",
  "op-alloy-network",
- "op-alloy-rpc-types",
  "op-succinct-client-utils",
  "reqwest",
  "rkyv",
@@ -5915,8 +5845,6 @@ dependencies = [
  "serde_json",
  "sp1-sdk",
  "strum 0.27.1",
- "strum_macros 0.27.1",
- "tempfile",
  "tracing",
 ]
 
@@ -5976,22 +5904,15 @@ dependencies = [
  "alloy-network 0.15.7",
  "alloy-primitives",
  "alloy-provider",
- "alloy-rpc-client",
- "alloy-signer 0.15.7",
  "alloy-signer-local 0.15.7",
  "alloy-sol-types",
  "anyhow",
- "async-trait",
  "base64 0.22.1",
  "bincode",
- "celestia-rpc 0.10.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
- "celestia-types 0.11.0 (git+https://github.com/eigerco/lumina?tag=lumina-utils-v0.1.0)",
  "chrono",
  "clap",
  "dotenv",
  "futures-util",
- "kona-derive",
- "kona-rpc",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
