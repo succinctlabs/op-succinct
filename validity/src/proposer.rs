@@ -1206,7 +1206,6 @@ where
         sign_transaction_request_inner(
             self.driver_config.proposer_signer.clone(),
             self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
-            self.provider.clone(),
             transaction_request,
         )
         .await
@@ -1214,14 +1213,12 @@ where
 }
 
 /// Sign a transaction request using the configured `proposer_signer`.
-async fn sign_transaction_request_inner<P, N>(
+async fn sign_transaction_request_inner<N>(
     proposer_signer: ProposerSigner,
     l1_rpc: Url,
-    provider: P,
     mut transaction_request: N::TransactionRequest,
 ) -> Result<PendingTransactionBuilder<N>>
 where
-    P: Provider<N> + 'static,
     N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
     N::TransactionRequest: TransactionBuilder4844,
 {
@@ -1230,13 +1227,13 @@ where
             // Set the from address to the signer address.
             transaction_request.set_from(signer_address);
 
-            // Use the signer_url to create the provider builder.
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let provider = ProviderBuilder::new().network::<N>().connect_http(l1_rpc);
+            let filled_tx = provider.fill(transaction_request).await?;
+
+            // Sign the transaction request using the Web3Signer.
             let web3_provider = ProviderBuilder::new().network::<N>().connect_http(signer_url);
             let signer = Web3Signer::new(web3_provider.clone(), signer_address);
-
-            // Fill the transaction request with all of the relevant gas and nonce information.
-            let filled_tx = web3_provider.fill(transaction_request).await?;
-
             let signed_tx = signer.sign_and_decode(filled_tx.as_builder().unwrap().clone()).await?;
 
             Ok(provider.send_tx_envelope(signed_tx).await?)
