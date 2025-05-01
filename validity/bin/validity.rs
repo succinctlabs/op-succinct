@@ -71,7 +71,8 @@ async fn main() -> Result<()> {
         db_client.clone(),
         fetcher.into(),
         proposer_config,
-        env_config.clone(),
+        env_config.proposer_signer,
+        env_config.loop_interval,
         host,
     )
     .await?;

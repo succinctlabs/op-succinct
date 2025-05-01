@@ -1,8 +1,8 @@
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, EnvironmentConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig,
-    ValidityGauge,
+    ContractConfig, EnvironmentConfig, OPSuccinctProofRequester, ProgramConfig, ProposerSigner,
+    RequesterConfig, ValidityGauge,
 };
 use alloy_consensus::{TxEnvelope, TypedTransaction};
 use alloy_eips::BlockId;
@@ -38,7 +38,8 @@ pub struct DriverConfig {
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
-    pub env_config: EnvironmentConfig,
+    pub proposer_signer: ProposerSigner,
+    pub loop_interval: u64,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
 pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
@@ -62,8 +63,6 @@ where
 const NUM_CONFIRMATIONS: u64 = 5;
 /// 2 minute timeout.
 const TIMEOUT: u64 = 120;
-// 1 minute default loop interval.
-const DEFAULT_LOOP_INTERVAL: u64 = 60;
 
 impl<P, N, H: OPSuccinctHost> Proposer<P, N, H>
 where
@@ -76,7 +75,8 @@ where
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         requester_config: RequesterConfig,
-        env_config: EnvironmentConfig,
+        proposer_signer: ProposerSigner,
+        loop_interval: u64,
         host: Arc<H>,
     ) -> Result<Self> {
         // This check prevents users from running multiple proposers for the same chain at the same
@@ -85,7 +85,7 @@ where
             .is_chain_locked(
                 requester_config.l1_chain_id,
                 requester_config.l2_chain_id,
-                Duration::from_secs(DEFAULT_LOOP_INTERVAL),
+                Duration::from_secs(loop_interval),
             )
             .await?;
         if is_locked {
@@ -157,7 +157,8 @@ where
                 network_prover,
                 fetcher,
                 driver_db_client: db_client,
-                env_config,
+                proposer_signer,
+                loop_interval,
             },
             contract_config: ContractConfig {
                 l2oo_address: requester_config.l2oo_address,
@@ -1122,13 +1123,7 @@ where
             match self.run_loop_iteration().await {
                 Ok(_) => {
                     // Normal sleep between iterations
-                    tokio::time::sleep(Duration::from_secs(
-                        self.driver_config
-                            .env_config
-                            .loop_interval
-                            .unwrap_or(DEFAULT_LOOP_INTERVAL),
-                    ))
-                    .await;
+                    tokio::time::sleep(Duration::from_secs(self.driver_config.loop_interval)).await;
                 }
                 Err(e) => {
                     // Log the error
@@ -1210,10 +1205,8 @@ where
         transaction_request: N::TransactionRequest,
     ) -> Result<PendingTransactionBuilder<N>> {
         sign_transaction_request_inner(
-            self.driver_config.env_config.signer_url.clone(),
-            self.driver_config.env_config.signer_address.clone(),
-            self.driver_config.env_config.private_key.clone(),
-            self.driver_config.env_config.l1_rpc.clone(),
+            self.driver_config.proposer_signer.clone(),
+            self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
             self.provider.clone(),
             transaction_request,
         )
@@ -1226,9 +1219,7 @@ where
 /// If the signer_url and signer_address are provided, use the Web3Signer to sign the
 /// transaction. Otherwise, use the provider to send the transaction.
 async fn sign_transaction_request_inner<P, N>(
-    signer_url: Option<Url>,
-    signer_address: Option<Address>,
-    private_key: Option<PrivateKeySigner>,
+    proposer_signer: ProposerSigner,
     l1_rpc: Url,
     provider: P,
     mut transaction_request: N::TransactionRequest,
@@ -1238,34 +1229,35 @@ where
     N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
     N::TransactionRequest: TransactionBuilder4844,
 {
-    if let (Some(signer_url), Some(signer_address)) = (signer_url, signer_address) {
-        // Set the from address to the signer address.
-        transaction_request.set_from(signer_address);
+    match proposer_signer {
+        ProposerSigner::Web3Signer(signer_url, signer_address) => {
+            // Set the from address to the signer address.
+            transaction_request.set_from(signer_address);
 
-        // Use the signer_url to create the provider builder.
-        let web3_provider = ProviderBuilder::new().network::<N>().on_http(signer_url);
-        let signer = Web3Signer::new(web3_provider.clone(), signer_address);
+            // Use the signer_url to create the provider builder.
+            let web3_provider = ProviderBuilder::new().network::<N>().on_http(signer_url);
+            let signer = Web3Signer::new(web3_provider.clone(), signer_address);
 
-        // Fill the transaction request with all of the relevant gas and nonce information.
-        let filled_tx = web3_provider.fill(transaction_request).await?;
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let filled_tx = web3_provider.fill(transaction_request).await?;
 
-        let signed_tx = signer.sign_and_decode(filled_tx.as_builder().unwrap().clone()).await?;
+            let signed_tx = signer.sign_and_decode(filled_tx.as_builder().unwrap().clone()).await?;
 
-        Ok(provider.send_tx_envelope(signed_tx).await?)
-    } else if let Some(private_key) = private_key {
-        let provider = ProviderBuilder::new()
-            .network::<N>()
-            .wallet(EthereumWallet::new(private_key.clone()))
-            .on_http(l1_rpc);
+            Ok(provider.send_tx_envelope(signed_tx).await?)
+        }
+        ProposerSigner::LocalSigner(private_key) => {
+            let provider = ProviderBuilder::new()
+                .network::<N>()
+                .wallet(EthereumWallet::new(private_key.clone()))
+                .on_http(l1_rpc);
 
-        // Set the from address to the Ethereum wallet address.
-        transaction_request.set_from(private_key.address());
+            // Set the from address to the Ethereum wallet address.
+            transaction_request.set_from(private_key.address());
 
-        // Fill the transaction request with all of the relevant gas and nonce information.
-        let filled_tx = provider.fill(transaction_request).await?;
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let filled_tx = provider.fill(transaction_request).await?;
 
-        Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
-    } else {
-        Err(anyhow!("No signer provided"))
+            Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
+        }
     }
 }
