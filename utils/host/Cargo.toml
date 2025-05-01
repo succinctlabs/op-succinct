@@ -29,6 +29,7 @@ kona-derive.workspace = true
 hana-host = { workspace = true, optional = true }
 
 # alloy
+alloy-contract.workspace = true
 alloy-provider.workspace = true
 alloy-rlp.workspace = true
 alloy-primitives.workspace = true

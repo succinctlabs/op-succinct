@@ -5811,6 +5811,7 @@ name = "op-succinct-host-utils"
 version = "0.1.0"
 dependencies = [
  "alloy-consensus 0.15.7",
+ "alloy-contract",
  "alloy-eips 0.15.7",
  "alloy-primitives",
  "alloy-provider",
