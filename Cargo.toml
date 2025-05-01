@@ -46,31 +46,31 @@ strum_macros = "0.27.1"
 tempfile = "3.10.1"
 
 # kona
-kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
-kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
-kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
+kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
+kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
-kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
+kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
+kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
 
-kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
-kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18" }
-kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18", default-features = false, features = [
+kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
+kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0" }
+kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0", default-features = false, features = [
     "serde",
 ] }
-kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v0.1.0-beta.18", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.0", default-features = false }
 
 # hana
-hana-oracle = { git = "https://github.com/ratankaliani/hana", branch = "ratan/0.18-bump" }
-hana-celestia = { git = "https://github.com/ratankaliani/hana", branch = "ratan/0.18-bump" }
-hana-host = { git = "https://github.com/ratankaliani/hana", branch = "ratan/0.18-bump" }
-hana-client = { git = "https://github.com/ratankaliani/hana", branch = "ratan/0.18-bump" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
+hana-client = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
