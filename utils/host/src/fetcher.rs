@@ -340,27 +340,72 @@ impl OPSuccinctDataFetcher {
     where
         T: serde::de::DeserializeOwned,
     {
-        let client = reqwest::Client::new();
-        let response = client
-            .post(url.clone())
-            .json(&json!({
-                "jsonrpc": "2.0",
-                "method": method,
-                "params": params,
-                "id": 1
-            }))
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30)) // Set a 30-second timeout
+            .build()?;
 
-        // Check for RPC error from the JSON RPC response.
-        if let Some(error) = response.get("error") {
-            let error_message = error["message"].as_str().unwrap_or("Unknown error");
-            return Err(anyhow::anyhow!("Error calling {method}: {error_message}"));
+        // Define retry parameters
+        let max_retries = 3;
+        let mut retry_count = 0;
+        let mut last_error = None;
+
+        while retry_count < max_retries {
+            let result = async {
+                let response = client
+                    .post(url.clone())
+                    .json(&json!({
+                        "jsonrpc": "2.0",
+                        "method": method,
+                        "params": params,
+                        "id": 1
+                    }))
+                    .send()
+                    .await?;
+
+                let status = response.status();
+                if !status.is_success() {
+                    return Err(anyhow::anyhow!("HTTP error: status code {}", status));
+                }
+
+                let response_json = response.json::<serde_json::Value>().await?;
+
+                // Check for RPC error from the JSON RPC response.
+                if let Some(error) = response_json.get("error") {
+                    let error_message = error["message"].as_str().unwrap_or("Unknown error");
+                    return Err(anyhow::anyhow!("Error calling {method}: {error_message}"));
+                }
+
+                if let Some(result) = response_json.get("result") {
+                    serde_json::from_value(result.clone()).map_err(Into::into)
+                } else {
+                    Err(anyhow::anyhow!("Response missing 'result' field"))
+                }
+            }
+            .await;
+
+            match result {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    retry_count += 1;
+                    last_error = Some(e);
+
+                    if retry_count < max_retries {
+                        tracing::warn!(
+                            "RPC request to {} for method '{}' failed (attempt {}/{}): {}. Retrying...",
+                            url, method, retry_count, max_retries, last_error.as_ref().unwrap()
+                        );
+
+                        // Exponential backoff: 500ms, 1s, 2s
+                        tokio::time::sleep(std::time::Duration::from_millis(
+                            500 * (1 << retry_count),
+                        ))
+                        .await;
+                    }
+                }
+            }
         }
 
-        serde_json::from_value(response["result"].clone()).map_err(Into::into)
+        Err(last_error.unwrap_or_else(|| anyhow::anyhow!("RPC request failed for unknown reason")))
     }
 
     /// Fetch arbitrary data from the RPC.

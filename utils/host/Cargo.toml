@@ -58,6 +58,7 @@ metrics-process.workspace = true
 metrics-exporter-prometheus.workspace = true
 cfg-if.workspace = true
 tempfile.workspace = true
+tokio.workspace = true
 
 kzg-rs.workspace = true
 c-kzg = "1.0.3"
