@@ -1213,10 +1213,7 @@ where
     }
 }
 
-/// Sign a transaction request.
-///
-/// If the signer_url and signer_address are provided, use the Web3Signer to sign the
-/// transaction. Otherwise, use the provider to send the transaction.
+/// Sign a transaction request using the configured `proposer_signer`.
 async fn sign_transaction_request_inner<P, N>(
     proposer_signer: ProposerSigner,
     l1_rpc: Url,
