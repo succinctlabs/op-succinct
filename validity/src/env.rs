@@ -61,7 +61,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         let signer_address =
             Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
         ProposerSigner::Web3Signer(signer_url, signer_address)
-    } else if let Some(private_key) = env::var("PRIVATE_KEY").ok() {
+    } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
         let private_key =
             PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
         ProposerSigner::LocalSigner(private_key)

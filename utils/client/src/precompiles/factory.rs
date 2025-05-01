@@ -25,6 +25,12 @@ impl ZkvmOpEvmFactory {
     }
 }
 
+impl Default for ZkvmOpEvmFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EvmFactory for ZkvmOpEvmFactory {
     type Evm<DB: Database, I: Inspector<OpContext<DB>>> = OpEvm<DB, I, OpZkvmPrecompiles>;
     type Context<DB: Database> = OpContext<DB>;
