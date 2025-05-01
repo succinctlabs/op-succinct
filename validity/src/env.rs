@@ -69,7 +69,9 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
     };
 
-    // The prover address takes precedence over the signer address. Note: Setting the prover address in the context of the OP Succinct proposer typically does not make sense, as the contract will verify `tx.origin` matches the `proverAddress`.
+    // The prover address takes precedence over the signer address. Note: Setting the prover address
+    // in the context of the OP Succinct proposer typically does not make sense, as the contract
+    // will verify `tx.origin` matches the `proverAddress`.
     let prover_address = get_env_var("PROVER_ADDRESS", Some(proposer_signer.address()))?;
 
     // Parse strategy values
