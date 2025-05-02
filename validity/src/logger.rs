@@ -26,6 +26,7 @@ pub fn setup_proposer_logger() {
                 .add_directive("batch_validator=error".parse().unwrap())
                 .add_directive("batch_queue=error".parse().unwrap())
                 .add_directive("client_derivation_driver=error".parse().unwrap())
+                .add_directive("block_builder=error".parse().unwrap())
                 .add_directive("host_server=error".parse().unwrap())
                 .add_directive("kona_protocol=error".parse().unwrap())
                 .add_directive("sp1_core_executor=off".parse().unwrap())

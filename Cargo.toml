@@ -122,7 +122,8 @@ revm = { version = "22.0.0", default-features = false, features = ["kzg-rs"] }
 op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
-sp1-sdk = { version = "4.2.0" }
+# TODO(r): Temporary patch to fix get_proof_status. Bump version once merged.
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "ratan/fix-get-proof-status" }
 sp1-lib = { version = "4.2.0", features = ["verify"] }
 sp1-zkvm = { version = "4.2.0", features = ["verify"] }
 sp1-build = { version = "4.2.0" }

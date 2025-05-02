@@ -284,15 +284,10 @@ where
             )
             .await?;
 
-        debug!("Getting proof statuses for {} requests.", prove_requests.len());
-
-        // Get the proof status of all of the requests in parallel.
-        futures_util::future::join_all(
-            prove_requests
-                .into_iter()
-                .map(|request| async move { self.process_proof_request_status(request).await }),
-        )
-        .await;
+        // Get the proof status of all of the requests.
+        for request in prove_requests {
+            self.process_proof_request_status(request).await?;
+        }
 
         Ok(())
     }
@@ -1125,7 +1120,7 @@ where
                 }
                 Err(e) => {
                     // Log the error
-                    tracing::warn!("Error in proposer loop: {:?}", e);
+                    tracing::error!("Error in proposer loop: {:?}", e);
                     // Update the error gauge
                     ValidityGauge::TotalErrorCount.increment(1.0);
                     // Pause for 10 seconds before restarting
