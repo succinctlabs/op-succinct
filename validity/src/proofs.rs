@@ -188,6 +188,7 @@ where
 
             let proved_op_request = OPSuccinctRequest {
                 proof: proof_bytes.into(),
+                status: crate::db::RequestStatus::Complete,
                 ..op_request.clone()
             };
 
