@@ -46,24 +46,21 @@ impl WitnessGenClient for CelestiaDAWitnessGenClient {
         let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
 
         let (boot_info, input) = executor.get_inputs_for_pipeline(oracle.clone()).await.unwrap();
-        match input {
-            Some((cursor, l1_provider, l2_provider)) => {
-                let rollup_config = Arc::new(boot_info.rollup_config.clone());
-                let pipeline = OraclePipeline::new(
-                    rollup_config.clone(),
-                    cursor.clone(),
-                    oracle.clone(),
-                    beacon,
-                    l1_provider.clone(),
-                    l2_provider.clone(),
-                    OracleCelestiaProvider::new(oracle.clone()),
-                )
-                .await
-                .unwrap();
-                executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap();
-            }
-            None => {}
-        };
+        if let Some((cursor, l1_provider, l2_provider)) = input {
+            let rollup_config = Arc::new(boot_info.rollup_config.clone());
+            let pipeline = OraclePipeline::new(
+                rollup_config.clone(),
+                cursor.clone(),
+                oracle.clone(),
+                beacon,
+                l1_provider.clone(),
+                l2_provider.clone(),
+                OracleCelestiaProvider::new(oracle.clone()),
+            )
+            .await
+            .unwrap();
+            executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap();
+        }
 
         let witness = DefaultWitnessData {
             preimage_store: preimage_witness_store.lock().unwrap().clone(),
