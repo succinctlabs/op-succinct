@@ -1262,8 +1262,17 @@ where
 
 /// A wrapper around `TransactionRequest` that adds a data field as bytes.
 ///
-/// This is a hack because there is not a "data" field on the TransactionRequest.
-/// `eth_signTransaction` expects a "data" field with the calldata.
+/// This is needed because:
+/// 1. The `TransactionRequest` trait and `TransactionBuilder` trait don't include methods to set
+///    the "data" field directly (only `input()` and `set_input()` are available).
+/// 2. Web3Signer's `eth_signTransaction` method specifically expects a "data" field in the JSON-RPC
+///    request, not the "input" field.
+/// 3. While the alloy-rpc-types-eth crate has methods like `normalize_data()` and `set_both()` to
+///    work with both fields, these are only implemented on the specific Ethereum transaction type
+///    struct and aren't accessible through the generic `N::TransactionRequest` interface we're
+///    using here.
+///
+/// TODO(fakedev9999): Once alloy fixes this, we can remove this wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionRequestWrapper<N: Network> {
     /// The underlying transaction request
