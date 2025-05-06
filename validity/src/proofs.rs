@@ -201,6 +201,11 @@ where
                 .map_err(|e| Status::internal(format!("Failed to save request to DB: {}", e)))?;
 
             if result.rows_affected() > 0 {
+                // Execute the query to get the next value of the sequence
+                sqlx::query("SELECT nextval('requests_id_seq');")
+                    .execute(&self.proof_requester.db_client.pool)
+                    .await
+                    .map_err(|e| Status::internal(format!("Failed to execute sequence query: {}", e)))?;
                 // Fetch the last inserted ID
                 let last_id: i64 = sqlx::query_scalar!(
                     r#"
