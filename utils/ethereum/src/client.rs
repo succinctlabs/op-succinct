@@ -8,14 +8,14 @@ use kona_proof::{
     CachingOracle,
 };
 use op_succinct_client_utils::witness::{
-    executor::{ETHDAWitnessExecutor, WitnessExecutor},
-    preimage_store::PreimageStore,
-    BlobData, DefaultWitnessData,
+    executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
     client::WitnessGenClient, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };
+
+use crate::executor::ETHDAWitnessExecutor;
 
 pub struct ETHDAWitnessGenClient;
 

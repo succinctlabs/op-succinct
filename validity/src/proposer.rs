@@ -1,12 +1,6 @@
-use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, OPSuccinctProofRequester, ProgramConfig, ProposerSigner, RequesterConfig,
-    ValidityGauge,
-};
-use alloy_consensus::{TxEnvelope, TypedTransaction};
-use alloy_eips::{BlockId, Decodable2718};
-use alloy_network::{EthereumWallet, TransactionBuilder, TransactionBuilder4844};
+use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
+
+use alloy_eips::BlockId;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_provider::{
     network::ReceiptResponse, Network, PendingTransactionBuilder, Provider, ProviderBuilder,
@@ -22,15 +16,19 @@ use op_succinct_host_utils::{
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, AGGREGATION_ELF};
-
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
-use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 use url::Url;
+
+use crate::{
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
+    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
+};
 
 /// Configuration for the driver.
 pub struct DriverConfig {

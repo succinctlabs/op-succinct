@@ -165,15 +165,3 @@ pub trait WitnessExecutor {
         Ok(boot_clone)
     }
 }
-
-pub struct ETHDAWitnessExecutor;
-
-impl WitnessExecutor for ETHDAWitnessExecutor {}
-
-pub struct CelestiaDAWitnessExecutor;
-
-impl WitnessExecutor for CelestiaDAWitnessExecutor {}
-
-pub struct EigenDAWitnessExecutor;
-
-impl WitnessExecutor for EigenDAWitnessExecutor {}
