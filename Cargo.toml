@@ -118,7 +118,8 @@ op-alloy-network = { version = "0.15.1", default-features = false }
 # Execution
 alloy-evm = { version = "0.6.0", default-features = false, features = ["op"] }
 alloy-op-evm = { version = "0.6.0", default-features = false }
-revm = { version = "22.0.0", default-features = false, features = ["kzg-rs"] }
+# Use kzg-rs and substrate-bn for the zkVM.
+revm = { version = "22.0.0", default-features = false, features = ["kzg-rs", "bn"] }
 op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
