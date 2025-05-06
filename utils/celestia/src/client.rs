@@ -8,7 +8,7 @@ use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 use op_succinct_client_utils::witness::{
     executor::{CelestiaDAWitnessExecutor, WitnessExecutor},
     preimage_store::PreimageStore,
-    BlobData, WitnessData,
+    BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
     client::WitnessGenClient, online_blob_store::OnlineBlobStore,
@@ -20,11 +20,13 @@ pub struct CelestiaDAWitnessGenClient;
 
 #[async_trait]
 impl WitnessGenClient for CelestiaDAWitnessGenClient {
+    type WitnessData = DefaultWitnessData;
+
     async fn run(
         &self,
         preimage_chan: NativeChannel,
         hint_chan: NativeChannel,
-    ) -> Result<WitnessData> {
+    ) -> Result<Self::WitnessData> {
         let executor = CelestiaDAWitnessExecutor;
 
         let preimage_witness_store = Arc::new(Mutex::new(PreimageStore::default()));
@@ -63,7 +65,7 @@ impl WitnessGenClient for CelestiaDAWitnessGenClient {
             None => {}
         };
 
-        let witness = WitnessData {
+        let witness = DefaultWitnessData {
             preimage_store: preimage_witness_store.lock().unwrap().clone(),
             blob_data: blob_data.lock().unwrap().clone(),
         };

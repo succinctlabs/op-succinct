@@ -5,6 +5,9 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+#sp1
+sp1-sdk.workspace = true
+
 # ethereum
 op-alloy-consensus.workspace = true
 alloy-consensus.workspace = true

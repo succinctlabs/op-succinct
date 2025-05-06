@@ -14,7 +14,7 @@ use op_succinct_client_utils::{
     boot::BootInfoStruct,
     witness::{
         executor::{ETHDAWitnessExecutor, WitnessExecutor},
-        WitnessData,
+        DefaultWitnessData, WitnessData,
     },
 };
 use rkyv::rancor::Error;
@@ -35,11 +35,11 @@ fn main() {
         //                          PROLOGUE                          //
         ////////////////////////////////////////////////////////////////
         let witness_rkyv_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
-        let witness_data = rkyv::from_bytes::<WitnessData, Error>(&witness_rkyv_bytes)
+        let witness_data = rkyv::from_bytes::<DefaultWitnessData, Error>(&witness_rkyv_bytes)
             .expect("Failed to deserialize witness data.");
+        let (oracle, beacon) = witness_data.get_oracle_and_blob_provider().await.unwrap();
 
         let executor = ETHDAWitnessExecutor;
-        let (oracle, beacon) = executor.get_oracle_and_blob_provider(witness_data).await.unwrap();
         let (boot_info, input) = executor.get_inputs_for_pipeline(oracle.clone()).await.unwrap();
         let boot_info = match input {
             Some((cursor, l1_provider, l2_provider)) => {

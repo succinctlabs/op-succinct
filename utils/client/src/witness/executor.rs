@@ -17,33 +17,10 @@ use tracing::info;
 use crate::{
     client::{advance_to_target, fetch_safe_head_hash},
     precompiles::zkvm_handle_register,
-    witness::{preimage_store::PreimageStore, WitnessData},
-    BlobStore,
 };
 
 #[async_trait]
 pub trait WitnessExecutor {
-    // Gets the oracle and blob provider from the witness data.
-    async fn get_oracle_and_blob_provider(
-        &self,
-        witness: WitnessData,
-    ) -> Result<(Arc<PreimageStore>, BlobStore)> {
-        println!("cycle-tracker-report-start: oracle-verify");
-        // Check the preimages in the witness are valid.
-        witness.preimage_store.check_preimages().expect("Failed to validate preimages");
-        println!("cycle-tracker-report-end: oracle-verify");
-
-        // Create an Arc of the preimage store.
-        let oracle = Arc::new(witness.preimage_store);
-
-        // Create a BlobStore from the blobs in the witness and verifies them for correctness.
-        println!("cycle-tracker-report-start: blob-verification");
-        let beacon = BlobStore::from(witness.blob_data);
-        println!("cycle-tracker-report-end: blob-verification");
-
-        Ok((oracle, beacon))
-    }
-
     // Gets the inputs for constructing the derivation pipeline.
     async fn get_inputs_for_pipeline<O>(
         &self,
@@ -196,3 +173,7 @@ impl WitnessExecutor for ETHDAWitnessExecutor {}
 pub struct CelestiaDAWitnessExecutor;
 
 impl WitnessExecutor for CelestiaDAWitnessExecutor {}
+
+pub struct EigenDAWitnessExecutor;
+
+impl WitnessExecutor for EigenDAWitnessExecutor {}
