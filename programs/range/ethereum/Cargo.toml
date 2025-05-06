@@ -20,6 +20,7 @@ sp1-zkvm.workspace = true
 
 # op-succinct
 op-succinct-client-utils.workspace = true
+op-succinct-ethereum-utils.workspace = true
 
 # `tracing-subscriber` feature dependencies
 tracing-subscriber = { workspace = true, optional = true }

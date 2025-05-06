@@ -6,14 +6,14 @@ use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 use op_succinct_client_utils::witness::{
-    executor::{CelestiaDAWitnessExecutor, WitnessExecutor},
-    preimage_store::PreimageStore,
-    BlobData, DefaultWitnessData,
+    executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
     client::WitnessGenClient, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };
+
+use crate::executor::CelestiaDAWitnessExecutor;
 
 #[derive(Clone)]
 pub struct CelestiaDAWitnessGenClient;

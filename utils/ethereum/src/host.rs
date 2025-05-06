@@ -12,7 +12,7 @@ use crate::client::ETHDAWitnessGenClient;
 #[derive(Clone)]
 pub struct SingleChainOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
-    pub witnessgen_client: Arc<ETHDAWitnessGenClient>,
+    witnessgen_client: Arc<ETHDAWitnessGenClient>,
 }
 
 #[async_trait]

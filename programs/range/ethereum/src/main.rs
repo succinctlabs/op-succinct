@@ -1,4 +1,4 @@
-//! A program to verify a Optimism L2 block STF in the zkVM.
+//! A program to verify a Optimism L2 block STF with Ethereum DA in the zkVM.
 //!
 //! This binary contains the client program for executing the Optimism rollup state transition
 //! across a range of blocks, which can be used to generate an on chain validity proof. Depending on
@@ -9,16 +9,15 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use std::sync::Arc;
+
 use kona_proof::l1::OraclePipeline;
 use op_succinct_client_utils::{
     boot::BootInfoStruct,
-    witness::{
-        executor::{ETHDAWitnessExecutor, WitnessExecutor},
-        DefaultWitnessData, WitnessData,
-    },
+    witness::{executor::WitnessExecutor, DefaultWitnessData, WitnessData},
 };
+use op_succinct_ethereum_utils::executor::ETHDAWitnessExecutor;
 use rkyv::rancor::Error;
-use std::sync::Arc;
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
