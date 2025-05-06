@@ -4,7 +4,6 @@ use async_trait::async_trait;
 use hana_host::celestia::CelestiaChainHost;
 use kona_host::single::{SingleChainHost, SingleChainHostError};
 use kona_preimage::{BidirectionalChannel, Channel};
-use op_succinct_client_utils::witness::WitnessData;
 use tokio::task::JoinHandle;
 
 use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenClient};
@@ -55,23 +54,6 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
 
     fn witnessgen_client(&self) -> &Self::WitnessGenClient;
 
-    /// Run the host and client program.
-    ///
-    /// Returns the witness which can be supplied to the zkVM.
-    async fn run(&self, args: &Self::Args) -> Result<WitnessData> {
-        let preimage = BidirectionalChannel::new()?;
-        let hint = BidirectionalChannel::new()?;
-
-        let server_task = args.start_server(hint.host, preimage.host).await?;
-
-        let witness = self.witnessgen_client().run(preimage.client, hint.client).await?;
-        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
-        // tasks to complete.
-        server_task.abort();
-
-        Ok(witness)
-    }
-
     /// Fetch the host arguments.
     ///
     /// Parameters:
@@ -88,6 +70,26 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
         l1_head_hash: Option<B256>,
         safe_db_fallback: Option<bool>,
     ) -> Result<Self::Args>;
+
+    /// Run the host and client program.
+    ///
+    /// Returns the witness which can be supplied to the zkVM.
+    async fn run(
+        &self,
+        args: &Self::Args,
+    ) -> Result<<Self::WitnessGenClient as WitnessGenClient>::WitnessData> {
+        let preimage = BidirectionalChannel::new()?;
+        let hint = BidirectionalChannel::new()?;
+
+        let server_task = args.start_server(hint.host, preimage.host).await?;
+
+        let witness = self.witnessgen_client().run(preimage.client, hint.client).await?;
+        // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
+        // tasks to complete.
+        server_task.abort();
+
+        Ok(witness)
+    }
 
     /// Get the L1 head hash from the host args.
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256>;

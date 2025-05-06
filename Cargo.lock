@@ -5805,6 +5805,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
+ "sp1-sdk",
  "spin 0.10.0",
  "tracing",
 ]

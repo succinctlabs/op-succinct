@@ -1,9 +1,9 @@
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
-use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_client_utils::{boot::BootInfoStruct, witness::WitnessData};
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, host::OPSuccinctHost,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, AGGREGATION_ELF};
@@ -80,7 +80,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         }
 
         let witness = self.host.run(&host_args).await?;
-        let sp1_stdin = get_proof_stdin(witness).context("Failed to get proof stdin")?;
+        let sp1_stdin = witness.into_sp1_stdin().await.context("Failed to get proof stdin")?;
 
         Ok(sp1_stdin)
     }

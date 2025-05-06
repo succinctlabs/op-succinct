@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use op_succinct_client_utils::witness::WitnessData;
 use op_succinct_host_utils::{
-    block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, get_proof_stdin,
-    host::OPSuccinctHost, stats::ExecutionStats,
+    block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost,
+    stats::ExecutionStats,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
@@ -38,7 +39,7 @@ async fn main() -> Result<()> {
     let witness_generation_duration = start_time.elapsed();
 
     // Get the stdin for the block.
-    let sp1_stdin = get_proof_stdin(oracle)?;
+    let sp1_stdin = oracle.into_sp1_stdin().await?;
 
     let prover = ProverClient::from_env();
 
