@@ -35,7 +35,7 @@ jobs:
           cd programs/range/ethereum
           ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v4.1.7 --output-directory ../../../elf
           ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v4.1.7 --output-directory ../../../elf --features embedded
-          cd ../../celestia
+          cd /../celestia
           ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v4.1.7 --output-directory ../../../elf --features embedded
           cd ../../aggregation
           ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v4.1.7 --output-directory ../../elf

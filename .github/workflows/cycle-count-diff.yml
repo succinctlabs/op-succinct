@@ -36,7 +36,8 @@ jobs:
       
       - name: Checkout Old Branch
         run: |
-          git checkout origin/${{ github.event.pull_request.base.ref }} -- . ':(exclude)new_cycle_stats.json'
+          git checkout origin/${{ github.event.pull_request.base.ref }} -- Cargo.toml
+          git checkout origin/${{ github.event.pull_request.base.ref }} -- . ':(exclude)new_cycle_stats.json' ':(exclude)Cargo.toml'
 
       - name: Run Test On Old Branch
         run: |
