@@ -80,7 +80,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         }
 
         let witness = self.host.run(&host_args).await?;
-        let sp1_stdin = witness.into_sp1_stdin().await.context("Failed to get proof stdin")?;
+        let sp1_stdin = witness.into_sp1_stdin().context("Failed to get proof stdin")?;
 
         Ok(sp1_stdin)
     }

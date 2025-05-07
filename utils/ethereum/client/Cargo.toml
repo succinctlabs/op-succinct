@@ -1,0 +1,23 @@
+[package]
+name = "op-succinct-ethereum-client-utils"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+# local
+op-succinct-client-utils.workspace = true
+op-succinct-host-utils.workspace = true
+# kona
+kona-host.workspace = true
+kona-preimage.workspace = true
+kona-proof.workspace = true
+
+# alloy
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+
+# general
+anyhow.workspace = true
+async-trait.workspace = true

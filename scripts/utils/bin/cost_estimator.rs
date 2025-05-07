@@ -75,7 +75,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
         let host = host.clone();
         tokio::spawn(async move {
             let oracle = host.run(&host_args).await.unwrap();
-            oracle.into_sp1_stdin().await.unwrap()
+            oracle.into_sp1_stdin().unwrap()
         })
     });
 

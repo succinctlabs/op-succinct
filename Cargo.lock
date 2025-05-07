@@ -5811,7 +5811,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-ethereum-utils"
+name = "op-succinct-ethereum-client-utils"
 version = "0.1.0"
 dependencies = [
  "alloy-eips 0.12.6",
@@ -5822,6 +5822,22 @@ dependencies = [
  "kona-preimage",
  "kona-proof",
  "op-succinct-client-utils",
+ "op-succinct-host-utils",
+]
+
+[[package]]
+name = "op-succinct-ethereum-host-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-eips 0.12.6",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "kona-host",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-ethereum-client-utils",
  "op-succinct-host-utils",
 ]
 
@@ -5908,7 +5924,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "op-succinct-celestia-utils",
- "op-succinct-ethereum-utils",
+ "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
 ]
 
@@ -7052,7 +7068,7 @@ dependencies = [
  "anyhow",
  "kona-proof",
  "op-succinct-client-utils",
- "op-succinct-ethereum-utils",
+ "op-succinct-ethereum-client-utils",
  "rkyv",
  "sp1-zkvm",
  "tracing",

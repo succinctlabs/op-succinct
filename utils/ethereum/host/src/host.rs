@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use kona_host::single::SingleChainHost;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
 
-use crate::client::ETHDAWitnessGenClient;
+use crate::witness_generator::ETHDAWitnessGenClient;
 
 #[derive(Clone)]
 pub struct SingleChainOPSuccinctHost {

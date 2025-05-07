@@ -33,7 +33,7 @@ cfg_if::cfg_if! {
             Arc::new(CelestiaOPSuccinctHost::new(fetcher))
         }
     } else {
-        use op_succinct_ethereum_utils::host::SingleChainOPSuccinctHost;
+        use op_succinct_ethereum_host_utils::host::SingleChainOPSuccinctHost;
 
         /// Initialize the default (ETH-DA) host.
         pub fn initialize_host(

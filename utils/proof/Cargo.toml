@@ -8,12 +8,13 @@ edition.workspace = true
 
 # local
 op-succinct-celestia-utils = { workspace = true, optional = true }
-op-succinct-ethereum-utils = { workspace = true, optional = true }
+op-succinct-ethereum-host-utils = { workspace = true, optional = true }
 op-succinct-host-utils.workspace = true
 
 # general
 cfg-if.workspace = true
 
 [features]
-default = ["op-succinct-ethereum-utils"]
+default = ["ethereum"]
 celestia = ["op-succinct-celestia-utils"]
+ethereum = ["op-succinct-ethereum-host-utils"]

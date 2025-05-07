@@ -128,7 +128,7 @@ where
 
         let mem_kv_store = self.host.run(&host_args).await?;
 
-        let sp1_stdin = match mem_kv_store.into_sp1_stdin().await {
+        let sp1_stdin = match mem_kv_store.into_sp1_stdin() {
             Ok(stdin) => stdin,
             Err(e) => {
                 tracing::error!("Failed to get proof stdin: {}", e);
