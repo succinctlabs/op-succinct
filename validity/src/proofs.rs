@@ -146,6 +146,8 @@ where
             request_type = ?op_request.req_type,
             start_block = op_request.start_block,
             end_block = op_request.end_block,
+            l1_block_number = ?op_request.checkpointed_l1_block_number,
+            l1_block_hash = ?op_request.checkpointed_l1_block_hash,
             "Starting witness generation"
         );
 
@@ -164,9 +166,11 @@ where
         let duration = witnessgen_duration.elapsed();
 
         info!(
+            request_type = ?op_request.req_type,
             start_block = op_request.start_block,
             end_block = op_request.end_block,
-            request_type = ?op_request.req_type,
+            l1_block_number = ?op_request.checkpointed_l1_block_number,
+            l1_block_hash = ?op_request.checkpointed_l1_block_hash,
             duration_s = duration.as_secs(),
             "Completed witness generation"
         );
