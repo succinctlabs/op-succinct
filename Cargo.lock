@@ -2846,18 +2846,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "grpc"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "pbjson",
- "pbjson-types",
- "prost",
- "serde",
- "tonic",
-]
-
-[[package]]
 name = "h2"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4701,6 +4689,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-grpc"
+version = "0.1.0"
+source = "git+ssh://git@github.com/agglayer/op-succinct-grpc.git#39d912ffda4587b9889ca8dc4cfe76e45e5bed8a"
+dependencies = [
+ "bytes",
+ "pbjson",
+ "pbjson-types",
+ "prost",
+ "serde",
+ "tonic",
+]
+
+[[package]]
 name = "op-succinct-host-utils"
 version = "0.1.0"
 dependencies = [
@@ -4809,9 +4810,9 @@ dependencies = [
  "clap",
  "dotenv",
  "futures-util",
- "grpc",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
+ "op-succinct-grpc",
  "op-succinct-host-utils",
  "prost",
  "reqwest",

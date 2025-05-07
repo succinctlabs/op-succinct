@@ -10,7 +10,7 @@ use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
-use grpc::proofs::proofs_server::ProofsServer;
+use op_succinct_grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,

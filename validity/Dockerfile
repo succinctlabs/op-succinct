@@ -22,6 +22,8 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 # Copy only what's needed for the build
 COPY . .
 
+ENV SQLX_OFFLINE=true
+
 # Build the server
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \

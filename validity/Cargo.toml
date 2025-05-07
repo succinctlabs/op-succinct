@@ -65,7 +65,7 @@ strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
 tonic.workspace = true
 prost.workspace = true
-grpc.workspace = true
+op-succinct-grpc.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
