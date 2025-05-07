@@ -1,4 +1,4 @@
-use std::{fmt::Write as _, fs::File, path::Path, sync::Arc}; // Path 트레잇을 사용하기 위해 추가
+use std::{fmt::Write as _, fs::File, sync::Arc}; // Path 트레잇을 사용하기 위해 추가
 
 use anyhow::{anyhow, Result}; // anyhow 오류 처리를 위해 Result::map_err 사용 가능
 use common::post_to_github_pr;
@@ -135,7 +135,7 @@ async fn test_cycle_count_diff() -> Result<()> {
         let new_stats_path = std::env::var("NEW_STATS_PATH_FOR_OLD_RUN")
             .map_err(|e| anyhow!("NEW_STATS_PATH_FOR_OLD_RUN env var not set: {}", e))?;
 
-        eprintln!("Reading new stats from: {}", new_stats_path);
+        eprintln!("Reading new stats from: {new_stats_path}");
 
         let file = File::open(&new_stats_path)
             .map_err(|e| anyhow!("Failed to open {}: {}", new_stats_path, e))?;
@@ -173,8 +173,8 @@ async fn test_post_to_github() -> Result<()> {
     let new_stats_path = std::env::var("NEW_STATS_FILE")
         .map_err(|e| anyhow!("NEW_STATS_FILE env var not set: {}", e))?;
 
-    eprintln!("Reading old stats from: {}", old_stats_path);
-    eprintln!("Reading new stats from: {}", new_stats_path);
+    eprintln!("Reading old stats from: {old_stats_path}");
+    eprintln!("Reading new stats from: {new_stats_path}");
 
     let old_stats_file = File::open(&old_stats_path)
         .map_err(|e| anyhow!("Failed to open {}: {}", old_stats_path, e))?;
@@ -196,7 +196,7 @@ async fn test_post_to_github() -> Result<()> {
     }
 
     let report = create_diff_report(&old_stats, &new_stats);
-    println!("{}", report);
+    println!("{report}");
 
     if std::env::var("POST_TO_GITHUB").ok().and_then(|v| v.parse::<bool>().ok()).unwrap_or_default()
     {
