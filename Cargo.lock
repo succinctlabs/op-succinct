@@ -5758,18 +5758,6 @@ dependencies = [
 name = "op-succinct-celestia-client-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.15.7",
- "alloy-eips 0.15.7",
- "alloy-primitives",
- "alloy-provider",
- "alloy-rpc-types",
- "anyhow",
- "async-trait",
- "hana-host",
- "hana-oracle",
- "kona-preimage",
- "kona-proof",
- "kona-rpc",
  "op-succinct-client-utils",
 ]
 
@@ -5792,6 +5780,8 @@ dependencies = [
  "op-succinct-celestia-client-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
+ "rkyv",
+ "sp1-sdk",
 ]
 
 [[package]]
@@ -5824,7 +5814,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "sp1-sdk",
  "spin 0.10.0",
  "tracing",
 ]
@@ -5833,13 +5822,6 @@ dependencies = [
 name = "op-succinct-ethereum-client-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-eips 0.15.7",
- "alloy-primitives",
- "anyhow",
- "async-trait",
- "kona-host",
- "kona-preimage",
- "kona-proof",
  "op-succinct-client-utils",
 ]
 
@@ -5857,6 +5839,8 @@ dependencies = [
  "op-succinct-client-utils",
  "op-succinct-ethereum-client-utils",
  "op-succinct-host-utils",
+ "rkyv",
+ "sp1-sdk",
 ]
 
 [[package]]
@@ -6014,8 +5998,6 @@ dependencies = [
  "clap",
  "dotenv",
  "futures-util",
- "kona-derive",
- "kona-rpc",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",

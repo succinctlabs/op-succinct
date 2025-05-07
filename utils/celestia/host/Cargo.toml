@@ -5,9 +5,11 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+#sp1
+sp1-sdk.workspace = true
 
 # local
-op-succinct-celestia-client-utils.workspace = true
+op-succinct-celestia-client-utils = { path = "../client" }
 op-succinct-client-utils.workspace = true
 op-succinct-host-utils.workspace = true
 
@@ -30,3 +32,4 @@ alloy-rpc-types.workspace = true
 # general
 anyhow.workspace = true
 async-trait.workspace = true
+rkyv.workspace = true

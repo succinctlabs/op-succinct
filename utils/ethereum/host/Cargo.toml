@@ -5,10 +5,12 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
+#sp1
+sp1-sdk.workspace = true
 
 # local
 op-succinct-client-utils.workspace = true
-op-succinct-ethereum-client-utils.workspace = true
+op-succinct-ethereum-client-utils = { path = "../client" }
 op-succinct-host-utils.workspace = true
 
 # kona
@@ -23,3 +25,4 @@ alloy-primitives.workspace = true
 # general
 anyhow.workspace = true
 async-trait.workspace = true
+rkyv.workspace = true

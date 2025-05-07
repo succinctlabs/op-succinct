@@ -7,9 +7,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use kzg_rs::{Blob, Bytes48};
 use preimage_store::PreimageStore;
-use rkyv::to_bytes;
 use serde::{Deserialize, Serialize};
-use sp1_sdk::SP1Stdin;
 
 use crate::BlobStore;
 
@@ -36,8 +34,6 @@ pub trait WitnessData {
 
         Ok((oracle, beacon))
     }
-
-    fn into_sp1_stdin(self) -> Result<SP1Stdin>;
 }
 
 #[derive(Clone, Debug, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -54,13 +50,6 @@ impl WitnessData for DefaultWitnessData {
 
     fn blob_data(&self) -> &BlobData {
         &self.blob_data
-    }
-
-    fn into_sp1_stdin(self) -> Result<SP1Stdin> {
-        let mut stdin = SP1Stdin::new();
-        let buffer = to_bytes::<rkyv::rancor::Error>(&self)?;
-        stdin.write_slice(&buffer);
-        Ok(stdin)
     }
 }
 

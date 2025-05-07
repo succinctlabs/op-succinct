@@ -8,16 +8,3 @@ edition.workspace = true
 
 # local
 op-succinct-client-utils.workspace = true
-
-# kona
-kona-host.workspace = true
-kona-preimage.workspace = true
-kona-proof.workspace = true
-
-# alloy
-alloy-eips.workspace = true
-alloy-primitives.workspace = true
-
-# general
-anyhow.workspace = true
-async-trait.workspace = true

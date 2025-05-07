@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
 use log::info;
-use op_succinct_client_utils::witness::WitnessData;
 use op_succinct_host_utils::{
     block_range::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
@@ -11,6 +10,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::ExecutionStats,
+    witness_generation::client::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
@@ -75,7 +75,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
         let host = host.clone();
         tokio::spawn(async move {
             let oracle = host.run(&host_args).await.unwrap();
-            oracle.into_sp1_stdin().unwrap()
+            host.witness_generator().get_sp1_stdin(oracle).unwrap()
         })
     });
 

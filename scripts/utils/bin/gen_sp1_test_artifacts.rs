@@ -2,11 +2,11 @@ use anyhow::Result;
 use clap::Parser;
 use futures::StreamExt;
 use log::info;
-use op_succinct_client_utils::witness::WitnessData;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
+    witness_generation::client::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     let mut successful_ranges = Vec::new();
     for (range, host_args) in split_ranges.iter().zip(host_args.iter()) {
         let oracle = host.run(host_args).await.unwrap();
-        let sp1_stdin = oracle.into_sp1_stdin().unwrap();
+        let sp1_stdin = host.witness_generator().get_sp1_stdin(oracle).unwrap();
         successful_ranges.push((sp1_stdin, range.clone()));
     }
 

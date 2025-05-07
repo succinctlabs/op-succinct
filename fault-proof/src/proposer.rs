@@ -18,10 +18,10 @@ use crate::{
     Action, FactoryTrait, L1ProviderWithWallet, L2Provider, L2ProviderTrait, Mode,
     NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
-use op_succinct_client_utils::{boot::BootInfoStruct, witness::WitnessData};
+use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
-    metrics::MetricsGauge,
+    metrics::MetricsGauge, witness_generation::client::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, AGGREGATION_ELF};
 
@@ -128,13 +128,7 @@ where
 
         let mem_kv_store = self.host.run(&host_args).await?;
 
-        let sp1_stdin = match mem_kv_store.into_sp1_stdin() {
-            Ok(stdin) => stdin,
-            Err(e) => {
-                tracing::error!("Failed to get proof stdin: {}", e);
-                return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
-            }
-        };
+        let sp1_stdin = self.host.witness_generator().get_sp1_stdin(mem_kv_store).unwrap();
 
         tracing::info!("Generating Range Proof");
         let range_proof = if self.config.mock_mode {

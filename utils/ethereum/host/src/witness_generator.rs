@@ -10,12 +10,13 @@ use kona_proof::{
 use op_succinct_client_utils::witness::{
     executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
 };
+use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
 use op_succinct_host_utils::witness_generation::{
     client::WitnessGenerator, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };
-
-use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
+use rkyv::to_bytes;
+use sp1_sdk::SP1Stdin;
 
 pub struct ETHDAWitnessGenerator;
 
@@ -69,5 +70,12 @@ impl WitnessGenerator for ETHDAWitnessGenerator {
         };
 
         Ok(witness)
+    }
+
+    fn get_sp1_stdin(&self, witness: Self::WitnessData) -> Result<SP1Stdin> {
+        let mut stdin = SP1Stdin::new();
+        let buffer = to_bytes::<rkyv::rancor::Error>(&witness)?;
+        stdin.write_slice(&buffer);
+        Ok(stdin)
     }
 }

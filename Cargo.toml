@@ -91,10 +91,10 @@ op-succinct-host-utils = { path = "utils/host" }
 op-succinct-build-utils = { path = "utils/build" }
 op-succinct-validity = { path = "validity" }
 op-succinct-fp = { path = "fault-proof" }
-op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
-op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
-op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
-op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
+# op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
+# op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
+# op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
+# op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 
 # Alloy (Network)

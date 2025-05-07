@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::{l1::OracleBlobProvider, CachingOracle};
+use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
 use op_succinct_client_utils::witness::{
     executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
 };
@@ -12,8 +13,8 @@ use op_succinct_host_utils::witness_generation::{
     client::WitnessGenerator, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };
-
-use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
+use rkyv::to_bytes;
+use sp1_sdk::SP1Stdin;
 
 #[derive(Clone)]
 pub struct CelestiaDAWitnessGenerator;
@@ -68,5 +69,12 @@ impl WitnessGenerator for CelestiaDAWitnessGenerator {
         };
 
         Ok(witness)
+    }
+
+    fn get_sp1_stdin(&self, witness: Self::WitnessData) -> Result<SP1Stdin> {
+        let mut stdin = SP1Stdin::new();
+        let buffer = to_bytes::<rkyv::rancor::Error>(&witness)?;
+        stdin.write_slice(&buffer);
+        Ok(stdin)
     }
 }
