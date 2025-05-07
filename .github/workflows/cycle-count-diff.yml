@@ -16,74 +16,39 @@ jobs:
       - run-id=${{ github.run_id }}
       - disk=large
     steps:
-      - name: Checkout PR Branch
+      - name: Checkout PR Branch (New)
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
+          path: new_code
+
+      - name: Checkout Base Branch (Old)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+          path: old_code
 
       - name: Setup CI
         uses: ./.github/actions/setup
 
       - name: Run Test On New Branch
-        id: new_branch_test
         run: |
-          RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
-          # Debug information
-          echo "Current directory: $(pwd)"
-          echo "Directory contents:"
-          ls -la
-          # Verify the stats file was created
-          if [ ! -f "new_cycle_stats.json" ]; then
-            echo "Error: new_cycle_stats.json was not created"
-            exit 1
-          fi
-          echo "new_cycle_stats.json contents:"
-          cat new_cycle_stats.json
+          RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff -- --exact --nocapture
+        working-directory: ./new_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-      
-      - name: Setup Old Branch
-        run: |
-          # First create and setup the old branch
-          mkdir -p old_branch
-          cd old_branch
-          git init
-          git remote add origin https://github.com/${{ github.repository }}.git
-          git fetch origin ${{ github.event.pull_request.base.ref }}
-          git checkout FETCH_HEAD
-          
-          # Go back to main directory and verify new_cycle_stats.json exists
-          cd ..
-          echo "Main directory contents:"
-          ls -la
-          if [ ! -f "new_cycle_stats.json" ]; then
-            echo "Error: new_cycle_stats.json not found in main directory"
-            exit 1
-          fi
-          
-          # Copy the stats file to old branch
-          cp new_cycle_stats.json old_branch/
-          echo "Old branch directory contents after copy:"
-          ls -la old_branch/
 
       - name: Run Test On Old Branch
         run: |
-          cd old_branch
-          RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
-          # Debug information
-          echo "Old branch directory contents:"
-          ls -la
-          # Verify old_cycle_stats.json was created
-          if [ ! -f "old_cycle_stats.json" ]; then
-            echo "Error: old_cycle_stats.json was not created"
-            exit 1
-          fi
-          echo "old_cycle_stats.json contents:"
-          cat old_cycle_stats.json
+          # 테스트 결과 파일이 old_code 디렉토리 안에 생성될 것입니다.
+          # NEW_BRANCH=false 환경 변수를 사용하여 테스트 코드가 다른 결과 파일명 (예: old_cycle_stats.json)을 사용하도록 해야 합니다.
+          RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff -- --exact --nocapture
+        working-directory: ./old_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
@@ -92,31 +57,13 @@ jobs:
 
       - name: Compare Results And Post To Github
         run: |
-          # Debug information
-          echo "Main directory contents before comparison:"
-          ls -la
-          echo "Old branch directory contents before comparison:"
-          ls -la old_branch/
-          
-          # Verify both stats files exist before copying
-          if [ ! -f "old_branch/old_cycle_stats.json" ]; then
-            echo "Error: old_cycle_stats.json not found in old_branch directory"
-            exit 1
-          fi
-          if [ ! -f "new_cycle_stats.json" ]; then
-            echo "Error: new_cycle_stats.json not found in main directory"
-            exit 1
-          fi
-          
-          # Copy old_cycle_stats.json back to main directory
-          cp old_branch/old_cycle_stats.json .
-          echo "Main directory contents after copy:"
-          ls -la
-          
+          # 테스트 코드에서 환경 변수를 읽어 파일 경로를 알도록 수정 필요
           RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+          POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }} 변수 추가
+          NEW_STATS_FILE: ./new_code/new_cycle_stats.json
+          OLD_STATS_FILE: ./old_code/old_cycle_stats.json
