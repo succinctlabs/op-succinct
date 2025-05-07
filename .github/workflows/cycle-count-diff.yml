@@ -42,6 +42,8 @@ jobs:
           git remote add origin https://github.com/${{ github.repository }}.git
           git fetch origin ${{ github.event.pull_request.base.ref }}
           git checkout FETCH_HEAD
+          # Copy the new_cycle_stats.json from the new branch
+          cp ../new_cycle_stats.json .
 
       - name: Run Test On Old Branch
         run: |
@@ -55,6 +57,8 @@ jobs:
 
       - name: Compare Results And Post To Github
         run: |
+          # Copy old_cycle_stats.json back to main directory
+          cp old_branch/old_cycle_stats.json .
           RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
