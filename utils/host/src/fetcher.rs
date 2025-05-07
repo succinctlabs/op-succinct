@@ -5,6 +5,7 @@ use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
 use anyhow::{bail, Result};
+use futures::{stream, StreamExt};
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
 use kona_protocol::L2BlockInfo;
@@ -423,8 +424,6 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        use futures::stream::{self, StreamExt};
-
         let block_numbers: Vec<u64> = (start..=end).collect();
         let mut headers = Vec::new();
 
