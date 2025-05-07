@@ -193,27 +193,14 @@ where
             };
 
             // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
-            let result = self
+            let last_id = self
                 .proof_requester
                 .db_client
                 .insert_request(&proved_op_request)
                 .await
                 .map_err(|e| Status::internal(format!("Failed to save request to DB: {}", e)))?;
 
-            if result.rows_affected() > 0 {
-                // Fetch the last inserted ID
-                let last_id: i64 = sqlx::query_scalar!(
-                    r#"
-                SELECT currval(pg_get_serial_sequence('requests', 'id'))
-                "#
-                )
-                .fetch_one(&self.proof_requester.db_client.pool)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to fetch agg proof ID: {}", e)))?
-                .ok_or(Status::internal(
-                    "Failed to fetch the last inserted ID from the database",
-                ))?;
-
+            if last_id > 0 {
                 // Convert the last ID to FixedBytes32
                 let last_id =
                     FixedBytes::<32>::from_hex(format!("{:064x}", last_id)).map_err(|e| {
