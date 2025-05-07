@@ -24,7 +24,7 @@ pub fn get_range_elf_embedded() -> &'static [u8] {
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "celestia")] {
-        use op_succinct_celestia_utils::host::CelestiaOPSuccinctHost;
+        use op_succinct_celestia_host_utils::host::CelestiaOPSuccinctHost;
 
         /// Initialize the Celestia host.
         pub fn initialize_host(
@@ -33,7 +33,7 @@ cfg_if::cfg_if! {
             Arc::new(CelestiaOPSuccinctHost::new(fetcher))
         }
     } else {
-        use op_succinct_ethereum_utils::host::SingleChainOPSuccinctHost;
+        use op_succinct_ethereum_host_utils::host::SingleChainOPSuccinctHost;
 
         /// Initialize the default (ETH-DA) host.
         pub fn initialize_host(

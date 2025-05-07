@@ -31,7 +31,7 @@ async fn execute_batch() -> Result<()> {
     let oracle = host.run(&host_args).await?;
 
     // Get the stdin for the block.
-    let sp1_stdin = oracle.into_sp1_stdin().await?;
+    let sp1_stdin = oracle.into_sp1_stdin().unwrap();
 
     let (block_data, report, execution_duration) =
         execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;

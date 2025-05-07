@@ -128,7 +128,7 @@ async fn test_cycle_count_diff() -> Result<()> {
     let host_args = host.fetch(l2_start_block, l2_end_block, None, Some(false)).await?;
 
     let oracle = host.run(&host_args).await?;
-    let sp1_stdin = oracle.into_sp1_stdin().await?;
+    let sp1_stdin = oracle.into_sp1_stdin().unwrap();
     let (block_data, report, execution_duration) =
         execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 

@@ -12,7 +12,7 @@ sp1_zkvm::entrypoint!(main);
 use std::sync::Arc;
 
 use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
-use op_succinct_celestia_utils::executor::CelestiaDAWitnessExecutor;
+use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
 use op_succinct_client_utils::{
     boot::BootInfoStruct,
     witness::{executor::WitnessExecutor, DefaultWitnessData, WitnessData},

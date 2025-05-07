@@ -11,16 +11,16 @@ use op_succinct_client_utils::witness::{
     executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
-    client::WitnessGenClient, online_blob_store::OnlineBlobStore,
+    client::WitnessGenerator, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };
 
-use crate::executor::ETHDAWitnessExecutor;
+use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
 
-pub struct ETHDAWitnessGenClient;
+pub struct ETHDAWitnessGenerator;
 
 #[async_trait]
-impl WitnessGenClient for ETHDAWitnessGenClient {
+impl WitnessGenerator for ETHDAWitnessGenerator {
     type WitnessData = DefaultWitnessData;
 
     async fn run(

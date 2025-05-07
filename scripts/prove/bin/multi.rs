@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     let witness_generation_duration = start_time.elapsed();
 
     // Get the stdin for the block.
-    let sp1_stdin = oracle.into_sp1_stdin().await?;
+    let sp1_stdin = oracle.into_sp1_stdin().unwrap();
 
     let prover = ProverClient::from_env();
 

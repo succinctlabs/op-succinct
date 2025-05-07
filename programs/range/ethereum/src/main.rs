@@ -16,7 +16,7 @@ use op_succinct_client_utils::{
     boot::BootInfoStruct,
     witness::{executor::WitnessExecutor, DefaultWitnessData, WitnessData},
 };
-use op_succinct_ethereum_utils::executor::ETHDAWitnessExecutor;
+use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
 use rkyv::rancor::Error;
 
 fn main() {

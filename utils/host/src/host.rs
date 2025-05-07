@@ -6,7 +6,7 @@ use kona_host::single::{SingleChainHost, SingleChainHostError};
 use kona_preimage::{BidirectionalChannel, Channel};
 use tokio::task::JoinHandle;
 
-use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenClient};
+use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenerator};
 
 #[async_trait]
 pub trait PreimageServerStarter {
@@ -50,9 +50,9 @@ impl PreimageServerStarter for CelestiaChainHost {
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
     type Args: Send + Sync + 'static + Clone + PreimageServerStarter;
-    type WitnessGenClient: WitnessGenClient;
+    type WitnessGenerator: WitnessGenerator;
 
-    fn witnessgen_client(&self) -> &Self::WitnessGenClient;
+    fn witness_generator(&self) -> &Self::WitnessGenerator;
 
     /// Fetch the host arguments.
     ///
@@ -77,13 +77,13 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     async fn run(
         &self,
         args: &Self::Args,
-    ) -> Result<<Self::WitnessGenClient as WitnessGenClient>::WitnessData> {
+    ) -> Result<<Self::WitnessGenerator as WitnessGenerator>::WitnessData> {
         let preimage = BidirectionalChannel::new()?;
         let hint = BidirectionalChannel::new()?;
 
         let server_task = args.start_server(hint.host, preimage.host).await?;
 
-        let witness = self.witnessgen_client().run(preimage.client, hint.client).await?;
+        let witness = self.witness_generator().run(preimage.client, hint.client).await?;
         // Unlike the upstream, manually abort the server task, as it will hang if you wait for both
         // tasks to complete.
         server_task.abort();

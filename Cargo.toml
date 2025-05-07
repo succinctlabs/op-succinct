@@ -1,5 +1,19 @@
 [workspace]
-members = ["utils/*", "programs/range/*", "programs/aggregation", "scripts/*", "validity", "fault-proof"]
+members = [
+    "utils/client",
+    "utils/host",
+    "utils/build",
+    "utils/celestia/client",
+    "utils/celestia/host",
+    "utils/proof",
+    "utils/ethereum/client",
+    "utils/ethereum/host",
+    "programs/range/*",
+    "programs/aggregation",
+    "scripts/*",
+    "validity",
+    "fault-proof"
+]
 resolver = "2"
 
 [workspace.package]
@@ -68,9 +82,7 @@ kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.
 
 # hana
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
 hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
-hana-client = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.11" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -79,8 +91,10 @@ op-succinct-host-utils = { path = "utils/host" }
 op-succinct-build-utils = { path = "utils/build" }
 op-succinct-validity = { path = "validity" }
 op-succinct-fp = { path = "fault-proof" }
-op-succinct-ethereum-utils = { path = "utils/ethereum" }
-op-succinct-celestia-utils = { path = "utils/celestia" }
+op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
+op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
+op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
+op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 
 # Alloy (Network)

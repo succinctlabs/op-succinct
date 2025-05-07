@@ -4,7 +4,7 @@ use kona_preimage::NativeChannel;
 use op_succinct_client_utils::witness::WitnessData;
 
 #[async_trait]
-pub trait WitnessGenClient {
+pub trait WitnessGenerator {
     type WitnessData: WitnessData;
 
     async fn run(

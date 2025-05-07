@@ -7,21 +7,21 @@ use async_trait::async_trait;
 use kona_host::single::SingleChainHost;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
 
-use crate::client::ETHDAWitnessGenClient;
+use crate::witness_generator::ETHDAWitnessGenerator;
 
 #[derive(Clone)]
 pub struct SingleChainOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
-    witnessgen_client: Arc<ETHDAWitnessGenClient>,
+    witness_generator: Arc<ETHDAWitnessGenerator>,
 }
 
 #[async_trait]
 impl OPSuccinctHost for SingleChainOPSuccinctHost {
     type Args = SingleChainHost;
-    type WitnessGenClient = ETHDAWitnessGenClient;
+    type WitnessGenerator = ETHDAWitnessGenerator;
 
-    fn witnessgen_client(&self) -> &Self::WitnessGenClient {
-        &self.witnessgen_client
+    fn witness_generator(&self) -> &Self::WitnessGenerator {
+        &self.witness_generator
     }
 
     async fn fetch(
@@ -59,6 +59,6 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
 
 impl SingleChainOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher, witnessgen_client: Arc::new(ETHDAWitnessGenClient) }
+        Self { fetcher, witness_generator: Arc::new(ETHDAWitnessGenerator) }
     }
 }

@@ -16,7 +16,7 @@ use tracing::info;
 
 use crate::{
     client::{advance_to_target, fetch_safe_head_hash},
-    precompiles::zkvm_handle_register,
+    precompiles::ZkvmOpEvmFactory,
 };
 
 #[async_trait]
@@ -117,7 +117,7 @@ pub trait WitnessExecutor {
             rollup_config.as_ref(),
             l2_provider.clone(),
             l2_provider,
-            Some(zkvm_handle_register),
+            ZkvmOpEvmFactory::new(),
             None,
         );
         let mut driver = Driver::new(cursor, executor, pipeline);

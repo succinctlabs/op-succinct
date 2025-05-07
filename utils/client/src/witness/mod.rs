@@ -37,7 +37,7 @@ pub trait WitnessData {
         Ok((oracle, beacon))
     }
 
-    async fn into_sp1_stdin(self) -> Result<SP1Stdin>;
+    fn into_sp1_stdin(self) -> Result<SP1Stdin>;
 }
 
 #[derive(Clone, Debug, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
@@ -56,7 +56,7 @@ impl WitnessData for DefaultWitnessData {
         &self.blob_data
     }
 
-    async fn into_sp1_stdin(self) -> Result<SP1Stdin> {
+    fn into_sp1_stdin(self) -> Result<SP1Stdin> {
         let mut stdin = SP1Stdin::new();
         let buffer = to_bytes::<rkyv::rancor::Error>(&self)?;
         stdin.write_slice(&buffer);

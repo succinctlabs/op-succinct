@@ -9,17 +9,17 @@ use op_succinct_client_utils::witness::{
     executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
-    client::WitnessGenClient, online_blob_store::OnlineBlobStore,
+    client::WitnessGenerator, online_blob_store::OnlineBlobStore,
     preimage_witness_collector::PreimageWitnessCollector,
 };
 
-use crate::executor::CelestiaDAWitnessExecutor;
+use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
 
 #[derive(Clone)]
-pub struct CelestiaDAWitnessGenClient;
+pub struct CelestiaDAWitnessGenerator;
 
 #[async_trait]
-impl WitnessGenClient for CelestiaDAWitnessGenClient {
+impl WitnessGenerator for CelestiaDAWitnessGenerator {
     type WitnessData = DefaultWitnessData;
 
     async fn run(

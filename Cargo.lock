@@ -5755,11 +5755,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-celestia-utils"
+name = "op-succinct-celestia-client-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-consensus 0.12.6",
- "alloy-eips 0.12.6",
+ "alloy-consensus 0.15.7",
+ "alloy-eips 0.15.7",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
@@ -5770,6 +5770,26 @@ dependencies = [
  "kona-preimage",
  "kona-proof",
  "kona-rpc",
+ "op-succinct-client-utils",
+]
+
+[[package]]
+name = "op-succinct-celestia-host-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus 0.15.7",
+ "alloy-eips 0.15.7",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "anyhow",
+ "async-trait",
+ "hana-host",
+ "hana-oracle",
+ "kona-preimage",
+ "kona-proof",
+ "kona-rpc",
+ "op-succinct-celestia-client-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
 ]
@@ -5788,7 +5808,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cfg-if",
- "itertools 0.13.0",
  "kona-derive",
  "kona-driver",
  "kona-executor",
@@ -5811,10 +5830,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-ethereum-utils"
+name = "op-succinct-ethereum-client-utils"
 version = "0.1.0"
 dependencies = [
- "alloy-eips 0.12.6",
+ "alloy-eips 0.15.7",
  "alloy-primitives",
  "anyhow",
  "async-trait",
@@ -5822,6 +5841,21 @@ dependencies = [
  "kona-preimage",
  "kona-proof",
  "op-succinct-client-utils",
+]
+
+[[package]]
+name = "op-succinct-ethereum-host-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-eips 0.15.7",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "kona-host",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-ethereum-client-utils",
  "op-succinct-host-utils",
 ]
 
@@ -5850,7 +5884,7 @@ dependencies = [
  "op-succinct-client-utils",
  "op-succinct-host-utils",
  "op-succinct-proof-utils",
- "rand 0.9.0",
+ "rand 0.9.1",
  "sp1-sdk",
  "strum 0.27.1",
  "strum_macros 0.27.1",
@@ -5907,8 +5941,8 @@ name = "op-succinct-proof-utils"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
- "op-succinct-celestia-utils",
- "op-succinct-ethereum-utils",
+ "op-succinct-celestia-host-utils",
+ "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
 ]
 
@@ -5980,6 +6014,8 @@ dependencies = [
  "clap",
  "dotenv",
  "futures-util",
+ "kona-derive",
+ "kona-rpc",
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-host-utils",
@@ -7052,7 +7088,7 @@ dependencies = [
  "anyhow",
  "kona-proof",
  "op-succinct-client-utils",
- "op-succinct-ethereum-utils",
+ "op-succinct-ethereum-client-utils",
  "rkyv",
  "sp1-zkvm",
  "tracing",
@@ -7066,12 +7102,12 @@ dependencies = [
  "anyhow",
  "hana-oracle",
  "kona-proof",
- "op-succinct-celestia-utils",
+ "op-succinct-celestia-client-utils",
  "op-succinct-client-utils",
  "rkyv",
  "sp1-zkvm",
  "tracing",
- "tracing-subscriber",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]

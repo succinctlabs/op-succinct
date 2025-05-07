@@ -40,6 +40,7 @@ serde.workspace = true
 rkyv.workspace = true
 sha2.workspace = true
 tracing.workspace = true
+spin.workspace = true
 
 # kzg
 kzg-rs.workspace = true

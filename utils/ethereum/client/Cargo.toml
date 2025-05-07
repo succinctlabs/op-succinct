@@ -1,5 +1,5 @@
 [package]
-name = "op-succinct-celestia-utils"
+name = "op-succinct-ethereum-client-utils"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
@@ -8,23 +8,15 @@ edition.workspace = true
 
 # local
 op-succinct-client-utils.workspace = true
-op-succinct-host-utils.workspace = true
 
 # kona
+kona-host.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
-kona-rpc.workspace = true
-
-# hana
-hana-host.workspace = true
-hana-oracle.workspace = true
 
 # alloy
-alloy-consensus.workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
-alloy-provider.workspace = true
-alloy-rpc-types.workspace = true
 
 # general
 anyhow.workspace = true

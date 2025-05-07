@@ -22,7 +22,7 @@ hana-oracle.workspace = true
 sp1-zkvm.workspace = true
 
 # op-succinct
-op-succinct-celestia-utils.workspace = true
+op-succinct-celestia-client-utils.workspace = true
 op-succinct-client-utils.workspace = true
 
 # `tracing-subscriber` feature dependencies

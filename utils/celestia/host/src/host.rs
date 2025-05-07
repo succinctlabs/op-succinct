@@ -14,21 +14,21 @@ use op_succinct_host_utils::{
     SP1Blobstream,
 };
 
-use crate::client::CelestiaDAWitnessGenClient;
+use crate::witness_generator::CelestiaDAWitnessGenerator;
 
 #[derive(Clone)]
 pub struct CelestiaOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
-    witnessgen_client: CelestiaDAWitnessGenClient,
+    witness_generator: CelestiaDAWitnessGenerator,
 }
 
 #[async_trait]
 impl OPSuccinctHost for CelestiaOPSuccinctHost {
     type Args = CelestiaChainHost;
-    type WitnessGenClient = CelestiaDAWitnessGenClient;
+    type WitnessGenerator = CelestiaDAWitnessGenerator;
 
-    fn witnessgen_client(&self) -> &Self::WitnessGenClient {
-        &self.witnessgen_client
+    fn witness_generator(&self) -> &Self::WitnessGenerator {
+        &self.witness_generator
     }
 
     async fn fetch(
@@ -163,7 +163,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
 impl CelestiaOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher, witnessgen_client: CelestiaDAWitnessGenClient }
+        Self { fetcher, witness_generator: CelestiaDAWitnessGenerator }
     }
 }
 
