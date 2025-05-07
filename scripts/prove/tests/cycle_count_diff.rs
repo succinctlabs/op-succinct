@@ -1,6 +1,6 @@
-use std::{fmt::Write as _, fs::File, sync::Arc}; // Path 트레잇을 사용하기 위해 추가
+use std::{fmt::Write as _, fs::File, sync::Arc};
 
-use anyhow::{anyhow, Result}; // anyhow 오류 처리를 위해 Result::map_err 사용 가능
+use anyhow::{anyhow, Result};
 use common::post_to_github_pr;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
@@ -33,7 +33,7 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
 
     let diff_percentage = |base: u64, current: u64| -> f64 {
         if base == 0 {
-            // Handle division by zero gracefully
+            // Handle division by zero gracefully.
             if current == 0 {
                 0.0
             } else {
@@ -50,7 +50,7 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
         let diff = diff_percentage(base_val, current_val);
         writeln!(
             report,
-            "| {:<30} | {:<25} | {:<25} | {:>+9.2}% |", // %+9.2f로 부호 포함 출력
+            "| {:<30} | {:<25} | {:<25} | {:>+9.2}% |",
             name,
             base_val.to_string(),
             current_val.to_string(),
@@ -59,7 +59,7 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
         .unwrap();
     };
 
-    // Add key metrics with their comparisons
+    // Add key metrics with their comparisons.
     write_metric(
         &mut report,
         "Total Instructions",
