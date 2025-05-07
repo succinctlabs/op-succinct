@@ -26,8 +26,14 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run Test On New Branch
+        id: new_branch_test
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
+          # Verify the stats file was created
+          if [ ! -f "new_cycle_stats.json" ]; then
+            echo "Error: new_cycle_stats.json was not created"
+            exit 1
+          fi
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
@@ -36,19 +42,33 @@ jobs:
       
       - name: Setup Old Branch
         run: |
+          # First create and setup the old branch
           mkdir -p old_branch
           cd old_branch
           git init
           git remote add origin https://github.com/${{ github.repository }}.git
           git fetch origin ${{ github.event.pull_request.base.ref }}
           git checkout FETCH_HEAD
-          # Copy the new_cycle_stats.json from the new branch
-          cp ../new_cycle_stats.json .
+          
+          # Go back to main directory and verify new_cycle_stats.json exists
+          cd ..
+          if [ ! -f "new_cycle_stats.json" ]; then
+            echo "Error: new_cycle_stats.json not found in main directory"
+            exit 1
+          fi
+          
+          # Copy the stats file to old branch
+          cp new_cycle_stats.json old_branch/
 
       - name: Run Test On Old Branch
         run: |
           cd old_branch
           RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
+          # Verify old_cycle_stats.json was created
+          if [ ! -f "old_cycle_stats.json" ]; then
+            echo "Error: old_cycle_stats.json was not created"
+            exit 1
+          fi
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
@@ -57,8 +77,19 @@ jobs:
 
       - name: Compare Results And Post To Github
         run: |
+          # Verify both stats files exist before copying
+          if [ ! -f "old_branch/old_cycle_stats.json" ]; then
+            echo "Error: old_cycle_stats.json not found in old_branch directory"
+            exit 1
+          fi
+          if [ ! -f "new_cycle_stats.json" ]; then
+            echo "Error: new_cycle_stats.json not found in main directory"
+            exit 1
+          fi
+          
           # Copy old_cycle_stats.json back to main directory
           cp old_branch/old_cycle_stats.json .
+          
           RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
