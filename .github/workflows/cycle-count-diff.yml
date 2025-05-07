@@ -16,6 +16,14 @@ jobs:
       - run-id=${{ github.run_id }}
       - disk=large
     steps:
+      - name: Checkout Repository (for local actions)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
       - name: Checkout PR Branch (New)
         uses: actions/checkout@v4
         with:
@@ -30,9 +38,6 @@ jobs:
           fetch-depth: 0
           path: old_code
 
-      - name: Setup CI
-        uses: ./.github/actions/setup
-
       - name: Run Test On New Branch
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff -- --exact --nocapture
@@ -45,8 +50,6 @@ jobs:
 
       - name: Run Test On Old Branch
         run: |
-          # 테스트 결과 파일이 old_code 디렉토리 안에 생성될 것입니다.
-          # NEW_BRANCH=false 환경 변수를 사용하여 테스트 코드가 다른 결과 파일명 (예: old_cycle_stats.json)을 사용하도록 해야 합니다.
           RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff -- --exact --nocapture
         working-directory: ./old_code
         env:
@@ -57,13 +60,12 @@ jobs:
 
       - name: Compare Results And Post To Github
         run: |
-          # 테스트 코드에서 환경 변수를 읽어 파일 경로를 알도록 수정 필요
           RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }} 변수 추가
+          POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
           NEW_STATS_FILE: ./new_code/new_cycle_stats.json
           OLD_STATS_FILE: ./old_code/old_cycle_stats.json
