@@ -1,4 +1,4 @@
-use std::{fmt::Write as _, fs::File, sync::Arc};
+use std::{fmt::Write as _, fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Result};
 use common::post_to_github_pr;
@@ -31,18 +31,15 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
     .unwrap();
     writeln!(report, "|--------------------------------|---------------------------|---------------------------|------------|").unwrap();
 
-    let diff_percentage = |base: u64, current: u64| -> f64 {
-        if base == 0 {
-            // Handle division by zero gracefully.
-            if current == 0 {
+    let diff_percentage = |base_val: u64, current_val: u64| -> f64 {
+        if base_val == 0 {
+            if current_val == 0 {
                 0.0
             } else {
-                // If base is 0 and current is non-zero, diff is effectively infinite,
-                // but 100% difference (relative increase) is a reasonable representation.
                 100.0
             }
         } else {
-            ((current as f64 - base as f64) / base as f64) * 100.0
+            ((current_val as f64 - base_val as f64) / base_val as f64) * 100.0
         }
     };
 
@@ -59,7 +56,6 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
         .unwrap();
     };
 
-    // Add key metrics with their comparisons.
     write_metric(
         &mut report,
         "Total Instructions",
@@ -132,20 +128,21 @@ async fn test_cycle_count_diff() -> Result<()> {
     let (l2_start_block, l2_end_block) = if is_new_branch_run {
         get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?
     } else {
-        let new_stats_path = std::env::var("NEW_STATS_PATH_FOR_OLD_RUN")
+        let new_stats_path_from_env = std::env::var("NEW_STATS_PATH_FOR_OLD_RUN")
             .map_err(|e| anyhow!("NEW_STATS_PATH_FOR_OLD_RUN env var not set: {}", e))?;
 
-        eprintln!("Reading new stats from: {new_stats_path}");
+        eprintln!("Reading new branch stats for block range from: {new_stats_path_from_env}");
+        eprintln!("Current CWD for test: {:?}", std::env::current_dir().unwrap_or_default());
 
-        let file = File::open(&new_stats_path)
-            .map_err(|e| anyhow!("Failed to open {}: {}", new_stats_path, e))?;
+        let file = File::open(&new_stats_path_from_env).map_err(|e| {
+            anyhow!("Failed to open new branch stats file {}: {}", new_stats_path_from_env, e)
+        })?;
         let base_stats = serde_json::from_reader::<_, ExecutionStats>(file)
-            .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", new_stats_path, e))?;
+            .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", new_stats_path_from_env, e))?;
         (base_stats.batch_start, base_stats.batch_end)
     };
 
     let host_args = host.fetch(l2_start_block, l2_end_block, None, Some(false)).await?;
-
     let oracle = host.run(&host_args).await?;
     let sp1_stdin = host.witness_generator().get_sp1_stdin(oracle).unwrap();
     let (block_data, report, execution_duration) =
@@ -155,13 +152,43 @@ async fn test_cycle_count_diff() -> Result<()> {
 
     println!("Execution Stats:\n{}", MarkdownExecutionStats::new(new_stats.clone()));
 
-    let output_filename =
-        if is_new_branch_run { "new_cycle_stats.json" } else { "old_cycle_stats.json" };
+    let output_filename_stem = std::env::var("OUTPUT_FILENAME")
+        .expect("OUTPUT_FILENAME environment variable must be set.");
 
-    let mut file = File::create(output_filename)
-        .map_err(|e| anyhow!("Failed to create output file {}: {}", output_filename, e))?;
+    let path_relative_to_crate_root = PathBuf::from("../../").join(output_filename_stem);
+
+    // Log the absolute path for easier debugging in CI.
+    let absolute_path_to_write = match path_relative_to_crate_root.canonicalize() {
+        Ok(p) => p,
+        Err(_) => {
+            // Fallback for logging if canonicalize fails (e.g. path doesn't exist yet)
+            let current_cwd = std::env::current_dir().unwrap_or_default();
+            current_cwd.join(&path_relative_to_crate_root)
+        }
+    };
+    eprintln!("Attempting to write stats to: {absolute_path_to_write:?}");
+
+    if let Some(parent_dir) = path_relative_to_crate_root.parent() {
+        if !parent_dir.as_os_str().is_empty() &&
+            parent_dir.as_os_str() != PathBuf::from(".").as_os_str()
+        {
+            std::fs::create_dir_all(parent_dir).map_err(|e| {
+                anyhow!(
+                    "Failed to create parent directories for {:?}: {}",
+                    path_relative_to_crate_root,
+                    e
+                )
+            })?;
+        }
+    }
+
+    let mut file = File::create(&path_relative_to_crate_root).map_err(|e| {
+        anyhow!("Failed to create output file {:?}: {}", path_relative_to_crate_root, e)
+    })?;
     serde_json::to_writer_pretty(&mut file, &new_stats)
-        .map_err(|e| anyhow!("Failed to write JSON to {}: {}", output_filename, e))?;
+        .map_err(|e| anyhow!("Failed to write JSON to {:?}: {}", path_relative_to_crate_root, e))?;
+
+    eprintln!("Successfully wrote stats to: {absolute_path_to_write:?}");
 
     Ok(())
 }

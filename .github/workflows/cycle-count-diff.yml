@@ -40,7 +40,7 @@ jobs:
 
       - name: Run Test On New Branch
         run: |
-          RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=info NEW_BRANCH=true OUTPUT_FILENAME="new_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./new_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
@@ -50,17 +50,19 @@ jobs:
 
       - name: Run Test On Old Branch
         run: |
-          RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=info NEW_BRANCH=false OUTPUT_FILENAME="old_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          NEW_STATS_PATH_FOR_OLD_RUN: ../new_code/new_cycle_stats.json 
+          NEW_STATS_PATH_FOR_OLD_RUN: ../../../new_code/new_cycle_stats.json
 
       - name: Compare Results And Post To Github
         run: |
+          # This test runs from the GITHUB_WORKSPACE root by default.
+          # Paths to stats files are relative to GITHUB_WORKSPACE.
           RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
