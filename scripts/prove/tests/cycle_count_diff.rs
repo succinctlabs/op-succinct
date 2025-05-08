@@ -121,6 +121,12 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
     report
 }
 
+/// Returns the absolute path to the stats file for the given branch
+fn get_stats_path(filename: &str) -> Result<PathBuf> {
+    // Just use the current directory
+    Ok(std::env::current_dir()?.join(filename))
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn test_cycle_count_diff() -> Result<()> {
     init_tracing();
@@ -137,10 +143,10 @@ async fn test_cycle_count_diff() -> Result<()> {
     let (l2_start_block, l2_end_block) = if is_new_branch_run {
         get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?
     } else {
-        let new_stats_path_from_env = std::env::var("NEW_STATS_PATH_FOR_OLD_RUN")
-            .map_err(|e| anyhow!("NEW_STATS_PATH_FOR_OLD_RUN env var not set: {}", e))?;
+        // Always look for new_cycle_stats.json in the current directory
+        let path = get_stats_path("new_cycle_stats.json")?;
 
-        eprintln!("Reading new branch stats for block range from: {new_stats_path_from_env}");
+        eprintln!("Reading new branch stats from path: {path:?}");
         eprintln!("Current CWD for test: {:?}", std::env::current_dir().unwrap_or_default());
 
         // Log files in the current directory to help debugging
@@ -152,11 +158,11 @@ async fn test_cycle_count_diff() -> Result<()> {
             eprintln!("  Found: {:?}", entry.path());
         }
 
-        let file = File::open(&new_stats_path_from_env).map_err(|e| {
-            anyhow!("Failed to open new branch stats file {}: {}", new_stats_path_from_env, e)
+        let file = File::open(&path).map_err(|e| {
+            anyhow!("Failed to open new branch stats file {}: {}", path.display(), e)
         })?;
         let base_stats = serde_json::from_reader::<_, ExecutionStats>(file)
-            .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", new_stats_path_from_env, e))?;
+            .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", path.display(), e))?;
         (base_stats.batch_start, base_stats.batch_end)
     };
 
@@ -173,9 +179,8 @@ async fn test_cycle_count_diff() -> Result<()> {
     let output_filename_stem = std::env::var("OUTPUT_FILENAME")
         .expect("OUTPUT_FILENAME environment variable must be set.");
 
-    // Use simpler path resolution that works with both old and new code
-    // Just write to the current directory
-    let path_to_write = std::env::current_dir()?.join(&output_filename_stem);
+    // Use consistent path resolution
+    let path_to_write = get_stats_path(&output_filename_stem)?;
 
     // Log the path for easier debugging in CI
     eprintln!("Attempting to write stats to: {path_to_write:?}");
@@ -194,13 +199,12 @@ async fn test_cycle_count_diff() -> Result<()> {
 async fn test_post_to_github() -> Result<()> {
     init_tracing();
 
-    let old_stats_path = std::env::var("OLD_STATS_FILE")
-        .map_err(|e| anyhow!("OLD_STATS_FILE env var not set: {}", e))?;
-    let new_stats_path = std::env::var("NEW_STATS_FILE")
-        .map_err(|e| anyhow!("NEW_STATS_FILE env var not set: {}", e))?;
+    // Just use simple relative paths in the current directory
+    let old_stats_path = get_stats_path("old_cycle_stats.json")?;
+    let new_stats_path = get_stats_path("new_cycle_stats.json")?;
 
-    eprintln!("Reading old stats from: {old_stats_path}");
-    eprintln!("Reading new stats from: {new_stats_path}");
+    eprintln!("Reading old stats from: {old_stats_path:?}");
+    eprintln!("Reading new stats from: {new_stats_path:?}");
     eprintln!("Current working directory: {:?}", std::env::current_dir()?);
 
     // Check if files exist
@@ -219,14 +223,14 @@ async fn test_post_to_github() -> Result<()> {
     }
 
     let old_stats_file = File::open(&old_stats_path)
-        .map_err(|e| anyhow!("Failed to open {}: {}", old_stats_path, e))?;
+        .map_err(|e| anyhow!("Failed to open {}: {}", old_stats_path.display(), e))?;
     let new_stats_file = File::open(&new_stats_path)
-        .map_err(|e| anyhow!("Failed to open {}: {}", new_stats_path, e))?;
+        .map_err(|e| anyhow!("Failed to open {}: {}", new_stats_path.display(), e))?;
 
     let old_stats = serde_json::from_reader::<_, ExecutionStats>(old_stats_file)
-        .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", old_stats_path, e))?;
+        .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", old_stats_path.display(), e))?;
     let new_stats = serde_json::from_reader::<_, ExecutionStats>(new_stats_file)
-        .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", new_stats_path, e))?;
+        .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", new_stats_path.display(), e))?;
 
     // Sanity check for block range consistency.
     if old_stats.batch_start != new_stats.batch_start || old_stats.batch_end != new_stats.batch_end

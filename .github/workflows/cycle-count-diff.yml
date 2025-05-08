@@ -127,7 +127,7 @@ jobs:
           echo "Files in scripts/prove directory:"
           ls -la scripts/prove/ || echo "scripts/prove directory doesn't exist"
           
-          # Copy files to the working directory if they exist elsewhere
+          # Make sure both files are in the current directory
           if [ -f "scripts/prove/new_cycle_stats.json" ]; then
             echo "Found new_cycle_stats.json in scripts/prove/ - copying to current directory"
             cp scripts/prove/new_cycle_stats.json ./
@@ -141,7 +141,7 @@ jobs:
           echo "Files in current directory after copying:"
           ls -la
           
-          # Run the comparison test
+          # Run the comparison test (no need for environment variables anymore)
           RUST_LOG=info,anyhow=debug,tracing=debug cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
