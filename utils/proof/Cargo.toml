@@ -7,8 +7,8 @@ edition.workspace = true
 [dependencies]
 
 # local
-op-succinct-celestia-host-utils = { path = "../celestia/host", optional = true }
-op-succinct-ethereum-host-utils = { path = "../ethereum/host", optional = true }
+op-succinct-celestia-host-utils = { workspace = true, optional = true }
+op-succinct-ethereum-host-utils = { workspace = true, optional = true }
 op-succinct-host-utils.workspace = true
 
 # general

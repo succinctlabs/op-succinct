@@ -9,7 +9,7 @@ edition.workspace = true
 sp1-sdk.workspace = true
 
 # local
-op-succinct-celestia-client-utils = { path = "../client" }
+op-succinct-celestia-client-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-host-utils.workspace = true
 

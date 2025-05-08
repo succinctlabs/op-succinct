@@ -10,10 +10,11 @@ sp1-sdk.workspace = true
 
 # local
 op-succinct-client-utils.workspace = true
-op-succinct-ethereum-client-utils = { path = "../client" }
+op-succinct-ethereum-client-utils.workspace = true
 op-succinct-host-utils.workspace = true
 
 # kona
+kona-derive.workspace = true
 kona-host.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true

@@ -2,12 +2,13 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use hana_oracle::{pipeline::OraclePipeline, provider::OracleCelestiaProvider};
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::{l1::OracleBlobProvider, CachingOracle};
 use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
 use op_succinct_client_utils::witness::{
-    executor::WitnessExecutor, preimage_store::PreimageStore, BlobData, DefaultWitnessData,
+    executor::{get_inputs_for_pipeline, WitnessExecutor},
+    preimage_store::PreimageStore,
+    BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
     client::WitnessGenerator, online_blob_store::OnlineBlobStore,
@@ -28,7 +29,7 @@ impl WitnessGenerator for CelestiaDAWitnessGenerator {
         preimage_chan: NativeChannel,
         hint_chan: NativeChannel,
     ) -> Result<Self::WitnessData> {
-        let executor = CelestiaDAWitnessExecutor;
+        let executor = CelestiaDAWitnessExecutor::new();
 
         let preimage_witness_store = Arc::new(Mutex::new(PreimageStore::default()));
         let blob_data = Arc::new(Mutex::new(BlobData::default()));
@@ -46,20 +47,20 @@ impl WitnessGenerator for CelestiaDAWitnessGenerator {
         });
         let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
 
-        let (boot_info, input) = executor.get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
         if let Some((cursor, l1_provider, l2_provider)) = input {
             let rollup_config = Arc::new(boot_info.rollup_config.clone());
-            let pipeline = OraclePipeline::new(
-                rollup_config.clone(),
-                cursor.clone(),
-                oracle.clone(),
-                beacon,
-                l1_provider.clone(),
-                l2_provider.clone(),
-                OracleCelestiaProvider::new(oracle.clone()),
-            )
-            .await
-            .unwrap();
+            let pipeline = executor
+                .create_pipeline(
+                    rollup_config,
+                    cursor.clone(),
+                    oracle.clone(),
+                    beacon,
+                    l1_provider.clone(),
+                    l2_provider.clone(),
+                )
+                .await
+                .unwrap();
             executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap();
         }
 
