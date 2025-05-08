@@ -81,9 +81,9 @@ kona-registry = { git = "https://github.com/op-rs/kona", rev = "0324411840e94836
 kona-genesis = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", default-features = false }
 
 # hana
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "f2122a2fd32fe87a17a11a4be85aa1c74030e83e" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "f2122a2fd32fe87a17a11a4be85aa1c74030e83e" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "f2122a2fd32fe87a17a11a4be85aa1c74030e83e" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "fe203efabd741bb9071bda388b023de75de0eaf0" }
+hana-host = { git = "https://github.com/celestiaorg/hana", rev = "fe203efabd741bb9071bda388b023de75de0eaf0" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "fe203efabd741bb9071bda388b023de75de0eaf0" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
