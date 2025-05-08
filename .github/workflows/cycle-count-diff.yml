@@ -50,14 +50,14 @@ jobs:
 
       - name: Run Test On Old Branch
         run: |
-          RUST_LOG=debug NEW_BRANCH=false OUTPUT_FILENAME="old_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=info NEW_BRANCH=false OUTPUT_FILENAME="old_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          NEW_STATS_PATH_FOR_OLD_RUN: ../../../new_code/new_cycle_stats.json
+          NEW_STATS_PATH_FOR_OLD_RUN: ${{ github.workspace }}/new_code/new_cycle_stats.json
 
       - name: Compare Results And Post To Github
         run: |
