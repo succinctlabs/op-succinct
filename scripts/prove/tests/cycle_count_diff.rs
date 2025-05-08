@@ -15,7 +15,7 @@ use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
 mod common;
 
 fn init_tracing() {
-    // swallow the error if it’s already been initialized
+    // swallow the error if it's already been initialized
     let _ = tracing_subscriber::fmt()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .try_init();
@@ -164,46 +164,40 @@ async fn test_cycle_count_diff() -> Result<()> {
     let output_filename_stem = std::env::var("OUTPUT_FILENAME")
         .expect("OUTPUT_FILENAME environment variable must be set.");
 
-    let path_relative_to_crate_root = PathBuf::from("../../").join(output_filename_stem);
+    // Use an absolute path to the root of the repo instead of a relative path
+    let path_to_write = PathBuf::from(
+        std::env::current_dir()?
+            .ancestors()
+            .nth(1)
+            .ok_or_else(|| anyhow!("Could not find repo root"))?,
+    )
+    .join(&output_filename_stem);
 
-    // Log the absolute path for easier debugging in CI.
-    let absolute_path_to_write = match path_relative_to_crate_root.canonicalize() {
-        Ok(p) => p,
-        Err(_) => {
-            // Fallback for logging if canonicalize fails (e.g. path doesn't exist yet)
-            let current_cwd = std::env::current_dir().unwrap_or_default();
-            current_cwd.join(&path_relative_to_crate_root)
-        }
-    };
-    eprintln!("Attempting to write stats to: {absolute_path_to_write:?}");
+    // Log the path for easier debugging in CI
+    eprintln!("Attempting to write stats to: {path_to_write:?}");
 
-    if let Some(parent_dir) = path_relative_to_crate_root.parent() {
-        if !parent_dir.as_os_str().is_empty() &&
-            parent_dir.as_os_str() != PathBuf::from(".").as_os_str()
-        {
+    if let Some(parent_dir) = path_to_write.parent() {
+        if !parent_dir.as_os_str().is_empty() {
             std::fs::create_dir_all(parent_dir).map_err(|e| {
-                anyhow!(
-                    "Failed to create parent directories for {:?}: {}",
-                    path_relative_to_crate_root,
-                    e
-                )
+                anyhow!("Failed to create parent directories for {:?}: {}", path_to_write, e)
             })?;
         }
     }
 
-    let mut file = File::create(&path_relative_to_crate_root).map_err(|e| {
-        anyhow!("Failed to create output file {:?}: {}", path_relative_to_crate_root, e)
-    })?;
+    let mut file = File::create(&path_to_write)
+        .map_err(|e| anyhow!("Failed to create output file {:?}: {}", path_to_write, e))?;
     serde_json::to_writer_pretty(&mut file, &new_stats)
-        .map_err(|e| anyhow!("Failed to write JSON to {:?}: {}", path_relative_to_crate_root, e))?;
+        .map_err(|e| anyhow!("Failed to write JSON to {:?}: {}", path_to_write, e))?;
 
-    eprintln!("Successfully wrote stats to: {absolute_path_to_write:?}");
+    eprintln!("Successfully wrote stats to: {path_to_write:?}");
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_post_to_github() -> Result<()> {
+    init_tracing();
+
     let old_stats_path = std::env::var("OLD_STATS_FILE")
         .map_err(|e| anyhow!("OLD_STATS_FILE env var not set: {}", e))?;
     let new_stats_path = std::env::var("NEW_STATS_FILE")
@@ -211,6 +205,22 @@ async fn test_post_to_github() -> Result<()> {
 
     eprintln!("Reading old stats from: {old_stats_path}");
     eprintln!("Reading new stats from: {new_stats_path}");
+    eprintln!("Current working directory: {:?}", std::env::current_dir()?);
+
+    // Check if files exist
+    eprintln!("Old stats file exists: {}", std::path::Path::new(&old_stats_path).exists());
+    eprintln!("New stats file exists: {}", std::path::Path::new(&new_stats_path).exists());
+
+    if !std::path::Path::new(&old_stats_path).exists() {
+        eprintln!("Old stats file does not exist. Looking for similar files:");
+        let parent =
+            std::path::Path::new(&old_stats_path).parent().unwrap_or(std::path::Path::new("."));
+        for entry in std::fs::read_dir(parent).unwrap_or_else(|_| std::fs::read_dir(".").unwrap()) {
+            if let Ok(entry) = entry {
+                eprintln!("  Found: {:?}", entry.path());
+            }
+        }
+    }
 
     let old_stats_file = File::open(&old_stats_path)
         .map_err(|e| anyhow!("Failed to open {}: {}", old_stats_path, e))?;
