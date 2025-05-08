@@ -9,60 +9,16 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use std::sync::Arc;
-
-use op_succinct_client_utils::{
-    boot::BootInfoStruct,
-    witness::{
-        executor::{get_inputs_for_pipeline, WitnessExecutor},
-        DefaultWitnessData, WitnessData,
-    },
-};
 use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
-use rkyv::rancor::Error;
+use op_succinct_range_utils::run_range_program;
+#[cfg(feature = "tracing-subscriber")]
+use op_succinct_range_utils::setup_tracing;
 
 fn main() {
     #[cfg(feature = "tracing-subscriber")]
-    {
-        use anyhow::anyhow;
-        use tracing::Level;
-
-        let subscriber = tracing_subscriber::fmt().with_max_level(Level::INFO).finish();
-        tracing::subscriber::set_global_default(subscriber).map_err(|e| anyhow!(e)).unwrap();
-    }
+    setup_tracing();
 
     kona_proof::block_on(async move {
-        ////////////////////////////////////////////////////////////////
-        //                          PROLOGUE                          //
-        ////////////////////////////////////////////////////////////////
-        let witness_rkyv_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
-        let witness_data = rkyv::from_bytes::<DefaultWitnessData, Error>(&witness_rkyv_bytes)
-            .expect("Failed to deserialize witness data.");
-        let (oracle, beacon) = witness_data.get_oracle_and_blob_provider().await.unwrap();
-
-        let executor = ETHDAWitnessExecutor::new();
-        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
-        let boot_info = match input {
-            Some((cursor, l1_provider, l2_provider)) => {
-                let rollup_config = Arc::new(boot_info.rollup_config.clone());
-
-                let pipeline = executor
-                    .create_pipeline(
-                        rollup_config,
-                        cursor.clone(),
-                        oracle,
-                        beacon,
-                        l1_provider,
-                        l2_provider.clone(),
-                    )
-                    .await
-                    .unwrap();
-
-                executor.run(boot_info, pipeline, cursor, l2_provider).await.unwrap()
-            }
-            None => boot_info,
-        };
-
-        sp1_zkvm::io::commit(&BootInfoStruct::from(boot_info));
+        run_range_program(ETHDAWitnessExecutor::new()).await;
     });
 }

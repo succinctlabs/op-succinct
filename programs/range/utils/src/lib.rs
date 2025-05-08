@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc};
+use std::sync::Arc;
 
 use kona_proof::{l1::OracleL1ChainProvider, l2::OracleL2ChainProvider};
 use op_succinct_client_utils::{
@@ -12,6 +12,16 @@ use op_succinct_client_utils::{
 };
 use rkyv::rancor::Error;
 
+/// Sets up tracing for the range program
+#[cfg(feature = "tracing-subscriber")]
+pub fn setup_tracing() {
+    use anyhow::anyhow;
+    use tracing::Level;
+
+    let subscriber = tracing_subscriber::fmt().with_max_level(Level::INFO).finish();
+    tracing::subscriber::set_global_default(subscriber).map_err(|e| anyhow!(e)).unwrap();
+}
+
 pub async fn run_range_program<E>(executor: E)
 where
     E: WitnessExecutor<
@@ -20,8 +30,7 @@ where
             L1 = OracleL1ChainProvider<PreimageStore>,
             L2 = OracleL2ChainProvider<PreimageStore>,
         > + Send
-        + Sync
-        + Debug,
+        + Sync,
 {
     ////////////////////////////////////////////////////////////////
     //                          PROLOGUE                          //

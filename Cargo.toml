@@ -97,6 +97,7 @@ op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
 op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
 op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
+op-succinct-range-utils = { path = "programs/range/utils" }
 
 # Alloy (Network)
 alloy-signer-local = { version = "0.15.8" }
