@@ -4691,7 +4691,7 @@ dependencies = [
 [[package]]
 name = "op-succinct-grpc"
 version = "0.1.0"
-source = "git+ssh://git@github.com/agglayer/op-succinct-grpc.git#39d912ffda4587b9889ca8dc4cfe76e45e5bed8a"
+source = "git+https://github.com/agglayer/op-succinct-grpc#14f62717ec6b021576aee49c7f3d34009b878be9"
 dependencies = [
  "bytes",
  "pbjson",

@@ -1,10 +1,10 @@
 mod config;
 mod contract;
-mod db;
+pub mod db;
 mod env;
 mod logger;
 mod prom;
-mod proof_requester;
+pub mod proof_requester;
 mod proofs;
 mod proposer;
 mod signer;
