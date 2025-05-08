@@ -6,11 +6,10 @@ use op_succinct_client_utils::{
     witness::{
         executor::{get_inputs_for_pipeline, WitnessExecutor},
         preimage_store::PreimageStore,
-        DefaultWitnessData, WitnessData,
+        WitnessData,
     },
     BlobStore,
 };
-use rkyv::rancor::Error;
 
 /// Sets up tracing for the range program
 #[cfg(feature = "tracing-subscriber")]
@@ -22,7 +21,7 @@ pub fn setup_tracing() {
     tracing::subscriber::set_global_default(subscriber).map_err(|e| anyhow!(e)).unwrap();
 }
 
-pub async fn run_range_program<E>(executor: E)
+pub async fn run_range_program<E, W>(executor: E, witness_data: W)
 where
     E: WitnessExecutor<
             O = PreimageStore,
@@ -31,13 +30,11 @@ where
             L2 = OracleL2ChainProvider<PreimageStore>,
         > + Send
         + Sync,
+    W: WitnessData + Send + Sync,
 {
     ////////////////////////////////////////////////////////////////
     //                          PROLOGUE                          //
     ////////////////////////////////////////////////////////////////
-    let witness_rkyv_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
-    let witness_data = rkyv::from_bytes::<DefaultWitnessData, Error>(&witness_rkyv_bytes)
-        .expect("Failed to deserialize witness data.");
     let (oracle, beacon) = witness_data.get_oracle_and_blob_provider().await.unwrap();
 
     let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
