@@ -215,10 +215,10 @@ async fn test_post_to_github() -> Result<()> {
         eprintln!("Old stats file does not exist. Looking for similar files:");
         let parent =
             std::path::Path::new(&old_stats_path).parent().unwrap_or(std::path::Path::new("."));
-        for entry in std::fs::read_dir(parent).unwrap_or_else(|_| std::fs::read_dir(".").unwrap()) {
-            if let Ok(entry) = entry {
-                eprintln!("  Found: {:?}", entry.path());
-            }
+        for entry in
+            std::fs::read_dir(parent).unwrap_or_else(|_| std::fs::read_dir(".").unwrap()).flatten()
+        {
+            eprintln!("  Found: {:?}", entry.path());
         }
     }
 
