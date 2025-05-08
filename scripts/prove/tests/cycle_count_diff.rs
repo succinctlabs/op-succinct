@@ -14,6 +14,13 @@ use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
 
 mod common;
 
+fn init_tracing() {
+    // swallow the error if it’s already been initialized
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .try_init();
+}
+
 fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String {
     let mut report = String::new();
     writeln!(report, "## Performance Comparison\n").unwrap();
@@ -116,6 +123,8 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn test_cycle_count_diff() -> Result<()> {
+    init_tracing();
+
     dotenv::dotenv()?;
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
