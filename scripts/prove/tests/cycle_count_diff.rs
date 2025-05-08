@@ -164,14 +164,13 @@ async fn test_cycle_count_diff() -> Result<()> {
     let output_filename_stem = std::env::var("OUTPUT_FILENAME")
         .expect("OUTPUT_FILENAME environment variable must be set.");
 
-    // Use an absolute path to the root of the repo instead of a relative path
-    let path_to_write = PathBuf::from(
-        std::env::current_dir()?
-            .ancestors()
-            .nth(1)
-            .ok_or_else(|| anyhow!("Could not find repo root"))?,
-    )
-    .join(&output_filename_stem);
+    // Write directly to the repository root
+    let path_to_write = std::env::current_dir()?
+        .ancestors()
+        .nth(2) // Go up two levels: scripts/prove/tests -> scripts -> repo_root
+        .ok_or_else(|| anyhow!("Could not find repo root"))?
+        .to_path_buf()
+        .join(&output_filename_stem);
 
     // Log the path for easier debugging in CI
     eprintln!("Attempting to write stats to: {path_to_write:?}");
