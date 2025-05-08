@@ -75,8 +75,8 @@ impl DriverDBClient {
     }
 
     /// Inserts a request into the database.
-    pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<PgQueryResult, Error> {
-        sqlx::query!(
+    pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<i64, Error> {
+        sqlx::query_scalar!(
             r#"
             INSERT INTO requests (
                 status,
@@ -111,6 +111,7 @@ impl DriverDBClient {
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29
             )
+            RETURNING id
             "#,
             req.status as i16,
             req.req_type as i16,
@@ -143,7 +144,7 @@ impl DriverDBClient {
             req.prover_address.as_ref().map(|arr| &arr[..]),
             req.l1_head_block_number.map(|n| n as i64),
         )
-        .execute(&self.pool)
+        .fetch_one(&self.pool)
         .await
     }
 

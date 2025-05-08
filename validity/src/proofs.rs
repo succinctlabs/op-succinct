@@ -146,6 +146,8 @@ where
             request_type = ?op_request.req_type,
             start_block = op_request.start_block,
             end_block = op_request.end_block,
+            l1_block_number = ?op_request.checkpointed_l1_block_number,
+            l1_block_hash = ?op_request.checkpointed_l1_block_hash,
             "Starting witness generation"
         );
 
@@ -164,9 +166,11 @@ where
         let duration = witnessgen_duration.elapsed();
 
         info!(
+            request_type = ?op_request.req_type,
             start_block = op_request.start_block,
             end_block = op_request.end_block,
-            request_type = ?op_request.req_type,
+            l1_block_number = ?op_request.checkpointed_l1_block_number,
+            l1_block_hash = ?op_request.checkpointed_l1_block_hash,
             duration_s = duration.as_secs(),
             "Completed witness generation"
         );
@@ -193,32 +197,14 @@ where
             };
 
             // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
-            let result = self
+            let last_id = self
                 .proof_requester
                 .db_client
                 .insert_request(&proved_op_request)
                 .await
                 .map_err(|e| Status::internal(format!("Failed to save request to DB: {}", e)))?;
 
-            if result.rows_affected() > 0 {
-                // Execute the query to get the next value of the sequence
-                sqlx::query("SELECT nextval('requests_id_seq');")
-                    .execute(&self.proof_requester.db_client.pool)
-                    .await
-                    .map_err(|e| Status::internal(format!("Failed to execute sequence query: {}", e)))?;
-                // Fetch the last inserted ID
-                let last_id: i64 = sqlx::query_scalar!(
-                    r#"
-                SELECT currval(pg_get_serial_sequence('requests', 'id'))
-                "#
-                )
-                .fetch_one(&self.proof_requester.db_client.pool)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to fetch agg proof ID: {}", e)))?
-                .ok_or(Status::internal(
-                    "Failed to fetch the last inserted ID from the database",
-                ))?;
-
+            if last_id > 0 {
                 // Convert the last ID to FixedBytes32
                 let last_id =
                     FixedBytes::<32>::from_hex(format!("{:064x}", last_id)).map_err(|e| {
