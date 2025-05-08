@@ -143,6 +143,15 @@ async fn test_cycle_count_diff() -> Result<()> {
         eprintln!("Reading new branch stats for block range from: {new_stats_path_from_env}");
         eprintln!("Current CWD for test: {:?}", std::env::current_dir().unwrap_or_default());
 
+        // Log files in the current directory to help debugging
+        eprintln!("Files in current directory:");
+        for entry in std::fs::read_dir(".")
+            .unwrap_or_else(|_| panic!("Failed to read current directory"))
+            .flatten()
+        {
+            eprintln!("  Found: {:?}", entry.path());
+        }
+
         let file = File::open(&new_stats_path_from_env).map_err(|e| {
             anyhow!("Failed to open new branch stats file {}: {}", new_stats_path_from_env, e)
         })?;
@@ -164,24 +173,12 @@ async fn test_cycle_count_diff() -> Result<()> {
     let output_filename_stem = std::env::var("OUTPUT_FILENAME")
         .expect("OUTPUT_FILENAME environment variable must be set.");
 
-    // Write directly to the repository root
-    let path_to_write = std::env::current_dir()?
-        .ancestors()
-        .nth(2) // Go up two levels: scripts/prove/tests -> scripts -> repo_root
-        .ok_or_else(|| anyhow!("Could not find repo root"))?
-        .to_path_buf()
-        .join(&output_filename_stem);
+    // Use simpler path resolution that works with both old and new code
+    // Just write to the current directory
+    let path_to_write = std::env::current_dir()?.join(&output_filename_stem);
 
     // Log the path for easier debugging in CI
     eprintln!("Attempting to write stats to: {path_to_write:?}");
-
-    if let Some(parent_dir) = path_to_write.parent() {
-        if !parent_dir.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent_dir).map_err(|e| {
-                anyhow!("Failed to create parent directories for {:?}: {}", path_to_write, e)
-            })?;
-        }
-    }
 
     let mut file = File::create(&path_to_write)
         .map_err(|e| anyhow!("Failed to create output file {:?}: {}", path_to_write, e))?;

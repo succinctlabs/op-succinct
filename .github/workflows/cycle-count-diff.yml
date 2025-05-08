@@ -56,6 +56,24 @@ jobs:
           echo "==== Current directory structure ===="
           find ${{ github.workspace }} -name "*.json" -type f -ls
 
+      - name: Copy Stats File For Old Branch
+        run: |
+          # Find the generated stats file
+          STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
+          echo "Found stats file at: $STATS_FILE"
+          
+          # Copy it to old_code directory where the old branch test will look for it
+          cp "$STATS_FILE" ${{ github.workspace }}/old_code/new_cycle_stats.json
+          echo "Copied to: ${{ github.workspace }}/old_code/new_cycle_stats.json"
+          
+          # Verify the copy worked
+          if [ -f "${{ github.workspace }}/old_code/new_cycle_stats.json" ]; then
+            echo "File successfully copied"
+          else
+            echo "ERROR: Copy failed!"
+            exit 1
+          fi
+
       - name: Run Test On Old Branch
         run: |
           RUST_LOG=info,anyhow=debug,tracing=debug NEW_BRANCH=false OUTPUT_FILENAME="old_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
@@ -65,7 +83,8 @@ jobs:
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          NEW_STATS_PATH_FOR_OLD_RUN: ${{ github.workspace }}/new_code/new_cycle_stats.json
+          # We still set this for backward compatibility, but the old code may not use it
+          NEW_STATS_PATH_FOR_OLD_RUN: ${{ github.workspace }}/old_code/new_cycle_stats.json
 
       - name: Debug - List Files
         if: always()
@@ -79,6 +98,7 @@ jobs:
 
       - name: Compare Results And Post To Github
         run: |
+          cd ${{ github.workspace }}/old_code
           RUST_LOG=info,anyhow=debug,tracing=debug cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
         env:
           REPO_OWNER: ${{ github.repository_owner }}
@@ -86,5 +106,3 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
-          NEW_STATS_FILE: ${{ github.workspace }}/new_code/new_cycle_stats.json
-          OLD_STATS_FILE: ${{ github.workspace }}/old_code/old_cycle_stats.json
