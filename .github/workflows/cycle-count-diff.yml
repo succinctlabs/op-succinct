@@ -24,14 +24,14 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup
 
-      - name: Checkout PR Branch (New)
+      - name: Checkout PR Branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
           path: new_code
 
-      - name: Checkout Base Branch (Old)
+      - name: Checkout Base Branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
@@ -40,7 +40,7 @@ jobs:
 
       - name: Run Test On New Branch
         run: |
-          RUST_LOG=info,anyhow=debug,tracing=debug NEW_BRANCH=true OUTPUT_FILENAME="new_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./new_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
@@ -48,57 +48,19 @@ jobs:
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
 
-      - name: Debug - Find Generated Files
-        if: always()
-        run: |
-          echo "==== Searching for new_cycle_stats.json ===="
+                echo "==== Searching for new_cycle_stats.json ===="
           find ${{ github.workspace }} -name "new_cycle_stats.json" -type f -ls
           echo "==== Current directory structure ===="
           find ${{ github.workspace }} -name "*.json" -type f -ls
 
       - name: Copy Stats File For Old Branch
         run: |
-          # Find the generated stats file
           STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
-          echo "Found stats file at: $STATS_FILE"
-          
-          # Make sure the target directory exists
-          mkdir -p ${{ github.workspace }}/old_code/scripts/prove
-          
-          # Copy it to old_code directory where the old branch test will look for it
           cp "$STATS_FILE" ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
-          
-          # Verify the copy worked
-          if [ -f "${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json" ]; then
-            echo "File successfully copied to ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json"
-            cat ${{ github.workspace }}/old_code/scripts/prove/new_cycle_stats.json
-          else
-            echo "ERROR: Copy failed!"
-            exit 1
-          fi
-          
-          # Also copy to the old_code root directory as a fallback
-          cp "$STATS_FILE" ${{ github.workspace }}/old_code/new_cycle_stats.json
-          echo "Also copied to: ${{ github.workspace }}/old_code/new_cycle_stats.json"
 
       - name: Run Test On Old Branch
         run: |
-          # Debug current directory and file locations
-          echo "Current working directory: $(pwd)"
-          echo "Files in current directory:"
-          ls -la
-          
-          echo "Files in scripts/prove directory:"
-          ls -la scripts/prove/ || echo "scripts/prove directory doesn't exist"
-          
-          echo "Content of new_cycle_stats.json in current directory:"
-          cat new_cycle_stats.json
-          
-          echo "Content of new_cycle_stats.json in scripts/prove directory:"
-          cat scripts/prove/new_cycle_stats.json || echo "File doesn't exist in scripts/prove"
-          
-          # Run the test
-          RUST_LOG=info,anyhow=debug,tracing=debug NEW_BRANCH=false OUTPUT_FILENAME="old_cycle_stats.json" cargo test test_cycle_count_diff --release -- --exact --nocapture
+          RUST_LOG=info NEW_BRANCH=false cargo test test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
@@ -106,43 +68,10 @@ jobs:
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
 
-      - name: Debug - List Files
-        if: always()
-        run: |
-          echo "Listing files in new_code directory:"
-          ls -la ${{ github.workspace }}/new_code/
-          echo "Listing files in old_code directory:"
-          ls -la ${{ github.workspace }}/old_code/
-          echo "==== Searching for cycle stats files ===="
-          find ${{ github.workspace }} -name "*cycle_stats.json" -type f -ls
-
       - name: Compare Results And Post To Github
         run: |
-          # First try to find where the stats files are
-          cd ${{ github.workspace }}/old_code
-          
-          echo "Files in current directory:"
-          ls -la
-          
-          echo "Files in scripts/prove directory:"
-          ls -la scripts/prove/ || echo "scripts/prove directory doesn't exist"
-          
-          # Make sure both files are in the current directory
-          if [ -f "scripts/prove/new_cycle_stats.json" ]; then
-            echo "Found new_cycle_stats.json in scripts/prove/ - copying to current directory"
-            cp scripts/prove/new_cycle_stats.json ./
-          fi
-          
-          if [ -f "scripts/prove/old_cycle_stats.json" ]; then
-            echo "Found old_cycle_stats.json in scripts/prove/ - copying to current directory"
-            cp scripts/prove/old_cycle_stats.json ./
-          fi
-          
-          echo "Files in current directory after copying:"
-          ls -la
-          
-          # Run the comparison test (no need for environment variables anymore)
-          RUST_LOG=info,anyhow=debug,tracing=debug cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
+          RUST_LOG=info cargo test --test cycle_count_diff test_post_to_github -- --exact --nocapture
+        working-directory: ./old_code
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}

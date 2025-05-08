@@ -1,6 +1,6 @@
-use std::{fmt::Write as _, fs::File, path::PathBuf, sync::Arc};
+use std::{fmt::Write as _, fs::File, sync::Arc};
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use common::post_to_github_pr;
 use op_succinct_host_utils::{
     block_range::get_rolling_block_range,
@@ -14,22 +14,10 @@ use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
 
 mod common;
 
-fn init_tracing() {
-    // swallow the error if it's already been initialized
-    let _ = tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .try_init();
-}
-
 fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String {
     let mut report = String::new();
     writeln!(report, "## Performance Comparison\n").unwrap();
-    writeln!(
-        report,
-        "Comparing L2 blocks {}~{} (Base) vs {}~{} (Current)\n",
-        base.batch_start, base.batch_end, current.batch_start, current.batch_end
-    )
-    .unwrap();
+    writeln!(report, "Range {}~{}\n", base.batch_start, base.batch_end).unwrap();
     writeln!(
         report,
         "| {:<30} | {:<25} | {:<25} | {:<10} |",
@@ -38,23 +26,18 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
     .unwrap();
     writeln!(report, "|--------------------------------|---------------------------|---------------------------|------------|").unwrap();
 
-    let diff_percentage = |base_val: u64, current_val: u64| -> f64 {
-        if base_val == 0 {
-            if current_val == 0 {
-                0.0
-            } else {
-                100.0
-            }
-        } else {
-            ((current_val as f64 - base_val as f64) / base_val as f64) * 100.0
+    let diff_percentage = |base: u64, current: u64| -> f64 {
+        if base == 0 {
+            return 0.0;
         }
+        ((current as f64 - base as f64) / base as f64) * 100.0
     };
 
     let write_metric = |report: &mut String, name: &str, base_val: u64, current_val: u64| {
         let diff = diff_percentage(base_val, current_val);
         writeln!(
             report,
-            "| {:<30} | {:<25} | {:<25} | {:>+9.2}% |",
+            "| {:<30} | {:<25} | {:<25} | {:>9.2}% |",
             name,
             base_val.to_string(),
             current_val.to_string(),
@@ -121,52 +104,28 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
     report
 }
 
-/// Returns the absolute path to the stats file for the given branch
-fn get_stats_path(filename: &str) -> Result<PathBuf> {
-    // Just use the current directory
-    Ok(std::env::current_dir()?.join(filename))
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn test_cycle_count_diff() -> Result<()> {
-    init_tracing();
-
     dotenv::dotenv()?;
 
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
-
-    let is_new_branch_run =
-        std::env::var("NEW_BRANCH").expect("NEW_BRANCH must be set").parse::<bool>()?;
-
-    let (l2_start_block, l2_end_block) = if is_new_branch_run {
-        get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?
-    } else {
-        // Always look for new_cycle_stats.json in the current directory
-        let path = get_stats_path("new_cycle_stats.json")?;
-
-        eprintln!("Reading new branch stats from path: {path:?}");
-        eprintln!("Current CWD for test: {:?}", std::env::current_dir().unwrap_or_default());
-
-        // Log files in the current directory to help debugging
-        eprintln!("Files in current directory:");
-        for entry in std::fs::read_dir(".")
-            .unwrap_or_else(|_| panic!("Failed to read current directory"))
-            .flatten()
-        {
-            eprintln!("  Found: {:?}", entry.path());
+    let (l2_start_block, l2_end_block) = match std::env::var("NEW_BRANCH")
+        .expect("NEW_BRANCH must be set")
+        .parse::<bool>()
+        .unwrap_or_default()
+    {
+        true => get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?,
+        false => {
+            let base_stats =
+                serde_json::from_reader::<_, ExecutionStats>(File::open("new_cycle_stats.json")?)?;
+            (base_stats.batch_start, base_stats.batch_end)
         }
-
-        let file = File::open(&path).map_err(|e| {
-            anyhow!("Failed to open new branch stats file {}: {}", path.display(), e)
-        })?;
-        let base_stats = serde_json::from_reader::<_, ExecutionStats>(file)
-            .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", path.display(), e))?;
-        (base_stats.batch_start, base_stats.batch_end)
     };
 
     let host_args = host.fetch(l2_start_block, l2_end_block, None, Some(false)).await?;
+
     let oracle = host.run(&host_args).await?;
     let sp1_stdin = host.witness_generator().get_sp1_stdin(oracle).unwrap();
     let (block_data, report, execution_duration) =
@@ -175,74 +134,26 @@ async fn test_cycle_count_diff() -> Result<()> {
     let new_stats = ExecutionStats::new(0, &block_data, &report, 0, execution_duration.as_secs());
 
     println!("Execution Stats:\n{}", MarkdownExecutionStats::new(new_stats.clone()));
-
-    let output_filename_stem = std::env::var("OUTPUT_FILENAME")
-        .expect("OUTPUT_FILENAME environment variable must be set.");
-
-    // Use consistent path resolution
-    let path_to_write = get_stats_path(&output_filename_stem)?;
-
-    // Log the path for easier debugging in CI
-    eprintln!("Attempting to write stats to: {path_to_write:?}");
-
-    let mut file = File::create(&path_to_write)
-        .map_err(|e| anyhow!("Failed to create output file {:?}: {}", path_to_write, e))?;
-    serde_json::to_writer_pretty(&mut file, &new_stats)
-        .map_err(|e| anyhow!("Failed to write JSON to {:?}: {}", path_to_write, e))?;
-
-    eprintln!("Successfully wrote stats to: {path_to_write:?}");
+    let mut file = match std::env::var("NEW_BRANCH")
+        .expect("NEW_BRANCH must be set")
+        .parse::<bool>()
+        .unwrap_or_default()
+    {
+        true => File::create("new_cycle_stats.json")?,
+        false => File::create("old_cycle_stats.json")?,
+    };
+    serde_json::to_writer_pretty(&mut file, &new_stats)?;
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_post_to_github() -> Result<()> {
-    init_tracing();
-
-    // Just use simple relative paths in the current directory
-    let old_stats_path = get_stats_path("old_cycle_stats.json")?;
-    let new_stats_path = get_stats_path("new_cycle_stats.json")?;
-
-    eprintln!("Reading old stats from: {old_stats_path:?}");
-    eprintln!("Reading new stats from: {new_stats_path:?}");
-    eprintln!("Current working directory: {:?}", std::env::current_dir()?);
-
-    // Check if files exist
-    eprintln!("Old stats file exists: {}", std::path::Path::new(&old_stats_path).exists());
-    eprintln!("New stats file exists: {}", std::path::Path::new(&new_stats_path).exists());
-
-    if !std::path::Path::new(&old_stats_path).exists() {
-        eprintln!("Old stats file does not exist. Looking for similar files:");
-        let parent =
-            std::path::Path::new(&old_stats_path).parent().unwrap_or(std::path::Path::new("."));
-        for entry in
-            std::fs::read_dir(parent).unwrap_or_else(|_| std::fs::read_dir(".").unwrap()).flatten()
-        {
-            eprintln!("  Found: {:?}", entry.path());
-        }
-    }
-
-    let old_stats_file = File::open(&old_stats_path)
-        .map_err(|e| anyhow!("Failed to open {}: {}", old_stats_path.display(), e))?;
-    let new_stats_file = File::open(&new_stats_path)
-        .map_err(|e| anyhow!("Failed to open {}: {}", new_stats_path.display(), e))?;
-
-    let old_stats = serde_json::from_reader::<_, ExecutionStats>(old_stats_file)
-        .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", old_stats_path.display(), e))?;
-    let new_stats = serde_json::from_reader::<_, ExecutionStats>(new_stats_file)
-        .map_err(|e| anyhow!("Failed to parse JSON from {}: {}", new_stats_path.display(), e))?;
-
-    // Sanity check for block range consistency.
-    if old_stats.batch_start != new_stats.batch_start || old_stats.batch_end != new_stats.batch_end
-    {
-        eprintln!(
-            "Warning: Comparing different block ranges! Base: {}~{}, Current: {}~{}",
-            old_stats.batch_start, old_stats.batch_end, new_stats.batch_start, new_stats.batch_end
-        );
-    }
-
+    let old_stats =
+        serde_json::from_reader::<_, ExecutionStats>(File::open("old_cycle_stats.json")?)?;
+    let new_stats =
+        serde_json::from_reader::<_, ExecutionStats>(File::open("new_cycle_stats.json")?)?;
     let report = create_diff_report(&old_stats, &new_stats);
-    println!("{report}");
 
     if std::env::var("POST_TO_GITHUB").ok().and_then(|v| v.parse::<bool>().ok()).unwrap_or_default()
     {
@@ -252,14 +163,7 @@ async fn test_post_to_github() -> Result<()> {
             std::env::var("PR_NUMBER"),
             std::env::var("GITHUB_TOKEN"),
         ) {
-            let pr_number = pr_number
-                .parse::<u64>()
-                .map_err(|e| anyhow!("Failed to parse PR_NUMBER '{}': {}", pr_number, e))?;
-            post_to_github_pr(&owner, &repo, &pr_number.to_string(), &token, &report)
-                .await
-                .unwrap();
-        } else {
-            eprintln!("Missing one or more GitHub environment variables for posting.");
+            post_to_github_pr(&owner, &repo, &pr_number, &token, &report).await.unwrap();
         }
     }
 
