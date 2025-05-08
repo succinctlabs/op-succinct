@@ -57,7 +57,7 @@ jobs:
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
-          NEW_STATS_PATH_FOR_OLD_RUN: ../new_cycle_stats.json
+          NEW_STATS_PATH_FOR_OLD_RUN: ../../../../new_code/op-succinct/new_cycle_stats.json
 
       - name: Compare Results And Post To Github
         run: |
@@ -68,5 +68,5 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
-          NEW_STATS_FILE: ./new_cycle_stats.json
-          OLD_STATS_FILE: ./old_cycle_stats.json
+          NEW_STATS_FILE: ./new_code/op-succinct/new_cycle_stats.json
+          OLD_STATS_FILE: ./old_code/op-succinct/old_cycle_stats.json
