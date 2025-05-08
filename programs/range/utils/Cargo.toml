@@ -13,7 +13,6 @@ anyhow.workspace = true
 rkyv.workspace = true
 
 # kona
-kona-derive.workspace = true
 kona-proof.workspace = true
 
 # sp1
@@ -21,7 +20,6 @@ sp1-zkvm.workspace = true
 
 # op-succinct
 op-succinct-client-utils.workspace = true
-op-succinct-ethereum-client-utils.workspace = true
 
 # `tracing-subscriber` feature dependencies
 tracing-subscriber = { workspace = true, optional = true }

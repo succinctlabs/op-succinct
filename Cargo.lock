@@ -5953,7 +5953,6 @@ dependencies = [
  "sp1-sdk",
  "tokio",
  "tracing",
- "tracing-subscriber 0.3.19",
 ]
 
 [[package]]
@@ -5961,10 +5960,8 @@ name = "op-succinct-range-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "kona-derive",
  "kona-proof",
  "op-succinct-client-utils",
- "op-succinct-ethereum-client-utils",
  "rkyv",
  "sp1-zkvm",
  "tracing",
