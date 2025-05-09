@@ -30,6 +30,7 @@ kona-protocol.workspace = true
 kona-genesis.workspace = true
 
 # hana
+hana-celestia = { workspace = true, optional = true }
 hana-oracle = { workspace = true, optional = true }
 
 # general
@@ -47,4 +48,4 @@ cfg-if.workspace = true
 
 [features]
 default = []
-celestia = ["hana-oracle"]
+celestia = ["hana-celestia", "hana-oracle"]

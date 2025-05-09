@@ -4,6 +4,7 @@ use alloy_rlp::Decodable;
 use anyhow::{anyhow, Result};
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
+    sources::EthereumDataSource,
     traits::{BlobProvider, Pipeline, SignalReceiver},
     types::Signal,
 };
@@ -12,8 +13,12 @@ use kona_executor::TrieDBProvider;
 use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{
-    errors::OracleProviderError, executor::KonaExecutor, l1::OracleL1ChainProvider,
-    l2::OracleL2ChainProvider, sync::new_pipeline_cursor, BootInfo, FlushableCache, HintType,
+    errors::OracleProviderError,
+    executor::KonaExecutor,
+    l1::{OracleL1ChainProvider, OraclePipeline},
+    l2::OracleL2ChainProvider,
+    sync::new_oracle_pipeline_cursor,
+    BootInfo, FlushableCache, HintType,
 };
 use kona_protocol::L2BlockInfo;
 use kona_rpc::OpAttributesWithParent;
@@ -25,11 +30,10 @@ use crate::{precompiles::ZkvmOpEvmFactory, witness::WitnessData, BlobStore};
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "celestia")] {
+        use hana_celestia::{CelestiaDADataSource, CelestiaDASource};
         use hana_oracle::{
-            pipeline::OraclePipeline as CelestiaOraclePipeline, provider::OracleCelestiaProvider,
+            provider::OracleCelestiaProvider,
         };
-    } else {
-        use kona_proof::l1::OraclePipeline;
     }
 }
 
@@ -108,32 +112,44 @@ where
     ////////////////////////////////////////////////////////////////
 
     // Create a new derivation driver with the given boot information and oracle.
-    let cursor =
-        new_pipeline_cursor(rollup_config.as_ref(), safe_head, &mut l1_provider, &mut l2_provider)
-            .await?;
+    let cursor = new_oracle_pipeline_cursor(
+        rollup_config.as_ref(),
+        safe_head,
+        &mut l1_provider,
+        &mut l2_provider,
+    )
+    .await?;
     l2_provider.set_cursor(cursor.clone());
 
     let pipeline = {
         #[cfg(feature = "celestia")]
         {
-            CelestiaOraclePipeline::new(
+            let ethereum_data_source =
+                EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
+            let celestia_data_source =
+                CelestiaDASource::new(OracleCelestiaProvider::new(oracle.clone()));
+            let da_provider = CelestiaDADataSource::new(ethereum_data_source, celestia_data_source);
+
+            OraclePipeline::new(
                 rollup_config.clone(),
                 cursor.clone(),
                 oracle.clone(),
-                beacon,
+                da_provider,
                 l1_provider.clone(),
                 l2_provider.clone(),
-                OracleCelestiaProvider::new(oracle.clone()),
             )
             .await?
         }
         #[cfg(not(feature = "celestia"))]
         {
+            let da_provider =
+                EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
+
             OraclePipeline::new(
                 rollup_config.clone(),
                 cursor.clone(),
                 oracle.clone(),
-                beacon,
+                da_provider,
                 l1_provider.clone(),
                 l2_provider.clone(),
             )
