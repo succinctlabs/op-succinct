@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use alloy_consensus::Transaction;
 use alloy_eips::BlockId;
-use alloy_primitives::{address, Address, B256};
+use alloy_primitives::B256;
 use alloy_provider::Provider;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
+use hana_proofs::types::BlobstreamChainIds;
 use kona_rpc::SafeHeadResponse;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
@@ -80,7 +81,9 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
 
         let blobstream_contract = SP1Blobstream::new(
-            get_blobstream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id),
+            BlobstreamChainIds::from_u64(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
+                .unwrap()
+                .blostream_address(),
             fetcher.l1_provider.clone(),
         );
         // Get the latest Celestia block included in a Blobstream commitment.
@@ -164,21 +167,6 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 impl CelestiaOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
         Self { fetcher, witness_generator: CelestiaDAWitnessGenerator }
-    }
-}
-
-/// Get the Blobstream contract address for a given L1 chain ID.
-///
-/// The addresses can be found here: https://docs.celestia.org/how-to-guides/blobstream
-fn get_blobstream_address(l1_chain_id: u64) -> Address {
-    match l1_chain_id {
-        1 => address!("7Cf3876F681Dbb6EdA8f6FfC45D66B996Df08fAe"),
-        42161 => address!("A83ca7775Bc2889825BcDeDfFa5b758cf69e8794"),
-        8453 => address!("A83ca7775Bc2889825BcDeDfFa5b758cf69e8794"),
-        11155111 => address!("f0c6429ebab2e7dc6e05dafb61128be21f13cb1e"),
-        421614 => address!("c3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
-        84532 => address!("c3e209eb245Fd59c8586777b499d6A665DF3ABD2"),
-        _ => panic!("Unsupported L1 chain ID: {l1_chain_id}"),
     }
 }
 
