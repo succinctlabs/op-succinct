@@ -48,11 +48,6 @@ jobs:
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
 
-                echo "==== Searching for new_cycle_stats.json ===="
-          find ${{ github.workspace }} -name "new_cycle_stats.json" -type f -ls
-          echo "==== Current directory structure ===="
-          find ${{ github.workspace }} -name "*.json" -type f -ls
-
       - name: Copy Stats File For Old Branch
         run: |
           STATS_FILE=$(find ${{ github.workspace }}/new_code -name "new_cycle_stats.json" -type f | head -1)
