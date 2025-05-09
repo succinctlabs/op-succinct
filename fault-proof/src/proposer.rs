@@ -20,9 +20,10 @@ use crate::{
 };
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, get_range_elf_embedded,
-    hosts::OPSuccinctHost, metrics::MetricsGauge, AGGREGATION_ELF,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
+    metrics::MetricsGauge, witness_generation::client::WitnessGenerator,
 };
+use op_succinct_proof_utils::{get_range_elf_embedded, AGGREGATION_ELF};
 
 struct SP1Prover {
     network_prover: Arc<NetworkProver>,
@@ -127,13 +128,7 @@ where
 
         let mem_kv_store = self.host.run(&host_args).await?;
 
-        let sp1_stdin = match get_proof_stdin(mem_kv_store) {
-            Ok(stdin) => stdin,
-            Err(e) => {
-                tracing::error!("Failed to get proof stdin: {}", e);
-                return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
-            }
-        };
+        let sp1_stdin = self.host.witness_generator().get_sp1_stdin(mem_kv_store).unwrap();
 
         tracing::info!("Generating Range Proof");
         let range_proof = if self.config.mock_mode {

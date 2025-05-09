@@ -29,6 +29,7 @@ tracing.workspace = true
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
+op-succinct-proof-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
 
 # alloy
@@ -43,7 +44,3 @@ serde_json.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
-
-[features]
-default = []
-celestia = ["op-succinct-host-utils/celestia"]

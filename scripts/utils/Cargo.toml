@@ -54,13 +54,9 @@ serde_json.workspace = true
 # local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
-
+op-succinct-proof-utils.workspace = true
 # sp1
 sp1-sdk.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
-
-[features]
-default = []
-celestia = ["op-succinct-host-utils/celestia", "op-succinct-client-utils/celestia"]
