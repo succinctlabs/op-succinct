@@ -12,24 +12,25 @@ use serde::{Deserialize, Serialize};
 use crate::BlobStore;
 
 #[async_trait]
-pub trait WitnessData {
-    fn preimage_store(&self) -> &PreimageStore;
-
-    fn blob_data(&self) -> &BlobData;
+pub trait WitnessData: Sized {
+    /// Consumes the WitnessData to extract its core components.
+    fn into_parts(self) -> (PreimageStore, BlobData);
 
     // Gets the oracle and blob provider from the witness data.
-    async fn get_oracle_and_blob_provider(&self) -> Result<(Arc<PreimageStore>, BlobStore)> {
+    async fn get_oracle_and_blob_provider(self) -> Result<(Arc<PreimageStore>, BlobStore)> {
+        let (owned_preimage_store, owned_blob_data) = self.into_parts();
+
         println!("cycle-tracker-report-start: oracle-verify");
         // Check the preimages in the witness are valid.
-        self.preimage_store().check_preimages().expect("Failed to validate preimages");
+        owned_preimage_store.check_preimages().expect("Failed to validate preimages");
         println!("cycle-tracker-report-end: oracle-verify");
 
         // Create an Arc of the preimage store.
-        let oracle = Arc::new(self.preimage_store().clone());
+        let oracle = Arc::new(owned_preimage_store);
 
         // Create a BlobStore from the blobs in the witness and verifies them for correctness.
         println!("cycle-tracker-report-start: blob-verification");
-        let beacon = BlobStore::from(self.blob_data().clone());
+        let beacon = BlobStore::from(owned_blob_data);
         println!("cycle-tracker-report-end: blob-verification");
 
         Ok((oracle, beacon))
@@ -38,18 +39,14 @@ pub trait WitnessData {
 
 #[derive(Clone, Debug, Default, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct DefaultWitnessData {
-    pub preimage_store: preimage_store::PreimageStore,
+    pub preimage_store: PreimageStore,
     pub blob_data: BlobData,
 }
 
 #[async_trait]
 impl WitnessData for DefaultWitnessData {
-    fn preimage_store(&self) -> &PreimageStore {
-        &self.preimage_store
-    }
-
-    fn blob_data(&self) -> &BlobData {
-        &self.blob_data
+    fn into_parts(self) -> (PreimageStore, BlobData) {
+        (self.preimage_store, self.blob_data)
     }
 }
 
