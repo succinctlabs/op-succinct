@@ -1120,7 +1120,7 @@ where
         // Start the gRPC server
         tokio::spawn(
             tonic::transport::Server::builder()
-                .add_service(ProofsServer::new(crate::proofs::Service::new(
+                .add_service(ProofsServer::new(crate::proofs_service::Service::new(
                     self.proof_requester.clone(),
                     self.program_config.clone(),
                     self.requester_config.clone(),

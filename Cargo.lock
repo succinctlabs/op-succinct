@@ -36,7 +36,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "bincode",
- "op-succinct-client-utils",
+ "op-succinct-client-utils 0.1.0",
  "serde_cbor",
  "sha2",
  "sp1-lib",
@@ -4639,8 +4639,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-client-utils"
+version = "0.1.0"
+source = "git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer#721464db289a9e729b3ce12ed1cae8689f684dbb"
+dependencies = [
+ "alloy-consensus 0.12.6",
+ "alloy-eips 0.12.6",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-sol-types",
+ "anyhow",
+ "async-trait",
+ "itertools 0.13.0",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-mpt",
+ "kona-preimage",
+ "kona-proof",
+ "kona-protocol",
+ "kona-rpc",
+ "kzg-rs",
+ "op-alloy-consensus",
+ "revm",
+ "rkyv",
+ "serde",
+ "serde_json",
+ "sha2",
+ "spin",
+ "tracing",
+]
+
+[[package]]
 name = "op-succinct-elfs"
 version = "0.1.0"
+
+[[package]]
+name = "op-succinct-elfs"
+version = "0.1.0"
+source = "git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer#721464db289a9e729b3ce12ed1cae8689f684dbb"
 
 [[package]]
 name = "op-succinct-fees"
@@ -4650,7 +4688,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dotenv",
- "op-succinct-host-utils",
+ "op-succinct-host-utils 0.1.0",
  "tokio",
 ]
 
@@ -4677,8 +4715,8 @@ dependencies = [
  "metrics-exporter-prometheus",
  "op-alloy-network",
  "op-alloy-rpc-types",
- "op-succinct-client-utils",
- "op-succinct-host-utils",
+ "op-succinct-client-utils 0.1.0",
+ "op-succinct-host-utils 0.1.0",
  "rand 0.9.0",
  "sp1-sdk",
  "strum 0.27.1",
@@ -4691,14 +4729,19 @@ dependencies = [
 [[package]]
 name = "op-succinct-grpc"
 version = "0.1.0"
-source = "git+https://github.com/agglayer/op-succinct-grpc#14f62717ec6b021576aee49c7f3d34009b878be9"
+source = "git+https://github.com/agglayer/op-succinct-grpc?branch=main#76bbc43056a4e458d162a6cc79c690617716bda2"
 dependencies = [
+ "alloy-primitives",
+ "bincode",
  "bytes",
+ "op-succinct-host-utils 0.1.0 (git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer)",
  "pbjson",
  "pbjson-types",
  "prost",
  "serde",
  "tonic",
+ "tonic-build",
+ "tracing",
 ]
 
 [[package]]
@@ -4729,8 +4772,50 @@ dependencies = [
  "op-alloy-consensus",
  "op-alloy-network",
  "op-alloy-rpc-types",
- "op-succinct-client-utils",
- "op-succinct-elfs",
+ "op-succinct-client-utils 0.1.0",
+ "op-succinct-elfs 0.1.0",
+ "reqwest",
+ "rkyv",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sp1-sdk",
+ "strum 0.27.1",
+ "strum_macros 0.27.1",
+ "tracing",
+]
+
+[[package]]
+name = "op-succinct-host-utils"
+version = "0.1.0"
+source = "git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer#721464db289a9e729b3ce12ed1cae8689f684dbb"
+dependencies = [
+ "alloy-consensus 0.12.6",
+ "alloy-contract",
+ "alloy-eips 0.12.6",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rlp",
+ "alloy-rpc-types",
+ "alloy-sol-types",
+ "anyhow",
+ "async-trait",
+ "clap",
+ "futures",
+ "kona-genesis",
+ "kona-host",
+ "kona-preimage",
+ "kona-protocol",
+ "kona-rpc",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "metrics-process",
+ "num-format",
+ "op-alloy-consensus",
+ "op-alloy-network",
+ "op-alloy-rpc-types",
+ "op-succinct-client-utils 0.1.0 (git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer)",
+ "op-succinct-elfs 0.1.0 (git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer)",
  "reqwest",
  "rkyv",
  "serde",
@@ -4753,8 +4838,8 @@ dependencies = [
  "csv",
  "dotenv",
  "op-succinct-build-utils",
- "op-succinct-client-utils",
- "op-succinct-host-utils",
+ "op-succinct-client-utils 0.1.0",
+ "op-succinct-host-utils 0.1.0",
  "op-succinct-scripts",
  "reqwest",
  "serde_json",
@@ -4780,8 +4865,8 @@ dependencies = [
  "futures",
  "log",
  "op-succinct-build-utils",
- "op-succinct-client-utils",
- "op-succinct-host-utils",
+ "op-succinct-client-utils 0.1.0",
+ "op-succinct-host-utils 0.1.0",
  "rayon",
  "serde",
  "serde_json",
@@ -4811,9 +4896,9 @@ dependencies = [
  "dotenv",
  "futures-util",
  "op-succinct-build-utils",
- "op-succinct-client-utils",
+ "op-succinct-client-utils 0.1.0",
  "op-succinct-grpc",
- "op-succinct-host-utils",
+ "op-succinct-host-utils 0.1.0",
  "prost",
  "reqwest",
  "rustls",
@@ -5813,7 +5898,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "kona-proof",
- "op-succinct-client-utils",
+ "op-succinct-client-utils 0.1.0",
  "sp1-zkvm",
  "tracing",
  "tracing-subscriber",

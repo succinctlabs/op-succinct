@@ -123,7 +123,7 @@ tonic-build = "0.12.3"
 tonic = "0.12.3"
 prost = "0.13.5"
 
-op-succinct-grpc = { git = "https://github.com/agglayer/op-succinct-grpc" }
+op-succinct-grpc = { git = "https://github.com/agglayer/op-succinct-grpc", branch = "main" }
 
 [profile.release-client-lto]
 inherits = "release"
