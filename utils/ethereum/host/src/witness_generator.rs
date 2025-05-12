@@ -11,8 +11,8 @@ use op_succinct_client_utils::witness::{
 };
 use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
 use op_succinct_host_utils::witness_generation::{
-    client::WitnessGenerator, online_blob_store::OnlineBlobStore,
-    preimage_witness_collector::PreimageWitnessCollector,
+    online_blob_store::OnlineBlobStore, preimage_witness_collector::PreimageWitnessCollector,
+    WitnessGenerator,
 };
 use rkyv::to_bytes;
 use sp1_sdk::SP1Stdin;

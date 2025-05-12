@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost,
-    stats::ExecutionStats, witness_generation::client::WitnessGenerator,
+    stats::ExecutionStats, witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};

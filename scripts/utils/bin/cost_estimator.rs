@@ -10,7 +10,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::ExecutionStats,
-    witness_generation::client::WitnessGenerator,
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;

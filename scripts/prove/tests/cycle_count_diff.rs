@@ -7,7 +7,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::{ExecutionStats, MarkdownExecutionStats},
-    witness_generation::client::WitnessGenerator,
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};

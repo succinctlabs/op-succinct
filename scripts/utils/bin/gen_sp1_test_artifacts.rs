@@ -6,7 +6,7 @@ use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
-    witness_generation::client::WitnessGenerator,
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;

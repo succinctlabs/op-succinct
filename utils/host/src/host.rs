@@ -6,7 +6,7 @@ use kona_host::single::{SingleChainHost, SingleChainHostError};
 use kona_preimage::{BidirectionalChannel, Channel};
 use tokio::task::JoinHandle;
 
-use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::client::WitnessGenerator};
+use crate::{fetcher::OPSuccinctDataFetcher, witness_generation::WitnessGenerator};
 
 #[async_trait]
 pub trait PreimageServerStarter {

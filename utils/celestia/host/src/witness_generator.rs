@@ -11,8 +11,7 @@ use op_succinct_client_utils::witness::{
     BlobData, DefaultWitnessData,
 };
 use op_succinct_host_utils::witness_generation::{
-    client::WitnessGenerator, online_blob_store::OnlineBlobStore,
-    preimage_witness_collector::PreimageWitnessCollector,
+    OnlineBlobStore, PreimageWitnessCollector, WitnessGenerator,
 };
 use rkyv::to_bytes;
 use sp1_sdk::SP1Stdin;

@@ -21,7 +21,7 @@ use crate::{
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
-    metrics::MetricsGauge, witness_generation::client::WitnessGenerator,
+    metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, AGGREGATION_ELF};
 
