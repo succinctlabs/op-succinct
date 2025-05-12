@@ -53,5 +53,7 @@ pub struct RequesterConfig {
     pub mock: bool,
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
     pub safe_db_fallback: bool,
+    /// Address of the gRPC server, it will start a gRPC server if it is not empty.
+    /// The gRPC server will listen on this address and port.
     pub grpc_addr: String,
 }
