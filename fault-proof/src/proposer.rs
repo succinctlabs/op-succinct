@@ -129,10 +129,10 @@ where
         let witness_data = self.host.run(&host_args).await?;
 
         let sp1_stdin = match self.host.witness_generator().get_sp1_stdin(witness_data) {
-            Ok(s) => s,
+            Ok(stdin) => stdin,
             Err(e) => {
-                tracing::error!("Failed to get sp1 stdin: {}", e);
-                return Err(anyhow::anyhow!("Failed to get sp1 stdin: {}", e));
+                tracing::error!("Failed to get proof stdin: {}", e);
+                return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
             }
         };
 

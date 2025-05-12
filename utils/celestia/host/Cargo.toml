@@ -5,7 +5,7 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-#sp1
+# sp1
 sp1-sdk.workspace = true
 
 # local

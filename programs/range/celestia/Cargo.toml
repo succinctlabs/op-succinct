@@ -8,15 +8,11 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-tracing.workspace = true
-anyhow.workspace = true
+# general
 rkyv.workspace = true
 
 # kona
 kona-proof.workspace = true
-
-# hana
-hana-oracle.workspace = true
 
 # sp1
 sp1-zkvm.workspace = true

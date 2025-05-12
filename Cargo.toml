@@ -141,8 +141,8 @@ revm = { version = "22.0.0", default-features = false, features = ["kzg-rs", "bn
 op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
-# TODO(r): Temporary patch to fix get_proof_status. Bump version once merged.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "d2798c9", features = ["profiling"] }
+# TODO(fakedev9999): Temporary patch to fix get_proof_status. Bump to v4.2.1 when released.
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "d2798c9" }
 sp1-lib = { version = "4.2.0", features = ["verify"] }
 sp1-zkvm = { version = "4.2.0", features = ["verify"] }
 sp1-build = { version = "4.2.0" }

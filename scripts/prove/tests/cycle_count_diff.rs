@@ -46,6 +46,7 @@ fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String
         .unwrap();
     };
 
+    // Add key metrics with their comparisons.
     write_metric(
         &mut report,
         "Total Instructions",
