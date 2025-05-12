@@ -55,8 +55,14 @@ serde_json.workspace = true
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-proof-utils.workspace = true
+
 # sp1
 sp1-sdk.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
+
+[features]
+default = ["ethereum"]
+celestia = ["op-succinct-proof-utils/celestia"]
+ethereum = ["op-succinct-proof-utils/ethereum"]

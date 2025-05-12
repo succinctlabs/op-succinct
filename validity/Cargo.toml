@@ -20,6 +20,7 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 
 # local
+op-succinct-client-utils.workspace = true
 op-succinct-host-utils.workspace = true
 op-succinct-proof-utils.workspace = true
 
@@ -37,7 +38,6 @@ alloy-rpc-types-eth = { workspace = true, features = ["serde"] }
 
 anyhow.workspace = true
 dotenv.workspace = true
-op-succinct-client-utils.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
@@ -64,3 +64,8 @@ strum_macros.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
+
+[features]
+default = ["ethereum"]
+celestia = ["op-succinct-proof-utils/celestia"]
+ethereum = ["op-succinct-proof-utils/ethereum"]

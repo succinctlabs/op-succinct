@@ -57,3 +57,8 @@ tracing.workspace = true
 hex.workspace = true
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
+
+[features]
+default = ["ethereum"]
+celestia = ["op-succinct-proof-utils/celestia"]
+ethereum = ["op-succinct-proof-utils/ethereum"]
