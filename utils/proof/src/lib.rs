@@ -30,6 +30,7 @@ cfg_if::cfg_if! {
         pub fn initialize_host(
             fetcher: Arc<OPSuccinctDataFetcher>,
         ) -> Arc<CelestiaOPSuccinctHost> {
+            tracing::info!("Initializing host with Celestia DA");
             Arc::new(CelestiaOPSuccinctHost::new(fetcher))
         }
     } else {
@@ -39,6 +40,7 @@ cfg_if::cfg_if! {
         pub fn initialize_host(
             fetcher: Arc<OPSuccinctDataFetcher>,
         ) -> Arc<SingleChainOPSuccinctHost> {
+            tracing::info!("Initializing host with Ethereum DA");
             Arc::new(SingleChainOPSuccinctHost::new(fetcher))
         }
     }

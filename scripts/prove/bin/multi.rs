@@ -34,11 +34,11 @@ async fn main() -> Result<()> {
     debug!("Host args: {:?}", host_args);
 
     let start_time = Instant::now();
-    let oracle = host.run(&host_args).await?;
+    let witness_data = host.run(&host_args).await?;
     let witness_generation_duration = start_time.elapsed();
 
     // Get the stdin for the block.
-    let sp1_stdin = host.witness_generator().get_sp1_stdin(oracle).unwrap();
+    let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
 
     let prover = ProverClient::from_env();
 

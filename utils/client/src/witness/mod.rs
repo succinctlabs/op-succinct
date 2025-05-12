@@ -16,7 +16,8 @@ pub trait WitnessData: Sized {
     /// Consumes the WitnessData to extract its core components.
     fn into_parts(self) -> (PreimageStore, BlobData);
 
-    // Gets the oracle and blob provider from the witness data.
+    /// Gets the oracle and blob provider from the witness data and validates the correctness of the
+    /// preimages.
     async fn get_oracle_and_blob_provider(self) -> Result<(Arc<PreimageStore>, BlobStore)> {
         let (owned_preimage_store, owned_blob_data) = self.into_parts();
 

@@ -13,6 +13,7 @@ op-succinct-host-utils.workspace = true
 
 # general
 cfg-if.workspace = true
+tracing.workspace = true
 
 [features]
 default = ["ethereum"]

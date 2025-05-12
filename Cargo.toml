@@ -60,31 +60,29 @@ strum_macros = "0.27.1"
 tempfile = "3.10.1"
 
 # kona
-kona-mpt = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
-kona-derive = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
-kona-preimage = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
+kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
+kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
-kona-proof = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
+kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
+kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
 
-kona-client = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
-kona-host = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d" }
-kona-rpc = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", default-features = false, features = [
-    "serde",
-] }
-kona-protocol = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", rev = "0324411840e948369c9464285efe7a1d94eeff3d", default-features = false }
+kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
+kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
+kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1", default-features = false }
 
 # hana
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "e711948ae7a2aac2dc923dea35c42bc1a76f2565" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "e711948ae7a2aac2dc923dea35c42bc1a76f2565" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "e711948ae7a2aac2dc923dea35c42bc1a76f2565" }
-hana-proofs = { git = "https://github.com/celestiaorg/hana", rev = "e711948ae7a2aac2dc923dea35c42bc1a76f2565" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d1c00fc2af129fb28cbb0151f8c81b9" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d1c00fc2af129fb28cbb0151f8c81b9" }
+hana-host = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d1c00fc2af129fb28cbb0151f8c81b9" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d1c00fc2af129fb28cbb0151f8c81b9" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -144,7 +142,7 @@ op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
 # TODO(r): Temporary patch to fix get_proof_status. Bump version once merged.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "a260e2000c5f946631cfccc29bdbadab656371c5" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "d2798c9", features = ["profiling"] }
 sp1-lib = { version = "4.2.0", features = ["verify"] }
 sp1-zkvm = { version = "4.2.0", features = ["verify"] }
 sp1-build = { version = "4.2.0" }

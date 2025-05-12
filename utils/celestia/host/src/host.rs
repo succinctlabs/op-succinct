@@ -6,8 +6,8 @@ use alloy_primitives::B256;
 use alloy_provider::Provider;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use hana_blobstream::blobstream::blostream_address;
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
-use hana_proofs::types::BlobstreamChainIds;
 use kona_rpc::SafeHeadResponse;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
@@ -81,9 +81,8 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
 
         let blobstream_contract = SP1Blobstream::new(
-            BlobstreamChainIds::from_u64(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
-                .unwrap()
-                .blostream_address(),
+            blostream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
+                .expect("Failed to fetch blobstream contract address"),
             fetcher.l1_provider.clone(),
         );
         // Get the latest Celestia block included in a Blobstream commitment.

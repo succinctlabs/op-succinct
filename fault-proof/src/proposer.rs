@@ -126,9 +126,15 @@ where
             .await
             .context("Failed to get host CLI args")?;
 
-        let mem_kv_store = self.host.run(&host_args).await?;
+        let witness_data = self.host.run(&host_args).await?;
 
-        let sp1_stdin = self.host.witness_generator().get_sp1_stdin(mem_kv_store).unwrap();
+        let sp1_stdin = match self.host.witness_generator().get_sp1_stdin(witness_data) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Failed to get sp1 stdin: {}", e);
+                return Err(anyhow::anyhow!("Failed to get sp1 stdin: {}", e));
+            }
+        };
 
         tracing::info!("Generating Range Proof");
         let range_proof = if self.config.mock_mode {

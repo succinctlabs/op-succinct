@@ -19,9 +19,10 @@ kona-proof.workspace = true
 kona-rpc.workspace = true
 
 # hana
+hana-blobstream.workspace = true
 hana-host.workspace = true
 hana-oracle.workspace = true
-hana-proofs.workspace = true
+
 # alloy
 alloy-consensus.workspace = true
 alloy-eips.workspace = true

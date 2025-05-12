@@ -11,8 +11,7 @@ use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, T
 use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{errors::OracleProviderError, HintType};
-use kona_protocol::L2BlockInfo;
-use kona_rpc::OpAttributesWithParent;
+use kona_protocol::{L2BlockInfo, OpAttributesWithParent};
 use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
 use std::fmt::Debug;
 use tracing::{error, info, warn};
