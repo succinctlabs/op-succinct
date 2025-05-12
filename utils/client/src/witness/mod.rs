@@ -13,6 +13,9 @@ use crate::BlobStore;
 
 #[async_trait]
 pub trait WitnessData: Sized {
+    /// Creates a new WitnessData from the given preimage store and blob data.
+    fn from_parts(preimage_store: PreimageStore, blob_data: BlobData) -> Self;
+
     /// Consumes the WitnessData to extract its core components.
     fn into_parts(self) -> (PreimageStore, BlobData);
 
@@ -46,6 +49,10 @@ pub struct DefaultWitnessData {
 
 #[async_trait]
 impl WitnessData for DefaultWitnessData {
+    fn from_parts(preimage_store: PreimageStore, blob_data: BlobData) -> Self {
+        Self { preimage_store, blob_data }
+    }
+
     fn into_parts(self) -> (PreimageStore, BlobData) {
         (self.preimage_store, self.blob_data)
     }

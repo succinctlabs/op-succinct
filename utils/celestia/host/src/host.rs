@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use hana_blobstream::blobstream::{blostream_address, SP1Blobstream};
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
 use kona_rpc::SafeHeadResponse;
+use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
     host::OPSuccinctHost,
@@ -19,7 +20,7 @@ use crate::witness_generator::CelestiaDAWitnessGenerator;
 #[derive(Clone)]
 pub struct CelestiaOPSuccinctHost {
     pub fetcher: Arc<OPSuccinctDataFetcher>,
-    witness_generator: CelestiaDAWitnessGenerator,
+    pub witness_generator: Arc<CelestiaDAWitnessGenerator>,
 }
 
 #[async_trait]
@@ -164,7 +165,12 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
 impl CelestiaOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher, witness_generator: CelestiaDAWitnessGenerator }
+        Self {
+            fetcher,
+            witness_generator: Arc::new(CelestiaDAWitnessGenerator {
+                executor: CelestiaDAWitnessExecutor::new(),
+            }),
+        }
     }
 }
 

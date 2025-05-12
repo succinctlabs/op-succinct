@@ -50,7 +50,7 @@ impl PreimageServerStarter for CelestiaChainHost {
 #[async_trait]
 pub trait OPSuccinctHost: Send + Sync + 'static {
     type Args: Send + Sync + 'static + Clone + PreimageServerStarter;
-    type WitnessGenerator: WitnessGenerator;
+    type WitnessGenerator: WitnessGenerator + Send + Sync;
 
     fn witness_generator(&self) -> &Self::WitnessGenerator;
 

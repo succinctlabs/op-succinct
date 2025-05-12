@@ -1,5 +1,5 @@
 pub mod traits;
-pub use traits::WitnessGenerator;
+pub use traits::{DefaultOracleBase, WitnessGenerator};
 
 pub mod online_blob_store;
 pub use online_blob_store::OnlineBlobStore;
