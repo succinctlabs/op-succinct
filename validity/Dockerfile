@@ -28,7 +28,7 @@ ENV SQLX_OFFLINE=true
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    SQLX_OFFLINE=true cargo build --bin validity --release && \
+    cargo build --bin validity --release && \
     cp target/release/validity /build/validity-proposer
 
 # Final stage
