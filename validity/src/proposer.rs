@@ -10,7 +10,7 @@ use alloy_sol_types::SolValue;
 use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
-use grpc::proofs::proofs_server::ProofsServer;
+use op_succinct_grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
@@ -1120,7 +1120,7 @@ where
         // Start the gRPC server
         tokio::spawn(
             tonic::transport::Server::builder()
-                .add_service(ProofsServer::new(crate::proofs::Service::new(
+                .add_service(ProofsServer::new(crate::proofs_service::Service::new(
                     self.proof_requester.clone(),
                     self.program_config.clone(),
                     self.requester_config.clone(),
