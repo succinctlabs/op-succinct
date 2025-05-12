@@ -49,7 +49,6 @@ base64.workspace = true
 serde_repr = "0.1.19"
 sqlx = { version = "0.8.3", features = [
     "postgres",
-    "sqlite",
     "chrono",
     "bigdecimal",
     "runtime-tokio",
