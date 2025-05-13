@@ -22,11 +22,7 @@ async fn main() -> Result<()> {
     println!("Range Verification Key Hash: {range_vk_hash}");
 
     let (_, agg_vk) = prover.setup(AGGREGATION_ELF);
-    let agg_vk_hash = B256::from(u32_to_u8(agg_vk.vk.hash_u32()));
-    println!(
-        "{:?} Aggregation Verification Key Hash: {}",
-        args.da_config, agg_vk_hash
-    );
+    println!("Aggregation Verification Key Hash: {}", agg_vk.bytes32());
 
     if let Some(env_file) = args.env_file {
         dotenv::from_path(env_file).ok();

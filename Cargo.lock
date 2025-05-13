@@ -71,7 +71,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "bincode",
- "op-succinct-client-utils 0.1.0",
+ "op-succinct-client-utils",
  "serde_cbor",
  "sha2 0.10.8",
  "sp1-lib",
@@ -7120,40 +7120,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "op-succinct-client-utils"
-version = "0.1.0"
-source = "git+https://github.com/agglayer/op-succinct?branch=vcastellm%2Frust-agglayer#721464db289a9e729b3ce12ed1cae8689f684dbb"
-dependencies = [
- "alloy-consensus 0.15.10",
- "alloy-eips 0.15.10",
- "alloy-evm",
- "alloy-op-evm",
- "alloy-primitives",
- "alloy-rlp",
- "alloy-sol-types",
- "anyhow",
- "async-trait",
- "cfg-if",
- "kona-derive",
- "kona-driver",
- "kona-executor",
- "kona-genesis",
- "kona-preimage",
- "kona-proof",
- "kona-protocol",
- "kzg-rs",
- "op-alloy-consensus",
- "op-revm",
- "revm",
- "rkyv",
- "serde",
- "serde_json",
- "sha2 0.10.8",
- "spin 0.10.0",
- "tracing",
-]
-
-[[package]]
 name = "op-succinct-elfs"
 version = "0.1.0"
 
@@ -7225,6 +7191,22 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "op-succinct-grpc"
+version = "0.1.0"
+source = "git+https://github.com/agglayer/op-succinct-grpc?branch=main#ac519a1cb16e566b3e49ccae5cbe1a9959a70118"
+dependencies = [
+ "bincode",
+ "bytes",
+ "pbjson",
+ "pbjson-types",
+ "prost",
+ "serde",
+ "tonic",
+ "tonic-build",
+ "tracing",
 ]
 
 [[package]]
@@ -7369,8 +7351,10 @@ dependencies = [
  "op-succinct-build-utils",
  "op-succinct-client-utils",
  "op-succinct-elfs",
+ "op-succinct-grpc",
  "op-succinct-host-utils",
  "op-succinct-proof-utils",
+ "prost",
  "reqwest",
  "rustls",
  "serde",
@@ -7838,6 +7822,43 @@ name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
+
+[[package]]
+name = "pbjson"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7e6349fa080353f4a597daffd05cb81572a9c031a6d4fff7e504947496fcc68"
+dependencies = [
+ "base64 0.21.7",
+ "serde",
+]
+
+[[package]]
+name = "pbjson-build"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6eea3058763d6e656105d1403cb04e0a41b7bbac6362d413e7c33be0c32279c9"
+dependencies = [
+ "heck 0.5.0",
+ "itertools 0.13.0",
+ "prost",
+ "prost-types",
+]
+
+[[package]]
+name = "pbjson-types"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e54e5e7bfb1652f95bc361d76f3c780d8e526b134b85417e774166ee941f0887"
+dependencies = [
+ "bytes",
+ "chrono",
+ "pbjson",
+ "pbjson-build",
+ "prost",
+ "prost-build",
+ "serde",
+]
 
 [[package]]
 name = "pem"
@@ -11273,7 +11294,7 @@ dependencies = [
  "prost-build",
  "prost-types",
  "quote",
- "syn 2.0.100",
+ "syn 2.0.101",
 ]
 
 [[package]]

@@ -12,7 +12,7 @@ use crate::RequesterConfig;
 use crate::ValidityGauge;
 use op_succinct_grpc::proofs::proofs_server::Proofs;
 use op_succinct_grpc::proofs::{AggProofRequest, AggProofResponse, GetMockProofRequest, GetMockProofResponse};
-use op_succinct_host_utils::hosts::OPSuccinctHost;
+use op_succinct_host_utils::host::OPSuccinctHost;
 use op_succinct_host_utils::metrics::MetricsGauge;
 use std::{sync::Arc, time::Instant};
 
