@@ -1,12 +1,13 @@
-use alloy_provider::{network::EthereumWallet, Provider, ProviderBuilder};
+use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, hosts::initialize_host, metrics::init_metrics,
-    metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher,
+    metrics::{init_metrics, MetricsGauge},
 };
+use op_succinct_proof_utils::initialize_host;
 use op_succinct_validity::{
     read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
-    ValidityGauge, Web3Signer,
+    ValidityGauge,
 };
 use std::sync::Arc;
 use tikv_jemallocator::Jemalloc;
@@ -62,16 +63,7 @@ async fn main() -> Result<()> {
         grpc_addr: env_config.grpc_addr,
     };
 
-    // Read all config from env vars. If both signer_url and signer_address are provided, use Web3Signer.
-    // Otherwise, use the private key.
-    let wallet = match (env_config.signer_url, env_config.signer_address) {
-        (Some(url), Some(address)) => EthereumWallet::new(Web3Signer::new(address, url)),
-        _ => EthereumWallet::new(env_config.private_key),
-    };
-
-    let l1_provider = ProviderBuilder::new()
-        .wallet(wallet)
-        .on_http(env_config.l1_rpc.parse().expect("Failed to parse L1_RPC"));
+    let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
 
     let host = initialize_host(fetcher.clone().into());
 
@@ -80,6 +72,7 @@ async fn main() -> Result<()> {
         db_client.clone(),
         fetcher.into(),
         proposer_config,
+        env_config.proposer_signer,
         env_config.loop_interval,
         host,
     )

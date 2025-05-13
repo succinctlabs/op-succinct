@@ -1,15 +1,13 @@
-use std::env;
-use std::sync::Arc;
+use std::{env, sync::Arc};
 
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
-use op_succinct_host_utils::hosts::default::SingleChainOPSuccinctHost;
+use op_succinct_proof_utils::initialize_host;
 use tokio::time::Duration;
 
 use fault_proof::{
@@ -35,7 +33,7 @@ async fn test_proposer_defends_successfully() -> Result<()> {
 
     let l1_provider_with_wallet = ProviderBuilder::new()
         .wallet(wallet.clone())
-        .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
+        .connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
     let factory = DisputeGameFactory::new(
         env::var("FACTORY_ADDRESS")
@@ -46,13 +44,13 @@ async fn test_proposer_defends_successfully() -> Result<()> {
     );
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let host = initialize_host(Arc::new(fetcher.clone()));
     let proposer = OPSuccinctProposer::new(
         wallet.default_signer().address(),
         l1_provider_with_wallet.clone(),
         factory.clone(),
-        Arc::new(SingleChainOPSuccinctHost {
-            fetcher: Arc::new(fetcher),
-        }),
+        Arc::new(fetcher),
+        host,
     )
     .await
     .unwrap();
@@ -61,9 +59,7 @@ async fn test_proposer_defends_successfully() -> Result<()> {
     // Malicious challenger challenging a valid game
     tracing::info!("Malicious challenger challenging a valid game");
     let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider_with_wallet.clone());
-    let challenger_bond = factory
-        .fetch_challenger_bond(proposer.config.game_type)
-        .await?;
+    let challenger_bond = factory.fetch_challenger_bond(proposer.config.game_type).await?;
     let challenge_receipt = game
         .challenge()
         .value(challenger_bond)
@@ -90,7 +86,7 @@ async fn test_proposer_defends_successfully() -> Result<()> {
         tx_hash
     );
 
-    let status = game.claimData().call().await?.claimData_.status;
+    let status = game.claimData().call().await?.status;
     assert_eq!(
         status,
         ProposalStatus::ChallengedAndValidProofProvided,

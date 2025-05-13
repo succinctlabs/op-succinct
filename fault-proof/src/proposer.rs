@@ -1,15 +1,13 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{env, sync::Arc, time::Duration};
 
-use alloy_eips::BlockNumberOrTag;
 use alloy_network::Ethereum;
 use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{fillers::TxFiller, Provider, ProviderBuilder};
 use alloy_sol_types::SolValue;
 use anyhow::{Context, Result};
 use sp1_sdk::{
-    network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProvingKey,
-    SP1VerifyingKey,
+    network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::time;
 
@@ -21,10 +19,12 @@ use crate::{
     NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
 };
 use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, get_proof_stdin, hosts::OPSuccinctHost,
-    metrics::MetricsGauge, AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
+    metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
+use op_succinct_proof_utils::get_range_elf_embedded;
 
 struct SP1Prover {
     network_prover: Arc<NetworkProver>,
@@ -39,15 +39,17 @@ where
     P: Provider<Ethereum> + Clone + Send + Sync,
 {
     pub config: ProposerConfig,
-    // The address being committed to when generating the aggregation proof to prevent front-running attacks.
-    // This should be the same address that is being used to send `prove` transactions.
+    // The address being committed to when generating the aggregation proof to prevent
+    // front-running attacks. This should be the same address that is being used to send
+    // `prove` transactions.
     pub prover_address: Address,
     pub l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
     pub l2_provider: L2Provider,
-    pub factory: Arc<DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>>,
+    pub factory: Arc<DisputeGameFactoryInstance<L1ProviderWithWallet<F, P>>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
+    fetcher: Arc<OPSuccinctDataFetcher>,
     host: Arc<H>,
 }
 
@@ -56,24 +58,35 @@ where
     F: TxFiller<Ethereum> + Send + Sync,
     P: Provider<Ethereum> + Clone + Send + Sync,
 {
-    /// Creates a new challenger instance with the provided L1 provider with wallet and factory contract instance.
+    /// Creates a new challenger instance with the provided L1 provider with wallet and factory
+    /// contract instance.
     pub async fn new(
         prover_address: Address,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
-        factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
+        factory: DisputeGameFactoryInstance<L1ProviderWithWallet<F, P>>,
+        fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
         let config = ProposerConfig::from_env()?;
 
-        let network_prover = Arc::new(ProverClient::builder().network().build());
-        let (range_pk, range_vk) = network_prover.setup(RANGE_ELF_EMBEDDED);
+        // Set a default network private key to avoid an error in mock mode.
+        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
+            tracing::warn!(
+                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+            );
+            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+        });
+
+        let network_prover =
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
         let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
 
         Ok(Self {
             config: config.clone(),
             prover_address,
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
-            l2_provider: ProviderBuilder::default().on_http(config.l2_rpc),
+            l2_provider: ProviderBuilder::default().connect_http(config.l2_rpc),
             factory: Arc::new(factory.clone()),
             init_bond: factory.fetch_init_bond(config.game_type).await?,
             safe_db_fallback: config.safe_db_fallback,
@@ -83,6 +96,7 @@ where
                 range_vk: Arc::new(range_vk),
                 agg_pk: Arc::new(agg_pk),
             },
+            fetcher: fetcher.clone(),
             host,
         })
     }
@@ -98,24 +112,24 @@ where
 
         let game =
             OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider_with_wallet.clone());
-        let l1_head_hash = game.l1Head().call().await?.l1Head_;
+        let l1_head_hash = game.l1Head().call().await?.0;
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
-        let l2_block_number = game.l2BlockNumber().call().await?.l2BlockNumber_;
+        let l2_block_number = game.l2BlockNumber().call().await?;
 
         let host_args = self
             .host
             .fetch(
                 l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks,
                 l2_block_number.to::<u64>(),
-                Some(l1_head_hash),
+                Some(l1_head_hash.into()),
                 Some(self.config.safe_db_fallback),
             )
             .await
             .context("Failed to get host CLI args")?;
 
-        let mem_kv_store = self.host.run(&host_args).await?;
+        let witness_data = self.host.run(&host_args).await?;
 
-        let sp1_stdin = match get_proof_stdin(mem_kv_store) {
+        let sp1_stdin = match self.host.witness_generator().get_sp1_stdin(witness_data) {
             Ok(stdin) => stdin,
             Err(e) => {
                 tracing::error!("Failed to get proof stdin: {}", e);
@@ -124,16 +138,29 @@ where
         };
 
         tracing::info!("Generating Range Proof");
-        let range_proof = self
-            .prover
-            .network_prover
-            .prove(&self.prover.range_pk, &sp1_stdin)
-            .compressed()
-            .strategy(FulfillmentStrategy::Hosted)
-            .skip_simulation(true)
-            .cycle_limit(1_000_000_000_000)
-            .run_async()
-            .await?;
+        let range_proof = if self.config.mock_mode {
+            tracing::info!("Using mock mode for range proof generation");
+            let (public_values, _) =
+                self.prover.network_prover.execute(get_range_elf_embedded(), &sp1_stdin).run()?;
+
+            // Create a mock range proof with the public values.
+            SP1ProofWithPublicValues::create_mock_proof(
+                &self.prover.range_pk,
+                public_values,
+                SP1ProofMode::Compressed,
+                SP1_CIRCUIT_VERSION,
+            )
+        } else {
+            self.prover
+                .network_prover
+                .prove(&self.prover.range_pk, &sp1_stdin)
+                .compressed()
+                .strategy(FulfillmentStrategy::Hosted)
+                .skip_simulation(true)
+                .cycle_limit(1_000_000_000_000)
+                .run_async()
+                .await?
+        };
 
         tracing::info!("Preparing Stdin for Agg Proof");
         let proof = range_proof.proof.clone();
@@ -167,20 +194,32 @@ where
         };
 
         tracing::info!("Generating Agg Proof");
-        let agg_proof = self
-            .prover
-            .network_prover
-            .prove(&self.prover.agg_pk, &sp1_stdin)
-            .groth16()
-            .run_async()
-            .await?;
+        let agg_proof = if self.config.mock_mode {
+            tracing::info!("Using mock mode for aggregation proof generation");
+            let (public_values, _) = self
+                .prover
+                .network_prover
+                .execute(AGGREGATION_ELF, &sp1_stdin)
+                .deferred_proof_verification(false)
+                .run()?;
 
-        let receipt = game
-            .prove(agg_proof.bytes().into())
-            .send()
-            .await?
-            .get_receipt()
-            .await?;
+            // Create a mock aggregation proof with the public values.
+            SP1ProofWithPublicValues::create_mock_proof(
+                &self.prover.agg_pk,
+                public_values,
+                SP1ProofMode::Groth16,
+                SP1_CIRCUIT_VERSION,
+            )
+        } else {
+            self.prover
+                .network_prover
+                .prove(&self.prover.agg_pk, &sp1_stdin)
+                .groth16()
+                .run_async()
+                .await?
+        };
+
+        let receipt = game.prove(agg_proof.bytes().into()).send().await?.get_receipt().await?;
 
         Ok(receipt.transaction_hash)
     }
@@ -206,9 +245,7 @@ where
             .factory
             .create(
                 self.config.game_type,
-                self.l2_provider
-                    .compute_output_root_at_block(l2_block_number)
-                    .await?,
+                self.l2_provider.compute_output_root_at_block(l2_block_number).await?,
                 extra_data.into(),
             )
             .value(self.init_bond)
@@ -247,23 +284,9 @@ where
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
         let _span = tracing::info_span!("[[Proposing]]").entered();
 
-        // Get the finalized L2 head block number.
-        let finalized_l2_head_block_number = self
-            .l2_provider
-            .get_l2_block_by_number(BlockNumberOrTag::Finalized)
-            .await?
-            .header
-            .number;
-        tracing::debug!(
-            "Finalized L2 head block number: {:?}",
-            finalized_l2_head_block_number
-        );
-
         // Get the latest valid proposal.
-        let latest_valid_proposal = self
-            .factory
-            .get_latest_valid_proposal(self.l2_provider.clone())
-            .await?;
+        let latest_valid_proposal =
+            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
 
         // Determine next block number and parent game index.
         //
@@ -275,37 +298,48 @@ where
         // 2. Without valid proposal (first game or all existing games being faulty):
         //    - Block number = anchor L2 block number + proposal interval.
         //    - Parent = u32::MAX (special value indicating no parent).
-        let (next_l2_block_number_for_proposal, parent_game_index) = match latest_valid_proposal {
-            Some((latest_block, latest_game_idx)) => (
-                latest_block + U256::from(self.config.proposal_interval_in_blocks),
-                latest_game_idx.to::<u32>(),
-            ),
-            None => {
-                let anchor_l2_block_number = self
-                    .factory
-                    .get_anchor_l2_block_number(self.config.game_type)
-                    .await?;
-                tracing::info!("Anchor L2 block number: {:?}", anchor_l2_block_number);
-                (
-                    anchor_l2_block_number
-                        .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                        .unwrap(),
-                    u32::MAX,
-                )
+        let (latest_proposed_block_number, next_l2_block_number_for_proposal, parent_game_index) =
+            match latest_valid_proposal {
+                Some((latest_block, latest_game_idx)) => (
+                    latest_block,
+                    latest_block + U256::from(self.config.proposal_interval_in_blocks),
+                    latest_game_idx.to::<u32>(),
+                ),
+                None => {
+                    let anchor_l2_block_number =
+                        self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
+                    tracing::info!("Anchor L2 block number: {:?}", anchor_l2_block_number);
+                    (
+                        anchor_l2_block_number,
+                        anchor_l2_block_number
+                            .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                            .unwrap(),
+                        u32::MAX,
+                    )
+                }
+            };
+
+        let finalized_l2_head_block_number = self
+            .host
+            .get_finalized_l2_block_number(&self.fetcher, latest_proposed_block_number.to::<u64>())
+            .await?;
+
+        // There's always a new game to propose, as the chain is always moving forward from the
+        // genesis block set for the game type. Only create a new game if the finalized L2
+        // head block number is greater than the next L2 block number for proposal.
+        if let Some(finalized_block) = finalized_l2_head_block_number {
+            if U256::from(finalized_block) > next_l2_block_number_for_proposal {
+                let game_address =
+                    self.create_game(next_l2_block_number_for_proposal, parent_game_index).await?;
+
+                Ok(Some(game_address))
+            } else {
+                tracing::info!("No new game to propose since proposal interval has not elapsed");
+
+                Ok(None)
             }
-        };
-
-        // There's always a new game to propose, as the chain is always moving forward from the genesis block set for the game type.
-        // Only create a new game if the finalized L2 head block number is greater than the next L2 block number for proposal.
-        if U256::from(finalized_l2_head_block_number) > next_l2_block_number_for_proposal {
-            let game_address = self
-                .create_game(next_l2_block_number_for_proposal, parent_game_index)
-                .await?;
-
-            Ok(Some(game_address))
         } else {
-            tracing::info!("No new game to propose since proposal interval has not elapsed");
-
+            tracing::info!("No new finalized block number found since last proposed block");
             Ok(None)
         }
     }
@@ -403,36 +437,31 @@ where
 
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
-        let finalized_l2_block_number = self
-            .l2_provider
-            .get_l2_block_by_number(BlockNumberOrTag::Finalized)
-            .await?
-            .header
-            .number;
-
-        ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
-
         // Get the latest valid proposal.
-        match self
-            .factory
-            .get_latest_valid_proposal(self.l2_provider.clone())
+        let latest_proposed_block_number =
+            match self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await? {
+                Some((l2_block_number, _game_index)) => l2_block_number,
+                None => {
+                    tracing::debug!("No valid proposals found for metrics");
+                    self.factory.get_anchor_l2_block_number(self.config.game_type).await?
+                }
+            };
+
+        // Update metrics for latest game block number.
+        ProposerGauge::LatestGameL2BlockNumber.set(latest_proposed_block_number.to::<u64>() as f64);
+
+        // Update metrics for finalized L2 block number.
+        if let Some(finalized_l2_block_number) = self
+            .host
+            .get_finalized_l2_block_number(&self.fetcher, latest_proposed_block_number.to::<u64>())
             .await?
         {
-            Some((l2_block_number, _game_index)) => {
-                // Update metrics for latest game block number
-                ProposerGauge::LatestGameL2BlockNumber.set(l2_block_number.to::<u64>() as f64);
-            }
-            None => {
-                tracing::debug!("No valid proposals found for metrics");
-                return Ok(());
-            }
-        };
+            ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
+        }
 
-        let anchor_game_l2_block_number = self
-            .factory
-            .get_anchor_l2_block_number(self.config.game_type)
-            .await?;
-
+        // Update metrics for anchor game block number.
+        let anchor_game_l2_block_number =
+            self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
         ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game_l2_block_number.to::<u64>() as f64);
 
         Ok(())

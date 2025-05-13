@@ -19,6 +19,8 @@
     - [Gas Costs]()
     - [Testing Guide]()
   - [Upgrading OP Succinct](./validity/upgrade.md)
+  - [Experimental Features](./validity/experimental/experimental.md)
+    - [Celestia DA](./validity/experimental/celestia.md)
 
 - [OP Succinct Lite (Fault Proofs)](./fault_proofs/intro.md)
   - [Architecture](./fault_proofs/fault_proof_architecture.md)
@@ -34,6 +36,8 @@
     - [Gas Costs](./fault_proofs/gas_costs.md)
     - [Testing Guide](./fault_proofs/testing.md)
     - [Best Practices](./fault_proofs/best_practices.md)
+  - [Experimental Features](./fault_proofs/experimental/experimental.md)
+    - [Celestia DA](./fault_proofs/experimental/celestia.md)
 
 - [Advanced](./advanced/intro.md)
   - [Reproduce Binaries](./advanced/verify-binaries.md)

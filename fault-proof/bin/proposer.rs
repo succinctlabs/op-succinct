@@ -13,9 +13,9 @@ use fault_proof::{
 use op_alloy_network::EthereumWallet;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
-    hosts::default::SingleChainOPSuccinctHost,
     metrics::{init_metrics, MetricsGauge},
 };
+use op_succinct_proof_utils::initialize_host;
 
 #[derive(Parser)]
 struct Args {
@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
 
     let l1_provider_with_wallet = ProviderBuilder::new()
         .wallet(wallet.clone())
-        .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
+        .connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
     let factory = DisputeGameFactory::new(
         env::var("FACTORY_ADDRESS")
@@ -49,20 +49,21 @@ async fn main() -> Result<()> {
         l1_provider_with_wallet.clone(),
     );
 
-    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from the private key.
+    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from
+    // the private key.
     let prover_address = env::var("PROVER_ADDRESS")
         .ok()
         .and_then(|addr| addr.parse::<Address>().ok())
         .unwrap_or_else(|| wallet.default_signer().address());
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let host = initialize_host(Arc::new(fetcher.clone()));
     let proposer = OPSuccinctProposer::new(
         prover_address,
         l1_provider_with_wallet,
         factory,
-        Arc::new(SingleChainOPSuccinctHost {
-            fetcher: Arc::new(fetcher),
-        }),
+        Arc::new(fetcher),
+        host,
     )
     .await
     .unwrap();

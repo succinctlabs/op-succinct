@@ -43,13 +43,6 @@ cost-estimator *args='':
 
 upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
   #!/usr/bin/env bash
-
-  CHAIN_ID=$(jq -r '.chainId' contracts/opsuccinctl2ooconfig.json)
-  if [ "$CHAIN_ID" = "0" ] || [ -z "$CHAIN_ID" ]; then
-    echo "Are you sure you've filled out your opsuccinctl2ooconfig.json? Your chain ID is currently set to 0."
-    exit 1
-  fi
-
   VERIFY=""
   ETHERSCAN_API_KEY="{{etherscan_api_key}}"
   if [ $ETHERSCAN_API_KEY != "" ]; then
@@ -92,12 +85,17 @@ deploy-mock-verifier env_file=".env":
     $VERIFY
 
 # Deploy the OPSuccinct L2 Output Oracle
-deploy-oracle env_file=".env":
+deploy-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
     
     # First fetch rollup config using the env file
-    RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+    if [ -z "{{features}}" ]; then
+        RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+    else
+        echo "Fetching rollup config with features: {{features}}"
+        RUST_LOG=info cargo run --bin fetch-rollup-config --release --features {{features}} -- --env-file {{env_file}}
+    fi
     
     # Load environment variables
     source {{env_file}}
@@ -106,7 +104,7 @@ deploy-oracle env_file=".env":
     cd contracts
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ "$ETHERSCAN_API_KEY" != "" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
@@ -122,12 +120,17 @@ deploy-oracle env_file=".env":
         $VERIFY
 
 # Upgrade the OPSuccinct L2 Output Oracle
-upgrade-oracle env_file=".env":
+upgrade-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
     
     # First fetch rollup config using the env file
-    RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+    if [ -z "{{features}}" ]; then
+        RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+    else
+        echo "Fetching rollup config with features: {{features}}"
+        RUST_LOG=info cargo run --bin fetch-rollup-config --release --features {{features}} -- --env-file {{env_file}}
+    fi
     
     # Load environment variables
     source {{env_file}}
@@ -161,12 +164,16 @@ upgrade-oracle env_file=".env":
     fi
 
 # Update the parameters of the OPSuccinct L2 Output Oracle
-update-parameters env_file=".env":
+update-parameters env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
     
     # First fetch rollup config using the env file
-    RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+    if [ -z "{{features}}" ]; then
+        RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+    else
+        RUST_LOG=info cargo run --bin fetch-rollup-config --release --features {{features}} -- --env-file {{env_file}}
+    fi
     
     # Load environment variables
     source {{env_file}}
@@ -205,6 +212,16 @@ deploy-dispute-game-factory env_file=".env":
     # Load environment variables
     source {{env_file}}
 
+    # Check if required environment variables are set.
+    if [ -z "${L2OO_ADDRESS:-}" ]; then
+        echo "Error: L2OO_ADDRESS environment variable is not set"
+        exit 1
+    fi
+    if [ -z "${PROPOSER_ADDRESSES:-}" ]; then
+        echo "Error: PROPOSER_ADDRESSES environment variable is not set"
+        exit 1
+    fi
+
     # cd into contracts directory
     cd contracts
 
@@ -217,7 +234,9 @@ deploy-dispute-game-factory env_file=".env":
     fi
     
     # Run the forge deployment script
-    L2OO_ADDRESS=$L2OO_ADDRESS forge script script/validity/OPSuccinctDGFDeployer.s.sol:OPSuccinctDFGDeployer \
+    env L2OO_ADDRESS=$L2OO_ADDRESS \
+        PROPOSER_ADDRESSES=$PROPOSER_ADDRESSES \
+        forge script script/validity/OPSuccinctDGFDeployer.s.sol:OPSuccinctDFGDeployer \
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast \

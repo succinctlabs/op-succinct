@@ -1,34 +1,30 @@
+use std::{
+    cmp::{min, Ordering},
+    env, fs,
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use alloy_consensus::{BlockHeader, Header};
 use alloy_eips::{BlockId, BlockNumberOrTag};
-use alloy_primitives::{keccak256, map::HashMap, Address, Bytes, B256, U256, U64};
+use alloy_primitives::{keccak256, Address, Bytes, B256, U256, U64};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
-use anyhow::Result;
-use anyhow::{anyhow, bail};
+use anyhow::{bail, Result};
+use futures::{stream, StreamExt};
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
-use kona_protocol::calculate_tx_l1_cost_fjord;
 use kona_protocol::L2BlockInfo;
 use kona_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_consensus::OpBlock;
-use op_alloy_network::{
-    primitives::{BlockTransactions, HeaderResponse},
-    BlockResponse, Network, Optimism,
-};
-use op_alloy_rpc_types::OpTransactionReceipt;
+use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network, Optimism};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::path::PathBuf;
-use std::{
-    cmp::{min, Ordering},
-    env, fs,
-    path::Path,
-    str::FromStr,
-    sync::Arc,
-};
 
 use crate::L2Output;
 
@@ -105,8 +101,10 @@ impl OPSuccinctDataFetcher {
     pub fn new() -> Self {
         let rpc_config = get_rpcs();
 
-        let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
-        let l2_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l2_rpc.clone()));
+        let l1_provider =
+            Arc::new(ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone()));
+        let l2_provider =
+            Arc::new(ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()));
 
         OPSuccinctDataFetcher {
             rpc_config,
@@ -121,11 +119,19 @@ impl OPSuccinctDataFetcher {
     pub async fn new_with_rollup_config() -> Result<Self> {
         let rpc_config = get_rpcs();
 
-        let l1_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l1_rpc.clone()));
-        let l2_provider = Arc::new(ProviderBuilder::default().on_http(rpc_config.l2_rpc.clone()));
+        let l1_provider =
+            Arc::new(ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone()));
+        let l2_provider =
+            Arc::new(ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()));
 
         let (rollup_config, rollup_config_path) =
             Self::fetch_and_save_rollup_config(&rpc_config).await?;
+
+        // Add warning if the chain is pre-Holocene, as derivation is significantly slower.
+        let unix_timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        if !rollup_config.is_holocene_active(unix_timestamp) {
+            tracing::warn!("WARNING: Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
+        }
 
         Ok(OPSuccinctDataFetcher {
             rpc_config,
@@ -141,132 +147,12 @@ impl OPSuccinctDataFetcher {
     }
 
     pub async fn get_l2_head(&self) -> Result<Header> {
-        let block = self
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?;
+        let block = self.l2_provider.get_block_by_number(BlockNumberOrTag::Latest).await?;
         if let Some(block) = block {
             Ok(block.header.inner)
         } else {
             bail!("Failed to get L2 head");
         }
-    }
-
-    /// Manually calculate the L1 fee data for a range of blocks. Allows for modifying the L1 fee scalar.
-    pub async fn get_l2_fee_data_with_modified_l1_fee_scalar(
-        &self,
-        start: u64,
-        end: u64,
-        custom_l1_fee_scalar: Option<U256>,
-    ) -> Result<Vec<FeeData>> {
-        use futures::stream::{self, StreamExt};
-
-        // Fetch all tranasctions in parallel.
-        // Return a tuple of the block number and the transactions.
-        let transactions: Vec<(u64, Vec<B256>)> = stream::iter(start..=end)
-            .map(|block_number| async move {
-                let block = self.l2_provider.get_block(block_number.into()).await?;
-                if let Some(block) = block {
-                    match block.transactions {
-                        BlockTransactions::Hashes(txs) => Ok((block_number, txs)),
-                        _ => Err(anyhow::anyhow!("Unsupported transaction type")),
-                    }
-                } else {
-                    bail!("Failed to get L2 block for block {block_number}");
-                }
-            })
-            .buffered(100)
-            .collect::<Vec<Result<(u64, Vec<B256>)>>>()
-            .await
-            .into_iter()
-            .filter_map(Result::ok)
-            .collect();
-
-        // Create a map of the block number to the transactions.
-        let block_number_to_transactions: HashMap<u64, Vec<B256>> =
-            transactions.into_iter().collect();
-
-        // Fetch all of the L1 block receipts in parallel.
-        let block_receipts: Vec<(u64, Vec<OpTransactionReceipt>)> = stream::iter(start..=end)
-            .map(|block_number| async move {
-                let receipts = self
-                    .l2_provider
-                    .get_block_receipts(block_number.into())
-                    .await?;
-                if let Some(receipts) = receipts {
-                    Ok((block_number, receipts))
-                } else {
-                    bail!("Failed to get L2 receipts for block {block_number}");
-                }
-            })
-            .buffered(100)
-            .collect::<Vec<Result<(u64, Vec<OpTransactionReceipt>), anyhow::Error>>>()
-            .await
-            .into_iter()
-            .filter_map(Result::ok)
-            .collect();
-
-        // Get all the encoded transactions for each block number in parallel.
-        let block_number_to_encoded_transactions = stream::iter(block_number_to_transactions)
-            .map(|(block_number, transactions)| async move {
-                let encoded_transactions = stream::iter(transactions)
-                    .map(|tx_hash| async move {
-                        self.l2_provider
-                            .client()
-                            .request::<&[B256; 1], Bytes>("debug_getRawTransaction", &[tx_hash])
-                            .await
-                            .map_err(|e| anyhow!("Error fetching transaction: {e}"))
-                            .unwrap()
-                    })
-                    .buffered(100)
-                    .collect::<Vec<Bytes>>()
-                    .await;
-                (block_number, encoded_transactions)
-            })
-            .buffered(100)
-            .collect::<HashMap<u64, Vec<Bytes>>>()
-            .await;
-
-        // Zip the block number to encoded transactions with the block number to receipts.
-        let block_number_to_receipts_and_transactions: HashMap<
-            u64,
-            (Vec<OpTransactionReceipt>, Vec<Bytes>),
-        > = block_receipts
-            .into_iter()
-            .filter_map(|(block_number, receipts)| {
-                block_number_to_encoded_transactions
-                    .get(&block_number)
-                    .map(|transactions| (block_number, (receipts, transactions.clone())))
-            })
-            .collect();
-
-        let mut fee_data = Vec::new();
-        for (block_number, (receipts, transactions)) in block_number_to_receipts_and_transactions {
-            for (transaction, receipt) in transactions.iter().zip(receipts) {
-                let l1_fee_scalar = if let Some(custom_l1_fee_scalar) = custom_l1_fee_scalar {
-                    custom_l1_fee_scalar
-                } else {
-                    U256::from(receipt.l1_block_info.l1_base_fee_scalar.unwrap_or(0))
-                };
-                // Get the Fjord L1 cost of the transaction.
-                let l1_gas_cost = calculate_tx_l1_cost_fjord(
-                    transaction.as_ref(),
-                    U256::from(receipt.l1_block_info.l1_gas_price.unwrap_or(0)),
-                    l1_fee_scalar,
-                    U256::from(receipt.l1_block_info.l1_blob_base_fee.unwrap_or(0)),
-                    U256::from(receipt.l1_block_info.l1_blob_base_fee_scalar.unwrap_or(0)),
-                );
-
-                fee_data.push(FeeData {
-                    block_number,
-                    tx_index: receipt.inner.transaction_index.unwrap(),
-                    tx_hash: receipt.inner.transaction_hash,
-                    l1_gas_cost,
-                    tx_fee: receipt.inner.effective_gas_price * receipt.inner.gas_used as u128,
-                });
-            }
-        }
-        Ok(fee_data)
     }
 
     /// Get the fee data for a range of blocks. Extracts the l1 fee data from the receipts.
@@ -280,10 +166,8 @@ impl OPSuccinctDataFetcher {
             .map(|block_number| {
                 let l2_provider = l2_provider.clone();
                 async move {
-                    let receipt = l2_provider
-                        .get_block_receipts(block_number.into())
-                        .await
-                        .unwrap();
+                    let receipt =
+                        l2_provider.get_block_receipts(block_number.into()).await.unwrap();
                     let transactions = receipt.unwrap();
                     let block_fee_data: Vec<FeeData> = transactions
                         .iter()
@@ -311,35 +195,28 @@ impl OPSuccinctDataFetcher {
     /// Get the aggregate block statistics for a range of blocks exclusive of the start block.
     ///
     /// When proving a range in OP Succinct, we are proving the transition from the block hash
-    /// of the start block to the block hash of the end block. This means that we don't expend resources
-    /// to "prove" the start block. This is why the start block is not included in the range for which
-    /// we fetch block data.
+    /// of the start block to the block hash of the end block. This means that we don't expend
+    /// resources to "prove" the start block. This is why the start block is not included in the
+    /// range for which we fetch block data.
     pub async fn get_l2_block_data_range(&self, start: u64, end: u64) -> Result<Vec<BlockInfo>> {
         use futures::stream::{self, StreamExt};
 
         let block_data = stream::iter(start + 1..=end)
             .map(|block_number| async move {
-                let block = self
-                    .l2_provider
-                    .get_block_by_number(block_number.into())
-                    .await?
-                    .unwrap();
-                let receipts = self
-                    .l2_provider
-                    .get_block_receipts(block_number.into())
-                    .await?
-                    .unwrap();
-                let total_l1_fees: u128 = receipts
-                    .iter()
-                    .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
-                    .sum();
+                let block =
+                    self.l2_provider.get_block_by_number(block_number.into()).await?.unwrap();
+                let receipts =
+                    self.l2_provider.get_block_receipts(block_number.into()).await?.unwrap();
+                let total_l1_fees: u128 =
+                    receipts.iter().map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0)).sum();
                 let total_tx_fees: u128 = receipts
                     .iter()
                     .map(|tx| {
-                        // tx.inner.effective_gas_price * tx.inner.gas_used + tx.l1_block_info.l1_fee is the total fee for the transaction.
+                        // tx.inner.effective_gas_price * tx.inner.gas_used +
+                        // tx.l1_block_info.l1_fee is the total fee for the transaction.
                         // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128
-                            + tx.l1_block_info.l1_fee.unwrap_or(0)
+                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
+                            tx.l1_block_info.l1_fee.unwrap_or(0)
                     })
                     .sum();
 
@@ -380,14 +257,12 @@ impl OPSuccinctDataFetcher {
 
     /// Finds the L1 block at the provided timestamp.
     pub async fn find_l1_block_by_timestamp(&self, target_timestamp: u64) -> Result<(B256, u64)> {
-        self.find_block_by_timestamp(&self.l1_provider, target_timestamp)
-            .await
+        self.find_block_by_timestamp(&self.l1_provider, target_timestamp).await
     }
 
     /// Finds the L2 block at the provided timestamp.
     pub async fn find_l2_block_by_timestamp(&self, target_timestamp: u64) -> Result<(B256, u64)> {
-        self.find_block_by_timestamp(&self.l2_provider, target_timestamp)
-            .await
+        self.find_block_by_timestamp(&self.l2_provider, target_timestamp).await
     }
 
     /// Finds the block at the provided timestamp, using the provided provider.
@@ -550,12 +425,18 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch headers for a range of blocks inclusive.
     pub async fn fetch_headers_in_range(&self, start: u64, end: u64) -> Result<Vec<Header>> {
-        // Note: Original implementation was using a buffered stream, but this was causing
-        // issues with the RPC requests timing out/receiving no response for 20+ minutes.
+        let block_numbers: Vec<u64> = (start..=end).collect();
         let mut headers = Vec::new();
-        for block_number in start..=end {
-            let header = self.get_l1_header(block_number.into()).await?;
-            headers.push(header);
+
+        // Process blocks in batches of 10, but maintain original order
+        let results = stream::iter(block_numbers)
+            .map(|block_number| self.get_l1_header(block_number.into()))
+            .buffered(10)
+            .collect::<Vec<_>>()
+            .await;
+
+        for result in results {
+            headers.push(result?);
         }
 
         Ok(headers)
@@ -575,28 +456,14 @@ impl OPSuccinctDataFetcher {
         let latest_header = self.get_l1_header(checkpoint_block_hash.into()).await?;
 
         // Create a vector of futures for fetching all headers
-        let headers = self
-            .fetch_headers_in_range(start_header.number, latest_header.number)
-            .await?;
+        let headers =
+            self.fetch_headers_in_range(start_header.number, latest_header.number).await?;
 
         Ok(headers)
     }
 
-    /// Get the data directory path. Note: This path is relative to the location from which the program is run.
-    pub fn get_data_directory(
-        &self,
-        l2_chain_id: u64,
-        l2_start_block: u64,
-        l2_end_block: u64,
-    ) -> Result<String> {
-        Ok(format!(
-            "data/{}/{}-{}",
-            l2_chain_id, l2_start_block, l2_end_block
-        ))
-    }
-
     pub async fn get_l2_output_at_block(&self, block_number: u64) -> Result<OutputResponse> {
-        let block_number_hex = format!("0x{:x}", block_number);
+        let block_number_hex = format!("0x{block_number:x}");
         let l2_output_data: OutputResponse = self
             .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
@@ -614,7 +481,7 @@ impl OPSuccinctDataFetcher {
         let latest_l1_header = self.get_l1_header(BlockId::finalized()).await?;
 
         // Get the l1 origin of the l2 end block.
-        let l2_end_block_hex = format!("0x{:x}", l2_end_block);
+        let l2_end_block_hex = format!("0x{l2_end_block:x}");
         let optimism_output_data: OutputResponse = self
             .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
@@ -632,7 +499,7 @@ impl OPSuccinctDataFetcher {
 
         while low <= high {
             let mid = low + (high - low) / 2;
-            let l1_block_number_hex = format!("0x{:x}", mid);
+            let l1_block_number_hex = format!("0x{mid:x}");
             let result: SafeHeadResponse = self
                 .fetch_rpc_data_with_mode(
                     RPCMode::L2Node,
@@ -659,8 +526,8 @@ impl OPSuccinctDataFetcher {
         })
     }
 
-    /// If the safeDB is activated, use it to fetch the L1 block where the batch including the data for the end L2 block was posted.
-    /// If the safeDB is not activated:
+    /// If the safeDB is activated, use it to fetch the L1 block where the batch including the data
+    /// for the end L2 block was posted. If the safeDB is not activated:
     ///   - If `safe_db_fallback` is `true`, estimate the L1 head based on the L2 block timestamp.
     ///   - Else, return an error.
     async fn get_l1_head(&self, l2_end_block: u64, safe_db_fallback: bool) -> Result<(B256, u64)> {
@@ -717,7 +584,7 @@ impl OPSuccinctDataFetcher {
 
     /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtL1Block.
     pub async fn get_l2_safe_head_from_l1_block_number(&self, l1_block_number: u64) -> Result<u64> {
-        let l1_block_number_hex = format!("0x{:x}", l1_block_number);
+        let l1_block_number_hex = format!("0x{l1_block_number:x}");
         let result: SafeHeadResponse = self
             .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
@@ -756,7 +623,6 @@ impl OPSuccinctDataFetcher {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
-        let l2_chain_id = self.rollup_config.as_ref().unwrap().l2_chain_id;
 
         if l2_start_block >= l2_end_block {
             return Err(anyhow::anyhow!(
@@ -769,19 +635,14 @@ impl OPSuccinctDataFetcher {
         let l2_provider = self.l2_provider.clone();
 
         // Get L2 output data.
-        let l2_output_block = l2_provider
-            .get_block_by_number(l2_start_block.into())
-            .await?
-            .ok_or_else(|| {
+        let l2_output_block =
+            l2_provider.get_block_by_number(l2_start_block.into()).await?.ok_or_else(|| {
                 anyhow::anyhow!("Block not found for block number {}", l2_start_block)
             })?;
         let l2_output_state_root = l2_output_block.header.state_root;
         let agreed_l2_head_hash = l2_output_block.header.hash;
         let l2_output_storage_hash = l2_provider
-            .get_proof(
-                Address::from_str("0x4200000000000000000000000000000000000016")?,
-                Vec::new(),
-            )
+            .get_proof(Address::from_str("0x4200000000000000000000000000000000000016")?, Vec::new())
             .block_id(l2_start_block.into())
             .await?
             .storage_hash;
@@ -795,17 +656,11 @@ impl OPSuccinctDataFetcher {
         let agreed_l2_output_root = keccak256(l2_output_encoded.abi_encode());
 
         // Get L2 claim data.
-        let l2_claim_block = l2_provider
-            .get_block_by_number(l2_end_block.into())
-            .await?
-            .unwrap();
+        let l2_claim_block = l2_provider.get_block_by_number(l2_end_block.into()).await?.unwrap();
         let l2_claim_state_root = l2_claim_block.header.state_root;
         let l2_claim_hash = l2_claim_block.header.hash;
         let l2_claim_storage_hash = l2_provider
-            .get_proof(
-                Address::from_str("0x4200000000000000000000000000000000000016")?,
-                Vec::new(),
-            )
+            .get_proof(Address::from_str("0x4200000000000000000000000000000000000016")?, Vec::new())
             .block_id(l2_end_block.into())
             .await?
             .storage_hash;
@@ -823,31 +678,21 @@ impl OPSuccinctDataFetcher {
             None => {
                 let (_, l1_head_number) = self.get_l1_head(l2_end_block, safe_db_fallback).await?;
 
-                // FIXME: Investigate requirement for L1 head offset beyond batch posting block with safe head > L2 end block.
+                // FIXME: Investigate requirement for L1 head offset beyond batch posting block with
+                // safe head > L2 end block.
                 let l1_head_number = l1_head_number + 20;
-                // The new L1 header requested should not be greater than the finalized L1 header minus 10 blocks.
+                // The new L1 header requested should not be greater than the finalized L1 header
+                // minus 10 blocks.
                 let finalized_l1_header = self.get_l1_header(BlockId::finalized()).await?;
 
                 match l1_head_number > finalized_l1_header.number {
-                    true => self
-                        .get_l1_header(finalized_l1_header.number.into())
-                        .await?
-                        .hash_slow(),
+                    true => {
+                        self.get_l1_header(finalized_l1_header.number.into()).await?.hash_slow()
+                    }
                     false => self.get_l1_header(l1_head_number.into()).await?.hash_slow(),
                 }
             }
         };
-
-        // Get the workspace root, which is where the data directory is.
-        let data_directory = self.get_data_directory(l2_chain_id, l2_start_block, l2_end_block)?;
-
-        if Path::new(&data_directory).exists() {
-            fs::remove_dir_all(&data_directory)?;
-        }
-
-        // Creates the data directory if it doesn't exist, or no-ops if it does. Used to store the
-        // witness data.
-        fs::create_dir_all(&data_directory).expect("Failed to create data directory");
 
         Ok(SingleChainHost {
             l1_head: l1_head_hash,
@@ -858,30 +703,19 @@ impl OPSuccinctDataFetcher {
             l2_chain_id: None,
             // Trim the trailing slash to avoid double slashes in the URL.
             l2_node_address: Some(
-                self.rpc_config
-                    .l2_rpc
-                    .as_str()
-                    .trim_end_matches('/')
-                    .to_string(),
+                self.rpc_config.l2_rpc.as_str().trim_end_matches('/').to_string(),
             ),
             l1_node_address: Some(
-                self.rpc_config
-                    .l1_rpc
-                    .as_str()
-                    .trim_end_matches('/')
-                    .to_string(),
+                self.rpc_config.l1_rpc.as_str().trim_end_matches('/').to_string(),
             ),
             l1_beacon_address: Some(
-                self.rpc_config
-                    .l1_beacon_rpc
-                    .as_str()
-                    .trim_end_matches('/')
-                    .to_string(),
+                self.rpc_config.l1_beacon_rpc.as_str().trim_end_matches('/').to_string(),
             ),
-            data_dir: Some(data_directory.into()),
+            data_dir: None, // Use in-memory key-value store.
             native: false,
             server: true,
             rollup_config_path: self.rollup_config_path.clone(),
+            enable_experimental_witness_endpoint: false,
         })
     }
 }

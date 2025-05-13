@@ -38,7 +38,7 @@ where
     challenger_address: Address,
     l2_provider: L2Provider,
     l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
-    factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
+    factory: DisputeGameFactoryInstance<L1ProviderWithWallet<F, P>>,
     challenger_bond: U256,
 }
 
@@ -47,18 +47,19 @@ where
     F: TxFiller<Ethereum>,
     P: Provider<Ethereum> + Clone,
 {
-    /// Creates a new challenger instance with the provided L1 provider with wallet and factory contract instance.
+    /// Creates a new challenger instance with the provided L1 provider with wallet and factory
+    /// contract instance.
     pub async fn new(
         challenger_address: Address,
         l1_provider_with_wallet: L1ProviderWithWallet<F, P>,
-        factory: DisputeGameFactoryInstance<(), L1ProviderWithWallet<F, P>>,
+        factory: DisputeGameFactoryInstance<L1ProviderWithWallet<F, P>>,
     ) -> Result<Self> {
         let config = ChallengerConfig::from_env()?;
 
         Ok(Self {
             config: config.clone(),
             challenger_address,
-            l2_provider: ProviderBuilder::default().on_http(config.l2_rpc.clone()),
+            l2_provider: ProviderBuilder::default().connect_http(config.l2_rpc.clone()),
             l1_provider_with_wallet: l1_provider_with_wallet.clone(),
             factory: factory.clone(),
             challenger_bond: factory.fetch_challenger_bond(config.game_type).await?,
@@ -177,13 +178,15 @@ where
         }
     }
 
-    /// Runs the challenger in an infinite loop, periodically checking for games to challenge and resolve.
+    /// Runs the challenger in an infinite loop, periodically checking for games to challenge and
+    /// resolve.
     async fn run(&mut self) -> Result<()> {
         tracing::info!("OP Succinct Challenger running...");
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         // Each loop, check the oldest challengeable game and challenge it if it exists.
-        // Eventually, all games will be challenged (as long as the rate at which games are being created is slower than the fetch interval).
+        // Eventually, all games will be challenged (as long as the rate at which games are being
+        // created is slower than the fetch interval).
         loop {
             interval.tick().await;
 
@@ -238,7 +241,7 @@ async fn main() -> Result<()> {
 
     let l1_provider_with_wallet = ProviderBuilder::new()
         .wallet(wallet.clone())
-        .on_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
+        .connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
     let factory = DisputeGameFactory::new(
         env::var("FACTORY_ADDRESS")

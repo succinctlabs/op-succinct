@@ -8,11 +8,11 @@ use op_succinct_host_utils::{
         split_range_basic, SpanBatchRange,
     },
     fetcher::OPSuccinctDataFetcher,
-    get_proof_stdin,
-    hosts::{default::SingleChainOPSuccinctHost, OPSuccinctHost},
+    host::OPSuccinctHost,
     stats::ExecutionStats,
-    RANGE_ELF_EMBEDDED,
+    witness_generation::WitnessGenerator,
 };
+use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use sp1_sdk::{utils, ProverClient};
@@ -54,10 +54,8 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let report_path = root_dir.join(format!(
-        "execution-reports/{}/{}-{}-report.csv",
-        l2_chain_id, start, end
-    ));
+    let report_path =
+        root_dir.join(format!("execution-reports/{l2_chain_id}/{start}-{end}-report.csv"));
     // Create the parent directory if it doesn't exist
     if let Some(parent) = report_path.parent() {
         if !parent.exists() {
@@ -76,8 +74,8 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
         let host_args = host_args.clone();
         let host = host.clone();
         tokio::spawn(async move {
-            let oracle = host.run(&host_args).await.unwrap();
-            get_proof_stdin(oracle).unwrap()
+            let witness_data = host.run(&host_args).await.unwrap();
+            host.witness_generator().get_sp1_stdin(witness_data).unwrap()
         })
     });
 
@@ -91,7 +89,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     // Execute the program for each block range in parallel.
     execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(RANGE_ELF_EMBEDDED, sp1_stdin).run();
+        let result = prover.execute(get_range_elf_embedded(), sp1_stdin).run();
 
         if let Some(err) = result.as_ref().err() {
             log::warn!(
@@ -212,15 +210,11 @@ async fn main() -> Result<()> {
         split_range_basic(l2_start_block, l2_end_block, args.batch_size)
     };
 
-    info!(
-        "The span batch ranges which will be executed: {:?}",
-        split_ranges
-    );
+    info!("The span batch ranges which will be executed: {split_ranges:?}");
 
     // Get the host CLIs in order, in parallel.
-    let host = Arc::new(SingleChainOPSuccinctHost {
-        fetcher: Arc::new(data_fetcher),
-    });
+    let host = initialize_host(Arc::new(data_fetcher));
+
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             host.fetch(range.start, range.end, None, Some(args.safe_db_fallback))
@@ -245,8 +239,7 @@ async fn main() -> Result<()> {
     let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
     let root_dir = PathBuf::from(cargo_metadata.workspace_root);
     let report_path = root_dir.join(format!(
-        "execution-reports/{}/{}-{}-report.csv",
-        l2_chain_id, l2_start_block, l2_end_block
+        "execution-reports/{l2_chain_id}/{l2_start_block}-{l2_end_block}-report.csv"
     ));
 
     // Read the execution stats from the CSV file and aggregate them to output to the user.

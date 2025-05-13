@@ -1,11 +1,12 @@
-use metrics::{describe_gauge, gauge};
-use metrics_exporter_prometheus::PrometheusBuilder;
-use metrics_process::Collector;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     thread,
     time::Duration,
 };
+
+use metrics::{describe_gauge, gauge};
+use metrics_exporter_prometheus::PrometheusBuilder;
+use metrics_process::Collector;
 use strum::{EnumMessage, IntoEnumIterator};
 use tracing::warn;
 
@@ -48,10 +49,7 @@ pub fn init_metrics(port: &u16) {
     ));
 
     if let Err(e) = builder.install() {
-        warn!(
-            "Failed to start metrics server: {}. Will continue without metrics.",
-            e
-        );
+        warn!("Failed to start metrics server: {}. Will continue without metrics.", e);
     }
 
     // Spawn a thread to collect process metrics.

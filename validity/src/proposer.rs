@@ -1,38 +1,48 @@
-use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
-};
-use alloy_eips::BlockId;
+use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
+
+use alloy_consensus::{TxEnvelope, TypedTransaction};
+use alloy_eips::{BlockId, Decodable2718};
+use alloy_network::{EthereumWallet, TransactionBuilder, TransactionBuilder4844};
 use alloy_primitives::{Address, Bytes, B256, U256};
-use alloy_provider::{network::ReceiptResponse, Network, Provider};
+use alloy_provider::{
+    network::ReceiptResponse, Network, PendingTransactionBuilder, Provider, ProviderBuilder,
+    Web3Signer,
+};
 use alloy_sol_types::SolValue;
-use anyhow::anyhow;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
+use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, hosts::OPSuccinctHost, metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
-    AGGREGATION_ELF, RANGE_ELF_EMBEDDED,
 };
+use op_succinct_proof_utils::get_range_elf_embedded;
+use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
-use std::collections::HashMap;
-use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
+use url::Url;
+
+use crate::{
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
+    ContractConfig, OPSuccinctProofRequester, ProgramConfig, ProposerSigner, RequesterConfig,
+    ValidityGauge,
+};
 
 /// Configuration for the driver.
 pub struct DriverConfig {
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
-    pub loop_interval_seconds: u64,
+    pub proposer_signer: ProposerSigner,
+    pub loop_interval: u64,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
 pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
@@ -40,7 +50,8 @@ pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinct
 pub struct Proposer<P, N, H: OPSuccinctHost>
 where
     P: Provider<N> + 'static,
-    N: Network,
+    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    N::TransactionRequest: TransactionBuilder4844,
 {
     pub driver_config: DriverConfig,
     contract_config: ContractConfig<P, N>,
@@ -58,22 +69,25 @@ const TIMEOUT: u64 = 120;
 impl<P, N, H: OPSuccinctHost> Proposer<P, N, H>
 where
     P: Provider<N> + 'static + Clone,
-    N: Network,
+    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    N::TransactionRequest: TransactionBuilder4844,
 {
     pub async fn new(
         provider: P,
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         requester_config: RequesterConfig,
-        loop_interval_seconds: Option<u64>,
+        proposer_signer: ProposerSigner,
+        loop_interval: u64,
         host: Arc<H>,
     ) -> Result<Self> {
-        // This check prevents users from running multiple proposers for the same chain at the same time.
+        // This check prevents users from running multiple proposers for the same chain at the same
+        // time.
         let is_locked = db_client
             .is_chain_locked(
                 requester_config.l1_chain_id,
                 requester_config.l2_chain_id,
-                Duration::from_secs(DEFAULT_LOOP_INTERVAL),
+                Duration::from_secs(loop_interval),
             )
             .await?;
         if is_locked {
@@ -87,8 +101,19 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        let network_prover = Arc::new(ProverClient::builder().network().build());
-        let (range_pk, range_vk) = network_prover.setup(RANGE_ELF_EMBEDDED);
+        // Set a default network private key to avoid an error in mock mode.
+        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
+            tracing::warn!(
+                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+            );
+            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+        });
+
+        let network_prover =
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+
+        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
+
         let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
         let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
@@ -126,17 +151,16 @@ where
         let l2oo_contract =
             OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider.clone());
 
-        let dgf_contract = DisputeGameFactoryContract::new(requester_config.dgf_address, provider);
-
-        // 1 minute default loop interval.
-        const DEFAULT_LOOP_INTERVAL: u64 = 30;
+        let dgf_contract =
+            DisputeGameFactoryContract::new(requester_config.dgf_address, provider.clone());
 
         let proposer = Proposer {
             driver_config: DriverConfig {
                 network_prover,
                 fetcher,
                 driver_db_client: db_client,
-                loop_interval_seconds: loop_interval_seconds.unwrap_or(DEFAULT_LOOP_INTERVAL),
+                proposer_signer,
+                loop_interval,
             },
             contract_config: ContractConfig {
                 l2oo_address: requester_config.l2oo_address,
@@ -162,15 +186,27 @@ where
         )
         .await?;
 
-        let finalized_block_number = self
-            .driver_config
-            .fetcher
-            .get_l2_header(BlockId::finalized())
+        let finalized_block_number = match self
+            .proof_requester
+            .host
+            .get_finalized_l2_block_number(
+                self.driver_config.fetcher.as_ref(),
+                latest_proposed_block_number,
+            )
             .await?
-            .number;
+        {
+            Some(block_number) => {
+                tracing::debug!("Found finalized block number: {}", block_number);
+                block_number
+            }
+            None => {
+                tracing::debug!("No new finalized block number found since last proposed block. No new range proof requests will be added.");
+                return Ok(());
+            }
+        };
 
-        // Get all active (non-failed) requests with the same commitment config and start block >= latest_proposed_block_number.
-        // These requests are non-overlapping.
+        // Get all active (non-failed) requests with the same commitment config and start block >=
+        // latest_proposed_block_number. These requests are non-overlapping.
         let mut requests = self
             .driver_config
             .driver_db_client
@@ -204,10 +240,7 @@ where
         );
 
         if !ranges_to_prove.is_empty() {
-            info!(
-                "Inserting {} range proof requests into the database.",
-                ranges_to_prove.len()
-            );
+            info!("Inserting {} range proof requests into the database.", ranges_to_prove.len());
 
             // Create range proof requests for the ranges to prove in parallel
             let new_range_requests = stream::iter(ranges_to_prove)
@@ -233,10 +266,7 @@ where
                 .await?;
 
             // Insert the new range proof requests into the database.
-            self.driver_config
-                .driver_db_client
-                .insert_requests(&new_range_requests)
-                .await?;
+            self.driver_config.driver_db_client.insert_requests(&new_range_requests).await?;
         }
 
         Ok(())
@@ -257,18 +287,10 @@ where
             )
             .await?;
 
-        debug!(
-            "Getting proof statuses for {} requests.",
-            prove_requests.len()
-        );
-
-        // Get the proof status of all of the requests in parallel.
-        futures_util::future::join_all(
-            prove_requests
-                .into_iter()
-                .map(|request| async move { self.process_proof_request_status(request).await }),
-        )
-        .await;
+        // Get the proof status of all of the requests.
+        for request in prove_requests {
+            self.process_proof_request_status(request).await?;
+        }
 
         Ok(())
     }
@@ -311,7 +333,8 @@ where
                 return Ok(());
             }
 
-            // If the proof request has been fulfilled, update the request to status Complete and add the proof bytes to the database.
+            // If the proof request has been fulfilled, update the request to status Complete and
+            // add the proof bytes to the database.
             if status.fulfillment_status() == FulfillmentStatus::Fulfilled {
                 let proof: SP1ProofWithPublicValues = proof.unwrap();
 
@@ -329,10 +352,7 @@ where
                     .update_proof_to_complete(request.id, &proof_bytes)
                     .await?;
                 // Update the prove_duration based on the current time and the proof_request_time.
-                self.driver_config
-                    .driver_db_client
-                    .update_prove_duration(request.id)
-                    .await?;
+                self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
             } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable {
                 self.proof_requester
                     .handle_failed_request(request, status.execution_status())
@@ -347,22 +367,24 @@ where
         Ok(())
     }
 
-    /// Create aggregation proofs based on the completed range proofs. The range proofs must be contiguous and have
-    /// the same range vkey commitment. Assumes that the range proof retry logic guarantees that there is not
-    /// two potential contiguous chains of range proofs.
+    /// Create aggregation proofs based on the completed range proofs. The range proofs must be
+    /// contiguous and have the same range vkey commitment. Assumes that the range proof retry
+    /// logic guarantees that there is not two potential contiguous chains of range proofs.
     ///
-    /// Only creates an Aggregation proof if there's not an Aggregation proof in progress with the same start block.
+    /// Only creates an Aggregation proof if there's not an Aggregation proof in progress with the
+    /// same start block.
     #[tracing::instrument(name = "proposer.create_aggregation_proofs", skip(self))]
     pub async fn create_aggregation_proofs(&self) -> Result<()> {
-        // Check if there's an Aggregation proof with the same start block AND range verification key commitment AND aggregation vkey.
-        // If so, return.
+        // Check if there's an Aggregation proof with the same start block AND range verification
+        // key commitment AND aggregation vkey. If so, return.
         let latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
             self.driver_config.fetcher.as_ref(),
         )
         .await? as i64;
 
-        // Get all active Aggregation proofs with the same start block, range vkey commitment, and aggregation vkey.
+        // Get all active Aggregation proofs with the same start block, range vkey commitment, and
+        // aggregation vkey.
         let active_agg_proofs_count = self
             .driver_config
             .driver_db_client
@@ -379,8 +401,8 @@ where
             return Ok(());
         }
 
-        // Get the completed range proofs with a start block greater than the latest proposed block number.
-        // These blocks are sorted.
+        // Get the completed range proofs with a start block greater than the latest proposed block
+        // number. These blocks are sorted.
         let mut completed_range_proofs = self
             .driver_config
             .driver_db_client
@@ -396,37 +418,32 @@ where
         completed_range_proofs.sort_by_key(|(start_block, _)| *start_block);
 
         // Get the highest block number of the completed range proofs.
-        let highest_proven_contiguous_block_number =
-            match self.get_highest_proven_contiguous_block(completed_range_proofs)? {
-                Some(block) => block,
-                None => return Ok(()), // No completed range proofs contiguous to the latest proposed block number, so no need to create an aggregation proof.
-            };
+        let highest_proven_contiguous_block_number = match self
+            .get_highest_proven_contiguous_block(completed_range_proofs)?
+        {
+            Some(block) => block,
+            None => return Ok(()), /* No completed range proofs contiguous to the latest proposed
+                                    * block number, so no need to create an aggregation proof. */
+        };
 
         // Get the submission interval from the contract.
-        let contract_submission_interval: u64 = self
-            .contract_config
-            .l2oo_contract
-            .submissionInterval()
-            .call()
-            .await?
-            .submissionInterval
-            .try_into()
-            .unwrap();
+        let contract_submission_interval: u64 =
+            self.contract_config.l2oo_contract.submissionInterval().call().await?.to::<u64>();
 
-        // Use the submission interval from the contract if it's greater than the one in the proposer config.
+        // Use the submission interval from the contract if it's greater than the one in the
+        // proposer config.
         let submission_interval =
             contract_submission_interval.max(self.requester_config.submission_interval) as i64;
 
-        debug!(
-            "Submission interval for aggregation proof: {}.",
-            submission_interval
-        );
+        debug!("Submission interval for aggregation proof: {}.", submission_interval);
 
-        // If the highest proven contiguous block number is greater than the latest proposed block number plus the submission interval, create an aggregation proof.
-        if (highest_proven_contiguous_block_number - latest_proposed_block_number)
-            >= submission_interval
+        // If the highest proven contiguous block number is greater than the latest proposed block
+        // number plus the submission interval, create an aggregation proof.
+        if (highest_proven_contiguous_block_number - latest_proposed_block_number) >=
+            submission_interval
         {
-            // If an aggregation request with the same start block and end block and commitment config exists, there's no need to checkpoint the L1 block hash.
+            // If an aggregation request with the same start block and end block and commitment
+            // config exists, there's no need to checkpoint the L1 block hash.
             // Use the existing L1 block hash from the existing request.
             let existing_request = self
                 .driver_config
@@ -440,8 +457,10 @@ where
                 )
                 .await?;
 
-            // If there's an existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash, use the existing L1 block hash and number. This is
-            // likely caused by an error generating the aggregation proof, but there's no need to checkpoint the L1 block hash again.
+            // If there's an existing aggregation request with the same start block, end block, and
+            // commitment config that has a checkpointed block hash, use the existing L1 block hash
+            // and number. This is likely caused by an error generating the aggregation
+            // proof, but there's no need to checkpoint the L1 block hash again.
             let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(
                 existing_request,
             ) = existing_request
@@ -450,27 +469,22 @@ where
                 (B256::from_slice(&existing_request.0), existing_request.1)
             } else {
                 // Checkpoint an L1 block hash that will be used to create the aggregation proof.
-                let latest_header = self
-                    .driver_config
-                    .fetcher
-                    .get_l1_header(BlockId::latest())
-                    .await?;
+                let latest_header =
+                    self.driver_config.fetcher.get_l1_header(BlockId::latest()).await?;
 
                 // Checkpoint the L1 block hash.
-                let receipt = self
+                let transaction_request = self
                     .contract_config
                     .l2oo_contract
                     .checkpointBlockHash(U256::from(latest_header.number))
-                    .send()
-                    .await?
-                    .with_required_confirmations(NUM_CONFIRMATIONS)
-                    .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-                    .get_receipt()
-                    .await?;
+                    .into_transaction_request();
+
+                let receipt =
+                    self.sign_transaction_request(transaction_request).await?.get_receipt().await?;
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
-                    tracing::warn!("Transaction reverted: {:?}", receipt);
+                    return Err(anyhow!("Checkpoint block transaction reverted: {:?}", receipt));
                 }
 
                 tracing::info!("Checkpointed L1 block number: {:?}.", latest_header.number);
@@ -478,15 +492,12 @@ where
                 (latest_header.hash_slow(), latest_header.number as i64)
             };
 
-            // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
+            // Create an aggregation proof request to cover the range with the checkpointed L1 block
+            // hash.
             self.driver_config
                 .driver_db_client
                 .insert_request(&OPSuccinctRequest::new_agg_request(
-                    if self.requester_config.mock {
-                        RequestMode::Mock
-                    } else {
-                        RequestMode::Real
-                    },
+                    if self.requester_config.mock { RequestMode::Mock } else { RequestMode::Real },
                     latest_proposed_block_number,
                     highest_proven_contiguous_block_number,
                     self.program_config.commitments.range_vkey_commitment,
@@ -504,10 +515,13 @@ where
         Ok(())
     }
 
-    /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status, return.
-    /// If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or Execute status, return.
+    /// Request all unrequested proofs up to MAX_CONCURRENT_PROOF_REQUESTS. If there are already
+    /// MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status,
+    /// return. If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration or
+    /// Execute status, return.
     ///
-    /// Note: In the future, submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per loop.
+    /// Note: In the future, submit up to MAX_CONCURRENT_PROOF_REQUESTS at a time. Don't do one per
+    /// loop.
     #[tracing::instrument(name = "proposer.request_queued_proofs", skip(self))]
     pub async fn request_queued_proofs(&self) -> Result<()> {
         let commitments = self.program_config.commitments.clone();
@@ -528,12 +542,7 @@ where
         let execution_count = self
             .driver_config
             .driver_db_client
-            .fetch_request_count(
-                RequestStatus::Execution,
-                &commitments,
-                l1_chain_id,
-                l2_chain_id,
-            )
+            .fetch_request_count(RequestStatus::Execution, &commitments, l1_chain_id, l2_chain_id)
             .await?;
 
         let prove_count = self
@@ -542,15 +551,17 @@ where
             .fetch_request_count(RequestStatus::Prove, &commitments, l1_chain_id, l2_chain_id)
             .await?;
 
-        // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status, return.
-        if witness_gen_count + execution_count + prove_count
-            >= self.requester_config.max_concurrent_proof_requests as i64
+        // If there are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute,
+        // and Prove status, return.
+        if witness_gen_count + execution_count + prove_count >=
+            self.requester_config.max_concurrent_proof_requests as i64
         {
             debug!("There are already MAX_CONCURRENT_PROOF_REQUESTS proofs in WitnessGeneration, Execute, and Prove status.");
             return Ok(());
         }
 
-        // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status, return.
+        // If there are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status,
+        // return.
         if witness_gen_count >= self.requester_config.max_concurrent_witness_gen as i64 {
             debug!(
                 "There are already MAX_CONCURRENT_WITNESS_GEN proofs in WitnessGeneration status."
@@ -572,10 +583,7 @@ where
                 tokio::spawn(
                     async move { proof_requester.make_proof_request(request_clone).await },
                 );
-            self.tasks
-                .lock()
-                .await
-                .insert(request.id, (handle, request));
+            self.tasks.lock().await.insert(request.id, (handle, request));
         }
 
         Ok(())
@@ -583,8 +591,9 @@ where
 
     /// Get the next unrequested proof from the database.
     ///
-    /// If there is an Aggregation proof with the same start block, range vkey commitment, and aggregation vkey, return that.
-    /// Otherwise, return a range proof with the lowest start block.
+    /// If there is an Aggregation proof with the same start block, range vkey commitment, and
+    /// aggregation vkey, return that. Otherwise, return a range proof with the lowest start
+    /// block.
     async fn get_next_unrequested_proof(&self) -> Result<Option<OPSuccinctRequest>> {
         let latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
@@ -634,7 +643,8 @@ where
         )
         .await?;
 
-        // See if there is an aggregation proof that is complete for this start block. NOTE: There should only be one "pending" aggregation proof at a time for a specific start block.
+        // See if there is an aggregation proof that is complete for this start block. NOTE: There
+        // should only be one "pending" aggregation proof at a time for a specific start block.
         let completed_agg_proof = self
             .driver_config
             .driver_db_client
@@ -661,10 +671,7 @@ where
             }
         };
 
-        info!(
-            "Relayed aggregation proof. Transaction hash: {:?}",
-            transaction_hash
-        );
+        info!("Relayed aggregation proof. Transaction hash: {:?}", transaction_hash);
 
         // Update the request to status RELAYED.
         self.driver_config
@@ -681,7 +688,8 @@ where
 
     /// Submit the transaction to create a validity dispute game.
     ///
-    /// If the DGF address is set, use it to create a new validity dispute game that will resolve with the proof. Otherwise, propose the L2 output.
+    /// If the DGF address is set, use it to create a new validity dispute game that will resolve
+    /// with the proof. Otherwise, propose the L2 output.
     async fn relay_aggregation_proof(
         &self,
         completed_agg_proof: &OPSuccinctRequest,
@@ -693,9 +701,9 @@ where
             .get_l2_output_at_block(completed_agg_proof.end_block as u64)
             .await?;
 
-        // If the DisputeGameFactory address is set, use it to create a new validity dispute game that will resolve with the proof.
-        // Note: In the DGF setting, the proof immediately resolves the game.
-        // Otherwise, propose the L2 output.
+        // If the DisputeGameFactory address is set, use it to create a new validity dispute game
+        // that will resolve with the proof. Note: In the DGF setting, the proof immediately
+        // resolves the game. Otherwise, propose the L2 output.
         let receipt = if self.contract_config.dgf_address != Address::ZERO {
             // Validity game type: https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/src/dispute/lib/Types.sol#L64.
             const OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE: u32 = 6;
@@ -706,8 +714,7 @@ where
                 .dgf_contract
                 .initBonds(OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE)
                 .call()
-                .await?
-                ._0;
+                .await?;
 
             let extra_data = <(U256, U256, Address, Bytes)>::abi_encode_packed(&(
                 U256::from(completed_agg_proof.end_block as u64),
@@ -716,7 +723,8 @@ where
                 completed_agg_proof.proof.as_ref().unwrap().clone().into(),
             ));
 
-            self.contract_config
+            let transaction_request = self
+                .contract_config
                 .dgf_contract
                 .create(
                     OP_SUCCINCT_VALIDITY_DISPUTE_GAME_TYPE,
@@ -724,7 +732,9 @@ where
                     extra_data.into(),
                 )
                 .value(init_bond)
-                .send()
+                .into_transaction_request();
+
+            self.sign_transaction_request(transaction_request)
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
                 .with_timeout(Some(Duration::from_secs(TIMEOUT)))
@@ -732,7 +742,8 @@ where
                 .await?
         } else {
             // Propose the L2 output.
-            self.contract_config
+            let transaction_request = self
+                .contract_config
                 .l2oo_contract
                 .proposeL2Output(
                     output.output_root,
@@ -741,7 +752,9 @@ where
                     completed_agg_proof.proof.clone().unwrap().into(),
                     self.requester_config.prover_address,
                 )
-                .send()
+                .into_transaction_request();
+
+            self.sign_transaction_request(transaction_request)
                 .await?
                 .with_required_confirmations(NUM_CONFIRMATIONS)
                 .with_timeout(Some(Duration::from_secs(TIMEOUT)))
@@ -760,27 +773,12 @@ where
     /// Validate the requester config matches the contract.
     pub async fn validate_contract_config(&self) -> Result<()> {
         // Validate the requester config matches the contract.
-        let contract_rollup_config_hash = self
-            .contract_config
-            .l2oo_contract
-            .rollupConfigHash()
-            .call()
-            .await?
-            .rollupConfigHash;
-        let contract_agg_vkey_hash = self
-            .contract_config
-            .l2oo_contract
-            .aggregationVkey()
-            .call()
-            .await?
-            .aggregationVkey;
-        let contract_range_vkey_commitment = self
-            .contract_config
-            .l2oo_contract
-            .rangeVkeyCommitment()
-            .call()
-            .await?
-            .rangeVkeyCommitment;
+        let contract_rollup_config_hash =
+            self.contract_config.l2oo_contract.rollupConfigHash().call().await?;
+        let contract_agg_vkey_hash =
+            self.contract_config.l2oo_contract.aggregationVkey().call().await?;
+        let contract_range_vkey_commitment =
+            self.contract_config.l2oo_contract.rangeVkeyCommitment().call().await?;
 
         let rollup_config_hash_match =
             contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;
@@ -827,7 +825,8 @@ where
         Ok(())
     }
 
-    /// Set orphaned tasks to status FAILED. If a task is in the database in status Execution or WitnessGeneration but not in the tasks map, set it to status FAILED.
+    /// Set orphaned tasks to status FAILED. If a task is in the database in status Execution or
+    /// WitnessGeneration but not in the tasks map, set it to status FAILED.
     async fn set_orphaned_tasks_to_failed(&self) -> Result<()> {
         let witnessgen_requests = self
             .driver_config
@@ -853,7 +852,8 @@ where
 
         let requests = [witnessgen_requests, execution_requests].concat();
 
-        // If a task is in the database in status Execution or WitnessGeneration but not in the tasks map, set it to status FAILED.
+        // If a task is in the database in status Execution or WitnessGeneration but not in the
+        // tasks map, set it to status FAILED.
         for request in requests {
             if !self.tasks.lock().await.contains_key(&request.id) {
                 tracing::warn!(
@@ -947,7 +947,8 @@ where
         Ok(())
     }
 
-    /// Initialize the proposer by cleaning up stale requests and creating new range proof requests for the proposer with the given chain ID.
+    /// Initialize the proposer by cleaning up stale requests and creating new range proof requests
+    /// for the proposer with the given chain ID.
     ///
     /// This function performs several key tasks:
     /// 1. Validates that the proposer's config matches the contract
@@ -965,7 +966,8 @@ where
             .await
             .context("Failed to validate the requester config matches the contract.")?;
 
-        // Delete all requests for the same chain ID that are of status UNREQUESTED, EXECUTION or WITNESS_GENERATION as they're unrecoverable.
+        // Delete all requests for the same chain ID that are of status UNREQUESTED, EXECUTION or
+        // WITNESS_GENERATION as they're unrecoverable.
         self.driver_config
             .driver_db_client
             .delete_all_requests_with_statuses(
@@ -979,7 +981,8 @@ where
             )
             .await?;
 
-        // Cancel all requests in PROVE state for the same chain id's that have a different commitment config.
+        // Cancel all requests in PROVE state for the same chain id's that have a different
+        // commitment config.
         self.driver_config
             .driver_db_client
             .cancel_prove_requests_with_different_commitment_config(
@@ -1090,7 +1093,6 @@ where
             .submissionInterval()
             .call()
             .await?
-            .submissionInterval
             .try_into()
             .unwrap();
 
@@ -1104,7 +1106,8 @@ where
 
     #[tracing::instrument(name = "proposer.run", skip(self))]
     pub async fn run(&self) -> Result<()> {
-        // Handle the case where the proposer is being re-started and the proposer state needs to be updated.
+        // Handle the case where the proposer is being re-started and the proposer state needs to be
+        // updated.
         self.initialize_proposer().await?;
 
         // Initialize the metrics gauges.
@@ -1134,14 +1137,11 @@ where
             match self.run_loop_iteration().await {
                 Ok(_) => {
                     // Normal sleep between iterations
-                    tokio::time::sleep(Duration::from_secs(
-                        self.driver_config.loop_interval_seconds,
-                    ))
-                    .await;
+                    tokio::time::sleep(Duration::from_secs(self.driver_config.loop_interval)).await;
                 }
                 Err(e) => {
                     // Log the error
-                    tracing::warn!("Error in proposer loop: {:?}", e);
+                    tracing::error!("Error in proposer loop: {:?}", e);
                     // Update the error gauge
                     ValidityGauge::TotalErrorCount.increment(1.0);
                     // Pause for 10 seconds before restarting
@@ -1172,8 +1172,8 @@ where
         // Add new range requests to the database.
         self.add_new_ranges().await?;
 
-        // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash associated with the aggregation proof
-        // in advance.
+        // Create aggregation proofs based on the completed range proofs. Checkpoints the block hash
+        // associated with the aggregation proof in advance.
         // self.create_aggregation_proofs().await?;
 
         // Request all unrequested proofs from the prover network.
@@ -1185,17 +1185,14 @@ where
         // Update the chain lock.
         self.proof_requester
             .db_client
-            .update_chain_lock(
-                self.requester_config.l1_chain_id,
-                self.requester_config.l2_chain_id,
-            )
+            .update_chain_lock(self.requester_config.l1_chain_id, self.requester_config.l2_chain_id)
             .await?;
 
         Ok(())
     }
 
-    /// Get the highest block number at the end of the largest contiguous range of completed range proofs.
-    /// Returns None if there are no completed range proofs.
+    /// Get the highest block number at the end of the largest contiguous range of completed range
+    /// proofs. Returns None if there are no completed range proofs.
     fn get_highest_proven_contiguous_block(
         &self,
         completed_range_proofs: Vec<(i64, i64)>,
@@ -1214,5 +1211,144 @@ where
         }
 
         Ok(Some(current_end))
+    }
+
+    /// Sign a transaction request.
+    async fn sign_transaction_request(
+        &self,
+        transaction_request: N::TransactionRequest,
+    ) -> Result<PendingTransactionBuilder<N>> {
+        sign_transaction_request_inner(
+            self.driver_config.proposer_signer.clone(),
+            self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
+            transaction_request,
+        )
+        .await
+    }
+}
+
+/// Sign a transaction request using the configured `proposer_signer`.
+async fn sign_transaction_request_inner<N>(
+    proposer_signer: ProposerSigner,
+    l1_rpc: Url,
+    mut transaction_request: N::TransactionRequest,
+) -> Result<PendingTransactionBuilder<N>>
+where
+    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
+    N::TransactionRequest: TransactionBuilder4844,
+{
+    match proposer_signer {
+        ProposerSigner::Web3Signer(signer_url, signer_address) => {
+            // Set the from address to the signer address.
+            transaction_request.set_from(signer_address);
+
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let provider = ProviderBuilder::new().network::<N>().connect_http(l1_rpc);
+            let filled_tx = provider.fill(transaction_request).await?;
+
+            // Sign the transaction request using the Web3Signer.
+            let web3_provider = ProviderBuilder::new().network::<N>().connect_http(signer_url);
+            let signer = Web3Signer::new(web3_provider.clone(), signer_address);
+
+            let tx = filled_tx.as_builder().unwrap().clone();
+
+            // NOTE: This is a hack because there is not a "data" field on the TransactionRequest.
+            // `eth_signTransaction` expects a "data" field with the calldata.
+            // TODO: Once alloy fixes this, we can remove this wrapper.
+            let wrapper = TransactionRequestWrapper::<N>::new(tx);
+
+            let raw: Bytes =
+                signer.provider().client().request("eth_signTransaction", (wrapper,)).await?;
+
+            let tx_envelope = N::TxEnvelope::decode_2718(&mut raw.as_ref()).unwrap();
+
+            Ok(provider.send_tx_envelope(tx_envelope).await?)
+        }
+        ProposerSigner::LocalSigner(private_key) => {
+            let provider = ProviderBuilder::new()
+                .network::<N>()
+                .wallet(EthereumWallet::new(private_key.clone()))
+                .connect_http(l1_rpc);
+
+            // Set the from address to the Ethereum wallet address.
+            transaction_request.set_from(private_key.address());
+
+            // Fill the transaction request with all of the relevant gas and nonce information.
+            let filled_tx = provider.fill(transaction_request).await?;
+
+            Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
+        }
+    }
+}
+
+/// A wrapper around `TransactionRequest` that adds a data field as bytes.
+///
+/// This is needed because:
+/// 1. The `TransactionRequest` trait and `TransactionBuilder` trait don't include methods to set
+///    the "data" field directly (only `input()` and `set_input()` are available).
+/// 2. Web3Signer's `eth_signTransaction` method specifically expects a "data" field in the JSON-RPC
+///    request, not the "input" field.
+/// 3. While the alloy-rpc-types-eth crate has methods like `normalize_data()` and `set_both()` to
+///    work with both fields, these are only implemented on the specific Ethereum transaction type
+///    struct and aren't accessible through the generic `N::TransactionRequest` interface we're
+///    using here.
+///
+/// TODO(fakedev9999): Once alloy fixes this, we can remove this wrapper.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionRequestWrapper<N: Network> {
+    /// The underlying transaction request
+    #[serde(flatten)]
+    pub tx: N::TransactionRequest,
+    /// The transaction data as bytes
+    pub data: Option<Bytes>,
+}
+
+impl<N: Network> TransactionRequestWrapper<N> {
+    /// Create a new wrapper around a transaction request
+    pub fn new(tx: N::TransactionRequest) -> Self {
+        let data = tx.input().cloned();
+        Self { tx, data }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_network::Ethereum;
+    use alloy_primitives::address;
+
+    use super::*;
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_sign_transaction_request() {
+        let proposer_signer = ProposerSigner::Web3Signer(
+            "http://localhost:9000".parse().unwrap(),
+            "0x9b3F173823E944d183D532ed236Ee3B83Ef15E1d".parse().unwrap(),
+        );
+
+        let provider = ProviderBuilder::new()
+            .network::<Ethereum>()
+            .connect_http("http://localhost:8545".parse().unwrap());
+
+        let l2oo_contract = OPSuccinctL2OOContract::new(
+            address!("0xDafA1019F21AB8B27b319B1085f93673F02A69B7"),
+            provider.clone(),
+        );
+
+        let latest_header = provider.get_block(BlockId::latest()).await.unwrap().unwrap();
+
+        let transaction_request = l2oo_contract
+            .checkpointBlockHash(U256::from(latest_header.header.number))
+            .into_transaction_request();
+
+        let signed_tx = sign_transaction_request_inner::<Ethereum>(
+            proposer_signer,
+            "http://localhost:8545".parse().unwrap(),
+            transaction_request,
+        )
+        .await
+        .unwrap();
+
+        println!("Signed transaction receipt: {:?}", signed_tx.get_receipt().await.unwrap());
     }
 }

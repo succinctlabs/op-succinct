@@ -14,8 +14,8 @@ where
 {
     pub l2oo_address: Address,
     pub dgf_address: Address,
-    pub l2oo_contract: OPSuccinctL2OOContract<(), P, N>,
-    pub dgf_contract: DisputeGameFactoryContract<(), P, N>,
+    pub l2oo_contract: OPSuccinctL2OOContract<P, N>,
+    pub dgf_contract: DisputeGameFactoryContract<P, N>,
 }
 
 #[derive(Debug, Clone)]
@@ -38,8 +38,9 @@ pub struct ProgramConfig {
 pub struct RequesterConfig {
     pub l1_chain_id: i64,
     pub l2_chain_id: i64,
-    // The address being committed to when generating the aggregation proof to prevent front-running attacks.
-    // This should be the same address that is being used to send `proposeL2Output` transactions.
+    // The address being committed to when generating the aggregation proof to prevent
+    // front-running attacks. This should be the same address that is being used to send
+    // `proposeL2Output` transactions.
     pub prover_address: Address,
     pub l2oo_address: Address,
     pub dgf_address: Address,
@@ -51,7 +52,8 @@ pub struct RequesterConfig {
     pub agg_proof_strategy: FulfillmentStrategy,
     pub agg_proof_mode: SP1ProofMode,
     pub mock: bool,
-    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
+    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
+    /// activated for op-node.
     pub safe_db_fallback: bool,
     /// Address of the gRPC server, it will start a gRPC server if it is not empty.
     /// The gRPC server will listen on this address and port.

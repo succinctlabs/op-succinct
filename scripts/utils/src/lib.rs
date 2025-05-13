@@ -1,5 +1,4 @@
 use clap::Parser;
-use op_succinct_host_utils::DAConfig;
 use std::path::PathBuf;
 
 /// The arguments for the host executable.
@@ -29,7 +28,8 @@ pub struct HostExecutorArgs {
     /// Whether to generate proofs.
     #[arg(long)]
     pub prove: bool,
-    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.
+    /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
+    /// activated for op-node.
     #[clap(long)]
     pub safe_db_fallback: bool,
 }
@@ -39,7 +39,4 @@ pub struct ConfigArgs {
     /// The environment file to use.
     #[arg(long)]
     pub env_file: Option<PathBuf>,
-    /// The DA configuration to use.
-    #[arg(long, value_enum, default_value_t = DAConfig::Default)]
-    pub da_config: DAConfig,
 }
