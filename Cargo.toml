@@ -152,6 +152,12 @@ sp1-build = { version = "4.2.0" }
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
 
+tonic-build = "0.12.3"
+tonic = "0.12.3"
+prost = "0.13.5"
+
+op-succinct-grpc = { git = "https://github.com/agglayer/op-succinct-grpc", branch = "main" }
+
 [profile.release-client-lto]
 inherits = "release"
 panic = "abort"

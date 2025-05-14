@@ -62,9 +62,13 @@ rustls = "0.23.23"
 url = "2.5.4"
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
+tonic.workspace = true
+prost.workspace = true
+op-succinct-grpc.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
+tonic-build.workspace = true
 
 [features]
 default = ["ethereum"]

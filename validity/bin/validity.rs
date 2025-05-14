@@ -60,6 +60,7 @@ async fn main() -> Result<()> {
         mock: env_config.mock,
         prover_address: env_config.prover_address,
         safe_db_fallback: env_config.safe_db_fallback,
+        grpc_addr: env_config.grpc_addr,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
