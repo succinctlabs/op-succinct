@@ -7105,6 +7105,7 @@ dependencies = [
  "op-alloy-consensus",
  "op-revm",
  "revm",
+ "revm-precompile",
  "rkyv",
  "serde",
  "serde_json",
