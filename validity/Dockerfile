@@ -28,8 +28,9 @@ ENV SQLX_OFFLINE=true
 RUN --mount=type=ssh \
     --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --bin validity --release && \
-    cp target/release/validity /build/validity-proposer
+    cargo build --bin validity --bin fetch-rollup-config --release && \
+    cp target/release/validity /build/validity-proposer && \
+    cp target/release/fetch-rollup-config /build/fetch-rollup-config
 
 # Final stage
 FROM rust:1.85-slim
@@ -56,6 +57,7 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/validity-proposer /usr/local/bin/validity-proposer
+COPY --from=builder /build/fetch-rollup-config /usr/local/bin/fetch-rollup-config
 
 # Run the server from its permanent location
 CMD ["/usr/local/bin/validity-proposer"]
