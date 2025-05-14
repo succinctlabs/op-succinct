@@ -18,6 +18,7 @@ alloy-evm.workspace = true
 alloy-op-evm.workspace = true
 op-revm.workspace = true
 revm.workspace = true
+revm-precompile = "19.0.0"
 
 # kona
 kona-preimage.workspace = true
