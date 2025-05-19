@@ -41,7 +41,7 @@ RUST_LOG=info cargo run --bin cost-estimator -- --start 2000000 --end 2001800 --
 
 <br>
 
-For the best estimation, use a range bigger than the batcher interval with the batch size eqaul to the range.
+For the best estimation, use a range bigger than the batcher interval with the batch size equal to the range.
 
 ### Output
 
