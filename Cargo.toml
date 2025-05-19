@@ -6,6 +6,7 @@ members = [
     "utils/celestia/client",
     "utils/celestia/host",
     "utils/proof",
+    "utils/proposer",
     "utils/ethereum/client",
     "utils/ethereum/host",
     "programs/range/*",
@@ -58,6 +59,7 @@ metrics-process = "2.4.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 tempfile = "3.10.1"
+url = "2.5.4"
 
 # kona
 kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
@@ -97,6 +99,7 @@ op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
 op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
 op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
+op-succinct-proposer-utils = { path = "utils/proposer" }
 op-succinct-range-utils = { path = "programs/range/utils" }
 
 # Alloy (Network)

@@ -7244,6 +7244,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-proposer-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-consensus 0.15.10",
+ "alloy-eips 0.15.10",
+ "alloy-network 0.15.10",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-signer-local 0.15.10",
+ "anyhow",
+ "op-succinct-host-utils",
+ "serde",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "op-succinct-prove"
 version = "0.1.0"
 dependencies = [
@@ -7331,6 +7348,7 @@ dependencies = [
  "op-succinct-elfs",
  "op-succinct-host-utils",
  "op-succinct-proof-utils",
+ "op-succinct-proposer-utils",
  "reqwest",
  "rustls",
  "serde",
@@ -7344,7 +7362,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
- "url",
 ]
 
 [[package]]

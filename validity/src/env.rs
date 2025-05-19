@@ -3,11 +3,10 @@ use std::env;
 use alloy_primitives::Address;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
+use op_succinct_proposer_utils::signer::ProposerSigner;
 use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
 use std::str::FromStr;
-
-use crate::ProposerSigner;
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentConfig {

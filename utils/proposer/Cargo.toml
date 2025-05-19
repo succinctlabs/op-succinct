@@ -1,0 +1,24 @@
+[package]
+name = "op-succinct-proposer-utils"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+# alloy
+alloy-consensus.workspace = true
+alloy-eips.workspace = true
+alloy-network.workspace = true
+alloy-primitives.workspace = true
+alloy-provider.workspace = true
+alloy-signer-local.workspace = true
+
+# general
+anyhow.workspace = true
+serde.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+op-succinct-host-utils.workspace = true
