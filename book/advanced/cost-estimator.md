@@ -30,13 +30,19 @@ L2_NODE_RPC=<YOUR_L2_NODE_RPC_ENDPOINT>
 To run the cost estimator, use the following command:
 
 ```bash
-RUST_LOG=info cargo run --bin cost-estimator -- --start <START_BLOCK> --end <END_BLOCK> --batch-size <BATCH_SIZE>
+RUST_LOG=info cargo run --bin cost-estimator -- \
+    --start <START_BLOCK> \
+    --end <END_BLOCK> \
+    --batch-size <BATCH_SIZE>
 ```
 
 Example:
 
 ```bash
-RUST_LOG=info cargo run --bin cost-estimator -- --start 2000000 --end 2001800 --batch-size 1800
+RUST_LOG=info cargo run --bin cost-estimator -- \
+    --start 2000000 \
+    --end 2001800 \
+    --batch-size 1800
 ```
 
 <br>
