@@ -1,12 +1,10 @@
 use std::env;
 
 use alloy_primitives::Address;
-use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_signer_utils::Signer;
 use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
-use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentConfig {
@@ -53,20 +51,7 @@ const DEFAULT_LOOP_INTERVAL: u64 = 60;
 ///
 /// Signer address and signer URL take precedence over private key.
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
-    let proposer_signer = if let (Some(signer_url), Some(signer_address)) =
-        (env::var("SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
-    {
-        let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
-        let signer_address =
-            Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
-        Signer::Web3Signer(signer_url, signer_address)
-    } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
-        let private_key =
-            PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
-        Signer::LocalSigner(private_key)
-    } else {
-        anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
-    };
+    let proposer_signer = Signer::from_env()?;
 
     // The prover address takes precedence over the signer address. Note: Setting the prover address
     // in the context of the OP Succinct proposer typically does not make sense, as the contract

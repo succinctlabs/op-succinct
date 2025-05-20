@@ -1,8 +1,7 @@
-use std::{env, str::FromStr, sync::Arc};
+use std::{env, sync::Arc};
 
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
-use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
@@ -30,20 +29,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
 
-    let signer = if let (Some(signer_url), Some(signer_address)) =
-        (env::var("SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
-    {
-        let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
-        let signer_address =
-            Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
-        Signer::Web3Signer(signer_url, signer_address)
-    } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
-        let private_key =
-            PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
-        Signer::LocalSigner(private_key)
-    } else {
-        anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
-    };
+    let proposer_signer = Signer::from_env()?;
 
     let l1_provider =
         ProviderBuilder::new().connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
@@ -61,12 +47,12 @@ async fn main() -> Result<()> {
     let prover_address = env::var("PROVER_ADDRESS")
         .ok()
         .and_then(|addr| addr.parse::<Address>().ok())
-        .unwrap_or_else(|| signer.address());
+        .unwrap_or_else(|| proposer_signer.address());
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
     let proposer =
-        OPSuccinctProposer::new(prover_address, signer, factory, Arc::new(fetcher), host)
+        OPSuccinctProposer::new(prover_address, proposer_signer, factory, Arc::new(fetcher), host)
             .await
             .unwrap();
 

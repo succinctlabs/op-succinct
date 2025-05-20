@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
 use alloy_network::{Ethereum, EthereumWallet, TransactionBuilder};
@@ -27,6 +29,25 @@ impl Signer {
         match self {
             Signer::Web3Signer(_, address) => *address,
             Signer::LocalSigner(signer) => signer.address(),
+        }
+    }
+
+    pub fn from_env() -> Result<Self> {
+        if let (Ok(signer_url_str), Ok(signer_address_str)) =
+            (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
+        {
+            let signer_url = Url::parse(&signer_url_str).context("Failed to parse SIGNER_URL")?;
+            let signer_address =
+                Address::from_str(&signer_address_str).context("Failed to parse SIGNER_ADDRESS")?;
+            Ok(Signer::Web3Signer(signer_url, signer_address))
+        } else if let Ok(private_key_str) = std::env::var("PRIVATE_KEY") {
+            let private_key = PrivateKeySigner::from_str(&private_key_str)
+                .context("Failed to parse PRIVATE_KEY")?;
+            Ok(Signer::LocalSigner(private_key))
+        } else {
+            anyhow::bail!(
+                "Neither (SIGNER_URL and SIGNER_ADDRESS) nor PRIVATE_KEY are set in environment"
+            )
         }
     }
 }

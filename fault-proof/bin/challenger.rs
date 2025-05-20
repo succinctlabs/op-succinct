@@ -1,9 +1,8 @@
-use std::{env, str::FromStr, time::Duration};
+use std::{env, time::Duration};
 
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
-use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
@@ -231,20 +230,7 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
 
-    let challenger_signer = if let (Some(signer_url), Some(signer_address)) =
-        (env::var("SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
-    {
-        let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
-        let signer_address =
-            Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
-        Signer::Web3Signer(signer_url, signer_address)
-    } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
-        let private_key =
-            PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
-        Signer::LocalSigner(private_key)
-    } else {
-        anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
-    };
+    let challenger_signer = Signer::from_env()?;
 
     let l1_provider = ProviderBuilder::default()
         .connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
