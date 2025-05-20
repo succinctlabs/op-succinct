@@ -7318,11 +7318,11 @@ dependencies = [
  "alloy-provider",
  "alloy-rpc-types-eth 0.15.10",
  "alloy-signer-local 0.15.10",
+ "alloy-transport-http",
  "anyhow",
  "op-succinct-host-utils",
  "serde",
  "tokio",
- "url",
 ]
 
 [[package]]

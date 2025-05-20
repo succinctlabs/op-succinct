@@ -5,16 +5,16 @@ use alloy_primitives::{Address, Bytes};
 use alloy_provider::{Provider, ProviderBuilder, Web3Signer};
 use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
+use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio::time::Duration;
-use url::Url;
 
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
 
 #[derive(Clone, Debug)]
-/// The type of signer to use for the proposer.
+/// The type of signer to use for signing transactions.
 pub enum Signer {
     /// The signer URL and address.
     Web3Signer(Url, Address),
@@ -31,13 +31,13 @@ impl Signer {
     }
 }
 
-/// Sign a transaction request using the configured `proposer_signer`.
+/// Sign a transaction request using the configured `signer`.
 pub async fn sign_transaction_request_inner(
-    proposer_signer: Signer,
+    signer: Signer,
     l1_rpc: Url,
     mut transaction_request: TransactionRequest,
 ) -> Result<TransactionReceipt> {
-    match proposer_signer {
+    match signer {
         Signer::Web3Signer(signer_url, signer_address) => {
             // Set the from address to the signer address.
             transaction_request.set_from(signer_address);

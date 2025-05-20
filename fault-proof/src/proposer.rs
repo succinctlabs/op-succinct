@@ -23,8 +23,7 @@ use crate::{
     config::ProposerConfig,
     contract::{DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame},
     prometheus::ProposerGauge,
-    Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode, NUM_CONFIRMATIONS,
-    TIMEOUT_SECONDS,
+    Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode,
 };
 
 struct SP1Prover {
@@ -413,17 +412,12 @@ where
             let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
             // Create a transaction to claim credit
-            let tx = game.claimCredit(self.prover_address);
+            let transaction_request =
+                game.claimCredit(self.prover_address).into_transaction_request();
 
             // Send the transaction
-            match tx.send().await {
-                Ok(pending_tx) => {
-                    let receipt = pending_tx
-                        .with_required_confirmations(NUM_CONFIRMATIONS)
-                        .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
-                        .get_receipt()
-                        .await?;
-
+            match self.sign_transaction_request(transaction_request).await {
+                Ok(receipt) => {
                     tracing::info!(
                         "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",
                         game_address,

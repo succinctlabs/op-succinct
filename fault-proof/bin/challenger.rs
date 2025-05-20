@@ -2,13 +2,11 @@ use std::{env, str::FromStr, time::Duration};
 
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
+use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
-use op_succinct_signer_utils::Signer;
-use tokio::time;
-
 use fault_proof::{
     config::ChallengerConfig,
     contract::{
@@ -17,9 +15,11 @@ use fault_proof::{
     },
     prometheus::ChallengerGauge,
     utils::setup_logging,
-    Action, FactoryTrait, L1Provider, L2Provider, Mode, NUM_CONFIRMATIONS, TIMEOUT_SECONDS,
+    Action, FactoryTrait, L1Provider, L2Provider, Mode,
 };
 use op_succinct_host_utils::metrics::{init_metrics, MetricsGauge};
+use op_succinct_signer_utils::{sign_transaction_request_inner, Signer};
+use tokio::time;
 
 #[derive(Parser)]
 struct Args {
@@ -65,21 +65,27 @@ where
         })
     }
 
+    /// Sign a transaction request.
+    async fn sign_transaction_request(
+        &self,
+        transaction_request: TransactionRequest,
+    ) -> Result<TransactionReceipt> {
+        sign_transaction_request_inner(
+            self.signer.clone(),
+            self.config.l1_rpc.clone(),
+            transaction_request,
+        )
+        .await
+    }
+
     /// Challenges a specific game at the given address.
     async fn challenge_game(&self, game_address: Address) -> Result<()> {
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
-        let receipt = game
-            .challenge()
-            .value(self.challenger_bond)
-            .send()
-            .await
-            .context("Failed to send challenge transaction")?
-            .with_required_confirmations(NUM_CONFIRMATIONS)
-            .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
-            .get_receipt()
-            .await
-            .context("Failed to get transaction receipt for challenge")?;
+        let transaction_request =
+            game.challenge().value(self.challenger_bond).into_transaction_request();
+
+        let receipt = self.sign_transaction_request(transaction_request).await?;
 
         tracing::info!(
             "Successfully challenged game {:?} with tx {:?}",
@@ -145,17 +151,11 @@ where
             let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
             // Create a transaction to claim credit
-            let tx = game.claimCredit(self.challenger_address);
+            let transaction_request =
+                game.claimCredit(self.challenger_address).into_transaction_request();
 
-            // Send the transaction
-            match tx.send().await {
-                Ok(pending_tx) => {
-                    let receipt = pending_tx
-                        .with_required_confirmations(NUM_CONFIRMATIONS)
-                        .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
-                        .get_receipt()
-                        .await?;
-
+            match self.sign_transaction_request(transaction_request).await {
+                Ok(receipt) => {
                     tracing::info!(
                         "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",
                         game_address,
