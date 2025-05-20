@@ -3,7 +3,7 @@ use std::{env, sync::Arc, time::Duration};
 use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
-use alloy_sol_types::SolValue;
+use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
@@ -21,7 +21,10 @@ use tokio::time;
 
 use crate::{
     config::ProposerConfig,
-    contract::{DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame},
+    contract::{
+        DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
+        OPSuccinctFaultDisputeGame,
+    },
     prometheus::ProposerGauge,
     Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode,
 };
@@ -265,8 +268,15 @@ where
 
         let receipt = self.sign_transaction_request(transaction_request).await?;
 
-        let game_address =
-            Address::from_slice(&receipt.inner.logs()[0].inner.data.topics()[1][12..]);
+        let game_address = receipt
+            .inner
+            .logs()
+            .iter()
+            .find_map(|log| {
+                DisputeGameCreated::decode_log(&log.inner).ok().map(|event| event.disputeProxy)
+            })
+            .context("Could not find DisputeGameCreated event in transaction receipt logs")?;
+
         tracing::info!(
             "\x1b[1mNew game at address {:?} created with tx {:?}\x1b[0m",
             game_address,

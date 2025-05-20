@@ -125,7 +125,7 @@ pub struct TransactionRequestWrapper {
 impl TransactionRequestWrapper {
     /// Create a new wrapper around a transaction request
     pub fn new(tx: TransactionRequest) -> Self {
-        Self { tx: tx.clone(), data: tx.input.data }
+        Self { tx: tx.clone(), data: tx.input.input }
     }
 }
 
