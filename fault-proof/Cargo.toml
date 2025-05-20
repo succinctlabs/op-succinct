@@ -25,6 +25,7 @@ op-succinct-client-utils.workspace = true
 op-succinct-elfs.workspace = true
 op-succinct-host-utils.workspace = true
 op-succinct-proof-utils.workspace = true
+op-succinct-signer-utils.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
@@ -32,7 +33,6 @@ sp1-sdk.workspace = true
 # alloy
 alloy-contract.workspace = true
 alloy-eips.workspace = true
-alloy-network.workspace = true
 alloy-primitives.workspace = true
 alloy-provider = { workspace = true, features = ["reqwest"] }
 alloy-rpc-types-eth.workspace = true

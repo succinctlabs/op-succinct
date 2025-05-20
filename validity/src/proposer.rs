@@ -1,10 +1,9 @@
 use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
 
-use alloy_consensus::{TxEnvelope, TypedTransaction};
 use alloy_eips::BlockId;
-use alloy_network::TransactionBuilder4844;
 use alloy_primitives::{Address, Bytes, B256, U256};
-use alloy_provider::{network::ReceiptResponse, Network, PendingTransactionBuilder, Provider};
+use alloy_provider::{network::ReceiptResponse, Provider};
+use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
@@ -16,7 +15,7 @@ use op_succinct_host_utils::{
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
-use op_succinct_proposer_utils::signer::{sign_transaction_request_inner, ProposerSigner};
+use op_succinct_signer_utils::{sign_transaction_request_inner, Signer};
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
@@ -35,43 +34,34 @@ pub struct DriverConfig {
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
-    pub proposer_signer: ProposerSigner,
+    pub proposer_signer: Signer,
     pub loop_interval: u64,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
 pub type TaskMap = HashMap<i64, (tokio::task::JoinHandle<Result<()>>, OPSuccinctRequest)>;
 
-pub struct Proposer<P, N, H: OPSuccinctHost>
+pub struct Proposer<P, H: OPSuccinctHost>
 where
-    P: Provider<N> + 'static,
-    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
-    N::TransactionRequest: TransactionBuilder4844,
+    P: Provider + 'static,
 {
     driver_config: DriverConfig,
-    contract_config: ContractConfig<P, N>,
+    contract_config: ContractConfig<P>,
     program_config: ProgramConfig,
     requester_config: RequesterConfig,
     proof_requester: Arc<OPSuccinctProofRequester<H>>,
     tasks: Arc<Mutex<TaskMap>>,
 }
 
-/// 5 L1 confirmations (1 minute)
-const NUM_CONFIRMATIONS: u64 = 5;
-/// 2 minute timeout.
-const TIMEOUT: u64 = 120;
-
-impl<P, N, H: OPSuccinctHost> Proposer<P, N, H>
+impl<P, H: OPSuccinctHost> Proposer<P, H>
 where
-    P: Provider<N> + 'static + Clone,
-    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
-    N::TransactionRequest: TransactionBuilder4844,
+    P: Provider + 'static + Clone,
 {
     pub async fn new(
         provider: P,
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         requester_config: RequesterConfig,
-        proposer_signer: ProposerSigner,
+        proposer_signer: Signer,
         loop_interval: u64,
         host: Arc<H>,
     ) -> Result<Self> {
@@ -473,8 +463,7 @@ where
                     .checkpointBlockHash(U256::from(latest_header.number))
                     .into_transaction_request();
 
-                let receipt =
-                    self.sign_transaction_request(transaction_request).await?.get_receipt().await?;
+                let receipt = self.sign_transaction_request(transaction_request).await?;
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
@@ -728,12 +717,7 @@ where
                 .value(init_bond)
                 .into_transaction_request();
 
-            self.sign_transaction_request(transaction_request)
-                .await?
-                .with_required_confirmations(NUM_CONFIRMATIONS)
-                .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-                .get_receipt()
-                .await?
+            self.sign_transaction_request(transaction_request).await?
         } else {
             // Propose the L2 output.
             let transaction_request = self
@@ -748,12 +732,7 @@ where
                 )
                 .into_transaction_request();
 
-            self.sign_transaction_request(transaction_request)
-                .await?
-                .with_required_confirmations(NUM_CONFIRMATIONS)
-                .with_timeout(Some(Duration::from_secs(TIMEOUT)))
-                .get_receipt()
-                .await?
+            self.sign_transaction_request(transaction_request).await?
         };
 
         // If the transaction reverted, log the error.
@@ -1192,8 +1171,8 @@ where
     /// Sign a transaction request.
     async fn sign_transaction_request(
         &self,
-        transaction_request: N::TransactionRequest,
-    ) -> Result<PendingTransactionBuilder<N>> {
+        transaction_request: TransactionRequest,
+    ) -> Result<TransactionReceipt> {
         sign_transaction_request_inner(
             self.driver_config.proposer_signer.clone(),
             self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),

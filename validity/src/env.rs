@@ -3,7 +3,7 @@ use std::env;
 use alloy_primitives::Address;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_proposer_utils::signer::ProposerSigner;
+use op_succinct_signer_utils::Signer;
 use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
 use std::str::FromStr;
@@ -13,7 +13,7 @@ pub struct EnvironmentConfig {
     pub db_url: String,
     pub metrics_port: u16,
     pub l1_rpc: Url,
-    pub proposer_signer: ProposerSigner,
+    pub proposer_signer: Signer,
     pub prover_address: Address,
     pub loop_interval: u64,
     pub range_proof_strategy: FulfillmentStrategy,
@@ -59,11 +59,11 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
         let signer_address =
             Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
-        ProposerSigner::Web3Signer(signer_url, signer_address)
+        Signer::Web3Signer(signer_url, signer_address)
     } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
         let private_key =
             PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
-        ProposerSigner::LocalSigner(private_key)
+        Signer::LocalSigner(private_key)
     } else {
         anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
     };

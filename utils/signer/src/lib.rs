@@ -1,52 +1,54 @@
-use alloy_consensus::{TxEnvelope, TypedTransaction};
+use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
-use alloy_network::{EthereumWallet, TransactionBuilder, TransactionBuilder4844};
+use alloy_network::{Ethereum, EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, Bytes};
-use alloy_provider::{Network, PendingTransactionBuilder, Provider, ProviderBuilder, Web3Signer};
+use alloy_provider::{Provider, ProviderBuilder, Web3Signer};
+use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use tokio::time::Duration;
 use url::Url;
+
+pub const NUM_CONFIRMATIONS: u64 = 3;
+pub const TIMEOUT_SECONDS: u64 = 60;
 
 #[derive(Clone, Debug)]
 /// The type of signer to use for the proposer.
-pub enum ProposerSigner {
+pub enum Signer {
     /// The signer URL and address.
     Web3Signer(Url, Address),
     /// The local signer.
     LocalSigner(PrivateKeySigner),
 }
 
-impl ProposerSigner {
+impl Signer {
     pub fn address(&self) -> Address {
         match self {
-            ProposerSigner::Web3Signer(_, address) => *address,
-            ProposerSigner::LocalSigner(signer) => signer.address(),
+            Signer::Web3Signer(_, address) => *address,
+            Signer::LocalSigner(signer) => signer.address(),
         }
     }
 }
 
 /// Sign a transaction request using the configured `proposer_signer`.
-pub async fn sign_transaction_request_inner<N>(
-    proposer_signer: ProposerSigner,
+pub async fn sign_transaction_request_inner(
+    proposer_signer: Signer,
     l1_rpc: Url,
-    mut transaction_request: N::TransactionRequest,
-) -> Result<PendingTransactionBuilder<N>>
-where
-    N: Network<UnsignedTx = TypedTransaction, TxEnvelope = TxEnvelope>,
-    N::TransactionRequest: TransactionBuilder4844,
-{
+    mut transaction_request: TransactionRequest,
+) -> Result<TransactionReceipt> {
     match proposer_signer {
-        ProposerSigner::Web3Signer(signer_url, signer_address) => {
+        Signer::Web3Signer(signer_url, signer_address) => {
             // Set the from address to the signer address.
             transaction_request.set_from(signer_address);
 
             // Fill the transaction request with all of the relevant gas and nonce information.
-            let provider = ProviderBuilder::new().network::<N>().connect_http(l1_rpc);
+            let provider = ProviderBuilder::new().network::<Ethereum>().connect_http(l1_rpc);
             let filled_tx = provider.fill(transaction_request).await?;
 
             // Sign the transaction request using the Web3Signer.
-            let web3_provider = ProviderBuilder::new().network::<N>().connect_http(signer_url);
+            let web3_provider =
+                ProviderBuilder::new().network::<Ethereum>().connect_http(signer_url);
             let signer = Web3Signer::new(web3_provider.clone(), signer_address);
 
             let tx = filled_tx.as_builder().unwrap().clone();
@@ -54,18 +56,27 @@ where
             // NOTE: This is a hack because there is not a "data" field on the TransactionRequest.
             // `eth_signTransaction` expects a "data" field with the calldata.
             // TODO: Once alloy fixes this, we can remove this wrapper.
-            let wrapper = TransactionRequestWrapper::<N>::new(tx);
+            let wrapper = TransactionRequestWrapper::new(tx);
 
             let raw: Bytes =
                 signer.provider().client().request("eth_signTransaction", (wrapper,)).await?;
 
-            let tx_envelope = N::TxEnvelope::decode_2718(&mut raw.as_ref()).unwrap();
+            let tx_envelope = TxEnvelope::decode_2718(&mut raw.as_ref()).unwrap();
 
-            Ok(provider.send_tx_envelope(tx_envelope).await?)
+            let receipt = provider
+                .send_tx_envelope(tx_envelope)
+                .await
+                .context("Failed to send transaction")?
+                .with_required_confirmations(NUM_CONFIRMATIONS)
+                .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                .get_receipt()
+                .await?;
+
+            Ok(receipt)
         }
-        ProposerSigner::LocalSigner(private_key) => {
+        Signer::LocalSigner(private_key) => {
             let provider = ProviderBuilder::new()
-                .network::<N>()
+                .network::<Ethereum>()
                 .wallet(EthereumWallet::new(private_key.clone()))
                 .connect_http(l1_rpc);
 
@@ -75,7 +86,16 @@ where
             // Fill the transaction request with all of the relevant gas and nonce information.
             let filled_tx = provider.fill(transaction_request).await?;
 
-            Ok(provider.send_tx_envelope(filled_tx.as_envelope().unwrap().clone()).await?)
+            let receipt = provider
+                .send_tx_envelope(filled_tx.as_envelope().unwrap().clone())
+                .await
+                .context("Failed to send transaction")?
+                .with_required_confirmations(NUM_CONFIRMATIONS)
+                .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                .get_receipt()
+                .await?;
+
+            Ok(receipt)
         }
     }
 }
@@ -94,35 +114,33 @@ where
 ///
 /// TODO(fakedev9999): Once alloy fixes this, we can remove this wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransactionRequestWrapper<N: Network> {
+pub struct TransactionRequestWrapper {
     /// The underlying transaction request
     #[serde(flatten)]
-    pub tx: N::TransactionRequest,
+    pub tx: TransactionRequest,
     /// The transaction data as bytes
     pub data: Option<Bytes>,
 }
 
-impl<N: Network> TransactionRequestWrapper<N> {
+impl TransactionRequestWrapper {
     /// Create a new wrapper around a transaction request
-    pub fn new(tx: N::TransactionRequest) -> Self {
-        let data = tx.input().cloned();
-        Self { tx, data }
+    pub fn new(tx: TransactionRequest) -> Self {
+        Self { tx: tx.clone(), data: tx.input.data }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use alloy_eips::BlockId;
-    use alloy_network::Ethereum;
-    use alloy_primitives::address;
-    use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OOContractInstance as OPSuccinctL2OOContract;
+    use alloy_primitives::{address, U256};
+    use op_succinct_host_utils::OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract;
 
     use super::*;
 
     #[tokio::test]
     #[ignore]
     async fn test_sign_transaction_request() {
-        let proposer_signer = ProposerSigner::Web3Signer(
+        let proposer_signer = Signer::Web3Signer(
             "http://localhost:9000".parse().unwrap(),
             "0x9b3F173823E944d183D532ed236Ee3B83Ef15E1d".parse().unwrap(),
         );
@@ -142,7 +160,7 @@ mod tests {
             .checkpointBlockHash(U256::from(latest_header.header.number))
             .into_transaction_request();
 
-        let signed_tx = sign_transaction_request_inner::<Ethereum>(
+        let receipt = sign_transaction_request_inner(
             proposer_signer,
             "http://localhost:8545".parse().unwrap(),
             transaction_request,
@@ -150,6 +168,6 @@ mod tests {
         .await
         .unwrap();
 
-        println!("Signed transaction receipt: {:?}", signed_tx.get_receipt().await.unwrap());
+        println!("Signed transaction receipt: {receipt:?}");
     }
 }
