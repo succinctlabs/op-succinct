@@ -143,10 +143,10 @@ op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
 # TODO(fakedev9999): Temporary patch to fix get_proof_status. Bump to v4.2.1 when released.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "d2798c9" }
-sp1-lib = { version = "4.2.0", features = ["verify"] }
-sp1-zkvm = { version = "4.2.0", features = ["verify"] }
-sp1-build = { version = "4.2.0" }
+sp1-sdk = { version = "4.2.1" }
+sp1-lib = { version = "4.2.1", features = ["verify"] }
+sp1-zkvm = { version = "4.2.1", features = ["verify"] }
+sp1-build = { version = "4.2.1" }
 
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
