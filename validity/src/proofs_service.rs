@@ -2,7 +2,7 @@ use alloy_primitives::hex::FromHex;
 use alloy_primitives::FixedBytes;
 use bincode::Options;
 use tonic::{Code, Request, Response, Status};
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::proof_requester::OPSuccinctProofRequester;
 use crate::OPSuccinctRequest;
@@ -115,7 +115,7 @@ where
             warn!(
                 last_proven_block = req.last_proven_block,
                 requested_end_block = l1_limited_end_block,
-                commitments = &self.program_config.commitments,
+                commitments = ?self.program_config.commitments,
                 l1_chain_id = self.requester_config.l1_chain_id,
                 l2_chain_id = self.requester_config.l2_chain_id,
                 "No consecutive span proof range found for request"
