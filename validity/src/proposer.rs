@@ -15,7 +15,7 @@ use op_succinct_host_utils::{
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
-use op_succinct_signer_utils::{sign_transaction_request_inner, Signer};
+use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::proto::network::{ExecutionStatus, FulfillmentStatus},
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
@@ -34,7 +34,7 @@ pub struct DriverConfig {
     pub network_prover: Arc<NetworkProver>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
-    pub proposer_signer: Signer,
+    pub signer: Signer,
     pub loop_interval: u64,
 }
 /// Type alias for a map of task IDs to their join handles and associated requests
@@ -61,7 +61,7 @@ where
         db_client: Arc<DriverDBClient>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         requester_config: RequesterConfig,
-        proposer_signer: Signer,
+        signer: Signer,
         loop_interval: u64,
         host: Arc<H>,
     ) -> Result<Self> {
@@ -143,7 +143,7 @@ where
                 network_prover,
                 fetcher,
                 driver_db_client: db_client,
-                proposer_signer,
+                signer,
                 loop_interval,
             },
             contract_config: ContractConfig {
@@ -463,7 +463,7 @@ where
                     .checkpointBlockHash(U256::from(latest_header.number))
                     .into_transaction_request();
 
-                let receipt = self.sign_transaction_request(transaction_request).await?;
+                let receipt = self.send_transaction_request(transaction_request).await?;
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
@@ -717,7 +717,7 @@ where
                 .value(init_bond)
                 .into_transaction_request();
 
-            self.sign_transaction_request(transaction_request).await?
+            self.send_transaction_request(transaction_request).await?
         } else {
             // Propose the L2 output.
             let transaction_request = self
@@ -732,7 +732,7 @@ where
                 )
                 .into_transaction_request();
 
-            self.sign_transaction_request(transaction_request).await?
+            self.send_transaction_request(transaction_request).await?
         };
 
         // If the transaction reverted, log the error.
@@ -1168,16 +1168,17 @@ where
         Ok(Some(current_end))
     }
 
-    /// Sign a transaction request.
-    async fn sign_transaction_request(
+    /// Sends a transaction request.
+    async fn send_transaction_request(
         &self,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionReceipt> {
-        sign_transaction_request_inner(
-            self.driver_config.proposer_signer.clone(),
-            self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
-            transaction_request,
-        )
-        .await
+        self.driver_config
+            .signer
+            .send_transaction_request_inner(
+                self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
+                transaction_request,
+            )
+            .await
     }
 }

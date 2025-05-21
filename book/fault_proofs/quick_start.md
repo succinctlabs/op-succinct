@@ -35,7 +35,8 @@ This guide provides the fastest path to try out OP Succinct fault dispute games 
     STARTING_L2_BLOCK_NUMBER=791000
 
     # Optional
-    # For production setting, set PROPOSER_ADDRESSES and CHALLENGER_ADDRESSES properly.
+    # Warning: Setting PERMISSIONLESS_MODE=true allows anyone to propose and challenge games. Ensure this behavior is intended for your deployment.
+    # For a permissioned setup, set this to false and configure PROPOSER_ADDRESSES and CHALLENGER_ADDRESSES.
     PERMISSIONLESS_MODE=true
 
     # For testing, use mock verifier

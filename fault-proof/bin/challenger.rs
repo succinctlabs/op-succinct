@@ -17,7 +17,7 @@ use fault_proof::{
     Action, FactoryTrait, L1Provider, L2Provider, Mode,
 };
 use op_succinct_host_utils::metrics::{init_metrics, MetricsGauge};
-use op_succinct_signer_utils::{sign_transaction_request_inner, Signer};
+use op_succinct_signer_utils::Signer;
 use tokio::time;
 
 #[derive(Parser)]
@@ -64,17 +64,14 @@ where
         })
     }
 
-    /// Sign a transaction request.
-    async fn sign_transaction_request(
+    /// Sends a transaction request.
+    async fn send_transaction_request(
         &self,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionReceipt> {
-        sign_transaction_request_inner(
-            self.signer.clone(),
-            self.config.l1_rpc.clone(),
-            transaction_request,
-        )
-        .await
+        self.signer
+            .send_transaction_request_inner(self.config.l1_rpc.clone(), transaction_request)
+            .await
     }
 
     /// Challenges a specific game at the given address.
@@ -84,7 +81,7 @@ where
         let transaction_request =
             game.challenge().value(self.challenger_bond).into_transaction_request();
 
-        let receipt = self.sign_transaction_request(transaction_request).await?;
+        let receipt = self.send_transaction_request(transaction_request).await?;
 
         tracing::info!(
             "Successfully challenged game {:?} with tx {:?}",
@@ -153,7 +150,7 @@ where
             let transaction_request =
                 game.claimCredit(self.challenger_address).into_transaction_request();
 
-            match self.sign_transaction_request(transaction_request).await {
+            match self.send_transaction_request(transaction_request).await {
                 Ok(receipt) => {
                     tracing::info!(
                         "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",

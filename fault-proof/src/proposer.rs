@@ -12,7 +12,7 @@ use op_succinct_host_utils::{
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
-use op_succinct_signer_utils::{sign_transaction_request_inner, Signer};
+use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProofMode,
     SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
@@ -104,17 +104,14 @@ where
         })
     }
 
-    /// Sign a transaction request.
-    async fn sign_transaction_request(
+    /// Sends a transaction request.
+    async fn send_transaction_request(
         &self,
         transaction_request: TransactionRequest,
     ) -> Result<TransactionReceipt> {
-        sign_transaction_request_inner(
-            self.signer.clone(),
-            self.config.l1_rpc.clone(),
-            transaction_request,
-        )
-        .await
+        self.signer
+            .send_transaction_request_inner(self.config.l1_rpc.clone(), transaction_request)
+            .await
     }
 
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
@@ -266,7 +263,7 @@ where
             .value(self.init_bond)
             .into_transaction_request();
 
-        let receipt = self.sign_transaction_request(transaction_request).await?;
+        let receipt = self.send_transaction_request(transaction_request).await?;
 
         let game_address = receipt
             .inner
@@ -426,7 +423,7 @@ where
                 game.claimCredit(self.prover_address).into_transaction_request();
 
             // Send the transaction
-            match self.sign_transaction_request(transaction_request).await {
+            match self.send_transaction_request(transaction_request).await {
                 Ok(receipt) => {
                     tracing::info!(
                         "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",

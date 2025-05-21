@@ -14,7 +14,7 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
-use op_succinct_signer_utils::{sign_transaction_request_inner, Signer};
+use op_succinct_signer_utils::Signer;
 
 use crate::{
     contract::{
@@ -658,7 +658,7 @@ where
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
         let transaction_request = contract.resolve().into_transaction_request();
-        let receipt = sign_transaction_request_inner(signer, l1_rpc, transaction_request).await?;
+        let receipt = signer.send_transaction_request_inner(l1_rpc, transaction_request).await?;
         tracing::info!(
             "\x1b[1mSuccessfully resolved game {:?} at index {:?} with tx {:?}\x1b[0m",
             game_address,
