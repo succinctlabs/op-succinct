@@ -72,10 +72,8 @@ fn get_address(env_var: &str, private_key_by_default: bool) -> String {
 /// - chain_id: Get the chain id from the rollup config.
 /// - vkey: Get the vkey from the aggregation program ELF.
 /// - owner: Set to the address associated with the private key.
-async fn update_l2oo_config() -> Result<()> {
+async fn update_l2oo_config(output_dir: &Path) -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
-
-    let workspace_root = cargo_metadata::MetadataCommand::new().exec()?.workspace_root;
 
     // Set the verifier address
     let verifier = env::var("VERIFIER_ADDRESS").unwrap_or_else(|_| {
@@ -150,14 +148,14 @@ async fn update_l2oo_config() -> Result<()> {
         op_succinct_l2_output_oracle_impl,
     };
 
-    write_l2oo_config(l2oo_config, workspace_root.as_std_path())?;
+    write_l2oo_config(l2oo_config, output_dir)?;
 
     Ok(())
 }
 
 /// Write the L2OO rollup config to `contracts/opsuccinctl2ooconfig.json`.
-fn write_l2oo_config(config: L2OOConfig, workspace_root: &Path) -> Result<()> {
-    let opsuccinct_config_path = workspace_root.join("contracts/opsuccinctl2ooconfig.json");
+fn write_l2oo_config(config: L2OOConfig, output_dir: &Path) -> Result<()> {
+    let opsuccinct_config_path = output_dir.join("opsuccinctl2ooconfig.json");
     // Create parent directories if they don't exist
     if let Some(parent) = opsuccinct_config_path.parent() {
         fs::create_dir_all(parent)?;
@@ -165,16 +163,6 @@ fn write_l2oo_config(config: L2OOConfig, workspace_root: &Path) -> Result<()> {
     // Write the L2OO rollup config to the opsuccinctl2ooconfig.json file
     fs::write(&opsuccinct_config_path, serde_json::to_string_pretty(&config)?)?;
     Ok(())
-}
-
-fn find_project_root() -> Option<PathBuf> {
-    let mut path = std::env::current_dir().ok()?;
-    while !path.join(".git").exists() {
-        if !path.pop() {
-            return None;
-        }
-    }
-    Some(path)
 }
 
 use clap::Parser;
@@ -185,21 +173,25 @@ struct Args {
     /// L2 chain ID
     #[arg(long, default_value = ".env")]
     env_file: String,
+    /// Output directory for opsuccinctl2ooconfig.json
+    #[arg(long, default_value = "/opt/op-succinct/contracts")]
+    output_dir: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // This fetches the .env file from the project root. If the command is invoked in the contracts/
-    // directory, the .env file in the root of the repo is used.
-    if let Some(root) = find_project_root() {
-        dotenv::from_path(root.join(args.env_file)).ok();
+    // Load .env file if it exists
+    if let Ok(current_dir) = env::current_dir() {
+        let env_path = current_dir.join(&args.env_file);
+        dotenv::from_path(env_path).ok();
     } else {
-        eprintln!("Warning: Could not find project root. {} file not loaded.", args.env_file);
+        eprintln!("Warning: Could not determine current directory. {} file not loaded.", args.env_file);
     }
 
-    update_l2oo_config().await?;
+    let output_dir = PathBuf::from(&args.output_dir);
+    update_l2oo_config(&output_dir).await?;
 
     Ok(())
 }
