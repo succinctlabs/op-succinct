@@ -112,6 +112,14 @@ where
 
         // Error in case there's no range proofs
         if range_proofs.is_empty() {
+            warn!(
+                last_proven_block = req.last_proven_block,
+                requested_end_block = l1_limited_end_block,
+                commitments = &self.program_config.commitments,
+                l1_chain_id = self.requester_config.l1_chain_id,
+                l2_chain_id = self.requester_config.l2_chain_id,
+                "No consecutive span proof range found for request"
+            );
             return Err(Status::new(
                 Code::NotFound,
                 "No consecutive span proof range found",
