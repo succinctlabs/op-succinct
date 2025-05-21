@@ -897,6 +897,7 @@ version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a384edac7283bc4c010a355fb648082860c04b826bb7a814c45263c8f304c74"
 dependencies = [
+ "alloy-json-abi",
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.5.0",
@@ -915,12 +916,14 @@ version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0dd588c2d516da7deb421b8c166dc60b7ae31bca5beea29ab6621fcfa53d6ca5"
 dependencies = [
+ "alloy-json-abi",
  "const-hex",
  "dunce",
  "heck 0.5.0",
  "macro-string",
  "proc-macro2",
  "quote",
+ "serde_json",
  "syn 2.0.101",
  "syn-solidity",
 ]
@@ -2172,6 +2175,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "canoe-bindings"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-sol-types",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3240,6 +3251,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "eigenda-v2-struct"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "canoe-bindings",
+ "serde",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4249,6 +4271,123 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest 0.10.7",
+]
+
+[[package]]
+name = "hokulea-client"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-consensus 0.15.11",
+ "alloy-evm",
+ "hokulea-eigenda",
+ "kona-client",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-preimage",
+ "kona-proof",
+ "op-alloy-consensus",
+ "op-revm",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-client-bin"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-evm",
+ "cfg-if",
+ "hokulea-client",
+ "hokulea-proof",
+ "kona-client",
+ "kona-preimage",
+ "kona-proof",
+ "kona-std-fpvm",
+ "kona-std-fpvm-proc",
+ "op-alloy-consensus",
+ "op-revm",
+]
+
+[[package]]
+name = "hokulea-eigenda"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "eigenda-v2-struct",
+ "kona-derive",
+ "kona-protocol",
+ "rust-kzg-bn254-primitives",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-host-bin"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "clap",
+ "hokulea-client-bin",
+ "hokulea-eigenda",
+ "hokulea-proof",
+ "kona-cli",
+ "kona-client",
+ "kona-host",
+ "kona-preimage",
+ "kona-proof",
+ "kona-std-fpvm",
+ "reqwest",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "hokulea-proof"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "ark-bn254",
+ "ark-ff 0.5.0",
+ "async-trait",
+ "canoe-bindings",
+ "cfg-if",
+ "eigenda-v2-struct",
+ "hokulea-eigenda",
+ "kona-preimage",
+ "kona-proof",
+ "rust-kzg-bn254-primitives",
+ "rust-kzg-bn254-verifier",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "sp1-lib",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-zkvm-verification"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=c7b44699686b47226f6276e4b296060b46b9185d#c7b44699686b47226f6276e4b296060b46b9185d"
+dependencies = [
+ "hokulea-proof",
+ "kona-client",
+ "kona-preimage",
+ "kona-proof",
 ]
 
 [[package]]
@@ -7135,6 +7274,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-eigenda-client-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "hokulea-eigenda",
+ "hokulea-proof",
+ "hokulea-zkvm-verification",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "serde_cbor",
+ "spin 0.10.0",
+]
+
+[[package]]
+name = "op-succinct-eigenda-host-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-eips 0.15.11",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "hokulea-host-bin",
+ "hokulea-proof",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-eigenda-client-utils",
+ "op-succinct-host-utils",
+ "rkyv",
+ "sp1-sdk",
+]
+
+[[package]]
 name = "op-succinct-elfs"
 version = "0.1.0"
 
@@ -7225,6 +7402,7 @@ dependencies = [
  "cfg-if",
  "futures",
  "hana-host",
+ "hokulea-host-bin",
  "kona-derive",
  "kona-genesis",
  "kona-host",
@@ -8549,6 +8727,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "range-eigenda"
+version = "0.1.0"
+dependencies = [
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-eigenda-client-utils",
+ "op-succinct-range-utils",
+ "rkyv",
+ "sp1-zkvm",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
 name = "range-set-blaze"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9146,6 +9337,38 @@ name = "ruint-macro"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
+
+[[package]]
+name = "rust-kzg-bn254-primitives"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a986f25bc8871261f26f4ec74ef9215d0920ec140f2ef2dfd441b33fd121738b"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "libm",
+ "num-traits",
+ "serde",
+ "sha2 0.10.8",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "rust-kzg-bn254-verifier"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13b1a1996f1d61c05d732aac54b1ecfc11abbf73a47b3e4ca72f92ecdd75214f"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "rust-kzg-bn254-primitives",
+]
 
 [[package]]
 name = "rustc-demangle"
