@@ -27,7 +27,9 @@ pub struct EnvironmentConfig {
     pub max_concurrent_proof_requests: u64,
     pub submission_interval: u64,
     pub mock: bool,
+    pub agglayer: bool,
     pub safe_db_fallback: bool,
+    pub grpc_addr: String,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -94,12 +96,15 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     };
 
     // Parse proof mode
-    let agg_proof_mode =
-        if get_env_var("AGG_PROOF_MODE", Some("groth16".to_string()))?.to_lowercase() == "plonk" {
-            SP1ProofMode::Plonk
-        } else {
-            SP1ProofMode::Groth16
-        };
+    let agg_proof_mode = match get_env_var("AGG_PROOF_MODE", Some("groth16".to_string()))?
+        .to_lowercase()
+        .as_str()
+    {
+        "plonk" => SP1ProofMode::Plonk,
+        "groth16" => SP1ProofMode::Groth16,
+        "compressed" => SP1ProofMode::Compressed,
+        _ => SP1ProofMode::Groth16, // Default to Groth16 if no match
+    };
 
     // Optional loop interval
     let loop_interval = get_env_var("LOOP_INTERVAL", Some(DEFAULT_LOOP_INTERVAL))?;
@@ -122,6 +127,8 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
         safe_db_fallback: get_env_var("SAFE_DB_FALLBACK", Some(false))?,
+        agglayer: get_env_var("AGGLAYER", Some(false))?,
+        grpc_addr: get_env_var("GRPC_ADDRESS", Some("[::1]:50051".to_string()))?,
     };
 
     Ok(config)

@@ -14,7 +14,6 @@ pub fn setup_proposer_logger() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
                 .add_directive("single_hint_handler=error".parse().unwrap())
                 .add_directive("execute=error".parse().unwrap())
                 .add_directive("sp1_prover=error".parse().unwrap())
