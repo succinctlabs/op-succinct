@@ -1,5 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
+use hokulea_proof::eigenda_provider::OracleEigenDAProvider;
 use kona_proof::l1::OracleBlobProvider;
 use op_succinct_client_utils::witness::EigenDAWitnessData;
 use op_succinct_eigenda_client_utils::executor::EigenDAWitnessExecutor;
@@ -13,6 +14,7 @@ use sp1_sdk::SP1Stdin;
 type WitnessExecutor = EigenDAWitnessExecutor<
     PreimageWitnessCollector<DefaultOracleBase>,
     OnlineBlobStore<OracleBlobProvider<DefaultOracleBase>>,
+    OracleEigenDAProvider<DefaultOracleBase>,
 >;
 
 pub struct EigenDAWitnessGenerator {

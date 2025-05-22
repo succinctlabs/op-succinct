@@ -8,10 +8,16 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
+# general
 rkyv.workspace = true
+serde_cbor.workspace = true
 
 # kona
 kona-proof.workspace = true
+
+# hokulea
+hokulea-proof.workspace = true
+hokulea-zkvm-verification.workspace = true
 
 # sp1
 sp1-zkvm.workspace = true
