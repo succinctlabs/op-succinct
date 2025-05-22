@@ -5,6 +5,8 @@ members = [
     "utils/build",
     "utils/celestia/client",
     "utils/celestia/host",
+    "utils/eigenda/client",
+    "utils/eigenda/host",
     "utils/proof",
     "utils/signer",
     "utils/ethereum/client",
@@ -85,6 +87,12 @@ hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d
 hana-host = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d1c00fc2af129fb28cbb0151f8c81b9" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "a6077b794d1c00fc2af129fb28cbb0151f8c81b9" }
 
+# hokulea
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "056ee98" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "056ee98" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "056ee98" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "056ee98" }
+
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
 op-succinct-client-utils = { path = "utils/client" }
@@ -97,6 +105,8 @@ op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
 op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
 op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
 op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
+op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
+op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
 op-succinct-range-utils = { path = "programs/range/utils" }
@@ -145,10 +155,10 @@ op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
 # TODO(fakedev9999): Temporary patch to fix get_proof_status. Bump to v4.2.1 when released.
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", rev = "d2798c9" }
-sp1-lib = { version = "4.2.0", features = ["verify"] }
-sp1-zkvm = { version = "4.2.0", features = ["verify"] }
-sp1-build = { version = "4.2.0" }
+sp1-sdk = { version = "4.2.1" }
+sp1-lib = { version = "4.2.1", features = ["verify"] }
+sp1-zkvm = { version = "4.2.1", features = ["verify"] }
+sp1-build = { version = "4.2.1" }
 
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }

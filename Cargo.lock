@@ -866,6 +866,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0e84bd0693c69a8fbe3ec0008465e029c6293494df7cb07580bf4a33eff52e1"
 dependencies = [
+ "alloy-json-abi",
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.5.0",
@@ -884,12 +885,14 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3de663412dadf9b64f4f92f507f78deebcc92339d12cf15f88ded65d41c7935"
 dependencies = [
+ "alloy-json-abi",
  "const-hex",
  "dunce",
  "heck 0.5.0",
  "macro-string",
  "proc-macro2",
  "quote",
+ "serde_json",
  "syn 2.0.101",
  "syn-solidity",
 ]
@@ -2142,6 +2145,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "canoe-bindings"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-sol-types",
+]
+
+[[package]]
 name = "cargo-platform"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3210,6 +3221,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "eigenda-v2-struct"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "canoe-bindings",
+ "serde",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4226,6 +4248,124 @@ dependencies = [
 ]
 
 [[package]]
+name = "hokulea-client"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-consensus 0.15.10",
+ "alloy-evm",
+ "hokulea-eigenda",
+ "kona-client",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-preimage",
+ "kona-proof",
+ "op-alloy-consensus",
+ "op-revm",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-client-bin"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-evm",
+ "cfg-if",
+ "hokulea-client",
+ "hokulea-proof",
+ "kona-client",
+ "kona-preimage",
+ "kona-proof",
+ "kona-std-fpvm",
+ "kona-std-fpvm-proc",
+ "op-alloy-consensus",
+ "op-revm",
+]
+
+[[package]]
+name = "hokulea-eigenda"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "eigenda-v2-struct",
+ "kona-derive",
+ "kona-protocol",
+ "rust-kzg-bn254-primitives",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-host-bin"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rlp",
+ "anyhow",
+ "async-trait",
+ "clap",
+ "hokulea-client-bin",
+ "hokulea-eigenda",
+ "hokulea-proof",
+ "kona-cli",
+ "kona-client",
+ "kona-host",
+ "kona-preimage",
+ "kona-proof",
+ "kona-std-fpvm",
+ "reqwest",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "hokulea-proof"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
+ "ark-bn254",
+ "ark-ff 0.5.0",
+ "async-trait",
+ "canoe-bindings",
+ "cfg-if",
+ "eigenda-v2-struct",
+ "hokulea-eigenda",
+ "kona-preimage",
+ "kona-proof",
+ "rust-kzg-bn254-primitives",
+ "rust-kzg-bn254-verifier",
+ "serde",
+ "serde_json",
+ "sha2 0.10.8",
+ "sp1-lib",
+ "sp1-sdk",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-zkvm-verification"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=056ee98#056ee9888964f1a63191384ce882a2d4f805e76e"
+dependencies = [
+ "hokulea-proof",
+ "kona-client",
+ "kona-preimage",
+ "kona-proof",
+]
+
+[[package]]
 name = "home"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4393,7 +4533,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.0",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -7035,7 +7175,7 @@ name = "op-succinct-build-utils"
 version = "0.1.0"
 dependencies = [
  "cargo_metadata",
- "sp1-build 4.2.0",
+ "sp1-build",
 ]
 
 [[package]]
@@ -7111,6 +7251,46 @@ dependencies = [
  "sha2 0.10.8",
  "spin 0.10.0",
  "tracing",
+]
+
+[[package]]
+name = "op-succinct-eigenda-client-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "hokulea-eigenda",
+ "hokulea-proof",
+ "hokulea-zkvm-verification",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "serde_cbor",
+ "spin 0.10.0",
+]
+
+[[package]]
+name = "op-succinct-eigenda-host-utils"
+version = "0.1.0"
+dependencies = [
+ "alloy-eips 0.15.10",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "hokulea-eigenda",
+ "hokulea-host-bin",
+ "hokulea-proof",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-eigenda-client-utils",
+ "op-succinct-host-utils",
+ "rkyv",
+ "sp1-sdk",
 ]
 
 [[package]]
@@ -7204,6 +7384,7 @@ dependencies = [
  "cfg-if",
  "futures",
  "hana-host",
+ "hokulea-host-bin",
  "kona-derive",
  "kona-genesis",
  "kona-host",
@@ -7237,6 +7418,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "op-succinct-celestia-host-utils",
+ "op-succinct-eigenda-host-utils",
  "op-succinct-elfs",
  "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
@@ -8518,6 +8700,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "range-eigenda"
+version = "0.1.0"
+dependencies = [
+ "hokulea-proof",
+ "hokulea-zkvm-verification",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-eigenda-client-utils",
+ "op-succinct-range-utils",
+ "rkyv",
+ "serde_cbor",
+ "sp1-zkvm",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
 name = "range-set-blaze"
 version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9117,6 +9315,38 @@ name = "ruint-macro"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
+
+[[package]]
+name = "rust-kzg-bn254-primitives"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a986f25bc8871261f26f4ec74ef9215d0920ec140f2ef2dfd441b33fd121738b"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "libm",
+ "num-traits",
+ "serde",
+ "sha2 0.10.8",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "rust-kzg-bn254-verifier"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13b1a1996f1d61c05d732aac54b1ecfc11abbf73a47b3e4ca72f92ecdd75214f"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "rust-kzg-bn254-primitives",
+]
 
 [[package]]
 name = "rustc-demangle"
@@ -9888,21 +10118,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "4.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0b45dd7a9d3703f82b1f5e8fdd6c5fb8af1e3b4037f1ffc533435717d567a56"
-dependencies = [
- "anyhow",
- "cargo_metadata",
- "chrono",
- "clap",
- "dirs 5.0.1",
-]
-
-[[package]]
-name = "sp1-build"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05372b4e3eecca255ba8e385f8dc294861a3b4ea0b0a9946873e39941011db4c"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -9914,7 +10132,8 @@ dependencies = [
 [[package]]
 name = "sp1-core-executor"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2627a71ecf4278b4f9af2d38a7bf38211ee061519f0c0625c83224772c9a8212"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -9937,7 +10156,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp1-curves",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-stark",
  "strum 0.26.3",
  "strum_macros 0.26.4",
@@ -9952,7 +10171,8 @@ dependencies = [
 [[package]]
 name = "sp1-core-machine"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5a3f4d0b95bb862195323e0e20b043a33cc8cd679816c77e786fa0e7cd8cc74"
 dependencies = [
  "bincode",
  "cbindgen",
@@ -9990,7 +10210,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-curves",
  "sp1-derive",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-stark",
  "static_assertions",
  "strum 0.26.3",
@@ -10007,10 +10227,12 @@ dependencies = [
 [[package]]
 name = "sp1-cuda"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8371f5332b63bdcd3e42d9acd7d6f351783e91853aa9d4e07c053460c4f3b1d4"
 dependencies = [
  "bincode",
  "ctrlc",
+ "once_cell",
  "prost",
  "serde",
  "sp1-core-machine",
@@ -10023,7 +10245,8 @@ dependencies = [
 [[package]]
 name = "sp1-curves"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f48810a1b8df5415dc82b96bd47ce49aaa4a3144c38f4bf5d09c4f4aeca89927"
 dependencies = [
  "cfg-if",
  "dashu",
@@ -10036,7 +10259,7 @@ dependencies = [
  "p3-field",
  "serde",
  "snowbridge-amcl",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-stark",
  "typenum",
 ]
@@ -10044,7 +10267,8 @@ dependencies = [
 [[package]]
 name = "sp1-derive"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e592161b513d70ee990edfcc514a83e3526cfb3113e365744ab15bc000b1785b"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -10052,40 +10276,21 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "4.2.0"
+version = "4.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3ef88f90458b6116da164e9c4c4596c49c8cca1944bfe02850b48b232a06b90"
+checksum = "e166e94b13146c65de433cf29acc1030f021414fbebfc24cd4eeaeb787ba3443"
 dependencies = [
  "bincode",
  "elliptic-curve",
  "serde",
- "sp1-primitives 4.2.0",
-]
-
-[[package]]
-name = "sp1-primitives"
-version = "4.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1cc282347d405f23fc8a7cfe93c82e772920bf2e0722cf828eaea69ed530e49"
-dependencies = [
- "bincode",
- "blake3",
- "cfg-if",
- "hex",
- "lazy_static",
- "num-bigint 0.4.6",
- "p3-baby-bear",
- "p3-field",
- "p3-poseidon2",
- "p3-symmetric",
- "serde",
- "sha2 0.10.8",
+ "sp1-primitives",
 ]
 
 [[package]]
 name = "sp1-primitives"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a85ffe9606bd2cc93575ce608f063ca08521cee9bdebf611914c5b2d90d7412"
 dependencies = [
  "bincode",
  "blake3",
@@ -10104,7 +10309,8 @@ dependencies = [
 [[package]]
 name = "sp1-prover"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d8fbc9cd7ae3136c48c4cd6c3ee3d67d814f3320f0f2aeed3ce47450d4e90b8"
 dependencies = [
  "anyhow",
  "bincode",
@@ -10133,7 +10339,7 @@ dependencies = [
  "sha2 0.10.8",
  "sp1-core-executor",
  "sp1-core-machine",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-recursion-circuit",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
@@ -10148,7 +10354,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-circuit"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a36130b09c914c658b3fd75c5412596bef3095176a5f242e9bb1de11dea70ea1"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -10171,7 +10378,7 @@ dependencies = [
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-recursion-compiler",
  "sp1-recursion-core",
  "sp1-recursion-gnark-ffi",
@@ -10182,7 +10389,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-compiler"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92aa4df1ca399233ced24fbf01ce1f05d392cd0961aa7d9ac8a01c7affa053c6"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -10192,7 +10400,7 @@ dependencies = [
  "p3-symmetric",
  "serde",
  "sp1-core-machine",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-recursion-core",
  "sp1-recursion-derive",
  "sp1-stark",
@@ -10203,7 +10411,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-core"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31eb00c268ae072b15cc4e61083228fb70f37a648d66adf5e24596a75a3cdd3a"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -10233,7 +10442,7 @@ dependencies = [
  "serde",
  "sp1-core-machine",
  "sp1-derive",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-stark",
  "static_assertions",
  "thiserror 1.0.69",
@@ -10245,7 +10454,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-derive"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74ccb1740ab70295f3ccda3923c993b3f50f743fa063f9b8ee8d38dfaad79859"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -10254,7 +10464,8 @@ dependencies = [
 [[package]]
 name = "sp1-recursion-gnark-ffi"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "50da2e39789c2e4e2f5b85875c2b098385c637fb65737dfc3ab00318f978281b"
 dependencies = [
  "anyhow",
  "bincode",
@@ -10279,7 +10490,8 @@ dependencies = [
 [[package]]
 name = "sp1-sdk"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "318a3e83b1e3056a219ea16c946b7e184a2f17299e9de57aeb4818e9b8eb15d9"
 dependencies = [
  "alloy-primitives",
  "alloy-signer 0.14.0",
@@ -10306,11 +10518,11 @@ dependencies = [
  "reqwest-middleware",
  "serde",
  "serde_json",
- "sp1-build 4.2.1",
+ "sp1-build",
  "sp1-core-executor",
  "sp1-core-machine",
  "sp1-cuda",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "sp1-prover",
  "sp1-stark",
  "strum 0.26.3",
@@ -10326,7 +10538,8 @@ dependencies = [
 [[package]]
 name = "sp1-stark"
 version = "4.2.1"
-source = "git+https://github.com/succinctlabs/sp1?rev=d2798c9#d2798c9ef35a70439dcd512b6b8cf6964367820f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1dd68b620eae4f68b64d0ffb6b8bda9e7e1eb323bcb224ceae0dcf05e739148"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",
@@ -10350,7 +10563,7 @@ dependencies = [
  "rayon-scan",
  "serde",
  "sp1-derive",
- "sp1-primitives 4.2.1",
+ "sp1-primitives",
  "strum 0.26.3",
  "strum_macros 0.26.4",
  "sysinfo",
@@ -10359,9 +10572,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-zkvm"
-version = "4.2.0"
+version = "4.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d56dda97ba9915e7484a607e7517783d7422591c815e8dbfdbb716d77198760"
+checksum = "4620d2777b49fb825bf4726ef71aad0e56fc1ff2532e5b29677b75914f0d756a"
 dependencies = [
  "cfg-if",
  "critical-section",
@@ -10374,7 +10587,7 @@ dependencies = [
  "rand 0.8.5",
  "sha2 0.10.8",
  "sp1-lib",
- "sp1-primitives 4.2.0",
+ "sp1-primitives",
 ]
 
 [[package]]
@@ -11927,24 +12140,11 @@ version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ba6d44ec8c2591c134257ce647b7ea6b20335bf6379a27dac5f1641fcf59f99"
 dependencies = [
- "windows-implement 0.58.0",
- "windows-interface 0.58.0",
+ "windows-implement",
+ "windows-interface",
  "windows-result 0.2.0",
  "windows-strings 0.1.0",
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-core"
-version = "0.61.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4763c1de310c86d75a878046489e2e5ba02c649d185f21c67d4cf8a56d098980"
-dependencies = [
- "windows-implement 0.60.0",
- "windows-interface 0.59.1",
- "windows-link",
- "windows-result 0.3.2",
- "windows-strings 0.4.0",
 ]
 
 [[package]]
@@ -11959,32 +12159,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "windows-implement"
-version = "0.60.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47fddd13af08290e67f4acabf4b459f647552718f683a7b415d290ac744a836"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
 name = "windows-interface"
 version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "053c4c462dc91d3b1504c6fe5a726dd15e216ba718e84a0e46a88fbe5ded3515"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.101",
-]
-
-[[package]]
-name = "windows-interface"
-version = "0.59.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd9211b69f8dcdfa817bfd14bf1c97c9188afa36f4750130fcdf3f400eca9fa8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -12041,15 +12219,6 @@ name = "windows-strings"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87fa48cc5d406560701792be122a10132491cff9d0aeb23583cc2dcafc847319"
-dependencies = [
- "windows-link",
-]
-
-[[package]]
-name = "windows-strings"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a2ba9642430ee452d5a7aa78d72907ebe8cfda358e8cb7918a2050581322f97"
 dependencies = [
  "windows-link",
 ]
