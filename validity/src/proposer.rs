@@ -3,7 +3,6 @@ use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, Bytes, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Provider};
-use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
@@ -463,7 +462,14 @@ where
                     .checkpointBlockHash(U256::from(latest_header.number))
                     .into_transaction_request();
 
-                let receipt = self.send_transaction_request(transaction_request).await?;
+                let receipt = self
+                    .driver_config
+                    .signer
+                    .send_transaction_request(
+                        self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
+                        transaction_request,
+                    )
+                    .await?;
 
                 // If transaction reverted, log the error.
                 if !receipt.status() {
@@ -717,7 +723,13 @@ where
                 .value(init_bond)
                 .into_transaction_request();
 
-            self.send_transaction_request(transaction_request).await?
+            self.driver_config
+                .signer
+                .send_transaction_request(
+                    self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
+                    transaction_request,
+                )
+                .await?
         } else {
             // Propose the L2 output.
             let transaction_request = self
@@ -732,7 +744,13 @@ where
                 )
                 .into_transaction_request();
 
-            self.send_transaction_request(transaction_request).await?
+            self.driver_config
+                .signer
+                .send_transaction_request(
+                    self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
+                    transaction_request,
+                )
+                .await?
         };
 
         // If the transaction reverted, log the error.
@@ -1166,19 +1184,5 @@ where
         }
 
         Ok(Some(current_end))
-    }
-
-    /// Sends a transaction request.
-    async fn send_transaction_request(
-        &self,
-        transaction_request: TransactionRequest,
-    ) -> Result<TransactionReceipt> {
-        self.driver_config
-            .signer
-            .send_transaction_request_inner(
-                self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
-                transaction_request,
-            )
-            .await
     }
 }

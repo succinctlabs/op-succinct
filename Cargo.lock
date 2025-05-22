@@ -7331,7 +7331,6 @@ dependencies = [
  "alloy-eips 0.15.10",
  "alloy-primitives",
  "alloy-provider",
- "alloy-rpc-types-eth 0.15.10",
  "alloy-signer-local 0.15.10",
  "alloy-sol-types",
  "anyhow",

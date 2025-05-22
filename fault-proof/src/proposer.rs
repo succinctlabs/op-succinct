@@ -2,7 +2,6 @@ use std::{env, sync::Arc, time::Duration};
 
 use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
@@ -102,16 +101,6 @@ where
             fetcher: fetcher.clone(),
             host,
         })
-    }
-
-    /// Sends a transaction request.
-    async fn send_transaction_request(
-        &self,
-        transaction_request: TransactionRequest,
-    ) -> Result<TransactionReceipt> {
-        self.signer
-            .send_transaction_request_inner(self.config.l1_rpc.clone(), transaction_request)
-            .await
     }
 
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
@@ -263,7 +252,10 @@ where
             .value(self.init_bond)
             .into_transaction_request();
 
-        let receipt = self.send_transaction_request(transaction_request).await?;
+        let receipt = self
+            .signer
+            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .await?;
 
         let game_address = receipt
             .inner
@@ -422,8 +414,12 @@ where
             let transaction_request =
                 game.claimCredit(self.prover_address).into_transaction_request();
 
-            // Send the transaction
-            match self.send_transaction_request(transaction_request).await {
+            // Sign and send the transaction
+            match self
+                .signer
+                .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+                .await
+            {
                 Ok(receipt) => {
                     tracing::info!(
                         "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",

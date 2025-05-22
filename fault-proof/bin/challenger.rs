@@ -2,7 +2,6 @@ use std::{env, time::Duration};
 
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
-use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
@@ -64,16 +63,6 @@ where
         })
     }
 
-    /// Sends a transaction request.
-    async fn send_transaction_request(
-        &self,
-        transaction_request: TransactionRequest,
-    ) -> Result<TransactionReceipt> {
-        self.signer
-            .send_transaction_request_inner(self.config.l1_rpc.clone(), transaction_request)
-            .await
-    }
-
     /// Challenges a specific game at the given address.
     async fn challenge_game(&self, game_address: Address) -> Result<()> {
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -81,7 +70,10 @@ where
         let transaction_request =
             game.challenge().value(self.challenger_bond).into_transaction_request();
 
-        let receipt = self.send_transaction_request(transaction_request).await?;
+        let receipt = self
+            .signer
+            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .await?;
 
         tracing::info!(
             "Successfully challenged game {:?} with tx {:?}",
@@ -150,7 +142,11 @@ where
             let transaction_request =
                 game.claimCredit(self.challenger_address).into_transaction_request();
 
-            match self.send_transaction_request(transaction_request).await {
+            match self
+                .signer
+                .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+                .await
+            {
                 Ok(receipt) => {
                     tracing::info!(
                         "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",

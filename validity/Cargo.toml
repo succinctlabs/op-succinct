@@ -34,7 +34,6 @@ alloy-eips.workspace = true
 alloy-provider = { workspace = true }
 alloy-signer-local.workspace = true
 alloy-sol-types.workspace = true
-alloy-rpc-types-eth = { workspace = true, features = ["serde"] }
 
 anyhow.workspace = true
 dotenv.workspace = true

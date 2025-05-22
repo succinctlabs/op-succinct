@@ -51,7 +51,7 @@ impl Signer {
     }
 
     /// Sends a transaction request, signed by the configured `signer`.
-    pub async fn send_transaction_request_inner(
+    pub async fn send_transaction_request(
         &self,
         l1_rpc: Url,
         mut transaction_request: TransactionRequest,
@@ -148,10 +148,7 @@ mod tests {
             .into_transaction_request();
 
         let receipt = proposer_signer
-            .send_transaction_request_inner(
-                "http://localhost:8545".parse().unwrap(),
-                transaction_request,
-            )
+            .send_transaction_request("http://localhost:8545".parse().unwrap(), transaction_request)
             .await
             .unwrap();
 
