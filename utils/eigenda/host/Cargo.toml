@@ -14,9 +14,11 @@ op-succinct-client-utils.workspace = true
 op-succinct-host-utils.workspace = true
 
 # kona
+kona-preimage.workspace = true
 kona-proof.workspace = true
 
 # hokulea
+hokulea-eigenda.workspace = true
 hokulea-host-bin.workspace = true
 hokulea-proof.workspace = true
 

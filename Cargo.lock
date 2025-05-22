@@ -7301,8 +7301,10 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
+ "hokulea-eigenda",
  "hokulea-host-bin",
  "hokulea-proof",
+ "kona-preimage",
  "kona-proof",
  "op-succinct-client-utils",
  "op-succinct-eigenda-client-utils",
@@ -7436,6 +7438,7 @@ version = "0.1.0"
 dependencies = [
  "cfg-if",
  "op-succinct-celestia-host-utils",
+ "op-succinct-eigenda-host-utils",
  "op-succinct-elfs",
  "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
@@ -8730,11 +8733,14 @@ dependencies = [
 name = "range-eigenda"
 version = "0.1.0"
 dependencies = [
+ "hokulea-proof",
+ "hokulea-zkvm-verification",
  "kona-proof",
  "op-succinct-client-utils",
  "op-succinct-eigenda-client-utils",
  "op-succinct-range-utils",
  "rkyv",
+ "serde_cbor",
  "sp1-zkvm",
  "tracing-subscriber 0.3.19",
 ]
