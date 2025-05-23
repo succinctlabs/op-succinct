@@ -682,7 +682,7 @@ impl OPSuccinctDataFetcher {
 
                 // FIXME: Investigate requirement for L1 head offset beyond batch posting block with
                 // safe head > L2 end block.
-                let l1_head_number = l1_head_number + 20;
+                let l1_head_number = l1_head_number + 300;
                 // The new L1 header requested should not be greater than the finalized L1 header
                 // minus 10 blocks.
                 let finalized_l1_header = self.get_l1_header(BlockId::finalized()).await?;
