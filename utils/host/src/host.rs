@@ -110,14 +110,14 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Calculate a safe L1 head hash for the given L2 end block.
     ///
     /// This method is DA-specific:
-    /// - For ETH DA: Uses simple offset logic
-    /// - For Celestia DA: Uses blobstream commitment logic to ensure data availability
+    /// - For ETH DA: Uses simple offset logic.
+    /// - For Celestia DA: Uses blobstream commitment logic to ensure data availability.
     ///
     /// Parameters:
-    /// - `fetcher`: The data fetcher for accessing blockchain data
-    /// - `l2_end_block`: The ending L2 block number for the range
+    /// - `fetcher`: The data fetcher for accessing blockchain data.
+    /// - `l2_end_block`: The ending L2 block number for the range.
     /// - `safe_db_fallback`: Whether to fallback to timestamp-based estimation when SafeDB is
-    ///   unavailable
+    ///   unavailable.
     async fn calculate_safe_l1_head(
         &self,
         fetcher: &OPSuccinctDataFetcher,

@@ -41,7 +41,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         l1_head_hash: Option<B256>,
         safe_db_fallback: bool,
     ) -> Result<CelestiaChainHost> {
-        // Calculate L1 head hash using blobstream logic if not provided
+        // Calculate L1 head hash using blobstream logic if not provided.
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
             None => {
@@ -51,7 +51,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
         let host = self.fetcher.get_host_args(l2_start_block, l2_end_block, l1_head_hash).await?;
 
-        // Create `CelestiaCfg` directly from environment variables
+        // Create `CelestiaCfg` directly from environment variables.
         let celestia_args = CelestiaCfg {
             celestia_connection: std::env::var("CELESTIA_CONNECTION").ok(),
             auth_token: std::env::var("AUTH_TOKEN").ok(),
@@ -168,9 +168,9 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         &self,
         fetcher: &OPSuccinctDataFetcher,
         l2_end_block: u64,
-        safe_db_fallback: bool,
+        _safe_db_fallback: bool,
     ) -> Result<B256> {
-        calculate_celestia_safe_l1_head(fetcher, l2_end_block, safe_db_fallback).await
+        calculate_celestia_safe_l1_head(fetcher, l2_end_block).await
     }
 }
 

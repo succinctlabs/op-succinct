@@ -3,7 +3,7 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::B256;
 use alloy_provider::Provider;
 use alloy_rpc_types::eth::Transaction as EthTransaction;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use hana_blobstream::blobstream::{blostream_address, SP1Blobstream};
 use kona_rpc::SafeHeadResponse;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
@@ -99,7 +99,7 @@ pub async fn find_l1_block_for_celestia_height(
                 if to_addr == batch_inbox_address {
                     match extract_celestia_height(tx)? {
                         None => {
-                            // ETH DA transaction - always valid
+                            // ETH DA transaction - always valid.
                             found_valid_batch = true;
                             result_l1_block = Some(mid);
                         }
@@ -115,9 +115,9 @@ pub async fn find_l1_block_for_celestia_height(
         }
 
         if found_valid_batch {
-            low = mid + 1; // Look for a more recent batch
+            low = mid + 1; // Look for a more recent batch.
         } else {
-            high = mid - 1; // The batch at this block is too new, look earlier
+            high = mid - 1; // The batch at this block is too new, look earlier.
         }
     }
 
@@ -129,37 +129,17 @@ pub async fn find_l1_block_for_celestia_height(
 pub async fn calculate_celestia_safe_l1_head(
     fetcher: &OPSuccinctDataFetcher,
     l2_end_block: u64,
-    safe_db_fallback: bool,
 ) -> Result<B256> {
-    // Get the latest Celestia block committed via Blobstream
+    // Get the latest Celestia block committed via Blobstream.
     let latest_committed_celestia_block = get_latest_blobstream_celestia_block(fetcher).await?;
 
-    // Get the L1 block range to search using the existing method from the fetcher
-    let (_, start_l1_block) = match fetcher.get_safe_l1_block_for_l2_block(l2_end_block).await {
-        Ok((_, block_num)) => (B256::ZERO, block_num), // We only need the block number
-        Err(_) => {
-            // Fallback to timestamp-based estimation if SafeDB is not available
-            if safe_db_fallback {
-                let l2_block_timestamp =
-                    fetcher.get_l2_header(l2_end_block.into()).await?.timestamp;
-                let finalized_l1_timestamp =
-                    fetcher.get_l1_header(alloy_eips::BlockId::finalized()).await?.timestamp;
-                let max_batch_post_delay_minutes = 40;
-                let target_timestamp = std::cmp::min(
-                    l2_block_timestamp + (max_batch_post_delay_minutes * 60),
-                    finalized_l1_timestamp,
-                );
-                fetcher.find_l1_block_by_timestamp(target_timestamp).await?
-            } else {
-                return Err(anyhow!("SafeDB is not available and safe_db_fallback is disabled"));
-            }
-        }
-    };
+    // Get the L1 block range to search using the existing method from the fetcher.
+    let start_l1_block = fetcher.get_safe_l1_block_for_l2_block(l2_end_block).await?.1;
 
     let finalized_l1_header = fetcher.get_l1_header(alloy_eips::BlockId::finalized()).await?;
 
-    // Find the L1 block that posted a batch with Celestia height <= latest committed height
-    if let Some(safe_l1_block) = find_l1_block_for_celestia_height(
+    // Find the L1 block that posted a batch with Celestia height <= latest committed height.
+    match find_l1_block_for_celestia_height(
         fetcher,
         latest_committed_celestia_block,
         start_l1_block,
@@ -167,12 +147,9 @@ pub async fn calculate_celestia_safe_l1_head(
     )
     .await?
     {
-        // Add a small buffer to ensure data availability
-        let l1_head_number = std::cmp::min(safe_l1_block + 10, finalized_l1_header.number);
-        Ok(fetcher.get_l1_header(l1_head_number.into()).await?.hash_slow())
-    } else {
-        // Fallback: use a conservative offset
-        let l1_head_number = std::cmp::min(start_l1_block + 50, finalized_l1_header.number);
-        Ok(fetcher.get_l1_header(l1_head_number.into()).await?.hash_slow())
+        Some(safe_l1_block) => Ok(fetcher.get_l1_header(safe_l1_block.into()).await?.hash_slow()),
+        None => {
+            bail!("Failed to find a safe L1 block for the given L2 block.");
+        }
     }
 }

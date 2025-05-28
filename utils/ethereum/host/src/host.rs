@@ -31,7 +31,7 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         l1_head_hash: Option<B256>,
         safe_db_fallback: bool,
     ) -> Result<SingleChainHost> {
-        // Calculate L1 head hash using simple logic if not provided
+        // Calculate L1 head hash using simple logic if not provided.
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
             None => {
@@ -62,13 +62,15 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         l2_end_block: u64,
         safe_db_fallback: bool,
     ) -> Result<B256> {
-        // For Ethereum DA, use a simple approach with minimal offset
+        // For Ethereum DA, use a simple approach with minimal offset.
         let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, safe_db_fallback).await?;
 
-        // Add a small buffer for Ethereum DA (20 blocks as originally used)
+        // FIXME(fakedev9999): Investigate requirement for L1 head offset beyond batch posting block
+        // with safe head > L2 end block.
+        // Add a small buffer for Ethereum DA.
         let l1_head_number = l1_head_number + 20;
 
-        // Ensure we don't exceed the finalized L1 header
+        // Ensure we don't exceed the finalized L1 header.
         let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
         let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
 
