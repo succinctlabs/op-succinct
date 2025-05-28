@@ -56,19 +56,27 @@ const DEFAULT_LOOP_INTERVAL: u64 = 60;
 ///
 /// Signer address and signer URL take precedence over private key.
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
-    let proposer_signer = if let (Some(signer_url), Some(signer_address)) =
-        (env::var("SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
-    {
-        let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
-        let signer_address =
-            Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
-        ProposerSigner::Web3Signer(signer_url, signer_address)
-    } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
-        let private_key =
-            PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
-        ProposerSigner::LocalSigner(private_key)
+    let agglayer = get_env_var("AGGLAYER", Some(false))?;
+    
+    let proposer_signer = if agglayer {
+        // In agglayer mode, create a dummy signer with zero address if none provided
+        ProposerSigner::LocalSigner(PrivateKeySigner::random())
     } else {
-        anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
+        // Non-agglayer mode requires explicit signer configuration
+        if let (Some(signer_url), Some(signer_address)) =
+            (env::var("SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
+        {
+            let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
+            let signer_address =
+                Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
+            ProposerSigner::Web3Signer(signer_url, signer_address)
+        } else if let Ok(private_key) = env::var("PRIVATE_KEY") {
+            let private_key =
+                PrivateKeySigner::from_str(&private_key).expect("Failed to parse PRIVATE_KEY");
+            ProposerSigner::LocalSigner(private_key)
+        } else {
+            anyhow::bail!("Neither PRIVATE_KEY nor Web3Signer is set");
+        }
     };
 
     // The prover address takes precedence over the signer address. Note: Setting the prover address
