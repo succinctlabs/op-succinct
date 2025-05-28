@@ -31,18 +31,17 @@ Failed to validate L2 block #<block_number> with output root <hash>
 This error occurs when the L1 head block selected is too close to the batch posting block, causing the derivation process to fail. The L2 node may have an inconsistent view of the safe head state, requiring additional L1 blocks to properly derive and validate the L2 blocks.
 
 **Solution:**
-1. Increase the L1 head offset buffer in the derivation process. The code currently adds a buffer of 20 blocks after the batch posting block, but you can increase this to for example 100 blocks:
+This has been resolved through DA-aware L1 head calculation:
 
-```rust
-let l1_head_number = l1_head_number + 100;
-```
-
-2. If you're still encountering this error, you can try:
-   - Waiting for more L1 blocks to be produced and retry
-   - Using a different L2 node with a more consistent safe head state
-   - For development/testing, you can increase the buffer further (e.g., to 150 blocks)
+1. **For Ethereum DA**: Uses a small buffer of 20 blocks after the batch posting block
+2. **For Celestia DA**: Uses blobstream commitment logic to ensure data availability by finding L1 blocks where batches with committed Celestia data were posted
 
 **Technical Details:**
-The error occurs in the derivation pipeline when attempting to validate L2 blocks. The L1 head must be sufficiently ahead of the batch posting block to ensure all required data is available and the safe head state is consistent. The buffer of 20 blocks is added empirically to handle most cases where RPCs may have an incorrect view of the safe head state and have minimum overhead for the derivation process.
+The system now automatically calculates the appropriate L1 head based on the DA type:
 
-Reference: [Fetcher Implementation](https://github.com/succinctlabs/op-succinct/blob/5dfc43928c75cef0ebf881d10bd8b3dcbe273419/utils/host/src/fetcher.rs#L773)
+- **Ethereum DA**: Simple offset logic since data is immediately available once the L1 transaction is included
+- **Celestia DA**: Sophisticated blobstream-aware logic that checks which Celestia blocks have been committed to Ethereum and finds the corresponding L1 blocks where safe batches were posted
+
+The calculation happens in the host layer (`calculate_safe_l1_head` method) rather than using hardcoded offsets in the fetcher layer. This ensures each DA type gets the appropriate treatment without heuristic values.
+
+Reference: [Host Implementation](utils/host/src/host.rs) and [Celestia Blobstream Utils](utils/celestia/host/src/blobstream_utils.rs)

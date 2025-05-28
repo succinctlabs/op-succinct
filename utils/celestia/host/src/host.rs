@@ -4,7 +4,7 @@ use alloy_consensus::Transaction;
 use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use alloy_provider::Provider;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use hana_blobstream::blobstream::{blostream_address, SP1Blobstream};
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
@@ -14,6 +14,8 @@ use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
     host::OPSuccinctHost,
 };
+
+use crate::blobstream_utils::{calculate_celestia_safe_l1_head, extract_celestia_height};
 
 use crate::witness_generator::CelestiaDAWitnessGenerator;
 
@@ -39,13 +41,21 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         l1_head_hash: Option<B256>,
         safe_db_fallback: Option<bool>,
     ) -> Result<CelestiaChainHost> {
+        let safe_db_fallback_flag = safe_db_fallback.expect("`safe_db_fallback` must be set");
+        
+        // Calculate L1 head hash using blobstream logic if not provided
+        let l1_head_hash = match l1_head_hash {
+            Some(hash) => hash,
+            None => self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback_flag).await?,
+        };
+        
         let host = self
             .fetcher
             .get_host_args(
                 l2_start_block,
                 l2_end_block,
-                l1_head_hash,
-                safe_db_fallback.expect("`safe_db_fallback` must be set"),
+                Some(l1_head_hash),
+                safe_db_fallback_flag,
             )
             .await?;
 
@@ -161,6 +171,15 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
         Ok(l2_block_number)
     }
+
+    async fn calculate_safe_l1_head(
+        &self,
+        fetcher: &OPSuccinctDataFetcher,
+        l2_end_block: u64,
+        safe_db_fallback: bool,
+    ) -> Result<B256> {
+        calculate_celestia_safe_l1_head(fetcher, l2_end_block, safe_db_fallback).await
+    }
 }
 
 impl CelestiaOPSuccinctHost {
@@ -174,39 +193,3 @@ impl CelestiaOPSuccinctHost {
     }
 }
 
-/// Extract the Celestia height from batcher transaction based on the version byte.
-///
-/// Returns:
-/// - Some(height) if the transaction is a valid Celestia batcher transaction.
-/// - None if the transaction is an ETH DA transaction (EIP4844 transaction or non-EIP4844
-///   transaction with version byte 0x00).
-/// - Err if the version byte is invalid or the da layer byte is incorrect for non-EIP4844
-///   transactions.
-fn extract_celestia_height(tx: &alloy_rpc_types::eth::Transaction) -> Result<Option<u64>> {
-    // Skip calldata parsing for EIP4844 transactions since there is no calldata.
-    if tx.inner.is_eip4844() {
-        Ok(None)
-    } else {
-        let calldata = tx.input();
-        // Check version byte to determine if it is ETH DA or Alt DA.
-        // https://specs.optimism.io/protocol/derivation.html#batcher-transaction-format.
-        match calldata[0] {
-            0x00 => Ok(None), // ETH DA transaction.
-            0x01 => {
-                // Check that the DA layer byte prefix is correct.
-                // https://github.com/ethereum-optimism/specs/discussions/135.
-                if calldata[2] != 0x0c {
-                    return Err(anyhow!("Invalid prefix for Celestia batcher transaction"));
-                }
-
-                // The encoding of the commitment is the Celestia block height followed
-                // by the Celestia commitment.
-                let height_bytes = &calldata[3..11];
-                let celestia_height = u64::from_le_bytes(height_bytes.try_into().unwrap());
-
-                Ok(Some(celestia_height))
-            }
-            _ => Err(anyhow!("Invalid version byte for batcher transaction")),
-        }
-    }
-}
