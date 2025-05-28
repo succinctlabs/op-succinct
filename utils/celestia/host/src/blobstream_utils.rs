@@ -46,21 +46,19 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
 }
 
 /// Get the latest Celestia block height that has been committed to Ethereum via Blobstream.
-pub async fn get_latest_blobstream_celestia_block(
-    fetcher: &OPSuccinctDataFetcher,
-) -> Result<u64> {
+pub async fn get_latest_blobstream_celestia_block(fetcher: &OPSuccinctDataFetcher) -> Result<u64> {
     let blobstream_contract = SP1Blobstream::new(
         blostream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
             .expect("Failed to fetch blobstream contract address"),
         fetcher.l1_provider.clone(),
     );
-    
+
     let latest_celestia_block = blobstream_contract.latestBlock().call().await?;
     Ok(latest_celestia_block)
 }
 
-/// Find the L1 block that posted a batch with Celestia height less than or equal to the given target height.
-/// This uses binary search to efficiently find the appropriate L1 block.
+/// Find the L1 block that posted a batch with Celestia height less than or equal to the given
+/// target height. This uses binary search to efficiently find the appropriate L1 block.
 pub async fn find_l1_block_for_celestia_height(
     fetcher: &OPSuccinctDataFetcher,
     target_celestia_height: u64,
@@ -68,7 +66,7 @@ pub async fn find_l1_block_for_celestia_height(
     search_end_l1_block: u64,
 ) -> Result<Option<u64>> {
     let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
-    
+
     let mut low = search_start_l1_block;
     let mut high = search_end_l1_block;
     let mut result_l1_block = None;
@@ -135,15 +133,17 @@ pub async fn calculate_celestia_safe_l1_head(
 ) -> Result<B256> {
     // Get the latest Celestia block committed via Blobstream
     let latest_committed_celestia_block = get_latest_blobstream_celestia_block(fetcher).await?;
-    
+
     // Get the L1 block range to search using the existing method from the fetcher
     let (_, start_l1_block) = match fetcher.get_safe_l1_block_for_l2_block(l2_end_block).await {
         Ok((_, block_num)) => (B256::ZERO, block_num), // We only need the block number
         Err(_) => {
             // Fallback to timestamp-based estimation if SafeDB is not available
             if safe_db_fallback {
-                let l2_block_timestamp = fetcher.get_l2_header(l2_end_block.into()).await?.timestamp;
-                let finalized_l1_timestamp = fetcher.get_l1_header(alloy_eips::BlockId::finalized()).await?.timestamp;
+                let l2_block_timestamp =
+                    fetcher.get_l2_header(l2_end_block.into()).await?.timestamp;
+                let finalized_l1_timestamp =
+                    fetcher.get_l1_header(alloy_eips::BlockId::finalized()).await?.timestamp;
                 let max_batch_post_delay_minutes = 40;
                 let target_timestamp = std::cmp::min(
                     l2_block_timestamp + (max_batch_post_delay_minutes * 60),
@@ -155,16 +155,18 @@ pub async fn calculate_celestia_safe_l1_head(
             }
         }
     };
-    
+
     let finalized_l1_header = fetcher.get_l1_header(alloy_eips::BlockId::finalized()).await?;
-    
+
     // Find the L1 block that posted a batch with Celestia height <= latest committed height
     if let Some(safe_l1_block) = find_l1_block_for_celestia_height(
         fetcher,
         latest_committed_celestia_block,
         start_l1_block,
         finalized_l1_header.number,
-    ).await? {
+    )
+    .await?
+    {
         // Add a small buffer to ensure data availability
         let l1_head_number = std::cmp::min(safe_l1_block + 10, finalized_l1_header.number);
         Ok(fetcher.get_l1_header(l1_head_number.into()).await?.hash_slow())

@@ -32,21 +32,19 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         safe_db_fallback: Option<bool>,
     ) -> Result<SingleChainHost> {
         let safe_db_fallback_flag = safe_db_fallback.expect("`safe_db_fallback` must be set");
-        
+
         // Calculate L1 head hash using simple logic if not provided
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
-            None => self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback_flag).await?,
+            None => {
+                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback_flag)
+                    .await?
+            }
         };
-        
+
         let host = self
             .fetcher
-            .get_host_args(
-                l2_start_block,
-                l2_end_block,
-                Some(l1_head_hash),
-                safe_db_fallback_flag,
-            )
+            .get_host_args(l2_start_block, l2_end_block, Some(l1_head_hash), safe_db_fallback_flag)
             .await?;
         Ok(host)
     }
@@ -72,14 +70,14 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
     ) -> Result<B256> {
         // For Ethereum DA, use a simple approach with minimal offset
         let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, safe_db_fallback).await?;
-        
+
         // Add a small buffer for Ethereum DA (20 blocks as originally used)
         let l1_head_number = l1_head_number + 20;
-        
+
         // Ensure we don't exceed the finalized L1 header
         let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
         let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
-        
+
         Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
     }
 }

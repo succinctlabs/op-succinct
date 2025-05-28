@@ -117,7 +117,8 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Parameters:
     /// - `fetcher`: The data fetcher for accessing blockchain data
     /// - `l2_end_block`: The ending L2 block number for the range
-    /// - `safe_db_fallback`: Whether to fallback to timestamp-based estimation when SafeDB is unavailable
+    /// - `safe_db_fallback`: Whether to fallback to timestamp-based estimation when SafeDB is
+    ///   unavailable
     async fn calculate_safe_l1_head(
         &self,
         fetcher: &OPSuccinctDataFetcher,

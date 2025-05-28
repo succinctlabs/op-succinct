@@ -42,21 +42,19 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         safe_db_fallback: Option<bool>,
     ) -> Result<CelestiaChainHost> {
         let safe_db_fallback_flag = safe_db_fallback.expect("`safe_db_fallback` must be set");
-        
+
         // Calculate L1 head hash using blobstream logic if not provided
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
-            None => self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback_flag).await?,
+            None => {
+                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback_flag)
+                    .await?
+            }
         };
-        
+
         let host = self
             .fetcher
-            .get_host_args(
-                l2_start_block,
-                l2_end_block,
-                Some(l1_head_hash),
-                safe_db_fallback_flag,
-            )
+            .get_host_args(l2_start_block, l2_end_block, Some(l1_head_hash), safe_db_fallback_flag)
             .await?;
 
         // Create `CelestiaCfg` directly from environment variables
@@ -192,4 +190,3 @@ impl CelestiaOPSuccinctHost {
         }
     }
 }
-
