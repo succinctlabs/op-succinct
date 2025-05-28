@@ -622,7 +622,7 @@ impl OPSuccinctDataFetcher {
         &self,
         l2_start_block: u64,
         l2_end_block: u64,
-        l1_head_hash: Option<B256>,
+        l1_head_hash: B256,
         _safe_db_fallback: bool,
     ) -> Result<SingleChainHost> {
         // If the rollup config is not already loaded, fetch and save it.
@@ -678,10 +678,6 @@ impl OPSuccinctDataFetcher {
             l2_claim_hash: l2_claim_hash.0.into(),
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
-
-        let l1_head_hash = l1_head_hash.expect(
-            "L1 head hash must be provided. The host layer should calculate the appropriate L1 head based on DA type."
-        );
 
         Ok(SingleChainHost {
             l1_head: l1_head_hash,
