@@ -49,10 +49,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
             }
         };
 
-        let host = self
-            .fetcher
-            .get_host_args(l2_start_block, l2_end_block, l1_head_hash, safe_db_fallback)
-            .await?;
+        let host = self.fetcher.get_host_args(l2_start_block, l2_end_block, l1_head_hash).await?;
 
         // Create `CelestiaCfg` directly from environment variables
         let celestia_args = CelestiaCfg {
