@@ -57,18 +57,17 @@ pub trait OPSuccinctHost: Send + Sync + 'static {
     /// Fetch the host arguments.
     ///
     /// Parameters:
-    /// - `l2_start_block`: The starting L2 block number
-    /// - `l2_end_block`: The ending L2 block number
+    /// - `l2_start_block`: The starting L2 block number.
+    /// - `l2_end_block`: The ending L2 block number.
     /// - `l1_head_hash`: Optionally supplied L1 head block hash used as the L1 origin.
-    /// - `safe_db_fallback`: Optionally supplied flag to indicate whether to fallback to
-    ///   timestamp-based L1 head estimation when SafeDB is not available. This is optional to
-    ///   support abstraction across different node implementations.
+    /// - `safe_db_fallback`: Flag to indicate whether to fallback to timestamp-based L1 head
+    ///   estimation when SafeDB is not available.
     async fn fetch(
         &self,
         l2_start_block: u64,
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
-        safe_db_fallback: Option<bool>,
+        safe_db_fallback: bool,
     ) -> Result<Self::Args>;
 
     /// Run the host and client program.
