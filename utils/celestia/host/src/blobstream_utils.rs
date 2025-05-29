@@ -4,7 +4,7 @@ use alloy_primitives::B256;
 use alloy_provider::Provider;
 use alloy_rpc_types::eth::Transaction as EthTransaction;
 use anyhow::{anyhow, bail, Result};
-use hana_blobstream::blobstream::{blostream_address, SP1Blobstream};
+use hana_blobstream::blobstream::{blobstream_address, SP1Blobstream};
 use kona_rpc::SafeHeadResponse;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 
@@ -48,7 +48,7 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
 /// Get the latest Celestia block height that has been committed to Ethereum via Blobstream.
 pub async fn get_latest_blobstream_celestia_block(fetcher: &OPSuccinctDataFetcher) -> Result<u64> {
     let blobstream_contract = SP1Blobstream::new(
-        blostream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
+        blobstream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
             .expect("Failed to fetch blobstream contract address"),
         fetcher.l1_provider.clone(),
     );
