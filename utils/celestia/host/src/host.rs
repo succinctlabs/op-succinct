@@ -1,23 +1,15 @@
 use std::sync::Arc;
 
-use alloy_consensus::Transaction;
-use alloy_eips::BlockId;
 use alloy_primitives::B256;
-use alloy_provider::Provider;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use async_trait::async_trait;
-use hana_blobstream::blobstream::{blobstream_address, SP1Blobstream};
 use hana_host::celestia::{CelestiaCfg, CelestiaChainHost};
-use kona_rpc::SafeHeadResponse;
 use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
-use op_succinct_host_utils::{
-    fetcher::{OPSuccinctDataFetcher, RPCMode},
-    host::OPSuccinctHost,
+use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
+
+use crate::{
+    blobstream_utils::get_celestia_safe_head_info, witness_generator::CelestiaDAWitnessGenerator,
 };
-
-use crate::blobstream_utils::{calculate_celestia_safe_l1_head, extract_celestia_height};
-
-use crate::witness_generator::CelestiaDAWitnessGenerator;
 
 #[derive(Clone)]
 pub struct CelestiaOPSuccinctHost {
@@ -65,112 +57,31 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         Some(args.single_host.l1_head)
     }
 
-    /// Converts the latest Celestia block height in Blobstream to the highest L2 block that can be
-    /// included in a range proof.
-    ///
-    /// 1. Get the latest Celestia block included in a Blobstream commitment.
-    /// 2. Loop over the `BatchInbox` from the l1 origin of the latest proposed block number to the
-    ///    finalized L1 block number.
-    /// 3. For each `BatchInbox` transaction, check if it contains a Celestia block number greater
-    ///    than the latest Celestia block.
-    /// 4. If it does, return the L2 block number.
-    /// 5. If it doesn't, return None.
+    /// Get the highest L2 block that can be safely proven given Celestia's Blobstream commitments.
+    /// Returns the maximum L2 block number where all referenced Celestia data has been committed
+    /// to Ethereum and is verifiable in proofs.
     async fn get_finalized_l2_block_number(
         &self,
         fetcher: &OPSuccinctDataFetcher,
         latest_proposed_block_number: u64,
     ) -> Result<Option<u64>> {
-        let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
-
-        let blobstream_contract = SP1Blobstream::new(
-            blobstream_address(fetcher.rollup_config.as_ref().unwrap().l1_chain_id)
-                .expect("Failed to fetch blobstream contract address"),
-            fetcher.l1_provider.clone(),
-        );
-        // Get the latest Celestia block included in a Blobstream commitment.
-        let latest_celestia_block = blobstream_contract.latestBlock().call().await?;
-
-        let mut low = fetcher.get_safe_l1_block_for_l2_block(latest_proposed_block_number).await?.1;
-        let mut high = fetcher.get_l1_header(BlockId::finalized()).await?.number;
-
-        let mut l2_block_number = None;
-
-        // Binary search between the latest proposed block number and the finalized L1 block number
-        // for the batch transaction that has the highest Celestia height less than the
-        // latest Celestia height in the latest Blobstream commitment.
-        //
-        // At each block in the binary search, get the current safe head (this returns the L1 block
-        // where the batch was posted). Then, get the block at the safe head and check if it
-        // contains a batch transaction with a Celestia height greater than the latest Celestia
-        // height in the latest Blobstream commitment.
-        while low <= high {
-            let mid = (high + low) / 2;
-            let l1_block_hex = format!("0x{mid:x}");
-
-            // Get the safe head for the chain at the midpoint. This will return the latest
-            // transaction with a batch.
-            let result: SafeHeadResponse = fetcher
-                .fetch_rpc_data_with_mode(
-                    RPCMode::L2Node,
-                    "optimism_safeHeadAtL1Block",
-                    vec![l1_block_hex.into()],
-                )
-                .await?;
-            let safe_head_l1_block_number = result.l1_block.number;
-            let l2_safe_head_number = result.safe_head.number;
-            let block = fetcher
-                .l1_provider
-                .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(
-                    safe_head_l1_block_number,
-                ))
-                .full()
-                .await?
-                .unwrap();
-
-            let mut found_valid_tx = false;
-            for tx in block.transactions.txns() {
-                if let Some(to_addr) = tx.to() {
-                    if to_addr == batch_inbox_address {
-                        match extract_celestia_height(tx)? {
-                            None => {
-                                // ETH DA transaction.
-                                found_valid_tx = true;
-                                l2_block_number =
-                                    Some(fetcher.get_l2_header(BlockId::finalized()).await?.number);
-                            }
-                            Some(celestia_height) => {
-                                if celestia_height < latest_celestia_block {
-                                    found_valid_tx = true;
-                                    l2_block_number = Some(l2_safe_head_number);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // If a batch b with a lower Celestia height, h1, than the latest Blobstream Celestia
-            // height, h, in the latest Blobstream commitment was found, we should try
-            // to find a batch b' with a Celestia height, h2, that is h1 < h2 <= h.
-            if found_valid_tx {
-                low = mid + 1; // Look in higher blocks for a batch with a higher Celestia height
-                               // that's less than the latest Blobstream Celestia height.
-            } else {
-                high = mid - 1; // The Celestia height in the latest committed batch is greater than
-                                // the latest Blobstream Celestia height, so look in earlier blocks.
-            }
-        }
-
-        Ok(l2_block_number)
+        Ok(get_celestia_safe_head_info(fetcher, latest_proposed_block_number)
+            .await?
+            .map(|safe_head| safe_head.l2_safe_head_number))
     }
 
+    /// Calculate the safe L1 head hash for Celestia DA considering Blobstream commitments.
+    /// Finds the latest L1 block containing batches with Celestia data committed via Blobstream.
     async fn calculate_safe_l1_head(
         &self,
         fetcher: &OPSuccinctDataFetcher,
         l2_end_block: u64,
         _safe_db_fallback: bool,
     ) -> Result<B256> {
-        calculate_celestia_safe_l1_head(fetcher, l2_end_block).await
+        match get_celestia_safe_head_info(fetcher, l2_end_block).await? {
+            Some(safe_head) => safe_head.get_l1_hash(fetcher).await,
+            None => bail!("Failed to find a safe L1 block for the given L2 block."),
+        }
     }
 }
 

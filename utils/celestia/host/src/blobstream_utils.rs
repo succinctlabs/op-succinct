@@ -1,9 +1,9 @@
 use alloy_consensus::Transaction;
-use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::B256;
+use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use alloy_rpc_types::eth::Transaction as EthTransaction;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use hana_blobstream::blobstream::{blobstream_address, SP1Blobstream};
 use kona_rpc::SafeHeadResponse;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
@@ -22,6 +22,10 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
         Ok(None)
     } else {
         let calldata = tx.input();
+
+        // TODO: add check for minimum calldata length. This prevents from panics in the case the
+        // calldata is too short.
+
         // Check version byte to determine if it is ETH DA or Alt DA.
         // https://specs.optimism.io/protocol/derivation.html#batcher-transaction-format.
         match calldata[0] {
@@ -57,66 +61,94 @@ pub async fn get_latest_blobstream_celestia_block(fetcher: &OPSuccinctDataFetche
     Ok(latest_celestia_block)
 }
 
-/// Find the L1 block that posted a batch with Celestia height less than or equal to the given
-/// target height. This uses binary search to efficiently find the appropriate L1 block.
-pub async fn find_l1_block_for_celestia_height(
+fn is_valid_batch_transaction(
+    tx: &EthTransaction,
+    batch_inbox_address: Address,
+    batcher_address: Address,
+) -> Result<bool> {
+    Ok(tx.to().is_some_and(|addr| addr == batch_inbox_address) &&
+        tx.inner.recover_signer().is_ok_and(|signer| signer == batcher_address))
+}
+
+#[derive(Debug, Clone)]
+pub struct CelestiaL1SafeHead {
+    pub l1_block_number: u64,
+    pub l2_safe_head_number: u64,
+}
+
+impl CelestiaL1SafeHead {
+    /// Get the L1 block hash for this safe head
+    pub async fn get_l1_hash(&self, fetcher: &OPSuccinctDataFetcher) -> Result<B256> {
+        Ok(fetcher.get_l1_header(self.l1_block_number.into()).await?.hash_slow())
+    }
+}
+
+/// Find the latest safe L1 block with Celestia batches committed via Blobstream.
+/// Uses binary search to efficiently locate the highest L1 block containing batch transactions
+/// with Celestia heights that have been committed to Ethereum through Blobstream.
+pub async fn get_celestia_safe_head_info(
     fetcher: &OPSuccinctDataFetcher,
-    target_celestia_height: u64,
-    search_start_l1_block: u64,
-    search_end_l1_block: u64,
-) -> Result<Option<u64>> {
-    let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
-    let batcher_address = fetcher
-        .rollup_config
-        .as_ref()
-        .unwrap()
+    l2_reference_block: u64,
+) -> Result<Option<CelestiaL1SafeHead>> {
+    let rollup_config =
+        fetcher.rollup_config.as_ref().ok_or_else(|| anyhow!("Rollup config not found"))?;
+
+    let batch_inbox_address = rollup_config.batch_inbox_address;
+    let batcher_address = rollup_config
         .genesis
         .system_config
         .as_ref()
         .ok_or_else(|| anyhow!("System config not found in genesis"))?
         .batcher_address;
 
-    let mut low = search_start_l1_block;
-    let mut high = search_end_l1_block;
-    let mut result_l1_block = None;
+    // Get the latest Celestia block committed via Blobstream
+    let latest_committed_celestia_block = get_latest_blobstream_celestia_block(fetcher).await?;
+
+    // Get the L1 block range to search
+    let mut low = fetcher.get_safe_l1_block_for_l2_block(l2_reference_block).await?.1;
+    let mut high = fetcher.get_l1_header(BlockId::finalized()).await?.number;
+    let mut result = None;
 
     while low <= high {
-        let mid = (high + low) / 2;
-        let l1_block_hex = format!("0x{mid:x}");
+        let current_l1_block = low + (high - low) / 2;
+        let l1_block_hex = format!("0x{current_l1_block:x}");
 
-        // Get the safe head for the chain at the midpoint. This will return the latest
-        // transaction with a batch.
-        let result: SafeHeadResponse = fetcher
+        let safe_head_response: SafeHeadResponse = fetcher
             .fetch_rpc_data_with_mode(
                 RPCMode::L2Node,
                 "optimism_safeHeadAtL1Block",
                 vec![l1_block_hex.into()],
             )
             .await?;
-        let safe_head_l1_block_number = result.l1_block.number;
 
         let block = fetcher
             .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(safe_head_l1_block_number))
+            .get_block_by_number(BlockNumberOrTag::Number(safe_head_response.l1_block.number))
             .full()
             .await?
-            .unwrap();
+            .ok_or_else(|| anyhow!("Block {} not found", safe_head_response.l1_block.number))?;
 
         let mut found_valid_batch = false;
         for tx in block.transactions.txns() {
-            if let Some(to_addr) = tx.to() {
-                if to_addr == batch_inbox_address && tx.inner.recover_signer()? == batcher_address {
-                    match extract_celestia_height(tx)? {
-                        None => {
-                            // ETH DA transaction - always valid.
+            if is_valid_batch_transaction(tx, batch_inbox_address, batcher_address)? {
+                match extract_celestia_height(tx)? {
+                    None => {
+                        // ETH DA transaction - always valid.
+                        found_valid_batch = true;
+                        result = Some(CelestiaL1SafeHead {
+                            l1_block_number: current_l1_block,
+                            l2_safe_head_number: safe_head_response.safe_head.number,
+                        });
+                        break;
+                    }
+                    Some(celestia_height) => {
+                        if celestia_height <= latest_committed_celestia_block {
                             found_valid_batch = true;
-                            result_l1_block = Some(mid);
-                        }
-                        Some(celestia_height) => {
-                            if celestia_height <= target_celestia_height {
-                                found_valid_batch = true;
-                                result_l1_block = Some(mid);
-                            }
+                            result = Some(CelestiaL1SafeHead {
+                                l1_block_number: current_l1_block,
+                                l2_safe_head_number: safe_head_response.safe_head.number,
+                            });
+                            break;
                         }
                     }
                 }
@@ -124,41 +156,11 @@ pub async fn find_l1_block_for_celestia_height(
         }
 
         if found_valid_batch {
-            low = mid + 1; // Look for a more recent batch.
+            low = current_l1_block + 1;
         } else {
-            high = mid - 1; // The batch at this block is too new, look earlier.
+            high = current_l1_block - 1;
         }
     }
 
-    Ok(result_l1_block)
-}
-
-/// Calculate a safe L1 head for Celestia DA by finding the L1 block where the last safe
-/// Celestia batch was posted, considering blobstream commitments.
-pub async fn calculate_celestia_safe_l1_head(
-    fetcher: &OPSuccinctDataFetcher,
-    l2_end_block: u64,
-) -> Result<B256> {
-    // Get the latest Celestia block committed via Blobstream.
-    let latest_committed_celestia_block = get_latest_blobstream_celestia_block(fetcher).await?;
-
-    // Get the L1 block range to search using the existing method from the fetcher.
-    let start_l1_block = fetcher.get_safe_l1_block_for_l2_block(l2_end_block).await?.1;
-
-    let finalized_l1_header = fetcher.get_l1_header(alloy_eips::BlockId::finalized()).await?;
-
-    // Find the L1 block that posted a batch with Celestia height <= latest committed height.
-    match find_l1_block_for_celestia_height(
-        fetcher,
-        latest_committed_celestia_block,
-        start_l1_block,
-        finalized_l1_header.number,
-    )
-    .await?
-    {
-        Some(safe_l1_block) => Ok(fetcher.get_l1_header(safe_l1_block.into()).await?.hash_slow()),
-        None => {
-            bail!("Failed to find a safe L1 block for the given L2 block.");
-        }
-    }
+    Ok(result)
 }
