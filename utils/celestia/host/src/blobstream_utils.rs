@@ -23,7 +23,7 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
     } else {
         let calldata = tx.input();
 
-        // Check minimum calldata length for version byte
+        // Check minimum calldata length for version byte.
         if calldata.is_empty() {
             return Err(anyhow!("Calldata is empty, cannot extract version byte"));
         }
@@ -46,7 +46,7 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
                     ));
                 }
 
-                // Check that the commitment type is altda (0x01)
+                // Check that the commitment type is altda (0x01).
                 if calldata[1] != 0x01 {
                     return Err(anyhow!(
                         "Invalid commitment type for Celestia batcher transaction: expected 0x01, got 0x{:02x}",
@@ -106,7 +106,7 @@ pub struct CelestiaL1SafeHead {
 }
 
 impl CelestiaL1SafeHead {
-    /// Get the L1 block hash for this safe head
+    /// Get the L1 block hash for this safe head.
     pub async fn get_l1_hash(&self, fetcher: &OPSuccinctDataFetcher) -> Result<B256> {
         Ok(fetcher.get_l1_header(self.l1_block_number.into()).await?.hash_slow())
     }
@@ -130,10 +130,10 @@ pub async fn get_celestia_safe_head_info(
         .ok_or_else(|| anyhow!("System config not found in genesis"))?
         .batcher_address;
 
-    // Get the latest Celestia block committed via Blobstream
+    // Get the latest Celestia block committed via Blobstream.
     let latest_committed_celestia_block = get_latest_blobstream_celestia_block(fetcher).await?;
 
-    // Get the L1 block range to search
+    // Get the L1 block range to search.
     let mut low = fetcher.get_safe_l1_block_for_l2_block(l2_reference_block).await?.1;
     let mut high = fetcher.get_l1_header(BlockId::finalized()).await?.number;
     let mut result = None;
