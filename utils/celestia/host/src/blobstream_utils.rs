@@ -14,8 +14,8 @@ use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 /// - Some(height) if the transaction is a valid Celestia batcher transaction.
 /// - None if the transaction is an ETH DA transaction (EIP4844 transaction or non-EIP4844
 ///   transaction with version byte 0x00).
-/// - Err if the version byte is invalid or the da layer byte is incorrect for non-EIP4844
-///   transactions.
+/// - Err if the version byte is invalid, the commitment type is incorrect, or the da layer byte is
+///   incorrect for non-EIP4844 transactions.
 pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
     // Skip calldata parsing for EIP4844 transactions since there is no calldata.
     if tx.inner.is_eip4844() {
@@ -23,14 +23,37 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
     } else {
         let calldata = tx.input();
 
-        // TODO: add check for minimum calldata length. This prevents from panics in the case the
-        // calldata is too short.
+        // Check minimum calldata length for version byte
+        if calldata.is_empty() {
+            return Err(anyhow!("Calldata is empty, cannot extract version byte"));
+        }
 
         // Check version byte to determine if it is ETH DA or Alt DA.
         // https://specs.optimism.io/protocol/derivation.html#batcher-transaction-format.
         match calldata[0] {
             0x00 => Ok(None), // ETH DA transaction.
             0x01 => {
+                // Check minimum length for Celestia DA transaction:
+                // [0] = version byte (0x01)
+                // [1] = commitment type (0x01 for altda commitment)
+                // [2] = da layer byte (0x0c for Celestia)
+                // [3..11] = 8-byte Celestia height (little-endian)
+                // [11..] = commitment data
+                if calldata.len() < 11 {
+                    return Err(anyhow!(
+                        "Celestia batcher transaction too short: {} bytes, need at least 11",
+                        calldata.len()
+                    ));
+                }
+
+                // Check that the commitment type is altda (0x01)
+                if calldata[1] != 0x01 {
+                    return Err(anyhow!(
+                        "Invalid commitment type for Celestia batcher transaction: expected 0x01, got 0x{:02x}",
+                        calldata[1]
+                    ));
+                }
+
                 // Check that the DA layer byte prefix is correct.
                 // https://github.com/ethereum-optimism/specs/discussions/135.
                 if calldata[2] != 0x0c {
@@ -40,11 +63,17 @@ pub fn extract_celestia_height(tx: &EthTransaction) -> Result<Option<u64>> {
                 // The encoding of the commitment is the Celestia block height followed
                 // by the Celestia commitment.
                 let height_bytes = &calldata[3..11];
-                let celestia_height = u64::from_le_bytes(height_bytes.try_into().unwrap());
+                let celestia_height = u64::from_le_bytes(
+                    height_bytes
+                        .try_into()
+                        .map_err(|_| anyhow!("Failed to convert height bytes to u64"))?,
+                );
 
                 Ok(Some(celestia_height))
             }
-            _ => Err(anyhow!("Invalid version byte for batcher transaction")),
+            _ => {
+                Err(anyhow!("Invalid version byte for batcher transaction: 0x{:02x}", calldata[0]))
+            }
         }
     }
 }
