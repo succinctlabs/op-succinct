@@ -66,6 +66,15 @@ pub async fn find_l1_block_for_celestia_height(
     search_end_l1_block: u64,
 ) -> Result<Option<u64>> {
     let batch_inbox_address = fetcher.rollup_config.as_ref().unwrap().batch_inbox_address;
+    let batcher_address = fetcher
+        .rollup_config
+        .as_ref()
+        .unwrap()
+        .genesis
+        .system_config
+        .as_ref()
+        .ok_or_else(|| anyhow!("System config not found in genesis"))?
+        .batcher_address;
 
     let mut low = search_start_l1_block;
     let mut high = search_end_l1_block;
@@ -96,7 +105,7 @@ pub async fn find_l1_block_for_celestia_height(
         let mut found_valid_batch = false;
         for tx in block.transactions.txns() {
             if let Some(to_addr) = tx.to() {
-                if to_addr == batch_inbox_address {
+                if to_addr == batch_inbox_address && tx.inner.recover_signer()? == batcher_address {
                     match extract_celestia_height(tx)? {
                         None => {
                             // ETH DA transaction - always valid.
