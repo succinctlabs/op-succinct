@@ -27,7 +27,7 @@ sol! {
         function gameAtIndex(uint256 _index) external view returns (GameType gameType, Timestamp timestamp, IDisputeGame proxy);
 
         /// @notice Creates a new DisputeGame proxy contract.
-        function create(GameType gameType, Claim rootClaim, bytes extraData) external;
+        function create(GameType gameType, Claim rootClaim, bytes calldata extraData) external;
     }
 
     #[allow(missing_docs)]
