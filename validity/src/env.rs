@@ -5,6 +5,7 @@ use anyhow::Result;
 use op_succinct_signer_utils::Signer;
 use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
+use alloy_signer_local::PrivateKeySigner;
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentConfig {
@@ -53,7 +54,14 @@ const DEFAULT_LOOP_INTERVAL: u64 = 60;
 ///
 /// Signer address and signer URL take precedence over private key.
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
-    let signer = Signer::from_env()?;
+    let agglayer = get_env_var("AGGLAYER", Some(false))?;
+
+    let signer = if agglayer {
+        // In agglayer mode, create a dummy signer with random address
+        Signer::LocalSigner(PrivateKeySigner::random())
+    } else {
+        Signer::from_env()?
+    };
 
     // The prover address takes precedence over the signer address. Note: Setting the prover address
     // in the context of the OP Succinct proposer typically does not make sense, as the contract
