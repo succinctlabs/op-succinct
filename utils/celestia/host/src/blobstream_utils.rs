@@ -150,9 +150,10 @@ pub async fn get_minimal_celestia_safe_head_info(
             )
             .await?;
 
-        // Check if this L1 block contains enough L2 data
+        // Check if this L1 block contains enough L2 data.
         if safe_head_response.safe_head.number >= l2_reference_block {
-            // This L1 block contains sufficient data. Now verify all Celestia heights are committed.
+            // This L1 block contains sufficient data. Now verify all Celestia heights are
+            // committed.
             let block = fetcher
                 .l1_provider
                 .get_block_by_number(BlockNumberOrTag::Number(safe_head_response.l1_block.number))
@@ -173,18 +174,18 @@ pub async fn get_minimal_celestia_safe_head_info(
             }
 
             if all_celestia_committed {
-                // Found a valid L1 block, try to find an earlier one
+                // Found a valid L1 block, try to find an earlier one.
                 result = Some(CelestiaL1SafeHead {
                     l1_block_number: current_l1_block,
                     l2_safe_head_number: safe_head_response.safe_head.number,
                 });
                 high = current_l1_block - 1;
             } else {
-                // Celestia data not committed, need a later block
+                // Celestia data not committed, need a later block.
                 low = current_l1_block + 1;
             }
         } else {
-            // L2 safe head is too low, need a later L1 block
+            // L2 safe head is too low, need a later L1 block.
             low = current_l1_block + 1;
         }
     }
