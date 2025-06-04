@@ -112,6 +112,86 @@ impl CelestiaL1SafeHead {
     }
 }
 
+/// Find the minimal safe L1 block that contains all necessary data for proving the L2 block range.
+/// Uses binary search to efficiently locate the earliest L1 block where the L2 safe head is
+/// at or beyond the reference block and all Celestia heights are committed via Blobstream.
+pub async fn get_minimal_celestia_safe_head_info(
+    fetcher: &OPSuccinctDataFetcher,
+    l2_reference_block: u64,
+) -> Result<Option<CelestiaL1SafeHead>> {
+    let rollup_config =
+        fetcher.rollup_config.as_ref().ok_or_else(|| anyhow!("Rollup config not found"))?;
+
+    let batch_inbox_address = rollup_config.batch_inbox_address;
+    let batcher_address = rollup_config
+        .genesis
+        .system_config
+        .as_ref()
+        .ok_or_else(|| anyhow!("System config not found in genesis"))?
+        .batcher_address;
+
+    // Get the latest Celestia block committed via Blobstream.
+    let latest_committed_celestia_block = get_latest_blobstream_celestia_block(fetcher).await?;
+
+    // Get the L1 block range to search.
+    let mut low = fetcher.get_safe_l1_block_for_l2_block(l2_reference_block).await?.1;
+    let mut high = fetcher.get_l1_header(BlockId::finalized()).await?.number;
+    let mut result = None;
+
+    while low <= high {
+        let current_l1_block = low + (high - low) / 2;
+        let l1_block_hex = format!("0x{current_l1_block:x}");
+
+        let safe_head_response: SafeHeadResponse = fetcher
+            .fetch_rpc_data_with_mode(
+                RPCMode::L2Node,
+                "optimism_safeHeadAtL1Block",
+                vec![l1_block_hex.into()],
+            )
+            .await?;
+
+        // Check if this L1 block contains enough L2 data
+        if safe_head_response.safe_head.number >= l2_reference_block {
+            // This L1 block contains sufficient data. Now verify all Celestia heights are committed.
+            let block = fetcher
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(safe_head_response.l1_block.number))
+                .full()
+                .await?
+                .ok_or_else(|| anyhow!("Block {} not found", safe_head_response.l1_block.number))?;
+
+            let mut all_celestia_committed = true;
+            for tx in block.transactions.txns() {
+                if is_valid_batch_transaction(tx, batch_inbox_address, batcher_address)? {
+                    if let Some(celestia_height) = extract_celestia_height(tx)? {
+                        if celestia_height > latest_committed_celestia_block {
+                            all_celestia_committed = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if all_celestia_committed {
+                // Found a valid L1 block, try to find an earlier one
+                result = Some(CelestiaL1SafeHead {
+                    l1_block_number: current_l1_block,
+                    l2_safe_head_number: safe_head_response.safe_head.number,
+                });
+                high = current_l1_block - 1;
+            } else {
+                // Celestia data not committed, need a later block
+                low = current_l1_block + 1;
+            }
+        } else {
+            // L2 safe head is too low, need a later L1 block
+            low = current_l1_block + 1;
+        }
+    }
+
+    Ok(result)
+}
+
 /// Find the latest safe L1 block with Celestia batches committed via Blobstream.
 /// Uses binary search to efficiently locate the highest L1 block containing batch transactions
 /// with Celestia heights that have been committed to Ethereum through Blobstream.
