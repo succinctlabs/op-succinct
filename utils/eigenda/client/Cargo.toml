@@ -19,7 +19,6 @@ kona-proof.workspace = true
 # hokulea
 hokulea-eigenda.workspace = true
 hokulea-proof = { workspace = true, features = ["sp1-cc"] }
-hokulea-zkvm-verification.workspace = true
 
 # general
 anyhow.workspace = true

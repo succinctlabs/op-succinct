@@ -88,10 +88,10 @@ hana-host = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd73359
 hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
 
 # hokulea
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "c7b44699686b47226f6276e4b296060b46b9185d" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "c7b44699686b47226f6276e4b296060b46b9185d" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "c7b44699686b47226f6276e4b296060b46b9185d" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "c7b44699686b47226f6276e4b296060b46b9185d" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "62abcc0" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "62abcc0" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "62abcc0" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "62abcc0" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
