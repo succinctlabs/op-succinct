@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use anyhow::{bail, Result};
 use async_trait::async_trait;
@@ -79,10 +80,18 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
         l2_end_block: u64,
         _safe_db_fallback: bool,
     ) -> Result<B256> {
-        match get_minimal_celestia_safe_head_info(fetcher, l2_end_block).await? {
-            Some(safe_head) => safe_head.get_l1_hash(fetcher).await,
-            None => bail!("Failed to find a safe L1 block for the given L2 block."),
-        }
+        // For Celestia DA, use a simple approach with minimal offset.
+        let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, _safe_db_fallback).await?;
+
+        // Add a buffer for Celestia DA (larger than Ethereum DA due to Blobstream commitment
+        // delay).
+        let l1_head_number = l1_head_number + 400;
+
+        // Ensure we don't exceed the finalized L1 header.
+        let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
+        let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
+
+        Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
     }
 }
 
