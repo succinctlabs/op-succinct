@@ -7063,7 +7063,6 @@ version = "0.1.0"
 dependencies = [
  "cargo_metadata",
  "sp1-build",
- "sp1-build",
 ]
 
 [[package]]
@@ -10095,7 +10094,6 @@ checksum = "b6f03537814ef0b91ca4c45d777e8d584cf4d401bb03fe384b7baae1d14e7707"
 dependencies = [
  "bincode",
  "ctrlc",
- "once_cell",
  "prost",
  "serde",
  "sp1-core-machine",
@@ -11471,6 +11469,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-serde"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "704b1aeb7be0d0a84fc9828cae51dab5970fee5088f83d1dd7ee6f6246fc6ff1"
+dependencies = [
+ "serde",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11490,12 +11498,14 @@ dependencies = [
  "once_cell",
  "regex",
  "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
  "tracing-log",
+ "tracing-serde",
 ]
 
 [[package]]
