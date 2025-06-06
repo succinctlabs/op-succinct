@@ -21,6 +21,7 @@ kona-proof.workspace = true
 hokulea-eigenda.workspace = true
 hokulea-host-bin.workspace = true
 hokulea-proof.workspace = true
+hokulea-witgen.workspace = true
 
 # alloy
 alloy-eips.workspace = true
@@ -30,3 +31,4 @@ alloy-primitives.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 rkyv.workspace = true
+serde_cbor.workspace = true

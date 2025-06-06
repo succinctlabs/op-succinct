@@ -5,11 +5,7 @@ use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
 use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
-use hokulea_proof::eigenda_provider::OracleEigenDAProvider;
-use op_succinct_eigenda_client_utils::executor::EigenDAWitnessExecutor;
-use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, witness_generation::DefaultOracleBase,
-};
+use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
 
 use crate::witness_generator::EigenDAWitnessGenerator;
 
@@ -83,14 +79,12 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
 }
 
 impl EigenDAOPSuccinctHost {
-    pub fn new(
-        fetcher: Arc<OPSuccinctDataFetcher>,
-        eigenda_blob_provider: OracleEigenDAProvider<DefaultOracleBase>,
-    ) -> Self {
+    pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
         Self {
-            fetcher,
+            fetcher: fetcher.clone(),
             witness_generator: Arc::new(EigenDAWitnessGenerator {
-                executor: EigenDAWitnessExecutor::new(eigenda_blob_provider),
+                executor: (),  // Placeholder - will be created in witness_generator
+                fetcher,
             }),
         }
     }

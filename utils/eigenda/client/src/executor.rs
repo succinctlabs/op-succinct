@@ -25,7 +25,6 @@ where
     _marker: std::marker::PhantomData<(O, B)>,
 }
 
-#[allow(clippy::new_without_default)]
 impl<O, B, E> EigenDAWitnessExecutor<O, B, E>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
