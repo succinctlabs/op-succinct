@@ -1,6 +1,6 @@
 # Modifications to Original `L2OutputOracle`
 
-The original `L2OutputOracle` contract can be found [here](https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts-bedrock/src/L1/L2OutputOracle.sol).
+The original `L2OutputOracle` contract can be found [here](https://github.com/ethereum-optimism/optimism/blob/9300db95bbd721e1700211a3e795b22c8290d780/packages/contracts-bedrock/src/L1/L2OutputOracle.sol).
 
 The changes introduced in the `OPSuccinctL2OutputOracle` contract are:
 
