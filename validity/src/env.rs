@@ -25,6 +25,7 @@ pub struct EnvironmentConfig {
     pub submission_interval: u64,
     pub mock: bool,
     pub safe_db_fallback: bool,
+    pub log_format: String,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -106,6 +107,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
         safe_db_fallback: get_env_var("SAFE_DB_FALLBACK", Some(false))?,
+        log_format: env::var("LOG_FORMAT").unwrap_or_else(|_| "pretty".to_string()),
     };
 
     Ok(config)
