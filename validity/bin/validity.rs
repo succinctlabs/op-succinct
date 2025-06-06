@@ -6,7 +6,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_validity::{
-    read_proposer_env, setup_proposer_logger, DriverDBClient, Proposer, RequesterConfig,
+    read_proposer_env, setup_logger_with_format, DriverDBClient, Proposer, RequesterConfig,
     ValidityGauge,
 };
 use std::sync::Arc;
@@ -37,12 +37,13 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    setup_proposer_logger();
+    // Read the environment variables first to get the log format
+    let env_config = read_proposer_env()?;
+
+    // Setup logger with the configured format
+    setup_logger_with_format(&env_config.log_format);
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
-
-    // Read the environment variables.
-    let env_config = read_proposer_env()?;
 
     let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
     let proposer_config = RequesterConfig {
