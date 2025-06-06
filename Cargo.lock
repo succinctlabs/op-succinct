@@ -1170,6 +1170,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
  "num-traits",
+ "rayon",
  "zeroize",
 ]
 
@@ -1228,6 +1229,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
  "paste",
+ "rayon",
  "zeroize",
 ]
 
@@ -1312,6 +1314,7 @@ dependencies = [
  "educe",
  "fnv",
  "hashbrown 0.15.3",
+ "rayon",
 ]
 
 [[package]]
@@ -1375,6 +1378,7 @@ dependencies = [
  "arrayvec",
  "digest 0.10.7",
  "num-bigint 0.4.6",
+ "rayon",
 ]
 
 [[package]]
@@ -1416,6 +1420,7 @@ checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
+ "rayon",
 ]
 
 [[package]]
@@ -4311,6 +4316,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hokulea-compute-proof"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=62abcc0#62abcc00e1e1537082968e73a38b2f28f1e98c5e"
+dependencies = [
+ "alloy-primitives",
+ "num",
+ "rust-kzg-bn254-primitives",
+ "rust-kzg-bn254-prover",
+]
+
+[[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=62abcc0#62abcc00e1e1537082968e73a38b2f28f1e98c5e"
@@ -4376,6 +4392,21 @@ dependencies = [
  "sha2 0.10.8",
  "sp1-lib",
  "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-witgen"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=62abcc0#62abcc00e1e1537082968e73a38b2f28f1e98c5e"
+dependencies = [
+ "alloy-primitives",
+ "async-trait",
+ "eigenda-v2-struct",
+ "hokulea-compute-proof",
+ "hokulea-eigenda",
+ "hokulea-proof",
+ "rust-kzg-bn254-primitives",
  "tracing",
 ]
 
@@ -4563,7 +4594,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -5804,7 +5835,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
 dependencies = [
  "cfg-if",
- "windows-targets 0.53.0",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -7281,6 +7312,7 @@ dependencies = [
  "async-trait",
  "hokulea-eigenda",
  "hokulea-proof",
+ "hokulea-witgen",
  "kona-derive",
  "kona-driver",
  "kona-executor",
@@ -7303,12 +7335,14 @@ dependencies = [
  "hokulea-eigenda",
  "hokulea-host-bin",
  "hokulea-proof",
+ "hokulea-witgen",
  "kona-preimage",
  "kona-proof",
  "op-succinct-client-utils",
  "op-succinct-eigenda-client-utils",
  "op-succinct-host-utils",
  "rkyv",
+ "serde_cbor",
  "sp1-sdk",
 ]
 
@@ -8397,7 +8431,7 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.14.0",
  "log",
  "multimap",
@@ -9360,6 +9394,24 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "rust-kzg-bn254-prover"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed1af11c66ca1e505ef959e398e86c39d9b2b20d0aa9a45a62e053a8a9044209"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-std 0.5.0",
+ "crossbeam-channel",
+ "num-traits",
+ "num_cpus",
+ "rayon",
+ "rust-kzg-bn254-primitives",
 ]
 
 [[package]]
@@ -12135,7 +12187,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
