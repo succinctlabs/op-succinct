@@ -38,17 +38,12 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
         // If l1_head_hash is not provided, calculate a safe L1 head
         let l1_head = match l1_head_hash {
             Some(hash) => hash,
-            None => self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback).await?,
+            None => {
+                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback).await?
+            }
         };
 
-        let host = self
-            .fetcher
-            .get_host_args(
-                l2_start_block,
-                l2_end_block,
-                l1_head,
-            )
-            .await?;
+        let host = self.fetcher.get_host_args(l2_start_block, l2_end_block, l1_head).await?;
 
         let eigenda_proxy_address = std::env::var("EIGENDA_PROXY_ADDRESS").ok();
         Ok(SingleChainHostWithEigenDA { kona_cfg: host, eigenda_proxy_address, verbose: 1 })
