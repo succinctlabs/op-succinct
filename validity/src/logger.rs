@@ -27,10 +27,7 @@ pub fn setup_logger_with_format(format: &str) {
     match format.to_lowercase().as_str() {
         "json" => {
             // Initialize with JSON formatting
-            tracing_subscriber::fmt()
-                .with_env_filter(env_filter)
-                .json()
-                .init();
+            tracing_subscriber::fmt().with_env_filter(env_filter).json().init();
         }
         "pretty" | _ => {
             // Default to pretty formatting with ANSI colors
