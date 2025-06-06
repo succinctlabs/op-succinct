@@ -33,15 +33,20 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
         l2_start_block: u64,
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
-        safe_db_fallback: Option<bool>,
+        safe_db_fallback: bool,
     ) -> Result<SingleChainHostWithEigenDA> {
+        // If l1_head_hash is not provided, calculate a safe L1 head
+        let l1_head = match l1_head_hash {
+            Some(hash) => hash,
+            None => self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback).await?,
+        };
+
         let host = self
             .fetcher
             .get_host_args(
                 l2_start_block,
                 l2_end_block,
-                l1_head_hash,
-                safe_db_fallback.expect("`safe_db_fallback` must be set"),
+                l1_head,
             )
             .await?;
 
@@ -60,6 +65,25 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
     ) -> Result<Option<u64>> {
         let finalized_l2_block_number = fetcher.get_l2_header(BlockId::finalized()).await?;
         Ok(Some(finalized_l2_block_number.number))
+    }
+
+    async fn calculate_safe_l1_head(
+        &self,
+        fetcher: &OPSuccinctDataFetcher,
+        l2_end_block: u64,
+        safe_db_fallback: bool,
+    ) -> Result<B256> {
+        // For EigenDA, use a similar approach to Ethereum DA with a conservative offset.
+        let (_, l1_head_number) = fetcher.get_l1_head(l2_end_block, safe_db_fallback).await?;
+
+        // Add a buffer for EigenDA similar to Ethereum DA.
+        let l1_head_number = l1_head_number + 20;
+
+        // Ensure we don't exceed the finalized L1 header.
+        let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
+        let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
+
+        Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
     }
 }
 
