@@ -8,7 +8,7 @@ use kona_preimage::{NativeChannel, OracleReader, HintWriter};
 use kona_proof::l1::OracleBlobProvider;
 use op_succinct_client_utils::witness::{EigenDAWitnessData, preimage_store::PreimageStore, BlobData, executor::{WitnessExecutor as WitnessExecutorTrait, get_inputs_for_pipeline}};
 use op_succinct_eigenda_client_utils::executor::EigenDAWitnessExecutor;
-use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, witness_generation::{
+use op_succinct_host_utils::{witness_generation::{
     online_blob_store::OnlineBlobStore, preimage_witness_collector::PreimageWitnessCollector,
     DefaultOracleBase, WitnessGenerator,
 }};
@@ -23,7 +23,6 @@ type WitnessExecutor = EigenDAWitnessExecutor<
 
 pub struct EigenDAWitnessGenerator {
     pub executor: (),  // Placeholder - executor will be created dynamically
-    pub fetcher: Arc<OPSuccinctDataFetcher>,
 }
 
 #[async_trait]
