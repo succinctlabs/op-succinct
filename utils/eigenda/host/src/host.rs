@@ -83,7 +83,7 @@ impl EigenDAOPSuccinctHost {
         Self {
             fetcher,
             witness_generator: Arc::new(EigenDAWitnessGenerator {
-                executor: (),  // Placeholder - will be created in witness_generator
+                executor: (), // Placeholder - will be created in witness_generator
             }),
         }
     }

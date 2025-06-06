@@ -2,16 +2,22 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use hokulea_proof::{eigenda_provider::OracleEigenDAProvider, eigenda_blob_witness::EigenDABlobWitnessData};
+use hokulea_proof::{
+    eigenda_blob_witness::EigenDABlobWitnessData, eigenda_provider::OracleEigenDAProvider,
+};
 use hokulea_witgen::witness_provider::OracleEigenDAWitnessProvider;
-use kona_preimage::{NativeChannel, OracleReader, HintWriter};
+use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::l1::OracleBlobProvider;
-use op_succinct_client_utils::witness::{EigenDAWitnessData, preimage_store::PreimageStore, BlobData, executor::{WitnessExecutor as WitnessExecutorTrait, get_inputs_for_pipeline}};
+use op_succinct_client_utils::witness::{
+    executor::{get_inputs_for_pipeline, WitnessExecutor as WitnessExecutorTrait},
+    preimage_store::PreimageStore,
+    BlobData, EigenDAWitnessData,
+};
 use op_succinct_eigenda_client_utils::executor::EigenDAWitnessExecutor;
-use op_succinct_host_utils::{witness_generation::{
+use op_succinct_host_utils::witness_generation::{
     online_blob_store::OnlineBlobStore, preimage_witness_collector::PreimageWitnessCollector,
     DefaultOracleBase, WitnessGenerator,
-}};
+};
 use rkyv::to_bytes;
 use sp1_sdk::SP1Stdin;
 
@@ -22,7 +28,7 @@ type WitnessExecutor = EigenDAWitnessExecutor<
 >;
 
 pub struct EigenDAWitnessGenerator {
-    pub executor: (),  // Placeholder - executor will be created dynamically
+    pub executor: (), // Placeholder - executor will be created dynamically
 }
 
 #[async_trait]
@@ -65,36 +71,38 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         // Create EigenDA blob provider that collects witness data
         let eigenda_blob_provider = OracleEigenDAProvider::new(oracle.clone());
         let eigenda_blobs_witness = Arc::new(Mutex::new(EigenDABlobWitnessData::default()));
-        
+
         let eigenda_blob_and_witness_provider = OracleEigenDAWitnessProvider {
             provider: eigenda_blob_provider,
             witness: eigenda_blobs_witness.clone(),
         };
-        
+
         let executor = EigenDAWitnessExecutor::new(eigenda_blob_and_witness_provider);
 
         let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
         if let Some((cursor, l1_provider, l2_provider)) = input {
             let rollup_config = Arc::new(boot_info.rollup_config.clone());
             let pipeline = WitnessExecutorTrait::create_pipeline(
-                    &executor,
-                    rollup_config,
-                    cursor.clone(),
-                    oracle.clone(),
-                    beacon,
-                    l1_provider.clone(),
-                    l2_provider.clone(),
-                )
+                &executor,
+                rollup_config,
+                cursor.clone(),
+                oracle.clone(),
+                beacon,
+                l1_provider.clone(),
+                l2_provider.clone(),
+            )
+            .await
+            .unwrap();
+            WitnessExecutorTrait::run(&executor, boot_info, pipeline, cursor, l2_provider)
                 .await
                 .unwrap();
-            WitnessExecutorTrait::run(&executor, boot_info, pipeline, cursor, l2_provider).await.unwrap();
         }
 
         // Extract the EigenDA witness data
         let eigenda_witness_data = std::mem::take(&mut *eigenda_blobs_witness.lock().unwrap());
         let eigenda_witness_bytes = serde_cbor::to_vec(&eigenda_witness_data)
             .expect("Failed to serialize EigenDA witness data");
-        
+
         let witness = EigenDAWitnessData {
             preimage_store: preimage_witness_store.lock().unwrap().clone(),
             blob_data: blob_data.lock().unwrap().clone(),
