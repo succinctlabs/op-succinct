@@ -85,7 +85,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
 
         // Add a buffer for Celestia DA (larger than Ethereum DA due to Blobstream commitment
         // delay).
-        let l1_head_number = l1_head_number + 400;
+        let l1_head_number = l1_head_number + 500;
 
         // Ensure we don't exceed the finalized L1 header.
         let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
