@@ -46,7 +46,11 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         wasRespectedGameTypeWhenCreated = true;
 
         OPSuccinctL2OutputOracle(L2_OUTPUT_ORACLE).proposeL2Output(
-            rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
+            rootClaim().raw(),
+            l2BlockNumber(),
+            l1BlockNumber(),
+            proof(),
+            proverAddress()
         );
 
         this.resolve();
@@ -104,7 +108,10 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
             // calldataload(sub(calldatasize(), 2)) loads the last 2 bytes of the calldata, which gives the length of the immutable args.
             // shr(240, calldataload(sub(calldatasize(), 2))) masks the last 30 bytes loaded in the previous step, so only the length of the immutable args is left.
             // sub(sub(...)) subtracts the length of the immutable args (2 bytes) and the starting point of the proof (0xA8).
-            len := sub(sub(shr(240, calldataload(sub(calldatasize(), 2))), 2), 0xA8)
+            len := sub(
+                sub(shr(240, calldataload(sub(calldatasize(), 2))), 2),
+                0xA8
+            )
         }
         proof_ = _getArgBytes(0xA8, len);
     }
@@ -119,7 +126,10 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
             // calldataload(sub(calldatasize(), 2)) loads the last 2 bytes of the calldata, which gives the length of the immutable args.
             // shr(240, calldataload(sub(calldatasize(), 2))) masks the last 30 bytes loaded in the previous step, so only the length of the immutable args is left.
             // sub(sub(...)) subtracts the length of the immutable args (2 bytes) and the starting point of the extra data (0x54).
-            len := sub(sub(shr(240, calldataload(sub(calldatasize(), 2))), 2), 0x54)
+            len := sub(
+                sub(shr(240, calldataload(sub(calldatasize(), 2))), 2),
+                0x54
+            )
         }
         extraData_ = _getArgBytes(0x54, len);
     }
@@ -147,7 +157,11 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     /// @return gameType_ The type of proof system being used.
     /// @return rootClaim_ The root claim of the DisputeGame.
     /// @return extraData_ Any extra data supplied to the dispute game contract by the creator.
-    function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
+    function gameData()
+        external
+        pure
+        returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_)
+    {
         gameType_ = gameType();
         rootClaim_ = rootClaim();
         extraData_ = extraData();

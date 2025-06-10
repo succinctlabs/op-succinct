@@ -98,38 +98,59 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param l2BlockNumber The L2 block number of the output root.
     /// @param l1Timestamp   The L1 timestamp when proposed.
     event OutputProposed(
-        bytes32 indexed outputRoot, uint256 indexed l2OutputIndex, uint256 indexed l2BlockNumber, uint256 l1Timestamp
+        bytes32 indexed outputRoot,
+        uint256 indexed l2OutputIndex,
+        uint256 indexed l2BlockNumber,
+        uint256 l1Timestamp
     );
 
     /// @notice Emitted when outputs are deleted.
     /// @param prevNextOutputIndex Next L2 output index before the deletion.
     /// @param newNextOutputIndex  Next L2 output index after the deletion.
-    event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
+    event OutputsDeleted(
+        uint256 indexed prevNextOutputIndex,
+        uint256 indexed newNextOutputIndex
+    );
 
     /// @notice Emitted when the aggregation verification key is updated.
     /// @param oldAggregationVkey The old aggregation verification key.
     /// @param newAggregationVkey The new aggregation verification key.
-    event AggregationVkeyUpdated(bytes32 indexed oldAggregationVkey, bytes32 indexed newAggregationVkey);
+    event AggregationVkeyUpdated(
+        bytes32 indexed oldAggregationVkey,
+        bytes32 indexed newAggregationVkey
+    );
 
     /// @notice Emitted when the range verification key commitment is updated.
     /// @param oldRangeVkeyCommitment The old range verification key commitment.
     /// @param newRangeVkeyCommitment The new range verification key commitment.
-    event RangeVkeyCommitmentUpdated(bytes32 indexed oldRangeVkeyCommitment, bytes32 indexed newRangeVkeyCommitment);
+    event RangeVkeyCommitmentUpdated(
+        bytes32 indexed oldRangeVkeyCommitment,
+        bytes32 indexed newRangeVkeyCommitment
+    );
 
     /// @notice Emitted when the verifier address is updated.
     /// @param oldVerifier The old verifier address.
     /// @param newVerifier The new verifier address.
-    event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
+    event VerifierUpdated(
+        address indexed oldVerifier,
+        address indexed newVerifier
+    );
 
     /// @notice Emitted when the rollup config hash is updated.
     /// @param oldRollupConfigHash The old rollup config hash.
     /// @param newRollupConfigHash The new rollup config hash.
-    event RollupConfigHashUpdated(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
+    event RollupConfigHashUpdated(
+        bytes32 indexed oldRollupConfigHash,
+        bytes32 indexed newRollupConfigHash
+    );
 
     /// @notice Emitted when the owner address is updated.
     /// @param previousOwner The previous owner address.
     /// @param newOwner The new owner address.
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
 
     /// @notice Emitted when a proposer address is added.
     /// @param proposer The proposer address.
@@ -139,12 +160,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Emitted when the submission interval is updated.
     /// @param oldSubmissionInterval The old submission interval.
     /// @param newSubmissionInterval The new submission interval.
-    event SubmissionIntervalUpdated(uint256 oldSubmissionInterval, uint256 newSubmissionInterval);
+    event SubmissionIntervalUpdated(
+        uint256 oldSubmissionInterval,
+        uint256 newSubmissionInterval
+    );
 
     /// @notice Emitted when the optimistic mode is toggled.
     /// @param enabled Indicates whether optimistic mode is enabled or disabled.
     /// @param finalizationPeriodSeconds The new finalization period in seconds.
-    event OptimisticModeToggled(bool indexed enabled, uint256 finalizationPeriodSeconds);
+    event OptimisticModeToggled(
+        bool indexed enabled,
+        uint256 finalizationPeriodSeconds
+    );
 
     ////////////////////////////////////////////////////////////
     //                         Errors                         //
@@ -174,7 +201,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     }
 
     modifier whenOptimistic() {
-        require(optimisticMode, "L2OutputOracle: optimistic mode is not enabled");
+        require(
+            optimisticMode,
+            "L2OutputOracle: optimistic mode is not enabled"
+        );
         _;
     }
 
@@ -194,9 +224,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Initializer.
     /// @param _initParams The initialization parameters for the contract.
-    function initialize(InitParams memory _initParams) public reinitializer(initializerVersion) {
-        require(_initParams.submissionInterval > 0, "L2OutputOracle: submission interval must be greater than 0");
-        require(_initParams.l2BlockTime > 0, "L2OutputOracle: L2 block time must be greater than 0");
+    function initialize(
+        InitParams memory _initParams
+    ) public reinitializer(initializerVersion) {
+        require(
+            _initParams.submissionInterval > 0,
+            "L2OutputOracle: submission interval must be greater than 0"
+        );
+        require(
+            _initParams.l2BlockTime > 0,
+            "L2OutputOracle: L2 block time must be greater than 0"
+        );
         require(
             _initParams.startingTimestamp <= block.timestamp,
             "L2OutputOracle: starting L2 timestamp must be less than current time"
@@ -279,16 +317,21 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2OutputIndex Index of the first L2 output to be deleted.
     ///                       All outputs after this output will also be deleted.
     function deleteL2Outputs(uint256 _l2OutputIndex) external {
-        require(msg.sender == challenger, "L2OutputOracle: only the challenger address can delete outputs");
+        require(
+            msg.sender == challenger,
+            "L2OutputOracle: only the challenger address can delete outputs"
+        );
 
         // Make sure we're not *increasing* the length of the array.
         require(
-            _l2OutputIndex < l2Outputs.length, "L2OutputOracle: cannot delete outputs after the latest output index"
+            _l2OutputIndex < l2Outputs.length,
+            "L2OutputOracle: cannot delete outputs after the latest output index"
         );
 
         // Do not allow deleting any outputs that have already been finalized.
         require(
-            block.timestamp - l2Outputs[_l2OutputIndex].timestamp < finalizationPeriodSeconds,
+            block.timestamp - l2Outputs[_l2OutputIndex].timestamp <
+                finalizationPeriodSeconds,
             "L2OutputOracle: cannot delete outputs that have already been finalized"
         );
 
@@ -347,7 +390,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: cannot propose L2 output in the future"
         );
 
-        require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
+        require(
+            _outputRoot != bytes32(0),
+            "L2OutputOracle: L2 output proposal cannot be the zero hash"
+        );
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         if (l1BlockHash == bytes32(0)) {
@@ -364,9 +410,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             proverAddress: _proverAddress
         });
 
-        ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
+        ISP1Verifier(verifier).verifyProof(
+            aggregationVkey,
+            abi.encode(publicValues),
+            _proof
+        );
 
-        emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
+        emit OutputProposed(
+            _outputRoot,
+            nextOutputIndex(),
+            _l2BlockNumber,
+            block.timestamp
+        );
 
         l2Outputs.push(
             Types.OutputProposal({
@@ -388,11 +443,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @dev This function is not compatible with the `OPSuccinctDisputeGame` contract as it uses `msg.sender` for proposer permission control.
     ///      See `whenNotOptimistic` implementation of `proposeL2Output` for more details.
     ///      If the functionality for optimistic mode is needed in the `OPSuccinctDisputeGame` contract, use mock mode instead.
-    function proposeL2Output(bytes32 _outputRoot, uint256 _l2BlockNumber, bytes32 _l1BlockHash, uint256 _l1BlockNumber)
-        external
-        payable
-        whenOptimistic
-    {
+    function proposeL2Output(
+        bytes32 _outputRoot,
+        uint256 _l2BlockNumber,
+        bytes32 _l1BlockHash,
+        uint256 _l1BlockNumber
+    ) external payable whenOptimistic {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
         require(
             approvedProposers[msg.sender] || approvedProposers[address(0)],
@@ -409,7 +465,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: cannot propose L2 output in the future"
         );
 
-        require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
+        require(
+            _outputRoot != bytes32(0),
+            "L2OutputOracle: L2 output proposal cannot be the zero hash"
+        );
 
         if (_l1BlockHash != bytes32(0)) {
             // This check allows the proposer to propose an output based on a given L1 block,
@@ -426,7 +485,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             );
         }
 
-        emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
+        emit OutputProposed(
+            _outputRoot,
+            nextOutputIndex(),
+            _l2BlockNumber,
+            block.timestamp
+        );
 
         l2Outputs.push(
             Types.OutputProposal({
@@ -451,7 +515,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Returns an output by index. Needed to return a struct instead of a tuple.
     /// @param _l2OutputIndex Index of the output to return.
     /// @return The output at the given index.
-    function getL2Output(uint256 _l2OutputIndex) external view returns (Types.OutputProposal memory) {
+    function getL2Output(
+        uint256 _l2OutputIndex
+    ) external view returns (Types.OutputProposal memory) {
         return l2Outputs[_l2OutputIndex];
     }
 
@@ -460,7 +526,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         block.
     /// @param _l2BlockNumber L2 block number to find a checkpoint for.
     /// @return Index of the first checkpoint that commits to the given L2 block number.
-    function getL2OutputIndexAfter(uint256 _l2BlockNumber) public view returns (uint256) {
+    function getL2OutputIndexAfter(
+        uint256 _l2BlockNumber
+    ) public view returns (uint256) {
         // Make sure an output for this block number has actually been proposed.
         require(
             _l2BlockNumber <= latestBlockNumber(),
@@ -468,7 +536,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         );
 
         // Make sure there's at least one output proposed.
-        require(l2Outputs.length > 0, "L2OutputOracle: cannot get output as no outputs have been proposed yet");
+        require(
+            l2Outputs.length > 0,
+            "L2OutputOracle: cannot get output as no outputs have been proposed yet"
+        );
 
         // Find the output via binary search, guaranteed to exist.
         uint256 lo = 0;
@@ -490,7 +561,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         block.
     /// @param _l2BlockNumber L2 block number to find a checkpoint for.
     /// @return First checkpoint that commits to the given L2 block number.
-    function getL2OutputAfter(uint256 _l2BlockNumber) external view returns (Types.OutputProposal memory) {
+    function getL2OutputAfter(
+        uint256 _l2BlockNumber
+    ) external view returns (Types.OutputProposal memory) {
         return l2Outputs[getL2OutputIndexAfter(_l2BlockNumber)];
     }
 
@@ -512,7 +585,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///         block number.
     /// @return Latest submitted L2 block number.
     function latestBlockNumber() public view returns (uint256) {
-        return l2Outputs.length == 0 ? startingBlockNumber : l2Outputs[l2Outputs.length - 1].l2BlockNumber;
+        return
+            l2Outputs.length == 0
+                ? startingBlockNumber
+                : l2Outputs[l2Outputs.length - 1].l2BlockNumber;
     }
 
     /// @notice Computes the block number of the next L2 block that needs to be checkpointed.
@@ -524,28 +600,41 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Returns the L2 timestamp corresponding to a given L2 block number.
     /// @param _l2BlockNumber The L2 block number of the target block.
     /// @return L2 timestamp of the given block.
-    function computeL2Timestamp(uint256 _l2BlockNumber) public view returns (uint256) {
-        return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
+    function computeL2Timestamp(
+        uint256 _l2BlockNumber
+    ) public view returns (uint256) {
+        return
+            startingTimestamp +
+            ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
     }
 
     /// @notice Update the submission interval.
     /// @param _submissionInterval The new submission interval.
-    function updateSubmissionInterval(uint256 _submissionInterval) external onlyOwner {
+    function updateSubmissionInterval(
+        uint256 _submissionInterval
+    ) external onlyOwner {
         emit SubmissionIntervalUpdated(submissionInterval, _submissionInterval);
         submissionInterval = _submissionInterval;
     }
 
     /// @notice Updates the aggregation verification key.
     /// @param _aggregationVkey The new aggregation verification key.
-    function updateAggregationVkey(bytes32 _aggregationVkey) external onlyOwner {
+    function updateAggregationVkey(
+        bytes32 _aggregationVkey
+    ) external onlyOwner {
         emit AggregationVkeyUpdated(aggregationVkey, _aggregationVkey);
         aggregationVkey = _aggregationVkey;
     }
 
     /// @notice Updates the range verification key commitment.
     /// @param _rangeVkeyCommitment The new range verification key commitment.
-    function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner {
-        emit RangeVkeyCommitmentUpdated(rangeVkeyCommitment, _rangeVkeyCommitment);
+    function updateRangeVkeyCommitment(
+        bytes32 _rangeVkeyCommitment
+    ) external onlyOwner {
+        emit RangeVkeyCommitmentUpdated(
+            rangeVkeyCommitment,
+            _rangeVkeyCommitment
+        );
         rangeVkeyCommitment = _rangeVkeyCommitment;
     }
 
@@ -558,7 +647,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Updates the rollup config hash.
     /// @param _rollupConfigHash The new rollup config hash.
-    function updateRollupConfigHash(bytes32 _rollupConfigHash) external onlyOwner {
+    function updateRollupConfigHash(
+        bytes32 _rollupConfigHash
+    ) external onlyOwner {
         emit RollupConfigHashUpdated(rollupConfigHash, _rollupConfigHash);
         rollupConfigHash = _rollupConfigHash;
     }
@@ -586,7 +677,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Enables optimistic mode.
     /// @param _finalizationPeriodSeconds The new finalization window.
-    function enableOptimisticMode(uint256 _finalizationPeriodSeconds) external onlyOwner whenNotOptimistic {
+    function enableOptimisticMode(
+        uint256 _finalizationPeriodSeconds
+    ) external onlyOwner whenNotOptimistic {
         finalizationPeriodSeconds = _finalizationPeriodSeconds;
         optimisticMode = true;
         emit OptimisticModeToggled(true, _finalizationPeriodSeconds);
@@ -594,7 +687,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice Disables optimistic mode.
     /// @param _finalizationPeriodSeconds The new finalization window.
-    function disableOptimisticMode(uint256 _finalizationPeriodSeconds) external onlyOwner whenOptimistic {
+    function disableOptimisticMode(
+        uint256 _finalizationPeriodSeconds
+    ) external onlyOwner whenOptimistic {
         finalizationPeriodSeconds = _finalizationPeriodSeconds;
         optimisticMode = false;
         emit OptimisticModeToggled(false, _finalizationPeriodSeconds);

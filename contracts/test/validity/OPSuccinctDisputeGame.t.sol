@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 // Testing
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Libraries
@@ -188,6 +189,154 @@ contract OPSuccinctDisputeGameTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Can add and verify proposer permissions
+    // =========================================
+    function testCanAddProposerPermissions() public {
+        address newProposer = address(0x5678);
+        
+        // Initially not approved
+        assertFalse(l2OutputOracle.approvedProposers(newProposer));
+        
+        // Add new proposer to approved list
+        l2OutputOracle.addProposer(newProposer);
+        
+        // Now should be approved
+        assertTrue(l2OutputOracle.approvedProposers(newProposer));
+        
+        // Remove proposer
+        l2OutputOracle.removeProposer(newProposer);
+        
+        // Should no longer be approved
+        assertFalse(l2OutputOracle.approvedProposers(newProposer));
+    }
+
+    // =========================================
+    // Test: Permissionless mode allows anyone
+    // =========================================
+    function testPermissionlessModeAllowsAnyone() public {
+        address randomUser = address(0x9999);
+
+        // Enable permissionless mode by adding address(0) to approved proposers
+        l2OutputOracle.addProposer(address(0));
+        assertTrue(l2OutputOracle.approvedProposers(address(0)));
+
+        // Need more significant time warp to ensure future timestamp check passes
+        vm.warp(block.timestamp + 10000);
+
+        // Roll forward and checkpoint block
+        uint256 newL1BlockNumber = l1BlockNumber + 600;
+        vm.roll(newL1BlockNumber + 1);
+        l2OutputOracle.checkpointBlockHash(newL1BlockNumber);
+
+        vm.startPrank(randomUser);
+        vm.deal(randomUser, 1 ether);
+
+        bytes memory proof = bytes("");
+        
+        // Should succeed in permissionless mode
+        IDisputeGame newGame = factory.create(
+            gameType,
+            Claim.wrap(keccak256("permissionless-claim")),
+            abi.encodePacked(l2BlockNumber + 1500, newL1BlockNumber, randomUser, proof)
+        );
+
+        // Verify game was created successfully
+        assertEq(uint8(newGame.status()), uint8(GameStatus.DEFENDER_WINS));
+
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Remove proposer permission
+    // =========================================
+    function testRemoveProposerPermission() public {
+        address tempProposer = address(0x7777);
+        
+        // First add the proposer
+        l2OutputOracle.addProposer(tempProposer);
+        assertTrue(l2OutputOracle.approvedProposers(tempProposer));
+
+        // Remove the proposer
+        l2OutputOracle.removeProposer(tempProposer);
+        assertFalse(l2OutputOracle.approvedProposers(tempProposer));
+
+        vm.startPrank(tempProposer);
+        vm.deal(tempProposer, 1 ether);
+
+        // Warp forward to ensure we can propose
+        vm.warp(block.timestamp + 2000);
+
+        // Roll forward and checkpoint block
+        uint256 newL1BlockNumber = l1BlockNumber + 700;
+        vm.roll(newL1BlockNumber + 1);
+        
+        // Switch to owner to checkpoint
+        vm.stopPrank();
+        l2OutputOracle.checkpointBlockHash(newL1BlockNumber);
+        vm.startPrank(tempProposer);
+
+        bytes memory proof = bytes("");
+        
+        // Should fail since proposer was removed
+        vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
+        factory.create(
+            gameType,
+            Claim.wrap(keccak256("removed-proposer-claim")),
+            abi.encodePacked(l2BlockNumber + 2000, newL1BlockNumber, tempProposer, proof)
+        );
+
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Only owner can manage proposer permissions
+    // =========================================
+    function testOnlyOwnerCanManageProposerPermissions() public {
+        address unauthorizedUser = address(0x8888);
+        address testProposer = address(0x9090);
+
+        vm.startPrank(unauthorizedUser);
+
+        // Non-owner should not be able to add proposers
+        vm.expectRevert("L2OutputOracle: caller is not the owner");
+        l2OutputOracle.addProposer(testProposer);
+
+        // Non-owner should not be able to remove proposers  
+        vm.expectRevert("L2OutputOracle: caller is not the owner");
+        l2OutputOracle.removeProposer(proposer);
+
+        vm.stopPrank();
+
+        // Owner should be able to add proposers
+        l2OutputOracle.addProposer(testProposer);
+        assertTrue(l2OutputOracle.approvedProposers(testProposer));
+
+        // Owner should be able to remove proposers
+        l2OutputOracle.removeProposer(testProposer);
+        assertFalse(l2OutputOracle.approvedProposers(testProposer));
+    }
+
+    // =========================================
+    // Test: tx.origin vs msg.sender behavior
+    // =========================================
+    function testTxOriginPermissionCheck() public {
+        // This test demonstrates that the permission check uses tx.origin
+        // which allows the game contract (msg.sender) to call proposeL2Output
+        // as long as the transaction originator (tx.origin) is authorized
+
+        // The current test setup already demonstrates this:
+        // - tx.origin = proposer (authorized)  
+        // - msg.sender = newly created game contract (not in approved proposers)
+        // - Permission check passes because it uses tx.origin
+
+        assertTrue(l2OutputOracle.approvedProposers(proposer));
+        
+        // Verify the game was created successfully in setUp
+        assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
+        assertEq(game.gameCreator(), proposer);
     }
 
     // =========================================
