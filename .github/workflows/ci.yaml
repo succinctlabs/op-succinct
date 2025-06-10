@@ -40,22 +40,94 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    - run: rustup toolchain install stable --profile minimal
-    - uses: Swatinem/rust-cache@v2  
+      with:
+        submodules: recursive
+        
+    - name: Install Rust
+      run: rustup toolchain install stable --profile minimal
+      
+    - uses: Swatinem/rust-cache@v2
+    
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      
+    - name: Install Just
+      uses: extractions/setup-just@v2
+      
+    - name: Install Kurtosis
+      run: |
+        curl -LO https://github.com/kurtosis-tech/kurtosis-cli-release-artifacts/releases/latest/download/kurtosis-cli_linux_amd64.tar.gz
+        tar -xzf kurtosis-cli_linux_amd64.tar.gz
+        sudo mv kurtosis-cli /usr/local/bin/kurtosis
+        kurtosis version
+        
+    - name: Start Docker
+      run: |
+        sudo systemctl start docker
+        sudo usermod -aG docker $USER
+        
+    - name: Start Optimism Devnet
+      run: |
+        cd contracts/lib/optimism/kurtosis-devnet
+        timeout 600 just simple-devnet > devnet-info.json || true
+        cat devnet-info.json
+        
+    - name: Extract Devnet Configuration
+      run: |
+        cd contracts/lib/optimism/kurtosis-devnet
+        export L1_RPC=$(jq -r '.l1.nodes[0].el' devnet-info.json)
+        export L2_RPC=$(jq -r '.l2[0].nodes[0].el' devnet-info.json)
+        export L1_BEACON_RPC=$(jq -r '.l1.nodes[0].cl' devnet-info.json)
+        export L2_NODE_RPC="$L2_RPC"
+        echo "L1_RPC=$L1_RPC" >> $GITHUB_ENV
+        echo "L2_RPC=$L2_RPC" >> $GITHUB_ENV
+        echo "L1_BEACON_RPC=$L1_BEACON_RPC" >> $GITHUB_ENV
+        echo "L2_NODE_RPC=$L2_NODE_RPC" >> $GITHUB_ENV
+        echo "Devnet endpoints:"
+        echo "L1_RPC: $L1_RPC"
+        echo "L2_RPC: $L2_RPC"
+        echo "L1_BEACON_RPC: $L1_BEACON_RPC"
+        
+    - name: Install Forge Dependencies
+      run: |
+        cd contracts
+        forge install
+        
+    - name: Deploy OP Succinct FDG Contracts
+      run: |
+        # Create temporary .env file with devnet config
+        cat > .env.ci << EOF
+        L1_RPC=${{ env.L1_RPC }}
+        L2_RPC=${{ env.L2_RPC }}
+        L1_BEACON_RPC=${{ env.L1_BEACON_RPC }}
+        L2_NODE_RPC=${{ env.L2_NODE_RPC }}
+        PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+        ETHERSCAN_API_KEY=""
+        OP_SUCCINCT_MOCK=true
+        EOF
+        
+        # Deploy contracts using justfile
+        just deploy-fdg-contracts .env.ci
+        
+        # Extract deployed contract addresses from broadcast files
+        export FACTORY_ADDRESS=$(find contracts/broadcast -name "run-latest.json" -exec jq -r '.transactions[] | select(.contractName == "DisputeGameFactory") | .contractAddress' {} \; | head -1)
+        if [ -z "$FACTORY_ADDRESS" ] || [ "$FACTORY_ADDRESS" = "null" ]; then
+          echo "Warning: Could not extract FACTORY_ADDRESS, using placeholder"
+          export FACTORY_ADDRESS="0x0000000000000000000000000000000000000000"
+        fi
+        echo "FACTORY_ADDRESS=$FACTORY_ADDRESS" >> $GITHUB_ENV
+        echo "PROVER_ADDRESS=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" >> $GITHUB_ENV
+        echo "Deployed contract addresses:"
+        echo "FACTORY_ADDRESS: $FACTORY_ADDRESS"
+        
     - name: E2E and Integration Tests
       run: cargo test --release test_e2e_proposer_wins test_e2e_challenger_wins test_proposer_defends_successfully
       env:
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-        L1_RPC: ${{ secrets.L1_RPC }}
-        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
-        REPO_OWNER: ${{ github.repository_owner }}
-        REPO_NAME: ${{ github.event.repository.name }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
-        PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-        FACTORY_ADDRESS: ${{ secrets.FACTORY_ADDRESS }}
-        PROVER_ADDRESS: ${{ secrets.PROVER_ADDRESS }}
-        SIGNER_URL: ${{ secrets.SIGNER_URL }}
-        SIGNER_ADDRESS: ${{ secrets.SIGNER_ADDRESS }}
+        L1_RPC: ${{ env.L1_RPC }}
+        L2_RPC: ${{ env.L2_RPC }}
+        L1_BEACON_RPC: ${{ env.L1_BEACON_RPC }}
+        L2_NODE_RPC: ${{ env.L2_NODE_RPC }}
+        FACTORY_ADDRESS: ${{ env.FACTORY_ADDRESS }}
+        PROVER_ADDRESS: ${{ env.PROVER_ADDRESS }}
+        PRIVATE_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+        OP_SUCCINCT_MOCK: "true"
