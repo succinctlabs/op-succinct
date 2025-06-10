@@ -31,3 +31,31 @@ jobs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+
+  e2e-tests:
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }} 
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - run: rustup toolchain install stable --profile minimal
+    - uses: Swatinem/rust-cache@v2  
+    - name: E2E and Integration Tests
+      run: cargo test --release test_e2e_proposer_wins test_e2e_challenger_wins test_proposer_defends_successfully
+      env:
+        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ secrets.L2_RPC }}
+        REPO_OWNER: ${{ github.repository_owner }}
+        REPO_NAME: ${{ github.event.repository.name }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
+        PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        FACTORY_ADDRESS: ${{ secrets.FACTORY_ADDRESS }}
+        PROVER_ADDRESS: ${{ secrets.PROVER_ADDRESS }}
+        SIGNER_URL: ${{ secrets.SIGNER_URL }}
+        SIGNER_ADDRESS: ${{ secrets.SIGNER_ADDRESS }}
