@@ -50,7 +50,7 @@ impl OPSuccinctHost for CelestiaOPSuccinctHost {
             namespace: std::env::var("NAMESPACE").ok(),
         };
 
-        Ok(CelestiaChainHost { single_host: host, celestia_args })
+        Ok(CelestiaChainHost { single_host: host.kona_cfg, celestia_args })
     }
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {

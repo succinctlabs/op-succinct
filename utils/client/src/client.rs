@@ -2,17 +2,20 @@ use alloy_consensus::BlockBody;
 use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use anyhow::Result;
+use celo_alloy_consensus::{CeloBlock, CeloTxEnvelope, CeloTxType};
+use celo_alloy_rpc_types_engine::CeloPayloadAttributes;
+use celo_driver::{CeloDriver, CeloExecutorTr};
+use celo_protocol::CeloL2BlockInfo;
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
     traits::{Pipeline, SignalReceiver},
     types::Signal,
 };
-use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, TipCursor};
+use kona_driver::{DriverError, DriverPipeline, DriverResult, TipCursor};
 use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{errors::OracleProviderError, HintType};
 use kona_protocol::{L2BlockInfo, OpAttributesWithParent};
-use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
 use std::fmt::Debug;
 use tracing::{error, info, warn};
 
@@ -53,12 +56,12 @@ where
 ///   output root.
 /// - `Err(e)` - An error if the block could not be produced.
 pub async fn advance_to_target<E, DP, P>(
-    driver: &mut Driver<E, DP, P>,
+    driver: &mut CeloDriver<E, DP, P>,
     cfg: &RollupConfig,
     mut target: Option<u64>,
 ) -> DriverResult<(L2BlockInfo, B256), E::Error>
 where
-    E: Executor + Send + Sync + Debug,
+    E: CeloExecutorTr + Send + Sync + Debug,
     DP: DriverPipeline<P> + Send + Sync + Debug,
     P: Pipeline + SignalReceiver + Send + Sync + Debug,
 {
@@ -110,7 +113,8 @@ where
 
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: block-execution");
-        let execution_result = match driver.executor.execute_payload(attributes.clone()).await {
+        let celo_attributes = CeloPayloadAttributes { op_payload_attributes: attributes.clone() };
+        let execution_result = match driver.executor.execute_payload(celo_attributes).await {
             Ok(header) => header,
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
@@ -128,13 +132,15 @@ where
                     // Strip out all transactions that are not deposits.
                     attributes.transactions = attributes.transactions.map(|txs| {
                         txs.into_iter()
-                            .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
+                            .filter(|tx| (!tx.is_empty() && tx[0] == CeloTxType::Deposit as u8))
                             .collect::<Vec<_>>()
                     });
 
                     // Retry the execution.
+                    let celo_attributes =
+                        CeloPayloadAttributes { op_payload_attributes: attributes.clone() };
                     driver.executor.update_safe_head(tip_cursor.l2_safe_head_header.clone());
-                    match driver.executor.execute_payload(attributes.clone()).await {
+                    match driver.executor.execute_payload(celo_attributes).await {
                         Ok(header) => header,
                         Err(e) => {
                             error!(
@@ -154,15 +160,15 @@ where
         println!("cycle-tracker-report-end: block-execution");
 
         // Construct the block.
-        let block = OpBlock {
+        let block = CeloBlock {
             header: execution_result.header.inner().clone(),
             body: BlockBody {
                 transactions: attributes
                     .transactions
                     .unwrap_or_default()
                     .into_iter()
-                    .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
-                    .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
+                    .map(|tx| CeloTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
+                    .collect::<DriverResult<Vec<CeloTxEnvelope>, E::Error>>()?,
                 ommers: Vec::new(),
                 withdrawals: None,
             },
@@ -170,8 +176,11 @@ where
 
         // Get the pipeline origin and update the tip cursor.
         let origin = driver.pipeline.origin().ok_or(PipelineError::MissingOrigin.crit())?;
-        let l2_info =
-            L2BlockInfo::from_block_and_genesis(&block, &driver.pipeline.rollup_config().genesis)?;
+        let celo_l2_info = CeloL2BlockInfo::from_block_and_genesis(
+            &block,
+            &driver.pipeline.rollup_config().genesis,
+        )?;
+        let l2_info = celo_l2_info.op_l2_block_info;
         let tip_cursor = TipCursor::new(
             l2_info,
             execution_result.header,

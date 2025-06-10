@@ -14,13 +14,15 @@ use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
 use anyhow::{bail, Result};
+use celo_alloy_consensus::CeloBlock;
+use celo_alloy_network::Celo;
+use celo_host::single::CeloSingleChainHost;
+use celo_protocol::CeloL2BlockInfo;
 use futures::{stream, StreamExt};
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
-use kona_protocol::L2BlockInfo;
 use kona_rpc::{OutputResponse, SafeHeadResponse};
-use op_alloy_consensus::OpBlock;
-use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network, Optimism};
+use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
@@ -35,7 +37,7 @@ use crate::L2Output;
 pub struct OPSuccinctDataFetcher {
     pub rpc_config: RPCConfig,
     pub l1_provider: Arc<RootProvider>,
-    pub l2_provider: Arc<RootProvider<Optimism>>,
+    pub l2_provider: Arc<RootProvider<Celo>>,
     pub rollup_config: Option<RollupConfig>,
     pub rollup_config_path: Option<PathBuf>,
 }
@@ -569,23 +571,23 @@ impl OPSuccinctDataFetcher {
     }
 
     // Source from: https://github.com/anton-rs/kona/blob/85b1c88b44e5f54edfc92c781a313717bad5dfc7/crates/derive-alloy/src/alloy_providers.rs#L225.
-    pub async fn get_l2_block_by_number(&self, block_number: u64) -> Result<OpBlock> {
+    pub async fn get_l2_block_by_number(&self, block_number: u64) -> Result<CeloBlock> {
         let raw_block: Bytes = self
             .l2_provider
             .raw_request("debug_getRawBlock".into(), [U64::from(block_number)])
             .await?;
-        let block = OpBlock::decode(&mut raw_block.as_ref()).map_err(|e| anyhow::anyhow!(e))?;
+        let block = CeloBlock::decode(&mut raw_block.as_ref()).map_err(|e| anyhow::anyhow!(e))?;
         Ok(block)
     }
 
-    pub async fn l2_block_info_by_number(&self, block_number: u64) -> Result<L2BlockInfo> {
+    pub async fn l2_block_info_by_number(&self, block_number: u64) -> Result<CeloL2BlockInfo> {
         // If the rollup config is not already loaded, fetch and save it.
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
         let genesis = self.rollup_config.as_ref().unwrap().genesis;
         let block = self.get_l2_block_by_number(block_number).await?;
-        Ok(L2BlockInfo::from_block_and_genesis(&block, &genesis)?)
+        Ok(CeloL2BlockInfo::from_block_and_genesis(&block, &genesis)?)
     }
 
     /// Get the L2 safe head corresponding to the L1 block number using optimism_safeHeadAtL1Block.
@@ -623,7 +625,7 @@ impl OPSuccinctDataFetcher {
         l2_start_block: u64,
         l2_end_block: u64,
         l1_head_hash: B256,
-    ) -> Result<SingleChainHost> {
+    ) -> Result<CeloSingleChainHost> {
         // If the rollup config is not already loaded, fetch and save it.
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
@@ -678,28 +680,30 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
-        Ok(SingleChainHost {
-            l1_head: l1_head_hash,
-            agreed_l2_output_root,
-            agreed_l2_head_hash,
-            claimed_l2_output_root,
-            claimed_l2_block_number: l2_end_block,
-            l2_chain_id: None,
-            // Trim the trailing slash to avoid double slashes in the URL.
-            l2_node_address: Some(
-                self.rpc_config.l2_rpc.as_str().trim_end_matches('/').to_string(),
-            ),
-            l1_node_address: Some(
-                self.rpc_config.l1_rpc.as_str().trim_end_matches('/').to_string(),
-            ),
-            l1_beacon_address: Some(
-                self.rpc_config.l1_beacon_rpc.as_str().trim_end_matches('/').to_string(),
-            ),
-            data_dir: None, // Use in-memory key-value store.
-            native: false,
-            server: true,
-            rollup_config_path: self.rollup_config_path.clone(),
-            enable_experimental_witness_endpoint: false,
+        Ok(CeloSingleChainHost {
+            kona_cfg: SingleChainHost {
+                l1_head: l1_head_hash,
+                agreed_l2_output_root,
+                agreed_l2_head_hash,
+                claimed_l2_output_root,
+                claimed_l2_block_number: l2_end_block,
+                l2_chain_id: None,
+                // Trim the trailing slash to avoid double slashes in the URL.
+                l2_node_address: Some(
+                    self.rpc_config.l2_rpc.as_str().trim_end_matches('/').to_string(),
+                ),
+                l1_node_address: Some(
+                    self.rpc_config.l1_rpc.as_str().trim_end_matches('/').to_string(),
+                ),
+                l1_beacon_address: Some(
+                    self.rpc_config.l1_beacon_rpc.as_str().trim_end_matches('/').to_string(),
+                ),
+                data_dir: None, // Use in-memory key-value store.
+                native: false,
+                server: true,
+                rollup_config_path: self.rollup_config_path.clone(),
+                enable_experimental_witness_endpoint: false,
+            },
         })
     }
 }

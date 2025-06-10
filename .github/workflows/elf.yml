@@ -11,10 +11,7 @@ on:
 
 jobs:
   elf:
-    runs-on:
-      - runs-on
-      - runner=64cpu-linux-x64
-      - run-id=${{ github.run_id }}
+    runs-on: ubuntu-latest
       
     steps:
       - name: Checkout code

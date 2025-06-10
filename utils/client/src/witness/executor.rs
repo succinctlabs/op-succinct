@@ -1,30 +1,28 @@
-use std::{fmt::Debug, sync::Arc};
-
+use alloy_celo_evm::CeloEvmFactory;
 use alloy_primitives::Sealed;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use celo_driver::CeloDriver;
+use celo_proof::executor::CeloExecutor;
 use kona_derive::traits::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
     SignalReceiver,
 };
-use kona_driver::{Driver, DriverPipeline, PipelineCursor};
+use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
 use kona_genesis::RollupConfig;
 use kona_preimage::CommsClient;
 use kona_proof::{
-    executor::KonaExecutor,
     l1::{OracleL1ChainProvider, OraclePipeline},
     l2::OracleL2ChainProvider,
     sync::new_oracle_pipeline_cursor,
     BootInfo, FlushableCache,
 };
 use spin::RwLock;
+use std::{fmt::Debug, sync::Arc};
 use tracing::info;
 
-use crate::{
-    client::{advance_to_target, fetch_safe_head_hash},
-    precompiles::ZkvmOpEvmFactory,
-};
+use crate::client::{advance_to_target, fetch_safe_head_hash};
 
 // Gets the inputs for constructing the derivation pipeline.
 pub async fn get_inputs_for_pipeline<O>(
@@ -135,14 +133,14 @@ pub trait WitnessExecutor {
 
         let rollup_config = Arc::new(boot.rollup_config);
 
-        let executor = KonaExecutor::new(
+        let executor = CeloExecutor::new(
             rollup_config.as_ref(),
             l2_provider.clone(),
             l2_provider,
-            ZkvmOpEvmFactory::new(),
+            CeloEvmFactory::default(),
             None,
         );
-        let mut driver = Driver::new(cursor, executor, pipeline);
+        let mut driver = CeloDriver::new(cursor, executor, pipeline);
         // Run the derivation pipeline until we are able to produce the output root of the claimed
         // L2 block.
 

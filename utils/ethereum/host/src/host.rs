@@ -5,7 +5,7 @@ use alloy_eips::BlockId;
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
-use kona_host::single::SingleChainHost;
+use celo_host::single::CeloSingleChainHost;
 use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
 
@@ -17,7 +17,7 @@ pub struct SingleChainOPSuccinctHost {
 
 #[async_trait]
 impl OPSuccinctHost for SingleChainOPSuccinctHost {
-    type Args = SingleChainHost;
+    type Args = CeloSingleChainHost;
     type WitnessGenerator = ETHDAWitnessGenerator;
 
     fn witness_generator(&self) -> &Self::WitnessGenerator {
@@ -30,7 +30,7 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         l2_end_block: u64,
         l1_head_hash: Option<B256>,
         safe_db_fallback: bool,
-    ) -> Result<SingleChainHost> {
+    ) -> Result<CeloSingleChainHost> {
         // Calculate L1 head hash using simple logic if not provided.
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
@@ -44,7 +44,7 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
     }
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
-        Some(args.l1_head)
+        Some(args.kona_cfg.l1_head)
     }
 
     async fn get_finalized_l2_block_number(
