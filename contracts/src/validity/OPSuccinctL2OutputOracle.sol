@@ -280,14 +280,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         return finalizationPeriodSeconds;
     }
 
-    /// @notice Getter for the fallbackProposalTimeout.
-    ///         Public getter is legacy and will be removed in the future. Use `fallbackProposalTimeout` instead.
-    /// @return Fallback proposal timeout in seconds.
-    /// @custom:legacy
-    function FALLBACK_PROPOSAL_TIMEOUT() external view returns (uint256) {
-        return fallbackProposalTimeout;
-    }
-
     /// @notice Deletes all output proposals after and including the proposal that corresponds to
     ///         the given output index. Only the challenger address can delete outputs.
     /// @param _l2OutputIndex Index of the first L2 output to be deleted.

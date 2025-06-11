@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -26,6 +26,28 @@ contract AccessManager is Ownable {
     /// @notice Tracks whitelisted challengers.
     mapping(address => bool) public challengers;
 
+    /// @notice The timeout (in seconds) after which permissionless proposing is allowed (immutable).
+    uint256 public immutable permissionlessTimeout;
+
+    /// @notice The timestamp of the last proposal action.
+    uint256 public lastProposalTimestamp;
+
+    ////////////////////////////////////////////////////////////////
+    //                      Constructor                           //
+    ////////////////////////////////////////////////////////////////
+
+    /// @notice Constructor sets the permissionless timeout and initializes timestamp.
+    /// @param _permissionlessTimeout The timeout in seconds after last proposal when permissionless mode activates.
+    constructor(uint256 _permissionlessTimeout) {
+        permissionlessTimeout = _permissionlessTimeout;
+        // Initialize timestamp to deployment time
+        lastProposalTimestamp = block.timestamp;
+    }
+
+    ////////////////////////////////////////////////////////////////
+    //                      Functions                             //
+    ////////////////////////////////////////////////////////////////
+
     /**
      * @notice Allows the owner to whitelist or un-whitelist proposers.
      * @param _proposer The address to set in the proposers mapping.
@@ -51,7 +73,9 @@ contract AccessManager is Ownable {
     /// @return allowed_ Whether the address is allowed to propose.
     function isAllowedProposer(address _proposer) external view returns (bool allowed_) {
         // If address(0) is allowed, then it's permissionless.
-        allowed_ = proposers[address(0)] || proposers[_proposer];
+        // If the permissionless timeout has elapsed since last proposal, anyone can propose.
+        allowed_ = proposers[address(0)] || proposers[_proposer] 
+            || (block.timestamp - lastProposalTimestamp > permissionlessTimeout);
     }
 
     /// @notice Checks if an address is allowed to challenge.
@@ -60,5 +84,17 @@ contract AccessManager is Ownable {
     function isAllowedChallenger(address _challenger) external view returns (bool allowed_) {
         // If address(0) is allowed, then it's permissionless.
         allowed_ = challengers[address(0)] || challengers[_challenger];
+    }
+
+    /// @notice Updates the last proposal timestamp. Should be called when a proposal is made.
+    /// @dev This function should be called by the game contract when a proposal is made.
+    function recordProposal() external {
+        lastProposalTimestamp = block.timestamp;
+    }
+
+    /// @notice Returns whether proposal permissionless timeout has elapsed.
+    /// @return Whether permissionless proposing is active.
+    function isProposalPermissionlessMode() external view returns (bool) {
+        return block.timestamp - lastProposalTimestamp > permissionlessTimeout;
     }
 }
