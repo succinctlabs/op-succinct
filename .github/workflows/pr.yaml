@@ -63,6 +63,7 @@ jobs:
     env:
       FOUNDRY_PROFILE: ci
       L1_RPC: ${{ secrets.L1_RPC }}
+      L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
