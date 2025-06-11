@@ -70,10 +70,9 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
             FINALIZATION_PERIOD,
             FALLBACK_TIMEOUT
         );
-        
+
         l2oo = deployL2OutputOracle(initParams);
 
-        console.log("l2oo approved proposer", l2oo.approvedProposers(approvedProposer));
         // Set the timestamp to after the starting timestamp
         vm.warp(block.timestamp + 1000);
     }

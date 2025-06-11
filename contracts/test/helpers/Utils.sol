@@ -88,16 +88,14 @@ contract Utils is Test, JSONDecoder {
 
     // Helper functions for test setup
 
-
     /**
      * @dev Creates standard InitParams for OPSuccinctL2OutputOracle with sensible defaults
      */
-    function createStandardInitParams(
-        address verifier,
-        address proposer,
-        address challenger,
-        address owner
-    ) public view returns (OPSuccinctL2OutputOracle.InitParams memory) {
+    function createStandardInitParams(address verifier, address proposer, address challenger, address owner)
+        public
+        view
+        returns (OPSuccinctL2OutputOracle.InitParams memory)
+    {
         return OPSuccinctL2OutputOracle.InitParams({
             verifier: verifier,
             aggregationVkey: bytes32(0),
@@ -151,9 +149,10 @@ contract Utils is Test, JSONDecoder {
     /**
      * @dev Deploys and initializes an OPSuccinctL2OutputOracle with a proxy
      */
-    function deployL2OutputOracle(
-        OPSuccinctL2OutputOracle.InitParams memory initParams
-    ) public returns (OPSuccinctL2OutputOracle) {
+    function deployL2OutputOracle(OPSuccinctL2OutputOracle.InitParams memory initParams)
+        public
+        returns (OPSuccinctL2OutputOracle)
+    {
         bytes memory initializationParams =
             abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
 
@@ -166,13 +165,12 @@ contract Utils is Test, JSONDecoder {
     /**
      * @dev Convenience function to create verifier, params, and deploy L2OutputOracle
      */
-    function deployL2OutputOracleWithStandardParams(
-        address proposer,
-        address challenger,
-        address owner
-    ) public returns (OPSuccinctL2OutputOracle, SP1MockVerifier) {
+    function deployL2OutputOracleWithStandardParams(address proposer, address challenger, address owner)
+        public
+        returns (OPSuccinctL2OutputOracle, SP1MockVerifier)
+    {
         SP1MockVerifier verifier = new SP1MockVerifier();
-        OPSuccinctL2OutputOracle.InitParams memory initParams = 
+        OPSuccinctL2OutputOracle.InitParams memory initParams =
             createStandardInitParams(address(verifier), proposer, challenger, owner);
         OPSuccinctL2OutputOracle oracle = deployL2OutputOracle(initParams);
         return (oracle, verifier);
@@ -197,11 +195,7 @@ contract Utils is Test, JSONDecoder {
     /**
      * @dev Common pattern: warp time, roll block, checkpoint
      */
-    function warpRollAndCheckpoint(
-        OPSuccinctL2OutputOracle oracle,
-        uint256 timeOffset,
-        uint256 l1BlockNumber
-    ) public {
+    function warpRollAndCheckpoint(OPSuccinctL2OutputOracle oracle, uint256 timeOffset, uint256 l1BlockNumber) public {
         setupTimeAndBlock(timeOffset, l1BlockNumber);
         oracle.checkpointBlockHash(l1BlockNumber);
     }
