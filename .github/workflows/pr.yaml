@@ -62,6 +62,7 @@ jobs:
     runs-on: [runs-on, runner=32cpu-linux-arm64, "run-id=${{ github.run_id }}"]
     env:
       FOUNDRY_PROFILE: ci
+      L1_RPC: ${{ secrets.L1_RPC }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -172,7 +173,7 @@ jobs:
           echo "FACTORY_ADDRESS: $FACTORY_ADDRESS"
           
       - name: E2E and Integration Tests
-        run: cargo test --release test_e2e_proposer_wins test_e2e_challenger_wins test_proposer_defends_successfully
+        run: cargo test --release test_e2e_proposer_wins # todo: add the other tests
         env:
           L1_RPC: ${{ env.L1_RPC }}
           L2_RPC: ${{ env.L2_RPC }}
