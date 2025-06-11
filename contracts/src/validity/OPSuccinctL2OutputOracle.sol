@@ -30,6 +30,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         uint256 startingTimestamp;
         uint256 submissionInterval;
         address verifier;
+        uint256 fallbackProposalTimeout;
     }
 
     /// @notice The number of the first L2 block recorded in this contract.
@@ -62,6 +63,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The minimum time (in seconds) that must elapse before a withdrawal can be finalized.
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
+
+    /// @notice The time threshold (in seconds) after which anyone can submit a proposal if no proposal has been submitted.
+    /// @custom:network-specific
+    uint256 public fallbackProposalTimeout;
 
     /// @notice The verification key of the aggregation SP1 program.
     bytes32 public aggregationVkey;
@@ -222,6 +227,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         challenger = _initParams.challenger;
         finalizationPeriodSeconds = _initParams.finalizationPeriodSeconds;
+        fallbackProposalTimeout = _initParams.fallbackProposalTimeout;
 
         // Add the initial proposer.
         approvedProposers[_initParams.proposer] = true;
@@ -272,6 +278,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:legacy
     function FINALIZATION_PERIOD_SECONDS() external view returns (uint256) {
         return finalizationPeriodSeconds;
+    }
+
+    /// @notice Getter for the fallbackProposalTimeout.
+    ///         Public getter is legacy and will be removed in the future. Use `fallbackProposalTimeout` instead.
+    /// @return Fallback proposal timeout in seconds.
+    /// @custom:legacy
+    function FALLBACK_PROPOSAL_TIMEOUT() external view returns (uint256) {
+        return fallbackProposalTimeout;
     }
 
     /// @notice Deletes all output proposals after and including the proposal that corresponds to
@@ -331,9 +345,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         bytes memory _proof,
         address _proverAddress
     ) external payable whenNotOptimistic {
-        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
+        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing),
+        // or the fallback timeout has been exceeded allowing anyone to propose.
         require(
-            approvedProposers[tx.origin] || approvedProposers[address(0)],
+            approvedProposers[tx.origin] || approvedProposers[address(0)] || 
+            (block.timestamp - lastProposalTimestamp() > fallbackProposalTimeout),
             "L2OutputOracle: only approved proposers can propose new outputs"
         );
 
@@ -393,9 +409,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         payable
         whenOptimistic
     {
-        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
+        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing),
+        // or the fallback timeout has been exceeded allowing anyone to propose.
         require(
-            approvedProposers[msg.sender] || approvedProposers[address(0)],
+            approvedProposers[msg.sender] || approvedProposers[address(0)] || 
+            (block.timestamp - lastProposalTimestamp() > fallbackProposalTimeout),
             "L2OutputOracle: only approved proposers can propose new outputs"
         );
 
@@ -519,6 +537,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @return Next L2 block number.
     function nextBlockNumber() public view returns (uint256) {
         return latestBlockNumber() + submissionInterval;
+    }
+
+    /// @notice Returns the timestamp of the last submitted L2 output proposal.
+    ///         If no proposals have been submitted yet, returns the starting timestamp.
+    /// @return Timestamp of the latest submitted L2 output proposal.
+    function lastProposalTimestamp() public view returns (uint256) {
+        return l2Outputs.length == 0 ? startingTimestamp : l2Outputs[l2Outputs.length - 1].timestamp;
     }
 
     /// @notice Returns the L2 timestamp corresponding to a given L2 block number.
