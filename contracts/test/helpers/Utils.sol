@@ -40,7 +40,8 @@ contract Utils is Test, JSONDecoder {
             l2BlockTime: cfg.l2BlockTime,
             startingBlockNumber: cfg.startingBlockNumber,
             startingTimestamp: cfg.startingTimestamp,
-            submissionInterval: cfg.submissionInterval
+            submissionInterval: cfg.submissionInterval,
+            fallbackProposalTimeout: cfg.fallbackProposalTimeout
         });
 
         bytes memory initializationParams =

@@ -18,6 +18,7 @@ contract JSONDecoder {
         uint256 startingTimestamp;
         uint256 submissionInterval;
         address verifier;
+        uint256 fallbackProposalTimeout;
     }
 
     struct OutputAtBlock {
