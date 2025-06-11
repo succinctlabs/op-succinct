@@ -6,6 +6,8 @@ import {Utils} from "../helpers/Utils.sol";
 import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 
+import {Proxy} from "@optimism/src/universal/Proxy.sol";
+
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Example proof data for a mock proof for Phala Testnet. Tx: https://sepolia.etherscan.io/tx/0x640441cfcba322574a0b153fa3a520bc7bbf1591fdee32f7984dfcf4e18fde4f
     uint256 checkpointedL1BlockNum = 7931837;
@@ -49,41 +51,46 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
     uint256 constant SUBMISSION_INTERVAL = 10;
     uint256 constant L2_BLOCK_TIME = 2;
     uint256 constant STARTING_BLOCK_NUMBER = 1000;
-    uint256 constant STARTING_TIMESTAMP = 1000000;
     uint256 constant FINALIZATION_PERIOD = 7 days;
     uint256 constant FALLBACK_TIMEOUT = 2 days;
 
     SP1MockVerifier verifier;
     bytes proof = hex"";
     address proverAddress = address(0x7890);
+    uint256 startingTimestamp = block.timestamp;
 
     function setUp() public {
-        verifier = new SP1MockVerifier();
+        // Create a mock verifier.
+        SP1MockVerifier sp1Verifier = new SP1MockVerifier();
 
-        Config memory cfg = Config({
+        // Deploy L2OutputOracle.
+        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
+            verifier: address(sp1Verifier),
             aggregationVkey: aggregationVkey,
-            challenger: challenger,
-            finalizationPeriod: FINALIZATION_PERIOD,
-            l2BlockTime: L2_BLOCK_TIME,
-            opSuccinctL2OutputOracleImpl: address(0),
-            owner: owner,
-            proposer: approvedProposer,
-            proxyAdmin: address(0),
             rangeVkeyCommitment: rangeVkeyCommitment,
-            rollupConfigHash: rollupConfigHash,
-            startingBlockNumber: STARTING_BLOCK_NUMBER,
             startingOutputRoot: startingOutputRoot,
-            startingTimestamp: STARTING_TIMESTAMP,
+            rollupConfigHash: rollupConfigHash,
+            proposer: address(approvedProposer), // Should be permissionless when using game creation from the factory or else, the check in `proposeL2Output` will fail.
+            challenger: challenger,
+            owner: address(this),
+            finalizationPeriodSeconds: FINALIZATION_PERIOD,
+            l2BlockTime: L2_BLOCK_TIME,
+            startingBlockNumber: STARTING_BLOCK_NUMBER,
+            startingTimestamp: block.timestamp,
             submissionInterval: SUBMISSION_INTERVAL,
-            verifier: address(verifier),
             fallbackProposalTimeout: FALLBACK_TIMEOUT
         });
+        bytes memory initializationParams =
+            abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
 
-        address l2ooAddress = deployWithConfig(cfg);
-        l2oo = OPSuccinctL2OutputOracle(l2ooAddress);
+        Proxy l2OutputOracleProxy = new Proxy(address(this));
+        l2OutputOracleProxy.upgradeToAndCall(address(new OPSuccinctL2OutputOracle()), initializationParams);
 
+        l2oo = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
+
+        console.log("l2oo approved proposer", l2oo.approvedProposers(approvedProposer));
         // Set the timestamp to after the starting timestamp
-        vm.warp(STARTING_TIMESTAMP + 1000);
+        vm.warp(block.timestamp + 1000);
     }
 
     function testFallbackProposal_TimeoutElapsed_NonApprovedCanPropose() public {
@@ -144,7 +151,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         l2oo.checkpointBlockHash(currentL1Block);
 
         // Approved proposer should still be able to propose before timeout
-        vm.prank(approvedProposer);
+        vm.prank(approvedProposer, approvedProposer);
         l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
 
         // Verify the proposal was accepted
@@ -175,16 +182,16 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, outputRoot);
     }
 
-    function testLastProposalTimestamp_InitialState() public {
+    function testLastProposalTimestamp_InitialState() public view {
         // Initially, lastProposalTimestamp should return the starting timestamp
-        assertEq(l2oo.lastProposalTimestamp(), STARTING_TIMESTAMP);
+        assertEq(l2oo.lastProposalTimestamp(), startingTimestamp);
     }
 
     function testLastProposalTimestamp_AfterProposal() public {
         // Make a proposal
         uint256 nextBlockNumber = l2oo.nextBlockNumber();
         bytes32 outputRoot = keccak256("test_output");
-        uint256 proposalTime = STARTING_TIMESTAMP + 5000;
+        uint256 proposalTime = startingTimestamp + 5000;
 
         vm.warp(proposalTime);
 
@@ -193,14 +200,14 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         vm.roll(currentL1Block + 1);
         l2oo.checkpointBlockHash(currentL1Block);
 
-        vm.prank(approvedProposer);
+        vm.prank(approvedProposer, approvedProposer);
         l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
 
         // lastProposalTimestamp should now return the proposal time
         assertEq(l2oo.lastProposalTimestamp(), proposalTime);
     }
 
-    function testFallbackProposalTimeout_Getter() public {
+    function testFallbackProposalTimeout_Getter() public view {
         // Test that the getter returns the correct timeout value
         assertEq(l2oo.FALLBACK_PROPOSAL_TIMEOUT(), FALLBACK_TIMEOUT);
         assertEq(l2oo.fallbackProposalTimeout(), FALLBACK_TIMEOUT);
