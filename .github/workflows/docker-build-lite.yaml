@@ -2,6 +2,7 @@ name: Build OP Succinct Lite Docker Images
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   build:
@@ -31,6 +32,15 @@ jobs:
           tags: |
             type=sha
             latest
+      
+      - name: Docker meta for proposer-celestia
+        id: meta-proposer-celestia
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/lite-proposer-celestia
+          tags: |
+            type=sha
+            latest
 
       - name: Docker meta for challenger
         id: meta-challenger
@@ -52,18 +62,29 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: fault_proof/Dockerfile.proposer
+          file: fault-proof/Dockerfile.proposer
           push: true
           tags: ${{ steps.meta-proposer.outputs.tags }}
           labels: ${{ steps.meta-proposer.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max 
+          cache-to: type=gha,mode=max
+      
+      - name: Build and push proposer-celestia
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: fault-proof/Dockerfile.proposer.celestia
+          push: true
+          tags: ${{ steps.meta-proposer-celestia.outputs.tags }}
+          labels: ${{ steps.meta-proposer-celestia.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Build and push challenger
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: fault_proof/Dockerfile.challenger
+          file: fault-proof/Dockerfile.challenger
           push: true
           tags: ${{ steps.meta-challenger.outputs.tags }}
           labels: ${{ steps.meta-challenger.outputs.labels }}
