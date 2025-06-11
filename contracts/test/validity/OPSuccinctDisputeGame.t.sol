@@ -80,7 +80,8 @@ contract OPSuccinctDisputeGameTest is Test {
             l2BlockTime: 2 seconds,
             startingBlockNumber: 0,
             startingTimestamp: block.timestamp,
-            submissionInterval: 1000 seconds
+            submissionInterval: 1000 seconds,
+            fallbackProposalTimeout: 3600 seconds
         });
         bytes memory initializationParams =
             abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
