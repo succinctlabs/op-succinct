@@ -6,8 +6,6 @@ import {Utils} from "../helpers/Utils.sol";
 import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 
-import {Proxy} from "@optimism/src/universal/Proxy.sol";
-
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Example proof data for a mock proof for Phala Testnet. Tx: https://sepolia.etherscan.io/tx/0x640441cfcba322574a0b153fa3a520bc7bbf1591fdee32f7984dfcf4e18fde4f
     uint256 checkpointedL1BlockNum = 7931837;
@@ -29,7 +27,7 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Test the L2OO contract.
     function testOPSuccinctL2OOFork() public {
         l2oo = OPSuccinctL2OutputOracle(0x5f0c7178CF4d7520f347d1334e5fc219da9b8Da4);
-        l2oo.checkpointBlockHash(checkpointedL1BlockNum);
+        checkpointAndRoll(l2oo, checkpointedL1BlockNum);
         vm.prank(OWNER);
         l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
     }
@@ -54,39 +52,26 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
     uint256 constant FINALIZATION_PERIOD = 7 days;
     uint256 constant FALLBACK_TIMEOUT = 2 days;
 
-    SP1MockVerifier verifier;
     bytes proof = hex"";
     address proverAddress = address(0x7890);
     uint256 startingTimestamp = block.timestamp;
 
     function setUp() public {
-        // Create a mock verifier.
-        SP1MockVerifier sp1Verifier = new SP1MockVerifier();
-
-        // Deploy L2OutputOracle.
-        OPSuccinctL2OutputOracle.InitParams memory initParams = OPSuccinctL2OutputOracle.InitParams({
-            verifier: address(sp1Verifier),
-            aggregationVkey: aggregationVkey,
-            rangeVkeyCommitment: rangeVkeyCommitment,
-            startingOutputRoot: startingOutputRoot,
-            rollupConfigHash: rollupConfigHash,
-            proposer: address(approvedProposer), // Should be permissionless when using game creation from the factory or else, the check in `proposeL2Output` will fail.
-            challenger: challenger,
-            owner: address(this),
-            finalizationPeriodSeconds: FINALIZATION_PERIOD,
-            l2BlockTime: L2_BLOCK_TIME,
-            startingBlockNumber: STARTING_BLOCK_NUMBER,
-            startingTimestamp: block.timestamp,
-            submissionInterval: SUBMISSION_INTERVAL,
-            fallbackProposalTimeout: FALLBACK_TIMEOUT
-        });
-        bytes memory initializationParams =
-            abi.encodeWithSelector(OPSuccinctL2OutputOracle.initialize.selector, initParams);
-
-        Proxy l2OutputOracleProxy = new Proxy(address(this));
-        l2OutputOracleProxy.upgradeToAndCall(address(new OPSuccinctL2OutputOracle()), initializationParams);
-
-        l2oo = OPSuccinctL2OutputOracle(address(l2OutputOracleProxy));
+        // Deploy L2OutputOracle using Utils helper function with custom parameters.
+        address verifier = address(new SP1MockVerifier());
+        OPSuccinctL2OutputOracle.InitParams memory initParams = createInitParamsWithFallback(
+            verifier,
+            approvedProposer,
+            challenger,
+            address(this),
+            SUBMISSION_INTERVAL,
+            L2_BLOCK_TIME,
+            STARTING_BLOCK_NUMBER,
+            FINALIZATION_PERIOD,
+            FALLBACK_TIMEOUT
+        );
+        
+        l2oo = deployL2OutputOracle(initParams);
 
         console.log("l2oo approved proposer", l2oo.approvedProposers(approvedProposer));
         // Set the timestamp to after the starting timestamp
@@ -104,8 +89,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Checkpoint the current block hash
         uint256 currentL1Block = block.number;
-        vm.roll(currentL1Block + 1);
-        l2oo.checkpointBlockHash(currentL1Block);
+        checkpointAndRoll(l2oo, currentL1Block);
 
         // Non-approved proposer should be able to propose after timeout
         vm.prank(nonApprovedProposer);
@@ -127,8 +111,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Checkpoint the current block hash
         uint256 currentL1Block = block.number;
-        vm.roll(currentL1Block + 1);
-        l2oo.checkpointBlockHash(currentL1Block);
+        checkpointAndRoll(l2oo, currentL1Block);
 
         // Non-approved proposer should NOT be able to propose before timeout
         vm.prank(nonApprovedProposer);
@@ -147,8 +130,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Checkpoint the current block hash
         uint256 currentL1Block = block.number;
-        vm.roll(currentL1Block + 1);
-        l2oo.checkpointBlockHash(currentL1Block);
+        checkpointAndRoll(l2oo, currentL1Block);
 
         // Approved proposer should still be able to propose before timeout
         vm.prank(approvedProposer, approvedProposer);
@@ -170,8 +152,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Checkpoint the current block hash
         uint256 currentL1Block = block.number;
-        vm.roll(currentL1Block + 1);
-        l2oo.checkpointBlockHash(currentL1Block);
+        checkpointAndRoll(l2oo, currentL1Block);
 
         // Approved proposer should still be able to propose after timeout
         vm.prank(approvedProposer);
@@ -197,8 +178,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Checkpoint the current block hash
         uint256 currentL1Block = block.number;
-        vm.roll(currentL1Block + 1);
-        l2oo.checkpointBlockHash(currentL1Block);
+        checkpointAndRoll(l2oo, currentL1Block);
 
         vm.prank(approvedProposer, approvedProposer);
         l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
