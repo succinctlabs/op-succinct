@@ -135,7 +135,9 @@ async fn update_l2oo_config() -> Result<()> {
 
     let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.vk.hash_u32())));
 
-    let fallback_timeout_secs = env::var("FALLBACK_TIMEOUT_SECS").map(|p| p.parse().unwrap()).unwrap_or(TWO_WEEKS_IN_SECONDS);
+    let fallback_timeout_secs = env::var("FALLBACK_TIMEOUT_SECS")
+        .map(|p| p.parse().unwrap())
+        .unwrap_or(TWO_WEEKS_IN_SECONDS);
 
     let l2oo_config = L2OOConfig {
         challenger,
