@@ -14,6 +14,10 @@ jobs:
       - family=m7a+m7i-flex
       - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}
+    
+    env:
+      DOCKER_BUILDKIT: 1
+      BUILDKIT_PROGRESS: plain
 
     steps:
       - name: Checkout code
@@ -23,6 +27,17 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Docker meta for proposer
         id: meta-proposer
@@ -66,8 +81,14 @@ jobs:
           push: true
           tags: ${{ steps.meta-proposer.outputs.tags }}
           labels: ${{ steps.meta-proposer.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=proposer
+            type=registry,ref=ghcr.io/${{ github.repository }}/lite-proposer:cache
+          cache-to: |
+            type=gha,mode=max,scope=proposer
+            type=registry,ref=ghcr.io/${{ github.repository }}/lite-proposer:cache,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
       
       - name: Build and push proposer-celestia
         uses: docker/build-push-action@v6
@@ -77,8 +98,14 @@ jobs:
           push: true
           tags: ${{ steps.meta-proposer-celestia.outputs.tags }}
           labels: ${{ steps.meta-proposer-celestia.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=proposer-celestia
+            type=registry,ref=ghcr.io/${{ github.repository }}/lite-proposer-celestia:cache
+          cache-to: |
+            type=gha,mode=max,scope=proposer-celestia
+            type=registry,ref=ghcr.io/${{ github.repository }}/lite-proposer-celestia:cache,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
 
       - name: Build and push challenger
         uses: docker/build-push-action@v6
@@ -88,5 +115,11 @@ jobs:
           push: true
           tags: ${{ steps.meta-challenger.outputs.tags }}
           labels: ${{ steps.meta-challenger.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=challenger
+            type=registry,ref=ghcr.io/${{ github.repository }}/lite-challenger:cache
+          cache-to: |
+            type=gha,mode=max,scope=challenger
+            type=registry,ref=ghcr.io/${{ github.repository }}/lite-challenger:cache,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
