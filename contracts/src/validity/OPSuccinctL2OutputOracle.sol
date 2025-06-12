@@ -30,8 +30,13 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         uint256 startingTimestamp;
         uint256 submissionInterval;
         address verifier;
-        uint256 fallbackProposalTimeout;
+        uint256 fallbackTimeout;
     }
+
+    /// @notice The time threshold (in seconds) after which anyone can submit a proposal if no proposal has been submitted.
+    ///         Only applies in permissioned mode.
+    /// @custom:network-specific
+    uint256 public fallbackTimeout;
 
     /// @notice The number of the first L2 block recorded in this contract.
 
@@ -63,10 +68,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The minimum time (in seconds) that must elapse before a withdrawal can be finalized.
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
-
-    /// @notice The time threshold (in seconds) after which anyone can submit a proposal if no proposal has been submitted.
-    /// @custom:network-specific
-    uint256 public fallbackProposalTimeout;
 
     /// @notice The verification key of the aggregation SP1 program.
     bytes32 public aggregationVkey;
@@ -227,10 +228,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         challenger = _initParams.challenger;
         finalizationPeriodSeconds = _initParams.finalizationPeriodSeconds;
-        fallbackProposalTimeout = _initParams.fallbackProposalTimeout;
 
         // Add the initial proposer.
         approvedProposers[_initParams.proposer] = true;
+
+        // Initialize the permissionless fallback timeout.
+        fallbackTimeout = _initParams.fallbackTimeout;
 
         // OP Succinct initialization parameters.
         aggregationVkey = _initParams.aggregationVkey;
@@ -341,7 +344,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // or the fallback timeout has been exceeded allowing anyone to propose.
         require(
             approvedProposers[tx.origin] || approvedProposers[address(0)]
-                || (block.timestamp - lastProposalTimestamp() > fallbackProposalTimeout),
+                || (block.timestamp - lastProposalTimestamp() > fallbackTimeout),
             "L2OutputOracle: only approved proposers can propose new outputs"
         );
 
@@ -405,7 +408,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // or the fallback timeout has been exceeded allowing anyone to propose.
         require(
             approvedProposers[msg.sender] || approvedProposers[address(0)]
-                || (block.timestamp - lastProposalTimestamp() > fallbackProposalTimeout),
+                || (block.timestamp - lastProposalTimestamp() > fallbackTimeout),
             "L2OutputOracle: only approved proposers can propose new outputs"
         );
 

@@ -27,7 +27,7 @@ contract AccessManager is Ownable {
     mapping(address => bool) public challengers;
 
     /// @notice The timeout (in seconds) after which permissionless proposing is allowed (immutable).
-    uint256 public immutable permissionlessTimeout;
+    uint256 public immutable FALLBACK_TIMEOUT;
 
     /// @notice The timestamp of the last proposal action.
     uint256 public lastProposalTimestamp;
@@ -36,10 +36,10 @@ contract AccessManager is Ownable {
     //                      Constructor                           //
     ////////////////////////////////////////////////////////////////
 
-    /// @notice Constructor sets the permissionless timeout and initializes timestamp.
-    /// @param _permissionlessTimeout The timeout in seconds after last proposal when permissionless mode activates.
-    constructor(uint256 _permissionlessTimeout) {
-        permissionlessTimeout = _permissionlessTimeout;
+    /// @notice Constructor sets the fallback timeout and initializes timestamp.
+    /// @param _fallbackTimeout The timeout in seconds after last proposal when permissionless mode activates.
+    constructor(uint256 _fallbackTimeout) {
+        FALLBACK_TIMEOUT = _fallbackTimeout;
         // Initialize timestamp to deployment time
         lastProposalTimestamp = block.timestamp;
     }
@@ -73,9 +73,9 @@ contract AccessManager is Ownable {
     /// @return allowed_ Whether the address is allowed to propose.
     function isAllowedProposer(address _proposer) external view returns (bool allowed_) {
         // If address(0) is allowed, then it's permissionless.
-        // If the permissionless timeout has elapsed since last proposal, anyone can propose.
+        // If the fallback timeout has elapsed since last proposal, anyone can propose.
         allowed_ = proposers[address(0)] || proposers[_proposer]
-            || (block.timestamp - lastProposalTimestamp > permissionlessTimeout);
+            || (block.timestamp - lastProposalTimestamp > FALLBACK_TIMEOUT);
     }
 
     /// @notice Checks if an address is allowed to challenge.
@@ -92,9 +92,9 @@ contract AccessManager is Ownable {
         lastProposalTimestamp = block.timestamp;
     }
 
-    /// @notice Returns whether proposal permissionless timeout has elapsed.
+    /// @notice Returns whether proposal fallback timeout has elapsed.
     /// @return Whether permissionless proposing is active.
     function isProposalPermissionlessMode() external view returns (bool) {
-        return block.timestamp - lastProposalTimestamp > permissionlessTimeout;
+        return block.timestamp - lastProposalTimestamp > FALLBACK_TIMEOUT || proposers[address(0)];
     }
 }

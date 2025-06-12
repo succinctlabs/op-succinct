@@ -134,7 +134,7 @@ These values depend on the L2 chain, and the total value secured. Generally, to 
 
 ### Fallback Timeout Mechanism
 
-The `FALLBACK_TIMEOUT_FP_SECS` parameter configures a permissionless timeout mechanism for proposal creation:
+The `FALLBACK_TIMEOUT_FP_SECS` parameter configures a permissionless fallback timeout mechanism for proposal creation:
 
 - **Default**: If not set, defaults to 2 weeks (1209600 seconds)
 - **Behavior**: After the specified timeout has elapsed since the last proposal, anyone can create a new proposal regardless of the `PROPOSER_ADDRESSES` configuration

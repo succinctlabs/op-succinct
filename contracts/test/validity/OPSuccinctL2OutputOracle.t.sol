@@ -188,6 +188,6 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
     function testFallbackProposalTimeout_Getter() public view {
         // Test that the getter returns the correct timeout value
-        assertEq(l2oo.fallbackProposalTimeout(), FALLBACK_TIMEOUT);
+        assertEq(l2oo.fallbackTimeout(), FALLBACK_TIMEOUT);
     }
 }

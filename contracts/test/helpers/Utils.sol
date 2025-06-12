@@ -42,7 +42,7 @@ contract Utils is Test, JSONDecoder {
             startingBlockNumber: cfg.startingBlockNumber,
             startingTimestamp: cfg.startingTimestamp,
             submissionInterval: cfg.submissionInterval,
-            fallbackProposalTimeout: cfg.fallbackProposalTimeout
+            fallbackTimeout: cfg.fallbackProposalTimeout
         });
 
         bytes memory initializationParams =
@@ -87,7 +87,6 @@ contract Utils is Test, JSONDecoder {
     }
 
     // Helper functions for test setup
-
     /**
      * @dev Creates standard InitParams for OPSuccinctL2OutputOracle with sensible defaults
      */
@@ -110,7 +109,7 @@ contract Utils is Test, JSONDecoder {
             startingBlockNumber: 0,
             startingTimestamp: block.timestamp,
             submissionInterval: 1000 seconds,
-            fallbackProposalTimeout: 3600 seconds
+            fallbackTimeout: 3600 seconds
         });
     }
 
@@ -142,7 +141,7 @@ contract Utils is Test, JSONDecoder {
             startingBlockNumber: startingBlockNumber,
             startingTimestamp: block.timestamp,
             submissionInterval: submissionInterval,
-            fallbackProposalTimeout: fallbackTimeout
+            fallbackTimeout: fallbackTimeout
         });
     }
 

@@ -13,16 +13,16 @@ contract AccessManagerTest is Test {
     address challenger1 = address(0xDEF0);
     address randomUser = address(0x1111);
 
-    uint256 constant PERMISSIONLESS_TIMEOUT = 2 weeks; // 1209600 seconds
+    uint256 constant FALLBACK_TIMEOUT = 2 weeks; // 1209600 seconds
     uint256 constant SHORT_TIMEOUT = 1 hours; // For faster testing
 
     function setUp() public {
         vm.prank(owner);
-        accessManager = new AccessManager(PERMISSIONLESS_TIMEOUT);
+        accessManager = new AccessManager(FALLBACK_TIMEOUT);
     }
 
-    function testConstructor() public {
-        assertEq(accessManager.permissionlessTimeout(), PERMISSIONLESS_TIMEOUT);
+    function testConstructor() public view {
+        assertEq(accessManager.FALLBACK_TIMEOUT(), FALLBACK_TIMEOUT);
         assertEq(accessManager.lastProposalTimestamp(), block.timestamp);
         assertEq(accessManager.owner(), owner);
     }
@@ -80,8 +80,8 @@ contract AccessManagerTest is Test {
         // Initially, random user should not be allowed
         assertFalse(accessManager.isAllowedProposer(randomUser));
 
-        // Warp time to exceed the permissionless timeout
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT + 1);
+        // Warp time to exceed the fallback timeout
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT + 1);
 
         // Now anyone should be allowed to propose
         assertTrue(accessManager.isAllowedProposer(randomUser));
@@ -91,7 +91,7 @@ contract AccessManagerTest is Test {
 
     function testIsAllowedProposer_TimeoutNotElapsed() public {
         // Warp to just before the timeout
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT - 1);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT - 1);
 
         // Random user should still not be allowed
         assertFalse(accessManager.isAllowedProposer(randomUser));
@@ -113,7 +113,7 @@ contract AccessManagerTest is Test {
 
     function testRecordProposal_ResetsTimeout() public {
         // Warp to near timeout
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT - 100);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT - 100);
 
         // Random user should not be allowed yet
         assertFalse(accessManager.isAllowedProposer(randomUser));
@@ -126,7 +126,7 @@ contract AccessManagerTest is Test {
         assertFalse(accessManager.isAllowedProposer(randomUser));
 
         // But after the full timeout from the recorded proposal, they should be allowed
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT);
         assertTrue(accessManager.isAllowedProposer(randomUser));
     }
 
@@ -149,7 +149,7 @@ contract AccessManagerTest is Test {
 
     function testIsAllowedChallenger_NoTimeoutLogic() public {
         // Challenger logic should NOT have timeout - warp time way forward
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT + 1000);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT + 1000);
 
         // Random user should still not be allowed to challenge (no timeout for challengers)
         assertFalse(accessManager.isAllowedChallenger(randomUser));
@@ -165,7 +165,7 @@ contract AccessManagerTest is Test {
         assertFalse(accessManager.isProposalPermissionlessMode());
 
         // Warp to just before timeout
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT - 1);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT - 1);
         assertFalse(accessManager.isProposalPermissionlessMode());
 
         // Warp to exactly at timeout
@@ -187,7 +187,7 @@ contract AccessManagerTest is Test {
         assertFalse(accessManager.isAllowedProposer(randomUser));
 
         // Warp to timeout - anyone can propose
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT + 1);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT + 1);
         assertTrue(accessManager.isAllowedProposer(proposer1));
         assertTrue(accessManager.isAllowedProposer(randomUser));
 
@@ -205,7 +205,7 @@ contract AccessManagerTest is Test {
         assertFalse(accessManager.isAllowedProposer(randomUser));
 
         // Wait for timeout again
-        vm.warp(block.timestamp + PERMISSIONLESS_TIMEOUT + 1);
+        vm.warp(block.timestamp + FALLBACK_TIMEOUT + 1);
         assertTrue(accessManager.isAllowedProposer(proposer1));
         assertTrue(accessManager.isAllowedProposer(randomUser));
     }
