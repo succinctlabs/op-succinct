@@ -74,7 +74,7 @@ contract AccessManager is Ownable {
     function isAllowedProposer(address _proposer) external view returns (bool allowed_) {
         // If address(0) is allowed, then it's permissionless.
         // If the permissionless timeout has elapsed since last proposal, anyone can propose.
-        allowed_ = proposers[address(0)] || proposers[_proposer] 
+        allowed_ = proposers[address(0)] || proposers[_proposer]
             || (block.timestamp - lastProposalTimestamp > permissionlessTimeout);
     }
 
