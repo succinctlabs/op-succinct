@@ -11,6 +11,10 @@ homepage.workspace = true
 name = "validity"
 path = "bin/validity.rs"
 
+[[example]]
+name = "logger_test"
+path = "examples/logger_test.rs"
+
 [dependencies]
 
 # workspace
