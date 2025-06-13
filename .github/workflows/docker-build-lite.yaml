@@ -5,8 +5,8 @@ on:
   push:
 
 jobs:
-  build:
-    name: Build OP Succinct Lite Docker Images
+  build-proposer:
+    name: Build OP Succinct Lite Proposer
     runs-on:
       - runs-on
       - cpu=16
@@ -23,45 +23,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }} # Check out the PR head, rather than the merge commit.
+          ref: ${{ github.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      
+      - name: Cache
+        uses: actions/cache@v3
+        id: cache
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            cargo-git
+            cargo-registry
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cache-proposer-${{ hashFiles('Dockerfile.proposer') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            cache-proposer-
 
       - name: Docker meta for proposer
         id: meta-proposer
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}/lite-proposer
-          tags: |
-            type=sha
-            latest
-      
-      - name: Docker meta for proposer-celestia
-        id: meta-proposer-celestia
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/lite-proposer-celestia
-          tags: |
-            type=sha
-            latest
-
-      - name: Docker meta for challenger
-        id: meta-challenger
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}/lite-challenger
           tags: |
             type=sha
             latest
@@ -89,7 +72,58 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository }}/lite-proposer:cache,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+
+  build-proposer-celestia:
+    name: Build OP Succinct Lite Proposer Celestia
+    runs-on:
+      - runs-on
+      - cpu=16
+      - ram=64
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
+      - run-id=${{ github.run_id }}
+    
+    env:
+      DOCKER_BUILDKIT: 1
+      BUILDKIT_PROGRESS: plain
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       
+      - name: Cache
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            cargo-git
+            cargo-registry
+            target
+          key: cache-proposer-celestia-${{ hashFiles('Dockerfile.proposer.celestia') }}
+          restore-keys: |
+            cache-proposer-celestia-
+
+      - name: Docker meta for proposer-celestia
+        id: meta-proposer-celestia
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/lite-proposer-celestia
+          tags: |
+            type=sha
+            latest
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push proposer-celestia
         uses: docker/build-push-action@v6
         with:
@@ -106,6 +140,57 @@ jobs:
             type=registry,ref=ghcr.io/${{ github.repository }}/lite-proposer-celestia:cache,mode=max
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+
+  build-challenger:
+    name: Build OP Succinct Lite Challenger
+    runs-on:
+      - runs-on
+      - cpu=16
+      - ram=64
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
+      - run-id=${{ github.run_id }}
+    
+    env:
+      DOCKER_BUILDKIT: 1
+      BUILDKIT_PROGRESS: plain
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache
+        uses: actions/cache@v3
+        id: cache
+        with:
+          path: |
+            cargo-git
+            cargo-registry
+            target
+          key: cache-challenger-${{ hashFiles('Dockerfile.challenger') }}
+          restore-keys: |
+            cache-challenger-
+
+      - name: Docker meta for challenger
+        id: meta-challenger
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/lite-challenger
+          tags: |
+            type=sha
+            latest
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push challenger
         uses: docker/build-push-action@v6
