@@ -11,6 +11,10 @@ homepage.workspace = true
 name = "validity"
 path = "bin/validity.rs"
 
+[[example]]
+name = "logger_test"
+path = "examples/logger_test.rs"
+
 [dependencies]
 
 # workspace
@@ -59,9 +63,13 @@ tikv-jemallocator = "0.6.0"
 rustls = "0.23.23"
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
+tonic.workspace = true
+prost.workspace = true
+op-succinct-grpc.workspace = true
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
+tonic-build.workspace = true
 
 [features]
 default = ["ethereum"]
