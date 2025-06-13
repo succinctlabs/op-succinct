@@ -60,11 +60,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:network-specific
     address public challenger;
 
-    /// @notice The address of the proposer. Can be updated via upgrade. DEPRECATED: Use approvedProposers mapping instead.
-    /// @custom:network-specific
-    /// @custom:deprecated
-    address public proposer;
-
     /// @notice The minimum time (in seconds) that must elapse before a withdrawal can be finalized.
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
@@ -241,46 +236,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         verifier = _initParams.verifier;
         rollupConfigHash = _initParams.rollupConfigHash;
         owner = _initParams.owner;
-    }
-
-    /// @notice Getter for the submissionInterval.
-    ///         Public getter is legacy and will be removed in the future. Use `submissionInterval` instead.
-    /// @return Submission interval.
-    /// @custom:legacy
-    function SUBMISSION_INTERVAL() external view returns (uint256) {
-        return submissionInterval;
-    }
-
-    /// @notice Getter for the l2BlockTime.
-    ///         Public getter is legacy and will be removed in the future. Use `l2BlockTime` instead.
-    /// @return L2 block time.
-    /// @custom:legacy
-    function L2_BLOCK_TIME() external view returns (uint256) {
-        return l2BlockTime;
-    }
-
-    /// @notice Getter for the challenger address.
-    ///         Public getter is legacy and will be removed in the future. Use `challenger` instead.
-    /// @return Address of the challenger.
-    /// @custom:legacy
-    function CHALLENGER() external view returns (address) {
-        return challenger;
-    }
-
-    /// @notice Getter for the proposer address.
-    ///         Public getter is legacy and will be removed in the future. Use `proposer` instead.
-    /// @return Address of the proposer.
-    /// @custom:legacy
-    function PROPOSER() external view returns (address) {
-        return proposer;
-    }
-
-    /// @notice Getter for the finalizationPeriodSeconds.
-    ///         Public getter is legacy and will be removed in the future. Use `finalizationPeriodSeconds` instead.
-    /// @return Finalization period in seconds.
-    /// @custom:legacy
-    function FINALIZATION_PERIOD_SECONDS() external view returns (uint256) {
-        return finalizationPeriodSeconds;
     }
 
     /// @notice Deletes all output proposals after and including the proposal that corresponds to
