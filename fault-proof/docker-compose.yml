@@ -3,6 +3,7 @@ services:
     build:
       context: ..
       dockerfile: fault-proof/Dockerfile.proposer
+    image: proposer:latest
     container_name: proposer
     restart: unless-stopped
     env_file:
@@ -15,6 +16,7 @@ services:
     build:
       context: ..
       dockerfile: fault-proof/Dockerfile.challenger
+    image: challenger:latest
     container_name: challenger
     restart: unless-stopped
     env_file:
