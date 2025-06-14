@@ -7159,6 +7159,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types",
+ "alloy-sol-types",
  "anyhow",
  "async-trait",
  "hana-blobstream",
@@ -7175,6 +7176,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sp1-sdk",
+ "tracing",
 ]
 
 [[package]]

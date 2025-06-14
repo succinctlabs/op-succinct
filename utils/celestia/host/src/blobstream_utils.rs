@@ -1,8 +1,10 @@
-use alloy_primitives::{keccak256, B256};
+use alloy_eips::BlockId;
+use alloy_primitives::{keccak256, Log as PrimitiveLog, LogData, B256};
 use alloy_provider::Provider;
 use alloy_rpc_types::Filter;
+use alloy_sol_types::SolEvent;
 use anyhow::{anyhow, Result};
-use hana_blobstream::blobstream::blobstream_address;
+use hana_blobstream::blobstream::{blobstream_address, SP1Blobstream};
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +17,6 @@ pub struct CelestiaL1SafeHead {
 impl CelestiaL1SafeHead {
     /// Get the L1 block hash for this safe head.
     pub async fn get_l1_hash(&self, fetcher: &OPSuccinctDataFetcher) -> Result<B256> {
-        println!("L1 HEAD NUMBER: {}", self.l1_block_number);
         Ok(fetcher.get_l1_header(self.l1_block_number.into()).await?.hash_slow())
     }
 }
@@ -35,6 +36,48 @@ pub struct L2Range {
     pub end: u64,
 }
 
+/// Decode and verify a DataCommitmentStored event to check if it contains the target Celestia
+/// height. Returns true if the event contains the target height within its range.
+fn verify_data_commitment_event(
+    log: &alloy_rpc_types::Log,
+    target_celestia_height: u64,
+) -> Result<bool> {
+    // Convert alloy_rpc_types::Log to alloy_primitives::Log
+    let primitive_log = PrimitiveLog {
+        address: log.address(),
+        data: LogData::new(log.topics().to_vec(), log.data().data.clone()).unwrap(),
+    };
+
+    // Decode the DataCommitmentStored event
+    let decoded_event = SP1Blobstream::DataCommitmentStored::decode_log(&primitive_log)?;
+
+    tracing::info!(
+        "Decoded DataCommitmentStored event: proof_nonce={}, start_block={}, end_block={}",
+        decoded_event.proofNonce,
+        decoded_event.startBlock,
+        decoded_event.endBlock
+    );
+
+    // Check if the target Celestia height is within the range of this event
+    let is_within_range = target_celestia_height >= decoded_event.startBlock &&
+        target_celestia_height <= decoded_event.endBlock;
+
+    if is_within_range {
+        tracing::info!(
+            "Found matching DataCommitmentStored event covering Celestia height {} (range: {}-{})",
+            target_celestia_height,
+            decoded_event.startBlock,
+            decoded_event.endBlock
+        );
+    }
+
+    Ok(is_within_range)
+}
+
+// Constants for block scanning configuration
+const DEFAULT_FILTER_BLOCK_RANGE: u64 = 5000;
+const MAX_SCAN_DISTANCE: u64 = 10000;
+
 /// Find the minimum L1 block that contains a Blobstream proof for the given Celestia height.
 /// Scans forward from the start block to find the first block with the proof.
 async fn find_minimum_blobstream_block(
@@ -42,7 +85,7 @@ async fn find_minimum_blobstream_block(
     start_block: u64,
     fetcher: &OPSuccinctDataFetcher,
 ) -> Result<u64> {
-    const FILTER_BLOCK_RANGE: u64 = 5000;
+    let filter_block_range = DEFAULT_FILTER_BLOCK_RANGE;
 
     // Get the Blobstream contract address for this chain
     let chain_id = fetcher.rollup_config.as_ref().unwrap().l1_chain_id;
@@ -57,13 +100,14 @@ async fn find_minimum_blobstream_block(
     let mut current_start = start_block;
     let latest_block = fetcher.l1_provider.get_block_number().await?;
 
-    println!(
+    tracing::info!(
         "Scanning for Blobstream proof for Celestia height {} starting from L1 block {}",
-        celestia_height, start_block
+        celestia_height,
+        start_block
     );
 
     loop {
-        let current_end = std::cmp::min(current_start + FILTER_BLOCK_RANGE - 1, latest_block);
+        let current_end = std::cmp::min(current_start + filter_block_range - 1, latest_block);
 
         // Create filter for DataCommitmentStored events
         let filter = Filter::new()
@@ -77,29 +121,48 @@ async fn find_minimum_blobstream_block(
 
         // Check each log to find the one containing our Celestia height
         for log in logs {
-            // For simplicity, we'll check if the log is from the Blobstream contract
-            // The actual decoding happens in the hana code later
+            // Verify that the log is from the Blobstream contract
             if log.address() == blobstream_addr {
                 let block_number =
                     log.block_number.ok_or_else(|| anyhow!("Log missing block number"))?;
 
-                // Since we're scanning forward and Blobstream posts sequentially,
-                // the first event we find after the indexer block should contain our height
-                println!(
-                    "Found potential Blobstream event at L1 block {} for Celestia height {}",
-                    block_number, celestia_height
-                );
-
-                // Return this block as the minimum safe block
-                return Ok(block_number);
+                // Decode and verify the event contains our target Celestia height
+                match verify_data_commitment_event(&log, celestia_height) {
+                    Ok(true) => {
+                        tracing::info!(
+                            "Found verified Blobstream event at L1 block {} containing Celestia height {}",
+                            block_number,
+                            celestia_height
+                        );
+                        return Ok(block_number);
+                    }
+                    Ok(false) => {
+                        tracing::info!(
+                            "DataCommitmentStored event at L1 block {} does not contain Celestia height {}, continuing search",
+                            block_number,
+                            celestia_height
+                        );
+                        // Continue searching for the correct event
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to decode DataCommitmentStored event at L1 block {}: {}, skipping",
+                            block_number,
+                            e
+                        );
+                        // Continue searching, maybe the next event is valid
+                    }
+                }
             }
         }
 
         // If we've scanned too far ahead without finding anything, error out
-        if current_start > start_block + 10000 {
+        if current_start > start_block + MAX_SCAN_DISTANCE {
             return Err(anyhow!(
-                "No Blobstream proof found for Celestia height {} within 10000 blocks of L1 block {}",
-                celestia_height, start_block
+                "No Blobstream proof found for Celestia height {} within {} blocks of L1 block {}",
+                celestia_height,
+                MAX_SCAN_DISTANCE,
+                start_block
             ));
         }
 
@@ -148,7 +211,7 @@ async fn query_celestia_indexer(l2_block: u64) -> Result<Option<CelestiaLocation
         if error
             .get("message")
             .and_then(|m| m.as_str())
-            .map_or(false, |msg| msg.contains("not found"))
+            .is_some_and(|msg| msg.contains("not found"))
         {
             return Ok(None);
         }
@@ -174,17 +237,20 @@ pub async fn get_celestia_safe_head_info(
     // Query the Celestia indexer for this L2 block's location.
     match query_celestia_indexer(l2_reference_block).await {
         Ok(Some(location)) => {
-            println!(
+            tracing::info!(
                 "Celestia indexer returned location for L2 block {}: height {}, L1 block {}",
-                l2_reference_block, location.height, location.l1_block
+                l2_reference_block,
+                location.height,
+                location.l1_block
             );
 
             // Find the minimum L1 block that contains the Blobstream proof
             match find_minimum_blobstream_block(location.height, location.l1_block, fetcher).await {
                 Ok(safe_l1_block) => {
-                    println!(
+                    tracing::info!(
                         "Using L1 block {} (Blobstream proof found) for L2 block {}",
-                        safe_l1_block, l2_reference_block
+                        safe_l1_block,
+                        l2_reference_block
                     );
                     Ok(Some(CelestiaL1SafeHead {
                         l1_block_number: safe_l1_block,
@@ -210,31 +276,76 @@ pub async fn get_celestia_safe_head_info(
 }
 
 /// Find the highest L2 block that can be safely proven given Celestia's Blobstream commitments.
-/// Searches backwards from the latest proposed block to find the highest block with committed data.
+/// Uses binary search from latest_proposed_block_number down to L2 finalized block, checking
+/// each block with get_celestia_safe_head_info to see if Celestia data is available.
 pub async fn get_highest_finalized_l2_block(
-    _fetcher: &OPSuccinctDataFetcher,
-    latest_proposed_block: u64,
+    fetcher: &OPSuccinctDataFetcher,
+    latest_proposed_block_number: u64,
 ) -> Result<Option<u64>> {
-    // Binary search to find the highest L2 block with Celestia data indexed.
-    let mut low = 0u64;
-    let mut high = latest_proposed_block;
+    // Get the L2 finalized block as our lower bound
+    let l2_finalized_header = fetcher.get_l2_header(BlockId::finalized()).await?;
+    let l2_finalized_block = l2_finalized_header.number;
+
+    tracing::info!(
+        "Searching for highest provable L2 block between {} (finalized) and {} (latest proposed)",
+        l2_finalized_block,
+        latest_proposed_block_number
+    );
+
+    // If the range is invalid, return None
+    if l2_finalized_block > latest_proposed_block_number {
+        tracing::warn!(
+            "L2 finalized block {} is higher than latest proposed block {}",
+            l2_finalized_block,
+            latest_proposed_block_number
+        );
+        return Ok(None);
+    }
+
+    // Binary search to find the highest L2 block with available Celestia data
+    let mut low = l2_finalized_block;
+    let mut high = latest_proposed_block_number;
     let mut result = None;
 
     while low <= high {
         let mid = low + (high - low) / 2;
 
-        // Query the indexer for this L2 block's Celestia location.
-        match query_celestia_indexer(mid).await? {
-            Some(_location) => {
-                // This block has Celestia data indexed, try to find a higher one.
+        tracing::debug!("Testing L2 block {} for Celestia data availability", mid);
+
+        // Check if this L2 block has Celestia data available via get_celestia_safe_head_info
+        match get_celestia_safe_head_info(fetcher, mid).await {
+            Ok(Some(_safe_head)) => {
+                // This block has Celestia data available, try to find a higher one
+                tracing::debug!("L2 block {} has Celestia data available", mid);
                 result = Some(mid);
                 low = mid + 1;
             }
-            None => {
-                // No Celestia data for this block, search lower.
+            Ok(None) => {
+                // No Celestia data for this block, search lower
+                tracing::debug!("L2 block {} has no Celestia data available", mid);
+                high = mid - 1;
+            }
+            Err(e) => {
+                // Error occurred (e.g., indexer error), treat as unavailable and search lower
+                tracing::warn!("Error checking L2 block {}: {}, treating as unavailable", mid, e);
                 high = mid - 1;
             }
         }
+    }
+
+    if let Some(highest_block) = result {
+        tracing::info!(
+            "Found highest provable L2 block: {} (out of range {}-{})",
+            highest_block,
+            l2_finalized_block,
+            latest_proposed_block_number
+        );
+    } else {
+        tracing::warn!(
+            "No provable L2 blocks found in range {}-{}",
+            l2_finalized_block,
+            latest_proposed_block_number
+        );
     }
 
     Ok(result)
