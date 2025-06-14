@@ -36,8 +36,8 @@ macro_rules! create_annotated_precompile {
     };
 }
 
-/// Tuples of the original and annotated precompiles.
-// TODO: Add kzg_point_evaluation once it has standard precompile support in revm-precompile 0.17.0.
+use revm_precompile::kzg_point_evaluation;
+
 const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
     (bn128::add::ISTANBUL, create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add")),
     (bn128::mul::ISTANBUL, create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul")),
@@ -49,6 +49,10 @@ const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
     (
         revm::precompile::secp256r1::P256VERIFY,
         create_annotated_precompile!(revm::precompile::secp256r1::P256VERIFY, "p256-verify"),
+    ),
+    (
+        kzg_point_evaluation::POINT_EVALUATION,
+        create_annotated_precompile!(kzg_point_evaluation::POINT_EVALUATION, "kzg-point-eval"),
     ),
 ];
 
@@ -75,7 +79,7 @@ impl OpZkvmPrecompiles {
             OpSpecId::ISTHMUS | OpSpecId::INTEROP | OpSpecId::OSAKA => isthmus().clone(),
         };
         let mut precompiles_owned = precompiles.clone();
-        precompiles_owned.extend(PRECOMPILES.iter().map(|p| p.1.clone()).take(1));
+        precompiles_owned.extend(PRECOMPILES.iter().map(|p| p.1.clone()));
         let precompiles = Box::leak(Box::new(precompiles_owned));
 
         Self { inner: EthPrecompiles { precompiles, spec: SpecId::default() }, spec }
