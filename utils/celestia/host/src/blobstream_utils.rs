@@ -74,9 +74,8 @@ fn verify_data_commitment_event(
     Ok(is_within_range)
 }
 
-// Constants for block scanning configuration
+// Constant for block scanning configuration
 const DEFAULT_FILTER_BLOCK_RANGE: u64 = 5000;
-const MAX_SCAN_DISTANCE: u64 = 10000;
 
 /// Find the minimum L1 block that contains a Blobstream proof for the given Celestia height.
 /// Scans forward from the start block to find the first block with the proof.
@@ -154,16 +153,6 @@ async fn find_minimum_blobstream_block(
                     }
                 }
             }
-        }
-
-        // If we've scanned too far ahead without finding anything, error out
-        if current_start > start_block + MAX_SCAN_DISTANCE {
-            return Err(anyhow!(
-                "No Blobstream proof found for Celestia height {} within {} blocks of L1 block {}",
-                celestia_height,
-                MAX_SCAN_DISTANCE,
-                start_block
-            ));
         }
 
         // Move to next batch
@@ -287,20 +276,10 @@ pub async fn get_highest_finalized_l2_block(
     let l2_finalized_block = l2_finalized_header.number;
 
     tracing::info!(
-        "Searching for highest provable L2 block between {} (finalized) and {} (latest proposed)",
+        "Searching for highest provable L2 block between {} (latest proposed) and {} (finalized)",
+        latest_proposed_block_number,
         l2_finalized_block,
-        latest_proposed_block_number
     );
-
-    // If the range is invalid, return None
-    if l2_finalized_block > latest_proposed_block_number {
-        tracing::warn!(
-            "L2 finalized block {} is higher than latest proposed block {}",
-            l2_finalized_block,
-            latest_proposed_block_number
-        );
-        return Ok(None);
-    }
 
     // Binary search to find the highest L2 block with available Celestia data
     let mut low = l2_finalized_block;
@@ -337,14 +316,14 @@ pub async fn get_highest_finalized_l2_block(
         tracing::info!(
             "Found highest provable L2 block: {} (out of range {}-{})",
             highest_block,
-            l2_finalized_block,
-            latest_proposed_block_number
+            latest_proposed_block_number,
+            l2_finalized_block
         );
     } else {
         tracing::warn!(
             "No provable L2 blocks found in range {}-{}",
+            latest_proposed_block_number,
             l2_finalized_block,
-            latest_proposed_block_number
         );
     }
 
