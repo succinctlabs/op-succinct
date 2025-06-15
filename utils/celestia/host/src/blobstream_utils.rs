@@ -282,8 +282,8 @@ pub async fn get_highest_finalized_l2_block(
     );
 
     // Binary search to find the highest L2 block with available Celestia data
-    let mut low = l2_finalized_block;
-    let mut high = latest_proposed_block_number;
+    let mut low = latest_proposed_block_number;
+    let mut high = l2_finalized_block;
     let mut result = None;
 
     while low <= high {
