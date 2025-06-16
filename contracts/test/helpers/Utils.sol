@@ -129,10 +129,10 @@ contract Utils is Test, JSONDecoder {
     ) public view returns (OPSuccinctL2OutputOracle.InitParams memory) {
         return OPSuccinctL2OutputOracle.InitParams({
             verifier: verifier,
-            aggregationVkey: keccak256("aggregation_vkey"),
-            rangeVkeyCommitment: keccak256("range_vkey"),
+            aggregationVkey: 0x003991487ea72a40a1caa7c234b12c0da52fc4ccc748a07f6ebd354bbb54772e,
+            rangeVkeyCommitment: 0x2ebb1e0d5380158f22adf3750cc6056100a133d274fd7c5b457148ff29dfe173,
             startingOutputRoot: keccak256("starting_output"),
-            rollupConfigHash: keccak256("rollup_config"),
+            rollupConfigHash: 0xc9c7547506227136eb0bb56a7d1b2d7d3bec6e760cf574d5b523d5c4b4118a45,
             proposer: proposer,
             challenger: challenger,
             owner: owner,

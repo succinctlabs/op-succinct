@@ -80,6 +80,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The owner of the contract, who has admin permissions.
     address public owner;
 
+    /// @notice Staging aggregation verification key for upgrades.
+    bytes32 public stagingAggregationVkey;
+
+    /// @notice Staging range verification key commitment for upgrades.
+    bytes32 public stagingRangeVkeyCommitment;
+
+    /// @notice Staging rollup config hash for upgrades.
+    bytes32 public stagingRollupConfigHash;
+
     /// @notice The proposers that can propose new proofs.
     mapping(address => bool) public approvedProposers;
 
@@ -146,6 +155,35 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param enabled Indicates whether optimistic mode is enabled or disabled.
     /// @param finalizationPeriodSeconds The new finalization period in seconds.
     event OptimisticModeToggled(bool indexed enabled, uint256 finalizationPeriodSeconds);
+
+    /// @notice Emitted when a staging aggregation verification key is set.
+    /// @param stagingAggregationVkey The new staging aggregation verification key.
+    event StagingAggregationVkeySet(bytes32 indexed stagingAggregationVkey);
+
+    /// @notice Emitted when a staging aggregation verification key is promoted to current.
+    /// @param oldAggregationVkey The old aggregation verification key.
+    /// @param newAggregationVkey The new aggregation verification key.
+    event StagingAggregationVkeyPromoted(bytes32 indexed oldAggregationVkey, bytes32 indexed newAggregationVkey);
+
+    /// @notice Emitted when a staging range verification key commitment is set.
+    /// @param stagingRangeVkeyCommitment The new staging range verification key commitment.
+    event StagingRangeVkeyCommitmentSet(bytes32 indexed stagingRangeVkeyCommitment);
+
+    /// @notice Emitted when a staging range verification key commitment is promoted to current.
+    /// @param oldRangeVkeyCommitment The old range verification key commitment.
+    /// @param newRangeVkeyCommitment The new range verification key commitment.
+    event StagingRangeVkeyCommitmentPromoted(
+        bytes32 indexed oldRangeVkeyCommitment, bytes32 indexed newRangeVkeyCommitment
+    );
+
+    /// @notice Emitted when a staging rollup config hash is set.
+    /// @param stagingRollupConfigHash The new staging rollup config hash.
+    event StagingRollupConfigHashSet(bytes32 indexed stagingRollupConfigHash);
+
+    /// @notice Emitted when a staging rollup config hash is promoted to current.
+    /// @param oldRollupConfigHash The old rollup config hash.
+    /// @param newRollupConfigHash The new rollup config hash.
+    event StagingRollupConfigHashPromoted(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
 
     ////////////////////////////////////////////////////////////
     //                         Errors                         //
@@ -330,7 +368,35 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             proverAddress: _proverAddress
         });
 
-        ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
+        // Try verification with current parameters first
+        bool verified = false;
+        try ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof) {
+            verified = true;
+        } catch {
+            // If current verification fails, try with staging parameters if they exist
+            if (
+                stagingAggregationVkey != bytes32(0) || stagingRangeVkeyCommitment != bytes32(0)
+                    || stagingRollupConfigHash != bytes32(0)
+            ) {
+                AggregationOutputs memory stagingPublicValues = AggregationOutputs({
+                    l1Head: l1BlockHash,
+                    l2PreRoot: l2Outputs[latestOutputIndex()].outputRoot,
+                    claimRoot: _outputRoot,
+                    claimBlockNum: _l2BlockNumber,
+                    rollupConfigHash: stagingRollupConfigHash != bytes32(0) ? stagingRollupConfigHash : rollupConfigHash,
+                    rangeVkeyCommitment: stagingRangeVkeyCommitment != bytes32(0)
+                        ? stagingRangeVkeyCommitment
+                        : rangeVkeyCommitment,
+                    proverAddress: _proverAddress
+                });
+
+                bytes32 vkeyToUse = stagingAggregationVkey != bytes32(0) ? stagingAggregationVkey : aggregationVkey;
+                ISP1Verifier(verifier).verifyProof(vkeyToUse, abi.encode(stagingPublicValues), _proof);
+                verified = true;
+            }
+        }
+
+        require(verified, "L2OutputOracle: proof verification failed");
 
         emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
 
@@ -573,5 +639,53 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         finalizationPeriodSeconds = _finalizationPeriodSeconds;
         optimisticMode = false;
         emit OptimisticModeToggled(false, _finalizationPeriodSeconds);
+    }
+
+    /// @notice Sets a staging aggregation verification key.
+    /// @param _stagingAggregationVkey The new staging aggregation verification key.
+    function setStagingAggregationVkey(bytes32 _stagingAggregationVkey) external onlyOwner {
+        stagingAggregationVkey = _stagingAggregationVkey;
+        emit StagingAggregationVkeySet(_stagingAggregationVkey);
+    }
+
+    /// @notice Promotes the staging aggregation verification key to current and unsets staging.
+    function promoteStagingAggregationVkeyToCurrent() external onlyOwner {
+        require(stagingAggregationVkey != bytes32(0), "L2OutputOracle: no staging aggregation vkey set");
+        bytes32 oldAggregationVkey = aggregationVkey;
+        aggregationVkey = stagingAggregationVkey;
+        stagingAggregationVkey = bytes32(0);
+        emit StagingAggregationVkeyPromoted(oldAggregationVkey, aggregationVkey);
+    }
+
+    /// @notice Sets a staging range verification key commitment.
+    /// @param _stagingRangeVkeyCommitment The new staging range verification key commitment.
+    function setStagingRangeVkeyCommitment(bytes32 _stagingRangeVkeyCommitment) external onlyOwner {
+        stagingRangeVkeyCommitment = _stagingRangeVkeyCommitment;
+        emit StagingRangeVkeyCommitmentSet(_stagingRangeVkeyCommitment);
+    }
+
+    /// @notice Promotes the staging range verification key commitment to current and unsets staging.
+    function promoteStagingRangeVkeyCommitmentToCurrent() external onlyOwner {
+        require(stagingRangeVkeyCommitment != bytes32(0), "L2OutputOracle: no staging range vkey commitment set");
+        bytes32 oldRangeVkeyCommitment = rangeVkeyCommitment;
+        rangeVkeyCommitment = stagingRangeVkeyCommitment;
+        stagingRangeVkeyCommitment = bytes32(0);
+        emit StagingRangeVkeyCommitmentPromoted(oldRangeVkeyCommitment, rangeVkeyCommitment);
+    }
+
+    /// @notice Sets a staging rollup config hash.
+    /// @param _stagingRollupConfigHash The new staging rollup config hash.
+    function setStagingRollupConfigHash(bytes32 _stagingRollupConfigHash) external onlyOwner {
+        stagingRollupConfigHash = _stagingRollupConfigHash;
+        emit StagingRollupConfigHashSet(_stagingRollupConfigHash);
+    }
+
+    /// @notice Promotes the staging rollup config hash to current and unsets staging.
+    function promoteStagingRollupConfigHashToCurrent() external onlyOwner {
+        require(stagingRollupConfigHash != bytes32(0), "L2OutputOracle: no staging rollup config hash set");
+        bytes32 oldRollupConfigHash = rollupConfigHash;
+        rollupConfigHash = stagingRollupConfigHash;
+        stagingRollupConfigHash = bytes32(0);
+        emit StagingRollupConfigHashPromoted(oldRollupConfigHash, rollupConfigHash);
     }
 }

@@ -191,3 +191,188 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         assertEq(l2oo.fallbackTimeout(), FALLBACK_TIMEOUT);
     }
 }
+
+contract OPSuccinctL2OutputOracleStagingTest is Test, Utils {
+    OPSuccinctL2OutputOracle l2oo;
+    SP1MockVerifier verifier;
+
+    address approvedProposer = address(0x1234);
+    address challenger = address(0x9ABC);
+    address owner = address(0xDEF0);
+
+    // Real parameters from opsuccinctl2ooconfig.json
+    bytes32 aggregationVkey = 0x003991487ea72a40a1caa7c234b12c0da52fc4ccc748a07f6ebd354bbb54772e;
+    bytes32 rangeVkeyCommitment = 0x2ebb1e0d5380158f22adf3750cc6056100a133d274fd7c5b457148ff29dfe173;
+    bytes32 rollupConfigHash = 0xc9c7547506227136eb0bb56a7d1b2d7d3bec6e760cf574d5b523d5c4b4118a45;
+    bytes32 startingOutputRoot = keccak256("starting_output");
+
+    // Staging versions (different values for testing)
+    bytes32 stagingAggregationVkey = 0x004991487ea72a40a1caa7c234b12c0da52fc4ccc748a07f6ebd354bbb54772f;
+    bytes32 stagingRangeVkeyCommitment = 0x3ebb1e0d5380158f22adf3750cc6056100a133d274fd7c5b457148ff29dfe174;
+    bytes32 stagingRollupConfigHash = 0xd9c7547506227136eb0bb56a7d1b2d7d3bec6e760cf574d5b523d5c4b4118a46;
+
+    uint256 constant SUBMISSION_INTERVAL = 10;
+    uint256 constant L2_BLOCK_TIME = 2;
+    uint256 constant STARTING_BLOCK_NUMBER = 1000;
+    uint256 constant FINALIZATION_PERIOD = 7 days;
+    uint256 constant FALLBACK_TIMEOUT = 2 days;
+
+    // Real proof data for testing (empty proof works with SP1MockVerifier)
+    bytes proof = hex"";
+    address proverAddress = address(0x7890);
+
+    function setUp() public {
+        verifier = new SP1MockVerifier();
+        OPSuccinctL2OutputOracle.InitParams memory initParams = createInitParamsWithFallback(
+            address(verifier),
+            approvedProposer,
+            challenger,
+            owner,
+            SUBMISSION_INTERVAL,
+            L2_BLOCK_TIME,
+            STARTING_BLOCK_NUMBER,
+            FINALIZATION_PERIOD,
+            FALLBACK_TIMEOUT
+        );
+
+        l2oo = deployL2OutputOracle(initParams);
+        vm.warp(block.timestamp + 1000);
+    }
+
+    function testSetStagingAggregationVkey() public {
+        vm.prank(owner);
+        l2oo.setStagingAggregationVkey(stagingAggregationVkey);
+
+        assertEq(l2oo.stagingAggregationVkey(), stagingAggregationVkey);
+    }
+
+    function testSetStagingAggregationVkey_OnlyOwner() public {
+        vm.prank(approvedProposer);
+        vm.expectRevert("L2OutputOracle: caller is not the owner");
+        l2oo.setStagingAggregationVkey(stagingAggregationVkey);
+    }
+
+    function testPromoteStagingAggregationVkeyToCurrent() public {
+        vm.prank(owner);
+        l2oo.setStagingAggregationVkey(stagingAggregationVkey);
+
+        vm.prank(owner);
+        l2oo.promoteStagingAggregationVkeyToCurrent();
+
+        assertEq(l2oo.aggregationVkey(), stagingAggregationVkey);
+        assertEq(l2oo.stagingAggregationVkey(), bytes32(0));
+    }
+
+    function testPromoteStagingAggregationVkeyToCurrent_NoStagingSet() public {
+        vm.prank(owner);
+        vm.expectRevert("L2OutputOracle: no staging aggregation vkey set");
+        l2oo.promoteStagingAggregationVkeyToCurrent();
+    }
+
+    function testSetStagingRangeVkeyCommitment() public {
+        vm.prank(owner);
+        l2oo.setStagingRangeVkeyCommitment(stagingRangeVkeyCommitment);
+
+        assertEq(l2oo.stagingRangeVkeyCommitment(), stagingRangeVkeyCommitment);
+    }
+
+    function testPromoteStagingRangeVkeyCommitmentToCurrent() public {
+        vm.prank(owner);
+        l2oo.setStagingRangeVkeyCommitment(stagingRangeVkeyCommitment);
+
+        vm.prank(owner);
+        l2oo.promoteStagingRangeVkeyCommitmentToCurrent();
+
+        assertEq(l2oo.rangeVkeyCommitment(), stagingRangeVkeyCommitment);
+        assertEq(l2oo.stagingRangeVkeyCommitment(), bytes32(0));
+    }
+
+    function testSetStagingRollupConfigHash() public {
+        vm.prank(owner);
+        l2oo.setStagingRollupConfigHash(stagingRollupConfigHash);
+
+        assertEq(l2oo.stagingRollupConfigHash(), stagingRollupConfigHash);
+    }
+
+    function testPromoteStagingRollupConfigHashToCurrent() public {
+        vm.prank(owner);
+        l2oo.setStagingRollupConfigHash(stagingRollupConfigHash);
+
+        vm.prank(owner);
+        l2oo.promoteStagingRollupConfigHashToCurrent();
+
+        assertEq(l2oo.rollupConfigHash(), stagingRollupConfigHash);
+        assertEq(l2oo.stagingRollupConfigHash(), bytes32(0));
+    }
+
+    function testProposeL2Output_WithCurrentParams() public {
+        uint256 nextBlockNumber = l2oo.nextBlockNumber();
+        bytes32 outputRoot = keccak256("test_output");
+        uint256 currentL1Block = block.number;
+
+        checkpointAndRoll(l2oo, currentL1Block);
+
+        vm.prank(approvedProposer, approvedProposer);
+        l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+
+        assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
+        assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).outputRoot, outputRoot);
+    }
+
+    function testStagingParams_GettersReturnCorrectValues() public {
+        // Initially staging params should be zero
+        assertEq(l2oo.stagingAggregationVkey(), bytes32(0));
+        assertEq(l2oo.stagingRangeVkeyCommitment(), bytes32(0));
+        assertEq(l2oo.stagingRollupConfigHash(), bytes32(0));
+
+        // Set staging params
+        vm.prank(owner);
+        l2oo.setStagingAggregationVkey(stagingAggregationVkey);
+        vm.prank(owner);
+        l2oo.setStagingRangeVkeyCommitment(stagingRangeVkeyCommitment);
+        vm.prank(owner);
+        l2oo.setStagingRollupConfigHash(stagingRollupConfigHash);
+
+        // Verify getters return correct values
+        assertEq(l2oo.stagingAggregationVkey(), stagingAggregationVkey);
+        assertEq(l2oo.stagingRangeVkeyCommitment(), stagingRangeVkeyCommitment);
+        assertEq(l2oo.stagingRollupConfigHash(), stagingRollupConfigHash);
+    }
+
+    function testStagingWorkflow_FullCycle() public {
+        bytes32 originalAggVkey = l2oo.aggregationVkey();
+        bytes32 originalRangeCommitment = l2oo.rangeVkeyCommitment();
+        bytes32 originalRollupHash = l2oo.rollupConfigHash();
+
+        // Set all staging params
+        vm.startPrank(owner);
+        l2oo.setStagingAggregationVkey(stagingAggregationVkey);
+        l2oo.setStagingRangeVkeyCommitment(stagingRangeVkeyCommitment);
+        l2oo.setStagingRollupConfigHash(stagingRollupConfigHash);
+
+        // Verify staging params are set
+        assertEq(l2oo.stagingAggregationVkey(), stagingAggregationVkey);
+        assertEq(l2oo.stagingRangeVkeyCommitment(), stagingRangeVkeyCommitment);
+        assertEq(l2oo.stagingRollupConfigHash(), stagingRollupConfigHash);
+
+        // Current params should remain unchanged
+        assertEq(l2oo.aggregationVkey(), originalAggVkey);
+        assertEq(l2oo.rangeVkeyCommitment(), originalRangeCommitment);
+        assertEq(l2oo.rollupConfigHash(), originalRollupHash);
+
+        // Promote staging to current
+        l2oo.promoteStagingAggregationVkeyToCurrent();
+        l2oo.promoteStagingRangeVkeyCommitmentToCurrent();
+        l2oo.promoteStagingRollupConfigHashToCurrent();
+        vm.stopPrank();
+
+        // Verify current params are updated and staging params are cleared
+        assertEq(l2oo.aggregationVkey(), stagingAggregationVkey);
+        assertEq(l2oo.rangeVkeyCommitment(), stagingRangeVkeyCommitment);
+        assertEq(l2oo.rollupConfigHash(), stagingRollupConfigHash);
+
+        assertEq(l2oo.stagingAggregationVkey(), bytes32(0));
+        assertEq(l2oo.stagingRangeVkeyCommitment(), bytes32(0));
+        assertEq(l2oo.stagingRollupConfigHash(), bytes32(0));
+    }
+}
