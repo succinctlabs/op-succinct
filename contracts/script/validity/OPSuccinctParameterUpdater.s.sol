@@ -21,39 +21,25 @@ contract OPSuccinctParameterUpdater is Script, Utils {
 
         OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(l2OutputOracleProxy);
 
-        if (cfg.aggregationVkey != oracleImpl.aggregationVkey()) {
-            if (executeUpgradeCall) {
-                oracleImpl.updateAggregationVkey(cfg.aggregationVkey);
-            } else {
-                bytes memory aggregationVkeyCalldata =
-                    abi.encodeWithSelector(OPSuccinctL2OutputOracle.updateAggregationVkey.selector, cfg.aggregationVkey);
-                console.log("The calldata for upgrading the aggregationVkey is:");
-                console.logBytes(aggregationVkeyCalldata);
-            }
-        }
-
-        if (cfg.rangeVkeyCommitment != oracleImpl.rangeVkeyCommitment()) {
-            if (executeUpgradeCall) {
-                oracleImpl.updateRangeVkeyCommitment(cfg.rangeVkeyCommitment);
-            } else {
-                bytes memory rangeVkeyCommitmentCalldata = abi.encodeWithSelector(
-                    OPSuccinctL2OutputOracle.updateRangeVkeyCommitment.selector, cfg.rangeVkeyCommitment
-                );
-                console.log("The calldata for upgrading the rangeVkeyCommitment is:");
-                console.logBytes(rangeVkeyCommitmentCalldata);
-            }
-        }
-
-        if (cfg.rollupConfigHash != oracleImpl.rollupConfigHash()) {
-            if (executeUpgradeCall) {
-                oracleImpl.updateRollupConfigHash(cfg.rollupConfigHash);
-            } else {
-                bytes memory rollupConfigHashCalldata = abi.encodeWithSelector(
-                    OPSuccinctL2OutputOracle.updateRollupConfigHash.selector, cfg.rollupConfigHash
-                );
-                console.log("The calldata for upgrading the rollupConfigHash is:");
-                console.logBytes(rollupConfigHashCalldata);
-            }
+        if (executeUpgradeCall) {
+            oracleImpl.updateOpSuccinctConfig(
+                oracleImpl.DEFAULT_CONFIG_NAME(),
+                cfg.rollupConfigHash,
+                cfg.aggregationVkey,
+                cfg.rangeVkeyCommitment,
+                cfg.verifier
+            );
+        } else {
+            bytes memory configUpdateCalldata = abi.encodeWithSelector(
+                OPSuccinctL2OutputOracle.updateOpSuccinctConfig.selector,
+                oracleImpl.DEFAULT_CONFIG_NAME(),
+                cfg.rollupConfigHash,
+                cfg.aggregationVkey,
+                cfg.rangeVkeyCommitment,
+                cfg.verifier
+            );
+            console.log("The calldata for upgrading the OP Succinct configuration is:");
+            console.logBytes(configUpdateCalldata);
         }
 
         if (cfg.submissionInterval != oracleImpl.submissionInterval()) {
@@ -65,17 +51,6 @@ contract OPSuccinctParameterUpdater is Script, Utils {
                 );
                 console.log("The calldata for upgrading the submissionInterval is:");
                 console.logBytes(submissionIntervalCalldata);
-            }
-        }
-
-        if (cfg.verifier != oracleImpl.verifier()) {
-            if (executeUpgradeCall) {
-                oracleImpl.updateVerifier(cfg.verifier);
-            } else {
-                bytes memory verifierCalldata =
-                    abi.encodeWithSelector(OPSuccinctL2OutputOracle.updateVerifier.selector, cfg.verifier);
-                console.log("The calldata for upgrading the verifier is:");
-                console.logBytes(verifierCalldata);
             }
         }
 

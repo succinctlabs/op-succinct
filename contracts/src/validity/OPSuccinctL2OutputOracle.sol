@@ -15,6 +15,14 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 ///         these outputs to verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
 contract OPSuccinctL2OutputOracle is Initializable, ISemver {
+
+    /// @notice Configuration parameters for OP Succinct verification.
+    struct OpSuccinctConfig {
+        bytes32 aggregationVkey;
+        bytes32 rangeVkeyCommitment;
+        bytes32 rollupConfigHash;
+        address verifier;
+    }
     /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
     struct InitParams {
         address challenger;
@@ -64,18 +72,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @custom:network-specific
     uint256 public finalizationPeriodSeconds;
 
-    /// @notice The verification key of the aggregation SP1 program.
-    bytes32 public aggregationVkey;
+    /// @notice Mapping of configuration names to OpSuccinctConfig structs.
+    mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
 
-    /// @notice The 32 byte commitment to the BabyBear representation of the verification key of the range SP1 program. Specifically,
-    /// this verification is the output of converting the [u32; 8] range BabyBear verification key to a [u8; 32] array.
-    bytes32 public rangeVkeyCommitment;
-
-    /// @notice The deployed SP1Verifier contract to verify proofs.
-    address public verifier;
-
-    /// @notice The hash of the chain's rollup config, which ensures the proofs submitted are for the correct chain.
-    bytes32 public rollupConfigHash;
+    /// @notice The default configuration name.
+    bytes32 public constant DEFAULT_CONFIG_NAME = keccak256("default");
 
     /// @notice The owner of the contract, who has admin permissions.
     address public owner;
@@ -107,25 +108,24 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param newNextOutputIndex  Next L2 output index after the deletion.
     event OutputsDeleted(uint256 indexed prevNextOutputIndex, uint256 indexed newNextOutputIndex);
 
-    /// @notice Emitted when the aggregation verification key is updated.
-    /// @param oldAggregationVkey The old aggregation verification key.
-    /// @param newAggregationVkey The new aggregation verification key.
-    event AggregationVkeyUpdated(bytes32 indexed oldAggregationVkey, bytes32 indexed newAggregationVkey);
+    /// @notice Emitted when an OP Succinct configuration is updated.
+    /// @param configName The name of the configuration.
+    /// @param aggregationVkey The aggregation verification key.
+    /// @param rangeVkeyCommitment The range verification key commitment.
+    /// @param rollupConfigHash The rollup config hash.
+    /// @param verifier The verifier address.
+    event OpSuccinctConfigUpdated(
+        bytes32 indexed configName,
+        bytes32 aggregationVkey,
+        bytes32 rangeVkeyCommitment,
+        bytes32 rollupConfigHash,
+        address verifier
+    );
 
-    /// @notice Emitted when the range verification key commitment is updated.
-    /// @param oldRangeVkeyCommitment The old range verification key commitment.
-    /// @param newRangeVkeyCommitment The new range verification key commitment.
-    event RangeVkeyCommitmentUpdated(bytes32 indexed oldRangeVkeyCommitment, bytes32 indexed newRangeVkeyCommitment);
+    /// @notice Emitted when an OP Succinct configuration is deleted.
+    /// @param configName The name of the configuration that was deleted.
+    event OpSuccinctConfigDeleted(bytes32 indexed configName);
 
-    /// @notice Emitted when the verifier address is updated.
-    /// @param oldVerifier The old verifier address.
-    /// @param newVerifier The new verifier address.
-    event VerifierUpdated(address indexed oldVerifier, address indexed newVerifier);
-
-    /// @notice Emitted when the rollup config hash is updated.
-    /// @param oldRollupConfigHash The old rollup config hash.
-    /// @param newRollupConfigHash The new rollup config hash.
-    event RollupConfigHashUpdated(bytes32 indexed oldRollupConfigHash, bytes32 indexed newRollupConfigHash);
 
     /// @notice Emitted when the owner address is updated.
     /// @param previousOwner The previous owner address.
@@ -157,6 +157,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
     /// @notice The L1 block hash is not checkpointed.
     error L1BlockHashNotCheckpointed();
+
+    /// @notice The specified OP Succinct configuration does not exist.
+    error OpSuccinctConfigNotFound();
 
     /// @notice Semantic version.
     /// @custom:semver v2.0.0
@@ -229,12 +232,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         // Initialize the permissionless fallback timeout.
         fallbackTimeout = _initParams.fallbackTimeout;
-
-        // OP Succinct initialization parameters.
-        aggregationVkey = _initParams.aggregationVkey;
-        rangeVkeyCommitment = _initParams.rangeVkeyCommitment;
-        verifier = _initParams.verifier;
-        rollupConfigHash = _initParams.rollupConfigHash;
+        
+        // Initialize default configuration
+        opSuccinctConfigs[DEFAULT_CONFIG_NAME] = OpSuccinctConfig({
+            aggregationVkey: _initParams.aggregationVkey,
+            rangeVkeyCommitment: _initParams.rangeVkeyCommitment,
+            rollupConfigHash: _initParams.rollupConfigHash,
+            verifier: _initParams.verifier
+        });
+        
         owner = _initParams.owner;
     }
 
@@ -269,6 +275,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Accepts an outputRoot and the timestamp of the corresponding L2 block.
     ///         The timestamp must be equal to the current value returned by `nextTimestamp()` in
     ///         order to be accepted. This function may only be called by the Proposer.
+    /// @param _configName The name of the OP Succinct configuration to use.
     /// @param _outputRoot    The L2 output of the checkpoint block.
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockNumber The block number with the specified block hash.
@@ -289,6 +296,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ///
     ///      As long as proposers avoid untrusted contracts, `tx.origin` is as secure as `msg.sender` in this context.
     function proposeL2Output(
+        bytes32 _configName,
         bytes32 _outputRoot,
         uint256 _l2BlockNumber,
         uint256 _l1BlockNumber,
@@ -315,6 +323,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
 
+        OpSuccinctConfig memory config = opSuccinctConfigs[_configName];
+        if (config.verifier == address(0)) {
+            revert OpSuccinctConfigNotFound();
+        }
+
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         if (l1BlockHash == bytes32(0)) {
             revert L1BlockHashNotCheckpointed();
@@ -325,12 +338,12 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             l2PreRoot: l2Outputs[latestOutputIndex()].outputRoot,
             claimRoot: _outputRoot,
             claimBlockNum: _l2BlockNumber,
-            rollupConfigHash: rollupConfigHash,
-            rangeVkeyCommitment: rangeVkeyCommitment,
+            rollupConfigHash: config.rollupConfigHash,
+            rangeVkeyCommitment: config.rangeVkeyCommitment,
             proverAddress: _proverAddress
         });
 
-        ISP1Verifier(verifier).verifyProof(aggregationVkey, abi.encode(publicValues), _proof);
+        ISP1Verifier(config.verifier).verifyProof(config.aggregationVkey, abi.encode(publicValues), _proof);
 
         emit OutputProposed(_outputRoot, nextOutputIndex(), _l2BlockNumber, block.timestamp);
 
@@ -510,32 +523,40 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         submissionInterval = _submissionInterval;
     }
 
-    /// @notice Updates the aggregation verification key.
-    /// @param _aggregationVkey The new aggregation verification key.
-    function updateAggregationVkey(bytes32 _aggregationVkey) external onlyOwner {
-        emit AggregationVkeyUpdated(aggregationVkey, _aggregationVkey);
-        aggregationVkey = _aggregationVkey;
+    /// @notice Updates or creates an OP Succinct configuration.
+    /// @param _configName The name of the configuration.
+    /// @param _rollupConfigHash The rollup config hash.
+    /// @param _aggregationVkey The aggregation verification key.
+    /// @param _rangeVkeyCommitment The range verification key commitment.
+    /// @param _verifier The verifier address.
+    function updateOpSuccinctConfig(
+        bytes32 _configName,
+        bytes32 _rollupConfigHash,
+        bytes32 _aggregationVkey,
+        bytes32 _rangeVkeyCommitment,
+        address _verifier
+    ) external onlyOwner {
+        require(_verifier != address(0), "L2OutputOracle: verifier cannot be zero address");
+        require(_configName != bytes32(0), "L2OutputOracle: config name cannot be empty");
+        
+        opSuccinctConfigs[_configName] = OpSuccinctConfig({
+            aggregationVkey: _aggregationVkey,
+            rangeVkeyCommitment: _rangeVkeyCommitment,
+            rollupConfigHash: _rollupConfigHash,
+            verifier: _verifier
+        });
+        
+        emit OpSuccinctConfigUpdated(_configName, _aggregationVkey, _rangeVkeyCommitment, _rollupConfigHash, _verifier);
     }
 
-    /// @notice Updates the range verification key commitment.
-    /// @param _rangeVkeyCommitment The new range verification key commitment.
-    function updateRangeVkeyCommitment(bytes32 _rangeVkeyCommitment) external onlyOwner {
-        emit RangeVkeyCommitmentUpdated(rangeVkeyCommitment, _rangeVkeyCommitment);
-        rangeVkeyCommitment = _rangeVkeyCommitment;
-    }
-
-    /// @notice Updates the verifier address.
-    /// @param _verifier The new verifier address.
-    function updateVerifier(address _verifier) external onlyOwner {
-        emit VerifierUpdated(verifier, _verifier);
-        verifier = _verifier;
-    }
-
-    /// @notice Updates the rollup config hash.
-    /// @param _rollupConfigHash The new rollup config hash.
-    function updateRollupConfigHash(bytes32 _rollupConfigHash) external onlyOwner {
-        emit RollupConfigHashUpdated(rollupConfigHash, _rollupConfigHash);
-        rollupConfigHash = _rollupConfigHash;
+    /// @notice Deletes an OP Succinct configuration.
+    /// @param _configName The name of the configuration to delete.
+    function deleteOpSuccinctConfig(bytes32 _configName) external onlyOwner {
+        require(_configName != DEFAULT_CONFIG_NAME, "L2OutputOracle: cannot delete default config");
+        require(opSuccinctConfigs[_configName].verifier != address(0), "L2OutputOracle: config does not exist");
+        
+        delete opSuccinctConfigs[_configName];
+        emit OpSuccinctConfigDeleted(_configName);
     }
 
     /// Updates the owner address.

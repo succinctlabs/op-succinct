@@ -45,7 +45,9 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
         status = GameStatus.IN_PROGRESS;
         wasRespectedGameTypeWhenCreated = true;
 
-        OPSuccinctL2OutputOracle(L2_OUTPUT_ORACLE).proposeL2Output(
+        OPSuccinctL2OutputOracle oracle = OPSuccinctL2OutputOracle(L2_OUTPUT_ORACLE);
+        oracle.proposeL2Output(
+            oracle.DEFAULT_CONFIG_NAME(),
             rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
         );
 

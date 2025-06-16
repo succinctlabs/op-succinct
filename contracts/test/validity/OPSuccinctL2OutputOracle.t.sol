@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Utils} from "../helpers/Utils.sol";
 import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
+import {console} from "forge-std/console.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Example proof data for a mock proof for Phala Testnet. Tx: https://sepolia.etherscan.io/tx/0x640441cfcba322574a0b153fa3a520bc7bbf1591fdee32f7984dfcf4e18fde4f
@@ -27,9 +28,10 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Test the L2OO contract.
     function testOPSuccinctL2OOFork() public {
         l2oo = OPSuccinctL2OutputOracle(0x5f0c7178CF4d7520f347d1334e5fc219da9b8Da4);
+        bytes32 defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
         checkpointAndRoll(l2oo, checkpointedL1BlockNum);
         vm.prank(OWNER);
-        l2oo.proposeL2Output(claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
+        l2oo.proposeL2Output(defaultConfigName, claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
     }
 }
 
@@ -52,6 +54,8 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
     uint256 constant FINALIZATION_PERIOD = 7 days;
     uint256 constant FALLBACK_TIMEOUT = 2 days;
 
+    bytes32 defaultConfigName = bytes32(0);
+
     bytes proof = hex"";
     address proverAddress = address(0x7890);
     uint256 startingTimestamp = block.timestamp;
@@ -72,7 +76,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         );
 
         l2oo = deployL2OutputOracle(initParams);
-
+        defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
         // Set the timestamp to after the starting timestamp
         vm.warp(block.timestamp + 1000);
     }
@@ -92,7 +96,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Non-approved proposer should be able to propose after timeout
         vm.prank(nonApprovedProposer);
-        l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(defaultConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
 
         // Verify the proposal was accepted
         assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
@@ -115,7 +119,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         // Non-approved proposer should NOT be able to propose before timeout
         vm.prank(nonApprovedProposer);
         vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
-        l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(defaultConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
     }
 
     function testFallbackProposal_TimeoutNotElapsed_ApprovedCanStillPropose() public {
@@ -133,7 +137,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Approved proposer should still be able to propose before timeout
         vm.prank(approvedProposer, approvedProposer);
-        l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(defaultConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
 
         // Verify the proposal was accepted
         assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
@@ -155,7 +159,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Approved proposer should still be able to propose after timeout
         vm.prank(approvedProposer);
-        l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(defaultConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
 
         // Verify the proposal was accepted
         assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
@@ -180,7 +184,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         checkpointAndRoll(l2oo, currentL1Block);
 
         vm.prank(approvedProposer, approvedProposer);
-        l2oo.proposeL2Output(outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(defaultConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
 
         // lastProposalTimestamp should now return the proposal time
         assertEq(l2oo.lastProposalTimestamp(), proposalTime);
@@ -189,5 +193,81 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
     function testFallbackProposalTimeout_Getter() public view {
         // Test that the getter returns the correct timeout value
         assertEq(l2oo.fallbackTimeout(), FALLBACK_TIMEOUT);
+    }
+}
+
+
+contract OPSuccinctConfigManagementTest is Test, Utils {
+    OPSuccinctL2OutputOracle l2oo;
+    
+    address owner = address(0x1234);
+    address nonOwner = address(0x5678);
+    
+    bytes32 constant TEST_CONFIG_NAME = keccak256("test_config");
+    bytes32 constant NEW_AGGREGATION_VKEY = keccak256("new_aggregation_key");
+    bytes32 constant NEW_RANGE_VKEY = keccak256("new_range_key");
+    bytes32 constant NEW_ROLLUP_CONFIG = keccak256("new_rollup_config");
+    address constant NEW_VERIFIER = address(0xABCD);
+
+    bytes32 defaultConfigName = bytes32(0);
+
+    function setUp() public {
+        // Deploy L2OutputOracle using Utils helper function
+        address verifier = address(new SP1MockVerifier());
+        OPSuccinctL2OutputOracle.InitParams memory initParams = createStandardInitParams(
+            verifier,
+            address(0x1111),
+            address(0x2222),
+            owner
+        );
+        
+        l2oo = deployL2OutputOracle(initParams);
+        defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
+    }
+    
+    function testUpdateOpSuccinctConfig_NewConfig() public {
+        vm.prank(owner);
+        
+        l2oo.updateOpSuccinctConfig(
+            TEST_CONFIG_NAME,
+            NEW_ROLLUP_CONFIG,
+            NEW_AGGREGATION_VKEY,
+            NEW_RANGE_VKEY,
+            NEW_VERIFIER
+        );
+        
+        // Verify the configuration was stored
+        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig, address verifier) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
+        assertEq(aggVkey, NEW_AGGREGATION_VKEY);
+        assertEq(rangeVkey, NEW_RANGE_VKEY);
+        assertEq(rollupConfig, NEW_ROLLUP_CONFIG);
+        assertEq(verifier, NEW_VERIFIER);
+    }
+    
+    function testDeleteOpSuccinctConfig_Success() public {
+        // First create a test configuration
+        vm.prank(owner);
+        l2oo.updateOpSuccinctConfig(
+            TEST_CONFIG_NAME,
+            NEW_ROLLUP_CONFIG,
+            NEW_AGGREGATION_VKEY,
+            NEW_RANGE_VKEY,
+            NEW_VERIFIER
+        );
+        
+        // Now delete it
+        vm.prank(owner);
+        l2oo.deleteOpSuccinctConfig(TEST_CONFIG_NAME);
+        
+        // Verify it's deleted
+        (, , , address deletedVerifier) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
+        assertEq(deletedVerifier, address(0));
+    }
+    
+    function testDeleteOpSuccinctConfig_CannotDeleteDefault() public {
+        vm.prank(owner, owner);
+        vm.expectRevert("L2OutputOracle: cannot delete default config");
+
+        l2oo.deleteOpSuccinctConfig(defaultConfigName);
     }
 }
