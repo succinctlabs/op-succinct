@@ -26,18 +26,17 @@ contract OPSuccinctParameterUpdater is Script, Utils {
         bytes32 configNameBytes = keccak256(abi.encodePacked(configName));
 
         if (executeUpgradeCall) {
-            oracleImpl.updateOpSuccinctConfig(
-                configNameBytes, cfg.rollupConfigHash, cfg.aggregationVkey, cfg.rangeVkeyCommitment, cfg.verifier
+            oracleImpl.addOpSuccinctConfig(
+                configNameBytes, cfg.rollupConfigHash, cfg.aggregationVkey, cfg.rangeVkeyCommitment
             );
             console.log("Added OpSuccinct config:", configName);
         } else {
             bytes memory configAddCalldata = abi.encodeWithSelector(
-                OPSuccinctL2OutputOracle.updateOpSuccinctConfig.selector,
+                OPSuccinctL2OutputOracle.addOpSuccinctConfig.selector,
                 configNameBytes,
                 cfg.rollupConfigHash,
                 cfg.aggregationVkey,
-                cfg.rangeVkeyCommitment,
-                cfg.verifier
+                cfg.rangeVkeyCommitment
             );
             console.log("The calldata for adding the OP Succinct configuration is:");
             console.logBytes(configAddCalldata);

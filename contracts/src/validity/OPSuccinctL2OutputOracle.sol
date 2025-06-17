@@ -74,6 +74,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Mapping of configuration names to OpSuccinctConfig structs.
     mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
 
+    /// @notice Number of OpSuccinctConfigs
+    uint32 public numOpSuccinctConfigs;
+
     /// @notice The default configuration name.
     bytes32 public constant DEFAULT_CONFIG_NAME = keccak256("");
 
@@ -235,6 +238,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             rangeVkeyCommitment: _initParams.rangeVkeyCommitment,
             rollupConfigHash: _initParams.rollupConfigHash
         });
+
+        numOpSuccinctConfigs = 1;
 
         verifier = _initParams.verifier;
 
@@ -524,13 +529,19 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _rollupConfigHash The rollup config hash.
     /// @param _aggregationVkey The aggregation verification key.
     /// @param _rangeVkeyCommitment The range verification key commitment.
-    function updateOpSuccinctConfig(
+    function addOpSuccinctConfig(
         bytes32 _configName,
         bytes32 _rollupConfigHash,
         bytes32 _aggregationVkey,
         bytes32 _rangeVkeyCommitment
     ) external onlyOwner {
         require(_configName != bytes32(0), "L2OutputOracle: config name cannot be empty");
+        require(
+            opSuccinctConfigs[_configName].aggregationVkey == bytes32(0)
+                && opSuccinctConfigs[_configName].rollupConfigHash == bytes32(0)
+                && opSuccinctConfigs[_configName].rangeVkeyCommitment == bytes32(0),
+            "L2OutputOracle: config already exists"
+        );
 
         opSuccinctConfigs[_configName] = OpSuccinctConfig({
             aggregationVkey: _aggregationVkey,
@@ -538,14 +549,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             rollupConfigHash: _rollupConfigHash
         });
 
+        numOpSuccinctConfigs += 1;
+
         emit OpSuccinctConfigUpdated(_configName, _aggregationVkey, _rangeVkeyCommitment, _rollupConfigHash);
     }
 
     /// @notice Deletes an OP Succinct configuration.
     /// @param _configName The name of the configuration to delete.
     function deleteOpSuccinctConfig(bytes32 _configName) external onlyOwner {
-        require(_configName != DEFAULT_CONFIG_NAME, "L2OutputOracle: cannot delete default config");
+        require(numOpSuccinctConfigs != 1, "L2OutputOracle: need at least one config");
 
+        numOpSuccinctConfigs -= 1;
         delete opSuccinctConfigs[_configName];
         emit OpSuccinctConfigDeleted(_configName);
     }

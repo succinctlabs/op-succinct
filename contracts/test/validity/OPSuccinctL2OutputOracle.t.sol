@@ -208,7 +208,6 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
     bytes32 constant NEW_AGGREGATION_VKEY = keccak256("new_aggregation_key");
     bytes32 constant NEW_RANGE_VKEY = keccak256("new_range_key");
     bytes32 constant NEW_ROLLUP_CONFIG = keccak256("new_rollup_config");
-    address constant NEW_VERIFIER = address(0xABCD);
 
     bytes32 defaultConfigName = bytes32(0);
 
@@ -225,24 +224,41 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
     function testUpdateOpSuccinctConfig_NewConfig() public {
         vm.prank(owner);
 
-        l2oo.updateOpSuccinctConfig(
-            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY, NEW_VERIFIER
+        l2oo.addOpSuccinctConfig(
+            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY
         );
 
         // Verify the configuration was stored
-        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig, address verifier) =
+        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig) =
             l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
         assertEq(aggVkey, NEW_AGGREGATION_VKEY);
         assertEq(rangeVkey, NEW_RANGE_VKEY);
         assertEq(rollupConfig, NEW_ROLLUP_CONFIG);
-        assertEq(verifier, NEW_VERIFIER);
+    }
+
+    function testUpdateOpSuccinctConfig_DuplicateConfigName() public {
+        // First create a test configuration
+        vm.prank(owner);
+        l2oo.addOpSuccinctConfig(
+            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY
+        );
+
+        // Try to add another configuration with the same name
+        vm.prank(owner);
+        vm.expectRevert("L2OutputOracle: config already exists");
+        l2oo.addOpSuccinctConfig(
+            TEST_CONFIG_NAME, 
+            keccak256("different_rollup_config"),
+            keccak256("different_agg_key"),
+            keccak256("different_range_key")
+        );
     }
 
     function testDeleteOpSuccinctConfig_Success() public {
         // First create a test configuration
         vm.prank(owner);
-        l2oo.updateOpSuccinctConfig(
-            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY, NEW_VERIFIER
+        l2oo.addOpSuccinctConfig(
+            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY
         );
 
         // Now delete it
@@ -250,14 +266,7 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
         l2oo.deleteOpSuccinctConfig(TEST_CONFIG_NAME);
 
         // Verify it's deleted
-        (,,, address deletedVerifier) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
-        assertEq(deletedVerifier, address(0));
-    }
-
-    function testDeleteOpSuccinctConfig_CannotDeleteDefault() public {
-        vm.prank(owner, owner);
-        vm.expectRevert("L2OutputOracle: cannot delete default config");
-
-        l2oo.deleteOpSuccinctConfig(defaultConfigName);
+        (,, bytes32 rollupConfig) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
+        assertEq(rollupConfig, bytes32(0));
     }
 }
