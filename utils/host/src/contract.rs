@@ -11,7 +11,7 @@ sol! {
             bytes32 rollupConfigHash;
             address verifier;
         }
-        
+
         mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
 
         uint256 public submissionInterval;

@@ -46,7 +46,8 @@ async fn main() -> Result<()> {
 
     let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
 
-    let op_succinct_config_name_hash = alloy_primitives::keccak256(env_config.op_succinct_config_name.as_bytes());
+    let op_succinct_config_name_hash =
+        alloy_primitives::keccak256(env_config.op_succinct_config_name.as_bytes());
     tracing::info!("OP Succinct config name hash: {:?}", op_succinct_config_name_hash);
 
     let proposer_config = RequesterConfig {

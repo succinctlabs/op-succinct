@@ -9,9 +9,13 @@ use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher,
+    host::OPSuccinctHost,
+    metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
-    OPSuccinctL2OutputOracle::{OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract, OpSuccinctConfig},
+    OPSuccinctL2OutputOracle::{
+        OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract, OpSuccinctConfig,
+    },
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
@@ -23,7 +27,9 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus}, find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig, ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
+    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
 };
 
 /// Configuration for the driver.
@@ -764,7 +770,8 @@ where
     async fn validate_contract_config(&self) -> Result<()> {
         let config_name = self.requester_config.op_succinct_config_name_hash;
 
-        let contract_config = self.contract_config.l2oo_contract.opSuccinctConfigs(config_name).call().await?;
+        let contract_config =
+            self.contract_config.l2oo_contract.opSuccinctConfigs(config_name).call().await?;
 
         // Validate the requester config matches the contract.
         let contract_agg_vkey_hash = contract_config._0;

@@ -107,7 +107,10 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         mock: get_env_var("OP_SUCCINCT_MOCK", Some(false))?,
         loop_interval,
         safe_db_fallback: get_env_var("SAFE_DB_FALLBACK", Some(false))?,
-        op_succinct_config_name: get_env_var("OP_SUCCINCT_CONFIG_NAME", Some("default".to_string()))?,
+        op_succinct_config_name: get_env_var(
+            "OP_SUCCINCT_CONFIG_NAME",
+            Some("default".to_string()),
+        )?,
     };
 
     Ok(config)
