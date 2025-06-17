@@ -235,19 +235,23 @@ upgrade-oracle env_file=".env" *features='':
     if [ -n "${EXECUTE_UPGRADE_CALL:-}" ]; then ENV_VARS="$ENV_VARS EXECUTE_UPGRADE_CALL=$EXECUTE_UPGRADE_CALL"; fi
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
+
     
+    
+    VERIFY_FLAGS=""
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
+        VERIFY_FLAGS="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
+    fi
+
     if [ "${EXECUTE_UPGRADE_CALL:-true}" = "false" ]; then
         env $ENV_VARS forge script script/validity/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
             --rpc-url $L1_RPC \
-            --private-key $PRIVATE_KEY \
-            --etherscan-api-key $ETHERSCAN_API_KEY
+            --private-key $PRIVATE_KEY
     else
         env $ENV_VARS forge script script/validity/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
-            --verify \
-            --verifier etherscan \
-            --etherscan-api-key $ETHERSCAN_API_KEY \
+            $VERIFY_FLAGS \
             --broadcast
     fi
 

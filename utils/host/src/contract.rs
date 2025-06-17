@@ -9,7 +9,6 @@ sol! {
             bytes32 aggregationVkey;
             bytes32 rangeVkeyCommitment;
             bytes32 rollupConfigHash;
-            address verifier;
         }
 
         mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
