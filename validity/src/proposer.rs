@@ -14,7 +14,7 @@ use op_succinct_host_utils::{
     metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::{
-        OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract, OpSuccinctConfig,
+        OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
     },
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
