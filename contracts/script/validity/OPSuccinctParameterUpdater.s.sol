@@ -7,11 +7,15 @@ import {Utils} from "../../test/helpers/Utils.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
 
-// This script is used to update the parameters of the OPSuccinctL2OutputOracle contract.
-// If the parameters in the contract don't match the parameters in the config file, the script will update the parameters.
-// If executeUpgradeCall is false, the script will only log the calldata for the parameter update calls.
+// This script is used to manage OpSuccinctConfig configurations in the OPSuccinctL2OutputOracle contract.
+// Usage:
+//   Add config: forge script OpSuccinctParameterUpdater --sig "addConfig(string)" <config_name>
+//   Remove config: forge script OpSuccinctParameterUpdater --sig "removeConfig(string)" <config_name>
 contract OPSuccinctParameterUpdater is Script, Utils {
-    function run() public {
+    
+    /// @notice Add a new OpSuccinctConfig to the oracle
+    /// @param configName The name of the config to add
+    function addConfig(string memory configName) public {
         vm.startBroadcast();
 
         Config memory cfg = readJson("opsuccinctl2ooconfig.json");
@@ -20,38 +24,54 @@ contract OPSuccinctParameterUpdater is Script, Utils {
         bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
 
         OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(l2OutputOracleProxy);
-
+        bytes32 configNameBytes = keccak256(abi.encodePacked(configName));
+        
         if (executeUpgradeCall) {
             oracleImpl.updateOpSuccinctConfig(
-                oracleImpl.DEFAULT_CONFIG_NAME(),
+                configNameBytes,
                 cfg.rollupConfigHash,
                 cfg.aggregationVkey,
                 cfg.rangeVkeyCommitment,
                 cfg.verifier
             );
+            console.log("Added OpSuccinct config:", configName);
         } else {
-            bytes memory configUpdateCalldata = abi.encodeWithSelector(
+            bytes memory configAddCalldata = abi.encodeWithSelector(
                 OPSuccinctL2OutputOracle.updateOpSuccinctConfig.selector,
-                oracleImpl.DEFAULT_CONFIG_NAME(),
+                configNameBytes,
                 cfg.rollupConfigHash,
                 cfg.aggregationVkey,
                 cfg.rangeVkeyCommitment,
                 cfg.verifier
             );
-            console.log("The calldata for upgrading the OP Succinct configuration is:");
-            console.logBytes(configUpdateCalldata);
+            console.log("The calldata for adding the OP Succinct configuration is:");
+            console.logBytes(configAddCalldata);
         }
 
-        if (cfg.submissionInterval != oracleImpl.submissionInterval()) {
-            if (executeUpgradeCall) {
-                oracleImpl.updateSubmissionInterval(cfg.submissionInterval);
-            } else {
-                bytes memory submissionIntervalCalldata = abi.encodeWithSelector(
-                    OPSuccinctL2OutputOracle.updateSubmissionInterval.selector, cfg.submissionInterval
-                );
-                console.log("The calldata for upgrading the submissionInterval is:");
-                console.logBytes(submissionIntervalCalldata);
-            }
+        vm.stopBroadcast();
+    }
+    
+    /// @notice Remove an OpSuccinctConfig from the oracle
+    /// @param configName The name of the config to remove
+    function removeConfig(string memory configName) public {
+        vm.startBroadcast();
+
+        address l2OutputOracleProxy = vm.envAddress("L2OO_ADDRESS");
+        bool executeUpgradeCall = vm.envOr("EXECUTE_UPGRADE_CALL", true);
+
+        OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(l2OutputOracleProxy);
+        bytes32 configNameBytes = keccak256(abi.encodePacked(configName));
+        
+        if (executeUpgradeCall) {
+            oracleImpl.deleteOpSuccinctConfig(configNameBytes);
+            console.log("Removed OpSuccinct config:", configName);
+        } else {
+            bytes memory configRemoveCalldata = abi.encodeWithSelector(
+                OPSuccinctL2OutputOracle.deleteOpSuccinctConfig.selector,
+                configNameBytes
+            );
+            console.log("The calldata for removing the OP Succinct configuration is:");
+            console.logBytes(configRemoveCalldata);
         }
 
         vm.stopBroadcast();
