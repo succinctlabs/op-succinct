@@ -198,13 +198,12 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
     }
 }
 
-
 contract OPSuccinctConfigManagementTest is Test, Utils {
     OPSuccinctL2OutputOracle l2oo;
-    
+
     address owner = address(0x1234);
     address nonOwner = address(0x5678);
-    
+
     bytes32 constant TEST_CONFIG_NAME = keccak256("test_config");
     bytes32 constant NEW_AGGREGATION_VKEY = keccak256("new_aggregation_key");
     bytes32 constant NEW_RANGE_VKEY = keccak256("new_range_key");
@@ -216,56 +215,45 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
     function setUp() public {
         // Deploy L2OutputOracle using Utils helper function
         address verifier = address(new SP1MockVerifier());
-        OPSuccinctL2OutputOracle.InitParams memory initParams = createStandardInitParams(
-            verifier,
-            address(0x1111),
-            address(0x2222),
-            owner
-        );
-        
+        OPSuccinctL2OutputOracle.InitParams memory initParams =
+            createStandardInitParams(verifier, address(0x1111), address(0x2222), owner);
+
         l2oo = deployL2OutputOracle(initParams);
         defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
     }
-    
+
     function testUpdateOpSuccinctConfig_NewConfig() public {
         vm.prank(owner);
-        
+
         l2oo.updateOpSuccinctConfig(
-            TEST_CONFIG_NAME,
-            NEW_ROLLUP_CONFIG,
-            NEW_AGGREGATION_VKEY,
-            NEW_RANGE_VKEY,
-            NEW_VERIFIER
+            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY, NEW_VERIFIER
         );
-        
+
         // Verify the configuration was stored
-        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig, address verifier) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
+        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig, address verifier) =
+            l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
         assertEq(aggVkey, NEW_AGGREGATION_VKEY);
         assertEq(rangeVkey, NEW_RANGE_VKEY);
         assertEq(rollupConfig, NEW_ROLLUP_CONFIG);
         assertEq(verifier, NEW_VERIFIER);
     }
-    
+
     function testDeleteOpSuccinctConfig_Success() public {
         // First create a test configuration
         vm.prank(owner);
         l2oo.updateOpSuccinctConfig(
-            TEST_CONFIG_NAME,
-            NEW_ROLLUP_CONFIG,
-            NEW_AGGREGATION_VKEY,
-            NEW_RANGE_VKEY,
-            NEW_VERIFIER
+            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY, NEW_VERIFIER
         );
-        
+
         // Now delete it
         vm.prank(owner);
         l2oo.deleteOpSuccinctConfig(TEST_CONFIG_NAME);
-        
+
         // Verify it's deleted
-        (, , , address deletedVerifier) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
+        (,,, address deletedVerifier) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
         assertEq(deletedVerifier, address(0));
     }
-    
+
     function testDeleteOpSuccinctConfig_CannotDeleteDefault() public {
         vm.prank(owner, owner);
         vm.expectRevert("L2OutputOracle: cannot delete default config");

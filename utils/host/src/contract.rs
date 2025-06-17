@@ -4,9 +4,16 @@ use alloy_sol_types::sol;
 sol! {
     #[sol(rpc)]
     contract OPSuccinctL2OutputOracle {
-        bytes32 public aggregationVkey;
-        bytes32 public rangeVkeyCommitment;
-        bytes32 public rollupConfigHash;
+
+        struct OpSuccinctConfig {
+            bytes32 aggregationVkey;
+            bytes32 rangeVkeyCommitment;
+            bytes32 rollupConfigHash;
+            address verifier;
+        }
+        
+        mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
+
         uint256 public submissionInterval;
 
         function latestBlockNumber() public view returns (uint256);

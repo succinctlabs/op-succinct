@@ -15,7 +15,6 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 ///         these outputs to verify information about the state of L2. The outputs posted to this contract
 ///         are proved to be valid with `op-succinct`.
 contract OPSuccinctL2OutputOracle is Initializable, ISemver {
-
     /// @notice Configuration parameters for OP Succinct verification.
     struct OpSuccinctConfig {
         bytes32 aggregationVkey;
@@ -24,6 +23,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         address verifier;
     }
     /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
+
     struct InitParams {
         address challenger;
         address proposer;
@@ -125,7 +125,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Emitted when an OP Succinct configuration is deleted.
     /// @param configName The name of the configuration that was deleted.
     event OpSuccinctConfigDeleted(bytes32 indexed configName);
-
 
     /// @notice Emitted when the owner address is updated.
     /// @param previousOwner The previous owner address.
@@ -232,7 +231,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         // Initialize the permissionless fallback timeout.
         fallbackTimeout = _initParams.fallbackTimeout;
-        
+
         // Initialize default configuration
         opSuccinctConfigs[DEFAULT_CONFIG_NAME] = OpSuccinctConfig({
             aggregationVkey: _initParams.aggregationVkey,
@@ -240,7 +239,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             rollupConfigHash: _initParams.rollupConfigHash,
             verifier: _initParams.verifier
         });
-        
+
         owner = _initParams.owner;
     }
 
@@ -538,14 +537,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ) external onlyOwner {
         require(_verifier != address(0), "L2OutputOracle: verifier cannot be zero address");
         require(_configName != bytes32(0), "L2OutputOracle: config name cannot be empty");
-        
+
         opSuccinctConfigs[_configName] = OpSuccinctConfig({
             aggregationVkey: _aggregationVkey,
             rangeVkeyCommitment: _rangeVkeyCommitment,
             rollupConfigHash: _rollupConfigHash,
             verifier: _verifier
         });
-        
+
         emit OpSuccinctConfigUpdated(_configName, _aggregationVkey, _rangeVkeyCommitment, _rollupConfigHash, _verifier);
     }
 
@@ -554,7 +553,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     function deleteOpSuccinctConfig(bytes32 _configName) external onlyOwner {
         require(_configName != DEFAULT_CONFIG_NAME, "L2OutputOracle: cannot delete default config");
         require(opSuccinctConfigs[_configName].verifier != address(0), "L2OutputOracle: config does not exist");
-        
+
         delete opSuccinctConfigs[_configName];
         emit OpSuccinctConfigDeleted(_configName);
     }

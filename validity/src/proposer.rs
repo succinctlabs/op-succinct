@@ -11,7 +11,7 @@ use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
-    OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
+    OPSuccinctL2OutputOracle::{OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract, OpSuccinctConfig},
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
@@ -23,9 +23,7 @@ use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::{
-    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
+    db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus}, find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig, ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge
 };
 
 /// Configuration for the driver.
@@ -764,13 +762,14 @@ where
 
     /// Validate the requester config matches the contract.
     async fn validate_contract_config(&self) -> Result<()> {
+        let config_name = self.requester_config.op_succinct_config_name_hash;
+
+        let contract_config = self.contract_config.l2oo_contract.opSuccinctConfigs(config_name).call().await?;
+
         // Validate the requester config matches the contract.
-        let contract_rollup_config_hash =
-            self.contract_config.l2oo_contract.rollupConfigHash().call().await?;
-        let contract_agg_vkey_hash =
-            self.contract_config.l2oo_contract.aggregationVkey().call().await?;
-        let contract_range_vkey_commitment =
-            self.contract_config.l2oo_contract.rangeVkeyCommitment().call().await?;
+        let contract_agg_vkey_hash = contract_config._0;
+        let contract_range_vkey_commitment = contract_config._1;
+        let contract_rollup_config_hash = contract_config._2;
 
         let rollup_config_hash_match =
             contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;

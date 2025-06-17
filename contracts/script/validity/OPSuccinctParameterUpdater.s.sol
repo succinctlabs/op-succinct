@@ -12,7 +12,6 @@ import {console} from "forge-std/console.sol";
 //   Add config: forge script OpSuccinctParameterUpdater --sig "addConfig(string)" <config_name>
 //   Remove config: forge script OpSuccinctParameterUpdater --sig "removeConfig(string)" <config_name>
 contract OPSuccinctParameterUpdater is Script, Utils {
-    
     /// @notice Add a new OpSuccinctConfig to the oracle
     /// @param configName The name of the config to add
     function addConfig(string memory configName) public {
@@ -25,14 +24,10 @@ contract OPSuccinctParameterUpdater is Script, Utils {
 
         OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(l2OutputOracleProxy);
         bytes32 configNameBytes = keccak256(abi.encodePacked(configName));
-        
+
         if (executeUpgradeCall) {
             oracleImpl.updateOpSuccinctConfig(
-                configNameBytes,
-                cfg.rollupConfigHash,
-                cfg.aggregationVkey,
-                cfg.rangeVkeyCommitment,
-                cfg.verifier
+                configNameBytes, cfg.rollupConfigHash, cfg.aggregationVkey, cfg.rangeVkeyCommitment, cfg.verifier
             );
             console.log("Added OpSuccinct config:", configName);
         } else {
@@ -50,7 +45,7 @@ contract OPSuccinctParameterUpdater is Script, Utils {
 
         vm.stopBroadcast();
     }
-    
+
     /// @notice Remove an OpSuccinctConfig from the oracle
     /// @param configName The name of the config to remove
     function removeConfig(string memory configName) public {
@@ -61,15 +56,13 @@ contract OPSuccinctParameterUpdater is Script, Utils {
 
         OPSuccinctL2OutputOracle oracleImpl = OPSuccinctL2OutputOracle(l2OutputOracleProxy);
         bytes32 configNameBytes = keccak256(abi.encodePacked(configName));
-        
+
         if (executeUpgradeCall) {
             oracleImpl.deleteOpSuccinctConfig(configNameBytes);
             console.log("Removed OpSuccinct config:", configName);
         } else {
-            bytes memory configRemoveCalldata = abi.encodeWithSelector(
-                OPSuccinctL2OutputOracle.deleteOpSuccinctConfig.selector,
-                configNameBytes
-            );
+            bytes memory configRemoveCalldata =
+                abi.encodeWithSelector(OPSuccinctL2OutputOracle.deleteOpSuccinctConfig.selector, configNameBytes);
             console.log("The calldata for removing the OP Succinct configuration is:");
             console.logBytes(configRemoveCalldata);
         }

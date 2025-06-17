@@ -47,8 +47,7 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
 
         OPSuccinctL2OutputOracle oracle = OPSuccinctL2OutputOracle(L2_OUTPUT_ORACLE);
         oracle.proposeL2Output(
-            oracle.DEFAULT_CONFIG_NAME(),
-            rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
+            oracle.DEFAULT_CONFIG_NAME(), rootClaim().raw(), l2BlockNumber(), l1BlockNumber(), proof(), proverAddress()
         );
 
         this.resolve();
