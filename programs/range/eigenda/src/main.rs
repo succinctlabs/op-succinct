@@ -10,7 +10,7 @@
 sp1_zkvm::entrypoint!(main);
 
 use hokulea_proof::{
-    canoe_verifier::sp1_cc::CanoeSp1CCVerifier, eigenda_blob_witness::EigenDABlobWitnessData,
+    canoe_verifier::noop::CanoeNoOpVerifier, eigenda_blob_witness::EigenDABlobWitnessData,
 };
 use hokulea_zkvm_verification::eigenda_witness_to_preloaded_provider;
 use op_succinct_client_utils::witness::{EigenDAWitnessData, WitnessData};
@@ -35,7 +35,7 @@ fn main() {
         )
         .expect("cannot deserialize eigenda witness");
         let preloaded_blob_provider =
-            eigenda_witness_to_preloaded_provider(oracle, CanoeSp1CCVerifier {}, eigenda_witness)
+            eigenda_witness_to_preloaded_provider(oracle, CanoeNoOpVerifier {}, eigenda_witness)
                 .await
                 .expect("Failed to get preloaded blob provider");
 
