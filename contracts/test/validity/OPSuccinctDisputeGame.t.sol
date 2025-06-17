@@ -80,7 +80,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         bytes memory proof = bytes("");
         game = OPSuccinctDisputeGame(
             address(
-                factory.create(gameType, rootClaim, abi.encodePacked(l2BlockNumber, l1BlockNumber, proposer, proof))
+                factory.create(gameType, rootClaim, abi.encodePacked(l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.DEFAULT_CONFIG_NAME(), proof))
             )
         );
 
@@ -107,6 +107,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         assertEq(game.l1BlockNumber(), l1BlockNumber);
         assertEq(game.proverAddress(), proposer);
+        assertEq(game.configName(), l2OutputOracle.DEFAULT_CONFIG_NAME());
         assertEq(keccak256(game.proof()), keccak256(bytes("")));
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
     }
@@ -143,11 +144,12 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         warpRollAndCheckpoint(l2OutputOracle, 2000, newL1BlockNumber);
 
         bytes memory proof = bytes("");
+        bytes32 configName = l2OutputOracle.DEFAULT_CONFIG_NAME();
         vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
         factory.create(
             gameType,
             Claim.wrap(keccak256("new-claim")),
-            abi.encodePacked(l2BlockNumber + 1000, newL1BlockNumber, maliciousProposer, proof)
+            abi.encodePacked(l2BlockNumber + 1000, newL1BlockNumber, maliciousProposer, configName, proof)
         );
 
         vm.stopPrank();
@@ -155,6 +157,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
     // =========================================
     // Test: Real Proof
+    // TODO: THIS DEPLOYED CONTRACT IS GIGA OLD, FIX THIS TEST
     // =========================================
     function testRealProof() public {
         uint256 checkpointedL1BlockNum = 8093968;

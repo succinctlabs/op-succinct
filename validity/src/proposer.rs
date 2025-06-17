@@ -705,10 +705,11 @@ where
                 .call()
                 .await?;
 
-            let extra_data = <(U256, U256, Address, Bytes)>::abi_encode_packed(&(
+            let extra_data = <(U256, U256, Address, B256, Bytes)>::abi_encode_packed(&(
                 U256::from(completed_agg_proof.end_block as u64),
                 U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap() as u64),
                 self.requester_config.prover_address,
+                self.requester_config.op_succinct_config_name_hash,
                 completed_agg_proof.proof.as_ref().unwrap().clone().into(),
             ));
 
