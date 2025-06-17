@@ -76,7 +76,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
 
     /// @notice The default configuration name.
-    bytes32 public constant DEFAULT_CONFIG_NAME = keccak256("default");
+    bytes32 public constant DEFAULT_CONFIG_NAME = keccak256("");
 
     /// @notice The owner of the contract, who has admin permissions.
     address public owner;
