@@ -224,13 +224,10 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
     function testUpdateOpSuccinctConfig_NewConfig() public {
         vm.prank(owner);
 
-        l2oo.addOpSuccinctConfig(
-            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY
-        );
+        l2oo.addOpSuccinctConfig(TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY);
 
         // Verify the configuration was stored
-        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig) =
-            l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
+        (bytes32 aggVkey, bytes32 rangeVkey, bytes32 rollupConfig) = l2oo.opSuccinctConfigs(TEST_CONFIG_NAME);
         assertEq(aggVkey, NEW_AGGREGATION_VKEY);
         assertEq(rangeVkey, NEW_RANGE_VKEY);
         assertEq(rollupConfig, NEW_ROLLUP_CONFIG);
@@ -239,15 +236,13 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
     function testUpdateOpSuccinctConfig_DuplicateConfigName() public {
         // First create a test configuration
         vm.prank(owner);
-        l2oo.addOpSuccinctConfig(
-            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY
-        );
+        l2oo.addOpSuccinctConfig(TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY);
 
         // Try to add another configuration with the same name
         vm.prank(owner);
         vm.expectRevert("L2OutputOracle: config already exists");
         l2oo.addOpSuccinctConfig(
-            TEST_CONFIG_NAME, 
+            TEST_CONFIG_NAME,
             keccak256("different_rollup_config"),
             keccak256("different_agg_key"),
             keccak256("different_range_key")
@@ -257,9 +252,7 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
     function testDeleteOpSuccinctConfig_Success() public {
         // First create a test configuration
         vm.prank(owner);
-        l2oo.addOpSuccinctConfig(
-            TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY
-        );
+        l2oo.addOpSuccinctConfig(TEST_CONFIG_NAME, NEW_ROLLUP_CONFIG, NEW_AGGREGATION_VKEY, NEW_RANGE_VKEY);
 
         // Now delete it
         vm.prank(owner);
