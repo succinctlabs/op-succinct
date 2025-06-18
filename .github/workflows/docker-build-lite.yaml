@@ -28,18 +28,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: Cache
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: |
-            cargo-git
-            cargo-registry
-            target
-          key: cache-proposer-${{ hashFiles('Dockerfile.proposer') }}
-          restore-keys: |
-            cache-proposer-
 
       - name: Docker meta for proposer
         id: meta-proposer
@@ -97,18 +85,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: Cache
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: |
-            cargo-git
-            cargo-registry
-            target
-          key: cache-proposer-celestia-${{ hashFiles('Dockerfile.proposer.celestia') }}
-          restore-keys: |
-            cache-proposer-celestia-
 
       - name: Docker meta for proposer-celestia
         id: meta-proposer-celestia
@@ -167,17 +143,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Cache
-        uses: actions/cache@v3
-        id: cache
-        with:
-          path: |
-            cargo-git
-            cargo-registry
-            target
-          key: cache-challenger-${{ hashFiles('Dockerfile.challenger') }}
-          restore-keys: |
-            cache-challenger-
 
       - name: Docker meta for challenger
         id: meta-challenger
