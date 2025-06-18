@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
   push:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-proposer:
     name: Build OP Succinct Lite Proposer
+    timeout-minutes: 30
     runs-on:
       - runs-on
       - cpu=16
@@ -64,6 +69,7 @@ jobs:
 
   build-proposer-celestia:
     name: Build OP Succinct Lite Proposer Celestia
+    timeout-minutes: 30
     runs-on:
       - runs-on
       - cpu=16
@@ -121,6 +127,7 @@ jobs:
 
   build-challenger:
     name: Build OP Succinct Lite Challenger
+    timeout-minutes: 30
     runs-on:
       - runs-on
       - cpu=16
