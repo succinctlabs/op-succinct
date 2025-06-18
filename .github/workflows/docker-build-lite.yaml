@@ -37,9 +37,9 @@ jobs:
             cargo-git
             cargo-registry
             target
-          key: cache-proposer-${{ hashFiles('Dockerfile.proposer') }}
+          key: cache-lite-proposer-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            cache-proposer-
+            cache-lite-proposer-
 
       - name: Docker meta for proposer
         id: meta-proposer
@@ -106,9 +106,9 @@ jobs:
             cargo-git
             cargo-registry
             target
-          key: cache-proposer-celestia-${{ hashFiles('Dockerfile.proposer.celestia') }}
+          key: cache-lite-proposer-celestia-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            cache-proposer-celestia-
+            cache-lite-proposer-celestia-
 
       - name: Docker meta for proposer-celestia
         id: meta-proposer-celestia
@@ -175,9 +175,9 @@ jobs:
             cargo-git
             cargo-registry
             target
-          key: cache-challenger-${{ hashFiles('Dockerfile.challenger') }}
+          key: cache-lite-challenger-${{ hashFiles('**/Cargo.lock', '**/Cargo.toml') }}
           restore-keys: |
-            cache-challenger-
+            cache-lite-challenger-
 
       - name: Docker meta for challenger
         id: meta-challenger
