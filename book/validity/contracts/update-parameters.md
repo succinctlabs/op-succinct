@@ -30,7 +30,7 @@ just remove-config <config_name>
 
 #### Using an EOA `PRIVATE_KEY` key
 
-If you are the owner of the `OPSuccinctL2OutputOracle` contract, you can set `PRIVATE_KEY` in your `.env` to directly add and remove configurations. 
+If you are the owner of the `OPSuccinctL2OutputOracle` contract, you can set `PRIVATE_KEY` in your `.env` to directly add and remove configurations.
 
 ```bash
 $ just add-config new_config
@@ -90,3 +90,11 @@ $ just add-config new_config
   0x47c37e9c1614abfc873fd38dcc6705b30385...
 Warning: No transactions to broadcast.
 ```
+
+## Rolling upgrade guide
+
+1. Change your `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` locally.
+2. From the project root, run the following command to add a new config. `just add_config my_upgrade`.
+3. Spin up a new proposer that interacts with this config, by changing [`OP_SUCCINCT_CONFIG_NAME`](../proposer.md#optional-environment-variables).
+4. Shut down your old proposer.
+5. For security, delete your old config with `just remove-config old_config`.
