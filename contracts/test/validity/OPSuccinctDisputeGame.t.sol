@@ -157,13 +157,12 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
     // =========================================
     // Test: Real Proof
-    // TODO: THIS DEPLOYED CONTRACT IS GIGA OLD, FIX THIS TEST
     // =========================================
     function testRealProof() public {
         uint256 checkpointedL1BlockNum = 8093968;
         vm.createSelectFork(vm.envString("L1_RPC"), checkpointedL1BlockNum + 1);
 
-        proposer = 0x9193a78157957F3E03beE50A3E6a51F0f1669E23;
+        proposer = 0x4b713049Fc139df09A20F55f5b76c08184135DF8;
 
         factory = DisputeGameFactory(0x62985aeB77b55aDAfAA21cCE41a7D8765D6B9507);
 
