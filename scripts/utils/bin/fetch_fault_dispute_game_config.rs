@@ -1,20 +1,10 @@
-use alloy_eips::BlockId;
-use alloy_primitives::{hex, Address};
-use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
-use op_succinct_elfs::AGGREGATION_ELF;
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
-use op_succinct_proof_utils::get_range_elf_embedded;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use sp1_sdk::{HashableKey, Prover, ProverClient};
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
+use op_succinct_scripts::config_common::{
+    get_shared_config_data, get_workspace_root, find_project_root, 
+    parse_addresses, write_config_file, TWO_WEEKS_IN_SECONDS
 };
-
-const TWO_WEEKS_IN_SECONDS: u64 = 14 * 24 * 60 * 60;
+use serde::{Deserialize, Serialize};
+use std::env;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,69 +31,10 @@ struct FaultDisputeGameConfig {
 }
 
 
-/// Parse comma-separated addresses from environment variable.
-fn parse_addresses(env_var: &str) -> Vec<String> {
-    env::var(env_var)
-        .unwrap_or_default()
-        .split(',')
-        .filter_map(|s| {
-            let trimmed = s.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
-        })
-        .collect()
-}
 
-/// Update the FDG config with the rollup config hash and other relevant data before the contract
-/// is deployed.
 async fn update_fdg_config() -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
-
-    let workspace_root = cargo_metadata::MetadataCommand::new().exec()?.workspace_root;
-
-    // Determine if we're using mock verifier.
-    let use_sp1_mock_verifier = env::var("USE_SP1_MOCK_VERIFIER")
-        .unwrap_or("false".to_string())
-        .parse::<bool>()
-        .unwrap_or(false);
-
-    // Set the verifier address.
-    let verifier_address = if use_sp1_mock_verifier {
-        // Mock verifier will be deployed, so use zero address as placeholder.
-        Address::ZERO.to_string()
-    } else {
-        env::var("VERIFIER_ADDRESS").unwrap_or_else(|_| {
-            // Default to Groth16 VerifierGateway contract address.
-            // Source: https://docs.succinct.xyz/docs/sp1/verification/contract-addresses
-            "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B".to_string()
-        })
-    };
-
-    // Get starting block number - use latest finalized if not set.
-    let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
-        Ok(n) => n.parse().unwrap(),
-        Err(_) => {
-            println!("STARTING_L2_BLOCK_NUMBER not set, fetching latest finalized L2 block...");
-            data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number
-        }
-    };
-
-    let starting_block_number_hex = format!("0x{starting_l2_block_number:x}");
-    let optimism_output_data: Value = data_fetcher
-        .fetch_rpc_data_with_mode(
-            RPCMode::L2Node,
-            "optimism_outputAtBlock",
-            vec![starting_block_number_hex.into()],
-        )
-        .await?;
-
-    let starting_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
-
-    let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
-    let rollup_config_hash = format!("0x{:x}", hash_rollup_config(rollup_config));
+    let shared_config = get_shared_config_data().await?;
+    let workspace_root = get_workspace_root()?;
 
     // Game configuration.
     let game_type = env::var("GAME_TYPE")
@@ -160,24 +91,9 @@ async fn update_fdg_config() -> Result<()> {
         parse_addresses("CHALLENGER_ADDRESSES")
     };
 
-    // Calculate verification keys.
-    let (aggregation_vkey, range_vkey_commitment) = if use_sp1_mock_verifier {
-        // Use zero values for mock verifier.
-        ("0x0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-         "0x0000000000000000000000000000000000000000000000000000000000000000".to_string())
-    } else {
-        let prover = ProverClient::builder().cpu().build();
-        let (_, agg_vkey) = prover.setup(AGGREGATION_ELF);
-        let aggregation_vkey = agg_vkey.vk.bytes32();
-
-        let (_, range_vkey) = prover.setup(get_range_elf_embedded());
-        let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.vk.hash_u32())));
-
-        (aggregation_vkey, range_vkey_commitment)
-    };
 
     let fdg_config = FaultDisputeGameConfig {
-        aggregation_vkey,
+        aggregation_vkey: shared_config.aggregation_vkey,
         challenger_addresses,
         challenger_bond_wei,
         dispute_game_finality_delay_seconds,
@@ -188,45 +104,20 @@ async fn update_fdg_config() -> Result<()> {
         max_prove_duration,
         permissionless_mode,
         proposer_addresses,
-        range_vkey_commitment,
-        rollup_config_hash,
-        starting_l2_block_number,
-        starting_root,
-        use_sp1_mock_verifier,
-        verifier_address,
+        range_vkey_commitment: shared_config.range_vkey_commitment,
+        rollup_config_hash: shared_config.rollup_config_hash,
+        starting_l2_block_number: shared_config.starting_l2_block_number,
+        starting_root: shared_config.starting_output_root,
+        use_sp1_mock_verifier: shared_config.use_sp1_mock_verifier,
+        verifier_address: shared_config.verifier_address,
     };
 
-    write_fdg_config(fdg_config, workspace_root.as_std_path())?;
-
-    Ok(())
-}
-
-/// Write the FDG config to `contracts/opsuccinctfdgconfig.json`.
-fn write_fdg_config(config: FaultDisputeGameConfig, workspace_root: &Path) -> Result<()> {
-    let opsuccinct_config_path = workspace_root.join("contracts/opsuccinctfdgconfig.json");
-    // Create parent directories if they don't exist.
-    if let Some(parent) = opsuccinct_config_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    // Write the FDG config to the opsuccinctfdgconfig.json file.
-    fs::write(&opsuccinct_config_path, serde_json::to_string_pretty(&config)?)?;
-    
-    println!("Fault Dispute Game configuration written to: {}", opsuccinct_config_path.display());
-    println!("Starting L2 block number: {}", config.starting_l2_block_number);
-    println!("Starting root: {}", config.starting_root);
+    let config_path = workspace_root.join("contracts/opsuccinctfdgconfig.json");
+    write_config_file(&fdg_config, &config_path, "Fault Dispute Game")?;
     
     Ok(())
 }
 
-fn find_project_root() -> Option<PathBuf> {
-    let mut path = std::env::current_dir().ok()?;
-    while !path.join(".git").exists() {
-        if !path.pop() {
-            return None;
-        }
-    }
-    Some(path)
-}
 
 use clap::Parser;
 
