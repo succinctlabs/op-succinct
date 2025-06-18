@@ -3,7 +3,7 @@
 
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
-use kona_genesis::RollupConfig;
+use celo_genesis::CeloRollupConfig;
 use kona_proof::BootInfo;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -14,7 +14,7 @@ pub const AGGREGATION_OUTPUTS_SIZE: usize = 6 * 32;
 /// Hash the serialized rollup config using SHA256. Note: The rollup config is never unrolled
 /// on-chain, so switching to a different hash function is not a concern, as long as the config hash
 /// is consistent with the one on the contract.
-pub fn hash_rollup_config(config: &RollupConfig) -> B256 {
+pub fn hash_rollup_config(config: &CeloRollupConfig) -> B256 {
     let serialized_config = serde_json::to_string_pretty(config).unwrap();
 
     // Create a SHA256 hasher
@@ -41,12 +41,15 @@ sol! {
 
 impl From<BootInfo> for BootInfoStruct {
     fn from(boot_info: BootInfo) -> Self {
+        // Wrap RollupConfig with CeloRollupConfig
+        let celo_rollup_config =
+            CeloRollupConfig { op_rollup_config: boot_info.rollup_config.clone() };
         BootInfoStruct {
             l1Head: boot_info.l1_head,
             l2PreRoot: boot_info.agreed_l2_output_root,
             l2PostRoot: boot_info.claimed_l2_output_root,
             l2BlockNumber: boot_info.claimed_l2_block_number,
-            rollupConfigHash: hash_rollup_config(&boot_info.rollup_config),
+            rollupConfigHash: hash_rollup_config(&celo_rollup_config),
         }
     }
 }

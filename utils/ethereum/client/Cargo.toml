@@ -16,6 +16,9 @@ kona-genesis.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
 
+# celo-kona
+celo-genesis.workspace = true
+
 # general
 anyhow.workspace = true
 async-trait.workspace = true

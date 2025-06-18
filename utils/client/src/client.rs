@@ -5,6 +5,7 @@ use anyhow::Result;
 use celo_alloy_consensus::{CeloBlock, CeloTxEnvelope, CeloTxType};
 use celo_alloy_rpc_types_engine::CeloPayloadAttributes;
 use celo_driver::{CeloDriver, CeloExecutorTr};
+use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloL2BlockInfo;
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
@@ -12,7 +13,6 @@ use kona_derive::{
     types::Signal,
 };
 use kona_driver::{DriverError, DriverPipeline, DriverResult, TipCursor};
-use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{errors::OracleProviderError, HintType};
 use kona_protocol::L2BlockInfo;
@@ -57,7 +57,7 @@ where
 /// - `Err(e)` - An error if the block could not be produced.
 pub async fn advance_to_target<E, DP, P>(
     driver: &mut CeloDriver<E, DP, P>,
-    cfg: &RollupConfig,
+    cfg: &CeloRollupConfig,
     mut target: Option<u64>,
 ) -> DriverResult<(L2BlockInfo, B256), E::Error>
 where
@@ -91,7 +91,10 @@ where
 
                 // If we are in interop mode, this error must be handled by the caller.
                 // Otherwise, we continue the loop to halt derivation on the next iteration.
-                if cfg.is_interop_active(driver.cursor.read().l2_safe_head().block_info.number) {
+                if cfg
+                    .op_rollup_config
+                    .is_interop_active(driver.cursor.read().l2_safe_head().block_info.number)
+                {
                     return Err(PipelineError::EndOfSource.crit().into());
                 } else {
                     continue;
@@ -115,7 +118,8 @@ where
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
 
-                if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
+                if cfg.op_rollup_config.is_holocene_active(attributes.payload_attributes.timestamp)
+                {
                     // Retry with a deposit-only block.
                     warn!(target: "client", "Flushing current channel and retrying deposit only block");
 

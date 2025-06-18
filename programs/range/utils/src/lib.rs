@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use celo_genesis::CeloRollupConfig;
 use kona_proof::{l1::OracleL1ChainProvider, l2::OracleL2ChainProvider};
 use op_succinct_client_utils::{
     boot::BootInfoStruct,
@@ -40,11 +41,12 @@ where
     let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
     let boot_info = match input {
         Some((cursor, l1_provider, l2_provider)) => {
-            let rollup_config = Arc::new(boot_info.rollup_config.clone());
-
+            // Wrap RollupConfig with CeloRollupConfig
+            let celo_rollup_config =
+                CeloRollupConfig { op_rollup_config: boot_info.rollup_config.clone() };
             let pipeline = executor
                 .create_pipeline(
-                    rollup_config,
+                    Arc::new(celo_rollup_config),
                     cursor.clone(),
                     oracle,
                     beacon,

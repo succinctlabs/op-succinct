@@ -16,6 +16,9 @@ kona-genesis.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
 
+# celo-kona
+celo-genesis.workspace = true
+
 # hana
 hana-celestia.workspace = true
 hana-oracle.workspace = true

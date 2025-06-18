@@ -3,6 +3,7 @@ use alloy_primitives::Sealed;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use celo_driver::CeloDriver;
+use celo_genesis::CeloRollupConfig;
 use celo_proof::executor::CeloExecutor;
 use kona_derive::traits::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
@@ -10,7 +11,6 @@ use kona_derive::traits::{
 };
 use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
-use kona_genesis::RollupConfig;
 use kona_preimage::CommsClient;
 use kona_proof::{
     l1::{OracleL1ChainProvider, OraclePipeline},
@@ -97,7 +97,7 @@ pub trait WitnessExecutor {
     // Constructs the derivation pipeline.
     async fn create_pipeline(
         &self,
-        rollup_config: Arc<RollupConfig>,
+        rollup_config: Arc<CeloRollupConfig>,
         cursor: Arc<RwLock<PipelineCursor>>,
         oracle: Arc<Self::O>,
         beacon: Self::B,
@@ -121,10 +121,11 @@ pub trait WitnessExecutor {
     {
         let boot_clone = boot.clone();
 
-        let rollup_config = Arc::new(boot.rollup_config);
-
+        // Wrap RollupConfig with CeloRollupConfig
+        let celo_rollup_config = CeloRollupConfig { op_rollup_config: boot.rollup_config.clone() };
+        let celo_rollup_config = Arc::new(celo_rollup_config);
         let executor = CeloExecutor::new(
-            rollup_config.as_ref(),
+            celo_rollup_config.as_ref(),
             l2_provider.clone(),
             l2_provider,
             CeloEvmFactory::default(),
@@ -139,7 +140,7 @@ pub trait WitnessExecutor {
         println!("cycle-tracker-report-start: block-execution-and-derivation");
         let (safe_head, output_root) = advance_to_target(
             &mut driver,
-            rollup_config.as_ref(),
+            celo_rollup_config.as_ref(),
             Some(boot.claimed_l2_block_number),
         )
         .await?;
@@ -169,7 +170,7 @@ pub trait WitnessExecutor {
         #[cfg(target_os = "zkvm")]
         {
             std::mem::forget(driver);
-            std::mem::forget(rollup_config);
+            std::mem::forget(celo_rollup_config);
         }
 
         Ok(boot_clone)

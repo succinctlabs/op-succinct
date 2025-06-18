@@ -87,7 +87,7 @@ async fn find_minimum_blobstream_block(
     let filter_block_range = DEFAULT_FILTER_BLOCK_RANGE;
 
     // Get the Blobstream contract address for this chain
-    let chain_id = fetcher.rollup_config.as_ref().unwrap().l1_chain_id;
+    let chain_id = fetcher.rollup_config.as_ref().unwrap().op_rollup_config.l1_chain_id;
     let blobstream_addr = blobstream_address(chain_id)
         .ok_or_else(|| anyhow!("No Blobstream address found for chain ID {}", chain_id))?;
 

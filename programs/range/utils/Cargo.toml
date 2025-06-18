@@ -15,6 +15,9 @@ rkyv.workspace = true
 # kona
 kona-proof.workspace = true
 
+# celo-kona
+celo-genesis.workspace = true
+
 # sp1
 sp1-zkvm.workspace = true
 

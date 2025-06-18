@@ -16,10 +16,10 @@ use alloy_sol_types::SolValue;
 use anyhow::{bail, Result};
 use celo_alloy_consensus::CeloBlock;
 use celo_alloy_network::Celo;
+use celo_genesis::CeloRollupConfig;
 use celo_host::single::CeloSingleChainHost;
 use celo_protocol::CeloL2BlockInfo;
 use futures::{stream, StreamExt};
-use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
 use kona_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network};
@@ -38,7 +38,7 @@ pub struct OPSuccinctDataFetcher {
     pub rpc_config: RPCConfig,
     pub l1_provider: Arc<RootProvider>,
     pub l2_provider: Arc<RootProvider<Celo>>,
-    pub rollup_config: Option<RollupConfig>,
+    pub rollup_config: Option<CeloRollupConfig>,
     pub rollup_config_path: Option<PathBuf>,
 }
 
@@ -133,7 +133,7 @@ impl OPSuccinctDataFetcher {
 
         // Add warning if the chain is pre-Holocene, as derivation is significantly slower.
         let unix_timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        if !rollup_config.is_holocene_active(unix_timestamp) {
+        if !rollup_config.op_rollup_config.is_holocene_active(unix_timestamp) {
             tracing::warn!("WARNING: Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
         }
 
@@ -326,8 +326,8 @@ impl OPSuccinctDataFetcher {
     /// Fetch and save the rollup config to a temporary file.
     async fn fetch_and_save_rollup_config(
         rpc_config: &RPCConfig,
-    ) -> Result<(RollupConfig, PathBuf)> {
-        let rollup_config: RollupConfig =
+    ) -> Result<(CeloRollupConfig, PathBuf)> {
+        let rollup_config: CeloRollupConfig =
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
         // Create configs directory if it doesn't exist
@@ -336,10 +336,10 @@ impl OPSuccinctDataFetcher {
 
         // Save rollup config to a file named by chain ID
         let rollup_config_path =
-            rollup_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
+            rollup_config_dir.join(format!("{}.json", rollup_config.op_rollup_config.l2_chain_id));
 
         // Write the rollup config to the file
-        let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
+        let rollup_config_str = serde_json::to_string_pretty(&rollup_config.op_rollup_config)?;
         fs::write(&rollup_config_path, rollup_config_str)?;
 
         // Return both the rollup config and the path to the temporary file
@@ -585,7 +585,7 @@ impl OPSuccinctDataFetcher {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
-        let genesis = self.rollup_config.as_ref().unwrap().genesis;
+        let genesis = self.rollup_config.as_ref().unwrap().op_rollup_config.genesis;
         let block = self.get_l2_block_by_number(block_number).await?;
         Ok(CeloL2BlockInfo::from_block_and_genesis(&block, &genesis)?)
     }

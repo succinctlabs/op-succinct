@@ -39,6 +39,7 @@ kona-genesis.workspace = true
 celo-proof.workspace = true
 celo-driver.workspace = true
 celo-protocol.workspace = true
+celo-genesis.workspace = true
 
 # general
 anyhow.workspace = true

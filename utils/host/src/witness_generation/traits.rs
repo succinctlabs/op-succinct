@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use celo_genesis::CeloRollupConfig;
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
@@ -55,11 +56,13 @@ pub trait WitnessGenerator {
 
         let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
         if let Some((cursor, l1_provider, l2_provider)) = input {
-            let rollup_config = Arc::new(boot_info.rollup_config.clone());
+            // Wrap RollupConfig with CeloRollupConfig
+            let celo_rollup_config =
+                CeloRollupConfig { op_rollup_config: boot_info.rollup_config.clone() };
             let pipeline = self
                 .get_executor()
                 .create_pipeline(
-                    rollup_config,
+                    Arc::new(celo_rollup_config),
                     cursor.clone(),
                     oracle.clone(),
                     beacon,
