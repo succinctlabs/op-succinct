@@ -8,7 +8,7 @@ import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 import {console} from "forge-std/console.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
-    // Example proof data for a mock proof for Phala Testnet. Tx: 
+    // Example proof data for a mock proof for Phala Testnet. Tx:
     uint256 checkpointedL1BlockNum = 8572201;
     bytes32 claimedOutputRoot = 0x98911928522b1ba9a40d1444ad084d841de21fac9c22815f57a7f286657e8f96;
     uint256 claimedL2BlockNum = 2212610;
@@ -32,7 +32,9 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         bytes32 defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
         checkpointAndRoll(l2oo, checkpointedL1BlockNum);
         vm.prank(OWNER, OWNER);
-        l2oo.proposeL2Output(defaultConfigName, claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
+        l2oo.proposeL2Output(
+            defaultConfigName, claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress
+        );
     }
 }
 

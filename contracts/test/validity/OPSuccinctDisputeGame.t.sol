@@ -80,7 +80,13 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         bytes memory proof = bytes("");
         game = OPSuccinctDisputeGame(
             address(
-                factory.create(gameType, rootClaim, abi.encodePacked(l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.DEFAULT_CONFIG_NAME(), proof))
+                factory.create(
+                    gameType,
+                    rootClaim,
+                    abi.encodePacked(
+                        l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.DEFAULT_CONFIG_NAME(), proof
+                    )
+                )
             )
         );
 
