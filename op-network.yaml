@@ -36,5 +36,4 @@ ethereum_package:
           "storage": {},
           "nonce": "1"
         }
-      }
-    '
+      }'
