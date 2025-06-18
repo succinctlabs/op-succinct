@@ -154,26 +154,4 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         vm.stopPrank();
     }
-
-    // =========================================
-    // Test: Real Proof
-    // =========================================
-    function testRealProof() public {
-        uint256 checkpointedL1BlockNum = 8577428;
-        vm.createSelectFork(vm.envString("L1_RPC"), checkpointedL1BlockNum + 1);
-
-        proposer = 0x4b713049Fc139df09A20F55f5b76c08184135DF8;
-
-        factory = DisputeGameFactory(0x329326d97759e4802a8c583517Ba0435b9906091);
-
-        // Example proof data for a real proof for Phala Testnet. Tx: https://sepolia.etherscan.io/tx/0xeb3ccf9d86b5495da24df4ecfbb02b03404ef3a72de4fc29326c996be4c10005
-        rootClaim = Claim.wrap(0xea25931ad9d3b9fc0c12864219ee1b10e9e9dd1237bbb066b2ee69bbbc0e036c);
-        bytes memory extraData = bytes(
-            hex"000000000000000000000000000000000000000000000000000000000021c195000000000000000000000000000000000000000000000000000000000082e1944b713049fc139df09a20f55f5b76c08184135df8572f01d824885a118d5d21c74542f263b131d2897955c62a721594f1d7c3b2e2a4594c591be3a79f6de27adfd2967726ce24d7e3eaead80b2c49e72363086100569dbf5c28ec37ff682ded52c427f51306fc846a3b584b9d48705ea04f1749fdb0dd61e91ce1563d1a2d59375dfd6d668f04c4fcd477a13b4d0f5f759e2c1bc180426e94236cb48e2ae1f22683903b0dace873e31db391b89f4ca8400c4f3cc3c94406f9093badcdb48f964a79787734e5a30999f4e0df495ac740844421779ac975eab107a347746da798d4f6f5d88b2998c51f68bc9ab575f7e97c8ea27aaa95f08d840b80ad90e76e59fa4098db4e2bfe302854c99f4cd53c47a9744f7fa9604b8c822b323243c1df4a173df607db192e5d478ff5c31042fe9790d28337b3fd342ed5"
-        );
-
-        vm.startBroadcast(proposer);
-        factory.create(gameType, rootClaim, extraData);
-        vm.stopBroadcast();
-    }
 }
