@@ -280,7 +280,7 @@ deploy-dispute-game-factory env_file=".env":
     forge install
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ -n "$ETHERSCAN_API_KEY" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     

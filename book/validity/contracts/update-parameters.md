@@ -78,7 +78,7 @@ If the owner of the `OPSuccinctL2OutputOracle` is not an EOA (e.g. multisig, con
 |-----------|-------------|
 | `EXECUTE_UPGRADE_CALL` | Set to `false` to output the raw calldata for the parameter update calls. |
 
-Then, run the following command in ``.
+Then, run the following command from the project root.
 
 ```bash
 $ just add-config new_config

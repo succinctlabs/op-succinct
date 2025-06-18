@@ -8,6 +8,7 @@ import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {console} from "forge-std/console.sol";
 
 // This script is used to manage OpSuccinctConfig configurations in the OPSuccinctL2OutputOracle contract.
+// If executeUpgradeCall is false, the script will only log the calldata for the parameter update calls.
 // Usage:
 //   Add config: forge script OpSuccinctParameterUpdater --sig "addConfig(string)" <config_name>
 //   Remove config: forge script OpSuccinctParameterUpdater --sig "removeConfig(string)" <config_name>

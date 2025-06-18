@@ -8,15 +8,15 @@ import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 import {console} from "forge-std/console.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
-    // Example proof data for a mock proof for Phala Testnet. Tx: https://sepolia.etherscan.io/tx/0x640441cfcba322574a0b153fa3a520bc7bbf1591fdee32f7984dfcf4e18fde4f
-    uint256 checkpointedL1BlockNum = 7931837;
-    bytes32 claimedOutputRoot = 0xfb2b5dde22744d80ef752a49227a8a4927f998999a66338a22b06f093e9ccd3c;
-    uint256 claimedL2BlockNum = 1432001;
+    // Example proof data for a mock proof for Phala Testnet. Tx: 
+    uint256 checkpointedL1BlockNum = 8572201;
+    bytes32 claimedOutputRoot = 0x98911928522b1ba9a40d1444ad084d841de21fac9c22815f57a7f286657e8f96;
+    uint256 claimedL2BlockNum = 2212610;
     bytes proof = hex"";
-    address proverAddress = 0x788c45CafaB3ea427b9079889BE43D7d3cd7500C;
+    address proverAddress = 0x4b713049Fc139df09A20F55f5b76c08184135DF8;
 
     // The owner of the L2OO.
-    address OWNER = 0x788c45CafaB3ea427b9079889BE43D7d3cd7500C;
+    address OWNER = 0x4b713049Fc139df09A20F55f5b76c08184135DF8;
 
     OPSuccinctL2OutputOracle l2oo;
 
@@ -26,14 +26,13 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     }
 
     // Test the L2OO contract.
-    //
-    // TODO: FIX THIS TEST BY DEPLOYING ANOTHER ORACLE
     function testOPSuccinctL2OOFork() public {
-        // l2oo = OPSuccinctL2OutputOracle(0x5f0c7178CF4d7520f347d1334e5fc219da9b8Da4);
-        // bytes32 defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
-        // checkpointAndRoll(l2oo, checkpointedL1BlockNum);
-        // vm.prank(OWNER);
-        // l2oo.proposeL2Output(defaultConfigName, claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
+        // https://sepolia.etherscan.io/address/0xDFd8bd9eaECb3a25d221a0a08B1F86D4c79E819A
+        l2oo = OPSuccinctL2OutputOracle(0xDFd8bd9eaECb3a25d221a0a08B1F86D4c79E819A);
+        bytes32 defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
+        checkpointAndRoll(l2oo, checkpointedL1BlockNum);
+        vm.prank(OWNER, OWNER);
+        l2oo.proposeL2Output(defaultConfigName, claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress);
     }
 }
 

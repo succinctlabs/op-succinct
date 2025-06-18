@@ -107,7 +107,7 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     function proof() public pure returns (bytes memory proof_) {
         uint256 len;
         assembly {
-            // 0xC8 is the starting point of the proof in the calldata (0xA8 + 0x20 for configName).
+            // 0xC8 is the starting point of the proof in the calldata.
             // calldataload(sub(calldatasize(), 2)) loads the last 2 bytes of the calldata, which gives the length of the immutable args.
             // shr(240, calldataload(sub(calldatasize(), 2))) masks the last 30 bytes loaded in the previous step, so only the length of the immutable args is left.
             // sub(sub(...)) subtracts the length of the immutable args (2 bytes) and the starting point of the proof (0xC8).

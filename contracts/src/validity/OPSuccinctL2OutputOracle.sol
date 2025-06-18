@@ -157,9 +157,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The L1 block hash is not checkpointed.
     error L1BlockHashNotCheckpointed();
 
-    /// @notice The specified OP Succinct configuration does not exist.
-    error OpSuccinctConfigNotFound();
-
     /// @notice Semantic version.
     /// @custom:semver v2.0.0
     string public constant version = "v2.0.0";
