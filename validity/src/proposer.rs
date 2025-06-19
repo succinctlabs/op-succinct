@@ -770,10 +770,10 @@ where
         let contract_config =
             self.contract_config.l2oo_contract.opSuccinctConfigs(config_name).call().await?;
 
-        // Validate the requester config matches the contract.
-        let contract_agg_vkey_hash = contract_config._0;
-        let contract_range_vkey_commitment = contract_config._1;
-        let contract_rollup_config_hash = contract_config._2;
+        // Extract the OpSuccinctConfig fields with meaningful names.
+        let contract_agg_vkey_hash = contract_config.aggregation_vkey();
+        let contract_range_vkey_commitment = contract_config.range_vkey_commitment();
+        let contract_rollup_config_hash = contract_config.rollup_config_hash();
 
         let rollup_config_hash_match =
             contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;

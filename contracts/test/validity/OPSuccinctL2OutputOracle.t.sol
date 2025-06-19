@@ -29,7 +29,7 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
     function testOPSuccinctL2OOFork() public {
         // https://sepolia.etherscan.io/address/0xDFd8bd9eaECb3a25d221a0a08B1F86D4c79E819A
         l2oo = OPSuccinctL2OutputOracle(0xDFd8bd9eaECb3a25d221a0a08B1F86D4c79E819A);
-        bytes32 defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
+        bytes32 defaultConfigName = l2oo.GENESIS_CONFIG_NAME();
         checkpointAndRoll(l2oo, checkpointedL1BlockNum);
         vm.prank(OWNER, OWNER);
         l2oo.proposeL2Output(
@@ -79,7 +79,7 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         );
 
         l2oo = deployL2OutputOracle(initParams);
-        defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
+        defaultConfigName = l2oo.GENESIS_CONFIG_NAME();
         // Set the timestamp to after the starting timestamp
         vm.warp(block.timestamp + 1000);
     }
@@ -219,7 +219,7 @@ contract OPSuccinctConfigManagementTest is Test, Utils {
             createStandardInitParams(verifier, address(0x1111), address(0x2222), owner);
 
         l2oo = deployL2OutputOracle(initParams);
-        defaultConfigName = l2oo.DEFAULT_CONFIG_NAME();
+        defaultConfigName = l2oo.GENESIS_CONFIG_NAME();
     }
 
     function testUpdateOpSuccinctConfig_NewConfig() public {

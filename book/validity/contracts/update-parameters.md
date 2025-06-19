@@ -8,7 +8,7 @@ First, ensure that you have the correct environment variables set in your `.env`
 
 ## 2. Updating configurations
 
-Upon the first deployment, there is a default config named "". Proposers will interact with this config by default. You can add or remove configurations using the following commands:
+Upon the first deployment, there is a genesis config named `opsuccinct_genesis`. Proposers will interact with this config by default. You can add or remove configurations using the following commands:
 
 ### Adding a Configuration
 
@@ -93,8 +93,8 @@ Warning: No transactions to broadcast.
 
 ## Rolling upgrade guide
 
-1. Change your `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` locally.
-2. From the project root, run the following command to add a new config. `just add_config my_upgrade`.
+1. Perform some update that changes your `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` locally. For more information on producing the elfs and vkeys, see [this page](../../advanced/verify-binaries).
+2. From the project root, run the following command to add a new config. `just add_config my_upgrade`. This will automatically fetch the `aggregationVkey` and `rangeVkeyCommitment` from the `elf` directory, and the `rollupConfigHash` from the `L2_RPC` set in the `.env`.
 3. Spin up a new proposer that interacts with this config, by changing [`OP_SUCCINCT_CONFIG_NAME`](../proposer.md#optional-environment-variables).
 4. Shut down your old proposer.
-5. For security, delete your old config with `just remove-config old_config`.
+5. For security, delete your old `OpSuccinctConfig` with `just remove-config old_config`.

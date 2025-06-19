@@ -17,12 +17,18 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Configuration parameters for OP Succinct verification.
     struct OpSuccinctConfig {
+        /// @notice The verification key of the aggregation SP1 program.
         bytes32 aggregationVkey;
+        /// @notice The 32 byte commitment to the BabyBear representation of the verification key of
+        /// the range SP1 program. Specifically, this verification key is the output of converting
+        /// the [u32; 8] range BabyBear verification key to a [u8; 32] array.
         bytes32 rangeVkeyCommitment;
+        /// @notice The hash of the chain's rollup config, which ensures the proofs submitted are for
+        /// the correct chain. This is used to prevent replay attacks.
         bytes32 rollupConfigHash;
     }
-    /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
 
+    /// @notice Parameters to initialize the OPSuccinctL2OutputOracle contract.
     struct InitParams {
         address challenger;
         address proposer;
@@ -74,11 +80,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Mapping of configuration names to OpSuccinctConfig structs.
     mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
 
-    /// @notice Number of OpSuccinctConfigs
-    uint32 public numOpSuccinctConfigs;
-
     /// @notice The default configuration name.
-    bytes32 public constant DEFAULT_CONFIG_NAME = keccak256("");
+    bytes32 public constant GENESIS_CONFIG_NAME = keccak256("opsuccinct_genesis");
 
     /// @notice The deployed SP1Verifier contract to verify proofs.
     address public verifier;
@@ -230,13 +233,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         fallbackTimeout = _initParams.fallbackTimeout;
 
         // Initialize default configuration
-        opSuccinctConfigs[DEFAULT_CONFIG_NAME] = OpSuccinctConfig({
+        opSuccinctConfigs[GENESIS_CONFIG_NAME] = OpSuccinctConfig({
             aggregationVkey: _initParams.aggregationVkey,
             rangeVkeyCommitment: _initParams.rangeVkeyCommitment,
             rollupConfigHash: _initParams.rollupConfigHash
         });
-
-        numOpSuccinctConfigs = 1;
 
         verifier = _initParams.verifier;
 
@@ -323,8 +324,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
 
         OpSuccinctConfig memory config = opSuccinctConfigs[_configName];
-
-        // Todo: can check if all params are zero here maybe?
+        require(isValidOpSuccinctConfig(config), "L2OutputOracle: invalid OP Succinct configuration");
 
         bytes32 l1BlockHash = historicBlockHashes[_l1BlockNumber];
         if (l1BlockHash == bytes32(0)) {
@@ -514,6 +514,14 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         return startingTimestamp + ((_l2BlockNumber - startingBlockNumber) * l2BlockTime);
     }
 
+    /// @notice Validates that an OpSuccinctConfig has all non-zero parameters.
+    /// @param _config The OpSuccinctConfig to validate.
+    /// @return True if all parameters are non-zero, false otherwise.
+    function isValidOpSuccinctConfig(OpSuccinctConfig memory _config) public pure returns (bool) {
+        return _config.aggregationVkey != bytes32(0) && _config.rangeVkeyCommitment != bytes32(0)
+            && _config.rollupConfigHash != bytes32(0);
+    }
+
     /// @notice Update the submission interval.
     /// @param _submissionInterval The new submission interval.
     function updateSubmissionInterval(uint256 _submissionInterval) external onlyOwner {
@@ -540,13 +548,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: config already exists"
         );
 
-        opSuccinctConfigs[_configName] = OpSuccinctConfig({
+        OpSuccinctConfig memory newConfig = OpSuccinctConfig({
             aggregationVkey: _aggregationVkey,
             rangeVkeyCommitment: _rangeVkeyCommitment,
             rollupConfigHash: _rollupConfigHash
         });
 
-        numOpSuccinctConfigs += 1;
+        require(isValidOpSuccinctConfig(newConfig), "L2OutputOracle: invalid OP Succinct configuration parameters");
+
+        opSuccinctConfigs[_configName] = newConfig;
 
         emit OpSuccinctConfigUpdated(_configName, _aggregationVkey, _rangeVkeyCommitment, _rollupConfigHash);
     }
@@ -554,9 +564,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Deletes an OP Succinct configuration.
     /// @param _configName The name of the configuration to delete.
     function deleteOpSuccinctConfig(bytes32 _configName) external onlyOwner {
-        require(numOpSuccinctConfigs != 1, "L2OutputOracle: need at least one config");
-
-        numOpSuccinctConfigs -= 1;
         delete opSuccinctConfigs[_configName];
         emit OpSuccinctConfigDeleted(_configName);
     }

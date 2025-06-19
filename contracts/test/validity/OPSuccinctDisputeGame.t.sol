@@ -84,7 +84,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
                     gameType,
                     rootClaim,
                     abi.encodePacked(
-                        l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.DEFAULT_CONFIG_NAME(), proof
+                        l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.GENESIS_CONFIG_NAME(), proof
                     )
                 )
             )
@@ -113,7 +113,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         assertEq(game.l1BlockNumber(), l1BlockNumber);
         assertEq(game.proverAddress(), proposer);
-        assertEq(game.configName(), l2OutputOracle.DEFAULT_CONFIG_NAME());
+        assertEq(game.configName(), l2OutputOracle.GENESIS_CONFIG_NAME());
         assertEq(keccak256(game.proof()), keccak256(bytes("")));
         assertEq(uint8(game.status()), uint8(GameStatus.DEFENDER_WINS));
     }
@@ -150,7 +150,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         warpRollAndCheckpoint(l2OutputOracle, 2000, newL1BlockNumber);
 
         bytes memory proof = bytes("");
-        bytes32 configName = l2OutputOracle.DEFAULT_CONFIG_NAME();
+        bytes32 configName = l2OutputOracle.GENESIS_CONFIG_NAME();
         vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
         factory.create(
             gameType,
