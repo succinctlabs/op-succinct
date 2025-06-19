@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "bindings",
     "utils/client",
     "utils/host",
     "utils/build",
@@ -13,16 +14,17 @@ members = [
     "programs/aggregation",
     "scripts/*",
     "validity",
-    "fault-proof"
+    "fault-proof",
 ]
 resolver = "2"
 
 [workspace.package]
 license = "MIT"
 edition = "2021"
-authors = ["ratankaliani", "zachobront", "fakedev9999"]
+authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
+version = "2.3.0"
 
 [workspace.dependencies]
 # general
@@ -122,6 +124,13 @@ alloy-rpc-types-engine = { version = "0.15.8", default-features = false }
 alloy-rpc-types-beacon = { version = "0.15.8", default-features = false }
 alloy-rpc-types-eth = { version = "0.15.8", default-features = false }
 alloy-signer = { version = "0.15.8", default-features = false }
+alloy = { version = "0.15.8", features = [
+    "reqwest",
+    "network",
+    "providers",
+    "sol-types",
+    "rpc-types",
+] }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
 alloy-primitives = { version = "1.0.0", default-features = false, features = [
@@ -140,7 +149,10 @@ op-alloy-network = { version = "=0.15.4", default-features = false }
 alloy-evm = { version = "0.6.0", default-features = false, features = ["op"] }
 alloy-op-evm = { version = "0.6.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-revm = { version = "22.0.0", default-features = false, features = ["kzg-rs", "bn"] }
+revm = { version = "22.0.0", default-features = false, features = [
+    "kzg-rs",
+    "bn",
+] }
 op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
@@ -166,4 +178,3 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
-

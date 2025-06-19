@@ -1,0 +1,16 @@
+[package]
+name = "bindings"
+description = "Generates and exports contract bindings."
+readme = "README.md"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+alloy-sol-types = { workspace = true }
+alloy = { workspace = true, features = ["contract"] }
+
+[build-dependencies]
+anyhow = { workspace = true }
+cargo_metadata = { workspace = true }

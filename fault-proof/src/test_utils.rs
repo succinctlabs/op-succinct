@@ -37,8 +37,10 @@ impl Drop for CleanupGuard {
 }
 
 /// Test account constants (standard Anvil accounts).
-pub const ANVIL_PRIVATE_KEY_0: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-pub const ANVIL_PRIVATE_KEY_1: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
+pub const ANVIL_PRIVATE_KEY_0: &str =
+    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+pub const ANVIL_PRIVATE_KEY_1: &str =
+    "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 
 /// Get the endpoint of the Anvil instance.
 pub fn get_anvil_endpoint() -> String {

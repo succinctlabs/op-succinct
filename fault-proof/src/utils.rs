@@ -11,10 +11,11 @@ pub fn setup_logging() {
         .with_ansi(true);
 
     // Initialize logging using RUST_LOG environment variable, defaulting to INFO level
-    tracing_subscriber::fmt()
+    // Try to initialize, but ignore error if already initialized (common in tests)
+    let _ = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::try_from_env("RUST_LOG").unwrap_or_else(|_| {
             EnvFilter::from_default_env().add_directive(tracing::Level::INFO.into())
         }))
         .event_format(format)
-        .init();
+        .try_init();
 }
