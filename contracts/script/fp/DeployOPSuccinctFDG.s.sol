@@ -125,10 +125,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
         return registry;
     }
 
-    function deployOptimismPortal2(FDGConfig memory config, GameType gameType)
-        internal
-        returns (address payable)
-    {
+    function deployOptimismPortal2(FDGConfig memory config, GameType gameType) internal returns (address payable) {
         address payable portalAddress;
         if (config.optimismPortal2Address != address(0)) {
             portalAddress = payable(config.optimismPortal2Address);
