@@ -51,8 +51,8 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
         GameType gameType = GameType.wrap(config.gameType);
 
-        // Deploy or get OptimismPortal2
-        address payable portalAddress = deployOptimismPortal2(config, gameType);
+        // Deploy MockOptimismPortal2 or get OptimismPortal2
+        address payable portalAddress = deployOrGetOptimismPortal2(config, gameType);
 
         OutputRoot memory startingAnchorRoot =
             OutputRoot({root: Hash.wrap(config.startingRoot), l2BlockNumber: config.startingL2BlockNumber});
@@ -125,7 +125,10 @@ contract DeployOPSuccinctFDG is Script, Utils {
         return registry;
     }
 
-    function deployOptimismPortal2(FDGConfig memory config, GameType gameType) internal returns (address payable) {
+    function deployOrGetOptimismPortal2(FDGConfig memory config, GameType gameType)
+        internal
+        returns (address payable)
+    {
         address payable portalAddress;
         if (config.optimismPortal2Address != address(0)) {
             portalAddress = payable(config.optimismPortal2Address);

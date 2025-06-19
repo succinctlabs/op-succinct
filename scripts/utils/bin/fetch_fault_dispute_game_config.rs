@@ -1,4 +1,4 @@
-use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_eips::BlockId;
 use anyhow::Result;
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use op_succinct_scripts::config_common::{
@@ -96,19 +96,13 @@ async fn update_fdg_config() -> Result<()> {
             let latest_finalized_header =
                 data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap();
 
-            // Get a quick estimate for block time by calculating the timestamp difference between
-            // the latest finalized block, and one block before the latest finalized block.
-            let latest_finalized_header_before = data_fetcher
-                .get_l2_header(BlockId::Number(BlockNumberOrTag::Number(
-                    latest_finalized_header.number - 1,
-                )))
-                .await
-                .unwrap();
+            let block_time = &data_fetcher
+                .rollup_config
+                .as_ref()
+                .ok_or(anyhow::anyhow!("Rollup config not found"))?
+                .block_time;
 
-            let block_interval =
-                latest_finalized_header.timestamp - latest_finalized_header_before.timestamp;
-
-            let num_blocks_to_subtract = dispute_game_finality_delay_seconds / block_interval;
+            let num_blocks_to_subtract = dispute_game_finality_delay_seconds / block_time;
 
             latest_finalized_header.number.saturating_sub(num_blocks_to_subtract)
         }

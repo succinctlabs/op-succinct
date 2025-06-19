@@ -33,33 +33,6 @@ Create a `.env` file in the contracts directory with the following variables:
 | `MAX_CHALLENGE_DURATION` | Maximum duration for challenges in seconds. | `604800` for 7 days |
 | `MAX_PROVE_DURATION` | Maximum duration for proving in seconds. | `86400` for 1 day |
 
-#### Getting the Starting Root
-
-You can get the starting root for the `STARTING_L2_BLOCK_NUMBER` from the L2 node RPC using this command:
-
-```bash
-# Convert block number to hex and remove '0x' prefix
-BLOCK_HEX=$(cast --to-hex <STARTING_L2_BLOCK_NUMBER> | sed 's/0x//')
-
-# Construct the JSON RPC request
-JSON_DATA='{
-    "jsonrpc": "2.0",
-    "method": "optimism_outputAtBlock",
-    "params": ["0x'$BLOCK_HEX'"],
-    "id": 1
-}'
-
-# Make the RPC call and extract the output root
-starting_root=$(curl -s -X POST \
-    -H "Content-Type: application/json" \
-    <L2_NODE_RPC> \
-    --data "$JSON_DATA" \
-    | jq -r '.result.outputRoot')
-
-# Display the result
-printf "\nStarting root: %s\n" "$starting_root"
-```
-
 ### SP1 Verifier Configuration
 For testing, set:
 ```bash
@@ -74,6 +47,8 @@ For production, remove the `OP_SUCCINCT_MOCK` environment variable and set all o
 | `ROLLUP_CONFIG_HASH` | Hash of the rollup configuration | `0x...` |
 | `AGGREGATION_VKEY` | Verification key for aggregation | `0x...` |
 | `RANGE_VKEY_COMMITMENT` | Commitment to range verification key | `0x...` |
+
+These will be
 
 #### Getting the Rollup Config Hash, Aggregation Verification Key, and Range Verification Key Commitment
 
