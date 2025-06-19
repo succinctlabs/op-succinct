@@ -9,7 +9,7 @@ repository = { workspace = true }
 
 [dependencies]
 alloy-sol-types = { workspace = true }
-alloy = { workspace = true, features = ["contract"] }
+alloy = { workspace = true, features = ["full"] }
 
 [build-dependencies]
 anyhow = { workspace = true }

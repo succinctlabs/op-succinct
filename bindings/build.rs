@@ -40,11 +40,7 @@ fn main() -> anyhow::Result<()> {
         "--overwrite",
     ]);
 
-    forge_command.arg("--alloy-version");
-    forge_command.arg("0.15.8");
-
-    forge_command.arg("--skip-cargo-toml");
-    forge_command.arg("--force");
+    forge_command.arg("--skip-extra-derives");
     
     
     // // Add --offline flag if solc is available.
