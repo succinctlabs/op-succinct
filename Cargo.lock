@@ -364,6 +364,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-genesis"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f723856b1c4ad5473f065650ab9be557c96fbc77e89180fbdac003e904a8d6"
+dependencies = [
+ "alloy-eips 0.15.11",
+ "alloy-primitives",
+ "alloy-serde 0.15.11",
+ "alloy-trie",
+ "serde",
+]
+
+[[package]]
 name = "alloy-hardforks"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -492,6 +505,27 @@ dependencies = [
  "alloy-primitives",
  "alloy-serde 1.0.9",
  "serde",
+]
+
+[[package]]
+name = "alloy-node-bindings"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9c4bde7223db742a6cb2ab61d99bc37e741d1447b60dfe5fe87405aae96741f"
+dependencies = [
+ "alloy-genesis",
+ "alloy-hardforks",
+ "alloy-network 0.15.11",
+ "alloy-primitives",
+ "alloy-signer 0.15.11",
+ "alloy-signer-local 0.15.11",
+ "k256",
+ "rand 0.8.5",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.12",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -7257,6 +7291,7 @@ version = "0.1.0"
 dependencies = [
  "alloy-contract",
  "alloy-eips 0.15.11",
+ "alloy-node-bindings",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types-eth 0.15.11",
@@ -7270,6 +7305,7 @@ dependencies = [
  "dotenv",
  "futures",
  "hex",
+ "lazy_static",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
