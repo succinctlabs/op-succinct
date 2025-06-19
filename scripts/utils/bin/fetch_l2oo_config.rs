@@ -64,7 +64,7 @@ async fn update_l2oo_config() -> Result<()> {
         .unwrap_or(TWO_WEEKS_IN_SECONDS);
 
     // Get starting block number - use latest finalized if not set.
-    let starting_l2_block_number = match env::var("STARTING_BLOCK_NUMBER") {
+    let starting_block_number = match env::var("STARTING_BLOCK_NUMBER") {
         Ok(n) => n.parse().unwrap(),
         Err(_) => data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number,
     };
@@ -89,7 +89,7 @@ async fn update_l2oo_config() -> Result<()> {
         owner,
         proposer,
         rollup_config_hash: shared_config.rollup_config_hash,
-        starting_block_number: starting_l2_block_number,
+        starting_block_number,
         starting_output_root,
         starting_timestamp,
         submission_interval,

@@ -150,11 +150,6 @@ contract DeployOPSuccinctFDG is Script, Utils {
             SP1MockVerifier sp1Verifier = new SP1MockVerifier();
             sp1Config.verifierAddress = address(sp1Verifier);
             console.log("Using SP1 Mock Verifier:", address(sp1Verifier));
-
-            // Use zero values for mock verifier if not already set.
-            if (sp1Config.rollupConfigHash == bytes32(0)) sp1Config.rollupConfigHash = bytes32(0);
-            if (sp1Config.aggregationVkey == bytes32(0)) sp1Config.aggregationVkey = bytes32(0);
-            if (sp1Config.rangeVkeyCommitment == bytes32(0)) sp1Config.rangeVkeyCommitment = bytes32(0);
         } else {
             // Use provided verifier address for production.
             sp1Config.verifierAddress = config.verifierAddress;
