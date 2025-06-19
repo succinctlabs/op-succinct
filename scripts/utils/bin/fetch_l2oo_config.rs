@@ -1,10 +1,12 @@
+use alloy_eips::BlockId;
 use anyhow::Result;
-use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
+use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use op_succinct_scripts::config_common::{
     find_project_root, get_address, get_shared_config_data, get_workspace_root, write_config_file,
     TWO_WEEKS_IN_SECONDS,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::env;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,6 +63,24 @@ async fn update_l2oo_config() -> Result<()> {
         .map(|p| p.parse().unwrap())
         .unwrap_or(TWO_WEEKS_IN_SECONDS);
 
+    // Get starting block number - use latest finalized if not set.
+    let starting_l2_block_number = match env::var("STARTING_BLOCK_NUMBER") {
+        Ok(n) => n.parse().unwrap(),
+        Err(_) => data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number,
+    };
+
+    let starting_block_number_hex = format!("0x{starting_block_number:x}");
+    let optimism_output_data: Value = data_fetcher
+        .fetch_rpc_data_with_mode(
+            RPCMode::L2Node,
+            "optimism_outputAtBlock",
+            vec![starting_block_number_hex.into()],
+        )
+        .await?;
+
+    let starting_output_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
+    let starting_timestamp = optimism_output_data["blockRef"]["timestamp"].as_u64().unwrap();
+
     let l2oo_config = L2OOConfig {
         challenger,
         fallback_timeout_secs,
@@ -69,9 +89,9 @@ async fn update_l2oo_config() -> Result<()> {
         owner,
         proposer,
         rollup_config_hash: shared_config.rollup_config_hash,
-        starting_block_number: shared_config.starting_l2_block_number,
-        starting_output_root: shared_config.starting_output_root,
-        starting_timestamp: shared_config.starting_timestamp,
+        starting_block_number: starting_l2_block_number,
+        starting_output_root,
+        starting_timestamp,
         submission_interval,
         verifier: shared_config.verifier_address,
         aggregation_vkey: shared_config.aggregation_vkey,

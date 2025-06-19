@@ -1,44 +1,6 @@
 default:
   @just --list
 
-# Get starting root for a given L2 block number from env file
-get-starting-root env_file=".env":
-  #!/usr/bin/env bash
-  # Load environment variables
-  source {{env_file}}
-  
-  # Check if required environment variables are set
-  if [ -z "$STARTING_L2_BLOCK_NUMBER" ]; then
-      echo "STARTING_L2_BLOCK_NUMBER not set in {{env_file}}"
-      exit 1
-  fi
-  
-  if [ -z "$L2_NODE_RPC" ]; then
-      echo "L2_NODE_RPC not set in {{env_file}}"
-      exit 1
-  fi
-
-  # Convert block number to hex and remove '0x' prefix
-  BLOCK_HEX=$(cast --to-hex $STARTING_L2_BLOCK_NUMBER | sed 's/0x//')
-
-  # Construct the JSON RPC request
-  JSON_DATA='{
-      "jsonrpc": "2.0",
-      "method": "optimism_outputAtBlock",
-      "params": ["0x'$BLOCK_HEX'"],
-      "id": 1
-  }'
-
-  # Make the RPC call and extract the output root
-  starting_root=$(curl -s -X POST \
-      -H "Content-Type: application/json" \
-      $L2_NODE_RPC \
-      --data "$JSON_DATA" \
-      | jq -r '.result.outputRoot')
-
-  # Display the result
-  printf "Starting root: %s\n" "$starting_root"
-
 # Runs the op-succinct program for a single block.
 run-single l2_block_num use-cache="false" prove="false":
   #!/usr/bin/env bash

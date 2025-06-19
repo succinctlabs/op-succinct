@@ -1,12 +1,10 @@
-use alloy_eips::BlockId;
 use alloy_primitives::{hex, Address};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
+use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_proof_utils::get_range_elf_embedded;
-use serde_json::Value;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
 use std::{
     env, fs,
@@ -21,9 +19,6 @@ pub struct SharedConfigData {
     pub rollup_config_hash: String,
     pub aggregation_vkey: String,
     pub range_vkey_commitment: String,
-    pub starting_l2_block_number: u64,
-    pub starting_output_root: String,
-    pub starting_timestamp: u64,
     pub verifier_address: String,
     pub use_sp1_mock_verifier: bool,
 }
@@ -72,7 +67,7 @@ pub async fn get_shared_config_data() -> Result<SharedConfigData> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Determine if we're using mock verifier.
-    let use_sp1_mock_verifier = env::var("USE_SP1_MOCK_VERIFIER")
+    let use_sp1_mock_verifier = env::var("OP_SUCCINCT_MOCK")
         .unwrap_or("false".to_string())
         .parse::<bool>()
         .unwrap_or(false);
@@ -83,24 +78,6 @@ pub async fn get_shared_config_data() -> Result<SharedConfigData> {
         // Source: https://docs.succinct.xyz/docs/sp1/verification/contract-addresses
         "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B".to_string()
     });
-
-    // Get starting block number - use latest finalized if not set.
-    let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
-        Ok(n) => n.parse().unwrap(),
-        Err(_) => data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number,
-    };
-
-    let starting_block_number_hex = format!("0x{starting_l2_block_number:x}");
-    let optimism_output_data: Value = data_fetcher
-        .fetch_rpc_data_with_mode(
-            RPCMode::L2Node,
-            "optimism_outputAtBlock",
-            vec![starting_block_number_hex.into()],
-        )
-        .await?;
-
-    let starting_output_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
-    let starting_timestamp = optimism_output_data["blockRef"]["timestamp"].as_u64().unwrap();
 
     let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
     let rollup_config_hash = format!("0x{:x}", hash_rollup_config(rollup_config));
@@ -117,9 +94,6 @@ pub async fn get_shared_config_data() -> Result<SharedConfigData> {
         rollup_config_hash,
         aggregation_vkey,
         range_vkey_commitment,
-        starting_l2_block_number,
-        starting_output_root,
-        starting_timestamp,
         verifier_address,
         use_sp1_mock_verifier,
     })

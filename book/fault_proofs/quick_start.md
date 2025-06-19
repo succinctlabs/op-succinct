@@ -40,7 +40,7 @@ This guide provides the fastest path to try out OP Succinct fault dispute games 
     PERMISSIONLESS_MODE=true
 
     # For testing, use mock verifier
-    USE_SP1_MOCK_VERIFIER=true
+    OP_SUCCINCT_MOCK=true
     ```
 
 See [Getting the Starting Root](./deploy.md#getting-the-starting-root) for more information on how to get the starting root.

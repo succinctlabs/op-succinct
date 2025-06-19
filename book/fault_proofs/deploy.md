@@ -64,10 +64,10 @@ printf "\nStarting root: %s\n" "$starting_root"
 ### SP1 Verifier Configuration
 For testing, set:
 ```bash
-USE_SP1_MOCK_VERIFIER=true
+OP_SUCCINCT_MOCK=true
 ```
 
-For production, remove the `USE_SP1_MOCK_VERIFIER` environment variable and set all of these:
+For production, remove the `OP_SUCCINCT_MOCK` environment variable and set all of these:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -161,7 +161,7 @@ Save these addresses for future reference and configuration of other components.
 
 - The deployer address will be set as the factory owner.
 - Initial parameters are set for testing - adjust for production.
-- The mock SP1 verifier (`USE_SP1_MOCK_VERIFIER=true`) should ONLY be used for testing.
+- The mock SP1 verifier (`OP_SUCCINCT_MOCK=true`) should ONLY be used for testing.
 - For production deployments:
   - Provide a valid `VERIFIER_ADDRESS`.
   - Configure proper `ROLLUP_CONFIG_HASH`, `AGGREGATION_VKEY`, and `RANGE_VKEY_COMMITMENT`.

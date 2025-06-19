@@ -1,9 +1,12 @@
+use alloy_eips::BlockId;
 use anyhow::Result;
+use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use op_succinct_scripts::config_common::{
     find_project_root, get_shared_config_data, get_workspace_root, parse_addresses,
     write_config_file, TWO_WEEKS_IN_SECONDS,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::env;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -32,6 +35,7 @@ struct FaultDisputeGameConfig {
 }
 
 async fn update_fdg_config() -> Result<()> {
+    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let shared_config = get_shared_config_data().await?;
     let workspace_root = get_workspace_root()?;
 
@@ -85,6 +89,27 @@ async fn update_fdg_config() -> Result<()> {
         "0x0000000000000000000000000000000000000000".to_string()
     });
 
+    // Get starting block number - use `latest finalized - dispute game finality delay` if not set.
+    let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
+        Ok(n) => n.parse().unwrap(),
+        Err(_) => {
+            let latest_finalized =
+                data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number;
+            latest_finalized.saturating_sub(dispute_game_finality_delay_seconds)
+        }
+    };
+
+    let starting_block_number_hex = format!("0x{starting_l2_block_number:x}");
+    let optimism_output_data: Value = data_fetcher
+        .fetch_rpc_data_with_mode(
+            RPCMode::L2Node,
+            "optimism_outputAtBlock",
+            vec![starting_block_number_hex.into()],
+        )
+        .await?;
+
+    let starting_output_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
+
     let fdg_config = FaultDisputeGameConfig {
         aggregation_vkey: shared_config.aggregation_vkey,
         challenger_addresses,
@@ -100,8 +125,8 @@ async fn update_fdg_config() -> Result<()> {
         proposer_addresses,
         range_vkey_commitment: shared_config.range_vkey_commitment,
         rollup_config_hash: shared_config.rollup_config_hash,
-        starting_l2_block_number: shared_config.starting_l2_block_number,
-        starting_root: shared_config.starting_output_root,
+        starting_l2_block_number,
+        starting_root: starting_output_root,
         use_sp1_mock_verifier: shared_config.use_sp1_mock_verifier,
         verifier_address: shared_config.verifier_address,
     };
