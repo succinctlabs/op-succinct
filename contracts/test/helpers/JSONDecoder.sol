@@ -38,6 +38,7 @@ contract JSONDecoder {
         uint256 initialBondWei;
         uint256 maxChallengeDuration;
         uint256 maxProveDuration;
+        address optimismPortal2Address;
         bool permissionlessMode;
         address[] proposerAddresses;
         bytes32 rangeVkeyCommitment;

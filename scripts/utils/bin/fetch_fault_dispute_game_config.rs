@@ -20,6 +20,7 @@ struct FaultDisputeGameConfig {
     initial_bond_wei: u64,
     max_challenge_duration: u64,
     max_prove_duration: u64,
+    optimism_portal2_address: String,
     permissionless_mode: bool,
     proposer_addresses: Vec<String>,
     range_vkey_commitment: String,
@@ -78,6 +79,12 @@ async fn update_fdg_config() -> Result<()> {
     let challenger_addresses =
         if permissionless_mode { vec![] } else { parse_addresses("CHALLENGER_ADDRESSES") };
 
+    // OptimismPortal2 configuration.
+    let optimism_portal2_address = env::var("OPTIMISM_PORTAL2_ADDRESS").unwrap_or_else(|_| {
+        // Default to zero address if not provided - will deploy MockOptimismPortal2
+        "0x0000000000000000000000000000000000000000".to_string()
+    });
+
     let fdg_config = FaultDisputeGameConfig {
         aggregation_vkey: shared_config.aggregation_vkey,
         challenger_addresses,
@@ -88,6 +95,7 @@ async fn update_fdg_config() -> Result<()> {
         initial_bond_wei,
         max_challenge_duration,
         max_prove_duration,
+        optimism_portal2_address,
         permissionless_mode,
         proposer_addresses,
         range_vkey_commitment: shared_config.range_vkey_commitment,
