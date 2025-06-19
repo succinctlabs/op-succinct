@@ -67,13 +67,8 @@ contract DeployOPSuccinctFDG is Script, Utils {
         SP1Config memory sp1Config = deploySP1Verifier(config);
 
         // Deploy game implementation
-        OPSuccinctFaultDisputeGame gameImpl = deployGameImplementation(
-            config,
-            factory,
-            sp1Config,
-            registry,
-            accessManager
-        );
+        OPSuccinctFaultDisputeGame gameImpl =
+            deployGameImplementation(config, factory, sp1Config, registry, accessManager);
 
         // Set initial bond and implementation in factory.
         factory.setInitBond(gameType, config.initialBondWei);
