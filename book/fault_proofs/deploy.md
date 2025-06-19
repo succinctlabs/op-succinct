@@ -5,6 +5,7 @@ This guide explains how to deploy the OP Succinct Fault Dispute Game contracts u
 ## Overview
 
 The deployment script performs the following actions:
+
 1. Deploys the `DisputeGameFactory` implementation and proxy.
 2. Deploys the `AnchorStateRegistry` implementation and proxy.
 3. Deploys a mock `OptimismPortal2` for testing.
@@ -31,8 +32,6 @@ Create a `.env` file in the contracts directory with the following variables:
 | `DISPUTE_GAME_FINALITY_DELAY_SECONDS` | Delay before finalizing dispute games. | `604800` for 7 days |
 | `MAX_CHALLENGE_DURATION` | Maximum duration for challenges in seconds. | `604800` for 7 days |
 | `MAX_PROVE_DURATION` | Maximum duration for proving in seconds. | `86400` for 1 day |
-| `STARTING_L2_BLOCK_NUMBER` | Starting L2 block number in decimal. | `786000` |
-| `STARTING_ROOT` | Starting anchor root in hex. | `0x...` |
 
 #### Getting the Starting Root
 
@@ -122,11 +121,13 @@ The deployment script deploys the contract with the following parameters:
 |----------|-------------|---------|
 | `INITIAL_BOND_WEI` | Initial bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
 | `CHALLENGER_BOND_WEI` | Challenger bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
-| `OPTIMISM_PORTAL2_ADDRESS` | Address of an existing OptimismPortal2 contract. If not provided, a mock will be deployed. | `0x...` |
-| `PERMISSIONLESS_MODE` | If set to true, anyone can propose or challenge games. | `true` or `false` |
+| `OPTIMISM_PORTAL2_ADDRESS` | Address of an existing OptimismPortal2 contract. Default: i | `0x...` |
+| `PERMISSIONLESS_MODE` | If set to true, anyone can propose or challenge games. Default: `false` | `true` or `false` |
 | `PROPOSER_ADDRESSES` | Comma-separated list of addresses allowed to propose games. Ignored if PERMISSIONLESS_MODE is true. | `0x123...,0x456...` |
 | `CHALLENGER_ADDRESSES` | Comma-separated list of addresses allowed to challenge games. Ignored if PERMISSIONLESS_MODE is true. | `0x123...,0x456...` |
 | `FALLBACK_TIMEOUT_FP_SECS` | Timeout in seconds after which permissionless proposing is allowed if no proposal has been made. | `1209600` (for 2 weeks) |
+| `STARTING_L2_BLOCK_NUMBER` | Starting L2 block number in decimal. Default: \<Latest L2 Finalized block\> - \<Number of blocks since the `DISPUTE_GAME_FINALITY_SECONDS`>  | `786000` |
+| `STARTING_ROOT` | Starting anchor root in hex. | `0x...` |
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 
