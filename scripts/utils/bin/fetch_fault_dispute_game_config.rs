@@ -1,7 +1,7 @@
 use anyhow::Result;
 use op_succinct_scripts::config_common::{
-    get_shared_config_data, get_workspace_root, find_project_root, 
-    parse_addresses, write_config_file, TWO_WEEKS_IN_SECONDS
+    find_project_root, get_shared_config_data, get_workspace_root, parse_addresses,
+    write_config_file, TWO_WEEKS_IN_SECONDS,
 };
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -30,17 +30,12 @@ struct FaultDisputeGameConfig {
     verifier_address: String,
 }
 
-
-
 async fn update_fdg_config() -> Result<()> {
     let shared_config = get_shared_config_data().await?;
     let workspace_root = get_workspace_root()?;
 
     // Game configuration.
-    let game_type = env::var("GAME_TYPE")
-        .unwrap_or("42".to_string())
-        .parse()
-        .unwrap();
+    let game_type = env::var("GAME_TYPE").unwrap_or("42".to_string()).parse().unwrap();
 
     // Timing configuration.
     let dispute_game_finality_delay_seconds = env::var("DISPUTE_GAME_FINALITY_DELAY_SECONDS")
@@ -74,23 +69,14 @@ async fn update_fdg_config() -> Result<()> {
         .unwrap();
 
     // Access control configuration.
-    let permissionless_mode = env::var("PERMISSIONLESS_MODE")
-        .unwrap_or("false".to_string())
-        .parse()
-        .unwrap();
+    let permissionless_mode =
+        env::var("PERMISSIONLESS_MODE").unwrap_or("false".to_string()).parse().unwrap();
 
-    let proposer_addresses = if permissionless_mode {
-        vec![]
-    } else {
-        parse_addresses("PROPOSER_ADDRESSES")
-    };
+    let proposer_addresses =
+        if permissionless_mode { vec![] } else { parse_addresses("PROPOSER_ADDRESSES") };
 
-    let challenger_addresses = if permissionless_mode {
-        vec![]
-    } else {
-        parse_addresses("CHALLENGER_ADDRESSES")
-    };
-
+    let challenger_addresses =
+        if permissionless_mode { vec![] } else { parse_addresses("CHALLENGER_ADDRESSES") };
 
     let fdg_config = FaultDisputeGameConfig {
         aggregation_vkey: shared_config.aggregation_vkey,
@@ -114,10 +100,9 @@ async fn update_fdg_config() -> Result<()> {
 
     let config_path = workspace_root.join("contracts/opsuccinctfdgconfig.json");
     write_config_file(&fdg_config, &config_path, "Fault Dispute Game")?;
-    
+
     Ok(())
 }
-
 
 use clap::Parser;
 

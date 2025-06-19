@@ -8,7 +8,10 @@ use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
 use op_succinct_proof_utils::get_range_elf_embedded;
 use serde_json::Value;
 use sp1_sdk::{HashableKey, Prover, ProverClient};
-use std::{env, fs, path::{Path, PathBuf}};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 pub const TWO_WEEKS_IN_SECONDS: u64 = 14 * 24 * 60 * 60;
 
@@ -75,19 +78,16 @@ pub async fn get_shared_config_data() -> Result<SharedConfigData> {
         .unwrap_or(false);
 
     // Set the verifier address.
-    let verifier_address = 
-        env::var("VERIFIER_ADDRESS").unwrap_or_else(|_| {
-            // Default to Groth16 VerifierGateway contract address.
-            // Source: https://docs.succinct.xyz/docs/sp1/verification/contract-addresses
-            "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B".to_string()
-        });
+    let verifier_address = env::var("VERIFIER_ADDRESS").unwrap_or_else(|_| {
+        // Default to Groth16 VerifierGateway contract address.
+        // Source: https://docs.succinct.xyz/docs/sp1/verification/contract-addresses
+        "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B".to_string()
+    });
 
     // Get starting block number - use latest finalized if not set.
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
         Ok(n) => n.parse().unwrap(),
-        Err(_) => {
-            data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number
-        }
+        Err(_) => data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap().number,
     };
 
     let starting_block_number_hex = format!("0x{starting_l2_block_number:x}");
@@ -137,9 +137,9 @@ pub fn write_config_file<T: serde::Serialize>(
     }
     // Write the config to the file.
     fs::write(file_path, serde_json::to_string_pretty(config)?)?;
-    
+
     println!("{} configuration written to: {}", description, file_path.display());
-    
+
     Ok(())
 }
 

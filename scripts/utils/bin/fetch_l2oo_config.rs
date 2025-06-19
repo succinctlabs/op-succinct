@@ -1,8 +1,8 @@
 use anyhow::Result;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_scripts::config_common::{
-    get_shared_config_data, get_workspace_root, find_project_root, 
-    get_address, write_config_file, TWO_WEEKS_IN_SECONDS
+    find_project_root, get_address, get_shared_config_data, get_workspace_root, write_config_file,
+    TWO_WEEKS_IN_SECONDS,
 };
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -29,7 +29,6 @@ struct L2OOConfig {
     submission_interval: u64,
     verifier: String,
 }
-
 
 async fn update_l2oo_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
@@ -86,7 +85,6 @@ async fn update_l2oo_config() -> Result<()> {
 
     Ok(())
 }
-
 
 use clap::Parser;
 
