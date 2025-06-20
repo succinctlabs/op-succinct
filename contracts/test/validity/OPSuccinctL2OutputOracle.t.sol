@@ -9,9 +9,19 @@ import {console} from "forge-std/console.sol";
 
 contract OPSuccinctL2OutputOracleTest is Test, Utils {
     // Example proof data for a mock proof for Phala Testnet. Tx:
-    uint256 checkpointedL1BlockNum = 8572201;
-    bytes32 claimedOutputRoot = 0x98911928522b1ba9a40d1444ad084d841de21fac9c22815f57a7f286657e8f96;
-    uint256 claimedL2BlockNum = 2212610;
+    // https://sepolia.etherscan.io/tx/0x5cc14297049cbabb00c93ac56f27a41a1b94d122af1a2fc6962eca9688cd18c2
+    // If you update the l2outputoracle contract, you should also update this test. To speed up this
+    // process, set RANGE_PROOF_INTERVAL and SUBMISSION_INTERVAL to small numbers, and set
+    // STARTING_BLOCK_NUMBER well before the latest L2 finalized block.
+    // 1. Deploy a new L2OO to sepolia, using `just deploy-oracle`.
+    // 2. Run a proposer pointing to the new L2OO.
+    // 3. Wait until an aggregation proof is submitted to the L2.
+    // 4. Examine the logs to find out the checkpointed L1 block number and claimed L2 block number
+    //      associated with that aggregation proof. The claimed output root is the block hash of the
+    //      claimedL2BlockNumber.
+    uint256 checkpointedL1BlockNum = 8592429;
+    bytes32 claimedOutputRoot = 0xb5dc455ccb443fa49db9c58d70d008398c604e2295cf3f61d6a97e06117a4bce;
+    uint256 claimedL2BlockNum = 2243468;
     bytes proof = hex"";
     address proverAddress = 0x4b713049Fc139df09A20F55f5b76c08184135DF8;
 
@@ -27,8 +37,8 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
 
     // Test the L2OO contract.
     function testOPSuccinctL2OOFork() public {
-        // https://sepolia.etherscan.io/address/0xDFd8bd9eaECb3a25d221a0a08B1F86D4c79E819A
-        l2oo = OPSuccinctL2OutputOracle(0xDFd8bd9eaECb3a25d221a0a08B1F86D4c79E819A);
+        // https://sepolia.etherscan.io/address/0x0bf8068136928AF30ffF09EBC441636f103C5bd6
+        l2oo = OPSuccinctL2OutputOracle(0x0bf8068136928AF30ffF09EBC441636f103C5bd6);
         bytes32 defaultConfigName = l2oo.GENESIS_CONFIG_NAME();
         checkpointAndRoll(l2oo, checkpointedL1BlockNum);
         vm.prank(OWNER, OWNER);

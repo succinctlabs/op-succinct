@@ -28,9 +28,9 @@ just remove-config <config_name>
 
 ### Permissions
 
-#### Using an EOA `PRIVATE_KEY` key
+#### Using an EOA `ADMIN_PK` key
 
-If you are the owner of the `OPSuccinctL2OutputOracle` contract, you can set `PRIVATE_KEY` in your `.env` to directly add and remove configurations.
+If you are the owner of the `OPSuccinctL2OutputOracle` contract, you can set `ADMIN_PK` in your `.env` to directly add and remove configurations. If unset, this will default to the value of `PRIVATE_KEY`.
 
 ```bash
 $ just add-config new_config
@@ -70,7 +70,7 @@ ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
 
 ```
 
-#### Updating Parameters with a non-EOA `PRIVATE_KEY`
+#### Updating Parameters with a non-EOA `ADMIN_PK`
 
 If the owner of the `OPSuccinctL2OutputOracle` is not an EOA (e.g. multisig, contract), set `EXECUTE_UPGRADE_CALL` to `false` in your `.env` file. This will output the raw calldata for the parameter update calls, which can be executed by the owner in a separate context.
 
