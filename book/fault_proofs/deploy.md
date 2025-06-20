@@ -37,18 +37,18 @@ Create a `.env` file in the project root directory with the following variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `GAME_TYPE` | Unique identifier for the game type (uint32). The default game ID for the OP Succinct Fault Dispute Game is 42. | `42` |
+| `GAME_TYPE` | Unique identifier for the game type (uint32). In almost all cases, to use the OP Succinct Fault Dispute Game, this should be set to 42. | `42` |
 | `DISPUTE_GAME_FINALITY_DELAY_SECONDS` | Delay before finalizing dispute games. | `604800` for 7 days |
 | `MAX_CHALLENGE_DURATION` | Maximum duration for challenges in seconds. | `604800` for 7 days |
 | `MAX_PROVE_DURATION` | Maximum duration for proving in seconds. | `86400` for 1 day |
 
 ### SP1 Verifier Configuration
 
-For testing, deploy a [Mock Verifier](../validity/contracts/deploy.md#step-2-deploy-an-sp1mockverifier-for-verifying-mock-proofs). If you do this, make sure to set the `OP_SUCCINCT_MOCK` environment variable to `true`, and set the `
+For testing, deploy a [Mock Verifier](../validity/contracts/deploy.md#step-2-deploy-an-sp1mockverifier-for-verifying-mock-proofs). If you do this, make sure to set the `OP_SUCCINCT_MOCK` environment variable to `true`, and set the `VERIFIER_ADDRESS` to your newly deployed mock verifier.
 
 ## Deployment
 
-Run the following command. This automatically detects configurations
+Run the following command. This automatically detects configurations based on the contents of the `elf` directory, environment variables, and the L2.  
 
 ```bash
 just deploy-fdg-contracts
@@ -62,13 +62,12 @@ The deployment script deploys the contracts with the following parameters:
 |----------|-------------|---------|
 | `INITIAL_BOND_WEI` | Initial bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
 | `CHALLENGER_BOND_WEI` | Challenger bond for the game. | 1_000_000_000_000_000 (for 0.001 ETH) |
-| `OPTIMISM_PORTAL2_ADDRESS` | Address of an existing OptimismPortal2 contract. Default: i | `0x...` |
+| `OPTIMISM_PORTAL2_ADDRESS` | Address of an existing OptimismPortal2 contract. Default: if unset, a fresh `MockOptimismPortal2` is deployed. | `0x...` |
 | `PERMISSIONLESS_MODE` | If set to true, anyone can propose or challenge games. Default: `false` | `true` or `false` |
 | `PROPOSER_ADDRESSES` | Comma-separated list of addresses allowed to propose games. Ignored if `PERMISSIONLESS_MODE` is true. | `0x123...,0x456...` |
 | `CHALLENGER_ADDRESSES` | Comma-separated list of addresses allowed to challenge games. Ignored if `PERMISSIONLESS_MODE` is true. | `0x123...,0x456...` |
 | `FALLBACK_TIMEOUT_FP_SECS` | Timeout in seconds after which permissionless proposing is allowed if no proposal has been made. | `1209600` (for 2 weeks) |
 | `STARTING_L2_BLOCK_NUMBER` | Starting L2 block number in decimal. Default: \<Latest L2 Finalized block\> - \<Number of blocks since the `DISPUTE_GAME_FINALITY_SECONDS`>  | `786000` |
-| `STARTING_ROOT` | Starting anchor root in hex. | `0x...` |
 | `VERIFIER_ADDRESS` | Default: Succinct's official Groth16 VerifierGateway. Address of the `ISP1Verifier` contract used to verify proofs. For mock proofs, this is the address of the `SP1MockVerifier` contract. | `0x...` |
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
@@ -108,6 +107,7 @@ Save these addresses for future reference and configuration of other components.
 - For production deployments:
   - Provide a valid `VERIFIER_ADDRESS`.
   - Configure proper `ROLLUP_CONFIG_HASH`, `AGGREGATION_VKEY`, and `RANGE_VKEY_COMMITMENT`. If you used the `just deploy-fdg-contracts` script, these parameters should have been automatically set correctly using `fetch_fault_dispute_game_config.rs`.
+  - Set the `OPTIMISM_PORTAL2_ADDRESS` environment variable, instead of using the default mock portal.
   - Review and adjust finality delay and duration parameters.
   - Consider access control settings.
 
