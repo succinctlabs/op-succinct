@@ -93,7 +93,7 @@ Warning: No transactions to broadcast.
 
 ## Rolling upgrade guide
 
-1. Perform some update that changes your `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` locally. For more information on producing the elfs and vkeys, see [this page](../../advanced/verify-binaries).
+1. Perform some update that changes your `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` locally. For more information on producing the elfs and vkeys, see [this page](../../advanced/verify-binaries.md).
 2. From the project root, run the following command to add a new config. `just add_config my_upgrade`. This will automatically fetch the `aggregationVkey` and `rangeVkeyCommitment` from the `elf` directory, and the `rollupConfigHash` from the `L2_RPC` set in the `.env`.
 3. Spin up a new proposer that interacts with this config, by changing [`OP_SUCCINCT_CONFIG_NAME`](../proposer.md#optional-environment-variables).
 4. Shut down your old proposer.
