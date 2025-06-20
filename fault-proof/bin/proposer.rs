@@ -51,10 +51,11 @@ async fn main() -> Result<()> {
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
-    let proposer =
+    let proposer = Arc::new(
         OPSuccinctProposer::new(prover_address, proposer_signer, factory, Arc::new(fetcher), host)
             .await
-            .unwrap();
+            .unwrap(),
+    );
 
     // Initialize proposer gauges.
     ProposerGauge::register_all();
@@ -65,7 +66,7 @@ async fn main() -> Result<()> {
     // Initialize the metrics gauges.
     ProposerGauge::init_all();
 
-    proposer.run().await.expect("Runs in an infinite loop");
+    proposer.clone().run().await.expect("Runs in an infinite loop");
 
     Ok(())
 }
