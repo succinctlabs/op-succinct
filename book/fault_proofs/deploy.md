@@ -69,6 +69,7 @@ The deployment script deploys the contracts with the following parameters:
 | `FALLBACK_TIMEOUT_FP_SECS` | Timeout in seconds after which permissionless proposing is allowed if no proposal has been made. | `1209600` (for 2 weeks) |
 | `STARTING_L2_BLOCK_NUMBER` | Starting L2 block number in decimal. Default: \<Latest L2 Finalized block\> - \<Number of blocks since the `DISPUTE_GAME_FINALITY_SECONDS`>  | `786000` |
 | `VERIFIER_ADDRESS` | Default: Succinct's official Groth16 VerifierGateway. Address of the `ISP1Verifier` contract used to verify proofs. For mock proofs, this is the address of the `SP1MockVerifier` contract. | `0x...` |
+| `OP_SUCCINCT_MOCK` | Default: `false`. If true, this verifies mock SP1 proofs instead of real proofs, in order for faster and cheaper testing. | `true` or `false` |
 
 Use `cast --to-wei <value> eth` to convert the value to wei to avoid mistakes.
 

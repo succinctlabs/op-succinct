@@ -34,6 +34,53 @@ struct FaultDisputeGameConfig {
     verifier_address: String,
 }
 
+/// Updates and generates the fault dispute game configuration file.
+///
+/// This function fetches the necessary configuration parameters from environment variables
+/// and shared configuration data to generate a JSON configuration file used for deploying
+/// the OPSuccinctFaultDisputeGame contract.
+///
+/// # Environment Variables
+///
+/// ## Game Configuration
+/// - `GAME_TYPE`: Unique identifier for the dispute game type (default: "42")
+///
+/// ## Timing Configuration
+/// - `DISPUTE_GAME_FINALITY_DELAY_SECONDS`: Delay in seconds before a dispute game can be finalized (default: "604800" = 7 days)
+/// - `MAX_CHALLENGE_DURATION`: Maximum duration in seconds for challenges (default: "604800" = 7 days)
+/// - `MAX_PROVE_DURATION`: Maximum duration in seconds for proving (default: "86400" = 1 day)
+/// - `FALLBACK_TIMEOUT_FP_SECS`: Timeout in seconds for permissionless proposing fallback (default: 1209600 = 2 weeks)
+///
+/// ## Bond Configuration
+/// - `INITIAL_BOND_WEI`: Initial bond amount in wei required to create a dispute game (default: "1000000000000000" = 0.001 ETH)
+/// - `CHALLENGER_BOND_WEI`: Bond amount in wei required to challenge a game (default: "1000000000000000" = 0.001 ETH)
+///
+/// ## Access Control Configuration
+/// - `PERMISSIONLESS_MODE`: If "true", anyone can propose or challenge games; if "false", only authorized addresses can (default: "false")
+/// - `PROPOSER_ADDRESSES`: Comma-separated list of addresses authorized to propose games (ignored if permissionless mode is true)
+/// - `CHALLENGER_ADDRESSES`: Comma-separated list of addresses authorized to challenge games (ignored if permissionless mode is true)
+///
+/// ## Contract Configuration
+/// - `OPTIMISM_PORTAL2_ADDRESS`: Address of the OptimismPortal2 contract. If not provided or set to zero address,
+///   a MockOptimismPortal2 will be deployed (default: zero address)
+///
+/// ## Starting State Configuration
+/// - `STARTING_L2_BLOCK_NUMBER`: L2 block number to use as the starting point for the dispute game.
+///   If not provided, it's calculated as: `latest_finalized_block - (dispute_game_finality_delay_seconds / block_time)`
+///
+/// # Shared Configuration
+///
+/// The function also retrieves the following from shared configuration data:
+/// - `aggregation_vkey`: Aggregation verification key
+/// - `range_vkey_commitment`: Range verification key commitment
+/// - `rollup_config_hash`: Hash of the rollup configuration
+/// - `verifier_address`: Address of the SP1 verifier contract
+/// - `use_sp1_mock_verifier`: Whether to use the mock verifier for testing
+///
+/// # Output
+///
+/// Generates `contracts/opsuccinctfdgconfig.json` containing all configuration parameters
+/// needed for the Solidity deployment scripts.
 async fn update_fdg_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let shared_config = get_shared_config_data().await?;

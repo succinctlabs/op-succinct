@@ -32,6 +32,19 @@ struct L2OOConfig {
     verifier: String,
 }
 
+/// Update the L2OO config with the rollup config hash and other relevant data before the contract
+/// is deployed.
+///
+/// Specifically, updates the following fields in `opsuccinctl2ooconfig.json`:
+/// - rollup_config_hash: Get the hash of the rollup config from the rollup config file.
+/// - l2_block_time: Get the block time from the rollup config.
+/// - starting_block_number: If `STARTING_BLOCK_NUMBER` is not set, set starting_block_number to the
+///   latest finalized block on L2.
+/// - starting_output_root: Set to the output root of the starting block number.
+/// - starting_timestamp: Set to the timestamp of the starting block number.
+/// - chain_id: Get the chain id from the rollup config.
+/// - vkey: Get the vkey from the aggregation program ELF.
+/// - owner: Set to the address associated with the private key.
 async fn update_l2oo_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let shared_config = get_shared_config_data().await?;
