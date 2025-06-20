@@ -541,12 +541,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         bytes32 _rangeVkeyCommitment
     ) external onlyOwner {
         require(_configName != bytes32(0), "L2OutputOracle: config name cannot be empty");
-        require(
-            opSuccinctConfigs[_configName].aggregationVkey == bytes32(0)
-                && opSuccinctConfigs[_configName].rollupConfigHash == bytes32(0)
-                && opSuccinctConfigs[_configName].rangeVkeyCommitment == bytes32(0),
-            "L2OutputOracle: config already exists"
-        );
+        require(!isValidOpSuccinctConfig(opSuccinctConfigs[_configName]), "L2OutputOracle: config already exists");
 
         OpSuccinctConfig memory newConfig = OpSuccinctConfig({
             aggregationVkey: _aggregationVkey,
