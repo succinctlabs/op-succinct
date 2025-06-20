@@ -127,12 +127,12 @@ where
         }
 
         // Maliciously challenge valid games (if configured for testing defense mechanisms)
-        if self.config.malicious_challenge_percentage > 0 {
+        if self.config.malicious_challenge_percentage > 0.0 {
             if let Some(game_address) = self.get_oldest_valid_game_for_malicious_challenge().await?
             {
                 let mut rng = rand::rng();
                 let should_challenge =
-                    rng.random_range(1..=100) <= self.config.malicious_challenge_percentage;
+                    rng.random_range(0.0..100.0) <= self.config.malicious_challenge_percentage;
 
                 if should_challenge {
                     tracing::warn!(
@@ -224,7 +224,7 @@ where
     /// resolve.
     async fn run(&mut self) -> Result<()> {
         tracing::info!("OP Succinct Challenger running...");
-        if self.config.malicious_challenge_percentage > 0 {
+        if self.config.malicious_challenge_percentage > 0.0 {
             tracing::warn!(
                 "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
                 self.config.malicious_challenge_percentage
