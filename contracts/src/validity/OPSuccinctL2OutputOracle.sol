@@ -80,7 +80,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice Mapping of configuration names to OpSuccinctConfig structs.
     mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
 
-    /// @notice The default configuration name.
+    /// @notice The genesis configuration name.
     bytes32 public constant GENESIS_CONFIG_NAME = keccak256("opsuccinct_genesis");
 
     /// @notice The deployed SP1Verifier contract to verify proofs.
@@ -232,7 +232,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // Initialize the permissionless fallback timeout.
         fallbackTimeout = _initParams.fallbackTimeout;
 
-        // Initialize default configuration
+        // Initialize genesis configuration
         opSuccinctConfigs[GENESIS_CONFIG_NAME] = OpSuccinctConfig({
             aggregationVkey: _initParams.aggregationVkey,
             rangeVkeyCommitment: _initParams.rangeVkeyCommitment,
@@ -302,7 +302,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         uint256 _l1BlockNumber,
         bytes memory _proof,
         address _proverAddress
-    ) external payable whenNotOptimistic {
+    ) external whenNotOptimistic {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing),
         // or the fallback timeout has been exceeded allowing anyone to propose.
         require(
