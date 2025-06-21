@@ -128,6 +128,7 @@ where
 
         // Maliciously challenge valid games (if configured for testing defense mechanisms)
         if self.config.malicious_challenge_percentage > 0.0 {
+            tracing::debug!("Checking for valid games to challenge maliciously...");
             if let Some(game_address) = self.get_oldest_valid_game_for_malicious_challenge().await?
             {
                 let mut rng = rand::rng();
@@ -149,6 +150,8 @@ where
                         self.config.malicious_challenge_percentage
                     );
                 }
+            } else {
+                tracing::debug!("No valid games found for malicious challenging");
             }
         }
 

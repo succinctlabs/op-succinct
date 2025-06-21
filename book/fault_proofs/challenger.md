@@ -87,7 +87,7 @@ The challenger will run indefinitely, monitoring for invalid games and challengi
 
 ## Testing Defense Mechanisms
 
-The challenger supports **malicious challenging** of valid games for testing purposes. This feature enables testing of proposer defense mechanisms without needing a separate binary.
+The challenger supports **malicious challenging** of valid games for defense mechanisms testing purposes.
 
 ### Configuration
 
@@ -112,7 +112,7 @@ MALICIOUS_CHALLENGE_PERCENTAGE=25.5
 When malicious challenging is enabled:
 
 1. **Priority 1**: Challenge invalid games (honest challenger behavior)
-2. **Priority 2**: Challenge valid games at the configured percentage (testing behavior)
+2. **Priority 2**: Challenge valid games at the configured percentage (defense mechanisms testing behavior)
 
 The challenger will always prioritize challenging invalid games first, then optionally challenge valid games based on the configured percentage.
 
@@ -120,13 +120,7 @@ The challenger will always prioritize challenging invalid games first, then opti
 
 The challenger provides clear logging to distinguish between challenge types:
 - `[CHALLENGE]` - Honest challenges of invalid games
-- `[MALICIOUS CHALLENGE]` - Testing challenges of valid games
-
-### Safety
-
-- **Production Safe**: Defaults to 0.0% (disabled)
-- **Backward Compatible**: No breaking changes to existing configurations
-- **Clear Warnings**: Startup logs clearly indicate when malicious challenging is enabled
+- `[MALICIOUS CHALLENGE]` - Testing defense mechanisms of challenged valid games
 
 ## Features
 
