@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
   push:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  build:
-    name: Build Docker Images
+  build-op-succinct:
+    name: Build OP Succinct
+    timeout-minutes: 30
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
@@ -31,6 +36,42 @@ jobs:
             type=ref,event=tag
             type=sha
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push op-succinct
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: validity/Dockerfile
+          push: true
+          tags: ${{ steps.meta-succinct.outputs.tags }}
+          labels: ${{ steps.meta-succinct.outputs.labels }}
+          cache-from: type=gha,scope=op-succinct
+          cache-to: type=gha,mode=max,scope=op-succinct
+
+  build-op-succinct-celestia:
+    name: Build OP Succinct Celestia
+    timeout-minutes: 30
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - disk=large
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Docker meta for op-succinct-celestia
         id: meta-succinct-celestia
         uses: docker/metadata-action@v5
@@ -47,17 +88,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push op-succinct
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: validity/Dockerfile
-          push: true
-          tags: ${{ steps.meta-succinct.outputs.tags }}
-          labels: ${{ steps.meta-succinct.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       - name: Build and push op-succinct-celestia
         uses: docker/build-push-action@v6
         with:
@@ -66,5 +96,5 @@ jobs:
           push: true
           tags: ${{ steps.meta-succinct-celestia.outputs.tags }}
           labels: ${{ steps.meta-succinct-celestia.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=op-succinct-celestia
+          cache-to: type=gha,mode=max,scope=op-succinct-celestia
