@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {OPSuccinctUpgrader} from "../../script/validity/OPSuccinctUpgrader.s.sol";
 import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
+import {Types} from "@optimism/src/libraries/Types.sol";
 import {Utils} from "../helpers/Utils.sol";
 
 contract UpgradeTest is Test, Utils {
@@ -44,5 +45,87 @@ contract UpgradeTest is Test, Utils {
         assertEq(l2oo.getL2Output(l2oo.latestOutputIndex()).timestamp, exampleTimestamp);
 
         vm.stopBroadcast();
+    }
+
+    function testUpgradeExistingContract() public {
+        // Fork Sepolia to test with real deployed contract
+        vm.createSelectFork(vm.envString("L1_RPC"));
+        
+        address existingL2OOProxy = 0xD810CbD4bD0BB01EcFD1064Aa4636436B96f8632;
+        
+        console.log("=== Testing Upgrade of Existing Contract ===");
+        console.log("Existing contract address:", existingL2OOProxy);
+        
+        // Read current state before upgrade
+        OPSuccinctL2OutputOracle existingContract = OPSuccinctL2OutputOracle(existingL2OOProxy);
+        
+        // Capture pre-upgrade state
+        uint256 preLatestOutputIndex = existingContract.latestOutputIndex();
+        uint256 preStartingBlockNumber = existingContract.startingBlockNumber();
+        uint256 preStartingTimestamp = existingContract.startingTimestamp();
+        uint256 preSubmissionInterval = existingContract.submissionInterval();
+        uint256 preL2BlockTime = existingContract.l2BlockTime();
+        address preChallenger = existingContract.challenger();
+        uint256 preFinalizationPeriod = existingContract.finalizationPeriodSeconds();
+        address preOwner = existingContract.owner();
+        Types.OutputProposal memory preFirstOutput = existingContract.getL2Output(0);
+        
+        console.log("Pre-upgrade state captured:");
+        console.log("- Latest output index:", preLatestOutputIndex);
+        console.log("- Starting block number:", preStartingBlockNumber);
+        console.log("- Starting timestamp:", preStartingTimestamp);
+        console.log("- Submission interval:", preSubmissionInterval);
+        console.log("- L2 block time:", preL2BlockTime);
+        console.log("- Challenger:", preChallenger);
+        console.log("- Finalization period:", preFinalizationPeriod);
+        console.log("- Owner:", preOwner);
+        
+        // Create config similar to testFreshDeployment but preserving existing state
+        Config memory config = Config({
+            challenger: preChallenger, // Keep existing challenger
+            finalizationPeriod: preFinalizationPeriod, // Keep existing finalization period
+            l2BlockTime: preL2BlockTime, // Keep existing L2 block time
+            owner: preOwner, // Keep existing owner
+            proposer: preOwner, // Use owner as proposer
+            rollupConfigHash: bytes32(0x1111111111111111111111111111111111111111111111111111111111111111),
+            startingBlockNumber: preStartingBlockNumber, // Keep existing starting block
+            startingOutputRoot: preFirstOutput.outputRoot, // Keep existing starting output
+            startingTimestamp: preStartingTimestamp, // Keep existing starting timestamp
+            submissionInterval: preSubmissionInterval, // Keep existing submission interval
+            verifier: address(0x1234567890123456789012345678901234567890), // Test verifier address
+            aggregationVkey: bytes32(0x2222222222222222222222222222222222222222222222222222222222222222),
+            rangeVkeyCommitment: bytes32(0x3333333333333333333333333333333333333333333333333333333333333333),
+            proxyAdmin: address(0x0000000000000000000000000000000000000000),
+            opSuccinctL2OutputOracleImpl: address(0x0000000000000000000000000000000000000000),
+            fallbackProposalTimeout: 3600
+        });
+
+        // Deploy mock verifier contract
+        vm.etch(config.verifier, hex"6080604052348015600f57600080fd5b506004361060285760003560e01c8063b8e2f40314602d575b600080fd5b60336035565b005b50565b");
+
+        vm.startBroadcast(0x4b713049Fc139df09A20F55f5b76c08184135DF8);
+
+        // Deploy new implementation
+        config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
+        console.log("New implementation deployed at:", config.opSuccinctL2OutputOracleImpl);
+
+        // Execute actual upgrade (without reinitializing since initializerVersion is 2)
+        console.log("=== Executing Upgrade ===");
+        Proxy existingProxy = Proxy(payable(existingL2OOProxy));
+        existingProxy.upgradeTo(config.opSuccinctL2OutputOracleImpl);
+
+        vm.stopBroadcast();
+        
+        console.log("=== Post-Upgrade Verification ===");
+        
+        // Verify state is preserved after upgrade
+        assertEq(existingContract.latestOutputIndex(), preLatestOutputIndex, "Latest output index should be preserved");
+        assertEq(existingContract.startingBlockNumber(), preStartingBlockNumber, "Starting block number should be preserved");
+        assertEq(existingContract.startingTimestamp(), preStartingTimestamp, "Starting timestamp should be preserved");
+        assertEq(existingContract.submissionInterval(), preSubmissionInterval, "Submission interval should be preserved");
+        assertEq(existingContract.l2BlockTime(), preL2BlockTime, "L2 block time should be preserved");
+        assertEq(existingContract.challenger(), preChallenger, "Challenger should be preserved");
+        assertEq(existingContract.finalizationPeriodSeconds(), preFinalizationPeriod, "Finalization period should be preserved");
+        assertEq(existingContract.owner(), preOwner, "Owner should be preserved");
     }
 }
