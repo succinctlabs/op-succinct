@@ -134,6 +134,7 @@ where
         })
     }
 
+    #[tracing::instrument(name = "[[Proving]]", skip(self), fields(game_address = ?game_address))]
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
         let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config().await {
             Ok(f) => f,
@@ -323,11 +324,11 @@ where
     /// Handles the creation of a new game if conditions are met.
     /// Returns the address of the created game, if one was created.
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
-        let _span = tracing::info_span!("[[Proposing]]").entered();
         self.handle_game_creation_internal().await
     }
 
     /// Internal game creation logic without spans (for use in spawned tasks)
+    #[tracing::instrument(name = "[[Proposing]]", skip(self))]
     async fn handle_game_creation_internal(&self) -> Result<Option<Address>> {
         // Get the latest valid proposal.
         let latest_valid_proposal =
@@ -391,8 +392,6 @@ where
 
     /// Handles the resolution of all eligible unchallenged games.
     pub async fn handle_game_resolution(&self) -> Result<()> {
-        let _span = tracing::info_span!("[[Resolving]]").entered();
-
         self.factory
             .resolve_games(
                 Mode::Proposer,
@@ -407,8 +406,6 @@ where
 
     /// Handles the defense of all eligible games by providing proofs.
     pub async fn handle_game_defense(&self) -> Result<()> {
-        let _span = tracing::info_span!("[[Defending]]").entered();
-
         if let Some(game_address) = self
             .factory
             .get_oldest_defensible_game_address(
@@ -432,11 +429,11 @@ where
 
     /// Handles claiming bonds from resolved games.
     pub async fn handle_bond_claiming(&self) -> Result<Action> {
-        let _span = tracing::info_span!("[[Claiming Bonds]]").entered();
         self.handle_bond_claiming_internal().await
     }
 
     /// Internal bond claiming logic without spans (for use in spawned tasks)
+    #[tracing::instrument(name = "[[Claiming Bonds]]", skip(self))]
     async fn handle_bond_claiming_internal(&self) -> Result<Action> {
         if let Some(game_address) = self
             .factory
@@ -803,6 +800,7 @@ where
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
+            tracing::info!("[[Resolving]]");
             proposer
                 .factory
                 .resolve_games(
