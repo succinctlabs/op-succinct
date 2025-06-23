@@ -39,8 +39,30 @@ use crate::{
 /// Type alias for task ID
 pub type TaskId = u64;
 
+/// Wrapper for different types of task handles
+pub enum TaskHandle {
+    Async(tokio::task::JoinHandle<Result<()>>),
+    Blocking(tokio::task::JoinHandle<Result<()>>),
+}
+
+impl TaskHandle {
+    pub fn is_finished(&self) -> bool {
+        match self {
+            TaskHandle::Async(handle) => handle.is_finished(),
+            TaskHandle::Blocking(handle) => handle.is_finished(),
+        }
+    }
+
+    pub async fn await_result(self) -> std::result::Result<Result<()>, tokio::task::JoinError> {
+        match self {
+            TaskHandle::Async(handle) => handle.await,
+            TaskHandle::Blocking(handle) => handle.await,
+        }
+    }
+}
+
 /// Type alias for a map of task IDs to their join handles and associated task info
-pub type TaskMap = HashMap<TaskId, (tokio::task::JoinHandle<Result<()>>, TaskInfo)>;
+pub type TaskMap = HashMap<TaskId, (TaskHandle, TaskInfo)>;
 
 /// Information about a running task
 #[derive(Clone, Debug)]
@@ -561,7 +583,7 @@ where
         // Process completed tasks
         for id in completed {
             if let Some((handle, info)) = tasks.remove(&id) {
-                match handle.await {
+                match handle.await_result().await {
                     Ok(Ok(())) => {
                         tracing::debug!("Task {:?} completed successfully", info);
                     }
@@ -604,28 +626,44 @@ where
         // Check if we should create a game and spawn task if needed
         if !self.has_active_task_of_type(&TaskInfo::GameCreation { block_number: U256::ZERO }).await
         {
-            if let Err(e) = self.spawn_game_creation_task().await {
-                tracing::debug!("No game creation needed or failed to spawn: {:?}", e);
+            match self.spawn_game_creation_task().await {
+                Ok(true) => tracing::debug!("Successfully spawned game creation task"),
+                Ok(false) => {
+                    tracing::trace!("No game creation needed - proposal interval not elapsed")
+                }
+                Err(e) => tracing::warn!("Failed to spawn game creation task: {:?}", e),
             }
+        } else {
+            tracing::trace!("Game creation task already active");
         }
 
         // Check if we should defend games
-        if let Err(e) = self.spawn_game_defense_tasks().await {
-            tracing::debug!("No game defense needed or failed to spawn: {:?}", e);
+        match self.spawn_game_defense_tasks().await {
+            Ok(true) => tracing::debug!("Successfully spawned game defense task"),
+            Ok(false) => tracing::trace!("No games need defense or task already active"),
+            Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
         // Check if we should resolve games
         if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
-            if let Err(e) = self.spawn_game_resolution_task().await {
-                tracing::debug!("No game resolution needed or failed to spawn: {:?}", e);
+            match self.spawn_game_resolution_task().await {
+                Ok(true) => tracing::debug!("Successfully spawned game resolution task"),
+                Ok(false) => tracing::trace!("No games need resolution"),
+                Err(e) => tracing::warn!("Failed to spawn game resolution task: {:?}", e),
             }
+        } else {
+            tracing::trace!("Game resolution task already active");
         }
 
         // Check if we should claim bonds
         if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
-            if let Err(e) = self.spawn_bond_claim_task().await {
-                tracing::debug!("No bond claiming needed or failed to spawn: {:?}", e);
+            match self.spawn_bond_claim_task().await {
+                Ok(true) => tracing::debug!("Successfully spawned bond claim task"),
+                Ok(false) => tracing::trace!("No bonds available to claim"),
+                Err(e) => tracing::warn!("Failed to spawn bond claim task: {:?}", e),
             }
+        } else {
+            tracing::trace!("Bond claim task already active");
         }
 
         Ok(())
@@ -649,18 +687,23 @@ where
     }
 
     /// Spawn a game creation task if conditions are met
+    /// 
+    /// Returns:
+    /// - Ok(true): Task was successfully spawned
+    /// - Ok(false): No work needed (proposal interval not elapsed or no finalized blocks)
+    /// - Err: Actual error occurred during task spawning
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
-    async fn spawn_game_creation_task(&self) -> Result<()> {
+    async fn spawn_game_creation_task(&self) -> Result<bool> {
         // First check if we should create a game
         let should_create = self.should_create_game().await?;
         if !should_create {
-            return Err(anyhow::anyhow!("No game creation needed"));
+            return Ok(false); // No work needed - normal case
         }
 
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
+        let handle = TaskHandle::Async(tokio::spawn(async move {
             match proposer.handle_game_creation().await {
                 Ok(Some(_game_address)) => {
                     ProposerGauge::GamesCreated.increment(1.0);
@@ -669,7 +712,7 @@ where
                 Ok(None) => Ok(()),
                 Err(e) => Err(e),
             }
-        });
+        }));
 
         // Get the next proposal block for task info
         let next_block = self.get_next_proposal_block().await.unwrap_or(U256::ZERO);
@@ -677,7 +720,7 @@ where
 
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::debug!("Spawned game creation task {}", task_id);
-        Ok(())
+        Ok(true)
     }
 
     /// Check if we should create a game
@@ -736,8 +779,13 @@ where
     }
 
     /// Spawn game defense tasks if needed
+    /// 
+    /// Returns:
+    /// - Ok(true): Defense task was successfully spawned
+    /// - Ok(false): No work needed (no defensible games or task already exists)
+    /// - Err: Actual error occurred during task spawning
     #[tracing::instrument(name = "[[Defending]]", skip(self))]
-    async fn spawn_game_defense_tasks(&self) -> Result<()> {
+    async fn spawn_game_defense_tasks(&self) -> Result<bool> {
         // Check if there are games needing defense
         if let Some(game_address) = self
             .factory
@@ -750,11 +798,13 @@ where
             // Check if we already have a proving task for this game
             if !self.has_active_proving_for_game(game_address).await {
                 self.spawn_game_proving_task(game_address).await?;
+                Ok(true)
+            } else {
+                Ok(false) // Task already exists - no new work needed
             }
         } else {
-            return Err(anyhow::anyhow!("No games need defense"));
+            Ok(false) // No games need defense - normal case
         }
-        Ok(())
     }
 
     /// Check if there's an active proving task for a specific game
@@ -770,28 +820,51 @@ where
         let proposer: OPSuccinctProposer<P, H> = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
-            let tx_hash = proposer.prove_game(game_address).await?;
-            tracing::info!(
-                "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
-                game_address,
-                tx_hash
-            );
-            Ok(())
-        });
+        // In mock mode, use spawn_blocking for CPU-intensive proof generation
+        // In network mode, use spawn for async network operations
+        let handle = if proposer.config.mock_mode {
+            TaskHandle::Blocking(tokio::task::spawn_blocking(move || {
+                // Use a runtime for the blocking task to handle async operations
+                let rt = tokio::runtime::Handle::current();
+                rt.block_on(async move {
+                    let tx_hash = proposer.prove_game(game_address).await?;
+                    tracing::info!(
+                        "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
+                        game_address,
+                        tx_hash
+                    );
+                    Ok(())
+                })
+            }))
+        } else {
+            TaskHandle::Async(tokio::spawn(async move {
+                let tx_hash = proposer.prove_game(game_address).await?;
+                tracing::info!(
+                    "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
+                    game_address,
+                    tx_hash
+                );
+                Ok(())
+            }))
+        };
 
         let task_info = TaskInfo::GameProving { game_address };
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::debug!("Spawned game defense task {} for game {:?}", task_id, game_address);
+        tracing::debug!("Spawned game proving task {} for game {:?}", task_id, game_address);
         Ok(())
     }
 
     /// Spawn a game resolution task if needed
-    async fn spawn_game_resolution_task(&self) -> Result<()> {
+    /// 
+    /// Returns:
+    /// - Ok(true): Resolution task was successfully spawned
+    /// - Ok(false): No work needed (no games to resolve)
+    /// - Err: Actual error occurred during task spawning
+    async fn spawn_game_resolution_task(&self) -> Result<bool> {
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
+        let handle = TaskHandle::Async(tokio::spawn(async move {
             proposer
                 .factory
                 .resolve_games(
@@ -803,20 +876,40 @@ where
                     proposer.l2_provider.clone(),
                 )
                 .await
-        });
+        }));
 
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::debug!("Spawned game resolution task {}", task_id);
-        Ok(())
+        Ok(true)
     }
 
     /// Spawn a bond claim task if needed
-    async fn spawn_bond_claim_task(&self) -> Result<()> {
+    /// 
+    /// Returns:
+    /// - Ok(true): Bond claim task was successfully spawned
+    /// - Ok(false): No work needed (no claimable bonds available)
+    /// - Err: Actual error occurred during task spawning
+    async fn spawn_bond_claim_task(&self) -> Result<bool> {
+        // First check if there are bonds to claim
+        let has_claimable_bonds = self
+            .factory
+            .get_oldest_claimable_bond_game_address(
+                self.config.game_type,
+                self.config.max_games_to_check_for_bond_claiming,
+                self.prover_address,
+            )
+            .await?
+            .is_some();
+
+        if !has_claimable_bonds {
+            return Ok(false); // No bonds to claim - normal case
+        }
+
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
+        let handle = TaskHandle::Async(tokio::spawn(async move {
             match proposer.handle_bond_claiming().await {
                 Ok(Action::Performed) => {
                     ProposerGauge::GamesBondsClaimed.increment(1.0);
@@ -825,11 +918,11 @@ where
                 Ok(Action::Skipped) => Ok(()),
                 Err(e) => Err(e),
             }
-        });
+        }));
 
         let task_info = TaskInfo::BondClaim;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::debug!("Spawned bond claim task {}", task_id);
-        Ok(())
+        Ok(true)
     }
 }

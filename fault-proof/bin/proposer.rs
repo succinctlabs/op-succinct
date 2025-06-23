@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     // Initialize the metrics gauges.
     ProposerGauge::init_all();
 
-    proposer.clone().run().await.expect("Runs in an infinite loop");
+    proposer.run().await.expect("Runs in an infinite loop");
 
     Ok(())
 }
