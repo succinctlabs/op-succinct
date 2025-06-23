@@ -46,7 +46,7 @@ pub type TaskMap = HashMap<TaskId, (tokio::task::JoinHandle<Result<()>>, TaskInf
 #[derive(Clone, Debug)]
 pub enum TaskInfo {
     GameCreation { block_number: U256 },
-    GameDefense { game_address: Address },
+    GameProving { game_address: Address },
     GameResolution,
     BondClaim,
 }
@@ -586,8 +586,8 @@ where
             TaskInfo::GameCreation { .. } => {
                 ProposerGauge::GameCreationError.increment(1.0);
             }
-            TaskInfo::GameDefense { .. } => {
-                ProposerGauge::GameDefenseError.increment(1.0);
+            TaskInfo::GameProving { .. } => {
+                ProposerGauge::GameProvingError.increment(1.0);
             }
             TaskInfo::GameResolution => {
                 ProposerGauge::GameResolutionError.increment(1.0);
@@ -747,8 +747,8 @@ where
             )
             .await?
         {
-            // Check if we already have a defense task for this game
-            if !self.has_active_defense_for_game(game_address).await {
+            // Check if we already have a proving task for this game
+            if !self.has_active_proving_for_game(game_address).await {
                 self.spawn_game_proving_task(game_address).await?;
             }
         } else {
@@ -757,11 +757,11 @@ where
         Ok(())
     }
 
-    /// Check if there's an active defense task for a specific game
-    async fn has_active_defense_for_game(&self, game_address: Address) -> bool {
+    /// Check if there's an active proving task for a specific game
+    async fn has_active_proving_for_game(&self, game_address: Address) -> bool {
         let tasks = self.tasks.lock().await;
         tasks.values().any(|(_, info)| {
-            matches!(info, TaskInfo::GameDefense { game_address: addr } if *addr == game_address)
+            matches!(info, TaskInfo::GameProving { game_address: addr } if *addr == game_address)
         })
     }
 
@@ -780,7 +780,7 @@ where
             Ok(())
         });
 
-        let task_info = TaskInfo::GameDefense { game_address };
+        let task_info = TaskInfo::GameProving { game_address };
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::debug!("Spawned game defense task {} for game {:?}", task_id, game_address);
         Ok(())

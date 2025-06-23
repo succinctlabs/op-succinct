@@ -500,10 +500,6 @@ where
     }
 
     /// Get the oldest challengable game address.
-    #[tracing::instrument(
-        name = "[[Challenging]]",
-        skip(self, max_games_to_check_for_challenge, l2_provider)
-    )]
     async fn get_oldest_challengable_game_address(
         &self,
         max_games_to_check_for_challenge: u64,
@@ -673,7 +669,6 @@ where
     }
 
     /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
-    /// Skip all fields for logging.
     #[tracing::instrument(
         name = "[[Resolving]]",
         skip(
