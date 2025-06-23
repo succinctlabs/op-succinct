@@ -51,7 +51,7 @@ fn verify_data_commitment_event(
     // Decode the DataCommitmentStored event
     let decoded_event = SP1Blobstream::DataCommitmentStored::decode_log(&primitive_log)?;
 
-    tracing::debug!(
+    tracing::info!(
         "Decoded DataCommitmentStored event: proof_nonce={}, start_block={}, end_block={}",
         decoded_event.proofNonce,
         decoded_event.startBlock,
@@ -63,7 +63,7 @@ fn verify_data_commitment_event(
         target_celestia_height <= decoded_event.endBlock;
 
     if is_within_range {
-        tracing::debug!(
+        tracing::info!(
             "Found matching DataCommitmentStored event covering Celestia height {} (range: {}-{})",
             target_celestia_height,
             decoded_event.startBlock,
@@ -99,7 +99,7 @@ async fn find_minimum_blobstream_block(
     let mut current_start = start_block;
     let latest_block = fetcher.l1_provider.get_block_number().await?;
 
-    tracing::debug!(
+    tracing::info!(
         "Scanning for Blobstream proof for Celestia height {} starting from L1 block {}",
         celestia_height,
         start_block
@@ -128,7 +128,7 @@ async fn find_minimum_blobstream_block(
                 // Decode and verify the event contains our target Celestia height
                 match verify_data_commitment_event(&log, celestia_height) {
                     Ok(true) => {
-                        tracing::debug!(
+                        tracing::info!(
                             "Found verified Blobstream event at L1 block {} containing Celestia height {}",
                             block_number,
                             celestia_height
@@ -136,7 +136,7 @@ async fn find_minimum_blobstream_block(
                         return Ok(block_number);
                     }
                     Ok(false) => {
-                        tracing::debug!(
+                        tracing::info!(
                             "DataCommitmentStored event at L1 block {} does not contain Celestia height {}, continuing search",
                             block_number,
                             celestia_height
@@ -144,7 +144,7 @@ async fn find_minimum_blobstream_block(
                         // Continue searching for the correct event
                     }
                     Err(e) => {
-                        tracing::debug!(
+                        tracing::warn!(
                             "Failed to decode DataCommitmentStored event at L1 block {}: {}, skipping",
                             block_number,
                             e
@@ -226,7 +226,7 @@ pub async fn get_celestia_safe_head_info(
     // Query the Celestia indexer for this L2 block's location.
     match query_celestia_indexer(l2_reference_block).await {
         Ok(Some(location)) => {
-            tracing::debug!(
+            tracing::info!(
                 "Celestia indexer returned location for L2 block {}: height {}, L1 block {}",
                 l2_reference_block,
                 location.height,
@@ -236,7 +236,7 @@ pub async fn get_celestia_safe_head_info(
             // Find the minimum L1 block that contains the Blobstream proof
             match find_minimum_blobstream_block(location.height, location.l1_block, fetcher).await {
                 Ok(safe_l1_block) => {
-                    tracing::debug!(
+                    tracing::info!(
                         "Using L1 block {} (Blobstream proof found) for L2 block {}",
                         safe_l1_block,
                         l2_reference_block
@@ -275,7 +275,7 @@ pub async fn get_highest_finalized_l2_block(
     let l2_finalized_header = fetcher.get_l2_header(BlockId::finalized()).await?;
     let l2_finalized_block = l2_finalized_header.number;
 
-    tracing::debug!(
+    tracing::info!(
         "Searching for highest provable L2 block between {} (latest proposed) and {} (finalized)",
         latest_proposed_block_number,
         l2_finalized_block,
@@ -306,14 +306,14 @@ pub async fn get_highest_finalized_l2_block(
             }
             Err(e) => {
                 // Error occurred (e.g., indexer error), treat as unavailable and search lower
-                tracing::debug!("Error checking L2 block {}: {}, treating as unavailable", mid, e);
+                tracing::warn!("Error checking L2 block {}: {}, treating as unavailable", mid, e);
                 high = mid - 1;
             }
         }
     }
 
     if let Some(highest_block) = result {
-        tracing::debug!(
+        tracing::info!(
             "Found highest provable L2 block: {} (out of range {}-{})",
             highest_block,
             latest_proposed_block_number,

@@ -489,7 +489,7 @@ where
                 )),
             }
         } else {
-            tracing::debug!("No new games to claim bonds from");
+            tracing::info!("No new games to claim bonds from");
 
             Ok(Action::Skipped)
         }
@@ -502,7 +502,7 @@ where
             match self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await? {
                 Some((l2_block_number, _game_index)) => l2_block_number,
                 None => {
-                    tracing::debug!("No valid proposals found for metrics");
+                    tracing::info!("No valid proposals found for metrics");
                     self.factory.get_anchor_l2_block_number(self.config.game_type).await?
                 }
             };
@@ -585,7 +585,7 @@ where
             if let Some((handle, info)) = tasks.remove(&id) {
                 match handle.await_result().await {
                     Ok(Ok(())) => {
-                        tracing::debug!("Task {:?} completed successfully", info);
+                        tracing::info!("Task {:?} completed successfully", info);
                     }
                     Ok(Err(e)) => {
                         tracing::warn!("Task {:?} failed: {:?}", info, e);
@@ -627,43 +627,43 @@ where
         if !self.has_active_task_of_type(&TaskInfo::GameCreation { block_number: U256::ZERO }).await
         {
             match self.spawn_game_creation_task().await {
-                Ok(true) => tracing::debug!("Successfully spawned game creation task"),
+                Ok(true) => tracing::info!("Successfully spawned game creation task"),
                 Ok(false) => {
-                    tracing::trace!("No game creation needed - proposal interval not elapsed")
+                    tracing::debug!("No game creation needed - proposal interval not elapsed")
                 }
                 Err(e) => tracing::warn!("Failed to spawn game creation task: {:?}", e),
             }
         } else {
-            tracing::trace!("Game creation task already active");
+            tracing::info!("Game creation task already active");
         }
 
         // Check if we should defend games
         match self.spawn_game_defense_tasks().await {
-            Ok(true) => tracing::debug!("Successfully spawned game defense task"),
-            Ok(false) => tracing::trace!("No games need defense or task already active"),
+            Ok(true) => tracing::info!("Successfully spawned game defense task"),
+            Ok(false) => tracing::debug!("No games need defense or task already active"),
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
         // Check if we should resolve games
         if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
             match self.spawn_game_resolution_task().await {
-                Ok(true) => tracing::debug!("Successfully spawned game resolution task"),
-                Ok(false) => tracing::trace!("No games need resolution"),
+                Ok(true) => tracing::info!("Successfully spawned game resolution task"),
+                Ok(false) => tracing::debug!("No games need resolution"),
                 Err(e) => tracing::warn!("Failed to spawn game resolution task: {:?}", e),
             }
         } else {
-            tracing::trace!("Game resolution task already active");
+            tracing::info!("Game resolution task already active");
         }
 
         // Check if we should claim bonds
         if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
             match self.spawn_bond_claim_task().await {
-                Ok(true) => tracing::debug!("Successfully spawned bond claim task"),
-                Ok(false) => tracing::trace!("No bonds available to claim"),
+                Ok(true) => tracing::info!("Successfully spawned bond claim task"),
+                Ok(false) => tracing::debug!("No bonds available to claim"),
                 Err(e) => tracing::warn!("Failed to spawn bond claim task: {:?}", e),
             }
         } else {
-            tracing::trace!("Bond claim task already active");
+            tracing::info!("Bond claim task already active");
         }
 
         Ok(())
@@ -682,7 +682,7 @@ where
         let tasks = self.tasks.lock().await;
         let active_count = tasks.len();
         if active_count > 0 {
-            tracing::debug!("Active tasks: {}", active_count);
+            tracing::info!("Active tasks: {}", active_count);
         }
     }
 
@@ -719,7 +719,7 @@ where
         let task_info = TaskInfo::GameCreation { block_number: next_block };
 
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::debug!("Spawned game creation task {}", task_id);
+        tracing::info!("Spawned game creation task {}", task_id);
         Ok(true)
     }
 
@@ -850,7 +850,7 @@ where
 
         let task_info = TaskInfo::GameProving { game_address };
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::debug!("Spawned game proving task {} for game {:?}", task_id, game_address);
+        tracing::info!("Spawned game proving task {} for game {:?}", task_id, game_address);
         Ok(())
     }
 
@@ -880,7 +880,7 @@ where
 
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::debug!("Spawned game resolution task {}", task_id);
+        tracing::info!("Spawned game resolution task {}", task_id);
         Ok(true)
     }
 
@@ -922,7 +922,7 @@ where
 
         let task_info = TaskInfo::BondClaim;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::debug!("Spawned bond claim task {}", task_id);
+        tracing::info!("Spawned bond claim task {}", task_id);
         Ok(true)
     }
 }

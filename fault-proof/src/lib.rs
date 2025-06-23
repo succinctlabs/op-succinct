@@ -302,7 +302,7 @@ where
     ) -> Result<Option<(U256, U256)>> {
         // Get latest game index, return None if no games exist.
         let Some(mut game_index) = self.fetch_latest_game_index().await? else {
-            tracing::debug!("No games exist yet for finding latest valid proposal");
+            tracing::info!("No games exist yet for finding latest valid proposal");
             return Ok(None);
         };
 
@@ -352,7 +352,7 @@ where
             game_index -= U256::from(1);
         }
 
-        tracing::debug!(
+        tracing::info!(
             "Latest valid proposal at game index {:?} with l2 block number: {:?}",
             game_index,
             block_number
@@ -404,7 +404,7 @@ where
         // NOTE(fakedev9999): This is a redundant check with the is_game_finalized check below,
         // but is useful for better logging.
         if claim_data.status != ProposalStatus::Resolved {
-            tracing::debug!("Game {:?} is not resolved yet", game_address);
+            tracing::info!("Game {:?} is not resolved yet", game_address);
             return Ok(false);
         }
 
@@ -416,7 +416,7 @@ where
 
         // Claimant must have credit left to claim.
         if game.credit(claimant).call().await? == U256::ZERO {
-            tracing::debug!(
+            tracing::info!(
                 "Claimant {:?} has no credit to claim from game {:?}",
                 claimant,
                 game_address
@@ -452,7 +452,7 @@ where
             let claim_data = game.claimData().call().await?;
 
             if !status_check(claim_data.status) {
-                tracing::debug!(
+                tracing::info!(
                     "Game {:?} at index {:?} does not match status criteria, skipping",
                     game_address,
                     game_index
@@ -468,7 +468,7 @@ where
                 .timestamp;
             let deadline = U256::from(claim_data.deadline).to::<u64>();
             if deadline < current_timestamp {
-                tracing::debug!(
+                tracing::info!(
                     "Game {:?} at index {:?} deadline {:?} has passed, skipping",
                     game_address,
                     game_index,
@@ -548,7 +548,7 @@ where
         let latest_game_index = match self.fetch_latest_game_index().await? {
             Some(index) => index,
             None => {
-                tracing::debug!("No games exist yet for bond claiming");
+                tracing::info!("No games exist yet for bond claiming");
                 return Ok(None);
             }
         };
@@ -692,7 +692,7 @@ where
     ) -> Result<()> {
         // Find latest game index, return early if no games exist.
         let Some(latest_game_index) = self.fetch_latest_game_index().await? else {
-            tracing::debug!("No games exist, skipping resolution");
+            tracing::info!("No games exist, skipping resolution");
             return Ok(());
         };
 
@@ -723,7 +723,7 @@ where
                 }
             }
         } else {
-            tracing::debug!(
+            tracing::info!(
                 "Oldest game {:?} at index {:?} has unresolved parent, not attempting resolution",
                 game_address,
                 oldest_game_index
