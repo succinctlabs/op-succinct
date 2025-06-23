@@ -687,7 +687,7 @@ where
     }
 
     /// Spawn a game creation task if conditions are met
-    /// 
+    ///
     /// Returns:
     /// - Ok(true): Task was successfully spawned
     /// - Ok(false): No work needed (proposal interval not elapsed or no finalized blocks)
@@ -779,7 +779,7 @@ where
     }
 
     /// Spawn game defense tasks if needed
-    /// 
+    ///
     /// Returns:
     /// - Ok(true): Defense task was successfully spawned
     /// - Ok(false): No work needed (no defensible games or task already exists)
@@ -855,7 +855,7 @@ where
     }
 
     /// Spawn a game resolution task if needed
-    /// 
+    ///
     /// Returns:
     /// - Ok(true): Resolution task was successfully spawned
     /// - Ok(false): No work needed (no games to resolve)
@@ -885,7 +885,7 @@ where
     }
 
     /// Spawn a bond claim task if needed
-    /// 
+    ///
     /// Returns:
     /// - Ok(true): Bond claim task was successfully spawned
     /// - Ok(false): No work needed (no claimable bonds available)
