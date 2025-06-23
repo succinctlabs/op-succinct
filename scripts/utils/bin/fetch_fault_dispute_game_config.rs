@@ -46,27 +46,36 @@ struct FaultDisputeGameConfig {
 /// - `GAME_TYPE`: Unique identifier for the dispute game type (default: "42")
 ///
 /// ## Timing Configuration
-/// - `DISPUTE_GAME_FINALITY_DELAY_SECONDS`: Delay in seconds before a dispute game can be finalized (default: "604800" = 7 days)
-/// - `MAX_CHALLENGE_DURATION`: Maximum duration in seconds for challenges (default: "604800" = 7 days)
+/// - `DISPUTE_GAME_FINALITY_DELAY_SECONDS`: Delay in seconds before a dispute game can be finalized
+///   (default: "604800" = 7 days)
+/// - `MAX_CHALLENGE_DURATION`: Maximum duration in seconds for challenges (default: "604800" = 7
+///   days)
 /// - `MAX_PROVE_DURATION`: Maximum duration in seconds for proving (default: "86400" = 1 day)
-/// - `FALLBACK_TIMEOUT_FP_SECS`: Timeout in seconds for permissionless proposing fallback (default: 1209600 = 2 weeks)
+/// - `FALLBACK_TIMEOUT_FP_SECS`: Timeout in seconds for permissionless proposing fallback (default:
+///   1209600 = 2 weeks)
 ///
 /// ## Bond Configuration
-/// - `INITIAL_BOND_WEI`: Initial bond amount in wei required to create a dispute game (default: "1000000000000000" = 0.001 ETH)
-/// - `CHALLENGER_BOND_WEI`: Bond amount in wei required to challenge a game (default: "1000000000000000" = 0.001 ETH)
+/// - `INITIAL_BOND_WEI`: Initial bond amount in wei required to create a dispute game (default:
+///   "1000000000000000" = 0.001 ETH)
+/// - `CHALLENGER_BOND_WEI`: Bond amount in wei required to challenge a game (default:
+///   "1000000000000000" = 0.001 ETH)
 ///
 /// ## Access Control Configuration
-/// - `PERMISSIONLESS_MODE`: If "true", anyone can propose or challenge games; if "false", only authorized addresses can (default: "false")
-/// - `PROPOSER_ADDRESSES`: Comma-separated list of addresses authorized to propose games (ignored if permissionless mode is true)
-/// - `CHALLENGER_ADDRESSES`: Comma-separated list of addresses authorized to challenge games (ignored if permissionless mode is true)
+/// - `PERMISSIONLESS_MODE`: If "true", anyone can propose or challenge games; if "false", only
+///   authorized addresses can (default: "false")
+/// - `PROPOSER_ADDRESSES`: Comma-separated list of addresses authorized to propose games (ignored
+///   if permissionless mode is true)
+/// - `CHALLENGER_ADDRESSES`: Comma-separated list of addresses authorized to challenge games
+///   (ignored if permissionless mode is true)
 ///
 /// ## Contract Configuration
-/// - `OPTIMISM_PORTAL2_ADDRESS`: Address of the OptimismPortal2 contract. If not provided or set to zero address,
-///   a MockOptimismPortal2 will be deployed (default: zero address)
+/// - `OPTIMISM_PORTAL2_ADDRESS`: Address of the OptimismPortal2 contract. If not provided or set to
+///   zero address, a MockOptimismPortal2 will be deployed (default: zero address)
 ///
 /// ## Starting State Configuration
 /// - `STARTING_L2_BLOCK_NUMBER`: L2 block number to use as the starting point for the dispute game.
-///   If not provided, it's calculated as: `latest_finalized_block - (dispute_game_finality_delay_seconds / block_time)`
+///   If not provided, it's calculated as: `latest_finalized_block -
+///   (dispute_game_finality_delay_seconds / block_time)`
 ///
 /// # Shared Configuration
 ///
