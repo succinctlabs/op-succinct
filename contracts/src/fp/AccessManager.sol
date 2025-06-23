@@ -2,6 +2,7 @@
 pragma solidity ^0.8.15;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 
 /// @title AccessManager
 /// @notice Manages permissions for dispute game proposers and challengers.
@@ -32,14 +33,19 @@ contract AccessManager is Ownable {
     /// @notice The timestamp of the last proposal action.
     uint256 public lastProposalTimestamp;
 
+    /// @notice The dispute game factory address.
+    IDisputeGameFactory public immutable DISPUTE_GAME_FACTORY;
+
     ////////////////////////////////////////////////////////////////
     //                      Constructor                           //
     ////////////////////////////////////////////////////////////////
 
     /// @notice Constructor sets the fallback timeout and initializes timestamp.
     /// @param _fallbackTimeout The timeout in seconds after last proposal when permissionless mode activates.
-    constructor(uint256 _fallbackTimeout) {
+    /// @param _disputeGameFactory The dispute game factory address.
+    constructor(uint256 _fallbackTimeout, IDisputeGameFactory _disputeGameFactory) {
         FALLBACK_TIMEOUT = _fallbackTimeout;
+        DISPUTE_GAME_FACTORY = _disputeGameFactory;
         // Initialize timestamp to deployment time
         lastProposalTimestamp = block.timestamp;
     }

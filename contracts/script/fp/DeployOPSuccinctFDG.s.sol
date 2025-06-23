@@ -79,7 +79,7 @@ contract DeployOPSuccinctFDG is Script {
         console.log("Permissionless fallback timeout (seconds):", fallbackTimeout);
 
         // Deploy the access manager contract.
-        AccessManager accessManager = new AccessManager(fallbackTimeout);
+        AccessManager accessManager = new AccessManager(fallbackTimeout, IDisputeGameFactory(address(factory)));
         console.log("Access manager:", address(accessManager));
 
         // Configure access control based on `PERMISSIONLESS_MODE` flag.

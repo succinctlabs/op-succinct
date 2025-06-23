@@ -3,6 +3,7 @@ pragma solidity ^0.8.15;
 
 import {Test} from "forge-std/Test.sol";
 import {AccessManager} from "../../src/fp/AccessManager.sol";
+import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 
 contract AccessManagerTest is Test {
     AccessManager accessManager;
@@ -12,19 +13,21 @@ contract AccessManagerTest is Test {
     address proposer2 = address(0x9ABC);
     address challenger1 = address(0xDEF0);
     address randomUser = address(0x1111);
+    IDisputeGameFactory mockFactory = IDisputeGameFactory(address(0xFACE));
 
     uint256 constant FALLBACK_TIMEOUT = 2 weeks; // 1209600 seconds
     uint256 constant SHORT_TIMEOUT = 1 hours; // For faster testing
 
     function setUp() public {
         vm.prank(owner);
-        accessManager = new AccessManager(FALLBACK_TIMEOUT);
+        accessManager = new AccessManager(FALLBACK_TIMEOUT, mockFactory);
     }
 
     function testConstructor() public view {
         assertEq(accessManager.FALLBACK_TIMEOUT(), FALLBACK_TIMEOUT);
         assertEq(accessManager.lastProposalTimestamp(), block.timestamp);
         assertEq(accessManager.owner(), owner);
+        assertEq(address(accessManager.DISPUTE_GAME_FACTORY()), address(mockFactory));
     }
 
     function testSetProposer() public {
@@ -231,11 +234,12 @@ contract AccessManagerShortTimeoutTest is Test {
     AccessManager accessManager;
     address owner = address(0x1234);
     address randomUser = address(0x1111);
+    IDisputeGameFactory mockFactory = IDisputeGameFactory(address(0xFACE));
     uint256 constant SHORT_TIMEOUT = 1 hours;
 
     function setUp() public {
         vm.prank(owner);
-        accessManager = new AccessManager(SHORT_TIMEOUT);
+        accessManager = new AccessManager(SHORT_TIMEOUT, mockFactory);
     }
 
     function testShortTimeout() public {
