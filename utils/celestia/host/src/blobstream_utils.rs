@@ -313,7 +313,7 @@ pub async fn get_highest_finalized_l2_block(
     }
 
     if let Some(highest_block) = result {
-        tracing::info!(
+        tracing::debug!(
             "Found highest provable L2 block: {} (out of range {}-{})",
             highest_block,
             latest_proposed_block_number,

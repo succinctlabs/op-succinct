@@ -136,6 +136,8 @@ where
 
     #[tracing::instrument(name = "[[Proving]]", skip(self), fields(game_address = ?game_address))]
     pub async fn prove_game(&self, game_address: Address) -> Result<TxHash> {
+        tracing::info!("Attempting to prove game {:?}", game_address);
+
         let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config().await {
             Ok(f) => f,
             Err(e) => {
@@ -312,8 +314,8 @@ where
         if self.config.fast_finality_mode {
             tracing::info!("Fast finality mode enabled: Spawning proof generation task");
 
-            // Spawn a tracked defense task for the new game
-            if let Err(e) = self.spawn_game_defense_task(game_address).await {
+            // Spawn a tracked proving task for the new game
+            if let Err(e) = self.spawn_game_proving_task(game_address).await {
                 tracing::warn!("Failed to spawn fast finality proof task: {:?}", e);
             }
         }
@@ -323,13 +325,8 @@ where
 
     /// Handles the creation of a new game if conditions are met.
     /// Returns the address of the created game, if one was created.
-    pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
-        self.handle_game_creation_internal().await
-    }
-
-    /// Internal game creation logic without spans (for use in spawned tasks)
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
-    async fn handle_game_creation_internal(&self) -> Result<Option<Address>> {
+    pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
         // Get the latest valid proposal.
         let latest_valid_proposal =
             self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
@@ -428,13 +425,8 @@ where
     }
 
     /// Handles claiming bonds from resolved games.
-    pub async fn handle_bond_claiming(&self) -> Result<Action> {
-        self.handle_bond_claiming_internal().await
-    }
-
-    /// Internal bond claiming logic without spans (for use in spawned tasks)
     #[tracing::instrument(name = "[[Claiming Bonds]]", skip(self))]
-    async fn handle_bond_claiming_internal(&self) -> Result<Action> {
+    async fn handle_bond_claiming(&self) -> Result<Action> {
         if let Some(game_address) = self
             .factory
             .get_oldest_claimable_bond_game_address(
@@ -475,7 +467,7 @@ where
                 )),
             }
         } else {
-            tracing::info!("No new games to claim bonds from");
+            tracing::debug!("No new games to claim bonds from");
 
             Ok(Action::Skipped)
         }
@@ -657,6 +649,7 @@ where
     }
 
     /// Spawn a game creation task if conditions are met
+    #[tracing::instrument(name = "[[Proposing]]", skip(self))]
     async fn spawn_game_creation_task(&self) -> Result<()> {
         // First check if we should create a game
         let should_create = self.should_create_game().await?;
@@ -668,10 +661,9 @@ where
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            match proposer.handle_game_creation_internal().await {
-                Ok(Some(game_address)) => {
+            match proposer.handle_game_creation().await {
+                Ok(Some(_game_address)) => {
                     ProposerGauge::GamesCreated.increment(1.0);
-                    tracing::info!("Created game at {:?}", game_address);
                     Ok(())
                 }
                 Ok(None) => Ok(()),
@@ -744,6 +736,7 @@ where
     }
 
     /// Spawn game defense tasks if needed
+    #[tracing::instrument(name = "[[Defending]]", skip(self))]
     async fn spawn_game_defense_tasks(&self) -> Result<()> {
         // Check if there are games needing defense
         if let Some(game_address) = self
@@ -756,7 +749,7 @@ where
         {
             // Check if we already have a defense task for this game
             if !self.has_active_defense_for_game(game_address).await {
-                self.spawn_game_defense_task(game_address).await?;
+                self.spawn_game_proving_task(game_address).await?;
             }
         } else {
             return Err(anyhow::anyhow!("No games need defense"));
@@ -772,16 +765,15 @@ where
         })
     }
 
-    /// Spawn a defense task for a specific game
-    async fn spawn_game_defense_task(&self, game_address: Address) -> Result<()> {
-        let proposer = self.clone();
+    /// Spawn a game proving task for a specific game
+    async fn spawn_game_proving_task(&self, game_address: Address) -> Result<()> {
+        let proposer: OPSuccinctProposer<P, H> = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            tracing::info!("Attempting to defend game {:?}", game_address);
             let tx_hash = proposer.prove_game(game_address).await?;
             tracing::info!(
-                "\x1b[1mSuccessfully defended game {:?} with tx {:?}\x1b[0m",
+                "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
                 game_address,
                 tx_hash
             );
@@ -800,7 +792,6 @@ where
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            tracing::info!("[[Resolving]]");
             proposer
                 .factory
                 .resolve_games(
@@ -826,7 +817,7 @@ where
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            match proposer.handle_bond_claiming_internal().await {
+            match proposer.handle_bond_claiming().await {
                 Ok(Action::Performed) => {
                     ProposerGauge::GamesBondsClaimed.increment(1.0);
                     Ok(())
