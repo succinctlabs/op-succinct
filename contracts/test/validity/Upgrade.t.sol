@@ -47,11 +47,13 @@ contract UpgradeTest is Test, Utils {
         vm.stopBroadcast();
     }
 
+    /// NOTE: On the next upgrade, this test should additionally check that the non-genesis
+    ///       opSuccinctConfigs are preserved.
     function testUpgradeExistingContract() public {
         // Fork Sepolia to test with real deployed contract
         vm.createSelectFork(vm.envString("L1_RPC"));
 
-        // This contract was deployed with release tag v2.3.0. 
+        // This contract was deployed with release tag v2.3.0.
         // https://github.com/succinctlabs/op-succinct/tree/v2.3.0
         address existingL2OOProxy = 0xD810CbD4bD0BB01EcFD1064Aa4636436B96f8632;
 
@@ -61,38 +63,45 @@ contract UpgradeTest is Test, Utils {
         // Read current state before upgrade
         OPSuccinctL2OutputOracle existingContract = OPSuccinctL2OutputOracle(existingL2OOProxy);
 
-        // Capture pre-upgrade state
+        // Capture pre-upgrade state - only fields that are PERSISTENT between upgrades
         uint256 preLatestOutputIndex = existingContract.latestOutputIndex();
         uint256 preStartingBlockNumber = existingContract.startingBlockNumber();
         uint256 preStartingTimestamp = existingContract.startingTimestamp();
         uint256 preLatestBlockNumber = existingContract.latestBlockNumber();
-        address preChallenger = existingContract.challenger();
-        uint256 preSubmissionInterval = existingContract.submissionInterval();
-        uint256 preL2BlockTime = existingContract.l2BlockTime();
-        uint256 preFinalizationPeriod = existingContract.finalizationPeriodSeconds();
-        address preOwner = existingContract.owner();
-        Types.OutputProposal memory preFirstOutput = existingContract.getL2Output(0);
 
-        console.log("Pre-upgrade state captured:");
+        // Capture all existing L2 outputs to verify they persist
+        Types.OutputProposal[] memory preOutputs = new Types.OutputProposal[](preLatestOutputIndex + 1);
+        for (uint256 i = 0; i <= preLatestOutputIndex; i++) {
+            preOutputs[i] = existingContract.getL2Output(i);
+        }
 
-        // Create config similar to testFreshDeployment but preserving existing state
+        // Capture optimistic mode state (persistent)
+        bool preOptimisticMode = existingContract.optimisticMode();
+
+        // Capture approved proposers state (persistent)
+        address approvedProposer = 0x4b713049Fc139df09A20F55f5b76c08184135DF8;
+        address unapprovedProposer = 0x1234567890123456789012345678901234567890;
+        bool preApprovedProposer = existingContract.approvedProposers(approvedProposer);
+        bool preUnapprovedProposer = existingContract.approvedProposers(unapprovedProposer);
+
+        // Create config for upgrade - these fields will be overwritten during initialization
         Config memory config = Config({
-            challenger: preChallenger, // Keep existing challenger
-            finalizationPeriod: preFinalizationPeriod, // Keep existing finalization period
-            l2BlockTime: preL2BlockTime, // Keep existing L2 block time
-            owner: preOwner, // Keep existing owner
-            proposer: preOwner, // Use owner as proposer
+            challenger: address(0x1111111111111111111111111111111111111111), // Will be overwritten
+            finalizationPeriod: 999999, // Will be overwritten
+            l2BlockTime: 999999, // Will be overwritten
+            owner: address(0x2222222222222222222222222222222222222222), // Will be overwritten
+            proposer: address(0x3333333333333333333333333333333333333333), // Will be overwritten
             rollupConfigHash: bytes32(0x1111111111111111111111111111111111111111111111111111111111111111),
-            startingBlockNumber: preStartingBlockNumber, // Keep existing starting block
-            startingOutputRoot: preFirstOutput.outputRoot, // Keep existing starting output
-            startingTimestamp: preStartingTimestamp, // Keep existing starting timestamp
-            submissionInterval: preSubmissionInterval, // Keep existing submission interval
-            verifier: address(0x1234567890123456789012345678901234567890), // Test verifier address
+            startingBlockNumber: preStartingBlockNumber, // This is preserved if l2Outputs.length > 0
+            startingOutputRoot: preOutputs[0].outputRoot, // This is preserved if l2Outputs.length > 0
+            startingTimestamp: preStartingTimestamp, // This is preserved if l2Outputs.length > 0
+            submissionInterval: 999999, // Will be overwritten
+            verifier: address(0x1234567890123456789012345678901234567890), // Will be overwritten
             aggregationVkey: bytes32(0x2222222222222222222222222222222222222222222222222222222222222222),
             rangeVkeyCommitment: bytes32(0x3333333333333333333333333333333333333333333333333333333333333333),
             proxyAdmin: address(0x0000000000000000000000000000000000000000),
             opSuccinctL2OutputOracleImpl: address(0x0000000000000000000000000000000000000000),
-            fallbackProposalTimeout: 3600
+            fallbackProposalTimeout: 999999 // Will be overwritten
         });
 
         // Deploy mock verifier contract
@@ -116,14 +125,55 @@ contract UpgradeTest is Test, Utils {
 
         console.log("Post-Upgrade Verification");
 
-        // Verify state is preserved after upgrade
+        // Verify PERSISTENT state is preserved after upgrade
+        // L2 outputs, optimistic mode, approved proposers, opSuccinctConfigs, historicBlockHashes
         assertEq(existingContract.latestOutputIndex(), preLatestOutputIndex, "Latest output index should be preserved");
         assertEq(
             existingContract.startingBlockNumber(), preStartingBlockNumber, "Starting block number should be preserved"
         );
         assertEq(existingContract.startingTimestamp(), preStartingTimestamp, "Starting timestamp should be preserved");
         assertEq(existingContract.latestBlockNumber(), preLatestBlockNumber, "Latest block number should be preserved");
-        assertEq(existingContract.challenger(), preChallenger, "Challenger should be preserved");
-        assertEq(existingContract.owner(), preOwner, "Owner should be preserved");
+        assertEq(existingContract.optimisticMode(), preOptimisticMode, "Optimistic mode should be preserved");
+
+        // Verify approved proposers are preserved
+        assertEq(
+            existingContract.approvedProposers(approvedProposer),
+            preApprovedProposer,
+            "Approved proposer status should be preserved"
+        );
+        assertEq(
+            existingContract.approvedProposers(unapprovedProposer),
+            preUnapprovedProposer,
+            "Unapproved proposer status should be preserved"
+        );
+
+        // Verify all L2 outputs are preserved
+        for (uint256 i = 0; i <= preLatestOutputIndex; i++) {
+            Types.OutputProposal memory postOutput = existingContract.getL2Output(i);
+            assertEq(
+                postOutput.outputRoot,
+                preOutputs[i].outputRoot,
+                string.concat("Output root at index ", vm.toString(i), " should be preserved")
+            );
+            assertEq(
+                postOutput.timestamp,
+                preOutputs[i].timestamp,
+                string.concat("Timestamp at index ", vm.toString(i), " should be preserved")
+            );
+            assertEq(
+                postOutput.l2BlockNumber,
+                preOutputs[i].l2BlockNumber,
+                string.concat("L2 block number at index ", vm.toString(i), " should be preserved")
+            );
+        }
+
+        // Verify historicBlockHashes are preserved
+        // https://sepolia.etherscan.io/tx/0x9fa14ae3a444a60b40bc43df19b72c69eb07d010a25816925a363560af9f4321
+        // Manually checkpointed L1 block 8621538.
+        assertEq(
+            existingContract.historicBlockHashes(8621538),
+            0x4bd41e855c3f4de0f0b26e43ea19ff5148e978918919b7ed30ea3479e7a696b6,
+            "Historic block hash should be preserved"
+        );
     }
 }
