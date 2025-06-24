@@ -84,7 +84,8 @@ deploy-fdg-contracts env_file=".env":
     
     # Use RPC_URL if set, otherwise fall back to L1_RPC
     RPC_URL_TO_USE="${RPC_URL:-$L1_RPC}"
-    
+    echo "Using RPC URL: $RPC_URL_TO_USE"
+
     echo "Deploying FDG contracts..."
     
     # Change to contracts directory
