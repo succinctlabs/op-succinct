@@ -68,8 +68,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get autoremove -y \
     && apt-get clean
 
-# Create non-root user for security
-RUN useradd --create-home --shell /bin/bash --user-group --uid 1000 opuser
+# Create non-root user for security (check if UID 1000 exists first)
+RUN if ! id 1000 >/dev/null 2>&1; then \
+        useradd --create-home --shell /bin/bash --user-group --uid 1000 opuser; \
+    else \
+        useradd --create-home --shell /bin/bash --user-group opuser; \
+    fi
 
 # Copy only the built binary from builder
 COPY --from=builder /build/celestia-validity-proposer /usr/local/bin/celestia-validity-proposer
