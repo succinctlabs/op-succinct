@@ -51,7 +51,7 @@ contract UpgradeTest is Test, Utils {
     ///       opSuccinctConfigs are preserved.
     function testUpgradeExistingContract() public {
         // Fork Sepolia to test with real deployed contract
-        vm.createSelectFork(vm.envString("L1_RPC"));
+        vm.createSelectFork(vm.envString("L1_RPC"), 8621548);
 
         // This contract was deployed with release tag v2.3.0.
         // https://github.com/succinctlabs/op-succinct/tree/v2.3.0
