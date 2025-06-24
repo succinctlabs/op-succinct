@@ -21,7 +21,7 @@ use crate::{
         AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, L2Output,
         OPSuccinctFaultDisputeGame, ProposalStatus,
     },
-    prometheus::ProposerGauge,
+    prometheus::{ChallengerGauge, ProposerGauge},
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 
@@ -719,7 +719,11 @@ where
                     )
                     .await
                 {
-                    ProposerGauge::GamesResolved.increment(1.0);
+                    // Use mode-specific metrics to avoid cross-contamination
+                    match mode {
+                        Mode::Proposer => ProposerGauge::GamesResolved.increment(1.0),
+                        Mode::Challenger => ChallengerGauge::GamesResolved.increment(1.0),
+                    }
                 }
             }
         } else {

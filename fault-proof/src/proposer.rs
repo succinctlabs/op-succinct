@@ -409,43 +409,6 @@ where
         }
     }
 
-    /// Handles the resolution of all eligible unchallenged games.
-    pub async fn handle_game_resolution(&self) -> Result<()> {
-        self.factory
-            .resolve_games(
-                Mode::Proposer,
-                self.config.max_games_to_check_for_resolution,
-                self.signer.clone(),
-                self.config.l1_rpc.clone(),
-                self.l1_provider.clone(),
-                self.l2_provider.clone(),
-            )
-            .await
-    }
-
-    /// Handles the defense of all eligible games by providing proofs.
-    pub async fn handle_game_defense(&self) -> Result<()> {
-        if let Some(game_address) = self
-            .factory
-            .get_oldest_defensible_game_address(
-                self.config.max_games_to_check_for_defense,
-                self.l2_provider.clone(),
-            )
-            .await?
-        {
-            tracing::info!("Attempting to defend game {:?}", game_address);
-
-            let tx_hash = self.prove_game(game_address).await?;
-            tracing::info!(
-                "\x1b[1mSuccessfully defended game {:?} with tx {:?}\x1b[0m",
-                game_address,
-                tx_hash
-            );
-        }
-
-        Ok(())
-    }
-
     /// Handles claiming bonds from resolved games.
     #[tracing::instrument(name = "[[Claiming Bonds]]", skip(self))]
     async fn handle_bond_claiming(&self) -> Result<Action> {
