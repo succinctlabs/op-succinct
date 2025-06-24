@@ -68,28 +68,17 @@ RUN apt-get update && apt-get install -y \
     && apt-get autoremove -y \
     && apt-get clean
 
-# Create non-root user for security (check if UID 1000 exists first)
-RUN if ! id 1000 >/dev/null 2>&1; then \
-        useradd --create-home --shell /bin/bash --user-group --uid 1000 opuser; \
-    else \
-        useradd --create-home --shell /bin/bash --user-group opuser; \
-    fi
-
 # Copy only the built binary from builder
 COPY --from=builder /build/celestia-validity-proposer /usr/local/bin/celestia-validity-proposer
 
 # Copy only necessary SP1 artifacts (not the full installation)
 COPY --from=builder /root/.sp1/circuits/ /app/circuits/
 
-# Set proper permissions
-RUN chown -R opuser:opuser /app && \
-    chmod +x /usr/local/bin/celestia-validity-proposer
+# Set executable permissions
+RUN chmod +x /usr/local/bin/celestia-validity-proposer
 
 # Set jemalloc flags to aggressively release memory to avoid memory fragmentation.
 ENV JEMALLOC_SYS_WITH_MALLOC_CONF="background_thread:true,narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,abort_conf:true"
-
-# Switch to non-root user
-USER opuser
 
 # Run the server from its permanent location
 CMD ["/usr/local/bin/celestia-validity-proposer"]

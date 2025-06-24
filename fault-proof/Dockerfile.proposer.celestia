@@ -69,22 +69,11 @@ RUN apt-get update && apt-get install -y \
     && apt-get autoremove -y \
     && apt-get clean
 
-# Create non-root user for security (check if UID 1000 exists first)
-RUN if ! id 1000 >/dev/null 2>&1; then \
-        useradd --create-home --shell /bin/bash --user-group --uid 1000 opuser; \
-    else \
-        useradd --create-home --shell /bin/bash --user-group opuser; \
-    fi
-
 # Copy the built proposer binary
 COPY --from=builder /build/target/release/proposer /usr/local/bin/proposer
 
-# Set proper permissions
-RUN chown opuser:opuser /usr/local/bin/proposer && \
-    chmod +x /usr/local/bin/proposer
-
-# Switch to non-root user
-USER opuser
+# Set executable permissions
+RUN chmod +x /usr/local/bin/proposer
 
 # Set the command
 CMD ["proposer"]
