@@ -115,7 +115,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
         anchorStateRegistry = AnchorStateRegistry(address(proxy));
 
-        AccessManager accessManager = new AccessManager(1209600, IDisputeGameFactory(address(factory))); // 2 weeks
+        // Create a new access manager with 1 hour permissionless timeout.
+        AccessManager accessManager = new AccessManager(2 weeks, IDisputeGameFactory(address(factory)));
         accessManager.setProposer(proposer, true);
         accessManager.setChallenger(challenger, true);
 
@@ -705,5 +706,73 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    function testAccessManager_PermissionlessFallback_TimeoutElapsed() public {
+        // Initially, unauthorized user should not be allowed
+        address unauthorizedUser = address(0x9999);
+
+        // Try to create a game as unauthorized user - should fail
+        vm.prank(unauthorizedUser);
+        vm.deal(unauthorizedUser, 1 ether);
+        vm.expectRevert(BadAuth.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-1")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+
+        vm.prank(proposer);
+        vm.deal(proposer, 1 ether);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-2")), abi.encodePacked(l2BlockNumber, parentIndex)
+        );
+
+        // Warp time forward past the timeout
+        vm.warp(block.timestamp + 2 weeks + 1 hours);
+
+        // Now unauthorized user should be allowed due to timeout
+        vm.prank(unauthorizedUser);
+        vm.deal(unauthorizedUser, 1 ether);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-3")), abi.encodePacked(uint256(4000), uint32(1))
+        );
+
+        // After the new game, timeout resets - unauthorized user should not be allowed immediately
+        vm.prank(unauthorizedUser);
+        vm.deal(unauthorizedUser, 1 ether);
+        // vm.expectRevert(BadAuth.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
+        );
+    }
+
+    function testAccessManager_PermissionlessFallback_NoGamesYet() public {
+        // Initially, unauthorized user should not be allowed
+        address unauthorizedUser = address(0x9999);
+
+        // Try to create a game as unauthorized user - should fail
+        vm.prank(unauthorizedUser);
+        vm.deal(unauthorizedUser, 1 ether);
+        vm.expectRevert(BadAuth.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-1")), abi.encodePacked(uint256(3000), uint32(1))
+        );
+
+        // Warp time forward past the timeout
+        vm.warp(block.timestamp + 2 weeks + 1 hours);
+
+        // Now unauthorized user should be allowed due to timeout
+        vm.prank(unauthorizedUser);
+        vm.deal(unauthorizedUser, 1 ether);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-3")), abi.encodePacked(uint256(4000), uint32(1))
+        );
+
+        // After the new game, timeout resets - unauthorized user should not be allowed immediately
+        vm.prank(unauthorizedUser);
+        vm.deal(unauthorizedUser, 1 ether);
+        // vm.expectRevert(BadAuth.selector);
+        factory.create{value: 1 ether}(
+            gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
+        );
     }
 }

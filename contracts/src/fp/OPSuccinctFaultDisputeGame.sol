@@ -224,9 +224,6 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         // INVARIANT: The proposer must be whitelisted.
         if (!ACCESS_MANAGER.isAllowedProposer(gameCreator())) revert BadAuth();
 
-        // Record that a proposal was made to update the timeout for permissionless mode.
-        ACCESS_MANAGER.recordProposal();
-
         // Revert if the calldata size is not the expected length.
         //
         // This is to prevent adding extra or omitting bytes from to `extraData` that result in a different game UUID
