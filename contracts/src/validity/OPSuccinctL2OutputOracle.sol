@@ -62,7 +62,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The time between L2 blocks in seconds. Once set, this value MUST NOT be modified.
     /// @custom:network-specific
     uint256 public l2BlockTime;
-    
+
     /// @notice The address of the challenger. Can be updated via upgrade.
     /// @custom:network-specific
     address public challenger;

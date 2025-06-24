@@ -50,15 +50,15 @@ contract UpgradeTest is Test, Utils {
     function testUpgradeExistingContract() public {
         // Fork Sepolia to test with real deployed contract
         vm.createSelectFork(vm.envString("L1_RPC"));
-        
+
         address existingL2OOProxy = 0xD810CbD4bD0BB01EcFD1064Aa4636436B96f8632;
-        
+
         console.log("=== Testing Upgrade of Existing Contract ===");
         console.log("Existing contract address:", existingL2OOProxy);
-        
+
         // Read current state before upgrade
         OPSuccinctL2OutputOracle existingContract = OPSuccinctL2OutputOracle(existingL2OOProxy);
-        
+
         // Capture pre-upgrade state
         uint256 preLatestOutputIndex = existingContract.latestOutputIndex();
         uint256 preStartingBlockNumber = existingContract.startingBlockNumber();
@@ -69,7 +69,7 @@ contract UpgradeTest is Test, Utils {
         uint256 preFinalizationPeriod = existingContract.finalizationPeriodSeconds();
         address preOwner = existingContract.owner();
         Types.OutputProposal memory preFirstOutput = existingContract.getL2Output(0);
-        
+
         console.log("Pre-upgrade state captured:");
         console.log("- Latest output index:", preLatestOutputIndex);
         console.log("- Starting block number:", preStartingBlockNumber);
@@ -79,7 +79,7 @@ contract UpgradeTest is Test, Utils {
         console.log("- Challenger:", preChallenger);
         console.log("- Finalization period:", preFinalizationPeriod);
         console.log("- Owner:", preOwner);
-        
+
         // Create config similar to testFreshDeployment but preserving existing state
         Config memory config = Config({
             challenger: preChallenger, // Keep existing challenger
@@ -101,7 +101,10 @@ contract UpgradeTest is Test, Utils {
         });
 
         // Deploy mock verifier contract
-        vm.etch(config.verifier, hex"6080604052348015600f57600080fd5b506004361060285760003560e01c8063b8e2f40314602d575b600080fd5b60336035565b005b50565b");
+        vm.etch(
+            config.verifier,
+            hex"6080604052348015600f57600080fd5b506004361060285760003560e01c8063b8e2f40314602d575b600080fd5b60336035565b005b50565b"
+        );
 
         vm.startBroadcast(0x4b713049Fc139df09A20F55f5b76c08184135DF8);
 
@@ -115,17 +118,25 @@ contract UpgradeTest is Test, Utils {
         existingProxy.upgradeTo(config.opSuccinctL2OutputOracleImpl);
 
         vm.stopBroadcast();
-        
+
         console.log("=== Post-Upgrade Verification ===");
-        
+
         // Verify state is preserved after upgrade
         assertEq(existingContract.latestOutputIndex(), preLatestOutputIndex, "Latest output index should be preserved");
-        assertEq(existingContract.startingBlockNumber(), preStartingBlockNumber, "Starting block number should be preserved");
+        assertEq(
+            existingContract.startingBlockNumber(), preStartingBlockNumber, "Starting block number should be preserved"
+        );
         assertEq(existingContract.startingTimestamp(), preStartingTimestamp, "Starting timestamp should be preserved");
-        assertEq(existingContract.submissionInterval(), preSubmissionInterval, "Submission interval should be preserved");
+        assertEq(
+            existingContract.submissionInterval(), preSubmissionInterval, "Submission interval should be preserved"
+        );
         assertEq(existingContract.l2BlockTime(), preL2BlockTime, "L2 block time should be preserved");
         assertEq(existingContract.challenger(), preChallenger, "Challenger should be preserved");
-        assertEq(existingContract.finalizationPeriodSeconds(), preFinalizationPeriod, "Finalization period should be preserved");
+        assertEq(
+            existingContract.finalizationPeriodSeconds(),
+            preFinalizationPeriod,
+            "Finalization period should be preserved"
+        );
         assertEq(existingContract.owner(), preOwner, "Owner should be preserved");
     }
 }
