@@ -7685,6 +7685,7 @@ dependencies = [
  "op-succinct-proof-utils",
  "op-succinct-signer-utils",
  "rand 0.9.1",
+ "rustls",
  "sp1-sdk",
  "strum 0.27.1",
  "strum_macros 0.27.1",

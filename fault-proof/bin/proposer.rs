@@ -24,6 +24,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    rustls::crypto::ring::default_provider().install_default().unwrap();
+
     setup_logger();
 
     let args = Args::parse();
