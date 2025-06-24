@@ -632,6 +632,8 @@ where
         )
         .await?;
 
+        tracing::debug!("latest proposed block number: {}", latest_proposed_block_number);
+
         // See if there is an aggregation proof that is complete for this start block. NOTE: There
         // should only be one "pending" aggregation proof at a time for a specific start block.
         let completed_agg_proof = self
@@ -644,6 +646,8 @@ where
                 self.requester_config.l2_chain_id,
             )
             .await?;
+
+        tracing::debug!("completed agg proof {}", completed_agg_proof.is_some());
 
         // If there are no completed aggregation proofs, do nothing.
         let completed_agg_proof = match completed_agg_proof {
