@@ -8,10 +8,10 @@ import {GameType} from "src/dispute/lib/Types.sol";
 
 // Mock factory that returns empty results for findLatestGames
 contract MockDisputeGameFactory {
-    function findLatestGames(GameType, uint256, uint256) 
-        external 
-        pure 
-        returns (IDisputeGameFactory.GameSearchResult[] memory) 
+    function findLatestGames(GameType, uint256, uint256)
+        external
+        pure
+        returns (IDisputeGameFactory.GameSearchResult[] memory)
     {
         // Return empty array
         return new IDisputeGameFactory.GameSearchResult[](0);
@@ -35,7 +35,7 @@ contract AccessManagerTest is Test {
         // Deploy mock factory
         MockDisputeGameFactory mockFactoryImpl = new MockDisputeGameFactory();
         mockFactory = IDisputeGameFactory(address(mockFactoryImpl));
-        
+
         vm.prank(owner);
         accessManager = new AccessManager(FALLBACK_TIMEOUT, mockFactory);
     }
@@ -95,7 +95,6 @@ contract AccessManagerTest is Test {
         assertTrue(accessManager.isAllowedProposer(address(0x9999)));
     }
 
-
     function testIsAllowedChallenger_ApprovedChallenger() public {
         vm.prank(owner);
         accessManager.setChallenger(challenger1, true);
@@ -125,8 +124,6 @@ contract AccessManagerTest is Test {
         accessManager.setChallenger(randomUser, true);
         assertTrue(accessManager.isAllowedChallenger(randomUser));
     }
-
-
 
     function testEvents() public {
         vm.prank(owner);
