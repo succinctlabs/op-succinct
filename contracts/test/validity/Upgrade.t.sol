@@ -51,9 +51,11 @@ contract UpgradeTest is Test, Utils {
         // Fork Sepolia to test with real deployed contract
         vm.createSelectFork(vm.envString("L1_RPC"));
 
+        // This contract was deployed with release tag v2.3.0. 
+        // https://github.com/succinctlabs/op-succinct/tree/v2.3.0
         address existingL2OOProxy = 0xD810CbD4bD0BB01EcFD1064Aa4636436B96f8632;
 
-        console.log("=== Testing Upgrade of Existing Contract ===");
+        console.log("Testing Upgrade of Existing Contract");
         console.log("Existing contract address:", existingL2OOProxy);
 
         // Read current state before upgrade
@@ -63,22 +65,15 @@ contract UpgradeTest is Test, Utils {
         uint256 preLatestOutputIndex = existingContract.latestOutputIndex();
         uint256 preStartingBlockNumber = existingContract.startingBlockNumber();
         uint256 preStartingTimestamp = existingContract.startingTimestamp();
+        uint256 preLatestBlockNumber = existingContract.latestBlockNumber();
+        address preChallenger = existingContract.challenger();
         uint256 preSubmissionInterval = existingContract.submissionInterval();
         uint256 preL2BlockTime = existingContract.l2BlockTime();
-        address preChallenger = existingContract.challenger();
         uint256 preFinalizationPeriod = existingContract.finalizationPeriodSeconds();
         address preOwner = existingContract.owner();
         Types.OutputProposal memory preFirstOutput = existingContract.getL2Output(0);
 
         console.log("Pre-upgrade state captured:");
-        console.log("- Latest output index:", preLatestOutputIndex);
-        console.log("- Starting block number:", preStartingBlockNumber);
-        console.log("- Starting timestamp:", preStartingTimestamp);
-        console.log("- Submission interval:", preSubmissionInterval);
-        console.log("- L2 block time:", preL2BlockTime);
-        console.log("- Challenger:", preChallenger);
-        console.log("- Finalization period:", preFinalizationPeriod);
-        console.log("- Owner:", preOwner);
 
         // Create config similar to testFreshDeployment but preserving existing state
         Config memory config = Config({
@@ -112,14 +107,14 @@ contract UpgradeTest is Test, Utils {
         config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
         console.log("New implementation deployed at:", config.opSuccinctL2OutputOracleImpl);
 
-        // Execute actual upgrade (without reinitializing since initializerVersion is 2)
-        console.log("=== Executing Upgrade ===");
+        // Execute actual upgrade, and reinitialize the contract.
+        console.log("Executing Upgrade");
         Proxy existingProxy = Proxy(payable(existingL2OOProxy));
-        existingProxy.upgradeTo(config.opSuccinctL2OutputOracleImpl);
+        upgradeAndInitialize(config, address(existingProxy), true);
 
         vm.stopBroadcast();
 
-        console.log("=== Post-Upgrade Verification ===");
+        console.log("Post-Upgrade Verification");
 
         // Verify state is preserved after upgrade
         assertEq(existingContract.latestOutputIndex(), preLatestOutputIndex, "Latest output index should be preserved");
@@ -127,16 +122,8 @@ contract UpgradeTest is Test, Utils {
             existingContract.startingBlockNumber(), preStartingBlockNumber, "Starting block number should be preserved"
         );
         assertEq(existingContract.startingTimestamp(), preStartingTimestamp, "Starting timestamp should be preserved");
-        assertEq(
-            existingContract.submissionInterval(), preSubmissionInterval, "Submission interval should be preserved"
-        );
-        assertEq(existingContract.l2BlockTime(), preL2BlockTime, "L2 block time should be preserved");
+        assertEq(existingContract.latestBlockNumber(), preLatestBlockNumber, "Latest block number should be preserved");
         assertEq(existingContract.challenger(), preChallenger, "Challenger should be preserved");
-        assertEq(
-            existingContract.finalizationPeriodSeconds(),
-            preFinalizationPeriod,
-            "Finalization period should be preserved"
-        );
         assertEq(existingContract.owner(), preOwner, "Owner should be preserved");
     }
 }
