@@ -55,8 +55,14 @@ jobs:
           push: true
           tags: ${{ steps.meta-succinct.outputs.tags }}
           labels: ${{ steps.meta-succinct.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=op-succinct
+            type=registry,ref=ghcr.io/${{ github.repository }}/op-succinct:cache
+          cache-to: |
+            type=gha,mode=max,scope=op-succinct
+            type=registry,ref=ghcr.io/${{ github.repository }}/op-succinct:cache,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
 
       - name: Build and push op-succinct-celestia
         uses: docker/build-push-action@v6
@@ -66,5 +72,11 @@ jobs:
           push: true
           tags: ${{ steps.meta-succinct-celestia.outputs.tags }}
           labels: ${{ steps.meta-succinct-celestia.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=op-succinct-celestia
+            type=registry,ref=ghcr.io/${{ github.repository }}/op-succinct-celestia:cache
+          cache-to: |
+            type=gha,mode=max,scope=op-succinct-celestia
+            type=registry,ref=ghcr.io/${{ github.repository }}/op-succinct-celestia:cache,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1

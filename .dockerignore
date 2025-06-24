@@ -1,6 +1,81 @@
-/target
-/data
-/execution-reports
-/book
-/audits
-.github
+# LARGEST DIRECTORIES - exclude build artifacts first (41GB!)
+target/
+
+# Development and build artifacts
+.cargo/
+cargo-git/
+cargo-registry/
+
+# Data directories (44MB - runtime data not needed for builds)
+data/
+execution-reports/
+
+# Documentation (4.5MB - not needed for Docker builds)
+book/
+audits/
+
+# Contract build artifacts (6.7MB)
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/forge-std/
+contracts/lib/openzeppelin-*/
+contracts/lib/optimism/
+contracts/lib/solady/
+contracts/lib/sp1-contracts/
+
+# Analysis and reports
+*.md
+!README.md
+!CONTRIBUTING.md
+*.txt
+*.csv
+*.log
+diff.txt
+*-report.csv
+
+# Configuration that varies by environment
+configs/
+*.json
+!package.json
+!Cargo.toml
+!Cargo.lock
+!*config.toml
+!foundry.toml
+
+# Local environment files
+.env*
+!.env.example
+web3signer-keys/
+opsuccinctl2ooconfig.json
+
+# Development tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Archive files
+*.zip
+*.tar*
+*.gz
+
+# Docker optimization
+Dockerfile*
+.dockerignore
+
+# Keep essential source code, configs, and build files
+!src/
+!utils/
+!programs/
+!fault-proof/
+!validity/
+!scripts/
+!contracts/src/
+!contracts/script/
+!*.toml
+!*.yml
+!*.yaml

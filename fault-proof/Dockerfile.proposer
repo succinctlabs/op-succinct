@@ -3,9 +3,9 @@
 # Base stage: Install Rust and dependencies
 FROM ubuntu:24.04 AS rust-base
 
-WORKDIR /usr/src/app
+WORKDIR /build
 
-# Install required dependencies
+# Install required dependencies in a single layer
 RUN apt-get update && apt-get install -y \
     curl \
     clang \
@@ -20,18 +20,39 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH=/root/.cargo/bin:$PATH
 RUN rustup install stable && rustup default stable
 
-# Install SP1
+# Install SP1 in a separate layer for better caching
 RUN curl -L https://sp1.succinct.xyz | bash && \
     ~/.sp1/bin/sp1up && \
     ~/.sp1/bin/cargo-prove prove --version
 
-# Build stage
-FROM rust-base AS builder
+# Dependency caching stage
+FROM rust-base AS dependencies
 
-# Copy the entire workspace
+# Copy dependency manifests first for better caching
+COPY Cargo.toml Cargo.lock ./
+COPY utils/*/Cargo.toml ./utils/*/
+COPY programs/*/Cargo.toml ./programs/*/
+COPY programs/aggregation/Cargo.toml ./programs/aggregation/
+COPY programs/range/utils/Cargo.toml ./programs/range/utils/
+COPY programs/range/ethereum/Cargo.toml ./programs/range/ethereum/
+COPY programs/range/celestia/Cargo.toml ./programs/range/celestia/
+COPY validity/Cargo.toml ./validity/
+COPY fault-proof/Cargo.toml ./fault-proof/
+
+# Create stub source files to satisfy cargo build
+RUN find . -name "Cargo.toml" -exec dirname {} \; | xargs -I {} mkdir -p {}/src && \
+    find . -name "Cargo.toml" -exec dirname {} \; | xargs -I {} touch {}/src/lib.rs
+
+# Build dependencies only (this layer will be cached)
+RUN cargo build --release --bin proposer
+
+# Build stage
+FROM dependencies AS builder
+
+# Copy actual source code
 COPY . .
 
-# Build the proposer binary
+# Build the proposer binary (only source changes trigger rebuild)
 RUN cargo build --release --bin proposer
 
 # Runtime stage (minimal image)
@@ -41,17 +62,25 @@ WORKDIR /app
 
 # Install only necessary runtime dependencies
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
     curl \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get autoremove -y \
+    && apt-get clean
 
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH=/root/.cargo/bin:$PATH
-RUN rustup install stable && rustup default stable
-    
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash --user-group --uid 1000 opuser
+
 # Copy the built proposer binary
-COPY --from=builder /usr/src/app/target/release/proposer /usr/local/bin/
+COPY --from=builder /build/target/release/proposer /usr/local/bin/proposer
+
+# Set proper permissions
+RUN chown opuser:opuser /usr/local/bin/proposer && \
+    chmod +x /usr/local/bin/proposer
+
+# Switch to non-root user
+USER opuser
 
 # Set the command
 CMD ["proposer"]
