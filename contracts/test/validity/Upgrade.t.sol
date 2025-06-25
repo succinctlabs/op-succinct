@@ -2,7 +2,6 @@
 pragma solidity ^0.8.15;
 
 import {Test, console} from "forge-std/Test.sol";
-import {OPSuccinctUpgrader} from "../../script/validity/OPSuccinctUpgrader.s.sol";
 import {OPSuccinctL2OutputOracle} from "../../src/validity/OPSuccinctL2OutputOracle.sol";
 import {Proxy} from "@optimism/src/universal/Proxy.sol";
 import {Types} from "@optimism/src/libraries/Types.sol";
