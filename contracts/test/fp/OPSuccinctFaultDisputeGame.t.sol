@@ -24,7 +24,7 @@ import {
     GameNotOver,
     IncorrectDisputeGameFactory
 } from "src/fp/lib/Errors.sol";
-import {AggregationOutputs} from "src/lib/Types.sol";
+import {AggregationOutputs, OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE} from "src/lib/Types.sol";
 
 // Contracts
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
@@ -70,7 +70,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     uint256 disputeGameFinalityDelaySeconds = 1000;
 
     // Fixed parameters.
-    GameType gameType = GameType.wrap(42);
+    GameType gameType = GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE);
     Duration maxChallengeDuration = Duration.wrap(12 hours);
     Duration maxProveDuration = Duration.wrap(3 days);
     Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
