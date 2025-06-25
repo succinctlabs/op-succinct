@@ -12,7 +12,6 @@ contract UpgradeTest is Test, Utils {
         vm.startBroadcast();
         vm.createSelectFork(vm.envString("L1_RPC"), 8621548);
 
-
         bytes32 exampleOutputRoot = keccak256("output root");
         vm.warp(12345678);
         uint256 exampleTimestamp = block.timestamp - 1;
