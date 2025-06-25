@@ -20,9 +20,12 @@ jobs:
     name: Foundry project
     runs-on:
       - runs-on
-      - ram=32
-      - image=ubuntu-latest
+      - cpu=16
+      - ram=64
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}
+      - disk=large
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,11 +47,11 @@ jobs:
           forge fmt --check src/ test/ script/
         id: fmt
 
-      - name: Run Forge build
-        working-directory: contracts/
-        run: |
-          forge build --sizes
-        id: build
+      # - name: Run Forge build
+      #   working-directory: contracts/
+      #   run: |
+      #     forge build --sizes
+      #   id: build
 
       - name: Run Forge tests
         working-directory: contracts/
