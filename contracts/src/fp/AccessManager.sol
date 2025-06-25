@@ -82,16 +82,35 @@ contract AccessManager is Ownable {
         // Get the latest game to check its timestamp.
         GameType gameType = GameType.wrap(42);
         uint256 numGames = DISPUTE_GAME_FACTORY.gameCount();
+
+        // Early return if no games exist.
         if (numGames == 0) {
             return DEPLOYMENT_TIMESTAMP;
-        } else {
-            // Find the most recent game of the given type.
-            IDisputeGameFactory.GameSearchResult[] memory games =
-                DISPUTE_GAME_FACTORY.findLatestGames(gameType, numGames - 1, 1);
-
-            // Note: we still need to check if the game exists, because there may be games of multiple types.
-            return games.length > 0 ? uint256(games[0].timestamp.raw()) : DEPLOYMENT_TIMESTAMP;
         }
+
+        // Iterate backwards through games to find the most recent of our type.
+        // This avoids the memory allocation of findLatestGames for a single result.
+        uint256 i = numGames - 1;
+        while (true) {
+            (GameType gameTypeAtIndex, Timestamp timestamp,) = DISPUTE_GAME_FACTORY.gameAtIndex(i);
+
+            // If we found a game of the correct type, return its timestamp.
+            if (gameTypeAtIndex.raw() == gameType.raw()) {
+                return uint256(timestamp.raw());
+            }
+
+            // If we've reached index 0, break out of the loop
+            if (i == 0) {
+                break;
+            }
+
+            unchecked {
+                --i;
+            }
+        }
+
+        // If we've checked all games without finding our type, return deployment timestamp.
+        return DEPLOYMENT_TIMESTAMP;
     }
 
     /// @notice Checks if an address is allowed to propose.
