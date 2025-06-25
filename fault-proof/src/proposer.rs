@@ -39,27 +39,8 @@ use crate::{
 /// Type alias for task ID
 pub type TaskId = u64;
 
-/// Wrapper for different types of task handles
-pub enum TaskHandle {
-    Async(tokio::task::JoinHandle<Result<()>>),
-    Blocking(tokio::task::JoinHandle<Result<()>>),
-}
-
-impl TaskHandle {
-    pub fn is_finished(&self) -> bool {
-        match self {
-            TaskHandle::Async(handle) => handle.is_finished(),
-            TaskHandle::Blocking(handle) => handle.is_finished(),
-        }
-    }
-
-    pub async fn await_result(self) -> std::result::Result<Result<()>, tokio::task::JoinError> {
-        match self {
-            TaskHandle::Async(handle) => handle.await,
-            TaskHandle::Blocking(handle) => handle.await,
-        }
-    }
-}
+/// Type alias for task handles
+pub type TaskHandle = tokio::task::JoinHandle<Result<()>>;
 
 /// Type alias for a map of task IDs to their join handles and associated task info
 pub type TaskMap = HashMap<TaskId, (TaskHandle, TaskInfo)>;
@@ -546,7 +527,7 @@ where
         // Process completed tasks
         for id in completed {
             if let Some((handle, info)) = tasks.remove(&id) {
-                match handle.await_result().await {
+                match handle.await {
                     Ok(Ok(())) => {
                         tracing::info!("Task {:?} completed successfully", info);
                     }
@@ -645,7 +626,24 @@ where
         let tasks = self.tasks.lock().await;
         let active_count = tasks.len();
         if active_count > 0 {
-            tracing::info!("Active tasks: {}", active_count);
+            let mut task_counts: HashMap<&str, usize> = HashMap::new();
+
+            for (_, (_, info)) in tasks.iter() {
+                let task_type = match info {
+                    TaskInfo::GameCreation { .. } => "GameCreation",
+                    TaskInfo::GameProving { .. } => "GameProving",
+                    TaskInfo::GameResolution => "GameResolution",
+                    TaskInfo::BondClaim => "BondClaim",
+                };
+                *task_counts.entry(task_type).or_insert(0) += 1;
+            }
+
+            let task_types: Vec<String> = task_counts
+                .into_iter()
+                .map(|(type_name, count)| format!("{type_name}: {count}"))
+                .collect();
+
+            tracing::info!("Active tasks: {} ({})", active_count, task_types.join(", "));
         }
     }
 
@@ -666,7 +664,7 @@ where
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = TaskHandle::Async(tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             match proposer.handle_game_creation().await {
                 Ok(Some(_game_address)) => {
                     ProposerGauge::GamesCreated.increment(1.0);
@@ -675,14 +673,14 @@ where
                 Ok(None) => Ok(()),
                 Err(e) => Err(e),
             }
-        }));
+        });
 
         // Get the next proposal block for task info
         let next_block = self.get_next_proposal_block().await.unwrap_or(U256::ZERO);
         let task_info = TaskInfo::GameCreation { block_number: next_block };
 
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::info!("Spawned game creation task {}", task_id);
+        tracing::info!("Spawned game creation task {} for block {}", task_id, next_block);
         Ok(true)
     }
 
@@ -783,10 +781,24 @@ where
         let proposer: OPSuccinctProposer<P, H> = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        // In mock mode, use spawn_blocking for CPU-intensive proof generation
+        // Get the game block number to include in logs
+        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        let l2_block_number = game.l2BlockNumber().call().await?;
+        let start_block = l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks;
+        let end_block = l2_block_number.to::<u64>();
+
+        tracing::info!(
+            "Spawning game proving task {} for game {:?} (blocks {}-{})",
+            task_id,
+            game_address,
+            start_block,
+            end_block
+        );
+
+        // In mock mode, use spawn_blocking for CPU-intensive mock proof generation
         // In network mode, use spawn for async network operations
         let handle = if proposer.config.mock_mode {
-            TaskHandle::Blocking(tokio::task::spawn_blocking(move || {
+            tokio::task::spawn_blocking(move || {
                 // Use a runtime for the blocking task to handle async operations
                 let rt = tokio::runtime::Handle::current();
                 rt.block_on(async move {
@@ -798,9 +810,9 @@ where
                     );
                     Ok(())
                 })
-            }))
+            })
         } else {
-            TaskHandle::Async(tokio::spawn(async move {
+            tokio::spawn(async move {
                 let tx_hash = proposer.prove_game(game_address).await?;
                 tracing::info!(
                     "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
@@ -808,12 +820,11 @@ where
                     tx_hash
                 );
                 Ok(())
-            }))
+            })
         };
 
         let task_info = TaskInfo::GameProving { game_address };
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::info!("Spawned game proving task {} for game {:?}", task_id, game_address);
         Ok(())
     }
 
@@ -827,7 +838,7 @@ where
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = TaskHandle::Async(tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             proposer
                 .factory
                 .resolve_games(
@@ -839,7 +850,7 @@ where
                     proposer.l2_provider.clone(),
                 )
                 .await
-        }));
+        });
 
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
@@ -872,7 +883,7 @@ where
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = TaskHandle::Async(tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             match proposer.handle_bond_claiming().await {
                 Ok(Action::Performed) => {
                     ProposerGauge::GamesBondsClaimed.increment(1.0);
@@ -881,7 +892,7 @@ where
                 Ok(Action::Skipped) => Ok(()),
                 Err(e) => Err(e),
             }
-        }));
+        });
 
         let task_info = TaskInfo::BondClaim;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
