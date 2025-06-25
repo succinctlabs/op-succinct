@@ -109,7 +109,7 @@ contract UpgradeTest is Test, Utils {
             hex"6080604052348015600f57600080fd5b506004361060285760003560e01c8063b8e2f40314602d575b600080fd5b60336035565b005b50565b"
         );
 
-        vm.startBroadcast(0x4b713049Fc139df09A20F55f5b76c08184135DF8);
+        vm.startPrank(0x4b713049Fc139df09A20F55f5b76c08184135DF8, 0x4b713049Fc139df09A20F55f5b76c08184135DF8);
 
         // Deploy new implementation
         config.opSuccinctL2OutputOracleImpl = address(new OPSuccinctL2OutputOracle());
@@ -120,7 +120,7 @@ contract UpgradeTest is Test, Utils {
         Proxy existingProxy = Proxy(payable(existingL2OOProxy));
         upgradeAndInitialize(config, address(existingProxy), true);
 
-        vm.stopBroadcast();
+        vm.stopPrank();
 
         console.log("Post-Upgrade Verification");
 
