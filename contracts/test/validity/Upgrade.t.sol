@@ -15,7 +15,7 @@ contract UpgradeTest is Test, Utils {
         // vm.warp(12345678);
         // uint256 exampleTimestamp = block.timestamp - 1;
 
-        // Config memory config = Config({
+        // L2OOConfig memory config = L2OOConfig({
         //     challenger: address(0),
         //     finalizationPeriod: 0,
         //     l2BlockTime: 10,
@@ -84,7 +84,7 @@ contract UpgradeTest is Test, Utils {
         bool preUnapprovedProposer = existingContract.approvedProposers(unapprovedProposer);
 
         // Create config for upgrade - these fields will be overwritten during initialization
-        Config memory config = Config({
+        L2OOConfig memory config = L2OOConfig({
             challenger: address(0x1111111111111111111111111111111111111111), // Will be overwritten
             finalizationPeriod: 999999, // Will be overwritten
             l2BlockTime: 999999, // Will be overwritten
