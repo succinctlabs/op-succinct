@@ -16,6 +16,10 @@ contract MockDisputeGameFactory {
         // Return empty array
         return new IDisputeGameFactory.GameSearchResult[](0);
     }
+
+    function gameCount() external pure returns (uint256) {
+        return 0;
+    }
 }
 
 contract AccessManagerTest is Test {

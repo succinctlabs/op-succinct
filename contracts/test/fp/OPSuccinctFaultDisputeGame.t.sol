@@ -59,6 +59,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     OPSuccinctFaultDisputeGame game;
 
     AnchorStateRegistry anchorStateRegistry;
+    AccessManager accessManager;
 
     address proposer = address(0x123);
     address challenger = address(0x456);
@@ -116,7 +117,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         anchorStateRegistry = AnchorStateRegistry(address(proxy));
 
         // Create a new access manager with 1 hour permissionless timeout.
-        AccessManager accessManager = new AccessManager(2 weeks, IDisputeGameFactory(address(factory)));
+        accessManager = new AccessManager(2 weeks, IDisputeGameFactory(address(factory)));
         accessManager.setProposer(proposer, true);
         accessManager.setChallenger(challenger, true);
 
@@ -727,7 +728,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
 
         // Warp time forward past the timeout
-        vm.warp(block.timestamp + 2 weeks + 1 hours);
+        vm.warp(block.timestamp + 2 weeks + 1);
 
         // Now unauthorized user should be allowed due to timeout
         vm.prank(unauthorizedUser);
@@ -739,7 +740,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // After the new game, timeout resets - unauthorized user should not be allowed immediately
         vm.prank(unauthorizedUser);
         vm.deal(unauthorizedUser, 1 ether);
-        // vm.expectRevert(BadAuth.selector);
+        vm.expectRevert(BadAuth.selector);
         factory.create{value: 1 ether}(
             gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
         );
@@ -770,7 +771,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // After the new game, timeout resets - unauthorized user should not be allowed immediately
         vm.prank(unauthorizedUser);
         vm.deal(unauthorizedUser, 1 ether);
-        // vm.expectRevert(BadAuth.selector);
+        vm.expectRevert(BadAuth.selector);
         factory.create{value: 1 ether}(
             gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
         );

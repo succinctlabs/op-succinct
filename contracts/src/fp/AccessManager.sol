@@ -4,6 +4,8 @@ pragma solidity ^0.8.15;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 import {GameType} from "src/dispute/lib/Types.sol";
+import {Timestamp} from "src/dispute/lib/LibUDT.sol";
+import {console} from "forge-std/console.sol";
 
 /// @title AccessManager
 /// @notice Manages permissions for dispute game proposers and challengers.
@@ -74,6 +76,24 @@ contract AccessManager is Ownable {
         emit ChallengerPermissionUpdated(_challenger, _allowed);
     }
 
+    /// @notice Returns the last proposal timestamp.
+    /// @return The last proposal timestamp.
+    function getLastProposalTimestamp() public view returns (uint256) {
+        // Get the latest game to check its timestamp.
+        GameType gameType = GameType.wrap(42);
+        uint256 numGames = DISPUTE_GAME_FACTORY.gameCount();
+        if (numGames == 0) {
+            return DEPLOYMENT_TIMESTAMP;
+        } else {
+            // Find the most recent game of the given type.
+            IDisputeGameFactory.GameSearchResult[] memory games =
+                DISPUTE_GAME_FACTORY.findLatestGames(gameType, numGames - 1, 1);
+
+            // Note: we still need to check if the game exists, because there may be games of multiple types.
+            return games.length > 0 ? uint256(games[0].timestamp.raw()) : DEPLOYMENT_TIMESTAMP;
+        }
+    }
+
     /// @notice Checks if an address is allowed to propose.
     /// @param _proposer The address to check.
     /// @return allowed_ Whether the address is allowed to propose.
@@ -81,12 +101,7 @@ contract AccessManager is Ownable {
         // If address(0) is allowed, then it's permissionless.
         // If the fallback timeout has elapsed since last proposal, anyone can propose.
 
-        // Get the latest game to check its timestamp.
-        GameType gameType = GameType.wrap(42);
-        IDisputeGameFactory.GameSearchResult[] memory games = DISPUTE_GAME_FACTORY.findLatestGames(gameType, 0, 1);
-
-        // If there are no games, use DEPLOYMENT_TIMESTAMP to decide whether to allow permissionless proposing.
-        uint256 lastProposalTimestamp = games.length > 0 ? games[0].timestamp.raw() : DEPLOYMENT_TIMESTAMP;
+        uint256 lastProposalTimestamp = getLastProposalTimestamp();
 
         allowed_ = proposers[address(0)] || proposers[_proposer]
             || (block.timestamp - lastProposalTimestamp > FALLBACK_TIMEOUT);
@@ -103,13 +118,7 @@ contract AccessManager is Ownable {
     /// @notice Returns whether proposal fallback timeout has elapsed.
     /// @return Whether permissionless proposing is active.
     function isProposalPermissionlessMode() external view returns (bool) {
-        // Get the latest game to check its timestamp.
-        GameType gameType = GameType.wrap(42);
-        IDisputeGameFactory.GameSearchResult[] memory games = DISPUTE_GAME_FACTORY.findLatestGames(gameType, 0, 1);
-
-        // If there are no games, use 0 to allow permissionless proposing.
-        uint256 lastProposalTimestamp = games.length > 0 ? games[0].timestamp.raw() : DEPLOYMENT_TIMESTAMP;
-
+        uint256 lastProposalTimestamp = getLastProposalTimestamp();
         return block.timestamp - lastProposalTimestamp > FALLBACK_TIMEOUT || proposers[address(0)];
     }
 }
