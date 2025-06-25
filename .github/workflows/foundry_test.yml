@@ -18,7 +18,11 @@ jobs:
       fail-fast: true
 
     name: Foundry project
-    runs-on: ubuntu-latest
+    runs-on:
+      - runs-on
+      - ram=32
+      - image=ubuntu-latest
+      - run-id=${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
         with:
