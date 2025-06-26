@@ -58,8 +58,15 @@ hex.workspace = true
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
 
+# Test dependencies (used by test_utils module)
+alloy-node-bindings.workspace = true
+alloy-signer-local.workspace = true
+lazy_static = "1.5.0"
+
 [dev-dependencies]
 alloy-signer-local.workspace = true
+alloy-node-bindings.workspace = true
+lazy_static = "1.5.0"
 
 [features]
 default = ["ethereum"]

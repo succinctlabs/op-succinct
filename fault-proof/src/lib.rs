@@ -4,6 +4,8 @@ pub mod prometheus;
 pub mod proposer;
 pub mod utils;
 
+pub mod test_utils;
+
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{address, keccak256, Address, FixedBytes, B256, U256};
 use alloy_provider::{Provider, RootProvider};
