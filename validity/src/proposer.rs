@@ -30,7 +30,7 @@ use crate::{
 
 /// Configuration for the driver.
 pub struct DriverConfig {
-    pub network_prover: Arc<NetworkProver>,
+    pub network_prover: Option<Arc<NetworkProver>>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
     pub signer: Signer,
@@ -92,12 +92,19 @@ where
             "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
         });
 
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
-
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-
-        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
+        let (network_prover, range_pk, range_vk, agg_pk, agg_vk) = if requester_config.mock {
+            // In mock mode, use a local prover for setup and skip network prover creation
+            let mock_prover = ProverClient::builder().mock().build();
+            let (range_pk, range_vk) = mock_prover.setup(get_range_elf_embedded());
+            let (agg_pk, agg_vk) = mock_prover.setup(AGGREGATION_ELF);
+            (None, range_pk, range_vk, agg_pk, agg_vk)
+        } else {
+            // In network mode, create the network prover
+            let network_prover = Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+            let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
+            let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
+            (Some(network_prover), range_pk, range_vk, agg_pk, agg_vk)
+        };
         let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
         let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
@@ -282,9 +289,10 @@ where
     #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self, request))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
-            let (status, proof) = self
-                .driver_config
-                .network_prover
+            let network_prover = self.driver_config.network_prover.as_ref()
+                .ok_or_else(|| anyhow!("Network prover not available in mock mode"))?;
+
+            let (status, proof) = network_prover
                 .get_proof_status(B256::from_slice(proof_request_id))
                 .await?;
 
