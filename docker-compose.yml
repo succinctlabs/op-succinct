@@ -15,30 +15,6 @@ services:
     ports:
       - "5432:5432"
 
-  alloy:
-    build:
-      context: .
-      dockerfile: Dockerfile.alloy
-    volumes:
-      - ./config.alloy:/etc/alloy/test.alloy
-      - alloy-data:/var/lib/alloy/data
-    ports:
-      - "12345:12345" # UI/API port
-      - "4317:4317" # OTLP gRPC
-      - "4318:4318" # OTLP HTTP
-    command: >
-      run  --server.http.listen-addr=0.0.0.0:12345  --storage.path=/var/lib/alloy/data  /etc/alloy/test.alloy
-    healthcheck:
-      test: [ "CMD-SHELL", "nc -z localhost 12345" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    network_mode: host
-    deploy:
-      resources:
-        reservations:
-          cpus: '1'
-
   op-succinct:
     build:
       context: .
