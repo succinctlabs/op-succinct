@@ -23,6 +23,7 @@ edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
+version = "2.3.0"
 
 [workspace.dependencies]
 # general

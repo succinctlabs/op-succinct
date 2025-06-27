@@ -3,7 +3,7 @@ use std::sync::Once;
 use opentelemetry::{global, KeyValue};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::{Protocol, WithExportConfig};
-use opentelemetry_sdk::{logs, propagation::TraceContextPropagator, runtime, trace, Resource};
+use opentelemetry_sdk::{logs, propagation::TraceContextPropagator, runtime, Resource};
 use tracing_subscriber::{
     layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry,
 };
@@ -34,24 +34,24 @@ fn build_env_filter() -> EnvFilter {
         .add_directive("sp1_core_machine=error".parse().unwrap())
 }
 
-fn get_otlp_endpoint() -> String {
-    let endpoint =
-        std::env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".to_string());
-    endpoint
-}
-
 /// Set up the logger for the proposer.
 pub fn setup_proposer_logger() {
     INIT.call_once(|| {
+        let logger_name = std::env::var("LOGGER_NAME").ok();
+        let otlp_endpoint =
+            std::env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".to_string());
+
+        let logger_enabled = logger_name.is_some();
+
+        let service_name = logger_name.unwrap_or("opsuccinct-validity-proposer".to_string());
+
         let params = vec![
-            KeyValue::new("service.name", "opsuccinct-validity-proposer"), // TODO make this name an env var? 
-            KeyValue::new("service.version", "2.3.0"), // TODO stop hardcoding this
+            KeyValue::new("service.name", service_name),
+            KeyValue::new("service.version", env!("CARGO_PKG_VERSION").to_string()),
         ];
 
         let resource = Resource::new(params);
         global::set_text_map_propagator(TraceContextPropagator::new());
-
-        let otlp_endpoint = get_otlp_endpoint();
 
         let env_filter = build_env_filter();
         // Set up logging using the provided format
@@ -66,10 +66,7 @@ pub fn setup_proposer_logger() {
 
         let env_filter = build_env_filter();
 
-        let logging_enabled: bool =
-            std::env::var("LOGGING_ENABLED").map(|s| s == "true").unwrap_or(false);
-
-        let log_export_layer: Option<Box<dyn Layer<_> + Send + Sync>> = if logging_enabled {
+        let log_export_layer: Option<Box<dyn Layer<_> + Send + Sync>> = if logger_enabled {
             let export_layer = opentelemetry_otlp::new_pipeline()
                 .logging()
                 .with_log_config(logs::config().with_resource(resource))
@@ -87,6 +84,8 @@ pub fn setup_proposer_logger() {
         };
 
         Registry::default().with(log_export_layer).with(fmt_layer).init();
-        tracing::info!("OTLP endpoint configured: {}", otlp_endpoint);
+        if logger_enabled {
+            tracing::info!("OTLP endpoint configured: {}", otlp_endpoint);
+        }
     });
 }
