@@ -33,7 +33,28 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
-| `PRIVATE_KEY` | Private key for the account that will be posting output roots to L1. Note: Can be replaced with `AWS_KMS_KEY_ID` and `SIGNER_ADDRESS` for AWS KMS signing. |
+
+### Transaction signing
+
+The validity proposer supports 3 different signing methods for sending transactions on chain. Exactly one method must be enabled, by setting the appropriate environment variables.
+
+**Option 1: Private Key**
+| Variable | Description |
+|----------|-------------|
+| `PRIVATE_KEY` | Private key for transaction signing |
+
+**Option 2: Web3 Signer**
+| Variable | Description |
+|----------|-------------|
+| `WEB3SIGNER_URL` | URL of the web3 signer service |
+| `SIGNER_ADDRESS` | Address of the account managed by the web3 signer |
+
+**Option 3: AWS KMS**
+| Variable | Description |
+|----------|-------------|
+| `AWS_KMS_KEY_ID` | ARN or ID of the AWS KMS key for transaction signing |
+| `SIGNER_ADDRESS` | Ethereum address corresponding to the AWS KMS key |
+
 
 ### Optional Environment Variables
 

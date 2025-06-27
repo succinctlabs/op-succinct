@@ -12,7 +12,7 @@ When deploying or upgrading the `OPSuccinctL2OutputOracle` contract, the followi
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
-| `PRIVATE_KEY` | Private key for the account that will be deploying the contract. Can be replaced with `AWS_KMS_KEY_ID` (see below). |
+| `PRIVATE_KEY` | Private key for the account that will be deploying the contract. |
 | `ETHERSCAN_API_KEY` | Etherscan API key used for verifying the contract (optional). |
 
 ## Optional Advanced Parameters
@@ -32,6 +32,3 @@ You can configure additional parameters when deploying or upgrading the `OPSucci
 | `ADMIN_PK` | Default: The address of the account associated with `PRIVATE_KEY`. The private key of the account that will be deploying the contract. |
 | `PROXY_ADMIN` | Default: `address(0)`. The address of the L1 `ProxyAdmin` contract used to manage the `OPSuccinctL2OutputOracle` proxy. More information can be found [here](https://docs.optimism.io/chain/security/privileged-roles#l1-proxy-admin). |
 | `OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL` | Default: `address(0)`. The address of an already-deployed `OPSuccinctL2OutputOracle` implementation contract. If this is not set, a new `OPSuccinctL2OutputOracle` implementation contract will be deployed. |
-| `AWS_KMS_KEY_ID` | The ARN or ID of an AWS KMS key to use for signing transactions instead of `PRIVATE_KEY`. When using this option, also set `SIGNER_ADDRESS` to the Ethereum address corresponding to the KMS key. Requires AWS credentials to be configured via standard AWS SDK methods (environment variables, IAM role, etc.). |
-| `SIGNER_ADDRESS` | Required when using `AWS_KMS_KEY_ID`. The Ethereum address corresponding to the AWS KMS key. |
-

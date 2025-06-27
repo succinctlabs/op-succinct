@@ -39,45 +39,63 @@ impl Signer {
     }
 
     pub fn from_env() -> Result<Self> {
+        // Check for all possible signing mechanisms
+        let has_aws_kms = std::env::var("AWS_KMS_KEY_ID").is_ok();
+        let has_web3signer = std::env::var("WEB3SIGNER_URL").is_ok();
+        let has_private_key = std::env::var("PRIVATE_KEY").is_ok();
+
+        // Count how many mechanisms are configured
+        let mechanism_count = has_aws_kms as u8 + has_web3signer as u8 + has_private_key as u8;
+
+        // Warn if multiple mechanisms are configured
+        if mechanism_count > 1 {
+            let mut mechanisms = Vec::new();
+            if has_aws_kms {
+                mechanisms.push("AWS_KMS_KEY_ID");
+            }
+            if has_web3signer {
+                mechanisms.push("WEB3SIGNER_URL");
+            }
+            if has_private_key {
+                mechanisms.push("PRIVATE_KEY");
+            }
+
+            tracing::warn!(
+                "Multiple signing mechanisms detected: {}. Using the first one found in order: AWS KMS, Web3Signer, Private Key",
+                mechanisms.join(", ")
+            );
+        }
+
         // Check for AWS KMS signer configuration first
         // AWS_KMS_KEY_ID: The ARN or ID of the KMS key to use for signing
-        if let Ok(kms_key_id) = std::env::var("AWS_KMS_KEY_ID") {
-            tracing::info!("Loading AWS configuration for KMS key: {}", kms_key_id);
-
-            // Check if AWS credentials are available in environment
-            if std::env::var("AWS_ACCESS_KEY_ID").is_err() {
-                tracing::warn!("AWS_ACCESS_KEY_ID not found in environment variables");
-            }
-            if std::env::var("AWS_SECRET_ACCESS_KEY").is_err() {
-                tracing::warn!("AWS_SECRET_ACCESS_KEY not found in environment variables");
-            }
-            if std::env::var("AWS_DEFAULT_REGION").is_err() {
-                tracing::warn!("AWS_DEFAULT_REGION not found in environment variables");
-            }
-
+        if has_aws_kms {
             // For AWS signer, we need to fetch the address from KMS asynchronously
             // Since this is a sync function, we'll require the address to be provided
             let signer_address_str = std::env::var("SIGNER_ADDRESS")
                 .context("SIGNER_ADDRESS must be set when using AWS_KMS_KEY_ID")?;
             let signer_address =
                 Address::from_str(&signer_address_str).context("Failed to parse SIGNER_ADDRESS")?;
-            Ok(Signer::AWSSigner { kms_key_id, address: signer_address })
-        } else if let (Ok(signer_url_str), Ok(signer_address_str)) =
-            (std::env::var("WEB3SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
-        {
+            Ok(Signer::AWSSigner {
+                kms_key_id: std::env::var("AWS_KMS_KEY_ID").unwrap(),
+                address: signer_address,
+            })
+        } else if has_web3signer {
+            let signer_url_str = std::env::var("WEB3SIGNER_URL").unwrap();
+            let signer_address_str = std::env::var("SIGNER_ADDRESS")
+                .context("SIGNER_ADDRESS must be set when using WEB3SIGNER_URL")?;
+
             let signer_url =
                 Url::parse(&signer_url_str).context("Failed to parse WEB3SIGNER_URL")?;
             let signer_address =
                 Address::from_str(&signer_address_str).context("Failed to parse SIGNER_ADDRESS")?;
             Ok(Signer::Web3Signer(signer_url, signer_address))
-        } else if let Ok(private_key_str) = std::env::var("PRIVATE_KEY") {
+        } else if has_private_key {
+            let private_key_str = std::env::var("PRIVATE_KEY").unwrap();
             let private_key = PrivateKeySigner::from_str(&private_key_str)
                 .context("Failed to parse PRIVATE_KEY")?;
             Ok(Signer::LocalSigner(private_key))
         } else {
-            anyhow::bail!(
-                "Neither AWS_KMS_KEY_ID (with SIGNER_ADDRESS), (WEB3SIGNER_URL and SIGNER_ADDRESS), nor PRIVATE_KEY are set in environment"
-            )
+            anyhow::bail!("Set exactly one signing method.")
         }
     }
 
