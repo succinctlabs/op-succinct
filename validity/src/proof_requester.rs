@@ -10,7 +10,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
     network::{proto::network::ExecutionStatus, FulfillmentStrategy},
-    NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
+    NetworkProver, ProverClient, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
 use tracing::{info, warn};
@@ -22,7 +22,7 @@ use crate::{
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub host: Arc<H>,
-    pub network_prover: Arc<NetworkProver>,
+    pub network_prover: Option<Arc<NetworkProver>>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub db_client: Arc<DriverDBClient>,
     pub program_config: ProgramConfig,
@@ -37,7 +37,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         host: Arc<H>,
-        network_prover: Arc<NetworkProver>,
+        network_prover: Option<Arc<NetworkProver>>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         db_client: Arc<DriverDBClient>,
         program_config: ProgramConfig,
@@ -145,8 +145,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Requests a range proof via the network prover.
     pub async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        let proof_id = match self
-            .network_prover
+        let network_prover = self.network_prover.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Network prover not available in mock mode"))?;
+
+        let proof_id = match network_prover
             .prove(&self.program_config.range_pk, &stdin)
             .compressed()
             .strategy(self.range_strategy)
@@ -167,8 +169,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Requests an aggregation proof via the network prover.
     pub async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        let proof_id = match self
-            .network_prover
+        let network_prover = self.network_prover.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Network prover not available in mock mode"))?;
+
+        let proof_id = match network_prover
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
@@ -200,10 +204,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         );
 
         let start_time = Instant::now();
-        let network_prover = self.network_prover.clone();
-        // Move the CPU-intensive operation to a dedicated thread.
+        // In mock mode, use a local prover for execution
         let (pv, report) = match tokio::task::spawn_blocking(move || {
-            network_prover.execute(get_range_elf_embedded(), &stdin).run()
+            let mock_prover = ProverClient::builder().mock().build();
+            mock_prover.execute(get_range_elf_embedded(), &stdin).run()
         })
         .await?
         {
@@ -251,10 +255,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
         let start_time = Instant::now();
-        let network_prover = self.network_prover.clone();
-        // Move the CPU-intensive operation to a dedicated thread.
+        // In mock mode, use a local prover for execution
         let (pv, report) = match tokio::task::spawn_blocking(move || {
-            network_prover.execute(AGGREGATION_ELF, &stdin).deferred_proof_verification(false).run()
+            let mock_prover = ProverClient::builder().mock().build();
+            mock_prover.execute(AGGREGATION_ELF, &stdin).deferred_proof_verification(false).run()
         })
         .await?
         {
