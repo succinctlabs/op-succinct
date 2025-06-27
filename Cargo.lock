@@ -7834,6 +7834,7 @@ dependencies = [
  "aws-sdk-kms",
  "op-succinct-host-utils",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

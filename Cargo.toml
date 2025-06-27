@@ -60,7 +60,7 @@ strum = "0.27.1"
 strum_macros = "0.27.1"
 tempfile = "3.10.1"
 
-aws-config = "1.5"
+aws-config = { version = "1.5", features = ["behavior-version-latest"] }
 aws-sdk-kms = "1.55"
 alloy-signer-aws = "0.15.11"
 

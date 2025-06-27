@@ -13,7 +13,6 @@ use tokio::time::Duration;
 
 // AWS imports for KMS signing
 use alloy_signer_aws::AwsSigner;
-use aws_config::BehaviorVersion;
 use aws_sdk_kms::Client as KmsClient;
 
 pub const NUM_CONFIRMATIONS: u64 = 3;
@@ -43,6 +42,19 @@ impl Signer {
         // Check for AWS KMS signer configuration first
         // AWS_KMS_KEY_ID: The ARN or ID of the KMS key to use for signing
         if let Ok(kms_key_id) = std::env::var("AWS_KMS_KEY_ID") {
+            tracing::info!("Loading AWS configuration for KMS key: {}", kms_key_id);
+
+            // Check if AWS credentials are available in environment
+            if std::env::var("AWS_ACCESS_KEY_ID").is_err() {
+                tracing::warn!("AWS_ACCESS_KEY_ID not found in environment variables");
+            }
+            if std::env::var("AWS_SECRET_ACCESS_KEY").is_err() {
+                tracing::warn!("AWS_SECRET_ACCESS_KEY not found in environment variables");
+            }
+            if std::env::var("AWS_DEFAULT_REGION").is_err() {
+                tracing::warn!("AWS_DEFAULT_REGION not found in environment variables");
+            }
+
             // For AWS signer, we need to fetch the address from KMS asynchronously
             // Since this is a sync function, we'll require the address to be provided
             let signer_address_str = std::env::var("SIGNER_ADDRESS")
@@ -133,7 +145,23 @@ impl Signer {
             }
             Signer::AWSSigner { kms_key_id, address } => {
                 // Initialize AWS configuration and KMS client
-                let aws_config = aws_config::load_defaults(BehaviorVersion::latest()).await;
+                // This will automatically load credentials from environment variables, IAM roles,
+                // or AWS config files
+                tracing::info!("Loading AWS configuration for KMS key: {}", kms_key_id);
+
+                // Check if AWS credentials are available in environment
+                if std::env::var("AWS_ACCESS_KEY_ID").is_err() {
+                    tracing::warn!("AWS_ACCESS_KEY_ID not found in environment variables");
+                }
+                if std::env::var("AWS_SECRET_ACCESS_KEY").is_err() {
+                    tracing::warn!("AWS_SECRET_ACCESS_KEY not found in environment variables");
+                }
+                if std::env::var("AWS_DEFAULT_REGION").is_err() {
+                    tracing::warn!("AWS_DEFAULT_REGION not found in environment variables");
+                }
+
+                let aws_config = aws_config::load_from_env().await;
+                tracing::info!("AWS config loaded, region: {:?}", aws_config.region());
                 let kms_client = KmsClient::new(&aws_config);
 
                 // Create the AWS signer with the KMS key
