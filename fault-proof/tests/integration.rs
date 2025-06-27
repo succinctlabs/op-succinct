@@ -25,9 +25,9 @@ async fn test_proposer_defends_successfully() -> Result<()> {
     dotenv::from_filename(".env.proposer").ok();
 
     let signer = if let (Some(signer_url), Some(signer_address)) =
-        (env::var("SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
+        (env::var("WEB3SIGNER_URL").ok(), env::var("SIGNER_ADDRESS").ok())
     {
-        let signer_url = Url::parse(&signer_url).expect("Failed to parse SIGNER_URL");
+        let signer_url = Url::parse(&signer_url).expect("Failed to parse WEB3SIGNER_URL");
         let signer_address =
             Address::from_str(&signer_address).expect("Failed to parse SIGNER_ADDRESS");
         Signer::Web3Signer(signer_url, signer_address)

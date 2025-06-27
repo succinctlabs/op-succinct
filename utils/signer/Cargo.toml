@@ -20,5 +20,11 @@ alloy-transport-http.workspace = true
 anyhow.workspace = true
 tokio.workspace = true
 
+# AWS SDK for KMS signing
+aws-config.workspace = true
+aws-sdk-kms.workspace = true
+alloy-signer-aws.workspace = true
+alloy-signer.workspace = true
+
 [dev-dependencies]
 op-succinct-host-utils.workspace = true

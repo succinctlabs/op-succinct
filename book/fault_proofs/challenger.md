@@ -36,13 +36,24 @@ The challenger is configured through environment variables. Create a `.env.chall
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
 
-Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for transaction signing:
+You must configure one of the following transaction signing methods:
 
+**Option 1: Private Key**
 | Variable | Description |
 |----------|-------------|
-| `PRIVATE_KEY` | Private key for transaction signing (if using private key signer) |
-| `SIGNER_URL` | URL of the web3 signer service (if using web3 signer) |
-| `SIGNER_ADDRESS` | Address of the account managed by the web3 signer (if using web3 signer) |
+| `PRIVATE_KEY` | Private key for transaction signing |
+
+**Option 2: Web3 Signer**
+| Variable | Description |
+|----------|-------------|
+| `WEB3SIGNER_URL` | URL of the web3 signer service |
+| `SIGNER_ADDRESS` | Address of the account managed by the web3 signer |
+
+**Option 3: AWS KMS**
+| Variable | Description |
+|----------|-------------|
+| `AWS_KMS_KEY_ID` | ARN or ID of the AWS KMS key for transaction signing |
+| `SIGNER_ADDRESS` | Ethereum address corresponding to the AWS KMS key |
 
 ### Optional Environment Variables
 
@@ -62,7 +73,16 @@ L1_RPC=                  # L1 RPC endpoint URL
 L2_RPC=                  # L2 RPC endpoint URL
 FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract
 GAME_TYPE=               # Type identifier for the dispute game
+
+# Transaction Signing Configuration (Choose one)
+# Option 1: Private Key
 PRIVATE_KEY=             # Private key for transaction signing
+# Option 2: Web3 Signer
+# WEB3SIGNER_URL=            # URL of the web3 signer service
+# SIGNER_ADDRESS=        # Address of the account managed by the web3 signer
+# Option 3: AWS KMS
+# AWS_KMS_KEY_ID=        # ARN or ID of the AWS KMS key
+# SIGNER_ADDRESS=        # Ethereum address corresponding to the AWS KMS key
 
 # Optional Configuration
 FETCH_INTERVAL=30                     # Polling interval in seconds

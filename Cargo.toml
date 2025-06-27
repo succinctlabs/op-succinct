@@ -13,7 +13,7 @@ members = [
     "programs/aggregation",
     "scripts/*",
     "validity",
-    "fault-proof"
+    "fault-proof",
 ]
 resolver = "2"
 
@@ -59,6 +59,10 @@ metrics-process = "2.4.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 tempfile = "3.10.1"
+
+aws-config = "1.5"
+aws-sdk-kms = "1.55"
+alloy-signer-aws = "0.15.11"
 
 # kona
 kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.1" }
@@ -140,7 +144,10 @@ op-alloy-network = { version = "=0.15.4", default-features = false }
 alloy-evm = { version = "0.6.0", default-features = false, features = ["op"] }
 alloy-op-evm = { version = "0.6.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-revm = { version = "22.0.0", default-features = false, features = ["kzg-rs", "bn"] }
+revm = { version = "22.0.0", default-features = false, features = [
+    "kzg-rs",
+    "bn",
+] }
 op-revm = { version = "3.0.1", default-features = false }
 
 # SP1
@@ -166,4 +173,3 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
-
