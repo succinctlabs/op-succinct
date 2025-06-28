@@ -62,7 +62,7 @@ opentelemetry_sdk = { version = "^0.23.0", features = [
     "logs_level_enabled",
 ] }
 opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
-opentelemetry-otlp = { version = "^0.17.0", features = ["default", "logs"] }
+opentelemetry-otlp = { version = "^0.16.0", features = ["default", "logs"] }
 opentelemetry-appender-tracing = "0.4.0"
 
 metrics = "0.24.1"
