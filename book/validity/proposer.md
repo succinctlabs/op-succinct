@@ -79,6 +79,8 @@ The validity proposer supports 3 different signing methods for sending transacti
 | `AWS_KMS_KEY_ID` | ARN or ID of an AWS KMS key to use for signing transactions. When using this option, set `SIGNER_ADDRESS` to the Ethereum address corresponding to the KMS key. Requires AWS credentials to be configured via standard AWS SDK methods (environment variables, IAM role, etc.). Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
 | `SAFE_DB_FALLBACK` | Default: `false`. Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.  When `false`, proposer will panic if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. |
 | `OP_SUCCINCT_CONFIG_NAME` | Default: `"opsuccinct_genesis"`. The name of the configuration the proposer will interact with on chain. |
+| `LOGGER_NAME` | Default: unset. Set this to export logs to [OTLP](https://opentelemetry.io/docs/specs/otel/protocol/). The name will be the `service.name` exported in the OTLP logs. |
+| `OTLP_ENDPOINT` | Default: `http://localhost:4317`. The endpoint to forward OTLP logs to. | 
 
 ## Build the Proposer Service
 

@@ -23,6 +23,7 @@ edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
+version = "2.3.0"
 
 [workspace.dependencies]
 # general
@@ -52,7 +53,18 @@ bincode = "1.3.3"
 base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
 tracing = { version = "0.1.40", default-features = false }
-tracing-subscriber = { version = "0.3.18", features = ["fmt"] }
+tracing-subscriber = { version = "0.3.19", features = ["fmt"] }
+tracing-opentelemetry = "^0.24"
+opentelemetry = { version = "^0.23.0", features = ["trace"] }
+opentelemetry_sdk = { version = "^0.23.0", features = [
+    "trace",
+    "rt-tokio",
+    "logs_level_enabled",
+] }
+opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
+opentelemetry-otlp = { version = "^0.17.0", features = ["default", "logs"] }
+opentelemetry-appender-tracing = "0.4.0"
+
 metrics = "0.24.1"
 metrics-exporter-prometheus = "0.16.2"
 metrics-process = "2.4.0"
