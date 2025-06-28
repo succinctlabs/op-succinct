@@ -32,4 +32,3 @@ You can configure additional parameters when deploying or upgrading the `OPSucci
 | `ADMIN_PK` | Default: The address of the account associated with `PRIVATE_KEY`. The private key of the account that will be deploying the contract. |
 | `PROXY_ADMIN` | Default: `address(0)`. The address of the L1 `ProxyAdmin` contract used to manage the `OPSuccinctL2OutputOracle` proxy. More information can be found [here](https://docs.optimism.io/chain/security/privileged-roles#l1-proxy-admin). |
 | `OP_SUCCINCT_L2_OUTPUT_ORACLE_IMPL` | Default: `address(0)`. The address of an already-deployed `OPSuccinctL2OutputOracle` implementation contract. If this is not set, a new `OPSuccinctL2OutputOracle` implementation contract will be deployed. |
-

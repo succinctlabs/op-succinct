@@ -11,6 +11,10 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
 use tokio::time::Duration;
 
+// AWS imports for KMS signing
+use alloy_signer_aws::AwsSigner;
+use aws_sdk_kms::Client as KmsClient;
+
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
 
@@ -21,6 +25,8 @@ pub enum Signer {
     Web3Signer(Url, Address),
     /// The local signer.
     LocalSigner(PrivateKeySigner),
+    /// AWS KMS signer with the KMS key ID and corresponding address.
+    AWSSigner { kms_key_id: String, address: Address },
 }
 
 impl Signer {
@@ -28,25 +34,68 @@ impl Signer {
         match self {
             Signer::Web3Signer(_, address) => *address,
             Signer::LocalSigner(signer) => signer.address(),
+            Signer::AWSSigner { address, .. } => *address,
         }
     }
 
     pub fn from_env() -> Result<Self> {
-        if let (Ok(signer_url_str), Ok(signer_address_str)) =
-            (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
-        {
-            let signer_url = Url::parse(&signer_url_str).context("Failed to parse SIGNER_URL")?;
+        // Check for all possible signing mechanisms
+        let has_aws_kms = std::env::var("AWS_KMS_KEY_ID").is_ok();
+        let has_web3signer = std::env::var("WEB3SIGNER_URL").is_ok();
+        let has_private_key = std::env::var("PRIVATE_KEY").is_ok();
+
+        // Count how many mechanisms are configured
+        let mechanism_count = has_aws_kms as u8 + has_web3signer as u8 + has_private_key as u8;
+
+        // Warn if multiple mechanisms are configured
+        if mechanism_count > 1 {
+            let mut mechanisms = Vec::new();
+            if has_aws_kms {
+                mechanisms.push("AWS_KMS_KEY_ID");
+            }
+            if has_web3signer {
+                mechanisms.push("WEB3SIGNER_URL");
+            }
+            if has_private_key {
+                mechanisms.push("PRIVATE_KEY");
+            }
+
+            tracing::warn!(
+                "Multiple signing mechanisms detected: {}. Using the first one found in order: AWS KMS, Web3Signer, Private Key",
+                mechanisms.join(", ")
+            );
+        }
+
+        // Check for AWS KMS signer configuration first
+        // AWS_KMS_KEY_ID: The ARN or ID of the KMS key to use for signing
+        if has_aws_kms {
+            // For AWS signer, we need to fetch the address from KMS asynchronously
+            // Since this is a sync function, we'll require the address to be provided
+            let signer_address_str = std::env::var("SIGNER_ADDRESS")
+                .context("SIGNER_ADDRESS must be set when using AWS_KMS_KEY_ID")?;
+            let signer_address =
+                Address::from_str(&signer_address_str).context("Failed to parse SIGNER_ADDRESS")?;
+            Ok(Signer::AWSSigner {
+                kms_key_id: std::env::var("AWS_KMS_KEY_ID").unwrap(),
+                address: signer_address,
+            })
+        } else if has_web3signer {
+            let signer_url_str = std::env::var("WEB3SIGNER_URL").unwrap();
+            let signer_address_str = std::env::var("SIGNER_ADDRESS")
+                .context("SIGNER_ADDRESS must be set when using WEB3SIGNER_URL")?;
+
+            let signer_url =
+                Url::parse(&signer_url_str).context("Failed to parse WEB3SIGNER_URL")?;
             let signer_address =
                 Address::from_str(&signer_address_str).context("Failed to parse SIGNER_ADDRESS")?;
             Ok(Signer::Web3Signer(signer_url, signer_address))
-        } else if let Ok(private_key_str) = std::env::var("PRIVATE_KEY") {
+        } else if has_private_key {
+            let private_key_str = std::env::var("PRIVATE_KEY").unwrap();
             let private_key = PrivateKeySigner::from_str(&private_key_str)
                 .context("Failed to parse PRIVATE_KEY")?;
             Ok(Signer::LocalSigner(private_key))
         } else {
-            anyhow::bail!(
-                "Neither (SIGNER_URL and SIGNER_ADDRESS) nor PRIVATE_KEY are set in environment"
-            )
+            anyhow::bail!("Set exactly one signing method.")
         }
     }
 
@@ -99,6 +148,54 @@ impl Signer {
                 transaction_request.set_from(private_key.address());
 
                 // Fill the transaction request with all of the relevant gas and nonce information.
+                let filled_tx = provider.fill(transaction_request).await?;
+
+                let receipt = provider
+                    .send_tx_envelope(filled_tx.as_envelope().unwrap().clone())
+                    .await
+                    .context("Failed to send transaction")?
+                    .with_required_confirmations(NUM_CONFIRMATIONS)
+                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .get_receipt()
+                    .await?;
+
+                Ok(receipt)
+            }
+            Signer::AWSSigner { kms_key_id, address } => {
+                // Initialize AWS configuration and KMS client
+                // This will automatically load credentials from environment variables, IAM roles,
+                // or AWS config files
+                tracing::debug!("Loading AWS configuration for KMS key: {}", kms_key_id);
+
+                let aws_config = aws_config::load_from_env().await;
+                tracing::debug!("AWS config loaded, region: {:?}", aws_config.region());
+                let kms_client = KmsClient::new(&aws_config);
+
+                // Create the AWS signer with the KMS key
+                let aws_signer = AwsSigner::new(kms_client, kms_key_id.clone(), None)
+                    .await
+                    .context("Failed to create AWS signer")?;
+
+                // Verify the address matches
+                let aws_address = alloy_signer::Signer::address(&aws_signer);
+                if aws_address != *address {
+                    anyhow::bail!(
+                        "AWS KMS key address {} does not match expected address {}",
+                        aws_address,
+                        address
+                    );
+                }
+
+                // Create provider with AWS signer
+                let provider = ProviderBuilder::new()
+                    .network::<Ethereum>()
+                    .wallet(EthereumWallet::new(aws_signer))
+                    .connect_http(l1_rpc);
+
+                // Set the from address to the AWS signer address
+                transaction_request.set_from(*address);
+
+                // Fill the transaction request with all of the relevant gas and nonce information
                 let filled_tx = provider.fill(transaction_request).await?;
 
                 let receipt = provider

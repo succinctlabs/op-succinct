@@ -33,7 +33,28 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `NETWORK_PRIVATE_KEY` | Key for the Succinct Prover Network. To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). |
 | `L2OO_ADDRESS` | Address of the `OPSuccinctL2OutputOracle` contract. |
-| `PRIVATE_KEY` | Private key for the account that will be posting output roots to L1. |
+
+### Transaction signing
+
+The validity proposer supports 3 different signing methods for sending transactions on chain. Exactly one method must be enabled, by setting the appropriate environment variables.
+
+**Option 1: Private Key**
+| Variable | Description |
+|----------|-------------|
+| `PRIVATE_KEY` | Private key for transaction signing |
+
+**Option 2: Web3 Signer**
+| Variable | Description |
+|----------|-------------|
+| `WEB3SIGNER_URL` | URL of the web3 signer service |
+| `SIGNER_ADDRESS` | Address of the account managed by the web3 signer |
+
+**Option 3: AWS KMS**
+| Variable | Description |
+|----------|-------------|
+| `AWS_KMS_KEY_ID` | ARN or ID of the AWS KMS key for transaction signing |
+| `SIGNER_ADDRESS` | Ethereum address corresponding to the AWS KMS key |
+
 
 ### Optional Environment Variables
 
@@ -53,8 +74,9 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `METRICS_PORT` | Default: `8080`. The port to run the metrics server on. |
 | `LOOP_INTERVAL` | Default: `60`. The interval (in seconds) between each iteration of the OP Succinct service. |
 | `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. |
-| `SIGNER_URL` | URL for the Web3Signer. Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
-| `SIGNER_ADDRESS` | Address of the account that will be posting output roots to L1. Note: Only set this if the signer is a Web3Signer. Note: Required if `SIGNER_URL` is set. |
+| `WEB3SIGNER_URL` | URL for the Web3Signer. Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
+| `SIGNER_ADDRESS` | Address of the account that will be posting output roots to L1. Note: Required if `WEB3SIGNER_URL` or `AWS_KMS_KEY_ID` is set. |
+| `AWS_KMS_KEY_ID` | ARN or ID of an AWS KMS key to use for signing transactions. When using this option, set `SIGNER_ADDRESS` to the Ethereum address corresponding to the KMS key. Requires AWS credentials to be configured via standard AWS SDK methods (environment variables, IAM role, etc.). Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
 | `SAFE_DB_FALLBACK` | Default: `false`. Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.  When `false`, proposer will panic if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. |
 | `OP_SUCCINCT_CONFIG_NAME` | Default: `"opsuccinct_genesis"`. The name of the configuration the proposer will interact with on chain. |
 

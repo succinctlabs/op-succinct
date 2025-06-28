@@ -37,13 +37,24 @@ The proposer is configured through various environment variables. Create a `.env
 | `GAME_TYPE` | Type identifier for the dispute game |
 | `NETWORK_PRIVATE_KEY` | Private key for the succinct prover network (Set to `0x0000000000000000000000000000000000000000000000000000000000000001` if not using fast finality mode) |
 
-Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for transaction signing:
+You must configure one of the following transaction signing methods:
 
+**Option 1: Private Key**
 | Variable | Description |
 |----------|-------------|
-| `PRIVATE_KEY` | Private key for transaction signing (if using private key signer) |
-| `SIGNER_URL` | URL of the web3 signer service (if using web3 signer) |
-| `SIGNER_ADDRESS` | Address of the account managed by the web3 signer (if using web3 signer) |
+| `PRIVATE_KEY` | Private key for transaction signing |
+
+**Option 2: Web3 Signer**
+| Variable | Description |
+|----------|-------------|
+| `WEB3SIGNER_URL` | URL of the web3 signer service |
+| `SIGNER_ADDRESS` | Address of the account managed by the web3 signer |
+
+**Option 3: AWS KMS**
+| Variable | Description |
+|----------|-------------|
+| `AWS_KMS_KEY_ID` | ARN or ID of the AWS KMS key for transaction signing |
+| `SIGNER_ADDRESS` | Ethereum address corresponding to the AWS KMS key |
 
 To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
 
@@ -76,8 +87,11 @@ GAME_TYPE=               # Type identifier for the dispute game (must match fact
 # Option 1: Private Key Signer
 PRIVATE_KEY=             # Private key for transaction signing
 # Option 2: Web3 Signer
-SIGNER_URL=              # URL of the web3 signer service
+WEB3SIGNER_URL=              # URL of the web3 signer service
 SIGNER_ADDRESS=          # Address of the account managed by the web3 signer
+# Option 3: AWS KMS Signer
+AWS_KMS_KEY_ID=          # ARN or ID of the AWS KMS key
+SIGNER_ADDRESS=          # Ethereum address corresponding to the AWS KMS key
 
 # Optional Configuration
 MOCK_MODE=false                          # Whether to use mock mode
