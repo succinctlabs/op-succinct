@@ -60,6 +60,11 @@ strum_macros.workspace = true
 
 [dev-dependencies]
 alloy-signer-local.workspace = true
+alloy-node-bindings.workspace = true
+alloy.workspace = true
+bindings = { path = "../bindings" }
+serde_json.workspace = true
+lazy_static = "1.5"
 
 [features]
 default = ["ethereum"]

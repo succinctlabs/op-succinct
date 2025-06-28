@@ -543,6 +543,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-node-bindings"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9c4bde7223db742a6cb2ab61d99bc37e741d1447b60dfe5fe87405aae96741f"
+dependencies = [
+ "alloy-genesis",
+ "alloy-hardforks",
+ "alloy-network 0.15.11",
+ "alloy-primitives",
+ "alloy-signer 0.15.11",
+ "alloy-signer-local 0.15.11",
+ "k256",
+ "rand 0.8.5",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.12",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "alloy-op-evm"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7316,8 +7337,10 @@ dependencies = [
 name = "op-succinct-fp"
 version = "0.1.0"
 dependencies = [
+ "alloy",
  "alloy-contract",
  "alloy-eips 0.15.11",
+ "alloy-node-bindings",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types-eth 0.15.11",
@@ -7327,10 +7350,12 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "async-trait",
+ "bindings",
  "clap",
  "dotenv",
  "futures",
  "hex",
+ "lazy_static",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-client-utils",
@@ -7339,6 +7364,7 @@ dependencies = [
  "op-succinct-proof-utils",
  "op-succinct-signer-utils",
  "rand 0.9.1",
+ "serde_json",
  "sp1-sdk",
  "strum 0.27.1",
  "strum_macros 0.27.1",
