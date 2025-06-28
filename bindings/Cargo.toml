@@ -1,0 +1,12 @@
+[package]
+name = "bindings"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy = { workspace = true }
+alloy-sol-types = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }
+cargo_metadata = { workspace = true }

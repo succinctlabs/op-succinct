@@ -13,7 +13,8 @@ members = [
     "programs/aggregation",
     "scripts/*",
     "validity",
-    "fault-proof"
+    "fault-proof",
+    "bindings"
 ]
 resolver = "2"
 
@@ -122,6 +123,13 @@ alloy-rpc-types-engine = { version = "0.15.8", default-features = false }
 alloy-rpc-types-beacon = { version = "0.15.8", default-features = false }
 alloy-rpc-types-eth = { version = "0.15.8", default-features = false }
 alloy-signer = { version = "0.15.8", default-features = false }
+alloy = { version = "0.15.8", features = [
+    "reqwest",
+    "network",
+    "providers",
+    "sol-types",
+    "rpc-types",
+] }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
 alloy-primitives = { version = "1.0.0", default-features = false, features = [

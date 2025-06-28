@@ -121,6 +121,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "alloy"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b064bd1cea105e70557a258cd2b317731896753ec08edf51da2d1fced587b05"
+dependencies = [
+ "alloy-consensus 0.15.11",
+ "alloy-contract",
+ "alloy-core",
+ "alloy-eips 0.15.11",
+ "alloy-genesis",
+ "alloy-network 0.15.11",
+ "alloy-provider",
+ "alloy-rpc-client",
+ "alloy-rpc-types",
+ "alloy-serde 0.15.11",
+ "alloy-signer 0.15.11",
+ "alloy-signer-local 0.15.11",
+ "alloy-transport",
+ "alloy-transport-http",
+]
+
+[[package]]
 name = "alloy-chains"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -227,6 +249,19 @@ dependencies = [
  "futures",
  "futures-util",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "alloy-core"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3c5a28f166629752f2e7246b813cdea3243cca59aab2d4264b1fd68392c10eb"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-sol-types",
 ]
 
 [[package]]
@@ -361,6 +396,19 @@ dependencies = [
  "op-revm",
  "revm",
  "thiserror 2.0.12",
+]
+
+[[package]]
+name = "alloy-genesis"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7f723856b1c4ad5473f065650ab9be557c96fbc77e89180fbdac003e904a8d6"
+dependencies = [
+ "alloy-eips 0.15.11",
+ "alloy-primitives",
+ "alloy-serde 0.15.11",
+ "alloy-trie",
+ "serde",
 ]
 
 [[package]]
@@ -897,6 +945,7 @@ version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a384edac7283bc4c010a355fb648082860c04b826bb7a814c45263c8f304c74"
 dependencies = [
+ "alloy-json-abi",
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.5.0",
@@ -915,12 +964,14 @@ version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0dd588c2d516da7deb421b8c166dc60b7ae31bca5beea29ab6621fcfa53d6ca5"
 dependencies = [
+ "alloy-json-abi",
  "const-hex",
  "dunce",
  "heck 0.5.0",
  "macro-string",
  "proc-macro2",
  "quote",
+ "serde_json",
  "syn 2.0.101",
  "syn-solidity",
 ]
@@ -1863,6 +1914,16 @@ dependencies = [
  "rustc-hash 1.1.0",
  "shlex",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "bindings"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-sol-types",
+ "anyhow",
+ "cargo_metadata",
 ]
 
 [[package]]
