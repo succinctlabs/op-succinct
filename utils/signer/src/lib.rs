@@ -165,21 +165,10 @@ impl Signer {
                 // Initialize AWS configuration and KMS client
                 // This will automatically load credentials from environment variables, IAM roles,
                 // or AWS config files
-                tracing::info!("Loading AWS configuration for KMS key: {}", kms_key_id);
-
-                // Check if AWS credentials are available in environment
-                if std::env::var("AWS_ACCESS_KEY_ID").is_err() {
-                    tracing::warn!("AWS_ACCESS_KEY_ID not found in environment variables");
-                }
-                if std::env::var("AWS_SECRET_ACCESS_KEY").is_err() {
-                    tracing::warn!("AWS_SECRET_ACCESS_KEY not found in environment variables");
-                }
-                if std::env::var("AWS_DEFAULT_REGION").is_err() {
-                    tracing::warn!("AWS_DEFAULT_REGION not found in environment variables");
-                }
+                tracing::debug!("Loading AWS configuration for KMS key: {}", kms_key_id);
 
                 let aws_config = aws_config::load_from_env().await;
-                tracing::info!("AWS config loaded, region: {:?}", aws_config.region());
+                tracing::debug!("AWS config loaded, region: {:?}", aws_config.region());
                 let kms_client = KmsClient::new(&aws_config);
 
                 // Create the AWS signer with the KMS key
