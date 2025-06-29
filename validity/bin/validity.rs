@@ -41,10 +41,15 @@ async fn main() -> Result<()> {
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
+    tracing::info!("set up the fetcher");
+
     // Read the environment variables.
     let env_config = read_proposer_env()?;
 
+    tracing::info!("set up proposer env");
     let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
+
+    tracing::info!("set up db client");
 
     let op_succinct_config_name_hash =
         alloy_primitives::keccak256(env_config.op_succinct_config_name.as_bytes());
