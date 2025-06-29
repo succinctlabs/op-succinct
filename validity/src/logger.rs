@@ -12,7 +12,7 @@ static INIT: Once = Once::new();
 fn build_env_filter() -> EnvFilter {
     EnvFilter::try_from_default_env()
         .unwrap_or_else(|e| {
-            println!("failed to setup env filter: {:?}", e);
+            println!("failed to setup env filter: {e:?}");
             EnvFilter::new("info")
         })
         .add_directive(tracing::Level::INFO.into())
