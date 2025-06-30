@@ -852,6 +852,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-rpc-types-trace"
+version = "0.15.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d57f1b7da0af516ad2c02233ed1274527f9b0536dbda300acea2e8a1e7ac20c8"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rpc-types-eth 0.15.11",
+ "alloy-serde 0.15.11",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "alloy-serde"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7344,6 +7358,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-types-eth 0.15.11",
+ "alloy-rpc-types-trace",
  "alloy-signer-local 0.15.11",
  "alloy-sol-macro",
  "alloy-sol-types",
@@ -7371,6 +7386,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
+ "which",
 ]
 
 [[package]]
