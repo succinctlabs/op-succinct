@@ -7376,6 +7376,11 @@ dependencies = [
  "op-alloy-network",
  "op-succinct-client-utils",
  "op-succinct-elfs",
+ "opentelemetry 0.23.0",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry-stdout",
+ "opentelemetry_sdk 0.23.0",
  "reqwest 0.12.18",
  "rkyv",
  "serde",
@@ -7385,6 +7390,8 @@ dependencies = [
  "strum 0.27.1",
  "tokio",
  "tracing",
+ "tracing-opentelemetry",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]
