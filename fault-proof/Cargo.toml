@@ -55,7 +55,7 @@ dotenv.workspace = true
 futures.workspace = true
 rand = "0.9"
 tokio.workspace = true
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing.workspace = true
 hex.workspace = true
 strum = { workspace = true, features = ["derive"] }

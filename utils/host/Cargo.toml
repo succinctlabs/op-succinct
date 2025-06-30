@@ -59,7 +59,7 @@ tokio.workspace = true
 tracing.workspace = true
 
 # logging and telemetry
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing-opentelemetry.workspace = true
 opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
