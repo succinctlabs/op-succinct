@@ -16,7 +16,6 @@ fn build_env_filter() -> EnvFilter {
             println!("failed to setup env filter: {e:?}");
             EnvFilter::new("info")
         })
-        .add_directive(tracing::Level::INFO.into())
         .add_directive("single_hint_handler=error".parse().unwrap())
         .add_directive("execute=error".parse().unwrap())
         .add_directive("sp1_prover=error".parse().unwrap())
