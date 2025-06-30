@@ -122,6 +122,7 @@ alloy-node-bindings = { version = "0.15.8", default-features = false }
 alloy-rpc-types-engine = { version = "0.15.8", default-features = false }
 alloy-rpc-types-beacon = { version = "0.15.8", default-features = false }
 alloy-rpc-types-eth = { version = "0.15.8", default-features = false }
+alloy-rpc-types-trace = { version = "0.15.8", default-features = false }
 alloy-signer = { version = "0.15.8", default-features = false }
 alloy = { version = "0.15.8", features = [
     "reqwest",

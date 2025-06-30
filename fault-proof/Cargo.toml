@@ -36,6 +36,7 @@ alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-provider = { workspace = true, features = ["reqwest"] }
 alloy-rpc-types-eth.workspace = true
+alloy-rpc-types-trace.workspace = true
 alloy-sol-macro.workspace = true
 alloy-sol-types.workspace = true
 alloy-transport-http = { workspace = true, features = ["reqwest", "reqwest-native-tls"] }
@@ -65,6 +66,8 @@ alloy.workspace = true
 bindings = { path = "../bindings" }
 serde_json.workspace = true
 lazy_static = "1.5"
+alloy-rpc-types-trace = "0.15.11"
+which = "4.4"
 
 [features]
 default = ["ethereum"]
