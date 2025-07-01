@@ -1,5 +1,6 @@
 //! Contract deployment utilities for E2E tests.
 
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{address, Address, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_trace::geth::{
@@ -14,7 +15,7 @@ use bindings::{
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame, sp1_mock_verifier::SP1MockVerifier,
     superchain_config::SuperchainConfig,
 };
-use fault_proof::L1Provider;
+use fault_proof::{L1Provider, L2Provider, L2ProviderTrait};
 use std::borrow::Cow;
 use tracing::info;
 
@@ -29,7 +30,7 @@ pub struct DeployedContracts {
 }
 
 /// Test configuration constants
-pub const TEST_GAME_TYPE: u32 = 254;
+pub const TEST_GAME_TYPE: u32 = 42; // Must match OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE in contracts
 pub const INIT_BOND: U256 = U256::from_le_bytes([
     0, 0xe8, 0xd4, 0xa5, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0,
@@ -46,7 +47,10 @@ pub const AGGREGATION_VKEY: FixedBytes<32> = FixedBytes::ZERO; // Mock value for
 pub const RANGE_VKEY_COMMITMENT: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
 
 /// Deploy all contracts required for E2E testing
-pub async fn deploy_test_contracts(provider: L1Provider) -> Result<DeployedContracts> {
+pub async fn deploy_test_contracts(
+    provider: L1Provider,
+    l2_provider: L2Provider,
+) -> Result<DeployedContracts> {
     info!("Deploying all contracts for E2E testing");
 
     // 1. Deploy DisputeGameFactory as proxy (matching production pattern)
@@ -86,9 +90,15 @@ pub async fn deploy_test_contracts(provider: L1Provider) -> Result<DeployedContr
     info!("✓ AnchorStateRegistry implementation deployed at: {}", anchor_impl_addr);
 
     // Prepare initialization data with expected test values
+    // NOTE: We use the finalized L2 block number - 30 as the starting anchor root and test 3 games
+    // with proposal interval of 10 blocks.
+    let l2_block_number = U256::from(
+        l2_provider.get_l2_block_by_number(BlockNumberOrTag::Finalized).await?.header.number,
+    ) - U256::from(100u64);
+    let output_root = l2_provider.compute_output_root_at_block(l2_block_number).await?;
     let starting_anchor_root = bindings::anchor_state_registry::AnchorStateRegistry::OutputRoot {
-        root: FixedBytes::<32>::from([1u8; 32]),  // Match test expectation
-        l2BlockNumber: U256::from(1000000),
+        root: output_root,
+        l2BlockNumber: l2_block_number,
     };
 
     let init_data = bindings::anchor_state_registry::AnchorStateRegistry::initializeCall {
@@ -313,8 +323,6 @@ pub async fn deploy_test_contracts(provider: L1Provider) -> Result<DeployedContr
 pub async fn configure_contracts(
     provider: L1Provider,
     contracts: &DeployedContracts,
-    _l2_block_number: U256,
-    _output_root: FixedBytes<32>,
 ) -> Result<()> {
     info!("Configuring contracts for E2E testing");
 
@@ -324,7 +332,14 @@ pub async fn configure_contracts(
         return Ok(());
     }
 
-    // 1. Configure DisputeGameFactory
+    // 1. Configure MockOptimismPortal2 - Set respected game type
+    info!("Configuring MockOptimismPortal2...");
+    let portal = MockOptimismPortal2::new(contracts.portal, provider.clone());
+    let tx = portal.setRespectedGameType(TEST_GAME_TYPE).send().await?;
+    tx.get_receipt().await?;
+    info!("✓ Respected game type set to {}", TEST_GAME_TYPE);
+
+    // 2. Configure DisputeGameFactory
     info!("Configuring DisputeGameFactory...");
     let factory = DisputeGameFactory::new(contracts.factory, provider.clone());
 
@@ -339,7 +354,7 @@ pub async fn configure_contracts(
     tx.get_receipt().await?;
     info!("✓ Init bond set to {}", INIT_BOND);
 
-    // 2. Configure AccessManager
+    // 3. Configure AccessManager
     info!("Configuring AccessManager...");
     let access_manager = AccessManager::new(contracts.access_manager, provider.clone());
 
@@ -356,6 +371,10 @@ pub async fn configure_contracts(
     let tx = access_manager.setChallenger(proposer_address, true).send().await?;
     tx.get_receipt().await?;
     info!("✓ Challenger permission set for {}", proposer_address);
+
+    // The AnchorStateRegistry is already initialized with a starting anchor state
+    // during deployment (starting at finalized L2 block - 30 with output root at the block).
+    info!("✓ AnchorStateRegistry already configured with initial anchor state");
 
     info!("✓ All contracts configured successfully");
     Ok(())
