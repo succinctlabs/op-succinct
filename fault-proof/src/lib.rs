@@ -621,9 +621,9 @@ where
         let claim_data = game.claimData().call().await?;
         match mode {
             Mode::Proposer => {
-                if claim_data.status != ProposalStatus::Unchallenged {
+                if claim_data.status == ProposalStatus::Challenged {
                     tracing::info!(
-                        "Game {:?} at index {:?} is not unchallenged, not attempting resolution",
+                        "Game {:?} at index {:?} is challenged, not attempting resolution",
                         game_address,
                         index
                     );
