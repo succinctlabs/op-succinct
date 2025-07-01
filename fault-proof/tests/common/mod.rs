@@ -12,8 +12,9 @@ pub use contracts::{
     MAX_PROVE_DURATION, TEST_GAME_TYPE,
 };
 pub use monitor::{
-    wait_and_track_games, wait_for_bond_claims, wait_for_challenges, wait_for_resolutions,
-    wait_for_single_game, TrackedGame,
+    verify_all_bonds_claimed, verify_all_resolved_correctly, wait_and_track_games,
+    wait_for_bond_claims, wait_for_challenges, wait_for_resolutions, wait_for_single_game,
+    TrackedGame,
 };
 pub use process::{
     find_binary_path, generate_challenger_env, generate_proposer_env, start_challenger_binary,
