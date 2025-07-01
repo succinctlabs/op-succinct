@@ -26,9 +26,7 @@ services:
       - DATABASE_URL=postgres://op-succinct@localhost:5432/op-succinct
     depends_on:
       - postgres
-      - alloy
     restart: unless-stopped
 
 volumes:
   postgres-data:
-  alloy-data:
