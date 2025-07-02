@@ -606,10 +606,10 @@ where
         signer: Signer,
         l1_rpc: Url,
         l1_provider: L1Provider,
-        l2_provider: L2Provider,
+        _l2_provider: L2Provider,
     ) -> Result<Action> {
         let game_address = self.fetch_game_address_by_index(index).await?;
-        let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider);
+        let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
         if game.status().call().await? != GameStatus::IN_PROGRESS {
             tracing::info!(
                 "Game {:?} at index {:?} is not in progress, not attempting resolution",
@@ -643,8 +643,12 @@ where
             }
         }
 
-        let current_timestamp =
-            l2_provider.get_l2_block_by_number(BlockNumberOrTag::Latest).await?.header.timestamp;
+        let current_timestamp = l1_provider
+            .get_block(alloy_eips::BlockId::Number(BlockNumberOrTag::Latest))
+            .await?
+            .unwrap()
+            .header
+            .timestamp;
         let deadline = U256::from(claim_data.deadline).to::<u64>();
         if deadline >= current_timestamp {
             tracing::info!(
@@ -700,7 +704,8 @@ where
         // Except for the game without a parent, which are first games.
         let oldest_game_index =
             latest_game_index.saturating_sub(U256::from(max_games_to_check_for_resolution));
-        let games_to_check = latest_game_index.min(U256::from(max_games_to_check_for_resolution));
+        let games_to_check = (latest_game_index - oldest_game_index + U256::from(1))
+            .min(U256::from(max_games_to_check_for_resolution));
 
         let (should_attempt_resolution, game_address) =
             self.should_attempt_resolution(oldest_game_index).await?;

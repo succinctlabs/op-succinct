@@ -132,6 +132,7 @@ async fn start_binary_process(config: ProcessConfig) -> Result<ManagedProcess> {
         let mut lines = stdout_reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
             if log_stdout {
+                println!("[{} stdout] {}", stdout_name, line);
                 info!("[{} stdout] {}", stdout_name, line);
             }
         }
@@ -147,6 +148,7 @@ async fn start_binary_process(config: ProcessConfig) -> Result<ManagedProcess> {
         let mut lines = stderr_reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
             if log_stderr {
+                println!("[{} stderr] {}", stderr_name, line);
                 warn!("[{} stderr] {}", stderr_name, line);
             }
         }
@@ -245,6 +247,10 @@ pub fn generate_challenger_env(
 
     // Enable info logging
     env.insert("RUST_LOG".to_string(), "info".to_string());
+
+    // Test-specific configuration
+    env.insert("FETCH_INTERVAL".to_string(), "2".to_string()); // Check more frequently in tests
+    env.insert("MAX_GAMES_TO_CHECK_FOR_CHALLENGE".to_string(), "10".to_string()); // Check more games
 
     env
 }
