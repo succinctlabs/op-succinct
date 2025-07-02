@@ -56,6 +56,9 @@ pub struct ProposerConfig {
 
     /// The metrics port.
     pub metrics_port: u16,
+
+    /// The cycle limit for the SP1 prover.
+    pub cycle_limit: u64,
 }
 
 impl ProposerConfig {
@@ -91,6 +94,7 @@ impl ProposerConfig {
             metrics_port: env::var("PROPOSER_METRICS_PORT")
                 .unwrap_or("9000".to_string())
                 .parse()?,
+            cycle_limit: env::var("CYCLE_LIMIT").unwrap_or("3000000000".to_string()).parse()?,
         })
     }
 }

@@ -195,7 +195,7 @@ where
                 .compressed()
                 .strategy(FulfillmentStrategy::Hosted)
                 .skip_simulation(true)
-                .cycle_limit(3_000_000_000)
+                .cycle_limit(self.config.cycle_limit)
                 .run_async()
                 .await?
         };
