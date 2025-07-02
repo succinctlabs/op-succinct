@@ -2,6 +2,7 @@
 
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
+use alloy_sol_types::SolEvent;
 use anyhow::Result;
 use bindings::{
     dispute_game_factory::DisputeGameFactory,
@@ -258,6 +259,24 @@ pub fn extract_game_address_from_receipt(
     // In a real implementation, you'd parse the DisputeGameCreated event
     // For now, return a placeholder
     anyhow::bail!("Game address extraction from receipt not implemented yet")
+}
+
+/// Extract game address from factory logs
+pub fn extract_game_address_from_factory_logs<P: Provider>(
+    receipt: &alloy_rpc_types_eth::TransactionReceipt,
+    factory: &DisputeGameFactory::DisputeGameFactoryInstance<P>,
+) -> Result<Address> {
+    // Parse the DisputeGameCreated event from logs
+    for log in receipt.logs() {
+        if log.address() == *factory.address() {
+            // Try to decode as DisputeGameCreated event
+            if let Ok(event) = DisputeGameFactory::DisputeGameCreated::decode_log(&log.inner) {
+                return Ok(event.disputeProxy);
+            }
+        }
+    }
+
+    anyhow::bail!("Could not find DisputeGameCreated event in receipt")
 }
 
 /// Verify all games resolved correctly (proposer wins)

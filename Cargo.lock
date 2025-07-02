@@ -7354,6 +7354,7 @@ dependencies = [
  "alloy",
  "alloy-contract",
  "alloy-eips 0.15.11",
+ "alloy-network 0.15.11",
  "alloy-node-bindings",
  "alloy-primitives",
  "alloy-provider",

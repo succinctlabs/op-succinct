@@ -90,7 +90,7 @@ pub async fn deploy_test_contracts(
     info!("✓ AnchorStateRegistry implementation deployed at: {}", anchor_impl_addr);
 
     // Prepare initialization data with expected test values
-    // NOTE: We use the finalized L2 block number - 30 as the starting anchor root and test 3 games
+    // NOTE: We use the finalized L2 block number - 100 as the starting anchor root and test 3 games
     // with proposal interval of 10 blocks.
     let l2_block_number = U256::from(
         l2_provider.get_l2_block_by_number(BlockNumberOrTag::Finalized).await?.header.number,
@@ -358,19 +358,17 @@ pub async fn configure_contracts(
     info!("Configuring AccessManager...");
     let access_manager = AccessManager::new(contracts.access_manager, provider.clone());
 
-    // Set proposer permission (using Anvil's default account 0)
-    let proposer_address = Address::from([
-        0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce, 0x6a, 0xB8, 0x82, 0x72, 0x79,
-        0xcf, 0xfF, 0xb9, 0x22, 0x66,
-    ]);
+    // Set proposer permission (Anvil account 0)
+    let proposer_address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
     let tx = access_manager.setProposer(proposer_address, true).send().await?;
     tx.get_receipt().await?;
     info!("✓ Proposer permission set for {}", proposer_address);
 
-    // Set challenger permission (could be different address in real tests)
-    let tx = access_manager.setChallenger(proposer_address, true).send().await?;
+    // Set challenger permission (Anvil account 1)
+    let challenger_address = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+    let tx = access_manager.setChallenger(challenger_address, true).send().await?;
     tx.get_receipt().await?;
-    info!("✓ Challenger permission set for {}", proposer_address);
+    info!("✓ Challenger permission set for {}", challenger_address);
 
     // The AnchorStateRegistry is already initialized with a starting anchor state
     // during deployment (starting at finalized L2 block - 30 with output root at the block).
