@@ -752,6 +752,7 @@ where
             .factory
             .get_oldest_defensible_game_address(
                 self.config.max_games_to_check_for_defense,
+                self.l1_provider.clone(),
                 self.l2_provider.clone(),
             )
             .await?

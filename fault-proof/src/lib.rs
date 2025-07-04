@@ -168,6 +168,7 @@ where
     async fn get_oldest_game_address<S, O>(
         &self,
         max_games_to_check: u64,
+        l1_provider: L1Provider,
         l2_provider: L2Provider,
         status_check: S,
         output_root_check: O,
@@ -184,6 +185,7 @@ where
     async fn get_oldest_challengable_game_address(
         &self,
         max_games_to_check_for_challenge: u64,
+        l1_provider: L1Provider,
         l2_provider: L2Provider,
     ) -> Result<Option<Address>>;
 
@@ -197,6 +199,7 @@ where
     async fn get_oldest_defensible_game_address(
         &self,
         max_games_to_check_for_defense: u64,
+        l1_provider: L1Provider,
         l2_provider: L2Provider,
     ) -> Result<Option<Address>>;
 
@@ -430,6 +433,7 @@ where
     async fn get_oldest_game_address<S, O>(
         &self,
         max_games_to_check: u64,
+        l1_provider: L1Provider,
         l2_provider: L2Provider,
         status_check: S,
         output_root_check: O,
@@ -461,9 +465,10 @@ where
                 continue;
             }
 
-            let current_timestamp = l2_provider
-                .get_l2_block_by_number(BlockNumberOrTag::Latest)
+            let current_timestamp = l1_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
                 .await?
+                .unwrap()
                 .header
                 .timestamp;
             let deadline = U256::from(claim_data.deadline).to::<u64>();
@@ -503,10 +508,12 @@ where
     async fn get_oldest_challengable_game_address(
         &self,
         max_games_to_check_for_challenge: u64,
+        l1_provider: L1Provider,
         l2_provider: L2Provider,
     ) -> Result<Option<Address>> {
         self.get_oldest_game_address(
             max_games_to_check_for_challenge,
+            l1_provider,
             l2_provider,
             |status| status == ProposalStatus::Unchallenged,
             |output_root, game_claim| output_root != game_claim,
@@ -519,10 +526,12 @@ where
     async fn get_oldest_defensible_game_address(
         &self,
         max_games_to_check_for_defense: u64,
+        l1_provider: L1Provider,
         l2_provider: L2Provider,
     ) -> Result<Option<Address>> {
         self.get_oldest_game_address(
             max_games_to_check_for_defense,
+            l1_provider,
             l2_provider,
             |status| status == ProposalStatus::Challenged,
             |output_root, game_claim| output_root == game_claim,

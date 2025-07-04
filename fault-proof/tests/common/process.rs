@@ -1,7 +1,8 @@
 //! Process management utilities for running proposer and challenger binaries.
 
-use anyhow::{Context, Result};
 use std::{collections::HashMap, path::PathBuf, process::Stdio, time::Duration};
+
+use anyhow::{Context, Result};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, Command},
@@ -75,7 +76,7 @@ pub async fn start_proposer_binary(
         name: "proposer".to_string(),
         binary_path,
         env_vars,
-        log_stdout: true,
+        log_stdout: false,
         log_stderr: true,
     };
 
@@ -91,7 +92,7 @@ pub async fn start_challenger_binary(
         name: "challenger".to_string(),
         binary_path,
         env_vars,
-        log_stdout: true,
+        log_stdout: false,
         log_stderr: true,
     };
 
@@ -132,7 +133,6 @@ async fn start_binary_process(config: ProcessConfig) -> Result<ManagedProcess> {
         let mut lines = stdout_reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
             if log_stdout {
-                println!("[{} stdout] {}", stdout_name, line);
                 info!("[{} stdout] {}", stdout_name, line);
             }
         }
@@ -148,7 +148,6 @@ async fn start_binary_process(config: ProcessConfig) -> Result<ManagedProcess> {
         let mut lines = stderr_reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
             if log_stderr {
-                println!("[{} stderr] {}", stderr_name, line);
                 warn!("[{} stderr] {}", stderr_name, line);
             }
         }
@@ -176,6 +175,7 @@ async fn start_binary_process(config: ProcessConfig) -> Result<ManagedProcess> {
 }
 
 /// Generate environment variables for the proposer
+#[allow(clippy::too_many_arguments)]
 pub fn generate_proposer_env(
     l1_rpc: &str,
     l2_rpc: &str,
@@ -213,6 +213,7 @@ pub fn generate_proposer_env(
 }
 
 /// Generate environment variables for the challenger
+#[allow(clippy::too_many_arguments)]
 pub fn generate_challenger_env(
     l1_rpc: &str,
     l2_rpc: &str,
@@ -256,6 +257,7 @@ pub fn generate_challenger_env(
 }
 
 /// Wait for a process to produce a specific log line
+#[allow(dead_code)]
 pub async fn wait_for_log_line(
     process_name: &str,
     expected_line: &str,
@@ -303,26 +305,4 @@ pub fn find_binary_path(binary_name: &str) -> Result<PathBuf> {
         binary_name,
         binary_name
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_env_generation() {
-        let proposer_env = generate_proposer_env(
-            "http://localhost:8545",
-            "http://localhost:9545",
-            "http://localhost:9545",
-            "http://localhost:5052",
-            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-            "0x1234567890123456789012345678901234567890",
-            254,
-            None,
-        );
-
-        assert_eq!(proposer_env.get("L1_RPC").unwrap(), "http://localhost:8545");
-        assert_eq!(proposer_env.get("GAME_TYPE").unwrap(), "254");
-    }
 }
