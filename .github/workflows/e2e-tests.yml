@@ -35,7 +35,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: true
+        submodules: recursive
       
     - name: Setup Rust
       run: |
