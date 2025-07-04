@@ -64,7 +64,6 @@ pub struct ProcessConfig {
     pub binary_path: PathBuf,
     pub env_vars: HashMap<String, String>,
     pub log_stdout: bool,
-    pub log_stderr: bool,
 }
 
 /// Start a proposer binary with the given configuration
@@ -72,13 +71,10 @@ pub async fn start_proposer_binary(
     binary_path: PathBuf,
     env_vars: HashMap<String, String>,
 ) -> Result<ManagedProcess> {
-    let config = ProcessConfig {
-        name: "proposer".to_string(),
-        binary_path,
-        env_vars,
-        log_stdout: false,
-        log_stderr: true,
-    };
+    // Allow overriding stdout logging via environment variable for debugging
+    let log_stdout = std::env::var("TEST_LOG_STDOUT").map(|v| v == "true").unwrap_or(false);
+
+    let config = ProcessConfig { name: "proposer".to_string(), binary_path, env_vars, log_stdout };
 
     start_binary_process(config).await
 }
@@ -88,13 +84,11 @@ pub async fn start_challenger_binary(
     binary_path: PathBuf,
     env_vars: HashMap<String, String>,
 ) -> Result<ManagedProcess> {
-    let config = ProcessConfig {
-        name: "challenger".to_string(),
-        binary_path,
-        env_vars,
-        log_stdout: false,
-        log_stderr: true,
-    };
+    // Allow overriding stdout logging via environment variable for debugging
+    let log_stdout = std::env::var("TEST_LOG_STDOUT").map(|v| v == "true").unwrap_or(false);
+
+    let config =
+        ProcessConfig { name: "challenger".to_string(), binary_path, env_vars, log_stdout };
 
     start_binary_process(config).await
 }
@@ -142,14 +136,11 @@ async fn start_binary_process(config: ProcessConfig) -> Result<ManagedProcess> {
     let stderr = child.stderr.take().expect("Failed to get stderr");
     let stderr_reader = BufReader::new(stderr);
     let stderr_name = config.name.clone();
-    let log_stderr = config.log_stderr;
 
     let stderr_handle = tokio::spawn(async move {
         let mut lines = stderr_reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            if log_stderr {
-                warn!("[{} stderr] {}", stderr_name, line);
-            }
+            warn!("[{} stderr] {}", stderr_name, line);
         }
     });
 

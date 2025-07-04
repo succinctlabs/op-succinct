@@ -16,10 +16,10 @@ The fault-proof crate includes comprehensive end-to-end tests that run actual pr
 
 ### Test Timing
 Tests use time warping to compress days of real-world dispute game timing into minutes:
-- **Challenge Duration**: 2 minutes (configurable)
-- **Prove Duration**: 3 minutes (configurable)
-- **Bond Claim Delay**: 1 minute (configurable)
-- **Total Test Time**: ~5 minutes per full lifecycle
+- **Challenge Duration**: 1 hour (MAX_CHALLENGE_DURATION)
+- **Prove Duration**: 12 hours (MAX_PROVE_DURATION)
+- **Bond Claim Delay (Airgap)**: 7 days (AIRGAP)
+- **Total Test Time**: ~2-3 minutes per full lifecycle (using time warping)
 
 ## Prerequisites
 
@@ -30,15 +30,21 @@ Before running the tests, ensure you have:
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
 
-2. **Environment variables configured**
+2. **Foundry installed** (required for contract bindings)
    ```bash
-   export L1_RPC=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-   export L1_BEACON_RPC=https://sepolia.beaconcha.in
-   export L2_RPC=https://sepolia.optimism.io
-   export L2_NODE_RPC=$L2_RPC  # Can be same as L2_RPC
+   curl -L https://foundry.paradigm.xyz | bash
+   foundryup
    ```
 
-3. **Built binaries**
+3. **Environment variables configured**
+   ```bash
+   export L1_RPC=<YOUR_L1_RPC>
+   export L1_BEACON_RPC=<YOUR_L1_BEACON_RPC>
+   export L2_RPC=<YOUR_L2_RPC>
+   export L2_NODE_RPC=<YOUR_L2_NODE_RPC>
+   ```
+
+4. **Built binaries**
    ```bash
    cargo build --release --bin proposer
    cargo build --release --bin challenger
@@ -48,56 +54,32 @@ Before running the tests, ensure you have:
 
 ### End-to-End Tests (`fault_proof/tests/e2e.rs`)
 
+The test suite includes two comprehensive end-to-end tests that validate the complete fault dispute game lifecycle:
+
 #### 1. Honest Proposer Full Lifecycle
 `test_honest_proposer()`: Tests the complete lifecycle when proposer creates valid games:
-- **Phase 1**: Proposer creates games naturally
-- **Phase 2**: Time warp to challenge deadline (no challenges submitted)
-- **Phase 3**: Games resolve in proposer's favor
-- **Phase 4**: Proposer claims bonds after delay period
+- **Phase 1: Game Creation**: Proposer creates games naturally based on L2 state
+- **Phase 2: Challenge Period**: Time warp to near end of challenge duration (no challenges submitted)
+- **Phase 3: Resolution**: Games automatically resolve in proposer's favor after challenge period
+- **Phase 4: Bond Claims**: Proposer claims bonds after airgap period (7 days warped to seconds)
 
 #### 2. Honest Challenger Full Lifecycle
 `test_honest_challenger()`: Tests challenger winning against invalid games:
-- **Phase 1**: Test creates invalid games manually
-- **Phase 2**: Challenger detects and challenges automatically
-- **Phase 3**: Games resolve in challenger's favor (no defense proof)
-- **Phase 4**: Challenger claims bonds after delay period
-
-### Integration Tests (`fault_proof/tests/integration.rs`)
-
-#### 1. Proposer Defense Scenario
-`test_proposer_defends_successfully()`: Tests successful defense against malicious challenges:
-- Proposer creates valid game
-- Malicious challenger submits invalid challenge
-- Proposer automatically defends with valid proof
-- Game resolves in proposer's favor
+- **Phase 1: Create Invalid Games**: Test manually creates games with invalid output roots
+- **Phase 2: Challenge Period**: Challenger automatically detects and challenges invalid games
+- **Phase 3: Resolution**: Time warp past prove deadline, games resolve in challenger's favor
+- **Phase 4: Bond Claims**: Challenger claims bonds from all defeated games after airgap period
 
 ## Running the Tests
 
 ### Basic Test Execution
 ```bash
-# Run all end-to-end tests
-cargo test --test e2e
+# Run all end-to-end tests (thread count 1 is recommended for E2E tests)
+cargo test --release --test e2e -- --test-threads=1 --nocapture
 
 # Run specific test
-cargo test --test e2e test_honest_proposer
+cargo test --release --test e2e test_honest_proposer
 
-# Run with detailed logging
-RUST_LOG=info cargo test --test e2e -- --nocapture
-
-# Run with debug logging for troubleshooting
-RUST_LOG=debug cargo test --test e2e -- --nocapture
-```
-
-### Test Options
-```bash
-# Run tests with custom thread count (recommended: 1 for E2E tests)
-cargo test --test e2e -- --test-threads=1
-
-# Run in release mode for faster execution
-cargo test --release --test e2e
-
-# Show test output even on success
-cargo test --test e2e -- --nocapture
 ```
 
 ### Logging Levels
@@ -111,6 +93,11 @@ Example with module-specific logging:
 RUST_LOG=info,e2e::common::contracts=debug cargo test --test e2e
 ```
 
+Enable process stdout logging for debugging:
+```bash
+TEST_LOG_STDOUT=true cargo test --test e2e -- --nocapture
+```
+
 ## Test Structure
 
 ### Common Test Utilities (`fault_proof/tests/common/`)
@@ -119,6 +106,16 @@ RUST_LOG=info,e2e::common::contracts=debug cargo test --test e2e
 - `env.rs`: Test environment setup and configuration
 - `monitor.rs`: Event monitoring and game state tracking
 - `process.rs`: Binary process management
+
+### Test Configuration
+
+Key test constants defined in `fault_proof/tests/common/contracts.rs`:
+- **TEST_GAME_TYPE**: 42 (test-specific game type)
+- **INIT_BOND**: 0.01 ETH (minimal bond for testing)
+- **CHALLENGER_BOND**: 1 ETH (bond required for challenges)
+- **MAX_CHALLENGE_DURATION**: 1 hour (time to submit a challenge)
+- **MAX_PROVE_DURATION**: 12 hours (time to submit proof after challenge)
+- **AIRGAP**: 7 days (delay before bonds can be claimed)
 
 ### Test Phases
 Each full lifecycle test follows these phases:
@@ -142,13 +139,19 @@ Each full lifecycle test follows these phases:
    ```
    Could not find proposer binary
    ```
-   Solution: Build the binaries first with `cargo build --bin proposer`
+   Solution: Build the binaries first with `cargo build --release --bin proposer --bin challenger`
 
-3. **AccessManager Deployment Fails**
+3. **Contract Binding Generation Fails**
    ```
-   ⚠️ AccessManager deployment reverted
+   error: failed to run custom build command for `bindings v0.1.0`
    ```
-   Note: This is a known issue on Anvil forks and is handled gracefully
+   Solution: Ensure Foundry is installed and `forge` is in your PATH
+
+4. **Test Timeouts**
+   ```
+   Error: Timeout waiting for bond claims
+   ```
+   Solution: This may indicate a bug in the bond claiming logic. Check that all games are being processed correctly.
 
 ### Debug Tips
 
@@ -163,24 +166,8 @@ Each full lifecycle test follows these phases:
    ```
 
 3. **Check Process Output**
-   The tests capture stdout/stderr from binaries. Look for `[proposer stderr]` or `[challenger stderr]` in logs.
-
-## CI Integration
-
-Tests can be run in CI environments with the following considerations:
-
-1. **Timeouts**: E2E tests may take 5-10 minutes each
-2. **Resources**: Tests require ~4GB RAM for Anvil fork
-3. **Parallelization**: Run E2E tests with `--test-threads=1` to avoid conflicts
-4. **Secrets**: Ensure RPC URLs are configured as CI secrets
-
-Example GitHub Actions configuration:
-```yaml
-- name: Run E2E Tests
-  run: cargo test --release --test e2e
-  env:
-    L1_RPC: ${{ secrets.L1_RPC }}
-    L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-    L2_RPC: ${{ secrets.L2_RPC }}
-    L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-```
+   By default, tests only capture stderr from binaries. Look for `[proposer stderr]` or `[challenger stderr]` in logs.
+   To enable stdout logging for debugging:
+   ```bash
+   TEST_LOG_STDOUT=true cargo test --test e2e -- --nocapture
+   ```
