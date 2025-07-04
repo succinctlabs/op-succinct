@@ -1078,6 +1078,8 @@ where
         let fetcher = &self.proof_requester.fetcher;
         ValidityGauge::L2UnsafeHeadBlock
             .set(fetcher.get_l2_header(BlockId::latest()).await?.number as f64);
+        ValidityGauge::L2SafeHeadBlock
+            .set(fetcher.get_l2_header(BlockId::safe()).await?.number as f64);
         ValidityGauge::L2FinalizedBlock
             .set(fetcher.get_l2_header(BlockId::finalized()).await?.number as f64);
 

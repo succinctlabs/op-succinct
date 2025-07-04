@@ -41,6 +41,8 @@ pub enum ValidityGauge {
     LatestContractL2Block,
     #[strum(serialize = "succinct_l2_unsafe_head_block", message = "L2 unsafe head block number")]
     L2UnsafeHeadBlock,
+    #[strum(serialize = "succinct_l2_safe_head_block", message = "L2 safe head block number")]
+    L2SafeHeadBlock,
     #[strum(serialize = "succinct_l2_finalized_block", message = "L2 finalized block number")]
     L2FinalizedBlock,
     #[strum(
