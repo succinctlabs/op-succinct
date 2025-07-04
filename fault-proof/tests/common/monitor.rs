@@ -262,7 +262,7 @@ pub async fn wait_for_bond_claims<P: Provider>(
                 all_claimed = false;
 
                 // Log current credit balances for debugging
-                if i == 0 && tokio::time::Instant::now().elapsed().as_secs() % 10 == 0 {
+                if i == 0 && tokio::time::Instant::now().elapsed().as_secs().is_multiple_of(10) {
                     info!(
                         "Game {} - Recipient {} normalModeCredit: {}, refundModeCredit: {}",
                         game.address, recipient_address, normal_credit, refund_credit
