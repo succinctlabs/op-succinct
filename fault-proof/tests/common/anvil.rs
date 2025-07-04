@@ -1,15 +1,15 @@
 //! Anvil fork management utilities for E2E tests.
 
+use std::{sync::Mutex, time::Duration};
+
 use alloy_node_bindings::{Anvil, AnvilInstance};
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use alloy_rpc_types_eth::BlockNumberOrTag;
 use anyhow::{Context, Result};
 use lazy_static::lazy_static;
-use std::{sync::Mutex, time::Duration};
 use tracing::info;
 
-// Import provider types from the main crate
 use fault_proof::{L1Provider, L2Provider};
 
 // An Anvil instance that is kept alive for the duration of the program.
@@ -95,7 +95,7 @@ pub async fn warp_time<P: Provider>(provider: &P, duration: Duration) -> Result<
 }
 
 /// Mine a specific number of blocks
-pub async fn mine_blocks<P: Provider>(provider: &P, count: u64) -> Result<()> {
+pub async fn _mine_blocks<P: Provider>(provider: &P, count: u64) -> Result<()> {
     info!("Mining {} blocks", count);
     let client = provider.client();
 
@@ -107,7 +107,7 @@ pub async fn mine_blocks<P: Provider>(provider: &P, count: u64) -> Result<()> {
 }
 
 /// Create a snapshot of the current state
-pub async fn snapshot<P: Provider>(provider: &P) -> Result<U256> {
+pub async fn _snapshot<P: Provider>(provider: &P) -> Result<U256> {
     let client = provider.client();
     let id: U256 = client.request("evm_snapshot", Vec::<serde_json::Value>::new()).await?;
     info!("Created snapshot with id: {}", id);
@@ -115,7 +115,7 @@ pub async fn snapshot<P: Provider>(provider: &P) -> Result<U256> {
 }
 
 /// Revert to a previous snapshot
-pub async fn revert_to_snapshot<P: Provider>(provider: &P, snapshot_id: U256) -> Result<()> {
+pub async fn _revert_to_snapshot<P: Provider>(provider: &P, snapshot_id: U256) -> Result<()> {
     let client = provider.client();
     let success: bool = client.request("evm_revert", vec![serde_json::json!(snapshot_id)]).await?;
 
@@ -128,12 +128,12 @@ pub async fn revert_to_snapshot<P: Provider>(provider: &P, snapshot_id: U256) ->
 
 /// Calculate the fork block based on L2 state.
 /// This function determines the appropriate L1 block to fork from based on the L2 finalized block.
-pub async fn calculate_fork_block() -> Result<u64> {
+pub async fn _calculate_fork_block() -> Result<u64> {
     let l2_rpc_url = std::env::var("L2_RPC").context("L2_RPC must be set")?;
     let l2_provider = L2Provider::new_http(l2_rpc_url.parse()?);
 
     let l2_finalized = l2_provider
-        .get_block_by_number(BlockNumberOrTag::Finalized.into())
+        .get_block_by_number(BlockNumberOrTag::Finalized)
         .await?
         .context("Failed to get L2 finalized block")?
         .header

@@ -1,5 +1,7 @@
 //! Contract deployment utilities for E2E tests.
 
+use std::borrow::Cow;
+
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{address, Address, FixedBytes, U256};
 use alloy_provider::Provider;
@@ -15,17 +17,15 @@ use bindings::{
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame, sp1_mock_verifier::SP1MockVerifier,
     superchain_config::SuperchainConfig,
 };
+use tracing::{debug, info};
+
 use fault_proof::{L1Provider, L2Provider, L2ProviderTrait};
-use std::borrow::Cow;
-use tracing::info;
 
 /// Container for deployed contracts
 pub struct DeployedContracts {
     pub factory: Address,
-    pub verifier: Address,
     pub portal: Address,
     pub access_manager: Address,
-    pub anchor_state_registry: Address,
     pub game_implementation: Address,
 }
 
@@ -35,7 +35,7 @@ pub const INIT_BOND: U256 = U256::from_le_bytes([
     0, 0xe8, 0xd4, 0xa5, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0,
 ]); // 0.01 ETH
-pub const DELAY_PERIOD: u64 = 60; // 1 minute
+pub const AIRGAP: u64 = 60; // 1 minute
 pub const MAX_CHALLENGE_DURATION: u64 = 120; // 2 minutes
 pub const MAX_PROVE_DURATION: u64 = 180; // 3 minutes
 pub const CHALLENGER_BOND: U256 = INIT_BOND; // Same as init bond
@@ -51,16 +51,16 @@ pub async fn deploy_test_contracts(
     provider: L1Provider,
     l2_provider: L2Provider,
 ) -> Result<DeployedContracts> {
-    info!("Deploying all contracts for E2E testing");
+    debug!("Deploying all contracts for E2E testing");
 
     // 1. Deploy DisputeGameFactory as proxy (matching production pattern)
-    info!("Deploying DisputeGameFactory implementation...");
+    debug!("Deploying DisputeGameFactory implementation...");
     let factory_impl = DisputeGameFactory::deploy(provider.clone()).await?;
     let factory_impl_addr = *factory_impl.address();
     info!("✓ DisputeGameFactory implementation deployed at: {}", factory_impl_addr);
 
     // Deploy factory proxy with initialization
-    info!("Deploying DisputeGameFactory proxy...");
+    debug!("Deploying DisputeGameFactory proxy...");
     let deployer = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Anvil account 0
     let init_data = DisputeGameFactory::initializeCall { _owner: deployer }.abi_encode();
 
@@ -70,21 +70,20 @@ pub async fn deploy_test_contracts(
     info!("✓ DisputeGameFactory proxy deployed at: {}", factory);
 
     // 2. Deploy MockOptimismPortal2 (needed for AnchorStateRegistry)
-    info!("Deploying MockOptimismPortal2...");
+    debug!("Deploying MockOptimismPortal2...");
     let portal_instance =
-        MockOptimismPortal2::deploy(provider.clone(), TEST_GAME_TYPE, U256::from(DELAY_PERIOD))
-            .await?;
+        MockOptimismPortal2::deploy(provider.clone(), TEST_GAME_TYPE, U256::from(AIRGAP)).await?;
     let portal = *portal_instance.address();
     info!("✓ MockOptimismPortal2 deployed at: {}", portal);
 
     // 3. Deploy AnchorStateRegistry as proxy (before AccessManager)
-    info!("Deploying SuperchainConfig...");
+    debug!("Deploying SuperchainConfig...");
     let superchain_config = SuperchainConfig::deploy(provider.clone()).await?;
     let superchain_config_addr = *superchain_config.address();
     info!("✓ SuperchainConfig deployed at: {}", superchain_config_addr);
 
     // Deploy AnchorStateRegistry implementation
-    info!("Deploying AnchorStateRegistry implementation...");
+    debug!("Deploying AnchorStateRegistry implementation...");
     let anchor_impl = AnchorStateRegistry::deploy(provider.clone()).await?;
     let anchor_impl_addr = *anchor_impl.address();
     info!("✓ AnchorStateRegistry implementation deployed at: {}", anchor_impl_addr);
@@ -110,25 +109,25 @@ pub async fn deploy_test_contracts(
     .abi_encode();
 
     // Deploy AnchorStateRegistry proxy
-    info!("Deploying AnchorStateRegistry proxy...");
+    debug!("Deploying AnchorStateRegistry proxy...");
     let anchor_proxy =
         ERC1967Proxy::deploy(provider.clone(), anchor_impl_addr, init_data.into()).await?;
     let anchor_state_registry = *anchor_proxy.address();
     info!("✓ AnchorStateRegistry proxy deployed at: {}", anchor_state_registry);
 
     // 4. Deploy AccessManager (after factory proxy and anchor state registry)
-    info!("Deploying AccessManager...");
-    info!("  Using FALLBACK_TIMEOUT: {}", FALLBACK_TIMEOUT);
-    info!("  Using DisputeGameFactory: {}", factory);
+    debug!("Deploying AccessManager...");
+    debug!("  Using FALLBACK_TIMEOUT: {}", FALLBACK_TIMEOUT);
+    debug!("  Using DisputeGameFactory: {}", factory);
 
     // Verify the factory has code
     let factory_code = provider.get_code_at(factory).await?;
-    info!("  DisputeGameFactory code size: {} bytes", factory_code.len());
+    debug!("  DisputeGameFactory code size: {} bytes", factory_code.len());
 
     // Log deployer address and verify ETH balance
     let deployer_balance = provider.get_balance(deployer).await?;
-    info!("  Deployer address: {}", deployer);
-    info!("  Deployer balance: {} ETH", deployer_balance.to_string());
+    debug!("  Deployer address: {}", deployer);
+    debug!("  Deployer balance: {} ETH", deployer_balance.to_string());
 
     if deployer_balance == U256::ZERO {
         anyhow::bail!("Deployer has no ETH balance");
@@ -139,20 +138,20 @@ pub async fn deploy_test_contracts(
         AccessManager::deploy_builder(provider.clone(), FALLBACK_TIMEOUT, factory).gas(3_000_000); // Set explicit gas limit
 
     // First, try to simulate the transaction to get revert reason
-    info!("  Simulating AccessManager deployment...");
+    debug!("  Simulating AccessManager deployment...");
     let deploy_tx = deploy_builder.as_ref().clone();
 
     // Try to estimate gas to check if it would revert
     match provider.estimate_gas(deploy_tx).await {
         Ok(gas_estimate) => {
-            info!("  Gas estimate successful: {}", gas_estimate);
+            debug!("  Gas estimate successful: {}", gas_estimate);
         }
         Err(e) => {
-            info!("  ⚠️  Gas estimation failed: {}", e);
+            debug!("  ⚠️  Gas estimation failed: {}", e);
             // The error message itself often contains the revert reason
             let error_str = e.to_string();
             if error_str.contains("revert") || error_str.contains("execution reverted") {
-                info!("  Likely a revert error detected in: {}", error_str);
+                debug!("  Likely a revert error detected in: {}", error_str);
             }
         }
     }
@@ -166,12 +165,12 @@ pub async fn deploy_test_contracts(
                 Ok(receipt) => {
                     if !receipt.status() {
                         info!("⚠️  AccessManager deployment reverted - transaction status: false");
-                        info!("  Gas used: {}", receipt.gas_used);
-                        info!("  Block number: {}", receipt.block_number.unwrap_or(0));
+                        debug!("  Gas used: {}", receipt.gas_used);
+                        debug!("  Block number: {}", receipt.block_number.unwrap_or(0));
 
                         // Try to get transaction trace for more details
-                        if let Some(block_num) = receipt.block_number {
-                            info!("  Attempting to trace transaction...");
+                        if let Some(_block_num) = receipt.block_number {
+                            debug!("  Attempting to trace transaction...");
 
                             // Build trace request with CallTracer
                             let trace_request = GethDebugTracingOptions {
@@ -190,45 +189,43 @@ pub async fn deploy_test_contracts(
                                 .await
                             {
                                 Ok(trace) => {
-                                    info!("  Transaction trace obtained");
+                                    debug!("  Transaction trace obtained");
                                     if let Some(error) = trace.get("error") {
-                                        info!("  Trace error: {}", error);
+                                        debug!("  Trace error: {}", error);
                                     }
                                     if let Some(revert_reason) = trace.get("revertReason") {
-                                        info!("  Revert reason from trace: {}", revert_reason);
+                                        debug!("  Revert reason from trace: {}", revert_reason);
                                     }
                                     // Log the last few operations before revert
                                     if let Some(calls) =
                                         trace.get("calls").and_then(|v| v.as_array())
                                     {
                                         if !calls.is_empty() {
-                                            info!("  Number of sub-calls: {}", calls.len());
+                                            debug!("  Number of sub-calls: {}", calls.len());
                                             if let Some(last_call) = calls.last() {
                                                 if let Some(error) = last_call.get("error") {
-                                                    info!("  Last call error: {}", error);
+                                                    debug!("  Last call error: {}", error);
                                                 }
                                             }
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    info!("  Could not trace transaction: {}", e);
+                                    debug!("  Could not trace transaction: {}", e);
                                 }
                             }
                         }
 
                         // Try to get more information about the revert
-                        if let Ok(tx) = provider.get_transaction_by_hash(tx_hash).await {
-                            if let Some(tx) = tx {
-                                // Transaction fields are in the inner field
-                                info!("  Transaction details available");
-                                info!("  Block number: {:?}", tx.block_number);
-                                info!("  Transaction index: {:?}", tx.transaction_index);
-                            }
+                        if let Ok(Some(tx)) = provider.get_transaction_by_hash(tx_hash).await {
+                            // Transaction fields are in the inner field
+                            debug!("  Transaction details available");
+                            debug!("  Block number: {:?}", tx.block_number);
+                            debug!("  Transaction index: {:?}", tx.transaction_index);
                         }
 
-                        info!("  This is a known issue with AccessManager on Anvil forks");
-                        info!("  The contract inherits from Ownable which may have state conflicts on forks");
+                        debug!("  This is a known issue with AccessManager on Anvil forks");
+                        debug!("  The contract inherits from Ownable which may have state conflicts on forks");
                         Address::ZERO
                     } else if let Some(addr) = receipt.contract_address {
                         info!("✓ AccessManager deployed at: {}", addr);
@@ -253,7 +250,7 @@ pub async fn deploy_test_contracts(
     };
 
     // 5. Deploy SP1MockVerifier
-    info!("Deploying SP1MockVerifier...");
+    debug!("Deploying SP1MockVerifier...");
 
     // Deploy using the builder and wait for receipt
     let builder = SP1MockVerifier::deploy_builder(provider.clone());
@@ -278,20 +275,13 @@ pub async fn deploy_test_contracts(
         let game_implementation = Address::ZERO;
 
         info!("⚠️  Skipping game implementation due to AccessManager deployment failure");
-        info!("  The core contracts are sufficient for basic functionality tests");
+        debug!("  The core contracts are sufficient for basic functionality tests");
 
-        return Ok(DeployedContracts {
-            factory,
-            verifier,
-            portal,
-            access_manager,
-            anchor_state_registry,
-            game_implementation,
-        });
+        return Ok(DeployedContracts { factory, portal, access_manager, game_implementation });
     }
 
     // 6. Deploy OPSuccinctFaultDisputeGame implementation
-    info!("Deploying OPSuccinctFaultDisputeGame...");
+    debug!("Deploying OPSuccinctFaultDisputeGame...");
     let game_implementation_instance = OPSuccinctFaultDisputeGame::deploy(
         provider.clone(),
         MAX_CHALLENGE_DURATION,
@@ -309,14 +299,7 @@ pub async fn deploy_test_contracts(
     let game_implementation = *game_implementation_instance.address();
     info!("✓ OPSuccinctFaultDisputeGame deployed at: {}", game_implementation);
 
-    Ok(DeployedContracts {
-        factory,
-        verifier,
-        portal,
-        access_manager,
-        anchor_state_registry,
-        game_implementation,
-    })
+    Ok(DeployedContracts { factory, portal, access_manager, game_implementation })
 }
 
 /// Configure contracts after deployment
@@ -379,6 +362,7 @@ pub async fn configure_contracts(
 }
 
 /// Create a game through the factory (simplified version for testing)
+#[allow(dead_code)]
 pub async fn create_test_game(
     provider: L1Provider,
     factory_address: Address,
