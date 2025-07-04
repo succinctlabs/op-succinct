@@ -241,7 +241,7 @@ async fn test_honest_challenger() -> Result<()> {
     )
     .await?;
     info!(
-        "✓ Warped time by {} seconds (max challenge window + max prove duration )",
+        "✓ Warped time by {} seconds (max challenge window + max prove duration)",
         MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION
     );
 

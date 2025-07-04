@@ -562,8 +562,9 @@ where
 
         let oldest_game_index =
             latest_game_index.saturating_sub(U256::from(max_games_to_check_for_bond_claiming));
-        let games_to_check =
-            latest_game_index.min(U256::from(max_games_to_check_for_bond_claiming)).to::<u64>();
+        let games_to_check = (latest_game_index - oldest_game_index + U256::from(1))
+            .min(U256::from(max_games_to_check_for_bond_claiming))
+            .to::<u64>();
 
         for i in 0..games_to_check {
             let index = oldest_game_index + U256::from(i);
