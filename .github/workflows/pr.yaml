@@ -37,6 +37,11 @@ jobs:
           toolchain: nightly
           components: rustfmt, clippy
       
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+      
       - name: Run cargo check
         uses: actions-rs/cargo@v1
         with:
