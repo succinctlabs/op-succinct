@@ -187,10 +187,7 @@ async fn main() -> Result<()> {
         let env_path = current_dir.join(&args.env_file);
         dotenv::from_path(env_path).ok();
     } else {
-        eprintln!(
-            "Warning: Could not determine current directory. {} file not loaded.",
-            args.env_file
-        );
+        eprintln!("Warning: Could not determine current directory. {} file not loaded.", args.env_file);
     }
 
     let output_dir = PathBuf::from(&args.output_dir);
