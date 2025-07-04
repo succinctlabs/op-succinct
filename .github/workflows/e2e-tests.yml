@@ -34,11 +34,18 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: true
       
     - name: Setup Rust
       run: |
         rustup toolchain install stable --profile minimal
         rustup component add rustfmt clippy
+        
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: nightly
         
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@v2
