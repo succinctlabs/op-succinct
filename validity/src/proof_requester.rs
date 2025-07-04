@@ -312,7 +312,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             let curr_proof = &range_proofs[i];
 
             // Check for gap
-            if prev_proof.end_block + 1 != curr_proof.start_block {
+            if prev_proof.end_block != curr_proof.start_block {
                 debug!(
                     "Gap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
@@ -324,7 +324,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             }
 
             // Check for overlap (duplicate blocks)
-            if prev_proof.end_block >= curr_proof.start_block {
+            if prev_proof.end_block > curr_proof.start_block {
                 debug!(
                     "Overlap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
