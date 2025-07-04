@@ -94,6 +94,7 @@ where
         self.factory
             .get_oldest_game_address(
                 self.config.max_games_to_check_for_challenge,
+                self.l1_provider.clone(),
                 self.l2_provider.clone(),
                 |status| status == ProposalStatus::Unchallenged,
                 |output_root, game_claim| output_root == game_claim, /* Valid games (opposite of
@@ -114,6 +115,7 @@ where
             .factory
             .get_oldest_challengable_game_address(
                 self.config.max_games_to_check_for_challenge,
+                self.l1_provider.clone(),
                 self.l2_provider.clone(),
             )
             .await?
@@ -169,7 +171,6 @@ where
                 self.signer.clone(),
                 self.config.l1_rpc.clone(),
                 self.l1_provider.clone(),
-                self.l2_provider.clone(),
             )
             .await
     }
