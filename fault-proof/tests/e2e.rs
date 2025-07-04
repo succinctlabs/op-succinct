@@ -267,7 +267,7 @@ async fn test_honest_challenger() -> Result<()> {
     info!("\n=== Phase 4: Bond Claims ===");
 
     // Wait for challenger to claim bonds
-    let challenger_address = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+    let challenger_address = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"); // Anvil account 1
     let tracked_games: Vec<_> = invalid_games
         .iter()
         .map(|&address| TrackedGame {

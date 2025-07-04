@@ -27,7 +27,7 @@ jobs:
     - uses: Swatinem/rust-cache@v2  
     - name: Test
       # Skip E2E tests (run in separate workflow), cycle count diff, and GitHub posting tests
-      run: cargo test --release -- --skip e2e --skip test_cycle_count_diff --skip test_post_to_github
+      run: cargo test --release -- --skip test_cycle_count_diff --skip test_post_to_github --exclude e2e
       env:
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
         L1_RPC: ${{ secrets.L1_RPC }}
