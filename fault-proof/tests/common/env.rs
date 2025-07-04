@@ -4,8 +4,6 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_provider::ProviderBuilder;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
-use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
-use tokio::time::Duration;
 use tracing::info;
 
 use fault_proof::{L2Provider, L2ProviderTrait};
@@ -45,17 +43,13 @@ impl TestEnvironment {
         let l2_rpc = std::env::var("L2_RPC").expect("L2_RPC must be set");
         let l2_node_rpc = std::env::var("L2_NODE_RPC").unwrap_or_else(|_| l2_rpc.clone());
         let l1_beacon_rpc = std::env::var("L1_BEACON_RPC").expect("L1_BEACON_RPC must be set");
-        let fetcher = OPSuccinctDataFetcher::new();
 
         // Setup Anvil fork
+        let anvil = setup_anvil_fork(&l1_rpc).await?;
+
+        // Create L2 provider
         let l2_provider =
             ProviderBuilder::default().connect_http(l2_rpc.clone().parse::<Url>().unwrap());
-        let l2_block_number =
-            l2_provider.get_l2_block_by_number(BlockNumberOrTag::Finalized).await?.header.number -
-                100;
-        let fork_block = fetcher.get_safe_l1_block_for_l2_block(l2_block_number).await?.1;
-        let anvil = setup_anvil_fork(&l1_rpc, fork_block, Some(Duration::from_secs(1))).await?;
-        info!("✓ Anvil fork started at: {}", anvil.endpoint);
 
         // Deploy contracts
         info!("\n=== Deploying Contracts ===");

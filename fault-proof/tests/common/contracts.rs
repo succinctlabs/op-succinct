@@ -1,13 +1,7 @@
 //! Contract deployment utilities for E2E tests.
 
-use std::borrow::Cow;
-
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{address, Address, FixedBytes, U256};
-use alloy_provider::Provider;
-use alloy_rpc_types_trace::geth::{
-    GethDebugBuiltInTracerType, GethDebugTracerType, GethDebugTracingOptions,
-};
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use bindings::{
@@ -31,15 +25,14 @@ pub struct DeployedContracts {
 
 /// Test configuration constants
 pub const TEST_GAME_TYPE: u32 = 42; // Must match OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE in contracts
-pub const INIT_BOND: U256 = U256::from_le_bytes([
-    0, 0xe8, 0xd4, 0xa5, 0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0,
-]); // 0.01 ETH
-pub const AIRGAP: u64 = 60; // 1 minute
-pub const MAX_CHALLENGE_DURATION: u64 = 120; // 2 minutes
-pub const MAX_PROVE_DURATION: u64 = 180; // 3 minutes
-pub const CHALLENGER_BOND: U256 = INIT_BOND; // Same as init bond
-pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 weeks (default from fetch_fault_dispute_game_config)
+pub const INIT_BOND: U256 = U256::from_limbs([10_000_000_000_000_000, 0, 0, 0]); // 0.01 ETH
+pub const CHALLENGER_BOND: U256 = U256::from_limbs([1_000_000_000_000_000_000, 0, 0, 0]); // 1 ETH
+
+// Time constants
+pub const AIRGAP: u64 = 60 * 60 * 24 * 7; // 7 days
+pub const MAX_CHALLENGE_DURATION: u64 = 60 * 60; // 1 hour
+pub const MAX_PROVE_DURATION: u64 = 60 * 60 * 12; // 12 hours
+pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 weeks
 
 // Configuration hashes for OPSuccinctFaultDisputeGame
 pub const ROLLUP_CONFIG_HASH: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
@@ -51,7 +44,7 @@ pub async fn deploy_test_contracts(
     provider: L1Provider,
     l2_provider: L2Provider,
 ) -> Result<DeployedContracts> {
-    debug!("Deploying all contracts for E2E testing");
+    info!("Deploying all contracts for E2E testing");
 
     // 1. Deploy DisputeGameFactory as proxy (matching production pattern)
     debug!("Deploying DisputeGameFactory implementation...");
@@ -115,170 +108,49 @@ pub async fn deploy_test_contracts(
     let anchor_state_registry = *anchor_proxy.address();
     info!("✓ AnchorStateRegistry proxy deployed at: {}", anchor_state_registry);
 
-    // 4. Deploy AccessManager (after factory proxy and anchor state registry)
+    // 4. Deploy AccessManager
     debug!("Deploying AccessManager...");
-    debug!("  Using FALLBACK_TIMEOUT: {}", FALLBACK_TIMEOUT);
-    debug!("  Using DisputeGameFactory: {}", factory);
-
-    // Verify the factory has code
-    let factory_code = provider.get_code_at(factory).await?;
-    debug!("  DisputeGameFactory code size: {} bytes", factory_code.len());
-
-    // Log deployer address and verify ETH balance
-    let deployer_balance = provider.get_balance(deployer).await?;
-    debug!("  Deployer address: {}", deployer);
-    debug!("  Deployer balance: {} ETH", deployer_balance.to_string());
-
-    if deployer_balance == U256::ZERO {
-        anyhow::bail!("Deployer has no ETH balance");
-    }
-
-    // AccessManager takes: fallback_timeout (uint256), dispute_game_factory (address)
-    let deploy_builder =
-        AccessManager::deploy_builder(provider.clone(), FALLBACK_TIMEOUT, factory).gas(3_000_000); // Set explicit gas limit
-
-    // First, try to simulate the transaction to get revert reason
-    debug!("  Simulating AccessManager deployment...");
-    let deploy_tx = deploy_builder.as_ref().clone();
-
-    // Try to estimate gas to check if it would revert
-    match provider.estimate_gas(deploy_tx).await {
-        Ok(gas_estimate) => {
-            debug!("  Gas estimate successful: {}", gas_estimate);
-        }
-        Err(e) => {
-            debug!("  ⚠️  Gas estimation failed: {}", e);
-            // The error message itself often contains the revert reason
-            let error_str = e.to_string();
-            if error_str.contains("revert") || error_str.contains("execution reverted") {
-                debug!("  Likely a revert error detected in: {}", error_str);
-            }
-        }
-    }
-
-    let access_manager = match deploy_builder.send().await {
-        Ok(pending_tx) => {
-            let tx_hash = *pending_tx.tx_hash();
-            info!("AccessManager transaction sent: {}", tx_hash);
-
-            match pending_tx.get_receipt().await {
-                Ok(receipt) => {
-                    if !receipt.status() {
-                        info!("⚠️  AccessManager deployment reverted - transaction status: false");
-                        debug!("  Gas used: {}", receipt.gas_used);
-                        debug!("  Block number: {}", receipt.block_number.unwrap_or(0));
-
-                        // Try to get transaction trace for more details
-                        if let Some(_block_num) = receipt.block_number {
-                            debug!("  Attempting to trace transaction...");
-
-                            // Build trace request with CallTracer
-                            let trace_request = GethDebugTracingOptions {
-                                tracer: Some(GethDebugTracerType::BuiltInTracer(
-                                    GethDebugBuiltInTracerType::CallTracer,
-                                )),
-                                ..Default::default()
-                            };
-
-                            // Try to get the trace
-                            match provider
-                                .raw_request::<_, serde_json::Value>(
-                                    Cow::Borrowed("debug_traceTransaction"),
-                                    (tx_hash, trace_request),
-                                )
-                                .await
-                            {
-                                Ok(trace) => {
-                                    debug!("  Transaction trace obtained");
-                                    if let Some(error) = trace.get("error") {
-                                        debug!("  Trace error: {}", error);
-                                    }
-                                    if let Some(revert_reason) = trace.get("revertReason") {
-                                        debug!("  Revert reason from trace: {}", revert_reason);
-                                    }
-                                    // Log the last few operations before revert
-                                    if let Some(calls) =
-                                        trace.get("calls").and_then(|v| v.as_array())
-                                    {
-                                        if !calls.is_empty() {
-                                            debug!("  Number of sub-calls: {}", calls.len());
-                                            if let Some(last_call) = calls.last() {
-                                                if let Some(error) = last_call.get("error") {
-                                                    debug!("  Last call error: {}", error);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    debug!("  Could not trace transaction: {}", e);
-                                }
-                            }
-                        }
-
-                        // Try to get more information about the revert
-                        if let Ok(Some(tx)) = provider.get_transaction_by_hash(tx_hash).await {
-                            // Transaction fields are in the inner field
-                            debug!("  Transaction details available");
-                            debug!("  Block number: {:?}", tx.block_number);
-                            debug!("  Transaction index: {:?}", tx.transaction_index);
-                        }
-
-                        debug!("  This is a known issue with AccessManager on Anvil forks");
-                        debug!("  The contract inherits from Ownable which may have state conflicts on forks");
-                        Address::ZERO
-                    } else if let Some(addr) = receipt.contract_address {
+    // Note: AccessManager deployment may fail on Anvil forks, so we handle it gracefully
+    let access_manager = match AccessManager::deploy_builder(
+        provider.clone(),
+        FALLBACK_TIMEOUT,
+        factory,
+    )
+    .gas(3_000_000)
+    .send()
+    .await
+    {
+        Ok(pending_tx) => match pending_tx.get_receipt().await {
+            Ok(receipt) => {
+                if receipt.status() {
+                    if let Some(addr) = receipt.contract_address {
                         info!("✓ AccessManager deployed at: {}", addr);
                         addr
                     } else {
-                        info!(
-                            "⚠️  AccessManager deployment failed - no contract address in receipt"
-                        );
+                        info!("⚠️ AccessManager deployment succeeded but no contract address returned");
                         Address::ZERO
                     }
-                }
-                Err(e) => {
-                    info!("⚠️  AccessManager deployment failed to get receipt: {}", e);
+                } else {
+                    info!("⚠️ AccessManager deployment reverted (transaction status: false)");
                     Address::ZERO
                 }
             }
-        }
+            Err(e) => {
+                info!("⚠️ Failed to get AccessManager deployment receipt: {}", e);
+                Address::ZERO
+            }
+        },
         Err(e) => {
-            info!("⚠️  AccessManager deployment failed to send: {}", e);
+            info!("⚠️ Failed to send AccessManager deployment transaction: {}", e);
             Address::ZERO
         }
     };
 
     // 5. Deploy SP1MockVerifier
     debug!("Deploying SP1MockVerifier...");
-
-    // Deploy using the builder and wait for receipt
-    let builder = SP1MockVerifier::deploy_builder(provider.clone());
-    let pending_tx = builder.send().await?;
-    info!("Transaction sent: {}", pending_tx.tx_hash());
-
-    // Wait for receipt and get contract address
-    let receipt = pending_tx.get_receipt().await?;
-    let verifier = receipt.contract_address.ok_or_else(|| {
-        anyhow::anyhow!("No contract address in SP1MockVerifier deployment receipt")
-    })?;
+    let verifier_instance = SP1MockVerifier::deploy(provider.clone()).await?;
+    let verifier = *verifier_instance.address();
     info!("✓ SP1MockVerifier deployed at: {}", verifier);
-
-    // Verify deployment by checking code
-    let code = provider.get_code_at(verifier).await?;
-    if code.is_empty() {
-        anyhow::bail!("SP1MockVerifier deployment failed - no code at address");
-    }
-
-    // If AccessManager failed, skip game implementation
-    if access_manager == Address::ZERO {
-        let game_implementation = Address::ZERO;
-
-        info!("⚠️  Skipping game implementation due to AccessManager deployment failure");
-        debug!("  The core contracts are sufficient for basic functionality tests");
-
-        return Ok(DeployedContracts { factory, portal, access_manager, game_implementation });
-    }
 
     // 6. Deploy OPSuccinctFaultDisputeGame implementation
     debug!("Deploying OPSuccinctFaultDisputeGame...");

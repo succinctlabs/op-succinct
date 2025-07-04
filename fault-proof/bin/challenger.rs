@@ -171,7 +171,6 @@ where
                 self.signer.clone(),
                 self.config.l1_rpc.clone(),
                 self.l1_provider.clone(),
-                self.l2_provider.clone(),
             )
             .await
     }

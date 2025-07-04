@@ -848,7 +848,6 @@ where
                     proposer.signer.clone(),
                     proposer.config.l1_rpc.clone(),
                     proposer.l1_provider.clone(),
-                    proposer.l2_provider.clone(),
                 )
                 .await
         });
