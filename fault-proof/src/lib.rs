@@ -239,7 +239,6 @@ where
         signer: Signer,
         l1_rpc: Url,
         l1_provider: L1Provider,
-        l2_provider: L2Provider,
     ) -> Result<Action>;
 
     /// Attempts to resolve all challenged games that the challenger won, up to
@@ -251,7 +250,6 @@ where
         signer: Signer,
         l1_rpc: Url,
         l1_provider: L1Provider,
-        l2_provider: L2Provider,
     ) -> Result<()>;
 }
 
@@ -615,7 +613,6 @@ where
         signer: Signer,
         l1_rpc: Url,
         l1_provider: L1Provider,
-        _l2_provider: L2Provider,
     ) -> Result<Action> {
         let game_address = self.fetch_game_address_by_index(index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
@@ -684,15 +681,7 @@ where
     /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
     #[tracing::instrument(
         name = "[[Resolving]]",
-        skip(
-            self,
-            mode,
-            max_games_to_check_for_resolution,
-            signer,
-            l1_rpc,
-            l1_provider,
-            l2_provider
-        )
+        skip(self, mode, max_games_to_check_for_resolution, signer, l1_rpc, l1_provider)
     )]
     async fn resolve_games(
         &self,
@@ -701,7 +690,6 @@ where
         signer: Signer,
         l1_rpc: Url,
         l1_provider: L1Provider,
-        l2_provider: L2Provider,
     ) -> Result<()> {
         // Find latest game index, return early if no games exist.
         let Some(latest_game_index) = self.fetch_latest_game_index().await? else {
@@ -729,7 +717,6 @@ where
                         signer.clone(),
                         l1_rpc.clone(),
                         l1_provider.clone(),
-                        l2_provider.clone(),
                     )
                     .await
                 {
