@@ -13,7 +13,7 @@ use sp1_sdk::{
     NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     db::DriverDBClient, OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics,
@@ -242,6 +242,106 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             SP1ProofMode::Compressed,
             SP1_CIRCUIT_VERSION,
         ))
+    }
+
+    /// Validates an aggregation proof request by checking that:
+    /// 1. The expected range proofs exist and are complete
+    /// 2. There are no gaps between consecutive range proofs
+    /// 3. There are no duplicate/overlapping range proofs
+    /// 4. The range proofs cover the entire block range
+    pub async fn validate_aggregation_request(&self, agg_request: &OPSuccinctRequest) -> Result<bool> {
+        debug!(
+            "Validating aggregation proof request: start_block={}, end_block={}",
+            agg_request.start_block, agg_request.end_block
+        );
+
+        // Fetch all completed range proofs within the aggregation range
+        let range_proofs = self
+            .db_client
+            .get_consecutive_complete_range_proofs(
+                agg_request.start_block,
+                agg_request.end_block,
+                &self.program_config.commitments,
+                agg_request.l1_chain_id,
+                agg_request.l2_chain_id,
+            )
+            .await?;
+
+        // Log all constituent range proofs
+        debug!(
+            "Found {} range proofs for aggregation request (start={}, end={})",
+            range_proofs.len(),
+            agg_request.start_block,
+            agg_request.end_block
+        );
+        for (i, proof) in range_proofs.iter().enumerate() {
+            debug!(
+                "Range proof {}: start_block={}, end_block={}",
+                i, proof.start_block, proof.end_block
+            );
+        }
+
+        // If no range proofs found, validation fails
+        if range_proofs.is_empty() {
+            debug!("No range proofs found for aggregation request - not ready yet");
+            return Ok(false);
+        }
+
+        // Check that first proof starts at or before the aggregation start block
+        if range_proofs[0].start_block > agg_request.start_block {
+            debug!(
+                "First range proof starts at {} but aggregation starts at {} - missing initial proofs",
+                range_proofs[0].start_block, agg_request.start_block
+            );
+            return Ok(false);
+        }
+
+        // Check that last proof ends at or after the aggregation end block
+        let last_proof = &range_proofs[range_proofs.len() - 1];
+        if last_proof.end_block < agg_request.end_block {
+            debug!(
+                "Last range proof ends at {} but aggregation ends at {} - missing final proofs",
+                last_proof.end_block, agg_request.end_block
+            );
+            return Ok(false);
+        }
+
+        // Check for gaps and duplicates between consecutive proofs
+        for i in 1..range_proofs.len() {
+            let prev_proof = &range_proofs[i - 1];
+            let curr_proof = &range_proofs[i];
+
+            // Check for gap
+            if prev_proof.end_block + 1 != curr_proof.start_block {
+                debug!(
+                    "Gap detected: proof {} ends at {} but proof {} starts at {}",
+                    i - 1,
+                    prev_proof.end_block,
+                    i,
+                    curr_proof.start_block
+                );
+                return Ok(false);
+            }
+
+            // Check for overlap (duplicate blocks)
+            if prev_proof.end_block >= curr_proof.start_block {
+                debug!(
+                    "Overlap detected: proof {} ends at {} but proof {} starts at {}",
+                    i - 1,
+                    prev_proof.end_block,
+                    i,
+                    curr_proof.start_block
+                );
+                return Ok(false);
+            }
+        }
+
+        // All validation checks passed
+        debug!(
+            "Aggregation request validated successfully with {} consecutive range proofs",
+            range_proofs.len()
+        );
+        Ok(true)
     }
 
     /// Generates a mock aggregation proof.

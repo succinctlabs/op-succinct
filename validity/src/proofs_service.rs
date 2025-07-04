@@ -2,6 +2,7 @@ use alloy_primitives::hex::FromHex;
 use alloy_primitives::FixedBytes;
 use bincode::Options;
 use tonic::{Code, Request, Response, Status};
+use tracing::debug;
 use tracing::{info, warn};
 
 use crate::proof_requester::OPSuccinctProofRequester;
@@ -149,6 +150,27 @@ where
             })?,
             self.requester_config.prover_address,
         );
+
+        // Validate the aggregation proof request
+        match self.proof_requester.validate_aggregation_request(&op_request).await {
+            Ok(true) => {
+                debug!(
+                    "Aggregation request validated successfully: start_block={}, end_block={}",
+                    op_request.start_block, op_request.end_block
+                );
+            }
+            Ok(false) => {
+                debug!(
+                    "Aggregation request validation failed, moving to range proofs: start_block={}, end_block={}",
+                    op_request.start_block, op_request.end_block
+                );
+                // Validation failed, continue to try fetching range proofs
+            }
+            Err(e) => {
+                warn!("Error validating aggregation request: {:?}. Moving to range proofs.", e);
+                // Error during validation, continue to try fetching range proofs
+            }
+        };
 
         info!(
             request_type = ?op_request.req_type,
