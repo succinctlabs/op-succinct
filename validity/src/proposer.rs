@@ -6,9 +6,9 @@ use alloy_provider::{network::ReceiptResponse, Provider};
 use alloy_sol_types::SolValue;
 use anyhow::{anyhow, Context, Result};
 use futures_util::{stream, StreamExt, TryStreamExt};
-use op_succinct_grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
+use op_succinct_grpc::proofs::proofs_server::ProofsServer;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
@@ -1106,11 +1106,8 @@ where
         ValidityGauge::init_all();
 
         // Parse the url for the gRPC server.
-        let addr = self
-            .requester_config
-            .grpc_addr
-            .parse()
-            .context("Failed to parse gRPC address")?;
+        let addr =
+            self.requester_config.grpc_addr.parse().context("Failed to parse gRPC address")?;
         info!("Starting Agglayer gRPC server on {}", addr);
         // Start the gRPC server
         tokio::spawn(

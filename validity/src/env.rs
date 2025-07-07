@@ -1,11 +1,11 @@
 use std::env;
 
 use alloy_primitives::Address;
+use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 use op_succinct_signer_utils::Signer;
 use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
-use alloy_signer_local::PrivateKeySigner;
 
 #[derive(Debug, Clone)]
 pub struct EnvironmentConfig {
@@ -89,15 +89,13 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     };
 
     // Parse proof mode
-    let agg_proof_mode = match get_env_var("AGG_PROOF_MODE", Some("groth16".to_string()))?
-        .to_lowercase()
-        .as_str()
-    {
-        "plonk" => SP1ProofMode::Plonk,
-        "groth16" => SP1ProofMode::Groth16,
-        "compressed" => SP1ProofMode::Compressed,
-        _ => SP1ProofMode::Groth16, // Default to Groth16 if no match
-    };
+    let agg_proof_mode =
+        match get_env_var("AGG_PROOF_MODE", Some("groth16".to_string()))?.to_lowercase().as_str() {
+            "plonk" => SP1ProofMode::Plonk,
+            "groth16" => SP1ProofMode::Groth16,
+            "compressed" => SP1ProofMode::Compressed,
+            _ => SP1ProofMode::Groth16, // Default to Groth16 if no match
+        };
 
     // Optional loop interval
     let loop_interval = get_env_var("LOOP_INTERVAL", Some(DEFAULT_LOOP_INTERVAL))?;

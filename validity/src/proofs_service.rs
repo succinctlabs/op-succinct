@@ -1,19 +1,17 @@
-use alloy_primitives::hex::FromHex;
-use alloy_primitives::FixedBytes;
+use alloy_primitives::{hex::FromHex, FixedBytes};
 use bincode::Options;
 use tonic::{Code, Request, Response, Status};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
-use crate::proof_requester::OPSuccinctProofRequester;
-use crate::OPSuccinctRequest;
-use crate::ProgramConfig;
-use crate::RequestMode;
-use crate::RequesterConfig;
-use crate::ValidityGauge;
-use op_succinct_grpc::proofs::proofs_server::Proofs;
-use op_succinct_grpc::proofs::{AggProofRequest, AggProofResponse, GetMockProofRequest, GetMockProofResponse};
-use op_succinct_host_utils::host::OPSuccinctHost;
-use op_succinct_host_utils::metrics::MetricsGauge;
+use crate::{
+    proof_requester::OPSuccinctProofRequester, OPSuccinctRequest, ProgramConfig, RequestMode,
+    RequesterConfig, ValidityGauge,
+};
+use op_succinct_grpc::proofs::{
+    proofs_server::Proofs, AggProofRequest, AggProofResponse, GetMockProofRequest,
+    GetMockProofResponse,
+};
+use op_succinct_host_utils::{host::OPSuccinctHost, metrics::MetricsGauge};
 use std::{sync::Arc, time::Instant};
 
 pub struct Service<H>
@@ -34,11 +32,7 @@ where
         program_config: ProgramConfig,
         requester_config: RequesterConfig,
     ) -> Self {
-        Self {
-            proof_requester,
-            program_config,
-            requester_config,
-        }
+        Self { proof_requester, program_config, requester_config }
     }
 
     // Limit the L1 block number to the safe head if it is greater than the requested end block
@@ -111,31 +105,41 @@ where
             .unwrap();
 
         // Error in case there's no range proofs
-        if range_proofs.is_empty() {
-            warn!(
-                last_proven_block = req.last_proven_block,
-                requested_end_block = l1_limited_end_block,
-                commitments = ?self.program_config.commitments,
-                l1_chain_id = self.requester_config.l1_chain_id,
-                l2_chain_id = self.requester_config.l2_chain_id,
-                "No consecutive span proof range found for request"
-            );
-            return Err(Status::new(
-                Code::NotFound,
-                "No consecutive span proof range found",
-            ));
-        }
+        // Validate the aggregation proof request
+        match self.proof_requester.validate_aggregation_request(&range_proofs, &req).await {
+            Ok(true) => {
+                debug!(
+                    "Aggregation request validated successfully: start_block={}, end_block={}",
+                    range_proofs.first().unwrap().start_block,
+                    range_proofs.last().unwrap().end_block
+                );
+            }
+            Ok(false) => {
+                warn!(
+                    "Aggregation request validation failed: start_block={}, end_block={}",
+                    range_proofs.first().unwrap().start_block,
+                    range_proofs.last().unwrap().end_block
+                );
+                return Err(Status::new(
+                    Code::InvalidArgument,
+                    "Aggregation request validation failed",
+                ));
+            }
+            Err(e) => {
+                warn!("Error validating aggregation request: {:?}", e);
+                return Err(Status::new(
+                    Code::Internal,
+                    format!("Failed to validate aggregation request: {}", e),
+                ));
+            }
+        };
 
         // Set the requested_end_block to the last block from the range proofs
         let end_block = range_proofs.last().unwrap().end_block;
 
         // Prepare the request and query the proof requester
         let op_request = OPSuccinctRequest::new_agg_request(
-            if self.requester_config.mock {
-                RequestMode::Mock
-            } else {
-                RequestMode::Real
-            },
+            if self.requester_config.mock { RequestMode::Mock } else { RequestMode::Real },
             req.last_proven_block as i64,
             end_block,
             self.program_config.commitments.range_vkey_commitment,
@@ -185,11 +189,10 @@ where
 
         let reply: AggProofResponse;
         if self.proof_requester.mock {
-            let proof = self
-                .proof_requester
-                .generate_mock_agg_proof(&op_request, stdin)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to generate mock proof: {}", e)))?;
+            let proof =
+                self.proof_requester.generate_mock_agg_proof(&op_request, stdin).await.map_err(
+                    |e| Status::internal(format!("Failed to generate mock proof: {}", e)),
+                )?;
 
             // If it's a compressed proof, we need to serialize the entire struct with bincode.
             let proof_bytes = bincode::DefaultOptions::new()
@@ -204,13 +207,12 @@ where
                 ..op_request.clone()
             };
 
-            // Create an aggregation proof request to cover the range with the checkpointed L1 block hash.
-            let last_id = self
-                .proof_requester
-                .db_client
-                .insert_request(&proved_op_request)
-                .await
-                .map_err(|e| Status::internal(format!("Failed to save request to DB: {}", e)))?;
+            // Create an aggregation proof request to cover the range with the checkpointed L1 block
+            // hash.
+            let last_id =
+                self.proof_requester.db_client.insert_request(&proved_op_request).await.map_err(
+                    |e| Status::internal(format!("Failed to save request to DB: {}", e)),
+                )?;
 
             if last_id > 0 {
                 // Convert the last ID to FixedBytes32
@@ -225,9 +227,7 @@ where
                     proof_request_id: alloy_primitives::Bytes::from(last_id).into(),
                 };
             } else {
-                return Err(Status::internal(
-                    "No AGG proof request inserted in the Database",
-                ));
+                return Err(Status::internal("No AGG proof request inserted in the Database"));
             }
         } else {
             let proof_id = self
@@ -262,9 +262,7 @@ where
             .map_err(|e| Status::not_found(format!("Mock proof not found: {}", e)))?;
 
         // Return the mock proof in the response
-        let response = GetMockProofResponse {
-            proof: mock_proof.into(),
-        };
+        let response = GetMockProofResponse { proof: mock_proof.into() };
 
         Ok(Response::new(response))
     }

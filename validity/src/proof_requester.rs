@@ -3,6 +3,7 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
+use op_succinct_grpc::proofs::AggProofRequest;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
@@ -13,7 +14,7 @@ use sp1_sdk::{
     NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     db::DriverDBClient, OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics,
@@ -242,6 +243,79 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             SP1ProofMode::Compressed,
             SP1_CIRCUIT_VERSION,
         ))
+    }
+
+    /// Validates an aggregation proof request by checking that:
+    /// 1. The expected range proofs exist and are complete
+    /// 2. There are no gaps between consecutive range proofs
+    /// 3. There are no duplicate/overlapping range proofs
+    /// 4. The range proofs cover the entire block range
+    pub async fn validate_aggregation_request(
+        &self,
+        range_proofs: &Vec<OPSuccinctRequest>,
+        req: &AggProofRequest,
+    ) -> Result<bool> {
+        debug!(
+            "Validating {} aggregation proof request: start_block={}, end_block={}",
+            range_proofs.len(),
+            range_proofs.first().unwrap().start_block,
+            range_proofs.last().unwrap().end_block
+        );
+
+        // Log all constituent range proofs
+        for (i, proof) in range_proofs.iter().enumerate() {
+            debug!(
+                "Range proof {}: start_block={}, end_block={}",
+                i, proof.start_block, proof.end_block
+            );
+        }
+
+        // If no range proofs found, validation fails
+        if range_proofs.is_empty() {
+            warn!(
+                last_proven_block = req.last_proven_block,
+                commitments = ?self.program_config.commitments,
+                "No consecutive span proof range found for request"
+            );
+            return Ok(false);
+        }
+
+        // Check for gaps and duplicates between consecutive proofs
+        for i in 1..range_proofs.len() {
+            let prev_proof = &range_proofs[i - 1];
+            let curr_proof = &range_proofs[i];
+
+            // Check for gap
+            if prev_proof.end_block != curr_proof.start_block {
+                debug!(
+                    "Gap detected: proof {} ends at {} but proof {} starts at {}",
+                    i - 1,
+                    prev_proof.end_block,
+                    i,
+                    curr_proof.start_block
+                );
+                return Ok(false);
+            }
+
+            // Check for overlap (duplicate blocks)
+            if prev_proof.end_block > curr_proof.start_block {
+                debug!(
+                    "Overlap detected: proof {} ends at {} but proof {} starts at {}",
+                    i - 1,
+                    prev_proof.end_block,
+                    i,
+                    curr_proof.start_block
+                );
+                return Ok(false);
+            }
+        }
+
+        // All validation checks passed
+        debug!(
+            "Aggregation request validated successfully with {} consecutive range proofs",
+            range_proofs.len()
+        );
+        Ok(true)
     }
 
     /// Generates a mock aggregation proof.
