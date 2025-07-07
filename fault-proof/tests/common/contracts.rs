@@ -1,7 +1,7 @@
 //! Contract deployment utilities for E2E tests.
 
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{address, Address, FixedBytes, U256};
+use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use bindings::{
@@ -15,6 +15,12 @@ use tracing::{debug, info};
 
 use fault_proof::{L1Provider, L2Provider, L2ProviderTrait};
 
+use super::constants::{
+    AGGREGATION_VKEY, AIRGAP_PERIOD, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_ADDRESS,
+    FALLBACK_TIMEOUT, INIT_BOND, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS,
+    RANGE_VKEY_COMMITMENT, ROLLUP_CONFIG_HASH, TEST_GAME_TYPE,
+};
+
 /// Container for deployed contracts
 pub struct DeployedContracts {
     pub factory: Address,
@@ -22,22 +28,6 @@ pub struct DeployedContracts {
     pub access_manager: Address,
     pub game_implementation: Address,
 }
-
-/// Test configuration constants
-pub const TEST_GAME_TYPE: u32 = 42; // Must match OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE in contracts
-pub const INIT_BOND: U256 = U256::from_limbs([10_000_000_000_000_000, 0, 0, 0]); // 0.01 ETH
-pub const CHALLENGER_BOND: U256 = U256::from_limbs([1_000_000_000_000_000_000, 0, 0, 0]); // 1 ETH
-
-// Time constants
-pub const AIRGAP: u64 = 60 * 60 * 24 * 7; // 7 days
-pub const MAX_CHALLENGE_DURATION: u64 = 60 * 60; // 1 hour
-pub const MAX_PROVE_DURATION: u64 = 60 * 60 * 12; // 12 hours
-pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 weeks
-
-// Configuration hashes for OPSuccinctFaultDisputeGame
-pub const ROLLUP_CONFIG_HASH: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
-pub const AGGREGATION_VKEY: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
-pub const RANGE_VKEY_COMMITMENT: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
 
 /// Deploy all contracts required for E2E testing
 pub async fn deploy_test_contracts(
@@ -54,8 +44,7 @@ pub async fn deploy_test_contracts(
 
     // Deploy factory proxy with initialization
     debug!("Deploying DisputeGameFactory proxy...");
-    let deployer = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Anvil account 0
-    let init_data = DisputeGameFactory::initializeCall { _owner: deployer }.abi_encode();
+    let init_data = DisputeGameFactory::initializeCall { _owner: DEPLOYER_ADDRESS }.abi_encode();
 
     let factory_proxy =
         ERC1967Proxy::deploy(provider.clone(), factory_impl_addr, init_data.into()).await?;
@@ -65,7 +54,8 @@ pub async fn deploy_test_contracts(
     // 2. Deploy MockOptimismPortal2 (needed for AnchorStateRegistry)
     debug!("Deploying MockOptimismPortal2...");
     let portal_instance =
-        MockOptimismPortal2::deploy(provider.clone(), TEST_GAME_TYPE, U256::from(AIRGAP)).await?;
+        MockOptimismPortal2::deploy(provider.clone(), TEST_GAME_TYPE, U256::from(AIRGAP_PERIOD))
+            .await?;
     let portal = *portal_instance.address();
     info!("✓ MockOptimismPortal2 deployed at: {}", portal);
 
@@ -214,16 +204,14 @@ pub async fn configure_contracts(
     let access_manager = AccessManager::new(contracts.access_manager, provider.clone());
 
     // Set proposer permission (Anvil account 0)
-    let proposer_address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
-    let tx = access_manager.setProposer(proposer_address, true).send().await?;
+    let tx = access_manager.setProposer(PROPOSER_ADDRESS, true).send().await?;
     tx.get_receipt().await?;
-    info!("✓ Proposer permission set for {}", proposer_address);
+    info!("✓ Proposer permission set for {}", PROPOSER_ADDRESS);
 
     // Set challenger permission (Anvil account 1)
-    let challenger_address = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-    let tx = access_manager.setChallenger(challenger_address, true).send().await?;
+    let tx = access_manager.setChallenger(CHALLENGER_ADDRESS, true).send().await?;
     tx.get_receipt().await?;
-    info!("✓ Challenger permission set for {}", challenger_address);
+    info!("✓ Challenger permission set for {}", CHALLENGER_ADDRESS);
 
     // The AnchorStateRegistry is already initialized with a starting anchor state
     // during deployment (starting at finalized L2 block - 30 with output root at the block).

@@ -3,8 +3,8 @@ mod common;
 use std::str::FromStr;
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{address, FixedBytes, U256};
-use alloy_provider::{Provider, ProviderBuilder};
+use alloy_primitives::{FixedBytes, U256};
+use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
@@ -15,14 +15,18 @@ use tokio::time::Duration;
 use tracing::info;
 
 use common::{
-    cleanup_anvil, find_binary_path, generate_challenger_env, generate_proposer_env,
+    cleanup_anvil,
+    constants::{
+        AIRGAP_PERIOD, CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, MAX_CHALLENGE_DURATION,
+        MAX_PROVE_DURATION, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
+    },
+    find_binary_path, generate_challenger_env, generate_proposer_env,
     monitor::{
         verify_all_bonds_claimed, verify_all_resolved_correctly, wait_and_track_games,
         wait_and_verify_game_resolutions, wait_for_bond_claims, wait_for_challenges,
         wait_for_resolutions, TrackedGame, GAME_STATUS_CHALLENGER_WINS,
     },
-    start_challenger_binary, start_proposer_binary, warp_time, TestEnvironment, AIRGAP,
-    MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, TEST_GAME_TYPE,
+    start_challenger_binary, start_proposer_binary, warp_time, TestEnvironment,
 };
 
 #[tokio::test]
@@ -39,13 +43,12 @@ async fn test_honest_proposer() -> Result<()> {
     info!("✓ Found proposer binary: {:?}", proposer_binary);
 
     // Generate proposer environment
-    let proposer_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // Anvil account 0
     let proposer_env = generate_proposer_env(
         &env.anvil.endpoint,
         &env.l2_rpc,
         &env.l2_node_rpc,
         &env.l1_beacon_rpc,
-        proposer_key,
+        PROPOSER_PRIVATE_KEY,
         &env.deployed.factory.to_string(),
         TEST_GAME_TYPE,
         None,
@@ -94,9 +97,9 @@ async fn test_honest_proposer() -> Result<()> {
     // Verify all games resolved correctly (proposer wins)
     verify_all_resolved_correctly(&resolutions)?;
 
-    // Warp past airgap period
-    warp_time(&env.anvil.provider, Duration::from_secs(AIRGAP)).await?;
-    info!("✓ Warped time by airgap period ({AIRGAP} seconds) to trigger bond claims");
+    // Warp past AIRGAP_PERIOD
+    warp_time(&env.anvil.provider, Duration::from_secs(AIRGAP_PERIOD)).await?;
+    info!("✓ Warped time by AIRGAP_PERIOD ({AIRGAP_PERIOD} seconds) to trigger bond claims");
 
     // Verify proposer is still running
     assert!(proposer.is_running(), "Proposer should still be running");
@@ -106,11 +109,10 @@ async fn test_honest_proposer() -> Result<()> {
     info!("\n=== Phase 4: Bond Claims ===");
 
     // Wait for proposer to claim bonds
-    let proposer_address = address!("f39Fd6e51aad88F6F4ce6aB8827279cffFb92266"); // Anvil account 0
     let claims = wait_for_bond_claims(
         &env.anvil.provider,
         &tracked_games,
-        proposer_address,
+        PROPOSER_ADDRESS,
         Duration::from_secs(30),
     )
     .await?;
@@ -148,13 +150,12 @@ async fn test_honest_challenger() -> Result<()> {
     info!("✓ Found challenger binary: {:?}", challenger_binary);
 
     // Generate challenger environment
-    let challenger_key = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"; // Anvil account 1
     let challenger_env = generate_challenger_env(
         &env.anvil.endpoint,
         &env.l2_rpc,
         &env.l2_node_rpc,
         &env.l1_beacon_rpc,
-        challenger_key,
+        CHALLENGER_PRIVATE_KEY,
         &env.deployed.factory.to_string(),
         TEST_GAME_TYPE,
         None,
@@ -164,25 +165,11 @@ async fn test_honest_challenger() -> Result<()> {
     let mut challenger = start_challenger_binary(challenger_binary, challenger_env).await?;
     info!("✓ Challenger service started");
 
-    // Fund the challenger
-    let tx = env
-        .anvil
-        .provider
-        .send_transaction(
-            alloy_rpc_types_eth::request::TransactionRequest::default()
-                .from(address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"))
-                .to(address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"))
-                .value(U256::from_str("1000000000000000000")?),
-        )
-        .await?;
-    tx.get_receipt().await?;
-
     // === PHASE 1: Create Invalid Games ===
     info!("\n=== Phase 1: Create Invalid Games ===");
 
     // Create a signer for permissioned account 0
-    let private_key = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    let wallet = PrivateKeySigner::from_str(private_key)?;
+    let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
     let provider_with_signer = ProviderBuilder::new()
         .wallet(EthereumWallet::from(wallet))
         .connect_http(env.anvil.endpoint.parse::<Url>()?);
@@ -255,9 +242,9 @@ async fn test_honest_challenger() -> Result<()> {
     )
     .await?;
 
-    // Warp past airgap period for bond claims
-    warp_time(&env.anvil.provider, Duration::from_secs(AIRGAP)).await?;
-    info!("✓ Warped time by airgap period ({AIRGAP} seconds) to enable bond claims");
+    // Warp past AIRGAP_PERIOD for bond claims
+    warp_time(&env.anvil.provider, Duration::from_secs(AIRGAP_PERIOD)).await?;
+    info!("✓ Warped time by AIRGAP_PERIOD ({AIRGAP_PERIOD} seconds) to enable bond claims");
 
     // Verify challenger is still running
     assert!(challenger.is_running(), "Challenger should still be running");
@@ -267,7 +254,6 @@ async fn test_honest_challenger() -> Result<()> {
     info!("\n=== Phase 4: Bond Claims ===");
 
     // Wait for challenger to claim bonds
-    let challenger_address = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"); // Anvil account 1
     let tracked_games: Vec<_> = invalid_games
         .iter()
         .map(|&address| TrackedGame {
@@ -281,7 +267,7 @@ async fn test_honest_challenger() -> Result<()> {
     let claims = wait_for_bond_claims(
         &env.anvil.provider,
         &tracked_games,
-        challenger_address,
+        CHALLENGER_ADDRESS,
         Duration::from_secs(60),
     )
     .await?;

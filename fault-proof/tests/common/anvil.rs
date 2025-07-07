@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use tracing::info;
 
-use fault_proof::{L1Provider, L2Provider};
+use fault_proof::L1Provider;
 
 // An Anvil instance that is kept alive for the duration of the program.
 lazy_static! {
@@ -35,12 +35,9 @@ pub async fn setup_anvil_fork(fork_url: &str) -> Result<AnvilFork> {
 
     info!("Starting Anvil fork from block {} on {}", fork_block, fork_url);
 
-    // Create Anvil instance with 1 second block time as default
-    let anvil = Anvil::new()
-        .fork(fork_url)
-        .fork_block_number(fork_block)
-        .arg("--disable-code-size-limit")
-        .block_time(1);
+    // Create Anvil instance
+    let anvil =
+        Anvil::new().fork(fork_url).fork_block_number(fork_block).arg("--disable-code-size-limit");
 
     let anvil_instance = anvil.spawn();
     let endpoint = anvil_instance.endpoint();
@@ -55,11 +52,10 @@ pub async fn setup_anvil_fork(fork_url: &str) -> Result<AnvilFork> {
     Ok(AnvilFork { provider, endpoint: endpoint.to_string() })
 }
 
-/// Time manipulation utilities for the forked chain
+/// Time manipulation utility for the forked chain
 pub async fn warp_time<P: Provider>(provider: &P, duration: Duration) -> Result<()> {
-    let current_block = provider.get_block_number().await?;
     let current_timestamp = provider
-        .get_block_by_number(current_block.into())
+        .get_block_by_number(BlockNumberOrTag::Latest)
         .await?
         .context("Failed to get block")?
         .header
@@ -90,10 +86,10 @@ pub async fn warp_time<P: Provider>(provider: &P, duration: Duration) -> Result<
 /// Calculate the fork block based on L2 state.
 /// This function determines the appropriate L1 block to fork from based on the L2 finalized block.
 async fn calculate_fork_block() -> Result<u64> {
-    let l2_rpc_url = std::env::var("L2_RPC").context("L2_RPC must be set")?;
-    let l2_provider = L2Provider::new_http(l2_rpc_url.parse()?);
+    let fetcher = OPSuccinctDataFetcher::new();
 
-    let l2_finalized = l2_provider
+    let l2_finalized = fetcher
+        .l2_provider
         .get_block_by_number(BlockNumberOrTag::Finalized)
         .await?
         .context("Failed to get L2 finalized block")?
@@ -102,9 +98,6 @@ async fn calculate_fork_block() -> Result<u64> {
 
     // Use finalized - 100 for testing
     let target_l2 = l2_finalized.saturating_sub(100);
-
-    // Use the fetcher to get the safe L1 block for this L2 block
-    let fetcher = OPSuccinctDataFetcher::new();
 
     let (_, l1_block_number) = fetcher
         .get_safe_l1_block_for_l2_block(target_l2)
