@@ -3,6 +3,7 @@ use alloy_provider::Provider;
 use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
+use op_succinct_grpc::proofs::AggProofRequest;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
@@ -249,31 +250,19 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     /// 2. There are no gaps between consecutive range proofs
     /// 3. There are no duplicate/overlapping range proofs
     /// 4. The range proofs cover the entire block range
-    pub async fn validate_aggregation_request(&self, agg_request: &OPSuccinctRequest) -> Result<bool> {
+    pub async fn validate_aggregation_request(
+        &self,
+        range_proofs: &Vec<OPSuccinctRequest>,
+        req: &AggProofRequest,
+    ) -> Result<bool> {
         debug!(
-            "Validating aggregation proof request: start_block={}, end_block={}",
-            agg_request.start_block, agg_request.end_block
+            "Validating {} aggregation proof request: start_block={}, end_block={}",
+            range_proofs.len(),
+            range_proofs.first().unwrap().start_block,
+            range_proofs.last().unwrap().end_block
         );
-
-        // Fetch all completed range proofs within the aggregation range
-        let range_proofs = self
-            .db_client
-            .get_consecutive_complete_range_proofs(
-                agg_request.start_block,
-                agg_request.end_block,
-                &self.program_config.commitments,
-                agg_request.l1_chain_id,
-                agg_request.l2_chain_id,
-            )
-            .await?;
 
         // Log all constituent range proofs
-        debug!(
-            "Found {} range proofs for aggregation request (start={}, end={})",
-            range_proofs.len(),
-            agg_request.start_block,
-            agg_request.end_block
-        );
         for (i, proof) in range_proofs.iter().enumerate() {
             debug!(
                 "Range proof {}: start_block={}, end_block={}",
@@ -283,25 +272,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         // If no range proofs found, validation fails
         if range_proofs.is_empty() {
-            debug!("No range proofs found for aggregation request - not ready yet");
-            return Ok(false);
-        }
-
-        // Check that first proof starts at or before the aggregation start block
-        if range_proofs[0].start_block > agg_request.start_block {
-            debug!(
-                "First range proof starts at {} but aggregation starts at {} - missing initial proofs",
-                range_proofs[0].start_block, agg_request.start_block
-            );
-            return Ok(false);
-        }
-
-        // Check that last proof ends at or after the aggregation end block
-        let last_proof = &range_proofs[range_proofs.len() - 1];
-        if last_proof.end_block < agg_request.end_block {
-            debug!(
-                "Last range proof ends at {} but aggregation ends at {} - missing final proofs",
-                last_proof.end_block, agg_request.end_block
+            warn!(
+                last_proven_block = req.last_proven_block,
+                commitments = ?self.program_config.commitments,
+                "No consecutive span proof range found for request"
             );
             return Ok(false);
         }

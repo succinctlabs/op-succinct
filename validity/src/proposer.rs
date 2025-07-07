@@ -603,27 +603,7 @@ where
             .await?;
 
         if let Some(unreq_agg_request) = unreq_agg_request {
-            // Validate the aggregation proof request
-            match self.proof_requester.validate_aggregation_request(&unreq_agg_request).await {
-                Ok(true) => {
-                    info!(
-                        "Aggregation request validated successfully: start_block={}, end_block={}",
-                        unreq_agg_request.start_block, unreq_agg_request.end_block
-                    );
-                    return Ok(Some(unreq_agg_request));
-                }
-                Ok(false) => {
-                    debug!(
-                        "Aggregation request validation failed, moving to range proofs: start_block={}, end_block={}",
-                        unreq_agg_request.start_block, unreq_agg_request.end_block
-                    );
-                    // Validation failed, continue to try fetching range proofs
-                }
-                Err(e) => {
-                    warn!("Error validating aggregation request: {:?}. Moving to range proofs.", e);
-                    // Error during validation, continue to try fetching range proofs
-                }
-            }
+            return Ok(Some(unreq_agg_request));
         }
 
         let unreq_range_request = self
