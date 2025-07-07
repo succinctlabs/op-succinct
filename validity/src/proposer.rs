@@ -658,13 +658,12 @@ where
     }
 
     /// Validates an aggregation proof request by checking that:
-    /// 1. The expected range proofs exist and are complete
-    /// 2. There are no gaps between consecutive range proofs
-    /// 3. There are no duplicate/overlapping range proofs
-    /// 4. The range proofs cover the entire block range
+    /// 1. There are no gaps between consecutive range proofs
+    /// 2. There are no duplicate/overlapping range proofs
+    /// 3. The range proofs cover the entire block range
     pub async fn validate_aggregation_request(
         &self,
-        range_proofs: &Vec<OPSuccinctRequest>,
+        range_proofs: &[OPSuccinctRequest],
         agg_request: &OPSuccinctRequest,
     ) -> Result<bool> {
         debug!(
@@ -689,6 +688,27 @@ where
                 end_block = ?agg_request.end_block,
                 commitments = ?self.program_config.commitments,
                 "No consecutive span proof range found for request"
+            );
+            return Ok(false);
+        }
+
+        if range_proofs.first().unwrap().start_block != agg_request.start_block {
+            warn!(
+                expected_start_block = ?agg_request.start_block,
+                actual_start_block = ?range_proofs.first().unwrap().start_block,
+                commitments = ?self.program_config.commitments,
+                "Range proofs start block does not match aggregation request"
+            );
+
+            return Ok(false);
+        }
+
+        if range_proofs.last().unwrap().end_block != agg_request.end_block {
+            warn!(
+                expected_end_block = ?agg_request.end_block,
+                actual_end_block = ?range_proofs.last().unwrap().end_block,
+                commitments = ?self.program_config.commitments,
+                "Range proofs end block does not match aggregation request"
             );
             return Ok(false);
         }
