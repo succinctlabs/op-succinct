@@ -602,8 +602,22 @@ where
             .await?;
 
         if let Some(unreq_agg_request) = unreq_agg_request {
+            // Fetch consecutive range proofs from the database associated with the aggregation
+            // proof request.
+            let range_proofs = self
+                .proof_requester
+                .db_client
+                .get_consecutive_complete_range_proofs(
+                    unreq_agg_request.start_block,
+                    unreq_agg_request.end_block,
+                    &self.program_config.commitments,
+                    self.requester_config.l1_chain_id,
+                    self.requester_config.l2_chain_id,
+                )
+                .await?;
+
             // Validate the aggregation proof request
-            match self.validate_aggregation_request(&unreq_agg_request).await {
+            match self.validate_aggregation_request(&range_proofs, &unreq_agg_request).await {
                 Ok(true) => {
                     debug!(
                         "Aggregation request validated successfully: start_block={}, end_block={}",
@@ -648,32 +662,19 @@ where
     /// 2. There are no gaps between consecutive range proofs
     /// 3. There are no duplicate/overlapping range proofs
     /// 4. The range proofs cover the entire block range
-    async fn validate_aggregation_request(&self, agg_request: &OPSuccinctRequest) -> Result<bool> {
+    pub async fn validate_aggregation_request(
+        &self,
+        range_proofs: &Vec<OPSuccinctRequest>,
+        agg_request: &OPSuccinctRequest,
+    ) -> Result<bool> {
         debug!(
-            "Validating aggregation proof request: start_block={}, end_block={}",
-            agg_request.start_block, agg_request.end_block
+            "Validating {} aggregation proof request: start_block={}, end_block={}",
+            range_proofs.len(),
+            range_proofs.first().unwrap().start_block,
+            range_proofs.last().unwrap().end_block
         );
-
-        // Fetch all completed range proofs within the aggregation range
-        let range_proofs = self
-            .driver_config
-            .driver_db_client
-            .get_consecutive_complete_range_proofs(
-                agg_request.start_block,
-                agg_request.end_block,
-                &self.program_config.commitments,
-                agg_request.l1_chain_id,
-                agg_request.l2_chain_id,
-            )
-            .await?;
 
         // Log all constituent range proofs
-        debug!(
-            "Found {} range proofs for aggregation request (start={}, end={})",
-            range_proofs.len(),
-            agg_request.start_block,
-            agg_request.end_block
-        );
         for (i, proof) in range_proofs.iter().enumerate() {
             debug!(
                 "Range proof {}: start_block={}, end_block={}",
@@ -683,25 +684,11 @@ where
 
         // If no range proofs found, validation fails
         if range_proofs.is_empty() {
-            debug!("No range proofs found for aggregation request - not ready yet");
-            return Ok(false);
-        }
-
-        // Check that first proof starts at or before the aggregation start block
-        if range_proofs[0].start_block > agg_request.start_block {
-            debug!(
-                "First range proof starts at {} but aggregation starts at {} - missing initial proofs",
-                range_proofs[0].start_block, agg_request.start_block
-            );
-            return Ok(false);
-        }
-
-        // Check that last proof ends at or after the aggregation end block
-        let last_proof = &range_proofs[range_proofs.len() - 1];
-        if last_proof.end_block < agg_request.end_block {
-            debug!(
-                "Last range proof ends at {} but aggregation ends at {} - missing final proofs",
-                last_proof.end_block, agg_request.end_block
+            warn!(
+                start_block = ?agg_request.start_block,
+                end_block = ?agg_request.end_block,
+                commitments = ?self.program_config.commitments,
+                "No consecutive span proof range found for request"
             );
             return Ok(false);
         }
@@ -712,7 +699,7 @@ where
             let curr_proof = &range_proofs[i];
 
             // Check for gap
-            if prev_proof.end_block + 1 != curr_proof.start_block {
+            if prev_proof.end_block != curr_proof.start_block {
                 debug!(
                     "Gap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
@@ -724,7 +711,7 @@ where
             }
 
             // Check for overlap (duplicate blocks)
-            if prev_proof.end_block >= curr_proof.start_block {
+            if prev_proof.end_block > curr_proof.start_block {
                 debug!(
                     "Overlap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
