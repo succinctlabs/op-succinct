@@ -127,6 +127,10 @@ where
             }
             Err(e) => {
                 warn!("Error validating aggregation request: {:?}", e);
+                return Err(Status::new(
+                    Code::Internal,
+                    format!("Failed to validate aggregation request: {}", e),
+                ));
             }
         };
 
