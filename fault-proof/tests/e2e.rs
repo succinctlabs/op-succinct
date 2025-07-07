@@ -15,9 +15,8 @@ use tokio::time::Duration;
 use tracing::info;
 
 use common::{
-    cleanup_anvil,
     constants::{
-        AIRGAP_PERIOD, CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, MAX_CHALLENGE_DURATION,
+        CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY, MAX_CHALLENGE_DURATION,
         MAX_PROVE_DURATION, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
     },
     find_binary_path, generate_challenger_env, generate_proposer_env,
@@ -97,9 +96,9 @@ async fn test_honest_proposer() -> Result<()> {
     // Verify all games resolved correctly (proposer wins)
     verify_all_resolved_correctly(&resolutions)?;
 
-    // Warp past AIRGAP_PERIOD
-    warp_time(&env.anvil.provider, Duration::from_secs(AIRGAP_PERIOD)).await?;
-    info!("✓ Warped time by AIRGAP_PERIOD ({AIRGAP_PERIOD} seconds) to trigger bond claims");
+    // Warp past DISPUTE_GAME_FINALITY
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY)).await?;
+    info!("✓ Warped time by DISPUTE_GAME_FINALITY ({DISPUTE_GAME_FINALITY} seconds) to trigger bond claims");
 
     // Verify proposer is still running
     assert!(proposer.is_running(), "Proposer should still be running");
@@ -128,8 +127,6 @@ async fn test_honest_proposer() -> Result<()> {
     info!("\n=== Full Lifecycle Test Complete ===");
     info!("✓ Games created, resolved, and bonds claimed successfully");
 
-    // Cleanup
-    cleanup_anvil();
     Ok(())
 }
 
@@ -242,9 +239,9 @@ async fn test_honest_challenger() -> Result<()> {
     )
     .await?;
 
-    // Warp past AIRGAP_PERIOD for bond claims
-    warp_time(&env.anvil.provider, Duration::from_secs(AIRGAP_PERIOD)).await?;
-    info!("✓ Warped time by AIRGAP_PERIOD ({AIRGAP_PERIOD} seconds) to enable bond claims");
+    // Warp past DISPUTE_GAME_FINALITY for bond claims
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY)).await?;
+    info!("✓ Warped time by DISPUTE_GAME_FINALITY ({DISPUTE_GAME_FINALITY} seconds) to enable bond claims");
 
     // Verify challenger is still running
     assert!(challenger.is_running(), "Challenger should still be running");
@@ -283,7 +280,5 @@ async fn test_honest_challenger() -> Result<()> {
     info!("\n=== Full Lifecycle Test Complete ===");
     info!("✓ Invalid games challenged, won by challenger, and bonds claimed successfully");
 
-    // Cleanup
-    cleanup_anvil();
     Ok(())
 }

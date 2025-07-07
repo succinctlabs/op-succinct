@@ -1,7 +1,7 @@
 //! Contract deployment utilities for E2E tests.
 
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolCall;
 use anyhow::Result;
 use bindings::{
@@ -16,9 +16,10 @@ use tracing::{debug, info};
 use fault_proof::{L1Provider, L2Provider, L2ProviderTrait};
 
 use super::constants::{
-    AGGREGATION_VKEY, AIRGAP_PERIOD, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_ADDRESS,
-    FALLBACK_TIMEOUT, INIT_BOND, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS,
-    RANGE_VKEY_COMMITMENT, ROLLUP_CONFIG_HASH, TEST_GAME_TYPE,
+    AGGREGATION_VKEY, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_ADDRESS, DISPUTE_GAME_FINALITY,
+    FALLBACK_TIMEOUT, INIT_BOND, L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION,
+    MAX_PROVE_DURATION, PROPOSER_ADDRESS, RANGE_VKEY_COMMITMENT, ROLLUP_CONFIG_HASH,
+    TEST_GAME_TYPE,
 };
 
 /// Container for deployed contracts
@@ -53,9 +54,12 @@ pub async fn deploy_test_contracts(
 
     // 2. Deploy MockOptimismPortal2 (needed for AnchorStateRegistry)
     debug!("Deploying MockOptimismPortal2...");
-    let portal_instance =
-        MockOptimismPortal2::deploy(provider.clone(), TEST_GAME_TYPE, U256::from(AIRGAP_PERIOD))
-            .await?;
+    let portal_instance = MockOptimismPortal2::deploy(
+        provider.clone(),
+        TEST_GAME_TYPE,
+        U256::from(DISPUTE_GAME_FINALITY),
+    )
+    .await?;
     let portal = *portal_instance.address();
     info!("✓ MockOptimismPortal2 deployed at: {}", portal);
 
@@ -72,11 +76,11 @@ pub async fn deploy_test_contracts(
     info!("✓ AnchorStateRegistry implementation deployed at: {}", anchor_impl_addr);
 
     // Prepare initialization data with expected test values
-    // NOTE: We use the finalized L2 block number - 100 as the starting anchor root and test 3 games
-    // with proposal interval of 10 blocks.
+    // NOTE: We use the finalized L2 block number - L2_BLOCK_OFFSET_FROM_FINALIZED as the starting
+    // anchor root and test 3 games with proposal interval of 10 blocks.
     let l2_block_number = U256::from(
         l2_provider.get_l2_block_by_number(BlockNumberOrTag::Finalized).await?.header.number,
-    ) - U256::from(100u64);
+    ) - U256::from(L2_BLOCK_OFFSET_FROM_FINALIZED);
     let output_root = l2_provider.compute_output_root_at_block(l2_block_number).await?;
     let starting_anchor_root = bindings::anchor_state_registry::AnchorStateRegistry::OutputRoot {
         root: output_root,
@@ -219,45 +223,4 @@ pub async fn configure_contracts(
 
     info!("✓ All contracts configured successfully");
     Ok(())
-}
-
-/// Create a game through the factory (simplified version for testing)
-#[allow(dead_code)]
-pub async fn create_test_game(
-    provider: L1Provider,
-    factory_address: Address,
-    game_type: u32,
-    l2_block_number: U256,
-    output_root: FixedBytes<32>,
-) -> Result<Address> {
-    let factory = DisputeGameFactory::new(factory_address, provider.clone());
-
-    // First check if game is registered
-    let game_impl = factory.gameImpls(game_type).call().await?;
-    if game_impl == Address::ZERO {
-        anyhow::bail!("Game type {} not registered in factory", game_type);
-    }
-
-    // Get init bond
-    let init_bond = factory.initBonds(game_type).call().await?;
-    info!("Init bond for game type {}: {}", game_type, init_bond);
-
-    // Encode extra data (l2 block number and parent game index)
-    let extra_data = alloy_sol_types::SolValue::abi_encode_packed(&(l2_block_number, u32::MAX));
-
-    // Create the game
-    let tx =
-        factory.create(game_type, output_root, extra_data.into()).value(init_bond).send().await?;
-
-    let receipt = tx.get_receipt().await?;
-    info!("✓ Game created in tx: {}", receipt.transaction_hash);
-
-    // Get game address from the latest game
-    let game_count = factory.gameCount().call().await?;
-    let game_index = game_count - U256::from(1);
-    let game_info = factory.gameAtIndex(game_index).call().await?;
-    let game_address = game_info.proxy_;
-
-    info!("✓ Game deployed at: {}", game_address);
-    Ok(game_address)
 }

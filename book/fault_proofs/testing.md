@@ -18,7 +18,7 @@ The fault-proof crate includes comprehensive end-to-end tests that run actual pr
 Tests use time warping to compress days of real-world dispute game timing into minutes:
 - **Challenge Duration**: 1 hour (MAX_CHALLENGE_DURATION)
 - **Prove Duration**: 12 hours (MAX_PROVE_DURATION)
-- **Bond Claim Delay (Airgap)**: 7 days (AIRGAP)
+- **Bond Claim Delay (Airgap)**: 7 days (DISPUTE_GAME_FINALITY)
 - **Total Test Time**: ~2-3 minutes per full lifecycle (using time warping)
 
 ## Prerequisites
@@ -115,7 +115,7 @@ Key test constants defined in `fault_proof/tests/common/contracts.rs`:
 - **CHALLENGER_BOND**: 1 ETH (bond required for challenges)
 - **MAX_CHALLENGE_DURATION**: 1 hour (time to submit a challenge)
 - **MAX_PROVE_DURATION**: 12 hours (time to submit proof after challenge)
-- **AIRGAP**: 7 days (delay before bonds can be claimed)
+- **DISPUTE_GAME_FINALITY**: 7 days (delay before bonds can be claimed)
 
 ### Test Phases
 Each full lifecycle test follows these phases:

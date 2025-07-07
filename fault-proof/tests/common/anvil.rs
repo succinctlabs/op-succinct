@@ -12,6 +12,8 @@ use tracing::info;
 
 use fault_proof::L1Provider;
 
+use super::constants::L2_BLOCK_OFFSET_FROM_FINALIZED;
+
 // An Anvil instance that is kept alive for the duration of the program.
 lazy_static! {
     static ref ANVIL: Mutex<Option<AnvilInstance>> = Mutex::new(None);
@@ -96,8 +98,8 @@ async fn calculate_fork_block() -> Result<u64> {
         .header
         .number;
 
-    // Use finalized - 100 for testing
-    let target_l2 = l2_finalized.saturating_sub(100);
+    // Use finalized - L2_BLOCK_OFFSET_FROM_FINALIZED for testing
+    let target_l2 = l2_finalized.saturating_sub(L2_BLOCK_OFFSET_FROM_FINALIZED);
 
     let (_, l1_block_number) = fetcher
         .get_safe_l1_block_for_l2_block(target_l2)
@@ -105,9 +107,4 @@ async fn calculate_fork_block() -> Result<u64> {
         .context("Failed to get safe L1 block")?;
 
     Ok(l1_block_number)
-}
-
-/// Cleanup the Anvil instance
-pub fn cleanup_anvil() {
-    *ANVIL.lock().unwrap() = None;
 }

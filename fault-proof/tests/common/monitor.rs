@@ -98,17 +98,6 @@ pub async fn wait_and_track_games<P: Provider>(
     }
 }
 
-/// Wait for a single game to be created
-#[allow(dead_code)]
-pub async fn wait_for_single_game<P: Provider>(
-    factory: &DisputeGameFactory::DisputeGameFactoryInstance<P>,
-    game_type: u32,
-    timeout_duration: Duration,
-) -> Result<Address> {
-    let games = wait_and_track_games(factory, game_type, 1, timeout_duration).await?;
-    Ok(games[0].address)
-}
-
 /// Wait for games to be resolved
 pub async fn wait_for_resolutions<P: Provider>(
     provider: &P,
@@ -186,33 +175,6 @@ pub async fn wait_for_challenges<P: Provider>(
 
         if all_challenged {
             return Ok(statuses);
-        }
-
-        sleep(Duration::from_secs(2)).await;
-    }
-}
-
-/// Wait for a specific proposal status on a game
-#[allow(dead_code)]
-pub async fn wait_for_challenge_status<P: Provider>(
-    game: &OPSuccinctFaultDisputeGame::OPSuccinctFaultDisputeGameInstance<P>,
-    expected_status: u8,
-    timeout_duration: Duration,
-) -> Result<()> {
-    info!("Waiting for game to reach status: {}", expected_status);
-
-    let deadline = tokio::time::Instant::now() + timeout_duration;
-
-    loop {
-        if tokio::time::Instant::now() > deadline {
-            anyhow::bail!("Timeout waiting for status {}", expected_status);
-        }
-
-        let claim_data = game.claimData().call().await?;
-
-        if claim_data.status == expected_status {
-            info!("Game reached expected status: {}", expected_status);
-            return Ok(());
         }
 
         sleep(Duration::from_secs(2)).await;

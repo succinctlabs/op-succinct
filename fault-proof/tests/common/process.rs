@@ -247,22 +247,6 @@ pub fn generate_challenger_env(
     env
 }
 
-/// Wait for a process to produce a specific log line
-#[allow(dead_code)]
-pub async fn wait_for_log_line(
-    process_name: &str,
-    expected_line: &str,
-    _timeout_duration: Duration,
-) -> Result<()> {
-    // This is a simplified version - in practice you'd monitor the output channels
-    info!("Waiting for {} to log: {}", process_name, expected_line);
-
-    // For now, just wait a bit
-    tokio::time::sleep(Duration::from_secs(5)).await;
-
-    Ok(())
-}
-
 /// Helper to find the binary path
 pub fn find_binary_path(binary_name: &str) -> Result<PathBuf> {
     // First, check if we're in a cargo test environment

@@ -28,7 +28,7 @@ pub const INIT_BOND: U256 = U256::from_limbs([10_000_000_000_000_000, 0, 0, 0]);
 pub const CHALLENGER_BOND: U256 = U256::from_limbs([1_000_000_000_000_000_000, 0, 0, 0]); // 1 ETH
 
 // Time constants
-pub const AIRGAP_PERIOD: u64 = 60 * 60 * 24 * 7; // 7 days
+pub const DISPUTE_GAME_FINALITY: u64 = 60 * 60 * 24 * 7; // 7 days
 pub const MAX_CHALLENGE_DURATION: u64 = 60 * 60; // 1 hour
 pub const MAX_PROVE_DURATION: u64 = 60 * 60 * 12; // 12 hours
 pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 weeks
@@ -37,3 +37,7 @@ pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 we
 pub const ROLLUP_CONFIG_HASH: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
 pub const AGGREGATION_VKEY: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
 pub const RANGE_VKEY_COMMITMENT: FixedBytes<32> = FixedBytes::ZERO; // Mock value for testing
+
+// Test configuration for L2 block offset
+// This offset is subtracted from finalized L2 block to get the starting anchor block
+pub const L2_BLOCK_OFFSET_FROM_FINALIZED: u64 = 100;
