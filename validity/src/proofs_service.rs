@@ -116,9 +116,8 @@ where
             }
             Ok(false) => {
                 warn!(
-                    "Aggregation request validation failed: start_block={}, end_block={}",
-                    range_proofs.first().unwrap().start_block,
-                    range_proofs.last().unwrap().end_block
+                    "Aggregation request validation failed: last_proven_block={}, l1_limited_end_block={}",
+                    req.last_proven_block, l1_limited_end_block
                 );
                 return Err(Status::new(
                     Code::InvalidArgument,
