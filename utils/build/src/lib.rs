@@ -10,7 +10,7 @@ fn build_program(program_name: &str, elf_name: &str, features: Option<Vec<String
         output_directory: Some("../../elf".to_string()),
         docker: true,
         tag: "v5.0.0".to_string(),
-        // workspace_directory: Some("../../".to_string()),
+        workspace_directory: Some("../../".to_string()),
         ..Default::default()
     };
 
@@ -27,12 +27,12 @@ fn build_program(program_name: &str, elf_name: &str, features: Option<Vec<String
 /// Build all the native programs and the native host runner. Optional flag to build the zkVM
 /// programs.
 pub fn build_all() {
-    build_program("aggregation", "aggregation-elf", None);
-    build_program("range/ethereum", "range-elf-bump", None);
-    build_program("range/ethereum", "range-elf-embedded", Some(vec!["embedded".to_string()]));
-    build_program(
-        "range/celestia",
-        "celestia-range-elf-embedded",
-        Some(vec!["embedded".to_string()]),
-    );
+    //     build_program("aggregation", "aggregation-elf", None);
+    //     build_program("range/ethereum", "range-elf-bump", None);
+    //     build_program("range/ethereum", "range-elf-embedded",
+    // Some(vec!["embedded".to_string()]));     build_program(
+    //         "range/celestia",
+    //         "celestia-range-elf-embedded",
+    //         Some(vec!["embedded".to_string()]),
+    //     );
 }

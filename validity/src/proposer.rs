@@ -961,8 +961,6 @@ where
             .await
             .context("Failed to validate the requester config matches the contract.")?;
 
-        tracing::info!("Requester config matches the contract.");
-
         // Delete all requests for the same chain ID that are of status UNREQUESTED, EXECUTION or
         // WITNESS_GENERATION as they're unrecoverable.
         self.driver_config
