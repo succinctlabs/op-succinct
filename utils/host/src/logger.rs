@@ -38,8 +38,9 @@ fn build_env_filter() -> EnvFilter {
 /// Set up the logger with optional OpenTelemetry export.
 ///
 /// # Environment Variables
-/// - `LOGGER_NAME`: If set, enables OpenTelemetry export with this as the service name
+/// - `LOGGER_NAME`: Service name for opentelemetry logs (defaults to `op-succinct`)
 /// - `OTLP_ENDPOINT`: OpenTelemetry endpoint (defaults to http://localhost:4317)
+/// - `OTLP_ENABLED`: Whether to enable OpenTelemetry export (defaults to false)
 /// - `RUST_LOG`: Standard Rust log level configuration
 pub fn setup_logger() {
     INIT.get_or_init(|| {
@@ -47,7 +48,10 @@ pub fn setup_logger() {
         let otlp_endpoint =
             std::env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".to_string());
 
-        let logger_enabled = logger_name.is_some();
+        let otlp_enabled = std::env::var("OTLP_ENABLED")
+            .unwrap_or("false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false);
 
         let service_name = logger_name.unwrap_or("op-succinct".to_string());
 
@@ -72,7 +76,7 @@ pub fn setup_logger() {
 
         let env_filter = build_env_filter();
 
-        let log_export_layer: Option<Box<dyn Layer<_> + Send + Sync>> = if logger_enabled {
+        let log_export_layer: Option<Box<dyn Layer<_> + Send + Sync>> = if otlp_enabled {
             let export_layer = opentelemetry_otlp::new_pipeline()
                 .logging()
                 .with_log_config(logs::config().with_resource(resource))
@@ -90,7 +94,7 @@ pub fn setup_logger() {
         };
 
         Registry::default().with(log_export_layer).with(fmt_layer).init();
-        if logger_enabled {
+        if otlp_enabled {
             tracing::info!("OTLP endpoint configured: {}", otlp_endpoint);
         }
         Ok(())
