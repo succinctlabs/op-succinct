@@ -1,5 +1,6 @@
-use std::sync::Once;
+use std::sync::OnceLock;
 
+use anyhow::{Context, Result};
 use opentelemetry::{global, KeyValue};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::{Protocol, WithExportConfig};
@@ -8,7 +9,7 @@ use tracing_subscriber::{
     layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer, Registry,
 };
 
-static INIT: Once = Once::new();
+static INIT: OnceLock<Result<()>> = OnceLock::new();
 
 fn build_env_filter() -> EnvFilter {
     EnvFilter::try_from_default_env()
@@ -41,7 +42,7 @@ fn build_env_filter() -> EnvFilter {
 /// - `OTLP_ENDPOINT`: OpenTelemetry endpoint (defaults to http://localhost:4317)
 /// - `RUST_LOG`: Standard Rust log level configuration
 pub fn setup_logger() {
-    INIT.call_once(|| {
+    INIT.get_or_init(|| {
         let logger_name = std::env::var("LOGGER_NAME").ok();
         let otlp_endpoint =
             std::env::var("OTLP_ENDPOINT").unwrap_or_else(|_| "http://localhost:4317".to_string());
@@ -82,7 +83,7 @@ pub fn setup_logger() {
                         .with_protocol(Protocol::Grpc),
                 )
                 .install_batch(runtime::Tokio)
-                .unwrap();
+                .context("Failed to install OpenTelemetry logging pipeline")?;
             Some(Box::new(OpenTelemetryTracingBridge::new(&export_layer).with_filter(env_filter)))
         } else {
             None
@@ -92,5 +93,6 @@ pub fn setup_logger() {
         if logger_enabled {
             tracing::info!("OTLP endpoint configured: {}", otlp_endpoint);
         }
+        Ok(())
     });
 }
