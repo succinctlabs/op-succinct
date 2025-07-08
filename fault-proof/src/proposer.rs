@@ -18,7 +18,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::get_range_elf_embedded;
+use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProofMode,
@@ -91,7 +91,7 @@ where
     P: Provider + Clone + Send + Sync + 'static,
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
-    /// Creates a new challenger instance with the provided L1 provider with wallet and factory
+    /// Creates a new proposer instance with the provided L1 provider with wallet and factory
     /// contract instance.
     pub async fn new(
         prover_address: Address,
@@ -898,5 +898,57 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(true)
+    }
+}
+
+impl<P, H> OPSuccinctProposer<P, H>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+    H: OPSuccinctHost + Clone + Send + Sync + 'static,
+{
+    /// Creates a new proposer instance for testing with provided configuration parameters.
+    /// This mirrors the functionality of `generate_proposer_env()` but creates the instance
+    /// directly.
+    pub async fn test(
+        l1_rpc: &str,
+        l2_rpc: &str,
+        l2_node_rpc: &str,
+        l1_beacon_rpc: &str,
+        private_key: &str,
+        factory_address: &str,
+        game_type: u32,
+        prover_network_rpc: Option<&str>,
+    ) -> Result<OPSuccinctProposer<L1Provider, impl OPSuccinctHost + Clone + Send + Sync + 'static>>
+    {
+        // Set up environment variables for test configuration
+        env::set_var("L1_RPC", l1_rpc);
+        env::set_var("L1_BEACON_RPC", l1_beacon_rpc);
+        env::set_var("L2_RPC", l2_rpc);
+        env::set_var("L2_NODE_RPC", l2_node_rpc);
+        env::set_var("PRIVATE_KEY", private_key);
+        env::set_var("FACTORY_ADDRESS", factory_address);
+        env::set_var("GAME_TYPE", game_type.to_string());
+
+        if let Some(prover_rpc) = prover_network_rpc {
+            env::set_var("PROVER_NETWORK_RPC", prover_rpc);
+        }
+
+        // Test-specific configuration for faster game creation
+        env::set_var("RUST_LOG", "info");
+        env::set_var("PROPOSAL_INTERVAL_IN_BLOCKS", "10"); // Much smaller interval for testing
+        env::set_var("FETCH_INTERVAL", "2"); // Check more frequently in tests
+
+        let proposer_signer = Signer::from_env()?;
+        let l1_provider = ProviderBuilder::default().connect_http(l1_rpc.parse().unwrap());
+        let factory = crate::contract::DisputeGameFactory::new(
+            factory_address.parse::<Address>().unwrap(),
+            l1_provider.clone(),
+        );
+
+        let prover_address = proposer_signer.address();
+        let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
+        let host = initialize_host(fetcher.clone());
+
+        OPSuccinctProposer::new(prover_address, proposer_signer, factory, fetcher, host).await
     }
 }

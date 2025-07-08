@@ -11,6 +11,8 @@ use tokio::{
 };
 use tracing::{error, info, warn};
 
+use std::sync::Arc;
+
 /// Represents a running binary process with monitoring
 pub struct ManagedProcess {
     pub name: String,
@@ -280,4 +282,115 @@ pub fn find_binary_path(binary_name: &str) -> Result<PathBuf> {
         binary_name,
         binary_name
     )
+}
+
+/// Start a proposer using the native library implementation
+pub async fn start_proposer_native(
+    l1_rpc: &str,
+    l2_rpc: &str,
+    l2_node_rpc: &str,
+    l1_beacon_rpc: &str,
+    private_key: &str,
+    factory_address: &str,
+    game_type: u32,
+    prover_network_rpc: Option<&str>,
+) -> Result<Arc<dyn std::any::Any + Send + Sync>> {
+    use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
+    use op_succinct_proof_utils::initialize_host;
+    use op_succinct_signer_utils::Signer;
+
+    // Set up environment variables for test configuration
+    std::env::set_var("L1_RPC", l1_rpc);
+    std::env::set_var("L1_BEACON_RPC", l1_beacon_rpc);
+    std::env::set_var("L2_RPC", l2_rpc);
+    std::env::set_var("L2_NODE_RPC", l2_node_rpc);
+    std::env::set_var("PRIVATE_KEY", private_key);
+    std::env::set_var("FACTORY_ADDRESS", factory_address);
+    std::env::set_var("GAME_TYPE", game_type.to_string());
+
+    if let Some(prover_rpc) = prover_network_rpc {
+        std::env::set_var("PROVER_NETWORK_RPC", prover_rpc);
+    }
+
+    // Test-specific configuration for faster game creation
+    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("PROPOSAL_INTERVAL_IN_BLOCKS", "10"); // Much smaller interval for testing
+    std::env::set_var("FETCH_INTERVAL", "2"); // Check more frequently in tests
+
+    let proposer_signer = Signer::from_env()?;
+    let l1_provider =
+        alloy_provider::ProviderBuilder::default().connect_http(l1_rpc.parse().unwrap());
+    let factory = fault_proof::contract::DisputeGameFactory::new(
+        factory_address.parse().unwrap(),
+        l1_provider.clone(),
+    );
+
+    let prover_address = proposer_signer.address();
+    let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
+    let host = initialize_host(fetcher.clone());
+
+    let proposer = fault_proof::proposer::OPSuccinctProposer::new(
+        prover_address,
+        proposer_signer,
+        factory,
+        fetcher,
+        host,
+    )
+    .await?;
+    Ok(Arc::new(proposer))
+}
+
+/// Start a challenger using the native library implementation
+pub async fn start_challenger_native(
+    l1_rpc: &str,
+    l2_rpc: &str,
+    l2_node_rpc: &str,
+    l1_beacon_rpc: &str,
+    private_key: &str,
+    factory_address: &str,
+    game_type: u32,
+    prover_network_rpc: Option<&str>,
+    malicious_percentage: Option<f64>,
+) -> Result<Box<dyn std::any::Any + Send + Sync>> {
+    use op_succinct_signer_utils::Signer;
+
+    // Set up environment variables for test configuration
+    std::env::set_var("L1_RPC", l1_rpc);
+    std::env::set_var("L1_BEACON_RPC", l1_beacon_rpc);
+    std::env::set_var("L2_RPC", l2_rpc);
+    std::env::set_var("L2_NODE_RPC", l2_node_rpc);
+    std::env::set_var("PRIVATE_KEY", private_key);
+    std::env::set_var("FACTORY_ADDRESS", factory_address);
+    std::env::set_var("GAME_TYPE", game_type.to_string());
+
+    if let Some(prover_rpc) = prover_network_rpc {
+        std::env::set_var("PROVER_NETWORK_RPC", prover_rpc);
+    }
+
+    if let Some(percentage) = malicious_percentage {
+        std::env::set_var("MALICIOUS_CHALLENGE_PERCENTAGE", percentage.to_string());
+    }
+
+    // Test-specific configuration
+    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("FETCH_INTERVAL", "2"); // Check more frequently in tests
+    std::env::set_var("MAX_GAMES_TO_CHECK_FOR_CHALLENGE", "10"); // Check more games
+
+    let challenger_signer = Signer::from_env()?;
+    let l1_provider =
+        alloy_provider::ProviderBuilder::default().connect_http(l1_rpc.parse().unwrap());
+    let factory = fault_proof::contract::DisputeGameFactory::new(
+        factory_address.parse().unwrap(),
+        l1_provider.clone(),
+    );
+
+    let challenger = fault_proof::challenger::OPSuccinctChallenger::new(
+        challenger_signer.address(),
+        challenger_signer,
+        l1_provider,
+        factory,
+    )
+    .await?;
+
+    Ok(Box::new(challenger))
 }

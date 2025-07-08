@@ -60,10 +60,11 @@ pub async fn warp_time<P: Provider>(provider: &P, duration: Duration) -> Result<
     info!("Warping time by {} seconds", seconds);
 
     let client = provider.client();
-    
+
     // Use evm_increaseTime which is simpler than calculating timestamps manually
-    let _: serde_json::Value = client.request("evm_increaseTime", vec![serde_json::json!(seconds)]).await?;
-    
+    let _: serde_json::Value =
+        client.request("evm_increaseTime", vec![serde_json::json!(seconds)]).await?;
+
     // Mine a block to apply the timestamp
     let _: String = client.request("evm_mine", Vec::<serde_json::Value>::new()).await?;
 
