@@ -3,7 +3,7 @@
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolCall;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use bindings::{
     access_manager::AccessManager, anchor_state_registry::AnchorStateRegistry,
     dispute_game_factory::DisputeGameFactory, erc1967_proxy::ERC1967Proxy,
@@ -104,41 +104,20 @@ pub async fn deploy_test_contracts(
 
     // 4. Deploy AccessManager
     debug!("Deploying AccessManager...");
-    // Note: AccessManager deployment may fail on Anvil forks, so we handle it gracefully
-    let access_manager = match AccessManager::deploy_builder(
-        provider.clone(),
-        FALLBACK_TIMEOUT,
-        factory,
-    )
-    .gas(3_000_000)
-    .send()
-    .await
-    {
-        Ok(pending_tx) => match pending_tx.get_receipt().await {
-            Ok(receipt) => {
-                if receipt.status() {
-                    if let Some(addr) = receipt.contract_address {
-                        info!("✓ AccessManager deployed at: {}", addr);
-                        addr
-                    } else {
-                        info!("⚠️ AccessManager deployment succeeded but no contract address returned");
-                        Address::ZERO
-                    }
-                } else {
-                    info!("⚠️ AccessManager deployment reverted (transaction status: false)");
-                    Address::ZERO
-                }
-            }
-            Err(e) => {
-                info!("⚠️ Failed to get AccessManager deployment receipt: {}", e);
-                Address::ZERO
-            }
-        },
-        Err(e) => {
-            info!("⚠️ Failed to send AccessManager deployment transaction: {}", e);
-            Address::ZERO
-        }
-    };
+    // NOTE(fakedev9999): AccessManager deployment requires manual gas specification
+    // because Anvil's gas estimator fails to properly handle the Ownable constructor
+    // logic when running on a forked network.
+    let access_manager_receipt =
+        AccessManager::deploy_builder(provider.clone(), FALLBACK_TIMEOUT, factory)
+            .gas(3_000_000)
+            .send()
+            .await?
+            .get_receipt()
+            .await?;
+    let access_manager = access_manager_receipt
+        .contract_address
+        .ok_or(anyhow!("AccessManager deployment failed"))?;
+    info!("✓ AccessManager deployed at: {}", access_manager);
 
     // 5. Deploy SP1MockVerifier
     debug!("Deploying SP1MockVerifier...");
@@ -174,12 +153,6 @@ pub async fn configure_contracts(
     contracts: &DeployedContracts,
 ) -> Result<()> {
     info!("Configuring contracts for E2E testing");
-
-    // Only configure if all contracts were deployed
-    if contracts.access_manager == Address::ZERO {
-        info!("⚠️  Skipping contract configuration - not all contracts deployed");
-        return Ok(());
-    }
 
     // 1. Configure MockOptimismPortal2 - Set respected game type
     info!("Configuring MockOptimismPortal2...");

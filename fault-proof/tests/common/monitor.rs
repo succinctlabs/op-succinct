@@ -107,14 +107,12 @@ pub async fn wait_for_resolutions<P: Provider>(
     info!("Waiting for {} games to be resolved...", tracked_games.len());
 
     let deadline = tokio::time::Instant::now() + timeout_duration;
-    let mut statuses = vec![0u8; tracked_games.len()]; // 0 = IN_PROGRESS
+    let mut statuses = vec![GAME_STATUS_IN_PROGRESS; tracked_games.len()];
 
     loop {
         if tokio::time::Instant::now() > deadline {
             anyhow::bail!("Timeout waiting for game resolutions");
         }
-
-        let mut all_resolved = true;
 
         for (i, game) in tracked_games.iter().enumerate() {
             let game_contract = OPSuccinctFaultDisputeGame::new(game.address, provider);
@@ -122,15 +120,12 @@ pub async fn wait_for_resolutions<P: Provider>(
 
             statuses[i] = status;
 
-            if status == 0 {
-                // 0 = IN_PROGRESS
-                all_resolved = false;
-            } else {
+            if status != GAME_STATUS_IN_PROGRESS {
                 info!("Game {} resolved with status: {}", game.address, status);
             }
         }
 
-        if all_resolved {
+        if statuses.iter().all(|&status| status != GAME_STATUS_IN_PROGRESS) {
             return Ok(statuses);
         }
 
@@ -157,23 +152,18 @@ pub async fn wait_for_challenges<P: Provider>(
             anyhow::bail!("Timeout waiting for challenges");
         }
 
-        let mut all_challenged = true;
-
         for (i, &game_address) in game_addresses.iter().enumerate() {
             let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
             let claim_data = game.claimData().call().await?;
 
             statuses[i] = claim_data.status == 1; // 1 = Challenged
 
-            if claim_data.status == 0 {
-                // 0 = Unchallenged
-                all_challenged = false;
-            } else {
+            if claim_data.status != 0 {
                 info!("Game {} status: {}", game_address, claim_data.status);
             }
         }
 
-        if all_challenged {
+        if statuses.iter().all(|&challenged| challenged) {
             return Ok(statuses);
         }
 
@@ -194,15 +184,14 @@ pub async fn wait_for_bond_claims<P: Provider>(
         recipient_address
     );
 
-    let deadline = tokio::time::Instant::now() + timeout_duration;
+    let start_time = tokio::time::Instant::now();
+    let deadline = start_time + timeout_duration;
     let mut claims = vec![false; tracked_games.len()];
 
     loop {
         if tokio::time::Instant::now() > deadline {
             anyhow::bail!("Timeout waiting for bond claims");
         }
-
-        let mut all_claimed = true;
 
         for (i, game) in tracked_games.iter().enumerate() {
             if claims[i] {
@@ -221,10 +210,8 @@ pub async fn wait_for_bond_claims<P: Provider>(
                 claims[i] = true;
                 info!("Bonds claimed for game {} (both credit balances are 0)", game.address);
             } else {
-                all_claimed = false;
-
                 // Log current credit balances for debugging
-                if i == 0 && tokio::time::Instant::now().elapsed().as_secs().is_multiple_of(10) {
+                if i == 0 && start_time.elapsed().as_secs().is_multiple_of(10) {
                     info!(
                         "Game {} - Recipient {} normalModeCredit: {}, refundModeCredit: {}",
                         game.address, recipient_address, normal_credit, refund_credit
@@ -233,7 +220,7 @@ pub async fn wait_for_bond_claims<P: Provider>(
             }
         }
 
-        if all_claimed {
+        if claims.iter().all(|&claimed| claimed) {
             return Ok(claims);
         }
 
@@ -252,15 +239,15 @@ pub fn verify_games_resolved(
     expected_status: u8,
     winner_name: &str,
 ) -> Result<()> {
-    for (i, status) in statuses.iter().enumerate() {
-        if *status != expected_status {
-            anyhow::bail!(
-                "Game {} did not resolve to {}: got status {} instead",
-                i,
-                winner_name,
-                status
-            );
-        }
+    if let Some((i, &status)) =
+        statuses.iter().enumerate().find(|(_, &status)| status != expected_status)
+    {
+        anyhow::bail!(
+            "Game {} did not resolve to {}: got status {} instead",
+            i,
+            winner_name,
+            status
+        );
     }
     info!("All {} games resolved correctly ({})", statuses.len(), winner_name);
     Ok(())
@@ -273,10 +260,8 @@ pub fn verify_all_resolved_correctly(statuses: &[u8]) -> Result<()> {
 
 /// Verify all bonds were claimed
 pub fn verify_all_bonds_claimed(claims: &[bool]) -> Result<()> {
-    for (i, claimed) in claims.iter().enumerate() {
-        if !claimed {
-            anyhow::bail!("Game {} bonds were not claimed", i);
-        }
+    if let Some((i, _)) = claims.iter().enumerate().find(|(_, &claimed)| !claimed) {
+        anyhow::bail!("Game {} bonds were not claimed", i);
     }
     info!("All {} games had bonds claimed", claims.len());
     Ok(())
@@ -302,20 +287,15 @@ pub async fn wait_and_verify_game_resolutions<P: Provider>(
             anyhow::bail!("Timeout waiting for game resolutions");
         }
 
-        let mut all_resolved = true;
         let mut statuses = Vec::new();
 
         for &game_address in game_addresses.iter() {
             let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
             let status = game.status().call().await?;
             statuses.push(status);
-
-            if status == GAME_STATUS_IN_PROGRESS {
-                all_resolved = false;
-            }
         }
 
-        if all_resolved {
+        if statuses.iter().all(|&status| status != GAME_STATUS_IN_PROGRESS) {
             // Verify all games resolved with expected status
             verify_games_resolved(&statuses, expected_status, winner_name)?;
             return Ok(());

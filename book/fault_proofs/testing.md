@@ -36,6 +36,11 @@ Before running the tests, ensure you have:
    foundryup
    ```
 
+   **Note**: As of July 8, 2025, you need to use Forge nightly for binding generation:
+   ```bash
+   foundryup --install nightly
+   ```
+
 3. **Environment variables configured**
    ```bash
    export L1_RPC=<YOUR_L1_RPC>
@@ -145,7 +150,10 @@ Each full lifecycle test follows these phases:
    ```
    error: failed to run custom build command for `bindings v0.1.0`
    ```
-   Solution: Ensure Foundry is installed and `forge` is in your PATH
+   Solution: Ensure Foundry is installed and `forge` is in your PATH. As of July 8, 2025, you must use Forge nightly:
+   ```bash
+   foundryup --install nightly
+   ```
 
 4. **Test Timeouts**
    ```

@@ -225,7 +225,7 @@ async fn test_honest_challenger() -> Result<()> {
     )
     .await?;
     info!(
-        "✓ Warped time by {} seconds (max challenge window + max prove duration)",
+        "✓ Warped time by {} seconds (max challenge duration + max prove duration)",
         MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION
     );
 
@@ -240,8 +240,12 @@ async fn test_honest_challenger() -> Result<()> {
     .await?;
 
     // Warp past DISPUTE_GAME_FINALITY for bond claims
-    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY)).await?;
-    info!("✓ Warped time by DISPUTE_GAME_FINALITY ({DISPUTE_GAME_FINALITY} seconds) to enable bond claims");
+    // NOTE(fakedev9999): +1 to ensure we're *past* the finalization time
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY + 1)).await?;
+    info!(
+        "✓ Warped time by DISPUTE_GAME_FINALITY ({} seconds) to enable bond claims",
+        DISPUTE_GAME_FINALITY + 1
+    );
 
     // Verify challenger is still running
     assert!(challenger.is_running(), "Challenger should still be running");
