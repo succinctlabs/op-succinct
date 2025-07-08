@@ -20,10 +20,10 @@ resolver = "2"
 [workspace.package]
 license = "MIT"
 edition = "2021"
-authors = ["ratankaliani", "zachobront", "fakedev9999"]
+authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
-version = "2.3.0"
+version = "3.0.0-rc.1"
 
 [workspace.dependencies]
 # general
