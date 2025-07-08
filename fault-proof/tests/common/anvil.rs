@@ -56,31 +56,16 @@ pub async fn setup_anvil_fork(fork_url: &str) -> Result<AnvilFork> {
 
 /// Time manipulation utility for the forked chain
 pub async fn warp_time<P: Provider>(provider: &P, duration: Duration) -> Result<()> {
-    let current_timestamp = provider
-        .get_block_by_number(BlockNumberOrTag::Latest)
-        .await?
-        .context("Failed to get block")?
-        .header
-        .timestamp;
+    let seconds = duration.as_secs();
+    info!("Warping time by {} seconds", seconds);
 
-    let new_timestamp = current_timestamp + duration.as_secs();
-
-    info!(
-        "Warping time by {} seconds: {} -> {}",
-        duration.as_secs(),
-        current_timestamp,
-        new_timestamp
-    );
-
-    // Use Anvil's time manipulation via direct RPC calls
     let client = provider.client();
-
-    // evm_setNextBlockTimestamp returns null on success
-    let _: Option<serde_json::Value> =
-        client.request("evm_setNextBlockTimestamp", vec![serde_json::json!(new_timestamp)]).await?;
-
+    
+    // Use evm_increaseTime which is simpler than calculating timestamps manually
+    let _: serde_json::Value = client.request("evm_increaseTime", vec![serde_json::json!(seconds)]).await?;
+    
     // Mine a block to apply the timestamp
-    let _: Option<String> = client.request("evm_mine", Vec::<serde_json::Value>::new()).await?;
+    let _: String = client.request("evm_mine", Vec::<serde_json::Value>::new()).await?;
 
     Ok(())
 }

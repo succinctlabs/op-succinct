@@ -16,10 +16,10 @@ use tracing::{debug, info};
 use fault_proof::{L1Provider, L2Provider, L2ProviderTrait};
 
 use super::constants::{
-    AGGREGATION_VKEY, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_ADDRESS, DISPUTE_GAME_FINALITY,
-    FALLBACK_TIMEOUT, INIT_BOND, L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION,
-    MAX_PROVE_DURATION, PROPOSER_ADDRESS, RANGE_VKEY_COMMITMENT, ROLLUP_CONFIG_HASH,
-    TEST_GAME_TYPE,
+    AGGREGATION_VKEY, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_ADDRESS,
+    DISPUTE_GAME_FINALITY_DELAY_SECONDS, FALLBACK_TIMEOUT, INIT_BOND,
+    L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS,
+    RANGE_VKEY_COMMITMENT, ROLLUP_CONFIG_HASH, TEST_GAME_TYPE,
 };
 
 /// Container for deployed contracts
@@ -57,7 +57,7 @@ pub async fn deploy_test_contracts(
     let portal_instance = MockOptimismPortal2::deploy(
         provider.clone(),
         TEST_GAME_TYPE,
-        U256::from(DISPUTE_GAME_FINALITY),
+        U256::from(DISPUTE_GAME_FINALITY_DELAY_SECONDS),
     )
     .await?;
     let portal = *portal_instance.address();
@@ -189,10 +189,6 @@ pub async fn configure_contracts(
     let tx = access_manager.setChallenger(CHALLENGER_ADDRESS, true).send().await?;
     tx.get_receipt().await?;
     info!("✓ Challenger permission set for {}", CHALLENGER_ADDRESS);
-
-    // The AnchorStateRegistry is already initialized with a starting anchor state
-    // during deployment (starting at finalized L2 block - 30 with output root at the block).
-    info!("✓ AnchorStateRegistry already configured with initial anchor state");
 
     info!("✓ All contracts configured successfully");
     Ok(())

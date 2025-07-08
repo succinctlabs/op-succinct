@@ -16,8 +16,9 @@ use tracing::info;
 
 use common::{
     constants::{
-        CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY, MAX_CHALLENGE_DURATION,
-        MAX_PROVE_DURATION, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
+        CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
+        MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY,
+        TEST_GAME_TYPE,
     },
     find_binary_path, generate_challenger_env, generate_proposer_env,
     monitor::{
@@ -96,9 +97,10 @@ async fn test_honest_proposer() -> Result<()> {
     // Verify all games resolved correctly (proposer wins)
     verify_all_resolved_correctly(&resolutions)?;
 
-    // Warp past DISPUTE_GAME_FINALITY
-    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY)).await?;
-    info!("✓ Warped time by DISPUTE_GAME_FINALITY ({DISPUTE_GAME_FINALITY} seconds) to trigger bond claims");
+    // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
+        .await?;
+    info!("✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({DISPUTE_GAME_FINALITY_DELAY_SECONDS} seconds) to trigger bond claims");
 
     // Verify proposer is still running
     assert!(proposer.is_running(), "Proposer should still be running");
@@ -239,12 +241,13 @@ async fn test_honest_challenger() -> Result<()> {
     )
     .await?;
 
-    // Warp past DISPUTE_GAME_FINALITY for bond claims
+    // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS for bond claims
     // NOTE(fakedev9999): +1 to ensure we're *past* the finalization time
-    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY + 1)).await?;
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1))
+        .await?;
     info!(
-        "✓ Warped time by DISPUTE_GAME_FINALITY ({} seconds) to enable bond claims",
-        DISPUTE_GAME_FINALITY + 1
+        "✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({} seconds) to enable bond claims",
+        DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1
     );
 
     // Verify challenger is still running
