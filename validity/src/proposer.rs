@@ -602,7 +602,41 @@ where
             .await?;
 
         if let Some(unreq_agg_request) = unreq_agg_request {
-            return Ok(Some(unreq_agg_request));
+            // Fetch consecutive range proofs from the database associated with the aggregation
+            // proof request.
+            let range_proofs = self
+                .proof_requester
+                .db_client
+                .get_consecutive_complete_range_proofs(
+                    unreq_agg_request.start_block,
+                    unreq_agg_request.end_block,
+                    &self.program_config.commitments,
+                    self.requester_config.l1_chain_id,
+                    self.requester_config.l2_chain_id,
+                )
+                .await?;
+
+            // Validate the aggregation proof request
+            match self.validate_aggregation_request(&range_proofs, &unreq_agg_request).await {
+                Ok(true) => {
+                    debug!(
+                        "Aggregation request validated successfully: start_block={}, end_block={}",
+                        unreq_agg_request.start_block, unreq_agg_request.end_block
+                    );
+                    return Ok(Some(unreq_agg_request));
+                }
+                Ok(false) => {
+                    debug!(
+                            "Aggregation request validation failed, moving to range proofs: start_block={}, end_block={}",
+                            unreq_agg_request.start_block, unreq_agg_request.end_block
+                        );
+                    // Validation failed, continue to try fetching range proofs
+                }
+                Err(e) => {
+                    warn!("Error validating aggregation request: {:?}. Moving to range proofs.", e);
+                    // Error during validation, continue to try fetching range proofs
+                }
+            }
         }
 
         let unreq_range_request = self
@@ -621,6 +655,100 @@ where
         }
 
         Ok(None)
+    }
+
+    /// Validates an aggregation proof request by checking that:
+    /// 1. There are no gaps between consecutive range proofs
+    /// 2. There are no duplicate/overlapping range proofs
+    /// 3. The range proofs cover the entire block range
+    pub async fn validate_aggregation_request(
+        &self,
+        range_proofs: &[OPSuccinctRequest],
+        agg_request: &OPSuccinctRequest,
+    ) -> Result<bool> {
+        debug!(
+            "Validating {} aggregation proof request: start_block={}, end_block={}",
+            range_proofs.len(),
+            range_proofs.first().unwrap().start_block,
+            range_proofs.last().unwrap().end_block
+        );
+
+        // Log all constituent range proofs
+        for (i, proof) in range_proofs.iter().enumerate() {
+            debug!(
+                "Range proof {}: start_block={}, end_block={}",
+                i, proof.start_block, proof.end_block
+            );
+        }
+
+        // If no range proofs found, validation fails
+        if range_proofs.is_empty() {
+            warn!(
+                start_block = ?agg_request.start_block,
+                end_block = ?agg_request.end_block,
+                commitments = ?self.program_config.commitments,
+                "No consecutive span proof range found for request"
+            );
+            return Ok(false);
+        }
+
+        if range_proofs.first().unwrap().start_block != agg_request.start_block {
+            warn!(
+                expected_start_block = ?agg_request.start_block,
+                actual_start_block = ?range_proofs.first().unwrap().start_block,
+                commitments = ?self.program_config.commitments,
+                "Range proofs start block does not match aggregation request"
+            );
+
+            return Ok(false);
+        }
+
+        if range_proofs.last().unwrap().end_block != agg_request.end_block {
+            warn!(
+                expected_end_block = ?agg_request.end_block,
+                actual_end_block = ?range_proofs.last().unwrap().end_block,
+                commitments = ?self.program_config.commitments,
+                "Range proofs end block does not match aggregation request"
+            );
+            return Ok(false);
+        }
+
+        // Check for gaps and duplicates between consecutive proofs
+        for i in 1..range_proofs.len() {
+            let prev_proof = &range_proofs[i - 1];
+            let curr_proof = &range_proofs[i];
+
+            // Check for gap
+            if prev_proof.end_block != curr_proof.start_block {
+                debug!(
+                    "Gap detected: proof {} ends at {} but proof {} starts at {}",
+                    i - 1,
+                    prev_proof.end_block,
+                    i,
+                    curr_proof.start_block
+                );
+                return Ok(false);
+            }
+
+            // Check for overlap (duplicate blocks)
+            if prev_proof.end_block > curr_proof.start_block {
+                debug!(
+                    "Overlap detected: proof {} ends at {} but proof {} starts at {}",
+                    i - 1,
+                    prev_proof.end_block,
+                    i,
+                    curr_proof.start_block
+                );
+                return Ok(false);
+            }
+        }
+
+        // All validation checks passed
+        debug!(
+            "Aggregation request validated successfully with {} consecutive range proofs",
+            range_proofs.len()
+        );
+        Ok(true)
     }
 
     /// Relay all completed aggregation proofs to the contract.
