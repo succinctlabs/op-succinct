@@ -906,49 +906,61 @@ where
     P: Provider + Clone + Send + Sync + 'static,
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
-    /// Creates a new proposer instance for testing with provided configuration parameters.
-    /// This mirrors the functionality of `generate_proposer_env()` but creates the instance
-    /// directly.
+    /// Creates a new proposer instance for testing with provided configuration.
     pub async fn test(
-        l1_rpc: &str,
-        l2_rpc: &str,
-        l2_node_rpc: &str,
-        l1_beacon_rpc: &str,
-        private_key: &str,
-        factory_address: &str,
-        game_type: u32,
-        prover_network_rpc: Option<&str>,
+        config: ProposerConfig,
+        signer: Signer,
+        network_private_key: Option<String>,
     ) -> Result<OPSuccinctProposer<L1Provider, impl OPSuccinctHost + Clone + Send + Sync + 'static>>
     {
-        // Set up environment variables for test configuration
-        env::set_var("L1_RPC", l1_rpc);
-        env::set_var("L1_BEACON_RPC", l1_beacon_rpc);
-        env::set_var("L2_RPC", l2_rpc);
-        env::set_var("L2_NODE_RPC", l2_node_rpc);
-        env::set_var("PRIVATE_KEY", private_key);
-        env::set_var("FACTORY_ADDRESS", factory_address);
-        env::set_var("GAME_TYPE", game_type.to_string());
-
-        if let Some(prover_rpc) = prover_network_rpc {
-            env::set_var("PROVER_NETWORK_RPC", prover_rpc);
-        }
-
-        // Test-specific configuration for faster game creation
-        env::set_var("RUST_LOG", "info");
-        env::set_var("PROPOSAL_INTERVAL_IN_BLOCKS", "10"); // Much smaller interval for testing
-        env::set_var("FETCH_INTERVAL", "2"); // Check more frequently in tests
-
-        let proposer_signer = Signer::from_env()?;
-        let l1_provider = ProviderBuilder::default().connect_http(l1_rpc.parse().unwrap());
+        let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let factory = crate::contract::DisputeGameFactory::new(
-            factory_address.parse::<Address>().unwrap(),
+            config.factory_address,
             l1_provider.clone(),
         );
 
-        let prover_address = proposer_signer.address();
+        let prover_address = signer.address();
         let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
         let host = initialize_host(fetcher.clone());
+        
+        // Set a default network private key to avoid an error in mock mode.
+        let private_key = network_private_key.unwrap_or_else(|| {
+            tracing::warn!(
+                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+            );
+            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+        });
 
-        OPSuccinctProposer::new(prover_address, proposer_signer, factory, fetcher, host).await
+        let network_prover =
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
+        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+
+        let init_bond = factory.fetch_init_bond(config.game_type).await?;
+
+        // Extract values we need before moving config
+        let l2_rpc = config.l2_rpc.clone();
+        let safe_db_fallback = config.safe_db_fallback;
+
+        Ok(OPSuccinctProposer {
+            config,
+            prover_address,
+            signer,
+            l1_provider,
+            l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
+            factory: Arc::new(factory),
+            init_bond,
+            safe_db_fallback,
+            prover: SP1Prover {
+                network_prover,
+                range_pk: Arc::new(range_pk),
+                range_vk: Arc::new(range_vk),
+                agg_pk: Arc::new(agg_pk),
+            },
+            fetcher,
+            host,
+            tasks: Arc::new(Mutex::new(HashMap::new())),
+            next_task_id: Arc::new(AtomicU64::new(1)),
+        })
     }
 }

@@ -1,4 +1,4 @@
-use std::{env, time::Duration};
+use std::time::Duration;
 
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
@@ -267,55 +267,29 @@ impl<P> OPSuccinctChallenger<P>
 where
     P: Provider + Clone,
 {
-    /// Creates a new challenger instance for testing with provided configuration parameters.
-    /// This mirrors the functionality of `generate_challenger_env()` but creates the instance
-    /// directly.
+    /// Creates a new challenger instance for testing with provided configuration.
     pub async fn test(
-        l1_rpc: &str,
-        l2_rpc: &str,
-        l2_node_rpc: &str,
-        l1_beacon_rpc: &str,
-        private_key: &str,
-        factory_address: &str,
-        game_type: u32,
-        prover_network_rpc: Option<&str>,
-        malicious_percentage: Option<f64>,
+        config: ChallengerConfig,
+        signer: Signer,
     ) -> Result<OPSuccinctChallenger<crate::L1Provider>> {
-        // Set up environment variables for test configuration
-        env::set_var("L1_RPC", l1_rpc);
-        env::set_var("L1_BEACON_RPC", l1_beacon_rpc);
-        env::set_var("L2_RPC", l2_rpc);
-        env::set_var("L2_NODE_RPC", l2_node_rpc);
-        env::set_var("PRIVATE_KEY", private_key);
-        env::set_var("FACTORY_ADDRESS", factory_address);
-        env::set_var("GAME_TYPE", game_type.to_string());
-
-        if let Some(prover_rpc) = prover_network_rpc {
-            env::set_var("PROVER_NETWORK_RPC", prover_rpc);
-        }
-
-        if let Some(percentage) = malicious_percentage {
-            env::set_var("MALICIOUS_CHALLENGE_PERCENTAGE", percentage.to_string());
-        }
-
-        // Test-specific configuration
-        env::set_var("RUST_LOG", "info");
-        env::set_var("FETCH_INTERVAL", "2"); // Check more frequently in tests
-        env::set_var("MAX_GAMES_TO_CHECK_FOR_CHALLENGE", "10"); // Check more games
-
-        let challenger_signer = Signer::from_env()?;
-        let l1_provider = ProviderBuilder::default().connect_http(l1_rpc.parse().unwrap());
+        let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let factory = crate::contract::DisputeGameFactory::new(
-            factory_address.parse::<Address>().unwrap(),
+            config.factory_address,
             l1_provider.clone(),
         );
 
-        OPSuccinctChallenger::new(
-            challenger_signer.address(),
-            challenger_signer,
-            l1_provider,
+        let challenger_address = signer.address();
+        let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
+        let l2_rpc = config.l2_rpc.clone();
+
+        Ok(OPSuccinctChallenger {
+            config,
+            challenger_address,
+            signer,
+            l1_provider: l1_provider.clone(),
+            l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
             factory,
-        )
-        .await
+            challenger_bond,
+        })
     }
 }
