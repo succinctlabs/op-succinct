@@ -3,7 +3,7 @@ use std::time::Duration;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use tokio::time;
 
 use crate::{
@@ -96,9 +96,8 @@ where
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
     /// Also supports malicious challenging of valid games for testing defense mechanisms when
     /// configured.
+    #[tracing::instrument(skip(self), level = "info", name = "[[Challenging]]")]
     async fn handle_game_challenging(&self) -> Result<Action> {
-        let _span = tracing::info_span!("[[Challenging]]").entered();
-
         // Challenge invalid games (honest challenger behavior)
         if let Some(game_address) = self
             .factory
@@ -122,9 +121,10 @@ where
             tracing::debug!("Checking for valid games to challenge maliciously...");
             if let Some(game_address) = self.get_oldest_valid_game_for_malicious_challenge().await?
             {
-                let mut rng = rand::rng();
+                let mut rng = StdRng::from_os_rng();
+                let should_challenge: f64 = rng.gen_range(0.0..100.0);
                 let should_challenge =
-                    rng.random_range(0.0..100.0) <= self.config.malicious_challenge_percentage;
+                    should_challenge <= self.config.malicious_challenge_percentage;
 
                 if should_challenge {
                     tracing::warn!(
@@ -150,9 +150,8 @@ where
     }
 
     /// Handles resolution of challenged games that are ready to be resolved.
+    #[tracing::instrument(skip(self), level = "info", name = "[[Resolving]]")]
     async fn handle_game_resolution(&self) -> Result<()> {
-        let _span = tracing::info_span!("[[Resolving]]").entered();
-
         self.factory
             .resolve_games(
                 Mode::Challenger,
@@ -165,9 +164,8 @@ where
     }
 
     /// Handles claiming bonds from resolved games.
+    #[tracing::instrument(skip(self), level = "info", name = "[[Claiming Bonds]]")]
     pub async fn handle_bond_claiming(&self) -> Result<Action> {
-        let _span = tracing::info_span!("[[Claiming Bonds]]").entered();
-
         if let Some(game_address) = self
             .factory
             .get_oldest_claimable_bond_game_address(
@@ -270,14 +268,10 @@ where
     /// Creates a new challenger instance for testing with provided configuration.
     pub async fn test(
         config: ChallengerConfig,
+        l1_provider: L1Provider,
+        factory: DisputeGameFactoryInstance<P>,
         signer: Signer,
-    ) -> Result<OPSuccinctChallenger<crate::L1Provider>> {
-        let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
-        let factory = crate::contract::DisputeGameFactory::new(
-            config.factory_address,
-            l1_provider.clone(),
-        );
-
+    ) -> Result<OPSuccinctChallenger<P>> {
         let challenger_address = signer.address();
         let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
         let l2_rpc = config.l2_rpc.clone();

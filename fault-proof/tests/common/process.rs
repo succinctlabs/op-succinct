@@ -2,7 +2,11 @@
 
 use std::{collections::HashMap, path::PathBuf, process::Stdio, time::Duration};
 
+use alloy_provider::ProviderBuilder;
 use anyhow::{Context, Result};
+use fault_proof::{
+    challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
+};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::{Child, Command},
@@ -308,7 +312,7 @@ pub async fn start_proposer_native(
         mock_mode: false,
         fast_finality_mode: false,
         proposal_interval_in_blocks: 10, // Much smaller interval for testing
-        fetch_interval: 2, // Check more frequently in tests
+        fetch_interval: 2,               // Check more frequently in tests
         game_type,
         max_games_to_check_for_defense: 100,
         enable_game_resolution: true,
@@ -318,8 +322,9 @@ pub async fn start_proposer_native(
         metrics_port: 9000,
     };
 
-    // For now, return a placeholder since the actual implementation has complex generic type requirements
-    // TODO: Implement proper native proposer initialization once type system issues are resolved
+    // For now, return a placeholder since the actual implementation has complex generic type
+    // requirements TODO: Implement proper native proposer initialization once type system
+    // issues are resolved
     Ok(Arc::new(()))
 }
 
@@ -334,14 +339,14 @@ pub async fn start_challenger_native(
     game_type: u32,
     _prover_network_rpc: Option<&str>,
     malicious_percentage: Option<f64>,
-) -> Result<Box<dyn std::any::Any + Send + Sync>> {
+) -> Result<tokio::task::JoinHandle<Result<()>>> {
     use op_succinct_signer_utils::Signer;
 
     // Create signer directly from private key
     let signer = Signer::new_local_signer(private_key)?;
 
     // Create challenger config with test-specific settings
-    let config = fault_proof::config::ChallengerConfig {
+    let config = ChallengerConfig {
         l1_rpc: l1_rpc.parse()?,
         l2_rpc: l2_rpc.parse()?,
         factory_address: factory_address.parse()?,
@@ -355,7 +360,15 @@ pub async fn start_challenger_native(
         malicious_challenge_percentage: malicious_percentage.unwrap_or(0.0),
     };
 
-    // For now, return a placeholder since the actual implementation has complex generic type requirements
-    // TODO: Implement proper native challenger initialization once type system issues are resolved
-    Ok(Box::new(()))
+    let l1_provider = ProviderBuilder::default().connect_http(l1_rpc.parse()?);
+    let factory = DisputeGameFactory::new(factory_address.parse()?, l1_provider.clone());
+
+    // let mut challenger =
+    //     OPSuccinctChallenger::test(config, l1_provider.clone(), factory, signer).await?;
+
+    Ok(tokio::spawn(async move {
+        let mut challenger =
+            OPSuccinctChallenger::test(config, l1_provider.clone(), factory, signer).await?;
+        challenger.run().await
+    }))
 }
