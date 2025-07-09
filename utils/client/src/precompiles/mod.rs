@@ -119,23 +119,32 @@ where
         };
 
         use revm::context::LocalContextTr;
-        let input = match &inputs.input {
-            revm::interpreter::CallInput::Bytes(bytes) => bytes.clone(),
-            revm::interpreter::CallInput::SharedBuffer(range) => context
-                .local()
-                .shared_memory_buffer_slice(range.clone())
-                .map(|b| Bytes::from(b.to_vec()))
-                .unwrap_or_default(),
-        };
 
         // Priority:
         // 1. If the precompile has an accelerated version, use that.
         // 2. If the precompile is not accelerated, use the default version.
         // 3. If the precompile is not found, return None.
-        let output = if let Some(precompile) = self.inner.precompiles.get(address) {
-            (*precompile)(&input, gas_limit)
-        } else {
-            return Ok(None);
+        let output = match &inputs.input {
+            revm::interpreter::CallInput::Bytes(bytes) => {
+                if let Some(precompile) = self.inner.precompiles.get(address) {
+                    (*precompile)(bytes, gas_limit)
+                } else {
+                    return Ok(None);
+                }
+            }
+            revm::interpreter::CallInput::SharedBuffer(range) => {
+                if let Some(precompile) = self.inner.precompiles.get(address) {
+                    if let Some(buffer_slice) =
+                        context.local().shared_memory_buffer_slice(range.clone())
+                    {
+                        (*precompile)(&buffer_slice, gas_limit)
+                    } else {
+                        (*precompile)(&[], gas_limit)
+                    }
+                } else {
+                    return Ok(None);
+                }
+            }
         };
 
         match output {
