@@ -38,8 +38,8 @@ impl Signer {
 
     /// Creates a new local signer from a private key string.
     pub fn new_local_signer(private_key_str: &str) -> Result<Self> {
-        let private_key = PrivateKeySigner::from_str(private_key_str)
-            .context("Failed to parse private key")?;
+        let private_key =
+            PrivateKeySigner::from_str(private_key_str).context("Failed to parse private key")?;
         Ok(Signer::LocalSigner(private_key))
     }
 
