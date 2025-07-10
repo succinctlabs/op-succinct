@@ -7,9 +7,11 @@ use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
     challenger::OPSuccinctChallenger, contract::DisputeGameFactory, prometheus::ChallengerGauge,
-    utils::setup_logging,
 };
-use op_succinct_host_utils::metrics::{init_metrics, MetricsGauge};
+use op_succinct_host_utils::{
+    metrics::{init_metrics, MetricsGauge},
+    setup_logger,
+};
 use op_succinct_signer_utils::Signer;
 
 #[derive(Parser)]
@@ -20,7 +22,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    setup_logging();
+    setup_logger();
 
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
