@@ -29,7 +29,7 @@ use common::{
     start_challenger_binary, start_proposer_binary, warp_time, TestEnvironment,
 };
 
-use crate::common::start_proposer_native;
+use crate::common::{start_challenger_native, start_proposer_native};
 
 #[tokio::test]
 async fn test_honest_proposer() -> Result<()> {
@@ -376,6 +376,156 @@ async fn test_honest_challenger() -> Result<()> {
     // Stop challenger
     info!("\n=== Stopping Challenger ===");
     challenger.kill().await?;
+    info!("✓ Challenger stopped gracefully");
+
+    info!("\n=== Full Lifecycle Test Complete ===");
+    info!("✓ Invalid games challenged, won by challenger, and bonds claimed successfully");
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_honest_challenger_native() -> Result<()> {
+    TestEnvironment::init_logging();
+    info!("\n=== Test: Honest Challenger Full Lifecycle (Challenge → Resolve → Claim) ===");
+
+    const NUM_INVALID_GAMES: usize = 3;
+
+    // Setup common test environment
+    let env = TestEnvironment::setup().await?;
+    let mut l2_block_number = env.get_initial_l2_block_number().await?;
+
+    // Start challenger service
+    info!("\n=== Starting Challenger Service ===");
+    let challenger_handle = start_challenger_native(
+        &env.rpc_config,
+        CHALLENGER_PRIVATE_KEY,
+        &env.deployed.factory,
+        TEST_GAME_TYPE,
+        None,
+        None,
+    )
+    .await?;
+    info!("✓ Challenger service started");
+
+    // === PHASE 1: Create Invalid Games ===
+    info!("\n=== Phase 1: Create Invalid Games ===");
+
+    // Create a signer for permissioned account 0
+    let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
+    let provider_with_signer = ProviderBuilder::new()
+        .wallet(EthereumWallet::from(wallet))
+        .connect_http(env.anvil.endpoint.parse::<Url>()?);
+
+    let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
+    let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+
+    let mut invalid_games = Vec::new();
+    let mut rng = rand::rng();
+
+    for _ in 0..NUM_INVALID_GAMES {
+        l2_block_number += 10;
+        // Create game with random invalid output root
+        let mut invalid_root_bytes = [0u8; 32];
+        rng.fill(&mut invalid_root_bytes);
+        let invalid_root = FixedBytes::<32>::from(invalid_root_bytes);
+
+        let parent_index = u32::MAX;
+        let extra_data = (U256::from(l2_block_number), parent_index).abi_encode_packed();
+
+        let tx = factory
+            .create(TEST_GAME_TYPE, invalid_root, extra_data.into())
+            .value(init_bond)
+            .send()
+            .await?;
+
+        let _receipt = tx.get_receipt().await?;
+        let new_game_count = factory.gameCount().call().await?;
+        let game_index = new_game_count - U256::from(1);
+        let game_info = factory.gameAtIndex(game_index).call().await?;
+        let game_address = game_info.proxy_;
+
+        invalid_games.push(game_address);
+    }
+
+    info!("✓ Created {} invalid games:", invalid_games.len());
+    for (i, game) in invalid_games.iter().enumerate() {
+        info!("  Game {}: {}", i + 1, game);
+    }
+
+    // Verify challenger is still running
+    assert!(!challenger_handle.is_finished(), "Challenger should still be running");
+    info!("\n✓ Challenger is still running successfully");
+
+    // === PHASE 2: Challenge Period ===
+    info!("\n=== Phase 2: Challenge Period ===");
+    wait_for_challenges(&env.anvil.provider, &invalid_games, Duration::from_secs(60)).await?;
+    info!("✓ All games challenged successfully");
+
+    // === PHASE 3: Resolution ===
+    info!("\n=== Phase 3: Resolution ===");
+    info!("Warping time past prove deadline to trigger challenger wins...");
+    warp_time(
+        &env.anvil.provider,
+        Duration::from_secs(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION),
+    )
+    .await?;
+    info!(
+        "✓ Warped time by {} seconds (max challenge duration + max prove duration)",
+        MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION
+    );
+
+    // Wait for and verify challenger wins
+    wait_and_verify_game_resolutions(
+        &env.anvil.provider,
+        &invalid_games,
+        GAME_STATUS_CHALLENGER_WINS,
+        "ChallengerWins",
+        Duration::from_secs(30),
+    )
+    .await?;
+
+    // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS for bond claims
+    // NOTE(fakedev9999): +1 to ensure we're *past* the finalization time
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1))
+        .await?;
+    info!(
+        "✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({} seconds) to enable bond claims",
+        DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1
+    );
+
+    // Verify challenger is still running
+    assert!(!challenger_handle.is_finished(), "Challenger should still be running");
+    info!("\n✓ Challenger is still running successfully");
+
+    // === PHASE 4: Bond Claims ===
+    info!("\n=== Phase 4: Bond Claims ===");
+
+    // Wait for challenger to claim bonds
+    let tracked_games: Vec<_> = invalid_games
+        .iter()
+        .map(|&address| TrackedGame {
+            address,
+            l2_block_number: U256::ZERO, // Not needed for bond claim check
+            output_root: FixedBytes::default(),
+            created_at_block: 0,
+        })
+        .collect();
+
+    let claims = wait_for_bond_claims(
+        &env.anvil.provider,
+        &tracked_games,
+        CHALLENGER_ADDRESS,
+        Duration::from_secs(60),
+    )
+    .await?;
+
+    // Verify all bonds were claimed
+    verify_all_bonds_claimed(&claims)?;
+
+    // Stop challenger
+    info!("\n=== Stopping Challenger ===");
+    challenger_handle.abort();
     info!("✓ Challenger stopped gracefully");
 
     info!("\n=== Full Lifecycle Test Complete ===");
