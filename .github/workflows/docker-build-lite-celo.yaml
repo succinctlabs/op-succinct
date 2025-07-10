@@ -9,6 +9,9 @@ on:
       - develop
   workflow_dispatch:
 
+env:
+  REGISTRY_URL: us-west1-docker.pkg.dev/blockchaintestsglobaltestnet/dev-images/${{ github.event.repository.name }}
+
 jobs:
   build:
     name: Build OP Succinct Lite Docker Images
@@ -34,7 +37,7 @@ jobs:
         id: meta-proposer
         uses: docker/metadata-action@v5
         with:
-          images: us-west1-docker.pkg.dev/blockchaintestsglobaltestnet/dev-images/celo-succinct-proposer
+          images: ${{ env.REGISTRY_URL }}/proposer
           tags: |
             type=semver,pattern={{version}}
             type=edge
@@ -44,7 +47,7 @@ jobs:
         id: meta-challenger
         uses: docker/metadata-action@v5
         with:
-          images: us-west1-docker.pkg.dev/blockchaintestsglobaltestnet/dev-images/celo-succinct-proposer
+          images: ${{ env.REGISTRY_URL }}/challenger
           tags: |
             type=semver,pattern={{version}}
             type=edge
@@ -68,8 +71,8 @@ jobs:
           platforms: |
             linux/amd64
             linux/arm64
-          cache-from: type=registry
-          cache-to: type=registry,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY_URL }}/proposer-buildcache:buildcache
+          cache-to: type=registry,mode=max,ref=${{ env.REGISTRY_URL }}/proposer-buildcache:buildcache
 
       - name: Build and push challenger
         uses: docker/build-push-action@v6
@@ -82,5 +85,5 @@ jobs:
           platforms: |
             linux/amd64
             linux/arm64
-          cache-from: type=registry
-          cache-to: type=registry,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY_URL }}/challenger-buildcache:buildcache
+          cache-to: type=registry,mode=max,ref=${{ env.REGISTRY_URL }}/challenger-buildcache:buildcache
