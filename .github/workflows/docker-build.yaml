@@ -2,7 +2,7 @@ name: Build OP Succinct Docker Images
 
 on:
   workflow_dispatch:
-  push:
+#  push:
 
 jobs:
   build:

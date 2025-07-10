@@ -47,6 +47,10 @@ alloy-transport-http = { workspace = true, features = [
 op-alloy-network.workspace = true
 op-alloy-rpc-types.workspace = true
 
+# celo-alloy
+celo-alloy-network.workspace = true
+celo-alloy-rpc-types.workspace = true
+
 # general
 anyhow.workspace = true
 async-trait.workspace = true

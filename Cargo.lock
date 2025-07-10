@@ -121,6 +121,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
+name = "alloy-celo-evm"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-evm",
+ "alloy-op-evm",
+ "alloy-primitives",
+ "celo-alloy-consensus",
+ "celo-revm",
+ "op-alloy-consensus",
+ "op-revm",
+ "revm",
+]
+
+[[package]]
 name = "alloy-chains"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1759,6 +1775,7 @@ checksum = "1bc2832c24239b0141d5674bb9174f9d68a8b5b3f2753311927c172ca46f7e9c"
 dependencies = [
  "funty",
  "radium",
+ "serde",
  "tap",
  "wyz",
 ]
@@ -2129,6 +2146,325 @@ dependencies = [
  "tendermint-proto",
  "thiserror 1.0.69",
  "time",
+]
+
+[[package]]
+name = "celo-alloy-consensus"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types-eth",
+ "alloy-serde",
+ "derive_more 2.0.1",
+ "op-alloy-consensus",
+ "serde",
+]
+
+[[package]]
+name = "celo-alloy-network"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-rpc-types-eth",
+ "alloy-signer",
+ "celo-alloy-consensus",
+ "celo-alloy-rpc-types",
+]
+
+[[package]]
+name = "celo-alloy-rpc-types"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-network-primitives",
+ "alloy-primitives",
+ "alloy-rpc-types-eth",
+ "alloy-serde",
+ "celo-alloy-consensus",
+ "derive_more 2.0.1",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "celo-alloy-rpc-types-engine"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types-engine",
+ "celo-alloy-consensus",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types-engine",
+ "serde",
+]
+
+[[package]]
+name = "celo-client"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-celo-evm",
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-evm",
+ "alloy-op-evm",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types-engine",
+ "async-trait",
+ "celo-alloy-consensus",
+ "celo-driver",
+ "celo-proof",
+ "cfg-if",
+ "kona-client",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-interop",
+ "kona-mpt",
+ "kona-preimage",
+ "kona-proof",
+ "kona-proof-interop",
+ "kona-protocol",
+ "kona-registry",
+ "kona-std-fpvm",
+ "kona-std-fpvm-proc",
+ "lru 0.14.0",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types-engine",
+ "op-revm",
+ "revm",
+ "serde",
+ "serde_json",
+ "spin 0.10.0",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "celo-driver"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-evm",
+ "alloy-primitives",
+ "alloy-rlp",
+ "async-trait",
+ "celo-alloy-consensus",
+ "celo-alloy-rpc-types-engine",
+ "celo-executor",
+ "celo-protocol",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-protocol",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types-engine",
+ "spin 0.10.0",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "celo-executor"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-celo-evm",
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-evm",
+ "alloy-op-evm",
+ "alloy-op-hardforks",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
+ "celo-alloy-consensus",
+ "celo-alloy-rpc-types-engine",
+ "celo-registry",
+ "kona-executor",
+ "kona-genesis",
+ "kona-mpt",
+ "kona-protocol",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types-engine",
+ "op-revm",
+ "revm",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "celo-host"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-celo-evm",
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-op-evm",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rlp",
+ "alloy-rpc-client",
+ "alloy-rpc-types",
+ "alloy-rpc-types-beacon",
+ "alloy-serde",
+ "alloy-transport",
+ "alloy-transport-http",
+ "anyhow",
+ "ark-ff 0.5.0",
+ "async-trait",
+ "celo-alloy-network",
+ "celo-alloy-rpc-types-engine",
+ "celo-client",
+ "clap",
+ "kona-cli",
+ "kona-client",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-host",
+ "kona-mpt",
+ "kona-preimage",
+ "kona-proof",
+ "kona-proof-interop",
+ "kona-protocol",
+ "kona-providers-alloy",
+ "kona-registry",
+ "kona-std-fpvm",
+ "op-alloy-network",
+ "op-alloy-rpc-types-engine",
+ "reqwest 0.12.22",
+ "revm",
+ "rocksdb",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.19",
+]
+
+[[package]]
+name = "celo-proof"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-evm",
+ "alloy-op-evm",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-trie",
+ "async-trait",
+ "celo-alloy-consensus",
+ "celo-alloy-rpc-types-engine",
+ "celo-driver",
+ "celo-executor",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-genesis",
+ "kona-mpt",
+ "kona-preimage",
+ "kona-protocol",
+ "kona-registry",
+ "lazy_static",
+ "lru 0.14.0",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types-engine",
+ "op-revm",
+ "serde",
+ "serde_json",
+ "spin 0.10.0",
+ "thiserror 2.0.12",
+ "tracing",
+]
+
+[[package]]
+name = "celo-protocol"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-rpc-types-engine",
+ "alloy-rpc-types-eth",
+ "async-trait",
+ "brotli",
+ "celo-alloy-consensus",
+ "celo-alloy-rpc-types",
+ "derive_more 2.0.1",
+ "kona-genesis",
+ "kona-protocol",
+ "miniz_oxide",
+ "op-alloy-consensus",
+ "op-alloy-rpc-types",
+ "op-alloy-rpc-types-engine",
+ "rand 0.9.1",
+ "thiserror 2.0.12",
+ "tracing",
+ "unsigned-varint 0.8.0",
+]
+
+[[package]]
+name = "celo-registry"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-chains",
+ "alloy-primitives",
+ "kona-genesis",
+ "kona-registry",
+ "lazy_static",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "celo-revm"
+version = "0.1.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=eae1e9be63f51f9098d4632ef8f0307ef4de1bbf#eae1e9be63f51f9098d4632ef8f0307ef4de1bbf"
+dependencies = [
+ "alloy-eips",
+ "alloy-evm",
+ "alloy-primitives",
+ "alloy-sol-types",
+ "auto_impl",
+ "celo-alloy-consensus",
+ "lazy_static",
+ "op-alloy-consensus",
+ "op-revm",
+ "revm",
+ "revm-context",
+ "revm-context-interface",
+ "revm-handler",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -7215,6 +7551,7 @@ dependencies = [
 name = "op-succinct-client-utils"
 version = "3.0.0-rc.2"
 dependencies = [
+ "alloy-celo-evm",
  "alloy-consensus",
  "alloy-eips",
  "alloy-evm",
@@ -7224,6 +7561,11 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "celo-alloy-consensus",
+ "celo-alloy-rpc-types-engine",
+ "celo-driver",
+ "celo-proof",
+ "celo-protocol",
  "cfg-if",
  "kona-derive",
  "kona-driver",
@@ -7272,6 +7614,7 @@ dependencies = [
  "alloy-primitives",
  "anyhow",
  "async-trait",
+ "celo-host",
  "kona-derive",
  "kona-host",
  "kona-preimage",
@@ -7298,6 +7641,8 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "async-trait",
+ "celo-alloy-network",
+ "celo-alloy-rpc-types",
  "clap",
  "dotenv",
  "futures",
@@ -7332,6 +7677,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "c-kzg",
+ "celo-alloy-consensus",
+ "celo-alloy-network",
+ "celo-host",
+ "celo-protocol",
  "cfg-if",
  "futures",
  "hana-host",
@@ -8158,6 +8507,7 @@ checksum = "1fd6780a80ae0c52cc120a26a1a42c1ae51b247a253e4e06113d23d2c2edd078"
 dependencies = [
  "phf_macros",
  "phf_shared",
+ "serde",
 ]
 
 [[package]]

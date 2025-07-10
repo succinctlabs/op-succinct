@@ -17,6 +17,10 @@ op-succinct-elfs.workspace = true
 op-alloy-consensus.workspace = true
 op-alloy-network.workspace = true
 
+# celo-alloy
+celo-alloy-consensus.workspace = true
+celo-alloy-network.workspace = true
+
 # kona
 kona-derive.workspace = true
 kona-genesis.workspace = true
@@ -25,6 +29,10 @@ kona-preimage.workspace = true
 kona-proof.workspace = true
 kona-protocol.workspace = true
 kona-rpc.workspace = true
+
+# celo-kona
+celo-host.workspace = true
+celo-protocol.workspace = true
 
 # hana
 hana-host.workspace = true

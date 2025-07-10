@@ -11,8 +11,8 @@ use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{bail, Result};
 use async_trait::async_trait;
-use op_alloy_network::Optimism;
-use op_alloy_rpc_types::Transaction;
+use celo_alloy_network::Celo;
+use celo_alloy_rpc_types::CeloTransaction;
 use op_succinct_signer_utils::Signer;
 
 use crate::{
@@ -25,8 +25,8 @@ use crate::{
 use op_succinct_host_utils::metrics::MetricsGauge;
 
 pub type L1Provider = RootProvider;
-pub type L2Provider = RootProvider<Optimism>;
-pub type L2NodeProvider = RootProvider<Optimism>;
+pub type L2Provider = RootProvider<Celo>;
+pub type L2NodeProvider = RootProvider<Celo>;
 
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
@@ -49,7 +49,7 @@ pub trait L2ProviderTrait {
     async fn get_l2_block_by_number(
         &self,
         block_number: BlockNumberOrTag,
-    ) -> Result<Block<Transaction>>;
+    ) -> Result<Block<CeloTransaction>>;
 
     /// Get the L2 storage root for an address at a given block number.
     async fn get_l2_storage_root(
@@ -68,7 +68,7 @@ impl L2ProviderTrait for L2Provider {
     async fn get_l2_block_by_number(
         &self,
         block_number: BlockNumberOrTag,
-    ) -> Result<Block<Transaction>> {
+    ) -> Result<Block<CeloTransaction>> {
         let block = self.get_block_by_number(block_number).await?;
         if let Some(block) = block {
             Ok(block)

@@ -10,10 +10,7 @@ on:
 
 jobs:
   tests:
-    runs-on:
-      - runs-on
-      - runner=64cpu-linux-x64
-      - run-id=${{ github.run_id }} 
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -22,7 +19,7 @@ jobs:
     - name: Test
       run: cargo test --release -- --skip e2e --skip test_proposer_defends_successfully --skip test_cycle_count_diff --skip test_post_to_github
       env:
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }} # TODO: set proper RPCs in secret to run the tests
         L1_RPC: ${{ secrets.L1_RPC }}
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ secrets.L2_RPC }}

@@ -13,11 +13,18 @@ alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
 
+# celo-alloy
+celo-alloy-consensus.workspace = true
+celo-alloy-rpc-types-engine.workspace = true
+
 # Execution
 alloy-evm.workspace = true
 alloy-op-evm.workspace = true
 op-revm.workspace = true
 revm.workspace = true
+
+# Celo Execution
+alloy-celo-evm.workspace = true
 
 # kona
 kona-preimage.workspace = true
@@ -27,6 +34,11 @@ kona-executor.workspace = true
 kona-driver.workspace = true
 kona-protocol.workspace = true
 kona-genesis.workspace = true
+
+# celo-kona
+celo-proof.workspace = true
+celo-driver.workspace = true
+celo-protocol.workspace = true
 
 # general
 anyhow.workspace = true

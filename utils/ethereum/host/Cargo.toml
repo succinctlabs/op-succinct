@@ -19,6 +19,9 @@ kona-host.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
 
+# celo-kona
+celo-host.workspace = true
+
 # alloy
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
