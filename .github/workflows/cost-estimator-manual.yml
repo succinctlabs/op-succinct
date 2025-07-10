@@ -1,10 +1,10 @@
 name: Cost Estimator (1000 blocks)
 
-on:
-  workflow_dispatch:
-    inputs: {}
-  schedule:
-    - cron: '0 0 * * *' # Run the workflow every day at midnight UTC.
+# on:
+#   workflow_dispatch:
+#     inputs: {}
+#   schedule:
+#     - cron: '0 0 * * *' # Run the workflow every day at midnight UTC.
 
 jobs:
   daily-cost-estimator:
@@ -34,4 +34,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: execution-reports
-          path: execution-reports/ 
+          path: execution-reports/

@@ -1,7 +1,7 @@
 name: Build OP Succinct Lite Docker Images
 
-on:
-  workflow_dispatch:
+# on:
+#   workflow_dispatch:
 
 jobs:
   build:
@@ -57,7 +57,7 @@ jobs:
           tags: ${{ steps.meta-proposer.outputs.tags }}
           labels: ${{ steps.meta-proposer.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max 
+          cache-to: type=gha,mode=max
 
       - name: Build and push challenger
         uses: docker/build-push-action@v6
