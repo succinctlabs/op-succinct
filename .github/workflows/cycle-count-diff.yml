@@ -1,9 +1,9 @@
 name: Cycle Count Diff
 
-on:
-  pull_request:
-    paths:
-      - 'elf/range-elf-embedded'
+#on:
+#  pull_request:
+#    paths:
+#      - 'elf/range-elf-embedded'
 
 jobs:
   cycle-count-diff:
