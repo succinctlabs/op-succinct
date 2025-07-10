@@ -29,6 +29,8 @@ use common::{
     start_challenger_binary, start_proposer_binary, warp_time, TestEnvironment,
 };
 
+use crate::common::start_proposer_native;
+
 #[tokio::test]
 async fn test_honest_proposer() -> Result<()> {
     TestEnvironment::init_logging();
@@ -45,9 +47,9 @@ async fn test_honest_proposer() -> Result<()> {
     // Generate proposer environment
     let proposer_env = generate_proposer_env(
         &env.anvil.endpoint,
-        &env.l2_rpc,
-        &env.l2_node_rpc,
-        &env.l1_beacon_rpc,
+        &env.rpc_config.l2_rpc.to_string(),
+        &env.rpc_config.l2_node_rpc.to_string(),
+        &env.rpc_config.l1_beacon_rpc.to_string(),
         PROPOSER_PRIVATE_KEY,
         &env.deployed.factory.to_string(),
         TEST_GAME_TYPE,
@@ -132,6 +134,98 @@ async fn test_honest_proposer() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_honest_proposer_native() -> Result<()> {
+    TestEnvironment::init_logging();
+    info!("\n=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
+
+    // Setup common test environment
+    let env = TestEnvironment::setup().await?;
+
+    // Start proposer
+    let proposer_handle = start_proposer_native(
+        &env.rpc_config,
+        PROPOSER_PRIVATE_KEY,
+        &env.deployed.factory,
+        TEST_GAME_TYPE,
+    )
+    .await?;
+    info!("✓ Proposer service started");
+
+    // Wait for proposer to create games
+    info!("=== Waiting for Game Creation ===");
+    let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
+
+    // Track first 3 games (L2 finalized head won't advance far enough for 3)
+    let tracked_games =
+        wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(60)).await?;
+
+    info!("✓ Proposer created {} games:", tracked_games.len());
+    for (i, game) in tracked_games.iter().enumerate() {
+        info!("  Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
+    }
+
+    // Verify proposer is still running
+    assert!(!proposer_handle.is_finished(), "Proposer should still be running");
+    info!("\n✓ Proposer is still running successfully");
+
+    // === PHASE 2: Challenge Period ===
+    info!("\n=== Phase 2: Challenge Period ===");
+    info!("Warping time to near end of max challenge duration...");
+
+    // Warp by max challenge duration
+    warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
+    info!("✓ Warped time by max challenge duration ({MAX_CHALLENGE_DURATION} seconds) to trigger resolution");
+
+    // Verify proposer is still running
+    assert!(!proposer_handle.is_finished(), "Proposer should still be running");
+    info!("\n✓ Proposer is still running successfully");
+
+    // === PHASE 3: Resolution ===
+    info!("\n=== Phase 3: Resolution ===");
+
+    // Wait for games to be resolved
+    let resolutions =
+        wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(30)).await?;
+
+    // Verify all games resolved correctly (proposer wins)
+    verify_all_resolved_correctly(&resolutions)?;
+
+    // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
+        .await?;
+    info!("✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({DISPUTE_GAME_FINALITY_DELAY_SECONDS} seconds) to trigger bond claims");
+
+    // Verify proposer is still running
+    assert!(!proposer_handle.is_finished(), "Proposer should still be running");
+    info!("\n✓ Proposer is still running successfully");
+
+    // === PHASE 4: Bond Claims ===
+    info!("\n=== Phase 4: Bond Claims ===");
+
+    // Wait for proposer to claim bonds
+    let claims = wait_for_bond_claims(
+        &env.anvil.provider,
+        &tracked_games,
+        PROPOSER_ADDRESS,
+        Duration::from_secs(30),
+    )
+    .await?;
+
+    // Verify all bonds were claimed
+    verify_all_bonds_claimed(&claims)?;
+
+    // Stop proposer
+    info!("\n=== Stopping Proposer ===");
+    proposer_handle.abort();
+    info!("✓ Proposer stopped gracefully");
+
+    info!("\n=== Full Lifecycle Test Complete ===");
+    info!("✓ Games created, resolved, and bonds claimed successfully");
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_honest_challenger() -> Result<()> {
     TestEnvironment::init_logging();
@@ -151,9 +245,9 @@ async fn test_honest_challenger() -> Result<()> {
     // Generate challenger environment
     let challenger_env = generate_challenger_env(
         &env.anvil.endpoint,
-        &env.l2_rpc,
-        &env.l2_node_rpc,
-        &env.l1_beacon_rpc,
+        &env.rpc_config.l2_rpc.to_string(),
+        &env.rpc_config.l2_node_rpc.to_string(),
+        &env.rpc_config.l1_beacon_rpc.to_string(),
         CHALLENGER_PRIVATE_KEY,
         &env.deployed.factory.to_string(),
         TEST_GAME_TYPE,

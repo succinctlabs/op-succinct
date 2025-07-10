@@ -4,6 +4,7 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_provider::ProviderBuilder;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
+use op_succinct_host_utils::fetcher::{get_rpcs_from_env, RPCConfig};
 use tracing::info;
 
 use fault_proof::{L2Provider, L2ProviderTrait};
@@ -16,10 +17,7 @@ use super::{
 /// Common test environment setup
 pub struct TestEnvironment {
     #[allow(dead_code)]
-    pub l1_rpc: String,
-    pub l2_rpc: String,
-    pub l2_node_rpc: String,
-    pub l1_beacon_rpc: String,
+    pub rpc_config: RPCConfig,
     pub anvil: AnvilFork,
     pub deployed: DeployedContracts,
     pub l2_provider: L2Provider,
@@ -39,17 +37,16 @@ impl TestEnvironment {
     /// Create a new test environment with common setup
     pub async fn setup() -> Result<Self> {
         // Get environment variables
-        let l1_rpc = std::env::var("L1_RPC").expect("L1_RPC must be set");
-        let l2_rpc = std::env::var("L2_RPC").expect("L2_RPC must be set");
-        let l2_node_rpc = std::env::var("L2_NODE_RPC").unwrap_or_else(|_| l2_rpc.clone());
-        let l1_beacon_rpc = std::env::var("L1_BEACON_RPC").expect("L1_BEACON_RPC must be set");
+        let mut rpc_config = get_rpcs_from_env();
 
         // Setup Anvil fork
-        let anvil = setup_anvil_fork(&l1_rpc).await?;
+        let anvil = setup_anvil_fork(&rpc_config.l1_rpc.to_string()).await?;
 
         // Create L2 provider
-        let l2_provider =
-            ProviderBuilder::default().connect_http(l2_rpc.clone().parse::<Url>().unwrap());
+        let l2_provider = ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone());
+
+        // Update RPC config with Anvil endpoint
+        rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
 
         // Deploy contracts
         info!("\n=== Deploying Contracts ===");
@@ -58,7 +55,7 @@ impl TestEnvironment {
         info!("✓ Contracts deployed and configured");
         info!("  Factory: {}", deployed.factory);
 
-        Ok(Self { l1_rpc, l2_rpc, l2_node_rpc, l1_beacon_rpc, anvil, deployed, l2_provider })
+        Ok(Self { rpc_config, anvil, deployed, l2_provider })
     }
 
     /// Get the initial L2 block number for testing (finalized - 100)

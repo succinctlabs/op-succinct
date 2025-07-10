@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    env,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -18,7 +17,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
+use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProofMode,
@@ -94,35 +93,31 @@ where
     /// Creates a new proposer instance with the provided L1 provider with wallet and factory
     /// contract instance.
     pub async fn new(
+        config: ProposerConfig,
+        network_private_key: String,
         prover_address: Address,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        let config = ProposerConfig::from_env()?;
-
-        // Set a default network private key to avoid an error in mock mode.
-        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
-            tracing::warn!(
-                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-            );
-            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-        });
-
         let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build());
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
         let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+
+        let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
+        let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
+        let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         Ok(Self {
             config: config.clone(),
             prover_address,
             signer,
-            l1_provider: ProviderBuilder::default().connect_http(config.l1_rpc.clone()),
-            l2_provider: ProviderBuilder::default().connect_http(config.l2_rpc),
+            l1_provider,
+            l2_provider,
             factory: Arc::new(factory.clone()),
-            init_bond: factory.fetch_init_bond(config.game_type).await?,
+            init_bond,
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
                 network_prover,
@@ -898,69 +893,5 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(true)
-    }
-}
-
-impl<P, H> OPSuccinctProposer<P, H>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-    H: OPSuccinctHost + Clone + Send + Sync + 'static,
-{
-    /// Creates a new proposer instance for testing with provided configuration.
-    pub async fn test(
-        config: ProposerConfig,
-        signer: Signer,
-        network_private_key: Option<String>,
-    ) -> Result<OPSuccinctProposer<L1Provider, impl OPSuccinctHost + Clone + Send + Sync + 'static>>
-    {
-        let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
-        let factory = crate::contract::DisputeGameFactory::new(
-            config.factory_address,
-            l1_provider.clone(),
-        );
-
-        let prover_address = signer.address();
-        let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
-        let host = initialize_host(fetcher.clone());
-        
-        // Set a default network private key to avoid an error in mock mode.
-        let private_key = network_private_key.unwrap_or_else(|| {
-            tracing::warn!(
-                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-            );
-            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-        });
-
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
-
-        let init_bond = factory.fetch_init_bond(config.game_type).await?;
-
-        // Extract values we need before moving config
-        let l2_rpc = config.l2_rpc.clone();
-        let safe_db_fallback = config.safe_db_fallback;
-
-        Ok(OPSuccinctProposer {
-            config,
-            prover_address,
-            signer,
-            l1_provider,
-            l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
-            factory: Arc::new(factory),
-            init_bond,
-            safe_db_fallback,
-            prover: SP1Prover {
-                network_prover,
-                range_pk: Arc::new(range_pk),
-                range_vk: Arc::new(range_vk),
-                agg_pk: Arc::new(agg_pk),
-            },
-            fetcher,
-            host,
-            tasks: Arc::new(Mutex::new(HashMap::new())),
-            next_task_id: Arc::new(AtomicU64::new(1)),
-        })
     }
 }

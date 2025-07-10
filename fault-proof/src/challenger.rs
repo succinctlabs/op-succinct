@@ -122,7 +122,7 @@ where
             if let Some(game_address) = self.get_oldest_valid_game_for_malicious_challenge().await?
             {
                 let mut rng = StdRng::from_os_rng();
-                let should_challenge: f64 = rng.gen_range(0.0..100.0);
+                let should_challenge: f64 = rng.random_range(0.0..100.0);
                 let should_challenge =
                     should_challenge <= self.config.malicious_challenge_percentage;
 
