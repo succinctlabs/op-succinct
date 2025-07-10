@@ -1,0 +1,82 @@
+name: Build Celo / OP Succinct Lite Docker Images
+
+on:
+  ## TODO: Activate on every PR to main, but
+  ## only once we detect relevant changes to the compiled code
+  # pull_request:
+  #   branches:
+  #     - main
+  # push:
+  #   branches:
+  #     - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build OP Succinct Lite Docker Images
+    runs-on:
+      - self-hosted
+      - org
+      - 8-cpu
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }} # Check out the PR head, rather than the merge commit.
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      #TODO: use tags instead of latest for proper versioning
+      - name: Docker meta for proposer
+        id: meta-proposer
+        uses: docker/metadata-action@v5
+        with:
+          images: us-west1-docker.pkg.dev/blockchaintestsglobaltestnet/dev-images/celo-succinct-proposer
+          tags: |
+            type=sha
+            latest
+
+      - name: Docker meta for challenger
+        id: meta-challenger
+        uses: docker/metadata-action@v5
+        with:
+          images: us-west1-docker.pkg.dev/blockchaintestsglobaltestnet/dev-images/celo-succinct-proposer
+          tags: |
+            type=sha
+            latest
+      - name: Login at GCP Artifact Registry
+        uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
+        with:
+          workload-id-provider: "projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos"
+          service-account: "op-succinct-dev@blockchaintestsglobaltestnet.iam.gserviceaccount.com"
+          docker-gcp-registries: us-west1-docker.pkg.dev
+
+      - name: Build and push proposer
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: fault_proof/Dockerfile.proposer
+          push: true
+          tags: ${{ steps.meta-proposer.outputs.tags }}
+          labels: ${{ steps.meta-proposer.outputs.labels }}
+          platforms:
+            - linux/amd64
+            - linux/arm64
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
+
+      - name: Build and push challenger
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: fault_proof/Dockerfile.challenger
+          push: true
+          tags: ${{ steps.meta-challenger.outputs.tags }}
+          labels: ${{ steps.meta-challenger.outputs.labels }}
+          platforms:
+            - linux/amd64
+            - linux/arm64
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
