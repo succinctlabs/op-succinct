@@ -61,7 +61,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: fault_proof/Dockerfile.proposer
+          file: fault-proof/Dockerfile.proposer
           push: true
           tags: ${{ steps.meta-proposer.outputs.tags }}
           labels: ${{ steps.meta-proposer.outputs.labels }}
@@ -75,7 +75,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: fault_proof/Dockerfile.challenger
+          file: fault-proof/Dockerfile.challenger
           push: true
           tags: ${{ steps.meta-challenger.outputs.tags }}
           labels: ${{ steps.meta-challenger.outputs.labels }}
