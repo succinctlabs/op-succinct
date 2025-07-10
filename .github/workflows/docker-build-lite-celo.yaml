@@ -17,6 +17,10 @@ jobs:
       - org
       - 8-cpu
 
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
