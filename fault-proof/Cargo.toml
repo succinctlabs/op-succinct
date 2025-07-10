@@ -56,6 +56,7 @@ clap = { workspace = true, features = ["derive"] }
 dotenv.workspace = true
 futures.workspace = true
 rand = "0.9"
+serde.workspace = true
 tokio.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing.workspace = true
@@ -69,6 +70,7 @@ alloy-node-bindings.workspace = true
 alloy.workspace = true
 bindings = { path = "../bindings" }
 serde_json.workspace = true
+serde.workspace = true
 lazy_static = "1.5"
 alloy-rpc-types-trace = "0.15.11"
 which = "4.4"

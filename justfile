@@ -104,7 +104,8 @@ deploy-fdg-contracts env_file=".env":
     forge script script/fp/DeployOPSuccinctFDG.s.sol \
         --broadcast \
         --rpc-url "$RPC_URL_TO_USE" \
-        --private-key "$PRIVATE_KEY"
+        --private-key "$PRIVATE_KEY" \
+        --json > me.json
     
     echo "FDG contract deployment complete!"
 
@@ -315,3 +316,14 @@ remove-config config_name env_file=".env":
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast
+
+# Run the e2e fault proof tests, by first deploying a local anvil instance, and then running the fault proof tests.
+test-fp-e2e env_file=".env":
+    #!/usr/bin/env bash
+    set -euo pipefail
+  
+    # Load environment variables
+    source {{env_file}}
+    
+    # Start anvil instance
+    

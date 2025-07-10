@@ -666,7 +666,7 @@ where
                     Ok(())
                 }
                 Ok(None) => Ok(()),
-                Err(e) => Err(e),
+                Err(e) => Err(anyhow::anyhow!("error in game creation: {:?}", e)),
             }
         });
 

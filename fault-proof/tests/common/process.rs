@@ -44,9 +44,6 @@ pub async fn start_proposer_native(
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
     let factory = DisputeGameFactory::new(factory_address.clone(), l1_provider.clone());
 
-    let init_bond = fault_proof::FactoryTrait::fetch_init_bond(&factory, config.game_type).await?;
-    tracing::info!("outer init_bond: {}", init_bond);
-
     // For testing, we use mock mode, so we use a dummy network private key.
     let network_private_key =
         "0x0000000000000000000000000000000000000000000000000000000000000001".to_string();

@@ -20,7 +20,7 @@ pub const CHALLENGER_ADDRESS: Address = ANVIL_ACCOUNT_1;
 pub const CHALLENGER_PRIVATE_KEY: &str = ANVIL_ACCOUNT_1_PRIVATE_KEY;
 
 // Default deployer is the same as proposer
-pub const DEPLOYER_ADDRESS: Address = ANVIL_ACCOUNT_0;
+pub const DEPLOYER_PRIVATE_KEY: &str = ANVIL_ACCOUNT_0_PRIVATE_KEY;
 
 // Test configuration constants
 pub const TEST_GAME_TYPE: u32 = 42; // Must match OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE in contracts
