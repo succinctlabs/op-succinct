@@ -648,7 +648,6 @@ where
     /// - Ok(true): Task was successfully spawned
     /// - Ok(false): No work needed (proposal interval not elapsed or no finalized blocks)
     /// - Err: Actual error occurred during task spawning
-    #[tracing::instrument(name = "[[Proposing]]", skip(self))]
     async fn spawn_game_creation_task(&self) -> Result<bool> {
         // First check if we should create a game
         let should_create = self.should_create_game().await?;

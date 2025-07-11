@@ -303,7 +303,6 @@ where
     ) -> Result<Option<(U256, U256)>> {
         // Get latest game index, return None if no games exist.
         let Some(mut game_index) = self.fetch_latest_game_index().await? else {
-            tracing::info!("No games exist yet for finding latest valid proposal");
             return Ok(None);
         };
 
@@ -405,19 +404,19 @@ where
         // NOTE(fakedev9999): This is a redundant check with the is_game_finalized check below,
         // but is useful for better logging.
         if claim_data.status != ProposalStatus::Resolved {
-            tracing::info!("Game {:?} is not resolved yet", game_address);
+            tracing::debug!("Game {:?} is not resolved yet", game_address);
             return Ok(false);
         }
 
         // Game must be finalized before claiming credit.
         if !self.is_game_finalized(game_type, game_address).await? {
-            tracing::info!("Game {:?} is resolved but not finalized", game_address);
+            tracing::debug!("Game {:?} is resolved but not finalized", game_address);
             return Ok(false);
         }
 
         // Claimant must have credit left to claim.
         if game.credit(claimant).call().await? == U256::ZERO {
-            tracing::info!(
+            tracing::debug!(
                 "Claimant {:?} has no credit to claim from game {:?}",
                 claimant,
                 game_address
@@ -454,7 +453,7 @@ where
             let claim_data = game.claimData().call().await?;
 
             if !status_check(claim_data.status) {
-                tracing::info!(
+                tracing::debug!(
                     "Game {:?} at index {:?} does not match status criteria, skipping",
                     game_address,
                     game_index
@@ -618,7 +617,7 @@ where
         let game_address = self.fetch_game_address_by_index(index).await?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, l1_provider.clone());
         if game.status().call().await? != GameStatus::IN_PROGRESS {
-            tracing::info!(
+            tracing::debug!(
                 "Game {:?} at index {:?} is not in progress, not attempting resolution",
                 game_address,
                 index
@@ -630,7 +629,7 @@ where
         match mode {
             Mode::Proposer => {
                 if claim_data.status != ProposalStatus::Unchallenged {
-                    tracing::info!(
+                    tracing::debug!(
                         "Game {:?} at index {:?} is not unchallenged, not attempting resolution",
                         game_address,
                         index
@@ -640,7 +639,7 @@ where
             }
             Mode::Challenger => {
                 if claim_data.status != ProposalStatus::Challenged {
-                    tracing::info!(
+                    tracing::debug!(
                         "Game {:?} at index {:?} is not challenged, not attempting resolution",
                         game_address,
                         index
@@ -658,7 +657,7 @@ where
             .timestamp;
         let deadline = U256::from(claim_data.deadline).to::<u64>();
         if deadline >= current_timestamp {
-            tracing::info!(
+            tracing::debug!(
                 "Game {:?} at index {:?} deadline {:?} has not passed, not attempting resolution",
                 game_address,
                 index,
@@ -680,10 +679,6 @@ where
     }
 
     /// Attempts to resolve games, up to `max_games_to_check_for_resolution`.
-    #[tracing::instrument(
-        name = "[[Resolving]]",
-        skip(self, mode, max_games_to_check_for_resolution, signer, l1_rpc, l1_provider)
-    )]
     async fn resolve_games(
         &self,
         mode: Mode,

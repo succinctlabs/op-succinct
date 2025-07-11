@@ -85,8 +85,6 @@ impl TestEnvironment {
         // Deploy contracts
         info!("=== Deploying Contracts ===");
         let deployed = deploy_test_contracts(&anvil.endpoint, DEPLOYER_PRIVATE_KEY).await?;
-        info!("✓ Contracts deployed");
-        info!("  Factory: {}", deployed.factory);
 
         Ok(Self { rpc_config, anvil, deployed })
     }

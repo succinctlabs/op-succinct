@@ -11,9 +11,10 @@ use fault_proof::{
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCConfig};
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::Signer;
+use tracing::Instrument;
 
-/// Start a proposer using the native library implementation
-pub async fn start_proposer_native(
+/// Start a proposer, and return a handle to the proposer task.
+pub async fn start_proposer(
     rpc_config: &RPCConfig,
     private_key: &str,
     factory_address: &Address,
@@ -28,7 +29,7 @@ pub async fn start_proposer_native(
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
         factory_address: factory_address.clone(),
-        mock_mode: false,
+        mock_mode: true,
         fast_finality_mode: false,
         proposal_interval_in_blocks: 10, // Much smaller interval for testing
         fetch_interval: 2,               // Check more frequently in tests
@@ -62,12 +63,12 @@ pub async fn start_proposer_native(
             host,
         )
         .await?;
-        Arc::new(proposer).run().await
+        Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER")).await
     }))
 }
 
-/// Start a challenger using the native library implementation  
-pub async fn start_challenger_native(
+/// Start a challenger, and return a handle to the challenger task.
+pub async fn start_challenger(
     rpc_config: &RPCConfig,
     private_key: &str,
     factory_address: &Address,
@@ -98,6 +99,6 @@ pub async fn start_challenger_native(
     Ok(tokio::spawn(async move {
         let mut challenger =
             OPSuccinctChallenger::test(config, l1_provider.clone(), factory, signer).await?;
-        challenger.run().await
+        challenger.run().instrument(tracing::info_span!("CHALLENGER")).await
     }))
 }

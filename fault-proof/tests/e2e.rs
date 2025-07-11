@@ -21,14 +21,13 @@ use common::{
         PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
     },
     monitor::{
-        verify_all_bonds_claimed, verify_all_resolved_correctly, wait_and_track_games,
-        wait_and_verify_game_resolutions, wait_for_bond_claims, wait_for_challenges,
-        wait_for_resolutions, TrackedGame,
+        verify_all_resolved_correctly, wait_and_track_games, wait_and_verify_game_resolutions,
+        wait_for_challenges, wait_for_resolutions, TrackedGame,
     },
     warp_time, TestEnvironment,
 };
 
-use crate::common::{start_challenger_native, start_proposer_native};
+use crate::common::{monitor::wait_for_bond_claims, start_challenger, start_proposer};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_honest_proposer_native() -> Result<()> {
@@ -39,7 +38,7 @@ async fn test_honest_proposer_native() -> Result<()> {
     let env = TestEnvironment::setup().await?;
 
     // Start proposer
-    let proposer_handle = start_proposer_native(
+    let proposer_handle = start_proposer(
         &env.rpc_config,
         PROPOSER_PRIVATE_KEY,
         &env.deployed.factory,
@@ -100,16 +99,13 @@ async fn test_honest_proposer_native() -> Result<()> {
     info!("=== Phase 4: Bond Claims ===");
 
     // Wait for proposer to claim bonds
-    let claims = wait_for_bond_claims(
+    wait_for_bond_claims(
         &env.anvil.provider,
         &tracked_games,
         PROPOSER_ADDRESS,
         Duration::from_secs(30),
     )
     .await?;
-
-    // Verify all bonds were claimed
-    verify_all_bonds_claimed(&claims)?;
 
     // Stop proposer
     info!("=== Stopping Proposer ===");
@@ -135,7 +131,7 @@ async fn test_honest_challenger_native() -> Result<()> {
 
     // Start challenger service
     info!("=== Starting Challenger Service ===");
-    let challenger_handle = start_challenger_native(
+    let challenger_handle = start_challenger(
         &env.rpc_config,
         CHALLENGER_PRIVATE_KEY,
         &env.deployed.factory,
@@ -192,7 +188,7 @@ async fn test_honest_challenger_native() -> Result<()> {
 
     // Verify challenger is still running
     assert!(!challenger_handle.is_finished(), "Challenger should still be running");
-    info!("\n✓ Challenger is still running successfully");
+    info!("✓ Challenger is still running successfully");
 
     // === PHASE 2: Challenge Period ===
     info!("=== Phase 2: Challenge Period ===");
@@ -232,7 +228,7 @@ async fn test_honest_challenger_native() -> Result<()> {
 
     // Verify challenger is still running
     assert!(!challenger_handle.is_finished(), "Challenger should still be running");
-    info!("\n✓ Challenger is still running successfully");
+    info!("✓ Challenger is still running successfully");
 
     // === PHASE 4: Bond Claims ===
     info!("=== Phase 4: Bond Claims ===");
@@ -248,16 +244,13 @@ async fn test_honest_challenger_native() -> Result<()> {
         })
         .collect();
 
-    let claims = wait_for_bond_claims(
+    wait_for_bond_claims(
         &env.anvil.provider,
         &tracked_games,
         CHALLENGER_ADDRESS,
         Duration::from_secs(60),
     )
     .await?;
-
-    // Verify all bonds were claimed
-    verify_all_bonds_claimed(&claims)?;
 
     // Stop challenger
     info!("=== Stopping Challenger ===");

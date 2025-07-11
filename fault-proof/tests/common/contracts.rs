@@ -51,7 +51,7 @@ fn parse_forge_output(output: &str) -> Result<DeployedContracts> {
 
     // Parse the forge output structure
     let forge_output: ForgeOutput = serde_json::from_str(json_line)
-        .map_err(|e| anyhow!("Failed to parse forge output JSON: {}\n\n{}", e, json_line))?;
+        .map_err(|e| anyhow!("Failed to parse forge output JSON: {}\n{}", e, json_line))?;
 
     if !forge_output.success {
         return Err(anyhow!("Forge script execution was not successful"));

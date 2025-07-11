@@ -97,23 +97,6 @@ contract DeployOPSuccinctFDG is Script, Utils {
             accessManager: address(accessManager),
             optimismPortal2: portalAddress
         });
-
-        // Log deployed addresses.
-        console.log("Factory Proxy:", deployedContracts.factoryProxy);
-        console.log("Game Implementation:", deployedContracts.gameImplementation);
-        console.log("SP1 Verifier:", deployedContracts.sp1Verifier);
-        
-        // Output JSON for easy scripting
-        string memory deploymentJson = "deployment";
-        vm.serializeAddress(deploymentJson, "factoryProxy", deployedContracts.factoryProxy);
-        vm.serializeAddress(deploymentJson, "gameImplementation", deployedContracts.gameImplementation);
-        vm.serializeAddress(deploymentJson, "sp1Verifier", deployedContracts.sp1Verifier);
-        vm.serializeAddress(deploymentJson, "anchorStateRegistry", deployedContracts.anchorStateRegistry);
-        vm.serializeAddress(deploymentJson, "accessManager", deployedContracts.accessManager);
-        string memory finalJson = vm.serializeAddress(deploymentJson, "optimismPortal2", deployedContracts.optimismPortal2);
-        
-        // Also write to file for easy access
-        vm.writeJson(finalJson, "./latest-fdg-deployment.json");
         
         return deployedContracts;
     }

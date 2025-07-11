@@ -181,7 +181,7 @@ pub async fn wait_for_bond_claims<P: Provider>(
     tracked_games: &[TrackedGame],
     recipient_address: Address,
     timeout_duration: Duration,
-) -> Result<Vec<bool>> {
+) -> Result<()> {
     info!(
         "Waiting for bond claims on {} games for recipient {}...",
         tracked_games.len(),
@@ -212,7 +212,7 @@ pub async fn wait_for_bond_claims<P: Provider>(
             // If both credits are zero, the claim has been made
             if normal_credit == U256::ZERO && refund_credit == U256::ZERO {
                 claims[i] = true;
-                info!("Bonds claimed for game {} (both credit balances are 0)", game.address);
+                info!("Bonds claimed for game {}", game.address);
             } else {
                 // Log current credit balances for debugging
                 if i == 0 && start_time.elapsed().as_secs().is_multiple_of(10) {
@@ -225,7 +225,7 @@ pub async fn wait_for_bond_claims<P: Provider>(
         }
 
         if claims.iter().all(|&claimed| claimed) {
-            return Ok(claims);
+            return Ok(());
         }
 
         sleep(Duration::from_secs(2)).await;
@@ -255,15 +255,6 @@ pub fn verify_games_resolved(
 /// Verify all games resolved correctly (proposer wins)
 pub fn verify_all_resolved_correctly(statuses: &[u8]) -> Result<()> {
     verify_games_resolved(statuses, GAME_STATUS_DEFENDER_WINS, "ProposerWins")
-}
-
-/// Verify all bonds were claimed
-pub fn verify_all_bonds_claimed(claims: &[bool]) -> Result<()> {
-    if let Some((i, _)) = claims.iter().enumerate().find(|(_, &claimed)| !claimed) {
-        anyhow::bail!("Game {} bonds were not claimed", i);
-    }
-    info!("All {} games had bonds claimed", claims.len());
-    Ok(())
 }
 
 /// Wait for games to resolve and verify they match expected status
