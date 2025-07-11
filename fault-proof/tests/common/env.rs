@@ -73,7 +73,6 @@ impl TestEnvironment {
         let anvil = setup_anvil_fork(&rpc_config.l1_rpc.to_string()).await?;
 
         // Put the test config into ../contracts/opsuccinctfdgconfig.json
-
         let test_config: FaultDisputeGameConfig =
             test_config(anvil.starting_l2_block_number, anvil.starting_root.clone());
         let json = serde_json::to_string_pretty(&test_config)?;
