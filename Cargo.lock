@@ -7426,7 +7426,6 @@ dependencies = [
  "bindings",
  "clap",
  "dotenv",
- "futures",
  "hex",
  "lazy_static",
  "op-alloy-network",
@@ -7615,11 +7614,6 @@ dependencies = [
  "op-succinct-host-utils",
  "op-succinct-proof-utils",
  "op-succinct-signer-utils",
- "opentelemetry 0.23.0",
- "opentelemetry-appender-tracing",
- "opentelemetry-otlp",
- "opentelemetry-stdout",
- "opentelemetry_sdk 0.23.0",
  "reqwest 0.12.18",
  "rustls",
  "serde",
@@ -7632,8 +7626,6 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber 0.3.19",
 ]
 
 [[package]]

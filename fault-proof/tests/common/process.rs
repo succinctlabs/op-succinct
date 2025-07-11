@@ -72,7 +72,6 @@ pub async fn start_challenger_native(
     private_key: &str,
     factory_address: &Address,
     game_type: u32,
-    _prover_network_rpc: Option<&str>,
     malicious_percentage: Option<f64>,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
     // Create signer directly from private key

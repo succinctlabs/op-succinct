@@ -17,13 +17,13 @@ use tracing::info;
 use common::{
     constants::{
         CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-        MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY,
-        TEST_GAME_TYPE,
+        GAME_STATUS_CHALLENGER_WINS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS,
+        PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
     },
     monitor::{
         verify_all_bonds_claimed, verify_all_resolved_correctly, wait_and_track_games,
         wait_and_verify_game_resolutions, wait_for_bond_claims, wait_for_challenges,
-        wait_for_resolutions, TrackedGame, GAME_STATUS_CHALLENGER_WINS,
+        wait_for_resolutions, TrackedGame,
     },
     warp_time, TestEnvironment,
 };
@@ -33,7 +33,7 @@ use crate::common::{start_challenger_native, start_proposer_native};
 #[tokio::test(flavor = "multi_thread")]
 async fn test_honest_proposer_native() -> Result<()> {
     TestEnvironment::init_logging();
-    info!("\n=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
+    info!("=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
 
     // Setup common test environment
     let env = TestEnvironment::setup().await?;
@@ -66,7 +66,7 @@ async fn test_honest_proposer_native() -> Result<()> {
     info!("\n✓ Proposer is still running successfully");
 
     // === PHASE 2: Challenge Period ===
-    info!("\n=== Phase 2: Challenge Period ===");
+    info!("=== Phase 2: Challenge Period ===");
     info!("Warping time to near end of max challenge duration...");
 
     // Warp by max challenge duration
@@ -78,7 +78,7 @@ async fn test_honest_proposer_native() -> Result<()> {
     info!("\n✓ Proposer is still running successfully");
 
     // === PHASE 3: Resolution ===
-    info!("\n=== Phase 3: Resolution ===");
+    info!("=== Phase 3: Resolution ===");
 
     // Wait for games to be resolved
     let resolutions =
@@ -97,7 +97,7 @@ async fn test_honest_proposer_native() -> Result<()> {
     info!("\n✓ Proposer is still running successfully");
 
     // === PHASE 4: Bond Claims ===
-    info!("\n=== Phase 4: Bond Claims ===");
+    info!("=== Phase 4: Bond Claims ===");
 
     // Wait for proposer to claim bonds
     let claims = wait_for_bond_claims(
@@ -112,11 +112,11 @@ async fn test_honest_proposer_native() -> Result<()> {
     verify_all_bonds_claimed(&claims)?;
 
     // Stop proposer
-    info!("\n=== Stopping Proposer ===");
+    info!("=== Stopping Proposer ===");
     proposer_handle.abort();
     info!("✓ Proposer stopped gracefully");
 
-    info!("\n=== Full Lifecycle Test Complete ===");
+    info!("=== Full Lifecycle Test Complete ===");
     info!("✓ Games created, resolved, and bonds claimed successfully");
 
     Ok(())
@@ -125,29 +125,28 @@ async fn test_honest_proposer_native() -> Result<()> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_honest_challenger_native() -> Result<()> {
     TestEnvironment::init_logging();
-    info!("\n=== Test: Honest Challenger Full Lifecycle (Challenge → Resolve → Claim) ===");
+    info!("=== Test: Honest Challenger Full Lifecycle (Challenge → Resolve → Claim) ===");
 
     const NUM_INVALID_GAMES: usize = 3;
 
     // Setup common test environment
     let env = TestEnvironment::setup().await?;
-    let mut l2_block_number = env.get_initial_l2_block_number().await?;
+    let mut l2_block_number = env.anvil.starting_l2_block_number;
 
     // Start challenger service
-    info!("\n=== Starting Challenger Service ===");
+    info!("=== Starting Challenger Service ===");
     let challenger_handle = start_challenger_native(
         &env.rpc_config,
         CHALLENGER_PRIVATE_KEY,
         &env.deployed.factory,
         TEST_GAME_TYPE,
         None,
-        None,
     )
     .await?;
     info!("✓ Challenger service started");
 
     // === PHASE 1: Create Invalid Games ===
-    info!("\n=== Phase 1: Create Invalid Games ===");
+    info!("=== Phase 1: Create Invalid Games ===");
 
     // Create a signer for permissioned account 0
     let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
@@ -196,12 +195,12 @@ async fn test_honest_challenger_native() -> Result<()> {
     info!("\n✓ Challenger is still running successfully");
 
     // === PHASE 2: Challenge Period ===
-    info!("\n=== Phase 2: Challenge Period ===");
+    info!("=== Phase 2: Challenge Period ===");
     wait_for_challenges(&env.anvil.provider, &invalid_games, Duration::from_secs(60)).await?;
     info!("✓ All games challenged successfully");
 
     // === PHASE 3: Resolution ===
-    info!("\n=== Phase 3: Resolution ===");
+    info!("=== Phase 3: Resolution ===");
     info!("Warping time past prove deadline to trigger challenger wins...");
     warp_time(
         &env.anvil.provider,
@@ -223,12 +222,11 @@ async fn test_honest_challenger_native() -> Result<()> {
     )
     .await?;
 
-    // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS for bond claims
-    // NOTE(fakedev9999): +1 to ensure we're *past* the finalization time
+    // Warp DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1 for bond claims
     warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1))
         .await?;
     info!(
-        "✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({} seconds) to enable bond claims",
+        "✓ Warped time to enable bond claims ({} seconds)",
         DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1
     );
 
@@ -237,7 +235,7 @@ async fn test_honest_challenger_native() -> Result<()> {
     info!("\n✓ Challenger is still running successfully");
 
     // === PHASE 4: Bond Claims ===
-    info!("\n=== Phase 4: Bond Claims ===");
+    info!("=== Phase 4: Bond Claims ===");
 
     // Wait for challenger to claim bonds
     let tracked_games: Vec<_> = invalid_games
@@ -262,11 +260,11 @@ async fn test_honest_challenger_native() -> Result<()> {
     verify_all_bonds_claimed(&claims)?;
 
     // Stop challenger
-    info!("\n=== Stopping Challenger ===");
+    info!("=== Stopping Challenger ===");
     challenger_handle.abort();
     info!("✓ Challenger stopped gracefully");
 
-    info!("\n=== Full Lifecycle Test Complete ===");
+    info!("=== Full Lifecycle Test Complete ===");
     info!("✓ Invalid games challenged, won by challenger, and bonds claimed successfully");
 
     Ok(())

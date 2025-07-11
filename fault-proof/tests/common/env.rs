@@ -1,14 +1,11 @@
 //! Common test environment setup utilities.
-
-use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
-use alloy_provider::ProviderBuilder;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use op_succinct_host_utils::fetcher::{get_rpcs_from_env, RPCConfig};
 use tracing::info;
 
-use fault_proof::{config::FaultDisputeGameConfig, L2Provider, L2ProviderTrait};
+use fault_proof::config::FaultDisputeGameConfig;
 
 use crate::common::constants::{
     AGGREGATION_VKEY, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_PRIVATE_KEY,
@@ -24,11 +21,12 @@ use super::{
 
 /// Common test environment setup
 pub struct TestEnvironment {
-    #[allow(dead_code)]
+    /// RPC configuration
     pub rpc_config: RPCConfig,
+    /// Anvil fork
     pub anvil: AnvilFork,
+    /// Deployed contracts
     pub deployed: DeployedContracts,
-    pub l2_provider: L2Provider,
 }
 
 /// The test configuration, used for integration tests.
@@ -81,29 +79,15 @@ impl TestEnvironment {
         let json = serde_json::to_string_pretty(&test_config)?;
         std::fs::write("../contracts/opsuccinctfdgconfig.json", json)?;
 
-        // Create L2 provider
-        let l2_provider = ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone());
-
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
 
         // Deploy contracts
-        info!("\n=== Deploying Contracts ===");
+        info!("=== Deploying Contracts ===");
         let deployed = deploy_test_contracts(&anvil.endpoint, DEPLOYER_PRIVATE_KEY).await?;
         info!("✓ Contracts deployed");
         info!("  Factory: {}", deployed.factory);
 
-        Ok(Self { rpc_config, anvil, deployed, l2_provider })
-    }
-
-    /// Get the initial L2 block number for testing (finalized - 100)
-    pub async fn get_initial_l2_block_number(&self) -> Result<u64> {
-        Ok(self
-            .l2_provider
-            .get_l2_block_by_number(BlockNumberOrTag::Finalized)
-            .await?
-            .header
-            .number -
-            100)
+        Ok(Self { rpc_config, anvil, deployed })
     }
 }

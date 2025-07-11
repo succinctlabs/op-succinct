@@ -45,7 +45,7 @@ jobs:
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
       with:
-        version: nightly
+        version: nightly-d592b3e0f142d694c3be539702704a4a73238773
         
     - name: Cache Rust dependencies
       uses: Swatinem/rust-cache@v2
@@ -53,18 +53,13 @@ jobs:
         workspaces: |
           .
           bindings
-          
-    - name: Build binaries
-      run: |
-        cargo build --release --bin proposer
-        cargo build --release --bin challenger
         
     - name: Run E2E tests
       run: |
         if [ -n "${{ github.event.inputs.test_filter }}" ]; then
           cargo test --release --test e2e ${{ github.event.inputs.test_filter }} -- --test-threads=1 --nocapture
         else
-          cargo test --release --test e2e -- --test-threads=1 --nocapture
+          cargo test --release --test e2e -- --nocapture
         fi
       env:
         L1_RPC: ${{ secrets.L1_RPC }}

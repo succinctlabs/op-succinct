@@ -12,6 +12,10 @@ use bindings::{
 use tokio::time::sleep;
 use tracing::info;
 
+use crate::common::constants::{
+    GAME_STATUS_DEFENDER_WINS, GAME_STATUS_IN_PROGRESS, PROPOSAL_STATUS_CHALLENGED,
+};
+
 /// Represents a tracked game for monitoring
 #[derive(Debug, Clone)]
 pub struct TrackedGame {
@@ -156,7 +160,7 @@ pub async fn wait_for_challenges<P: Provider>(
             let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
             let claim_data = game.claimData().call().await?;
 
-            statuses[i] = claim_data.status == 1; // 1 = Challenged
+            statuses[i] = claim_data.status == PROPOSAL_STATUS_CHALLENGED;
 
             if claim_data.status != 0 {
                 info!("Game {} status: {}", game_address, claim_data.status);
@@ -227,11 +231,6 @@ pub async fn wait_for_bond_claims<P: Provider>(
         sleep(Duration::from_secs(2)).await;
     }
 }
-
-/// Game status constants
-pub const GAME_STATUS_IN_PROGRESS: u8 = 0;
-pub const GAME_STATUS_CHALLENGER_WINS: u8 = 1;
-pub const GAME_STATUS_DEFENDER_WINS: u8 = 2;
 
 /// Verify all games resolved with expected status
 pub fn verify_games_resolved(
