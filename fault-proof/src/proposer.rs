@@ -700,6 +700,21 @@ where
 
     /// Check if we should create a game
     async fn should_create_game(&self) -> Result<bool> {
+        // In fast finality mode, check if we're at proving capacity
+        // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
+        // and defense proving with a priority system.
+        if self.config.fast_finality_mode {
+            let active_proving = self.count_active_proving_tasks().await;
+            if active_proving >= self.config.fast_finality_proving_limit {
+                tracing::info!(
+                    "Skipping game creation in fast finality mode: proving at capacity ({}/{})",
+                    active_proving,
+                    self.config.fast_finality_proving_limit
+                );
+                return Ok(false);
+            }
+        }
+
         // Use the existing logic from handle_game_creation
         let latest_valid_proposal =
             self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
