@@ -28,7 +28,7 @@ pub async fn start_proposer(
     let config = fault_proof::config::ProposerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
-        factory_address: factory_address.clone(),
+        factory_address: *factory_address,
         mock_mode: true,
         fast_finality_mode: false,
         proposal_interval_in_blocks: 10, // Much smaller interval for testing
@@ -43,7 +43,7 @@ pub async fn start_proposer(
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
-    let factory = DisputeGameFactory::new(factory_address.clone(), l1_provider.clone());
+    let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
     // For testing, we use mock mode, so we use a dummy network private key.
     let network_private_key =
@@ -82,7 +82,7 @@ pub async fn start_challenger(
     let config = ChallengerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
-        factory_address: factory_address.clone(),
+        factory_address: *factory_address,
         fetch_interval: 2, // Check more frequently in tests
         game_type,
         max_games_to_check_for_challenge: 10, // Check more games
@@ -94,7 +94,7 @@ pub async fn start_challenger(
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
-    let factory = DisputeGameFactory::new(factory_address.clone(), l1_provider.clone());
+    let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
     Ok(tokio::spawn(async move {
         let mut challenger =

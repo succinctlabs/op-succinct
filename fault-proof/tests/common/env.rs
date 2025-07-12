@@ -70,7 +70,7 @@ impl TestEnvironment {
         let mut rpc_config = get_rpcs_from_env();
 
         // Setup Anvil fork
-        let anvil = setup_anvil_fork(&rpc_config.l1_rpc.to_string()).await?;
+        let anvil = setup_anvil_fork(rpc_config.l1_rpc.as_ref()).await?;
 
         // Put the test config into ../contracts/opsuccinctfdgconfig.json
         let test_config: FaultDisputeGameConfig =
