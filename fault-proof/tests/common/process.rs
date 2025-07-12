@@ -98,7 +98,8 @@ pub async fn start_challenger(
 
     Ok(tokio::spawn(async move {
         let mut challenger =
-            OPSuccinctChallenger::test(config, l1_provider.clone(), factory, signer).await?;
+            OPSuccinctChallenger::new_with_config(config, l1_provider.clone(), factory, signer)
+                .await?;
         challenger.run().instrument(tracing::info_span!("CHALLENGER")).await
     }))
 }

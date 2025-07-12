@@ -40,14 +40,8 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    let mut challenger = OPSuccinctChallenger::new(
-        challenger_signer.address(),
-        challenger_signer,
-        l1_provider,
-        factory,
-    )
-    .await
-    .unwrap();
+    let mut challenger =
+        OPSuccinctChallenger::from_env(l1_provider, factory, challenger_signer).await.unwrap();
 
     // Initialize challenger gauges.
     ChallengerGauge::register_all();

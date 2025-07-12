@@ -103,7 +103,7 @@ pub async fn warp_time<P: Provider>(provider: &P, duration: Duration) -> Result<
 
     let client = provider.client();
 
-    // Use evm_increaseTime which is simpler than calculating timestamps manually
+    // Advance the timestamp.
     let _: serde_json::Value =
         client.request("evm_increaseTime", vec![serde_json::json!(seconds)]).await?;
 

@@ -34,22 +34,35 @@ where
 {
     /// Creates a new challenger instance with the provided L1 provider with wallet and factory
     /// contract instance.
-    pub async fn new(
-        challenger_address: Address,
-        signer: Signer,
+    pub async fn from_env(
         l1_provider: L1Provider,
         factory: DisputeGameFactoryInstance<P>,
+        signer: Signer,
     ) -> Result<Self> {
         let config = ChallengerConfig::from_env()?;
 
-        Ok(Self {
-            config: config.clone(),
+        Self::new_with_config(config, l1_provider, factory, signer).await
+    }
+
+    /// Creates a new challenger instance for testing with provided configuration.
+    pub async fn new_with_config(
+        config: ChallengerConfig,
+        l1_provider: L1Provider,
+        factory: DisputeGameFactoryInstance<P>,
+        signer: Signer,
+    ) -> Result<Self> {
+        let challenger_address = signer.address();
+        let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
+        let l2_rpc = config.l2_rpc.clone();
+
+        Ok(OPSuccinctChallenger {
+            config,
             challenger_address,
             signer,
             l1_provider: l1_provider.clone(),
-            l2_provider: ProviderBuilder::default().connect_http(config.l2_rpc.clone()),
-            factory: factory.clone(),
-            challenger_bond: factory.fetch_challenger_bond(config.game_type).await?,
+            l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
+            factory,
+            challenger_bond,
         })
     }
 
@@ -258,32 +271,5 @@ where
                 }
             }
         }
-    }
-}
-
-impl<P> OPSuccinctChallenger<P>
-where
-    P: Provider + Clone,
-{
-    /// Creates a new challenger instance for testing with provided configuration.
-    pub async fn test(
-        config: ChallengerConfig,
-        l1_provider: L1Provider,
-        factory: DisputeGameFactoryInstance<P>,
-        signer: Signer,
-    ) -> Result<OPSuccinctChallenger<P>> {
-        let challenger_address = signer.address();
-        let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
-        let l2_rpc = config.l2_rpc.clone();
-
-        Ok(OPSuccinctChallenger {
-            config,
-            challenger_address,
-            signer,
-            l1_provider: l1_provider.clone(),
-            l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
-            factory,
-            challenger_bond,
-        })
     }
 }
