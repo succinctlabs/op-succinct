@@ -31,7 +31,7 @@ import {MockOptimismPortal2} from "../../utils/MockOptimismPortal2.sol";
 
 contract DeployOPSuccinctFDG is Script, Utils {
     using stdJson for string;
-    
+
     struct DeployedContracts {
         address factoryProxy;
         address gameImplementation;
@@ -40,8 +40,18 @@ contract DeployOPSuccinctFDG is Script, Utils {
         address accessManager;
         address optimismPortal2;
     }
-    
-    function run() public returns (address factoryProxy, address gameImplementation, address sp1Verifier, address anchorStateRegistry, address accessManager, address optimismPortal2) {
+
+    function run()
+        public
+        returns (
+            address factoryProxy,
+            address gameImplementation,
+            address sp1Verifier,
+            address anchorStateRegistry,
+            address accessManager,
+            address optimismPortal2
+        )
+    {
         vm.startBroadcast();
 
         // Load configuration
@@ -51,8 +61,15 @@ contract DeployOPSuccinctFDG is Script, Utils {
         DeployedContracts memory deployedContracts = deployContracts(config);
 
         vm.stopBroadcast();
-        
-        return (deployedContracts.factoryProxy, deployedContracts.gameImplementation, deployedContracts.sp1Verifier, deployedContracts.anchorStateRegistry, deployedContracts.accessManager, deployedContracts.optimismPortal2);
+
+        return (
+            deployedContracts.factoryProxy,
+            deployedContracts.gameImplementation,
+            deployedContracts.sp1Verifier,
+            deployedContracts.anchorStateRegistry,
+            deployedContracts.accessManager,
+            deployedContracts.optimismPortal2
+        );
     }
 
     function deployContracts(FDGConfig memory config) internal returns (DeployedContracts memory) {
@@ -97,7 +114,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
             accessManager: address(accessManager),
             optimismPortal2: portalAddress
         });
-        
+
         return deployedContracts;
     }
 
