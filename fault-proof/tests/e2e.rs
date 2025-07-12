@@ -239,8 +239,6 @@ async fn test_honest_challenger_native() -> Result<()> {
         .map(|&address| TrackedGame {
             address,
             l2_block_number: U256::ZERO, // Not needed for bond claim check
-            output_root: FixedBytes::default(),
-            created_at_block: 0,
         })
         .collect();
 
