@@ -36,12 +36,22 @@ struct ForgeReturns {
     factory_proxy: AddressField,
 }
 
-/// Address field structure
+/// Address field structure with custom deserialization
 #[derive(Debug, Deserialize)]
 struct AddressField {
     #[allow(dead_code)]
     internal_type: String,
-    value: String,
+    #[serde(deserialize_with = "deserialize_address")]
+    value: Address,
+}
+
+/// Custom deserializer for Address from string
+fn deserialize_address<'de, D>(deserializer: D) -> Result<Address, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    s.parse::<Address>().map_err(serde::de::Error::custom)
 }
 
 /// Parse forge script output to extract contract addresses
@@ -57,36 +67,13 @@ fn parse_forge_output(output: &str) -> Result<DeployedContracts> {
         return Err(anyhow!("Forge script execution was not successful"));
     }
 
-    // Parse individual addresses directly from returns
-    let factory = forge_output
-        .returns
-        .factory_proxy
-        .value
-        .parse::<Address>()
-        .map_err(|e| anyhow!("Invalid factoryProxy address: {}", e))?;
-
-    let portal = forge_output
-        .returns
-        .optimism_portal2
-        .value
-        .parse::<Address>()
-        .map_err(|e| anyhow!("Invalid optimismPortal2 address: {}", e))?;
-
-    let access_manager = forge_output
-        .returns
-        .access_manager
-        .value
-        .parse::<Address>()
-        .map_err(|e| anyhow!("Invalid accessManager address: {}", e))?;
-
-    let game_implementation = forge_output
-        .returns
-        .game_implementation
-        .value
-        .parse::<Address>()
-        .map_err(|e| anyhow!("Invalid gameImplementation address: {}", e))?;
-
-    Ok(DeployedContracts { factory, portal, access_manager, game_implementation })
+    // Extract addresses directly (already parsed by custom deserializer)
+    Ok(DeployedContracts {
+        factory: forge_output.returns.factory_proxy.value,
+        portal: forge_output.returns.optimism_portal2.value,
+        access_manager: forge_output.returns.access_manager.value,
+        game_implementation: forge_output.returns.game_implementation.value,
+    })
 }
 
 /// Deploy all contracts required for E2E testing
