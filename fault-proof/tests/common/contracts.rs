@@ -94,6 +94,11 @@ pub async fn deploy_test_contracts(rpc_url: &str, private_key: &str) -> Result<D
     info!("Deploying test contracts using forge script");
 
     // Run the forge script to deploy contracts
+    let contracts_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("contracts");
+    
     let output = std::process::Command::new("forge")
         .arg("script")
         .arg("script/fp/DeployOPSuccinctFDG.s.sol")
@@ -104,7 +109,7 @@ pub async fn deploy_test_contracts(rpc_url: &str, private_key: &str) -> Result<D
         .arg(private_key)
         .arg("--json")
         .env("RUST_LOG", "off")
-        .current_dir("../contracts")
+        .current_dir(&contracts_dir)
         .output()
         .map_err(|e| anyhow!("Failed to execute forge script: {}", e))?;
 

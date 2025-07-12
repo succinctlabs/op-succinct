@@ -56,12 +56,11 @@ jobs:
         
     - name: Run E2E tests
       run: |
-        # if [ -n "${{ github.event.inputs.test_filter }}" ]; then
-        #   cargo test --release --test e2e ${{ github.event.inputs.test_filter }} -- --test-threads=1 --nocapture
-        # else
-        #   cargo test --release --test e2e -- --nocapture
-        # fi
-        cargo test --release --test e2e -- --nocapture
+        if [ -n "${{ github.event.inputs.test_filter }}" ]; then
+          cargo test --release --test e2e ${{ github.event.inputs.test_filter }} -- --test-threads=1 --nocapture
+        else
+          cargo test --release --test e2e -- --test-threads=1 --nocapture
+        fi
       env:
         L1_RPC: ${{ secrets.L1_RPC }}
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}

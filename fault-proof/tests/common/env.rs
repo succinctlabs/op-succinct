@@ -76,7 +76,14 @@ impl TestEnvironment {
         let test_config: FaultDisputeGameConfig =
             test_config(anvil.starting_l2_block_number, anvil.starting_root.clone());
         let json = serde_json::to_string_pretty(&test_config)?;
-        std::fs::write("../contracts/opsuccinctfdgconfig.json", json)?;
+        let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("contracts")
+            .join("opsuccinctfdgconfig.json");
+        std::fs::write(&config_path, json)?;
+        // Ensure file is written and accessible
+        std::thread::sleep(std::time::Duration::from_millis(100));
 
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
