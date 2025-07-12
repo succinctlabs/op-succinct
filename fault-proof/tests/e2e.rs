@@ -62,7 +62,7 @@ async fn test_honest_proposer_native() -> Result<()> {
 
     // Verify proposer is still running
     assert!(!proposer_handle.is_finished(), "Proposer should still be running");
-    info!("\n✓ Proposer is still running successfully");
+    info!("✓ Proposer is still running successfully");
 
     // === PHASE 2: Challenge Period ===
     info!("=== Phase 2: Challenge Period ===");
@@ -74,7 +74,7 @@ async fn test_honest_proposer_native() -> Result<()> {
 
     // Verify proposer is still running
     assert!(!proposer_handle.is_finished(), "Proposer should still be running");
-    info!("\n✓ Proposer is still running successfully");
+    info!("✓ Proposer is still running successfully");
 
     // === PHASE 3: Resolution ===
     info!("=== Phase 3: Resolution ===");
@@ -93,7 +93,7 @@ async fn test_honest_proposer_native() -> Result<()> {
 
     // Verify proposer is still running
     assert!(!proposer_handle.is_finished(), "Proposer should still be running");
-    info!("\n✓ Proposer is still running successfully");
+    info!("✓ Proposer is still running successfully");
 
     // === PHASE 4: Bond Claims ===
     info!("=== Phase 4: Bond Claims ===");
