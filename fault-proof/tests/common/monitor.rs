@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
 use anyhow::Result;
 use bindings::{
@@ -21,10 +21,6 @@ use crate::common::constants::{
 pub struct TrackedGame {
     pub address: Address,
     pub l2_block_number: U256,
-    #[allow(dead_code)]
-    pub output_root: FixedBytes<32>,
-    #[allow(dead_code)]
-    pub created_at_block: u64,
 }
 
 /// Wait for N games to be created and return their info
@@ -69,14 +65,8 @@ pub async fn wait_and_track_games<P: Provider>(
 
                     // Get game details
                     let l2_block_number = game.l2BlockNumber().call().await?;
-                    let output_root = game.rootClaim().call().await?;
 
-                    let tracked = TrackedGame {
-                        address: game_info.proxy_,
-                        l2_block_number,
-                        output_root,
-                        created_at_block: factory.provider().get_block_number().await?,
-                    };
+                    let tracked = TrackedGame { address: game_info.proxy_, l2_block_number };
 
                     info!(
                         "Tracked game {}/{}: {} at L2 block {}",
