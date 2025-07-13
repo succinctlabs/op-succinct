@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use alloy_sol_macro::sol;
 
 sol! {
@@ -135,5 +137,11 @@ sol! {
         bytes32 l2_state_root;
         bytes32 l2_storage_hash;
         bytes32 l2_claim_hash;
+    }
+}
+
+impl Display for ProposalStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ProposalStatus::{}", self)
     }
 }

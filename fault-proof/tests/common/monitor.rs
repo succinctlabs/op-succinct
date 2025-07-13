@@ -9,12 +9,10 @@ use bindings::{
     dispute_game_factory::DisputeGameFactory,
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame,
 };
-use tokio::time::sleep;
+use fault_proof::contract::ProposalStatus;
+use op_succinct_host_utils::GameStatus;
+use tokio::time::{sleep, Instant};
 use tracing::info;
-
-use crate::common::constants::{
-    GAME_STATUS_DEFENDER_WINS, GAME_STATUS_IN_PROGRESS, PROPOSAL_STATUS_CHALLENGED,
-};
 
 /// Represents a tracked game for monitoring
 #[derive(Debug, Clone)]
@@ -32,7 +30,7 @@ pub async fn wait_and_track_games<P: Provider>(
 ) -> Result<Vec<TrackedGame>> {
     info!("Waiting for {} games to be created...", count);
 
-    let start_time = tokio::time::Instant::now();
+    let start_time = Instant::now();
     let mut tracked_games = Vec::new();
     let mut last_game_count = U256::ZERO;
 
@@ -97,29 +95,29 @@ pub async fn wait_for_resolutions<P: Provider>(
     provider: &P,
     tracked_games: &[TrackedGame],
     timeout_duration: Duration,
-) -> Result<Vec<u8>> {
+) -> Result<Vec<GameStatus>> {
     info!("Waiting for {} games to be resolved...", tracked_games.len());
 
-    let deadline = tokio::time::Instant::now() + timeout_duration;
-    let mut statuses = vec![GAME_STATUS_IN_PROGRESS; tracked_games.len()];
+    let deadline = Instant::now() + timeout_duration;
+    let mut statuses = vec![GameStatus::IN_PROGRESS; tracked_games.len()];
 
     loop {
-        if tokio::time::Instant::now() > deadline {
+        if Instant::now() > deadline {
             anyhow::bail!("Timeout waiting for game resolutions");
         }
 
         for (i, game) in tracked_games.iter().enumerate() {
             let game_contract = OPSuccinctFaultDisputeGame::new(game.address, provider);
-            let status = game_contract.status().call().await?;
+            let status = GameStatus::try_from(game_contract.status().call().await?)?;
 
             statuses[i] = status;
 
-            if status != GAME_STATUS_IN_PROGRESS {
+            if status != GameStatus::IN_PROGRESS {
                 info!("Game {} resolved with status: {}", game.address, status);
             }
         }
 
-        if statuses.iter().all(|&status| status != GAME_STATUS_IN_PROGRESS) {
+        if statuses.iter().all(|&status| status != GameStatus::IN_PROGRESS) {
             return Ok(statuses);
         }
 
@@ -136,24 +134,25 @@ pub async fn wait_for_challenges<P: Provider>(
     info!("Waiting for challenges on {} games...", game_addresses.len());
 
     // Wait for 10 seconds to allow for challenges to be submitted
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    sleep(Duration::from_secs(10)).await;
 
-    let deadline = tokio::time::Instant::now() + timeout_duration;
-    let mut statuses = vec![false; game_addresses.len()]; // 0 = Unchallenged
+    let deadline = Instant::now() + timeout_duration;
+    let mut statuses = vec![false; game_addresses.len()];
 
     loop {
-        if tokio::time::Instant::now() > deadline {
+        if Instant::now() > deadline {
             anyhow::bail!("Timeout waiting for challenges");
         }
 
         for (i, &game_address) in game_addresses.iter().enumerate() {
             let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
             let claim_data = game.claimData().call().await?;
+            let claim_data_status = ProposalStatus::try_from(claim_data.status)?;
 
-            statuses[i] = claim_data.status == PROPOSAL_STATUS_CHALLENGED;
+            statuses[i] = claim_data_status == ProposalStatus::Challenged;
 
             if claim_data.status != 0 {
-                info!("Game {} status: {}", game_address, claim_data.status);
+                info!("Game {} status: {}", game_address, claim_data_status);
             }
         }
 
@@ -178,12 +177,12 @@ pub async fn wait_for_bond_claims<P: Provider>(
         recipient_address
     );
 
-    let start_time = tokio::time::Instant::now();
+    let start_time = Instant::now();
     let deadline = start_time + timeout_duration;
     let mut claims = vec![false; tracked_games.len()];
 
     loop {
-        if tokio::time::Instant::now() > deadline {
+        if Instant::now() > deadline {
             anyhow::bail!("Timeout waiting for bond claims");
         }
 
@@ -224,8 +223,8 @@ pub async fn wait_for_bond_claims<P: Provider>(
 
 /// Verify all games resolved with expected status
 pub fn verify_games_resolved(
-    statuses: &[u8],
-    expected_status: u8,
+    statuses: &[GameStatus],
+    expected_status: GameStatus,
     winner_name: &str,
 ) -> Result<()> {
     if let Some((i, &status)) =
@@ -243,27 +242,27 @@ pub fn verify_games_resolved(
 }
 
 /// Verify all games resolved correctly (proposer wins)
-pub fn verify_all_resolved_correctly(statuses: &[u8]) -> Result<()> {
-    verify_games_resolved(statuses, GAME_STATUS_DEFENDER_WINS, "ProposerWins")
+pub fn verify_all_resolved_correctly(statuses: &[GameStatus]) -> Result<()> {
+    verify_games_resolved(statuses, GameStatus::DEFENDER_WINS, "ProposerWins")
 }
 
 /// Wait for games to resolve and verify they match expected status
 pub async fn wait_and_verify_game_resolutions<P: Provider>(
     provider: &P,
     game_addresses: &[Address],
-    expected_status: u8,
+    expected_status: GameStatus,
     winner_name: &str,
     timeout_duration: Duration,
 ) -> Result<()> {
     info!("Waiting for {} games to resolve as {}...", game_addresses.len(), winner_name);
 
     // Wait for 10 seconds for the games to be resolved
-    tokio::time::sleep(Duration::from_secs(10)).await;
+    sleep(Duration::from_secs(10)).await;
 
-    let deadline = tokio::time::Instant::now() + timeout_duration;
+    let deadline = Instant::now() + timeout_duration;
 
     loop {
-        if tokio::time::Instant::now() > deadline {
+        if Instant::now() > deadline {
             anyhow::bail!("Timeout waiting for game resolutions");
         }
 
@@ -271,11 +270,11 @@ pub async fn wait_and_verify_game_resolutions<P: Provider>(
 
         for &game_address in game_addresses.iter() {
             let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
-            let status = game.status().call().await?;
+            let status = GameStatus::try_from(game.status().call().await?)?;
             statuses.push(status);
         }
 
-        if statuses.iter().all(|&status| status != GAME_STATUS_IN_PROGRESS) {
+        if statuses.iter().all(|&status| status != GameStatus::IN_PROGRESS) {
             // Verify all games resolved with expected status
             verify_games_resolved(&statuses, expected_status, winner_name)?;
             return Ok(());

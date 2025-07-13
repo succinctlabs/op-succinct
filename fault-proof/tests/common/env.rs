@@ -7,12 +7,7 @@ use tracing::info;
 
 use fault_proof::config::FaultDisputeGameConfig;
 
-use crate::common::constants::{
-    AGGREGATION_VKEY, CHALLENGER_ADDRESS, CHALLENGER_BOND, DEPLOYER_PRIVATE_KEY,
-    DISPUTE_GAME_FINALITY_DELAY_SECONDS, FALLBACK_TIMEOUT, INIT_BOND, MAX_CHALLENGE_DURATION,
-    MAX_PROVE_DURATION, PROPOSER_ADDRESS, RANGE_VKEY_COMMITMENT, ROLLUP_CONFIG_HASH,
-    TEST_GAME_TYPE,
-};
+use crate::common::constants::*;
 
 use super::{
     anvil::{setup_anvil_fork, AnvilFork},
@@ -82,8 +77,6 @@ impl TestEnvironment {
             .join("contracts")
             .join("opsuccinctfdgconfig.json");
         std::fs::write(&config_path, json)?;
-        // Ensure file is written and accessible
-        std::thread::sleep(std::time::Duration::from_millis(100));
 
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;

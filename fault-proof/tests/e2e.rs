@@ -10,6 +10,7 @@ use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use bindings::dispute_game_factory::DisputeGameFactory;
+use op_succinct_host_utils::GameStatus;
 use rand::Rng;
 use tokio::time::Duration;
 use tracing::info;
@@ -17,8 +18,8 @@ use tracing::info;
 use common::{
     constants::{
         CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-        GAME_STATUS_CHALLENGER_WINS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS,
-        PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
+        MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY,
+        TEST_GAME_TYPE,
     },
     monitor::{
         verify_all_resolved_correctly, wait_and_track_games, wait_and_verify_game_resolutions,
@@ -212,7 +213,7 @@ async fn test_honest_challenger_native() -> Result<()> {
     wait_and_verify_game_resolutions(
         &env.anvil.provider,
         &invalid_games,
-        GAME_STATUS_CHALLENGER_WINS,
+        GameStatus::CHALLENGER_WINS,
         "ChallengerWins",
         Duration::from_secs(30),
     )

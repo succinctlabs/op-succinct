@@ -41,11 +41,3 @@ pub const RANGE_VKEY_COMMITMENT: B256 = B256::ZERO; // Mock value for testing
 // Test configuration for L2 block offset
 // This offset is subtracted from finalized L2 block to get the starting anchor block
 pub const L2_BLOCK_OFFSET_FROM_FINALIZED: u64 = 100;
-
-// Game status constants
-pub const GAME_STATUS_IN_PROGRESS: u8 = 0;
-pub const GAME_STATUS_CHALLENGER_WINS: u8 = 1;
-pub const GAME_STATUS_DEFENDER_WINS: u8 = 2;
-
-// Proposal status constants
-pub const PROPOSAL_STATUS_CHALLENGED: u8 = 1;

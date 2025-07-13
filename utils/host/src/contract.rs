@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::OPSuccinctL2OutputOracle::opSuccinctConfigsReturn;
 use alloy_primitives::B256;
 use alloy_sol_types::sol;
@@ -124,5 +126,17 @@ sol! {
     #[sol(rpc)]
     contract SP1Blobstream {
         uint64 public latestBlock;
+    }
+}
+
+impl PartialEq for GameStatus {
+    fn eq(&self, other: &Self) -> bool {
+        *self as u8 == *other as u8
+    }
+}
+
+impl Display for GameStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "GameStatus::{}", self)
     }
 }
