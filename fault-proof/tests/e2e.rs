@@ -10,7 +10,7 @@ use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use bindings::dispute_game_factory::DisputeGameFactory;
-use op_succinct_host_utils::GameStatus;
+use fault_proof::contract::GameStatus;
 use rand::Rng;
 use tokio::time::Duration;
 use tracing::info;

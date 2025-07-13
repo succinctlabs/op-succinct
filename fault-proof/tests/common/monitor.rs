@@ -9,8 +9,7 @@ use bindings::{
     dispute_game_factory::DisputeGameFactory,
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame,
 };
-use fault_proof::contract::ProposalStatus;
-use op_succinct_host_utils::GameStatus;
+use fault_proof::contract::{GameStatus, ProposalStatus};
 use tokio::time::{sleep, Instant};
 use tracing::info;
 
@@ -113,7 +112,7 @@ pub async fn wait_for_resolutions<P: Provider>(
             statuses[i] = status;
 
             if status != GameStatus::IN_PROGRESS {
-                info!("Game {} resolved with status: {}", game.address, status);
+                info!("Game {} resolved with status: {:?}", game.address, status);
             }
         }
 
@@ -152,7 +151,7 @@ pub async fn wait_for_challenges<P: Provider>(
             statuses[i] = claim_data_status == ProposalStatus::Challenged;
 
             if claim_data.status != 0 {
-                info!("Game {} status: {}", game_address, claim_data_status);
+                info!("Game {} status: {:?}", game_address, claim_data_status);
             }
         }
 
@@ -231,7 +230,7 @@ pub fn verify_games_resolved(
         statuses.iter().enumerate().find(|(_, &status)| status != expected_status)
     {
         anyhow::bail!(
-            "Game {} did not resolve to {}: got status {} instead",
+            "Game {} did not resolve to {}: got status {:?} instead",
             i,
             winner_name,
             status

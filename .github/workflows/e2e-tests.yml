@@ -75,4 +75,4 @@ jobs:
         path: |
           **/*.log
           target/debug/deps/*.log
-        retention-days: 7
+        retention-days: fou7
