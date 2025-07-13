@@ -5,11 +5,11 @@ use std::time::Duration;
 use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
 use anyhow::Result;
-use bindings::{
+use fault_proof::contract::{GameStatus, ProposalStatus};
+use op_succinct_bindings::{
     dispute_game_factory::DisputeGameFactory,
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame,
 };
-use fault_proof::contract::{GameStatus, ProposalStatus};
 use tokio::time::{sleep, Instant};
 use tracing::info;
 

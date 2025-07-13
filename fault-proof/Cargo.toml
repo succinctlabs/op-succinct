@@ -67,7 +67,7 @@ strum_macros.workspace = true
 alloy-signer-local.workspace = true
 alloy-node-bindings.workspace = true
 alloy.workspace = true
-bindings = { path = "../bindings" }
+op-succinct-bindings.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 lazy_static = "1.5"

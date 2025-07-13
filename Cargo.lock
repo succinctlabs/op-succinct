@@ -1997,16 +1997,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bindings"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-sol-types",
- "anyhow",
- "cargo_metadata",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7278,6 +7268,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-bindings"
+version = "3.0.0-rc.1"
+dependencies = [
+ "alloy",
+ "alloy-sol-types",
+ "anyhow",
+ "cargo_metadata",
+]
+
+[[package]]
 name = "op-succinct-build-utils"
 version = "3.0.0-rc.1"
 dependencies = [
@@ -7423,13 +7423,13 @@ dependencies = [
  "alloy-transport-http",
  "anyhow",
  "async-trait",
- "bindings",
  "clap",
  "dotenv",
  "hex",
  "lazy_static",
  "op-alloy-network",
  "op-alloy-rpc-types",
+ "op-succinct-bindings",
  "op-succinct-client-utils",
  "op-succinct-elfs",
  "op-succinct-host-utils",

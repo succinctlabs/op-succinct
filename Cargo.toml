@@ -113,6 +113,7 @@ op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
 op-succinct-range-utils = { path = "programs/range/utils" }
+op-succinct-bindings = { path = "bindings" }
 
 # Alloy (Network)
 alloy-signer-local = { version = "0.15.8" }
