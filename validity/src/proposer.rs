@@ -618,23 +618,20 @@ where
 
             // Validate the aggregation proof request
             match self.validate_aggregation_request(&range_proofs, &unreq_agg_request).await {
-                Ok(true) => {
+                true => {
                     debug!(
                         "Aggregation request validated successfully: start_block={}, end_block={}",
                         unreq_agg_request.start_block, unreq_agg_request.end_block
                     );
                     return Ok(Some(unreq_agg_request));
                 }
-                Ok(false) => {
+                false => {
                     debug!(
-                            "Aggregation request validation failed, moving to range proofs: start_block={}, end_block={}",
-                            unreq_agg_request.start_block, unreq_agg_request.end_block
-                        );
+                        "Aggregation request validation failed, moving to range proofs: start_block={}, end_block={}",
+                        unreq_agg_request.start_block, unreq_agg_request.end_block
+                    );
+                    ValidityGauge::AggProofValidationErrorCount.increment(1.0);
                     // Validation failed, continue to try fetching range proofs
-                }
-                Err(e) => {
-                    warn!("Error validating aggregation request: {:?}. Moving to range proofs.", e);
-                    // Error during validation, continue to try fetching range proofs
                 }
             }
         }
@@ -665,12 +662,10 @@ where
         &self,
         range_proofs: &[OPSuccinctRequest],
         agg_request: &OPSuccinctRequest,
-    ) -> Result<bool> {
+    ) -> bool {
         debug!(
-            "Validating {} aggregation proof request: start_block={}, end_block={}",
-            range_proofs.len(),
-            range_proofs.first().unwrap().start_block,
-            range_proofs.last().unwrap().end_block
+            "Validating aggregation proof request: start_block={}, end_block={}",
+            agg_request.start_block, agg_request.end_block
         );
 
         // Log all constituent range proofs
@@ -689,31 +684,37 @@ where
                 commitments = ?self.program_config.commitments,
                 "No consecutive span proof range found for request"
             );
-            return Ok(false);
+            return false;
         }
 
-        if range_proofs.first().unwrap().start_block != agg_request.start_block {
+        let first_range_proof_request =
+            range_proofs.first().expect("Range proofs should not be empty");
+
+        let last_range_proof_request =
+            range_proofs.last().expect("Range proofs should not be empty");
+
+        if first_range_proof_request.start_block != agg_request.start_block {
             warn!(
                 expected_start_block = ?agg_request.start_block,
-                actual_start_block = ?range_proofs.first().unwrap().start_block,
+                actual_start_block = ?first_range_proof_request.start_block,
                 commitments = ?self.program_config.commitments,
                 "Range proofs start block does not match aggregation request"
             );
 
-            return Ok(false);
+            return false;
         }
 
-        if range_proofs.last().unwrap().end_block != agg_request.end_block {
+        if last_range_proof_request.end_block != agg_request.end_block {
             warn!(
                 expected_end_block = ?agg_request.end_block,
-                actual_end_block = ?range_proofs.last().unwrap().end_block,
+                actual_end_block = ?last_range_proof_request.end_block,
                 commitments = ?self.program_config.commitments,
                 "Range proofs end block does not match aggregation request"
             );
-            return Ok(false);
+            return false;
         }
 
-        // Check for gaps and duplicates between consecutive proofs
+        // Check for gaps and duplicates / overlaps between consecutive proofs
         for i in 1..range_proofs.len() {
             let prev_proof = &range_proofs[i - 1];
             let curr_proof = &range_proofs[i];
@@ -727,7 +728,7 @@ where
                     i,
                     curr_proof.start_block
                 );
-                return Ok(false);
+                return false;
             }
 
             // Check for overlap (duplicate blocks)
@@ -739,7 +740,7 @@ where
                     i,
                     curr_proof.start_block
                 );
-                return Ok(false);
+                return false;
             }
         }
 
@@ -748,7 +749,7 @@ where
             "Aggregation request validated successfully with {} consecutive range proofs",
             range_proofs.len()
         );
-        Ok(true)
+        true
     }
 
     /// Relay all completed aggregation proofs to the contract.
