@@ -35,4 +35,11 @@ pub fn build_all() {
     //     "celestia-range-elf-embedded",
     //     Some(vec!["embedded".to_string()]),
     // );
+    // build_program(
+    //     "range/eigenda",
+    //     "eigenda-range-elf-embedded",
+    //     Some(vec!["embedded".to_string()]),
+    // );
+
+    // cargo prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.0.0 --features embedded --output-directory ../../../elf
 }

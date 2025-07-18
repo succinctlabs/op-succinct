@@ -14,6 +14,8 @@ members = [
     "scripts/*",
     "validity",
     "fault-proof",
+    "utils/eigenda/client",
+    "utils/eigenda/host",
 ]
 resolver = "2"
 
@@ -97,6 +99,13 @@ hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7
 hana-host = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
 
+# hydro
+hydro-client = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
+hydro-host = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
+hydro-oracle = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
+hydro-eigenda = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
+hydro-proofs = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
+
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
 op-succinct-client-utils = { path = "utils/client" }
@@ -109,6 +118,8 @@ op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
 op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
 op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
 op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
+op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
+op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
 op-succinct-range-utils = { path = "programs/range/utils" }
