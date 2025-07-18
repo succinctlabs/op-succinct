@@ -251,7 +251,7 @@ where
             // Insert the new range proof requests into the database.
             self.driver_config.driver_db_client.insert_requests(&new_range_requests).await?;
 
-            // Log details for each created range proof request
+            // Log details for each created range proof request.
             for request in &new_range_requests {
                 info!(
                     start_block = request.start_block,
@@ -318,29 +318,27 @@ where
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
                 // Log timeout of range proof
-                if request.req_type == RequestType::Range {
-                    warn!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        deadline = status.deadline,
-                        current_time = current_time,
-                        "Range proof request timed out"
-                    );
-                } else if request.req_type == RequestType::Aggregation {
-                    warn!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        deadline = status.deadline,
-                        current_time = current_time,
-                        "Aggregation proof request timed out"
-                    );
-                } else {
-                    tracing::warn!(
-                        "Proof request has timed out for request id: {:?}",
-                        proof_request_id
-                    );
+                match request.req_type {
+                    RequestType::Range => {
+                        warn!(
+                            proof_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            deadline = status.deadline,
+                            current_time = current_time,
+                            "Range proof request timed out"
+                        );
+                    }
+                    RequestType::Aggregation => {
+                        warn!(
+                            proof_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            deadline = status.deadline,
+                            current_time = current_time,
+                            "Aggregation proof request timed out"
+                        );
+                    }
                 }
 
                 return Ok(());
@@ -367,56 +365,62 @@ where
                 // Update the prove_duration based on the current time and the proof_request_time.
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
 
-                // Log completion of range proof
-                if request.req_type == RequestType::Range {
-                    info!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        proof_request_time = ?request.proof_request_time,
-                        total_tx_fees = %request.total_tx_fees,
-                        total_transactions = request.total_nb_transactions,
-                        witnessgen_duration_s = request.witnessgen_duration,
-                        prove_duration_s = request.prove_duration,
-                        total_eth_gas_used = request.total_eth_gas_used,
-                        total_l1_fees = %request.total_l1_fees,
-                        "Range proof completed successfully"
-                    );
-                } else if request.req_type == RequestType::Aggregation {
-                    info!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        witnessgen_duration_s = request.witnessgen_duration,
-                        prove_duration_s = request.prove_duration,
-                        "Aggregation proof completed successfully"
-                    );
+                // Log completion of range and aggregation proofs.
+                match request.req_type {
+                    RequestType::Range => {
+                        info!(
+                            proof_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            proof_request_time = ?request.proof_request_time,
+                            total_tx_fees = %request.total_tx_fees,
+                            total_transactions = request.total_nb_transactions,
+                            witnessgen_duration_s = request.witnessgen_duration,
+                            prove_duration_s = request.prove_duration,
+                            total_eth_gas_used = request.total_eth_gas_used,
+                            total_l1_fees = %request.total_l1_fees,
+                            "Range proof completed successfully"
+                        );
+                    }
+                    RequestType::Aggregation => {
+                        info!(
+                            proof_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            witnessgen_duration_s = request.witnessgen_duration,
+                            prove_duration_s = request.prove_duration,
+                            "Aggregation proof completed successfully"
+                        );
+                    }
                 }
             } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable {
-                // Log failure of range proof
-                if request.req_type == RequestType::Range {
-                    warn!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        proof_request_time = ?request.proof_request_time,
-                        total_tx_fees = %request.total_tx_fees,
-                        total_transactions = request.total_nb_transactions,
-                        witnessgen_duration_s = request.witnessgen_duration,
-                        total_eth_gas_used = request.total_eth_gas_used,
-                        total_l1_fees = %request.total_l1_fees,
-                        execution_status = ?status.execution_status(),
-                        "Range proof request failed - unfulfillable"
-                    );
-                } else if request.req_type == RequestType::Aggregation {
-                    warn!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        witnessgen_duration_s = request.witnessgen_duration,
-                        execution_status = ?status.execution_status(),
-                        "Aggregation proof request failed - unfulfillable"
-                    );
+                // Log failure of range and aggregation proofs.
+                match request.req_type {
+                    RequestType::Range => {
+                        warn!(
+                            proof_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            proof_request_time = ?request.proof_request_time,
+                            total_tx_fees = %request.total_tx_fees,
+                            total_transactions = request.total_nb_transactions,
+                            witnessgen_duration_s = request.witnessgen_duration,
+                            total_eth_gas_used = request.total_eth_gas_used,
+                            total_l1_fees = %request.total_l1_fees,
+                            execution_status = ?status.execution_status(),
+                            "Range proof request failed - unfulfillable"
+                        );
+                    }
+                    RequestType::Aggregation => {
+                        warn!(
+                            proof_id = request.id,
+                            start_block = request.start_block,
+                            end_block = request.end_block,
+                            witnessgen_duration_s = request.witnessgen_duration,
+                            execution_status = ?status.execution_status(),
+                            "Aggregation proof request failed - unfulfillable"
+                        );
+                    }
                 }
 
                 self.proof_requester
