@@ -1,10 +1,13 @@
 use alloy_eips::BlockId;
 use anyhow::Result;
 use fault_proof::config::FaultDisputeGameConfig;
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCMode};
+use op_succinct_host_utils::{
+    fetcher::{OPSuccinctDataFetcher, RPCMode},
+    OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
+};
 use op_succinct_scripts::config_common::{
-    find_project_root, get_shared_config_data, get_workspace_root, parse_addresses,
-    write_config_file, TWO_WEEKS_IN_SECONDS,
+    find_project_root, get_shared_config_data, parse_addresses, write_config_file,
+    TWO_WEEKS_IN_SECONDS,
 };
 use serde_json::Value;
 use std::env;
@@ -68,7 +71,6 @@ use std::env;
 async fn update_fdg_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let shared_config = get_shared_config_data().await?;
-    let workspace_root = get_workspace_root()?;
 
     // Game configuration.
     let game_type = env::var("GAME_TYPE").unwrap_or("42".to_string()).parse().unwrap();
@@ -171,8 +173,11 @@ async fn update_fdg_config() -> Result<()> {
         verifier_address: shared_config.verifier_address,
     };
 
-    let config_path = workspace_root.join("contracts/opsuccinctfdgconfig.json");
-    write_config_file(&fdg_config, &config_path, "Fault Dispute Game")?;
+    write_config_file(
+        &fdg_config,
+        &OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
+        "Fault Dispute Game",
+    )?;
 
     Ok(())
 }

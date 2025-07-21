@@ -2,7 +2,10 @@
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
-use op_succinct_host_utils::fetcher::{get_rpcs_from_env, RPCConfig};
+use op_succinct_host_utils::{
+    fetcher::{get_rpcs_from_env, RPCConfig},
+    OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
+};
 use tracing::info;
 
 use fault_proof::config::FaultDisputeGameConfig;
@@ -71,12 +74,7 @@ impl TestEnvironment {
         let test_config: FaultDisputeGameConfig =
             test_config(anvil.starting_l2_block_number, anvil.starting_root.clone());
         let json = serde_json::to_string_pretty(&test_config)?;
-        let config_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("contracts")
-            .join("opsuccinctfdgconfig.json");
-        std::fs::write(&config_path, json)?;
+        std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
 
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
