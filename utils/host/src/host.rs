@@ -1,7 +1,6 @@
 use alloy_primitives::B256;
 use anyhow::Result;
 use async_trait::async_trait;
-use hana_host::celestia::CelestiaChainHost;
 use hydro_host::eigenda::EigenDAChainHost;
 use kona_host::single::{SingleChainHost, SingleChainHostError};
 use kona_preimage::{BidirectionalChannel, Channel};
@@ -22,20 +21,6 @@ pub trait PreimageServerStarter {
 
 #[async_trait]
 impl PreimageServerStarter for SingleChainHost {
-    async fn start_server<C>(
-        &self,
-        hint: C,
-        preimage: C,
-    ) -> Result<JoinHandle<Result<(), SingleChainHostError>>, SingleChainHostError>
-    where
-        C: Channel + Send + Sync + 'static,
-    {
-        self.start_server(hint, preimage).await
-    }
-}
-
-#[async_trait]
-impl PreimageServerStarter for CelestiaChainHost {
     async fn start_server<C>(
         &self,
         hint: C,

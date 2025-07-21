@@ -3,8 +3,6 @@ members = [
     "utils/client",
     "utils/host",
     "utils/build",
-    "utils/celestia/client",
-    "utils/celestia/host",
     "utils/proof",
     "utils/signer",
     "utils/ethereum/client",
@@ -93,12 +91,6 @@ kona-protocol = { git = "https://github.com/mantle-xyz/kona", branch = "kona-cli
 kona-registry = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
 kona-genesis = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
 
-# hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "904f086fd7335986e87a0f0432b1f07fe997f690" }
-
 # hydro
 hydro-client = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
 hydro-host = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
@@ -116,8 +108,6 @@ op-succinct-validity = { path = "validity" }
 op-succinct-fp = { path = "fault-proof" }
 op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
 op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
-op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
-op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
 op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }

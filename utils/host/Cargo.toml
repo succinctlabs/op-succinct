@@ -26,9 +26,6 @@ kona-proof.workspace = true
 kona-protocol.workspace = true
 kona-rpc.workspace = true
 
-# hana
-hana-host.workspace = true
-
 # hydro
 hydro-host.workspace = true
 

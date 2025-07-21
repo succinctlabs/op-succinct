@@ -7,10 +7,10 @@ edition.workspace = true
 [dependencies]
 
 # local
-op-succinct-celestia-host-utils = { workspace = true, optional = true }
 op-succinct-elfs.workspace = true
 op-succinct-ethereum-host-utils = { workspace = true, optional = true }
 op-succinct-host-utils.workspace = true
+op-succinct-eigenda-host-utils = { workspace = true, optional = true }
 
 # general
 cfg-if.workspace = true
@@ -18,5 +18,5 @@ tracing.workspace = true
 
 [features]
 default = ["ethereum"]
-celestia = ["op-succinct-celestia-host-utils"]
 ethereum = ["op-succinct-ethereum-host-utils"]
+eigenda = ["op-succinct-eigenda-host-utils"]
