@@ -161,6 +161,7 @@ where
         game_type: u32,
         game_address: Address,
         claimant: Address,
+        mode: Mode,
     ) -> Result<bool>;
 
     /// Get the oldest game address with a given condition.
@@ -207,11 +208,16 @@ where
     ///
     /// This function checks a window of recent games, starting from
     /// (latest_game_index - max_games_to_check_for_bond_claiming) up to latest_game_index.
+    ///
+    /// The mode parameter determines which games are claimable:
+    /// - Proposer mode: only games where DEFENDER_WINS
+    /// - Challenger mode: only games where CHALLENGER_WINS
     async fn get_oldest_claimable_bond_game_address(
         &self,
         game_type: u32,
         max_games_to_check_for_bond_claiming: u64,
         claimant: Address,
+        mode: Mode,
     ) -> Result<Option<Address>>;
 
     /// Determines whether to attempt resolution or not. The `oldest_game_index` is configured
@@ -396,6 +402,7 @@ where
         game_type: u32,
         game_address: Address,
         claimant: Address,
+        mode: Mode,
     ) -> Result<bool> {
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
         let claim_data = game.claimData().call().await?;
@@ -410,6 +417,24 @@ where
         // Game must be finalized before claiming credit.
         if !self.is_game_finalized(game_type, game_address).await? {
             tracing::info!("Game {:?} is resolved but not finalized", game_address);
+            return Ok(false);
+        }
+
+        // Check if the game outcome matches the mode
+        let game_status = game.status().call().await?;
+        let is_correct_outcome = matches!(
+            (mode, game_status),
+            (Mode::Proposer, GameStatus::DEFENDER_WINS) |
+                (Mode::Challenger, GameStatus::CHALLENGER_WINS)
+        );
+
+        if !is_correct_outcome {
+            tracing::debug!(
+                "Game {:?} outcome {:?} doesn't match mode {:?}",
+                game_address,
+                game_status,
+                mode
+            );
             return Ok(false);
         }
 
@@ -543,6 +568,7 @@ where
         game_type: u32,
         max_games_to_check_for_bond_claiming: u64,
         claimant: Address,
+        mode: Mode,
     ) -> Result<Option<Address>> {
         let latest_game_index = match self.fetch_latest_game_index().await? {
             Some(index) => index,
@@ -560,7 +586,7 @@ where
         for i in 0..games_to_check {
             let index = oldest_game_index + U256::from(i);
             let game_address = self.fetch_game_address_by_index(index).await?;
-            if self.is_claimable(game_type, game_address, claimant).await? {
+            if self.is_claimable(game_type, game_address, claimant, mode).await? {
                 return Ok(Some(game_address));
             }
         }
@@ -632,7 +658,7 @@ where
             (Mode::Proposer, ProposalStatus::Unchallenged) => true,
             (Mode::Proposer, _) if is_proven => true,
 
-            // Challenger can only resolve challenged (unproven) games
+            // Challenger can only resolve challenged games
             (Mode::Challenger, ProposalStatus::Challenged) => true,
 
             _ => false,
