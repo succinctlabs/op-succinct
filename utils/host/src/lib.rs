@@ -10,3 +10,4 @@ pub mod logger;
 pub mod metrics;
 pub mod witness_generation;
 pub use logger::setup_logger;
+pub mod rollup_config;

@@ -1,6 +1,6 @@
 use std::{
     cmp::{min, Ordering},
-    env, fs,
+    env,
     path::PathBuf,
     str::FromStr,
     sync::Arc,
@@ -26,7 +26,10 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use crate::L2Output;
+use crate::{
+    rollup_config::{get_rollup_config_path, read_rollup_config},
+    L2Output,
+};
 
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
@@ -126,8 +129,8 @@ impl OPSuccinctDataFetcher {
         let l2_provider =
             Arc::new(ProviderBuilder::default().connect_http(rpc_config.l2_rpc.clone()));
 
-        let (rollup_config, rollup_config_path) =
-            Self::fetch_and_save_rollup_config(&rpc_config).await?;
+        let rollup_config = read_rollup_config()?;
+        let rollup_config_path = get_rollup_config_path()?;
 
         // Add warning if the chain is pre-Holocene, as derivation is significantly slower.
         let unix_timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
@@ -319,29 +322,6 @@ impl OPSuccinctDataFetcher {
             RPCMode::L1Beacon => &self.rpc_config.l1_beacon_rpc,
             RPCMode::L2Node => &self.rpc_config.l2_node_rpc,
         }
-    }
-
-    /// Fetch and save the rollup config to a temporary file.
-    async fn fetch_and_save_rollup_config(
-        rpc_config: &RPCConfig,
-    ) -> Result<(RollupConfig, PathBuf)> {
-        let rollup_config: RollupConfig =
-            Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
-
-        // Create configs directory if it doesn't exist
-        let rollup_config_dir = PathBuf::from("configs");
-        fs::create_dir_all(&rollup_config_dir)?;
-
-        // Save rollup config to a file named by chain ID
-        let rollup_config_path =
-            rollup_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
-
-        // Write the rollup config to the file
-        let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
-        fs::write(&rollup_config_path, rollup_config_str)?;
-
-        // Return both the rollup config and the path to the temporary file
-        Ok((rollup_config, rollup_config_path))
     }
 
     async fn fetch_rpc_data<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
