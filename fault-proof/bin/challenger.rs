@@ -20,7 +20,11 @@ use op_succinct_host_utils::{
 };
 use op_succinct_signer_utils::Signer;
 use rand::Rng;
+use tikv_jemallocator::Jemalloc;
 use tokio::time;
+
+#[global_allocator]
+static ALLOCATOR: Jemalloc = Jemalloc;
 
 #[derive(Parser)]
 struct Args {
