@@ -1,20 +1,14 @@
-name: Cost Estimator (1000 blocks)
+name: Cost Estimator (10000 blocks) - Sepolia
 
 on:
   workflow_dispatch:
     inputs: {}
   schedule:
-    - cron: '0 0 * * *' # Run the workflow every day at midnight UTC.
+    - cron: "0 0,12 * * *" # Run the workflow every day at 00:00 and 12:00 UTC
 
 jobs:
   daily-cost-estimator:
-    runs-on:
-      - runs-on
-      - cpu=32
-      - ram=128
-      - family=m7a+m7i-flex
-      - image=ubuntu22-full-x64
-      - run-id=${{ github.run_id }}
+    runs-on: [self-hosted, Linux, X64, eks, mantle-default, "sepolia"]
     steps:
       - uses: actions/checkout@v4
 
@@ -23,12 +17,15 @@ jobs:
 
       - name: Run cost estimator
         run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release -- --batch-size 30 --default-range 1000
+          source $HOME/.cargo/env
+          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --batch-size 1000 --default-range 10000 --safe-db-fallback
         env:
-          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-          L1_RPC: ${{ secrets.L1_RPC }}
-          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_RPC }}
+          L1_RPC: http://sepolia-archive2.sepolia:8545
+          L1_BEACON_RPC: http://sepolia-archive2.sepolia:5052
+          L2_RPC: http://mantle-op-geth-rpc3.sepolia:8545
+          L2_NODE_RPC: http://mantle-op-node-rpc3.sepolia:8545
+          EIGEN_DA_PROXY_URL: http://eigenda-proxy.sepolia:3100
+          ROLLUP_CONFIG_PATH: configs/5003/rollup.json
 
       - name: Upload execution reports
         uses: actions/upload-artifact@v4
