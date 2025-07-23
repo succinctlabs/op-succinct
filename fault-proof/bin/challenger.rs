@@ -20,7 +20,11 @@ use op_succinct_host_utils::{
 };
 use op_succinct_signer_utils::Signer;
 use rand::Rng;
+use tikv_jemallocator::Jemalloc;
 use tokio::time;
+
+#[global_allocator]
+static ALLOCATOR: Jemalloc = Jemalloc;
 
 #[derive(Parser)]
 struct Args {
@@ -108,9 +112,8 @@ where
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
     /// Also supports malicious challenging of valid games for testing defense mechanisms when
     /// configured.
+    #[tracing::instrument(name = "[[Challenging]]", skip(self))]
     async fn handle_game_challenging(&self) -> Result<Action> {
-        let _span = tracing::info_span!("[[Challenging]]").entered();
-
         // Challenge invalid games (honest challenger behavior)
         if let Some(game_address) = self
             .factory
@@ -161,9 +164,8 @@ where
     }
 
     /// Handles resolution of challenged games that are ready to be resolved.
+    #[tracing::instrument(name = "[[Challenger Resolving]]", skip(self))]
     async fn handle_game_resolution(&self) -> Result<()> {
-        let _span = tracing::info_span!("[[Resolving]]").entered();
-
         self.factory
             .resolve_games(
                 Mode::Challenger,
@@ -177,19 +179,22 @@ where
     }
 
     /// Handles claiming bonds from resolved games.
+    #[tracing::instrument(name = "[[Claiming Challenger Bonds]]", skip(self))]
     pub async fn handle_bond_claiming(&self) -> Result<Action> {
-        let _span = tracing::info_span!("[[Claiming Bonds]]").entered();
-
         if let Some(game_address) = self
             .factory
             .get_oldest_claimable_bond_game_address(
                 self.config.game_type,
                 self.config.max_games_to_check_for_bond_claiming,
                 self.challenger_address,
+                Mode::Challenger,
             )
             .await?
         {
-            tracing::info!("Attempting to claim bond from game {:?}", game_address);
+            tracing::info!(
+                "Attempting to claim bond from game {:?} where challenger won",
+                game_address
+            );
 
             // Create a contract instance for the game
             let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -205,7 +210,7 @@ where
             {
                 Ok(receipt) => {
                     tracing::info!(
-                        "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",
+                        "\x1b[1mSuccessfully claimed challenger bond from game {:?} with tx {:?}\x1b[0m",
                         game_address,
                         receipt.transaction_hash
                     );
@@ -219,7 +224,7 @@ where
                 )),
             }
         } else {
-            tracing::info!("No new games to claim bonds from");
+            tracing::info!("No games found where challenger won to claim bonds from");
 
             Ok(Action::Skipped)
         }
