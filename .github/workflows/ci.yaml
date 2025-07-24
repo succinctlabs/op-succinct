@@ -42,16 +42,7 @@ jobs:
             SHOULD_RUN="true"
             echo "Running because of workflow_dispatch"
           fi
-          
-          # Run on PR if author is a maintainer
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            AUTHOR_ASSOC="${{ github.event.pull_request.author_association }}"
-            if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
-              SHOULD_RUN="true"
-            fi
-            echo "Running because of PR from maintainer"
-          fi
-          
+
           # Run on comment if it's a PR comment with /ci-authorize from a maintainer
           if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
             if [[ "${{ contains(github.event.comment.body, '/ci-authorize') }}" == "true" ]]; then
@@ -61,6 +52,16 @@ jobs:
               fi
               echo "Running because of PR comment from maintainer"
             fi
+          fi
+          
+          
+          # Run on PR if author is a maintainer
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            AUTHOR_ASSOC="${{ github.event.pull_request.author_association }}"
+            if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+              SHOULD_RUN="true"
+            fi
+            echo "Running because of PR from maintainer"
           fi
           
           echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
