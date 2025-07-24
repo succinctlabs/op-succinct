@@ -1,19 +1,179 @@
-name: Cargo Tests
+name: CI Tests
 
 on:
   pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      e2e_test_filter:
+        description: 'E2E test name filter (optional)'
+        required: false
+        default: ''
+
+env:
+  FOUNDRY_PROFILE: ci
 
 jobs:
-  tests:
+  # Foundry Tests Job
+  foundry-tests:
+    name: Foundry Tests
+    runs-on: ubuntu-latest
+    # Only run automatically for maintainers, require manual trigger for external contributors
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && 
+       (github.event.pull_request.author_association == 'OWNER' || 
+        github.event.pull_request.author_association == 'MEMBER' || 
+        github.event.pull_request.author_association == 'COLLABORATOR'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Forge version
+        working-directory: contracts/
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        working-directory: contracts/
+        run: |
+          forge fmt --check src/ test/ script/
+        id: fmt
+
+      - name: Run Forge build
+        working-directory: contracts/
+        run: |
+          forge build --sizes
+        id: build
+
+      - name: Run Forge tests
+        working-directory: contracts/
+        run: |
+          forge test -vvv
+        id: test
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+
+  # Integration Tests Job
+  integration-tests:
+    name: Integration Tests
+    runs-on:
+      - runs-on
+      - cpu=16
+      - ram=64
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
+      - run-id=${{ github.run_id }}
+    # Only run automatically for maintainers, require manual trigger for external contributors
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && 
+       (github.event.pull_request.author_association == 'OWNER' || 
+        github.event.pull_request.author_association == 'MEMBER' || 
+        github.event.pull_request.author_association == 'COLLABORATOR'))
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Run cost estimator on recent block range
+        run: |
+          RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+
+  # E2E Tests Job
+  e2e-tests:
+    name: E2E Tests
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
-      - run-id=${{ github.run_id }} 
+      - run-id=${{ github.run_id }}
+    timeout-minutes: 30
+    # Only run automatically for maintainers, require manual trigger for external contributors
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && 
+       (github.event.pull_request.author_association == 'OWNER' || 
+        github.event.pull_request.author_association == 'MEMBER' || 
+        github.event.pull_request.author_association == 'COLLABORATOR'))
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+      
+    - name: Setup Rust
+      run: |
+        rustup toolchain install stable --profile minimal
+        rustup component add rustfmt clippy
+        
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: nightly-d592b3e0f142d694c3be539702704a4a73238773
+        
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          bindings
+        
+    - name: Run E2E tests
+      run: |
+        if [ -n "${{ github.event.inputs.e2e_test_filter }}" ]; then
+          cargo test --release --test e2e ${{ github.event.inputs.e2e_test_filter }} -- --test-threads=1 --nocapture
+        else
+          cargo test --release --test e2e -- --test-threads=1 --nocapture
+        fi
+      env:
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+        
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-test-logs
+        path: |
+          **/*.log
+          target/debug/deps/*.log
+        retention-days: 7
+
+  # Cargo Tests Job
+  cargo-tests:
+    name: Cargo Tests
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+    # Only run automatically for maintainers, require manual trigger for external contributors
+    if: |
+      github.event_name == 'push' || 
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && 
+       (github.event.pull_request.author_association == 'OWNER' || 
+        github.event.pull_request.author_association == 'MEMBER' || 
+        github.event.pull_request.author_association == 'COLLABORATOR'))
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
