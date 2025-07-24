@@ -54,14 +54,12 @@ jobs:
           
           # Run on comment if it's a PR comment with /ci-authorize from a maintainer
           if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            if [[ "${{ github.event.issue.pull_request }}" != "" ]]; then
-              if [[ "${{ contains(github.event.comment.body, '/ci-authorize') }}" == "true" ]]; then
-                AUTHOR_ASSOC="${{ github.event.comment.author_association }}"
-                if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
-                  SHOULD_RUN="true"
-                fi
-                echo "Running because of PR comment from maintainer"
+            if [[ "${{ contains(github.event.comment.body, '/ci-authorize') }}" == "true" ]]; then
+              AUTHOR_ASSOC="${{ github.event.comment.author_association }}"
+              if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+                SHOULD_RUN="true"
               fi
+              echo "Running because of PR comment from maintainer"
             fi
           fi
           
