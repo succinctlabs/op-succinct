@@ -55,14 +55,14 @@ jobs:
           fi
           
           
-          # Run on PR if author is a maintainer
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            AUTHOR_ASSOC="${{ github.event.pull_request.author_association }}"
-            if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
-              SHOULD_RUN="true"
-            fi
-            echo "Running because of PR from maintainer"
-          fi
+          # # Run on PR if author is a maintainer
+          # if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          #   AUTHOR_ASSOC="${{ github.event.pull_request.author_association }}"
+          #   if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+          #     SHOULD_RUN="true"
+          #   fi
+          #   echo "Running because of PR from maintainer"
+          # fi
           
           echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
           echo "Should run CI: $SHOULD_RUN"
