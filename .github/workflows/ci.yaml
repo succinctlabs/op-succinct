@@ -34,11 +34,13 @@ jobs:
           # Always run on push to main
           if [[ "${{ github.event_name }}" == "push" ]]; then
             SHOULD_RUN="true"
+            echo "Running because of push to main" >> $GITHUB_OUTPUT
           fi
           
           # Always run on workflow_dispatch
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             SHOULD_RUN="true"
+            echo "Running because of workflow_dispatch" >> $GITHUB_OUTPUT
           fi
           
           # Run on PR if author is a maintainer
@@ -47,6 +49,7 @@ jobs:
             if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
               SHOULD_RUN="true"
             fi
+            echo "Running because of PR from maintainer" >> $GITHUB_OUTPUT
           fi
           
           # Run on comment if it's a PR comment with /ci-authorize from a maintainer
@@ -57,6 +60,7 @@ jobs:
                 if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
                   SHOULD_RUN="true"
                 fi
+                echo "Running because of PR comment from maintainer" >> $GITHUB_OUTPUT
               fi
             fi
           fi
