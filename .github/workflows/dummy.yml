@@ -1,0 +1,13 @@
+name: Dummy
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  dummy:
+    name: Dummy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dummy
+        run: echo "Dummy"
