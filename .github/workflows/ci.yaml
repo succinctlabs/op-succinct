@@ -18,29 +18,54 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
-  # Check if comment trigger should run tests
-  check-comment:
-    name: Check Comment Trigger
+  # Check if tests should run
+  check-run-conditions:
+    name: Check Run Conditions
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'issue_comment' && 
-      github.event.issue.pull_request && 
-      contains(github.event.comment.body, '/ci-authorize') &&
-      (github.event.comment.author_association == 'OWNER' || 
-       github.event.comment.author_association == 'MEMBER' || 
-       github.event.comment.author_association == 'COLLABORATOR')
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
-      pr_number: ${{ steps.check.outputs.pr_number }}
       pr_sha: ${{ steps.get_pr.outputs.pr_sha }}
     steps:
-      - name: Check trigger conditions
+      - name: Check conditions
         id: check
         run: |
-          echo "should_run=true" >> $GITHUB_OUTPUT
-          echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          SHOULD_RUN="false"
+          
+          # Always run on push to main
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            SHOULD_RUN="true"
+          fi
+          
+          # Always run on workflow_dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SHOULD_RUN="true"
+          fi
+          
+          # Run on PR if author is a maintainer
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            AUTHOR_ASSOC="${{ github.event.pull_request.author_association }}"
+            if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+              SHOULD_RUN="true"
+            fi
+          fi
+          
+          # Run on comment if it's a PR comment with /ci-authorize from a maintainer
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            if [[ "${{ github.event.issue.pull_request }}" != "" ]]; then
+              if [[ "${{ contains(github.event.comment.body, '/ci-authorize') }}" == "true" ]]; then
+                AUTHOR_ASSOC="${{ github.event.comment.author_association }}"
+                if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+                  SHOULD_RUN="true"
+                fi
+              fi
+            fi
+          fi
+          
+          echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
+          echo "Should run CI: $SHOULD_RUN"
       
-      - name: Get PR SHA
+      - name: Get PR info for comment trigger
+        if: github.event_name == 'issue_comment' && steps.check.outputs.should_run == 'true'
         id: get_pr
         uses: actions/github-script@v7
         with:
@@ -51,13 +76,9 @@ jobs:
               pull_number: ${{ github.event.issue.number }}
             });
             core.setOutput('pr_sha', pr.data.head.sha);
-      
-      - name: Set PR SHA output
-        id: set_sha
-        run: |
-          echo "pr_sha=${{ steps.get_pr.outputs.pr_sha }}" >> $GITHUB_OUTPUT
 
       - name: Add reaction to comment
+        if: github.event_name == 'issue_comment' && steps.check.outputs.should_run == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -71,37 +92,13 @@ jobs:
   foundry-tests:
     name: Foundry Tests
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' || 
-       github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'pull_request' && 
-        (github.event.pull_request.author_association == 'OWNER' || 
-         github.event.pull_request.author_association == 'MEMBER' || 
-         github.event.pull_request.author_association == 'COLLABORATOR')) ||
-       (github.event_name == 'issue_comment' && 
-        github.event.issue.pull_request && 
-        contains(github.event.comment.body, '/ci-authorize') &&
-        (github.event.comment.author_association == 'OWNER' || 
-         github.event.comment.author_association == 'MEMBER' || 
-         github.event.comment.author_association == 'COLLABORATOR')))
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
     steps:
-      - name: Get PR info for comment trigger
-        if: github.event_name == 'issue_comment'
-        id: pr_info
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ github.event.issue.number }}
-            });
-            core.setOutput('head_sha', pr.data.head.sha);
-            
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          ref: ${{ github.event_name == 'issue_comment' && steps.pr_info.outputs.head_sha || '' }}
+          ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -144,37 +141,12 @@ jobs:
       - family=m7a+m7i-flex
       - image=ubuntu22-full-x64
       - run-id=${{ github.run_id }}
-    # Only run automatically for maintainers, require manual trigger for external contributors
-    if: |
-      (github.event_name == 'push' || 
-       github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'pull_request' && 
-        (github.event.pull_request.author_association == 'OWNER' || 
-         github.event.pull_request.author_association == 'MEMBER' || 
-         github.event.pull_request.author_association == 'COLLABORATOR')) ||
-       (github.event_name == 'issue_comment' && 
-        github.event.issue.pull_request && 
-        contains(github.event.comment.body, '/ci-authorize') &&
-        (github.event.comment.author_association == 'OWNER' || 
-         github.event.comment.author_association == 'MEMBER' || 
-         github.event.comment.author_association == 'COLLABORATOR')))
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
     steps:
-      - name: Get PR info for comment trigger
-        if: github.event_name == 'issue_comment'
-        id: pr_info
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ github.event.issue.number }}
-            });
-            core.setOutput('head_sha', pr.data.head.sha);
-            
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'issue_comment' && steps.pr_info.outputs.head_sha || '' }}
+          ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
 
       - name: Setup CI
         uses: ./.github/actions/setup
@@ -196,39 +168,14 @@ jobs:
       - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }}
     timeout-minutes: 30
-    # Only run automatically for maintainers, require manual trigger for external contributors
-    if: |
-      (github.event_name == 'push' || 
-       github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'pull_request' && 
-        (github.event.pull_request.author_association == 'OWNER' || 
-         github.event.pull_request.author_association == 'MEMBER' || 
-         github.event.pull_request.author_association == 'COLLABORATOR')) ||
-       (github.event_name == 'issue_comment' && 
-        github.event.issue.pull_request && 
-        contains(github.event.comment.body, '/ci-authorize') &&
-        (github.event.comment.author_association == 'OWNER' || 
-         github.event.comment.author_association == 'MEMBER' || 
-         github.event.comment.author_association == 'COLLABORATOR')))
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
     steps:
-    - name: Get PR info for comment trigger
-      if: github.event_name == 'issue_comment'
-      id: pr_info
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const pr = await github.rest.pulls.get({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: ${{ github.event.issue.number }}
-          });
-          core.setOutput('head_sha', pr.data.head.sha);
-          
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        ref: ${{ github.event_name == 'issue_comment' && steps.pr_info.outputs.head_sha || '' }}
+        ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
       
     - name: Setup Rust
       run: |
@@ -277,39 +224,14 @@ jobs:
       - runs-on
       - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }}
-    # Only run automatically for maintainers, require manual trigger for external contributors
-    if: |
-      (github.event_name == 'push' || 
-       github.event_name == 'workflow_dispatch' ||
-       (github.event_name == 'pull_request' && 
-        (github.event.pull_request.author_association == 'OWNER' || 
-         github.event.pull_request.author_association == 'MEMBER' || 
-         github.event.pull_request.author_association == 'COLLABORATOR')) ||
-       (github.event_name == 'issue_comment' && 
-        github.event.issue.pull_request && 
-        contains(github.event.comment.body, 'CI AUTHORIZE') &&
-        (github.event.comment.author_association == 'OWNER' || 
-         github.event.comment.author_association == 'MEMBER' || 
-         github.event.comment.author_association == 'COLLABORATOR')))
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
     steps:
-    - name: Get PR info for comment trigger
-      if: github.event_name == 'issue_comment'
-      id: pr_info
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const pr = await github.rest.pulls.get({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: ${{ github.event.issue.number }}
-          });
-          core.setOutput('head_sha', pr.data.head.sha);
-          
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        ref: ${{ github.event_name == 'issue_comment' && steps.pr_info.outputs.head_sha || '' }}
+        ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
       with:
