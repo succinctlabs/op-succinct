@@ -1,24 +1,240 @@
-name: Cargo Tests
+name: CI Tests
 
 on:
   pull_request:
-    branches:
-      - main
   push:
     branches:
       - main
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      e2e_test_filter:
+        description: 'E2E test name filter (optional)'
+        required: false
+        default: ''
+
+env:
+  FOUNDRY_PROFILE: ci
 
 jobs:
-  tests:
+  # Check if tests should run
+  check-run-conditions:
+    name: Check Run Conditions
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      pr_sha: ${{ steps.get_pr.outputs.pr_sha }}
+    steps:
+      - name: Check conditions
+        id: check
+        run: |
+          SHOULD_RUN="false"
+          
+          # Always run on push to main
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            SHOULD_RUN="true"
+            echo "Running because of push to main"
+          fi
+          
+          # Always run on workflow_dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SHOULD_RUN="true"
+            echo "Running because of workflow_dispatch"
+          fi
+
+          # Run on comment if it's a PR comment with /ci-authorize from a maintainer
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            if [[ "${{ contains(github.event.comment.body, '/ci-authorize') }}" == "true" ]]; then
+              AUTHOR_ASSOC="${{ github.event.comment.author_association }}"
+              if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+                SHOULD_RUN="true"
+              fi
+              echo "Running because of PR comment from maintainer"
+            fi
+          fi
+          
+          
+          # # Run on PR if author is a maintainer
+          # if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          #   AUTHOR_ASSOC="${{ github.event.pull_request.author_association }}"
+          #   if [[ "$AUTHOR_ASSOC" == "OWNER" || "$AUTHOR_ASSOC" == "MEMBER" || "$AUTHOR_ASSOC" == "COLLABORATOR" ]]; then
+          #     SHOULD_RUN="true"
+          #   fi
+          #   echo "Running because of PR from maintainer"
+          # fi
+          
+          echo "should_run=$SHOULD_RUN" >> $GITHUB_OUTPUT
+          echo "Should run CI: $SHOULD_RUN"
+      
+      - name: Get PR info for comment trigger
+        if: github.event_name == 'issue_comment' && steps.check.outputs.should_run == 'true'
+        id: get_pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ github.event.issue.number }}
+            });
+            core.setOutput('pr_sha', pr.data.head.sha);
+
+      - name: Add reaction to comment
+        if: github.event_name == 'issue_comment' && steps.check.outputs.should_run == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: ${{ github.event.comment.id }},
+              content: 'rocket'
+            });
+  # Foundry Tests Job
+  foundry-tests:
+    name: Foundry Tests
+    runs-on: ubuntu-latest
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Forge version
+        working-directory: contracts/
+        run: |
+          forge --version
+
+      - name: Run Forge fmt
+        working-directory: contracts/
+        run: |
+          forge fmt --check src/ test/ script/
+        id: fmt
+
+      - name: Run Forge build
+        working-directory: contracts/
+        run: |
+          forge build --sizes
+        id: build
+
+      - name: Run Forge tests
+        working-directory: contracts/
+        run: |
+          forge test -vvv
+        id: test
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+
+  # Integration Tests Job
+  integration-tests:
+    name: Integration Tests
+    runs-on:
+      - runs-on
+      - cpu=16
+      - ram=64
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
+      - run-id=${{ github.run_id }}
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Run cost estimator on recent block range
+        run: |
+          RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+
+  # E2E Tests Job
+  e2e-tests:
+    name: E2E Tests
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
-      - run-id=${{ github.run_id }} 
+      - run-id=${{ github.run_id }}
+    timeout-minutes: 30
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
+      
+    - name: Setup Rust
+      run: |
+        rustup toolchain install stable --profile minimal
+        rustup component add rustfmt clippy
+        
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: nightly-d592b3e0f142d694c3be539702704a4a73238773
+        
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          bindings
+        
+    - name: Run E2E tests
+      run: |
+        if [ -n "${{ github.event.inputs.e2e_test_filter }}" ]; then
+          cargo test --release --test e2e ${{ github.event.inputs.e2e_test_filter }} -- --test-threads=1 --nocapture
+        else
+          cargo test --release --test e2e -- --test-threads=1 --nocapture
+        fi
+      env:
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+        
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-test-logs
+        path: |
+          **/*.log
+          target/debug/deps/*.log
+        retention-days: 7
+
+  # Cargo Tests Job
+  cargo-tests:
+    name: Cargo Tests
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+    needs: check-run-conditions
+    if: needs.check-run-conditions.outputs.should_run == 'true'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        ref: ${{ needs.check-run-conditions.outputs.pr_sha || '' }}
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
       with:
