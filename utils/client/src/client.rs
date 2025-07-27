@@ -5,14 +5,13 @@ use anyhow::Result;
 use kona_derive::{
     errors::{PipelineError, PipelineErrorKind},
     traits::{Pipeline, SignalReceiver},
-    types::Signal,
 };
 use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, TipCursor};
 use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{errors::OracleProviderError, HintType};
 use kona_protocol::{L2BlockInfo, OpAttributesWithParent};
-use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
+use op_alloy_consensus::{OpBlock, OpTxEnvelope};
 use std::fmt::Debug;
 use tracing::{error, info, warn};
 
@@ -54,7 +53,7 @@ where
 /// - `Err(e)` - An error if the block could not be produced.
 pub async fn advance_to_target<E, DP, P>(
     driver: &mut Driver<E, DP, P>,
-    cfg: &RollupConfig,
+    _cfg: &RollupConfig,
     mut target: Option<u64>,
 ) -> DriverResult<(L2BlockInfo, B256), E::Error>
 where
