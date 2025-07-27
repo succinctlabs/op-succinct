@@ -1459,9 +1459,9 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "aws-lc-rs"
-version = "1.13.2"
+version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08b5d4e069cbc868041a64bd68dc8cb39a0d79585cd6c5a24caa8c2d622121be"
+checksum = "5c953fe1ba023e6b7730c0d4b031d06f267f23a46167dcbd40316644b10a17ba"
 dependencies = [
  "aws-lc-sys",
  "zeroize",
@@ -2822,7 +2822,7 @@ dependencies = [
  "parking_lot",
  "rand 0.8.5",
  "smallvec",
- "socket2",
+ "socket2 0.5.10",
  "tokio",
  "tracing",
  "uint 0.10.0",
@@ -3773,7 +3773,7 @@ dependencies = [
  "ipnet",
  "once_cell",
  "rand 0.9.2",
- "socket2",
+ "socket2 0.5.10",
  "thiserror 2.0.12",
  "tinyvec",
  "tokio",
@@ -3900,7 +3900,7 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 [[package]]
 name = "hydro-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/PinelliaC/hydro?branch=main#450a6c7c1914b528d33a5ad8d7d035521e182a14"
+source = "git+https://github.com/PinelliaC/hydro?branch=main#30346cb12920abdd8fddfd0d6211c01f9761e75b"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -3920,7 +3920,7 @@ dependencies = [
 [[package]]
 name = "hydro-host"
 version = "0.1.0"
-source = "git+https://github.com/PinelliaC/hydro?branch=main#450a6c7c1914b528d33a5ad8d7d035521e182a14"
+source = "git+https://github.com/PinelliaC/hydro?branch=main#30346cb12920abdd8fddfd0d6211c01f9761e75b"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -3944,13 +3944,12 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "tracing",
 ]
 
 [[package]]
 name = "hydro-oracle"
 version = "0.1.0"
-source = "git+https://github.com/PinelliaC/hydro?branch=main#450a6c7c1914b528d33a5ad8d7d035521e182a14"
+source = "git+https://github.com/PinelliaC/hydro?branch=main#30346cb12920abdd8fddfd0d6211c01f9761e75b"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -3964,7 +3963,7 @@ dependencies = [
 [[package]]
 name = "hydro-proofs"
 version = "0.1.0"
-source = "git+https://github.com/PinelliaC/hydro?branch=main#450a6c7c1914b528d33a5ad8d7d035521e182a14"
+source = "git+https://github.com/PinelliaC/hydro?branch=main#30346cb12920abdd8fddfd0d6211c01f9761e75b"
 dependencies = [
  "alloy-primitives",
  "num",
@@ -3989,7 +3988,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2",
+ "socket2 0.5.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -4091,9 +4090,9 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f66d5bd4c6f02bf0542fad85d626775bab9258cf795a4256dcaf3161114d1df"
+checksum = "8d9b05277c7e8da2c93a568989bb6207bef0112e8d17df7a6eda4a3cf143bc5e"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4107,7 +4106,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2",
+ "socket2 0.6.0",
  "system-configuration 0.6.1",
  "tokio",
  "tower-service",
@@ -4402,9 +4401,9 @@ dependencies = [
 
 [[package]]
 name = "io-uring"
-version = "0.7.8"
+version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b86e202f00093dcba4275d4636b93ef9dd75d025ae560d2521b45ea28ab49013"
+checksum = "d93587f37623a1a17d94ef2bc9ada592f5465fe7732084ab7beefabe5c77c0c4"
 dependencies = [
  "bitflags 2.9.1",
  "cfg-if",
@@ -4417,7 +4416,7 @@ version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b58db92f96b720de98181bbbe63c831e87005ab460c1bf306eb2622b4707997f"
 dependencies = [
- "socket2",
+ "socket2 0.5.10",
  "widestring",
  "windows-sys 0.48.0",
  "winreg",
@@ -4722,7 +4721,7 @@ dependencies = [
 [[package]]
 name = "kona-cli"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "clap",
  "libc",
@@ -4734,7 +4733,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "1.0.1"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4773,7 +4772,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4793,7 +4792,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -4814,7 +4813,7 @@ dependencies = [
 [[package]]
 name = "kona-engine"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4850,7 +4849,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4874,7 +4873,7 @@ dependencies = [
 [[package]]
 name = "kona-genesis"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4893,7 +4892,7 @@ dependencies = [
 [[package]]
 name = "kona-hardforks"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-eips 0.15.11",
  "alloy-primitives",
@@ -4904,7 +4903,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "1.0.1"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4952,7 +4951,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -4973,12 +4972,12 @@ dependencies = [
 [[package]]
 name = "kona-macros"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 
 [[package]]
 name = "kona-mpt"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -4990,7 +4989,7 @@ dependencies = [
 [[package]]
 name = "kona-p2p"
 version = "0.1.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -5023,7 +5022,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -5037,7 +5036,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -5073,7 +5072,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -5105,7 +5104,7 @@ dependencies = [
 [[package]]
 name = "kona-protocol"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -5134,7 +5133,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-consensus",
  "alloy-eips 0.15.11",
@@ -5163,7 +5162,7 @@ dependencies = [
 [[package]]
 name = "kona-registry"
 version = "0.3.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -5177,7 +5176,7 @@ dependencies = [
 [[package]]
 name = "kona-rpc"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-eips 0.15.11",
  "alloy-primitives",
@@ -5202,7 +5201,7 @@ dependencies = [
 [[package]]
 name = "kona-serde"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -5212,7 +5211,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "async-trait",
  "buddy_system_allocator",
@@ -5224,7 +5223,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.2.0"
-source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#7c6237c504c53cd651539c1264630915c7335dca"
+source = "git+https://github.com/mantle-xyz/kona?branch=kona-client%2Fv1.0.1_mantle#857afbf70f117b104bcecd1f73fbabb714ccea32"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
@@ -5468,7 +5467,7 @@ dependencies = [
  "libp2p-swarm",
  "rand 0.8.5",
  "smallvec",
- "socket2",
+ "socket2 0.5.10",
  "tokio",
  "tracing",
 ]
@@ -5546,7 +5545,7 @@ dependencies = [
  "rand 0.8.5",
  "ring",
  "rustls",
- "socket2",
+ "socket2 0.5.10",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -5598,7 +5597,7 @@ dependencies = [
  "if-watch",
  "libc",
  "libp2p-core",
- "socket2",
+ "socket2 0.5.10",
  "tokio",
  "tracing",
 ]
@@ -5649,7 +5648,7 @@ dependencies = [
  "thiserror 2.0.12",
  "tracing",
  "yamux 0.12.1",
- "yamux 0.13.5",
+ "yamux 0.13.6",
 ]
 
 [[package]]
@@ -7753,9 +7752,9 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.35"
+version = "0.2.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "061c1221631e079b26479d25bbf2275bfe5917ae8419cd7e34f13bfc2aa7539a"
+checksum = "ff24dfcda44452b9816fff4cd4227e1bb73ff5a2f1bc1105aa92fb8565ce44d2"
 dependencies = [
  "proc-macro2",
  "syn 2.0.104",
@@ -8018,7 +8017,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash 2.1.1",
  "rustls",
- "socket2",
+ "socket2 0.5.10",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -8055,7 +8054,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2",
+ "socket2 0.5.10",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -8267,9 +8266,9 @@ checksum = "d3edd4d5d42c92f0a659926464d4cce56b562761267ecf0f469d85b7de384175"
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e8af0dde094006011e6a740d4879319439489813bd0bcdc7d821beaeeff48ec"
+checksum = "7251471db004e509f4e75a62cca9435365b5ec7bcdff530d612ac7c87c44a792"
 dependencies = [
  "bitflags 2.9.1",
 ]
@@ -8888,9 +8887,9 @@ dependencies = [
 
 [[package]]
 name = "rustc-demangle"
-version = "0.1.25"
+version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989e6739f80c4ad5b13e0fd7fe89531180375b18520cc8c82080e4dc4035b84f"
+checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
 
 [[package]]
 name = "rustc-hash"
@@ -8965,9 +8964,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.29"
+version = "0.23.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2491382039b29b9b11ff08b76ff6c97cf287671dbb74f0be44bda389fffe9bd1"
+checksum = "069a8df149a16b1a12dcc31497c3396a173844be3cac4bd40c9e7671fef96671"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -9616,6 +9615,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "socket2"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "233504af464074f9d066d7b5416c5f9b894a5862a6506e306f7b816cdd6f1807"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "soketto"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9633,9 +9642,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-build"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88d96525859507f33edf4389c16470d21f6515d33ae7a2c73d5fb0aea36f5aba"
+checksum = "a8b0ae601dd5e1ed72e8f7bfdb3db25409daa3975f1f34b7e4c6dc11cb7756bd"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -9647,9 +9656,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-core-executor"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b56e34c5471e3aa03232fb8317b34ce65591d202102db911a0b2a205dbf402cd"
+checksum = "2a585a154b0b43d75481c5e58057c3dd72d88c8a36b30205a2365718e493cd2d"
 dependencies = [
  "bincode",
  "bytemuck",
@@ -9686,9 +9695,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-core-machine"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24633e4abce5b23283496d01c68268860629de8cd3687c813e064e8056f69f16"
+checksum = "20e23baf403939adcbe73070bf03f41da26e0d4a18382408a945606cb168fb0d"
 dependencies = [
  "bincode",
  "cbindgen",
@@ -9743,9 +9752,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-cuda"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3d56209b50707201184746b749d3e791f3d33411539f508a563405de1fb8694"
+checksum = "a2efa1d0adcc7744ca6427898ba8ce4e8a5d94540e674b5c2e136821f086376f"
 dependencies = [
  "bincode",
  "ctrlc",
@@ -9760,9 +9769,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-curves"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f41a82cad6d25d7d91f994262edc0c346d2be000b7629f50bbb5eeb32151c71"
+checksum = "9208e3831da02d1327bd33d852d06770a1c6dbd291591e5a6f0f6a3f4fc44ff9"
 dependencies = [
  "cfg-if",
  "dashu",
@@ -9782,9 +9791,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-derive"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8cd0ac181e590633d8fbd36c98055bdfae72b33aca300feca7c2c0aa4c90efb"
+checksum = "5efc1439094c4dc86e35e2ded63ef2b56b2717671adc0582373e9a7ac76c8b34"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -9792,9 +9801,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-lib"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fbb6e3d8741c0fcdaa37e74d2dd9a2bdcbf958d192e438eec59e8071e08124c"
+checksum = "0b40a70ba0e385efc08ad88e289589d818f1e0c72525eee424e230e4e72565e5"
 dependencies = [
  "bincode",
  "elliptic-curve",
@@ -9804,9 +9813,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-primitives"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4d2be9803acce74985f8861b6d5eb375ad1c5f176a68c2c735755937248f25e"
+checksum = "5504d5a422be065fa8f1fc49ff5208017d6e3fe7e392a7761e73178581f5f35d"
 dependencies = [
  "bincode",
  "blake3",
@@ -9824,9 +9833,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-prover"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5fa3bb2b42cd36c1045472900dcc348a61475774734a5d8cdd4acaf929396ff"
+checksum = "afaa1d5a3ccb8b366ec109c396681fdc07d8c637aa6003889f171aaac86d18ed"
 dependencies = [
  "anyhow",
  "bincode",
@@ -9869,9 +9878,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-circuit"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e725f838e5a8d0248eeb8d3666cf8a53e0a4195686c3a3d1c86d9c65a7c1b3d"
+checksum = "df69d5d8fac13f45cf4f2d79e27204091fde377ec71253dd7b55101de675d5fb"
 dependencies = [
  "hashbrown 0.14.5",
  "itertools 0.13.0",
@@ -9904,9 +9913,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-compiler"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b320b12f11429f09b33179256aae999ac57059a3df75c815a1e8fc97edc66822"
+checksum = "315f723325c6029c0716ff3b272aaffe4c0a7f9612d2b3fe5b3d4838895f9e3d"
 dependencies = [
  "backtrace",
  "itertools 0.13.0",
@@ -9926,9 +9935,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-core"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "472a2c6e36cc47814b82bbd73bc911a410c7a85ea70c6c5f78cc0a19a98be71d"
+checksum = "70c10b0080100f579c90914c1587414a4adc3a102e2d607566f3ac8a60f67536"
 dependencies = [
  "backtrace",
  "cbindgen",
@@ -9969,9 +9978,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-derive"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7b43bc77177b5b1285fb1e29803369d44096ca8099baf622d42ff62d8a9a39c"
+checksum = "6e2016c366414f7ae15f1f45c87082ca39a6b12edf5573cfef324d534e558972"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -9979,9 +9988,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-recursion-gnark-ffi"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb0f48c722ad9319b3bc02ac2e61f5a82f8b8584fcdab5fe60db0b2292972857"
+checksum = "b10e8e6519c601ee244ff29d2746787d524034b4dbe42a1d66f901386396febd"
 dependencies = [
  "anyhow",
  "bincode",
@@ -10005,11 +10014,12 @@ dependencies = [
 
 [[package]]
 name = "sp1-sdk"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb6f73c5efb1f55c0b6dca8a9427124eff4e36bd57108a96a7eb5a6034cf61a1"
+checksum = "107fab01d5f78c4d3537ddd768de9b22d9ba442aea50d404c2a988265bdb00ba"
 dependencies = [
  "alloy-primitives",
+ "alloy-sol-types",
  "anyhow",
  "async-trait",
  "backoff",
@@ -10050,9 +10060,9 @@ dependencies = [
 
 [[package]]
 name = "sp1-stark"
-version = "5.0.8"
+version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e60392613a5b36b34a2e46a055a67d952014c359feda2731354b708f5ea8f80"
+checksum = "dbe80bdd3bb89d1543c1ad53a47fd902fe20293d4e1ccc20ca2ecff600f32477"
 dependencies = [
  "arrayref",
  "hashbrown 0.14.5",
@@ -10749,9 +10759,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.46.1"
+version = "1.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cc3a2344dafbe23a245241fe8b09735b521110d30fcefbbd5feb1797ca35d17"
+checksum = "43864ed400b6043a4757a25c7a64a8efde741aed79a056a2fb348a406701bb35"
 dependencies = [
  "backtrace",
  "bytes",
@@ -10762,9 +10772,9 @@ dependencies = [
  "pin-project-lite",
  "signal-hook-registry",
  "slab",
- "socket2",
+ "socket2 0.6.0",
  "tokio-macros",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -10953,7 +10963,7 @@ dependencies = [
  "prost 0.13.5",
  "rustls-native-certs",
  "rustls-pemfile 2.2.0",
- "socket2",
+ "socket2 0.5.10",
  "tokio",
  "tokio-rustls",
  "tokio-stream",
@@ -12209,9 +12219,9 @@ dependencies = [
 
 [[package]]
 name = "yamux"
-version = "0.13.5"
+version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3da1acad1c2dc53f0dde419115a38bd8221d8c3e47ae9aeceaf453266d29307e"
+checksum = "2b2dd50a6d6115feb3e5d7d0efd45e8ca364b6c83722c1e9c602f5764e0e9597"
 dependencies = [
  "futures",
  "log",

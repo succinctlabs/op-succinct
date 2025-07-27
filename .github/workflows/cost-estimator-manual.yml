@@ -18,7 +18,7 @@ jobs:
       - name: Run cost estimator
         run: |
           source $HOME/.cargo/env
-          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --batch-size 1000 --default-range 10000 --safe-db-fallback
+          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --batch-size 10 --default-range 10 --safe-db-fallback
         env:
           L1_RPC: http://sepolia-archive2.sepolia:8545
           L1_BEACON_RPC: http://sepolia-archive2.sepolia:5052

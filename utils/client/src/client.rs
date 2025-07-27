@@ -75,7 +75,7 @@ where
 
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: payload-derivation");
-        let OpAttributesWithParent { mut attributes, .. } = match driver
+        let OpAttributesWithParent { attributes, .. } = match driver
             .pipeline
             .produce_payload(tip_cursor.l2_safe_head)
             .await
@@ -90,13 +90,13 @@ where
                     target = Some(tip_cursor.l2_safe_head.block_info.number);
                 };
 
-                // If we are in interop mode, this error must be handled by the caller.
-                // Otherwise, we continue the loop to halt derivation on the next iteration.
-                if cfg.is_interop_active(driver.cursor.read().l2_safe_head().block_info.number) {
-                    return Err(PipelineError::EndOfSource.crit().into());
-                } else {
-                    continue;
-                }
+                // // If we are in interop mode, this error must be handled by the caller.
+                // // Otherwise, we continue the loop to halt derivation on the next iteration.
+                // if cfg.is_interop_active(driver.cursor.read().l2_safe_head().block_info.number) {
+                //     return Err(PipelineError::EndOfSource.crit().into());
+                // } else {
+                continue;
+                // }
             }
             Err(e) => {
                 error!(target: "client", "Failed to produce payload: {:?}", e);
@@ -115,39 +115,40 @@ where
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
 
-                if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
-                    // Retry with a deposit-only block.
-                    warn!(target: "client", "Flushing current channel and retrying deposit only block");
+                // if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
+                //     // Retry with a deposit-only block.
+                //     warn!(target: "client", "Flushing current channel and retrying deposit only
+                // block");
 
-                    // Flush the current batch and channel - if a block was replaced with a
-                    // deposit-only block due to execution failure, the
-                    // batch and channel it is contained in is forwards
-                    // invalidated.
-                    driver.pipeline.signal(Signal::FlushChannel).await?;
+                //     // Flush the current batch and channel - if a block was replaced with a
+                //     // deposit-only block due to execution failure, the
+                //     // batch and channel it is contained in is forwards
+                //     // invalidated.
+                //     driver.pipeline.signal(Signal::FlushChannel).await?;
 
-                    // Strip out all transactions that are not deposits.
-                    attributes.transactions = attributes.transactions.map(|txs| {
-                        txs.into_iter()
-                            .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
-                            .collect::<Vec<_>>()
-                    });
+                //     // Strip out all transactions that are not deposits.
+                //     attributes.transactions = attributes.transactions.map(|txs| {
+                //         txs.into_iter()
+                //             .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
+                //             .collect::<Vec<_>>()
+                //     });
 
-                    // Retry the execution.
-                    driver.executor.update_safe_head(tip_cursor.l2_safe_head_header.clone());
-                    match driver.executor.execute_payload(attributes.clone()).await {
-                        Ok(header) => header,
-                        Err(e) => {
-                            error!(
-                                target: "client",
-                                "Critical - Failed to execute deposit-only block: {e}",
-                            );
-                            return Err(DriverError::Executor(e));
-                        }
-                    }
-                } else {
-                    // Pre-Holocene, discard the block if execution fails.
-                    continue;
-                }
+                //     // Retry the execution.
+                //     driver.executor.update_safe_head(tip_cursor.l2_safe_head_header.clone());
+                //     match driver.executor.execute_payload(attributes.clone()).await {
+                //         Ok(header) => header,
+                //         Err(e) => {
+                //             error!(
+                //                 target: "client",
+                //                 "Critical - Failed to execute deposit-only block: {e}",
+                //             );
+                //             return Err(DriverError::Executor(e));
+                //         }
+                //     }
+                // } else {
+                // Pre-Holocene, discard the block if execution fails.
+                continue;
+                // }
             }
         };
         #[cfg(target_os = "zkvm")]

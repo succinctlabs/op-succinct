@@ -1,4 +1,5 @@
 name: Test setup
+description: "Setup test environment with Rust and dependencies"
 inputs:
   pull_token:
     description: "Token to use for private repo access"
@@ -6,6 +7,14 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install GCC, OpenSSL, Perl and other dependencies
+      shell: bash
+      run: |
+        sudo yum update -y
+        sudo yum install -y gcc gcc-c++ make pkg-config openssl-devel clang llvm llvm-devel clang-devel perl perl-core
+        gcc --version
+        perl --version
+        
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:

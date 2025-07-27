@@ -24,7 +24,7 @@ cfg_if::cfg_if! {
         pub fn initialize_host(
             fetcher: Arc<OPSuccinctDataFetcher>,
         ) -> Arc<EigendaOPSuccinctHost> {
-            tracing::info!("Initializing host with EigenDA DA");
+            tracing::info!("Initializing host with EigenDA");
             Arc::new(EigendaOPSuccinctHost::new(fetcher))
         }
     } else {
