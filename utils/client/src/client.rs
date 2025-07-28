@@ -155,9 +155,8 @@ where
             body: BlockBody {
                 transactions: attributes
                     .transactions
-                    .as_ref()
-                    .unwrap_or(&Vec::new())
-                    .iter()
+                    .unwrap_or_default()
+                    .into_iter()
                     .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
                     .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
                 ommers: Vec::new(),

@@ -119,17 +119,13 @@ where
         };
 
         use revm::context::LocalContextTr;
-        // NOTE: this snippet is from the revm source code.
+        // NOTE: this snippet is refactored from the revm source code.
         // See https://github.com/bluealloy/revm/blob/9bc0c04fda0891e0e8d2e2a6dfd0af81c2af18c4/crates/handler/src/precompile_provider.rs#L111-L122.
-        let r;
+        let shared_buffer;
         let input_bytes = match &inputs.input {
             CallInput::SharedBuffer(range) => {
-                if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
-                    r = slice;
-                    &*r
-                } else {
-                    &[]
-                }
+                shared_buffer = context.local().shared_memory_buffer_slice(range.clone());
+                shared_buffer.as_deref().unwrap_or(&[])
             }
             CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
         };
