@@ -950,9 +950,10 @@ where
                     self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
                     transaction_request,
                 )
-                .await?
+                .await
+                .map_err(|e| anyhow!("Failed to relay aggregation proof onchain. end_block: {}, checkpointed_l1_block_number: {}, error: {}", completed_agg_proof.end_block, completed_agg_proof.checkpointed_l1_block_number.unwrap(), e))?
         } else {
-            // Propose the L2 output.
+            // Propose the L2 output to the L2OutputOracle directly.
             let transaction_request = self
                 .contract_config
                 .l2oo_contract
@@ -963,6 +964,7 @@ where
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
                     completed_agg_proof.proof.clone().unwrap().into(),
                     self.requester_config.prover_address,
+                    Address::ZERO,
                 )
                 .into_transaction_request();
 
@@ -972,7 +974,8 @@ where
                     self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
                     transaction_request,
                 )
-                .await?
+                .await
+                .map_err(|e| anyhow!("Failed to propose L2 output: {:?}", e))?
         };
 
         // If the transaction reverted, log the error.
