@@ -43,7 +43,13 @@ contract OPSuccinctL2OutputOracleTest is Test, Utils {
         checkpointAndRoll(l2oo, checkpointedL1BlockNum);
         vm.prank(OWNER, OWNER);
         l2oo.proposeL2Output(
-            genesisConfigName, claimedOutputRoot, claimedL2BlockNum, checkpointedL1BlockNum, proof, proverAddress
+            genesisConfigName,
+            claimedOutputRoot,
+            claimedL2BlockNum,
+            checkpointedL1BlockNum,
+            proof,
+            proverAddress,
+            address(0)
         );
     }
 }
@@ -109,7 +115,9 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Non-approved proposer should be able to propose after timeout
         vm.prank(nonApprovedProposer);
-        l2oo.proposeL2Output(genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(
+            genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress, address(0)
+        );
 
         // Verify the proposal was accepted
         assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
@@ -132,7 +140,9 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         // Non-approved proposer should NOT be able to propose before timeout
         vm.prank(nonApprovedProposer);
         vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
-        l2oo.proposeL2Output(genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(
+            genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress, address(0)
+        );
     }
 
     function testFallbackProposal_TimeoutNotElapsed_ApprovedCanStillPropose() public {
@@ -150,7 +160,9 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Approved proposer should still be able to propose before timeout
         vm.prank(approvedProposer, approvedProposer);
-        l2oo.proposeL2Output(genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(
+            genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress, address(0)
+        );
 
         // Verify the proposal was accepted
         assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
@@ -172,7 +184,9 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
 
         // Approved proposer should still be able to propose after timeout
         vm.prank(approvedProposer);
-        l2oo.proposeL2Output(genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(
+            genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress, address(0)
+        );
 
         // Verify the proposal was accepted
         assertEq(l2oo.latestBlockNumber(), nextBlockNumber);
@@ -197,7 +211,9 @@ contract OPSuccinctL2OutputOracleFallbackTest is Test, Utils {
         checkpointAndRoll(l2oo, currentL1Block);
 
         vm.prank(approvedProposer, approvedProposer);
-        l2oo.proposeL2Output(genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress);
+        l2oo.proposeL2Output(
+            genesisConfigName, outputRoot, nextBlockNumber, currentL1Block, proof, proverAddress, address(0)
+        );
 
         // lastProposalTimestamp should now return the proposal time
         assertEq(l2oo.lastProposalTimestamp(), proposalTime);

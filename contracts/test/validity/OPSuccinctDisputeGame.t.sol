@@ -27,6 +27,7 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 
 // Utils
 import {MockOptimismPortal2} from "../../utils/MockOptimismPortal2.sol";
+import {_getAddressFromCode} from "../../src/lib/Types.sol";
 
 contract OPSuccinctDisputeGameTest is Test, Utils {
     // Event definitions matching those in OPSuccinctDisputeGame.
@@ -71,6 +72,9 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
+        // Set the dispute game factory address.
+        l2OutputOracle.setDisputeGameFactory(address(factory));
+
         // Create a game
         vm.startBroadcast(proposer);
 
@@ -78,6 +82,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         warpRollAndCheckpoint(l2OutputOracle, 4001, l1BlockNumber);
 
         bytes memory proof = bytes("");
+
         game = OPSuccinctDisputeGame(
             address(
                 factory.create(
@@ -140,6 +145,31 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
     // Test: Cannot create game without permission
     // =========================================
     function testCannotCreateGameWithoutPermission() public {
+        address maliciousProposer = address(0x1234);
+
+        vm.startPrank(maliciousProposer);
+        vm.deal(maliciousProposer, 1 ether);
+
+        // Warp forward to the block we want to propose and checkpoint
+        uint256 newL1BlockNumber = l1BlockNumber + 500;
+        warpRollAndCheckpoint(l2OutputOracle, 2000, newL1BlockNumber);
+
+        bytes memory proof = bytes("");
+        bytes32 configName = l2OutputOracle.GENESIS_CONFIG_NAME();
+        vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
+        factory.create(
+            gameType,
+            Claim.wrap(keccak256("new-claim")),
+            abi.encodePacked(l2BlockNumber + 1000, newL1BlockNumber, maliciousProposer, configName, proof)
+        );
+
+        vm.stopPrank();
+    }
+
+    // =========================================
+    // Test: Cannot propose output directly when dispute game is active
+    // =========================================
+    function testCannotProposeOutputDirectlyWhenDisputeGameIsActive() public {
         address maliciousProposer = address(0x1234);
 
         vm.startPrank(maliciousProposer);
