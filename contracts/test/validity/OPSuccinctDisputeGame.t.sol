@@ -170,10 +170,8 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
     // Test: Cannot propose output directly when dispute game is active
     // =========================================
     function testCannotProposeOutputDirectlyWhenDisputeGameIsActive() public {
-        address maliciousProposer = address(0x1234);
-
-        vm.startPrank(maliciousProposer);
-        vm.deal(maliciousProposer, 1 ether);
+        vm.startBroadcast(proposer);
+        vm.deal(proposer, 1 ether);
 
         // Warp forward to the block we want to propose and checkpoint
         uint256 newL1BlockNumber = l1BlockNumber + 500;
@@ -181,13 +179,9 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         bytes memory proof = bytes("");
         bytes32 configName = l2OutputOracle.GENESIS_CONFIG_NAME();
-        vm.expectRevert("L2OutputOracle: only approved proposers can propose new outputs");
-        factory.create(
-            gameType,
-            Claim.wrap(keccak256("new-claim")),
-            abi.encodePacked(l2BlockNumber + 1000, newL1BlockNumber, maliciousProposer, configName, proof)
-        );
+        vm.expectRevert("L2OutputOracle: caller codehash must match that of the OpSuccinct gametype.");
+        l2OutputOracle.proposeL2Output(configName, keccak256("outputRoot"), l2BlockNumber + 1000, newL1BlockNumber, proof, proposer, address(factory));
 
-        vm.stopPrank();
+        vm.stopBroadcast();
     }
 }

@@ -348,7 +348,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // non-permissioned proposers cannot propose in optimistic mode.
         require(
             approvedProposers[tx.origin] || approvedProposers[address(0)]
-                || ((block.timestamp - lastProposalTimestamp() > fallbackTimeout) && !optimisticMode),
+                || (block.timestamp - lastProposalTimestamp() > fallbackTimeout),
             "L2OutputOracle: only approved proposers can propose new outputs"
         );
 
@@ -429,11 +429,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         payable
         whenOptimistic
     {
-        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing),
-        // or the fallback timeout has been exceeded allowing anyone to propose.
+        // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
         require(
-            approvedProposers[msg.sender] || approvedProposers[address(0)]
-                || (block.timestamp - lastProposalTimestamp() > fallbackTimeout),
+            approvedProposers[msg.sender] || approvedProposers[address(0)],
             "L2OutputOracle: only approved proposers can propose new outputs"
         );
 
