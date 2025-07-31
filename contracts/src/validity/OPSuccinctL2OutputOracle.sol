@@ -10,7 +10,7 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {GameType, GameTypes} from "@optimism/src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
-import {_getAddressFromCode} from "../lib/Types.sol";
+import {_parseProxyCode} from "../lib/Types.sol";
 
 /// @custom:proxied
 /// @title OPSuccinctL2OutputOracle
@@ -202,6 +202,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
     uint8 public constant initializerVersion = 3;
 
+    /// @notice The expected proxy prefix.
+    bytes public constant EXPECTED_PROXY_PREFIX = hex"36602c57343d527f9e4ac34f21c619cefc926c8bd93b54bf5a39c7ab2127a895af1cc0691d7e3dff593da1005b363d3d373d3d3d3d6100ca806062363936013d73";
+    
+
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
     ////////////////////////////////////////////////////////////
@@ -371,13 +375,19 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
             IDisputeGame gameImplementation = IDisputeGameFactory(disputeGameFactory).gameImpls(GameTypes.OP_SUCCINCT);
 
-            address implementation = _getAddressFromCode(msg.sender.code);
+            address implementation;
+            bytes memory proxyPrefix;
+            (proxyPrefix, implementation) = _parseProxyCode(msg.sender.code);
 
             // Also check the bytecode hash of the msg.sender to ensure that the deployer is a clone of the dispute game factory.
+            require(keccak256(proxyPrefix) == keccak256(EXPECTED_PROXY_PREFIX), "L2OutputOracle: caller must be a valid clone of the OpSuccinct game implementation.");
+
             require(
-                implementation.codehash == address(gameImplementation).codehash,
-                "L2OutputOracle: caller codehash must match that of the OpSuccinct gametype."
+                implementation == address(gameImplementation),
+                "L2OutputOracle: caller must be a clone of the OpSuccinct game implementation."
             );
+
+            
         }
 
         require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
@@ -471,6 +481,18 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
                 l2BlockNumber: uint128(_l2BlockNumber)
             })
         );
+    }
+
+    function dgfProposeL2Output(
+        bytes32 _configName,
+        bytes32 _outputRoot,
+        uint256 _l2BlockNumber,
+        uint256 _l1BlockNumber,
+        bytes memory _proof,
+        address _proverAddress,
+        address _gameDeployer
+    ) external whenNotOptimistic {
+        
     }
 
     /// @notice Checkpoints a block hash at a given block number.
