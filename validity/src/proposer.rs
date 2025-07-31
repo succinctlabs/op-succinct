@@ -737,7 +737,6 @@ where
                 .contract_config
                 .l2oo_contract
                 .proposeL2Output(
-                    self.requester_config.op_succinct_config_name_hash,
                     output.output_root,
                     U256::from(completed_agg_proof.end_block),
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
