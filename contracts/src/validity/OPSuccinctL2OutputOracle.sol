@@ -10,7 +10,6 @@ import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {GameType, GameTypes, Claim} from "@optimism/src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
-import {_parseProxyCode} from "../lib/Types.sol";
 
 /// @custom:proxied
 /// @title OPSuccinctL2OutputOracle
@@ -199,8 +198,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     error L1BlockHashNotCheckpointed();
 
     /// @notice Semantic version.
-    /// @custom:semver v3.0.0-rc.1
-    string public constant version = "v3.0.0-rc.1";
+    /// @custom:semver v3.0.0
+    string public constant version = "v3.0.0";
 
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
     uint8 public constant initializerVersion = 3;
@@ -367,10 +366,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // If the dispute game factory is set, make sure that we are calling this function from within
         // DisputeGameFactory.create.
         if (disputeGameFactory != address(0)) {
-            require(_insideDGFCreate, "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create while disputeGameFactory is set");
+            require(_enteredDGFCreate, "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create while disputeGameFactory is set");
         } else {
             require(
-                !_insideDGFCreate,
+                !_enteredDGFCreate,
                 "L2OutputOracle: cannot propose L2 output from inside DisputeGameFactory.create without setting disputeGameFactory"
             );
         }
