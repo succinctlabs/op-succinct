@@ -7,7 +7,7 @@ import {Types} from "@optimism/src/libraries/Types.sol";
 import {AggregationOutputs} from "../lib/Types.sol";
 import {Constants} from "@optimism/src/libraries/Constants.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
-import {GameType, GameTypes} from "@optimism/src/dispute/lib/Types.sol";
+import {GameType, GameTypes, Claim} from "@optimism/src/dispute/lib/Types.sol";
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 import {_parseProxyCode} from "../lib/Types.sol";
@@ -124,6 +124,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// this is set to the zero address.
     address public disputeGameFactory;
 
+    /// @notice Whether or not we are inside a call to DisputeGameFactory.create.
+    bool internal _enteredDGFCreate;
+
     ////////////////////////////////////////////////////////////
     //                         Events                         //
     ////////////////////////////////////////////////////////////
@@ -202,10 +205,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @notice The version of the initializer on the contract. Used for managing upgrades.
     uint8 public constant initializerVersion = 3;
 
-    /// @notice The expected proxy prefix.
-    bytes public constant EXPECTED_PROXY_PREFIX = hex"36602c57343d527f9e4ac34f21c619cefc926c8bd93b54bf5a39c7ab2127a895af1cc0691d7e3dff593da1005b363d3d373d3d3d3d6100ca806062363936013d73";
-    
-
     ////////////////////////////////////////////////////////////
     //                        Modifiers                       //
     ////////////////////////////////////////////////////////////
@@ -282,6 +281,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         owner = _initParams.owner;
 
+        _enteredDGFCreate = false;
+
         /// This is set to the zero address by default.
         disputeGameFactory = address(0);
     }
@@ -343,8 +344,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         uint256 _l2BlockNumber,
         uint256 _l1BlockNumber,
         bytes memory _proof,
-        address _proverAddress,
-        address _gameDeployer
+        address _proverAddress
     ) external whenNotOptimistic {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing),
         // or the fallback timeout has been exceeded allowing anyone to propose.
@@ -366,28 +366,15 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
             "L2OutputOracle: cannot propose L2 output in the future"
         );
 
-        // If the dispute game factory is set, make sure that the _deployer is the same as the
-        // dispute game factory.
+        // If the dispute game factory is set, make sure that we are calling this function from within
+        // DisputeGameFactory.create.
         if (disputeGameFactory != address(0)) {
+            require(_insideDGFCreate, "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create");
+        } else {
             require(
-                _gameDeployer == disputeGameFactory, "L2OutputOracle: game deployer must be the dispute game factory"
+                !_insideDGFCreate,
+                "L2OutputOracle: cannot propose L2 output from inside DisputeGameFactory.create without setting DisputeGameFactory"
             );
-
-            IDisputeGame gameImplementation = IDisputeGameFactory(disputeGameFactory).gameImpls(GameTypes.OP_SUCCINCT);
-
-            address implementation;
-            bytes memory proxyPrefix;
-            (proxyPrefix, implementation) = _parseProxyCode(msg.sender.code);
-
-            // Also check the bytecode hash of the msg.sender to ensure that the deployer is a clone of the dispute game factory.
-            require(keccak256(proxyPrefix) == keccak256(EXPECTED_PROXY_PREFIX), "L2OutputOracle: caller must be a valid clone of the OpSuccinct game implementation.");
-
-            require(
-                implementation == address(gameImplementation),
-                "L2OutputOracle: caller must be a clone of the OpSuccinct game implementation."
-            );
-
-            
         }
 
         require(_outputRoot != bytes32(0), "L2OutputOracle: L2 output proposal cannot be the zero hash");
@@ -489,10 +476,17 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         uint256 _l2BlockNumber,
         uint256 _l1BlockNumber,
         bytes memory _proof,
-        address _proverAddress,
-        address _gameDeployer
-    ) external whenNotOptimistic {
-        
+        address _proverAddress
+    ) external payable whenNotOptimistic returns (IDisputeGame _game) {
+        require(disputeGameFactory != address(0), "L2OutputOracle: dispute game factory is not set");
+
+        _enteredDGFCreate = true;
+        _game = IDisputeGameFactory(disputeGameFactory).create{value: msg.value}(
+            GameTypes.OP_SUCCINCT,
+            Claim.wrap(_outputRoot),
+            abi.encodePacked(_l2BlockNumber, _l1BlockNumber, _proverAddress, _configName, _proof)
+        );
+        _enteredDGFCreate = false;
     }
 
     /// @notice Checkpoints a block hash at a given block number.

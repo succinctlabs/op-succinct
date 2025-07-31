@@ -26,10 +26,19 @@ sol! {
         function checkpointBlockHash(uint256 _blockNumber) external;
 
         // Proposing outputs when the output oracle is set to ZK mode.
-        function proposeL2Output(bytes32 _configName, bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof, address _proverAddress, address _disputeGameFactory)
+        function proposeL2Output(bytes32 _configName, bytes32 _outputRoot, uint256 _l2BlockNumber, uint256 _l1BlockNumber, bytes memory _proof, address _proverAddress)
         external
         payable
         whenNotOptimistic;
+
+        function dgfProposeL2Output(
+            bytes32 _configName,
+            bytes32 _outputRoot,
+            uint256 _l2BlockNumber,
+            uint256 _l1BlockNumber,
+            bytes memory _proof,
+            address _proverAddress
+        ) external payable whenNotOptimistic returns (address _game);
     }
 }
 

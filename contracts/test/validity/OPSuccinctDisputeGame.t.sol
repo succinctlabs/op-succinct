@@ -45,7 +45,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
     // Fixed parameters.
     GameType gameType = GameTypes.OP_SUCCINCT;
-    Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
+    bytes32 rootClaim = keccak256("rootClaim");
 
     // Game creation parameters.
     uint256 l2BlockNumber = 2000;
@@ -85,18 +85,23 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         game = OPSuccinctDisputeGame(
             address(
-                factory.create(
-                    gameType,
-                    rootClaim,
-                    abi.encodePacked(
-                        l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.GENESIS_CONFIG_NAME(), proof
-                    )
+                l2OutputOracle.dgfProposeL2Output(
+                    l2OutputOracle.GENESIS_CONFIG_NAME(), rootClaim, l2BlockNumber, l1BlockNumber, proof, proposer
                 )
             )
         );
 
-        console.logBytes(address(game).code);
-        console.logAddress(address(gameImpl));
+        // game = OPSuccinctDisputeGame(
+        //     address(
+        //         factory.create(
+        //             gameType,
+        //             rootClaim,
+        //             abi.encodePacked(
+        //                 l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.GENESIS_CONFIG_NAME(), proof
+        //             )
+        //         )
+        //     )
+        // );
 
         vm.stopBroadcast();
     }
@@ -117,7 +122,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         // Check the game fields.
         assertEq(game.gameType().raw(), gameType.raw());
         assertEq(game.gameCreator(), proposer);
-        assertEq(game.rootClaim().raw(), rootClaim.raw());
+        assertEq(game.rootClaim().raw(), rootClaim);
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         assertEq(game.l1BlockNumber(), l1BlockNumber);
         assertEq(game.proverAddress(), proposer);
@@ -182,8 +187,10 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         bytes memory proof = bytes("");
         bytes32 configName = l2OutputOracle.GENESIS_CONFIG_NAME();
-        vm.expectRevert("Code too short for proxy parsing");
-        l2OutputOracle.proposeL2Output(configName, keccak256("outputRoot"), l2BlockNumber + 1000, newL1BlockNumber, proof, proposer, address(factory));
+        vm.expectRevert("L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create");
+        l2OutputOracle.proposeL2Output(
+            configName, keccak256("outputRoot"), l2BlockNumber + 1000, newL1BlockNumber, proof, proposer
+        );
 
         vm.stopBroadcast();
     }
