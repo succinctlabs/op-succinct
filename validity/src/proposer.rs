@@ -764,15 +764,27 @@ where
 
     /// Validate the requester config matches the contract.
     async fn validate_contract_config(&self) -> Result<()> {
-        let config_name = self.requester_config.op_succinct_config_name_hash;
-
-        let contract_config =
-            self.contract_config.l2oo_contract.opSuccinctConfigs(config_name).call().await?;
-
-        // Extract the OpSuccinctConfig fields with meaningful names.
-        let contract_agg_vkey_hash = contract_config.aggregation_vkey();
-        let contract_range_vkey_commitment = contract_config.range_vkey_commitment();
-        let contract_rollup_config_hash = contract_config.rollup_config_hash();
+        let contract_rollup_config_hash = self
+            .contract_config
+            .l2oo_contract
+            .rollupConfigHash()
+            .call()
+            .await?
+            .0;
+        let contract_agg_vkey_hash = self
+            .contract_config
+            .l2oo_contract
+            .aggregationVkey()
+            .call()
+            .await?
+            .0;
+        let contract_range_vkey_commitment = self
+            .contract_config
+            .l2oo_contract
+            .rangeVkeyCommitment()
+            .call()
+            .await?
+            .0;
 
         let rollup_config_hash_match =
             contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;

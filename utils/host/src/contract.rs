@@ -1,19 +1,13 @@
-use crate::OPSuccinctL2OutputOracle::opSuccinctConfigsReturn;
-use alloy_primitives::B256;
+
 use alloy_sol_types::sol;
 
 // Sourced from op-succinct/contracts/src/validity/OPSuccinctL2OutputOracle.sol
 sol! {
     #[sol(rpc)]
     contract OPSuccinctL2OutputOracle {
-        struct OpSuccinctConfig {
-            bytes32 aggregationVkey;
-            bytes32 rangeVkeyCommitment;
-            bytes32 rollupConfigHash;
-        }
-
-        mapping(bytes32 => OpSuccinctConfig) public opSuccinctConfigs;
-
+        bytes32 public aggregationVkey;
+        bytes32 public rangeVkeyCommitment;
+        bytes32 public rollupConfigHash;
         uint256 public submissionInterval;
 
         function latestBlockNumber() public view returns (uint256);
@@ -30,20 +24,6 @@ sol! {
         external
         payable
         whenNotOptimistic;
-    }
-}
-
-impl opSuccinctConfigsReturn {
-    pub fn aggregation_vkey(&self) -> B256 {
-        self._0
-    }
-
-    pub fn range_vkey_commitment(&self) -> B256 {
-        self._1
-    }
-
-    pub fn rollup_config_hash(&self) -> B256 {
-        self._2
     }
 }
 
