@@ -322,7 +322,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     /// @param _l2BlockNumber The L2 block number that resulted in _outputRoot.
     /// @param _l1BlockNumber The block number with the specified block hash.
     /// @param _proof The aggregation proof that proves the transition from the latest L2 output to the new L2 output.
-    /// @param _proverAddress The address of the prover that submitted the proof. Note: proverAddress is not required to be the tx.origin as there is no reason to front-run the prover in the full validity setting.
+    /// @param _proverAddress The address of the prover that submitted the proof.
     /// @dev Modified the function signature to exclude the `_l1BlockHash` parameter, as it's redundant
     ///      for OP Succinct given the `_l1BlockNumber` parameter.
     /// @dev Security Note: This contract uses `tx.origin` for proposer permission control due to usage of this contract

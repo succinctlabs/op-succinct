@@ -63,11 +63,11 @@ contract OPSuccinctDisputeGame is ISemver, Clone, IDisputeGame {
     }
 
     /// @notice Getter for the creator of the dispute game.
-    /// @dev The address that calls `create` on the factory will always be the L2OutputOracle. To better reflect
-    /// the true creator of the dispute game, we return the prover address.
+    /// @dev `clones-with-immutable-args` argument #1
+    /// Note: for validly created OPSuccinctDisputeGames, the creator is always the L2_OUTPUT_ORACLE.
     /// @return The creator of the dispute game.
     function gameCreator() public pure returns (address) {
-        return proverAddress();
+        return _getArgAddress(0x00);
     }
 
     /// @notice Getter for the root claim.

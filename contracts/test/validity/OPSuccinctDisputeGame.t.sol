@@ -108,7 +108,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         // Check the game fields.
         assertEq(game.gameType().raw(), gameType.raw());
-        assertEq(game.gameCreator(), proposer);
+        assertEq(game.gameCreator(), address(l2OutputOracle));
         assertEq(game.rootClaim().raw(), rootClaim);
         assertEq(game.l2BlockNumber(), l2BlockNumber);
         assertEq(game.l1BlockNumber(), l1BlockNumber);
@@ -174,7 +174,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
 
         bytes memory proof = bytes("");
         bytes32 configName = l2OutputOracle.GENESIS_CONFIG_NAME();
-        vm.expectRevert("L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create");
+        vm.expectRevert("L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create while disputeGameFactory is set");
         l2OutputOracle.proposeL2Output(
             configName, keccak256("outputRoot"), l2BlockNumber + 1000, newL1BlockNumber, proof, proposer
         );
