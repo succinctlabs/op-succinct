@@ -10,10 +10,10 @@ services:
     ports:
       - "5432:5432"
 
-  op-succinct-celestia:
+  op-succinct-eigenda:
     build:
       context: .
-      dockerfile: ./validity/Dockerfile.celestia
+      dockerfile: ./validity/Dockerfile.eigenda
     env_file:
       - ${ENV_FILE:-.env}
     environment:
