@@ -348,8 +348,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     ) external whenNotOptimistic {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing),
         // or the fallback timeout has been exceeded allowing anyone to propose.
-        // In optimistic mode, there is NO permissionless fallback timeout. That is, no matter how long it has been since the last proposal,
-        // non-permissioned proposers cannot propose in optimistic mode.
         require(
             approvedProposers[tx.origin] || approvedProposers[address(0)]
                 || (block.timestamp - lastProposalTimestamp() > fallbackTimeout),
@@ -369,11 +367,11 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // If the dispute game factory is set, make sure that we are calling this function from within
         // DisputeGameFactory.create.
         if (disputeGameFactory != address(0)) {
-            require(_insideDGFCreate, "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create");
+            require(_insideDGFCreate, "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create while disputeGameFactory is set");
         } else {
             require(
                 !_insideDGFCreate,
-                "L2OutputOracle: cannot propose L2 output from inside DisputeGameFactory.create without setting DisputeGameFactory"
+                "L2OutputOracle: cannot propose L2 output from inside DisputeGameFactory.create without setting disputeGameFactory"
             );
         }
 
@@ -427,6 +425,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         whenOptimistic
     {
         // The proposer must be explicitly approved, or the zero address must be approved (permissionless proposing).
+        // In optimistic mode, there is NO permissionless fallback timeout. That is, no matter how long it has been since the last proposal,
+        // non-permissioned proposers cannot propose in optimistic mode.
         require(
             approvedProposers[msg.sender] || approvedProposers[address(0)],
             "L2OutputOracle: only approved proposers can propose new outputs"

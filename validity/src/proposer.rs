@@ -967,8 +967,7 @@ where
                     self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
                     transaction_request,
                 )
-                .await
-                .map_err(|e| anyhow!("Failed to propose L2 output: {:?}", e))?
+                .await?
         };
 
         // If the transaction reverted, log the error.

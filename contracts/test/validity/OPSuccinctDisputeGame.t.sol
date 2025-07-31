@@ -27,7 +27,6 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 
 // Utils
 import {MockOptimismPortal2} from "../../utils/MockOptimismPortal2.sol";
-import {_getAddressFromCode} from "../../src/lib/Types.sol";
 
 contract OPSuccinctDisputeGameTest is Test, Utils {
     // Event definitions matching those in OPSuccinctDisputeGame.
@@ -90,18 +89,6 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
                 )
             )
         );
-
-        // game = OPSuccinctDisputeGame(
-        //     address(
-        //         factory.create(
-        //             gameType,
-        //             rootClaim,
-        //             abi.encodePacked(
-        //                 l2BlockNumber, l1BlockNumber, proposer, l2OutputOracle.GENESIS_CONFIG_NAME(), proof
-        //             )
-        //         )
-        //     )
-        // );
 
         vm.stopBroadcast();
     }
