@@ -366,7 +366,10 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         // If the dispute game factory is set, make sure that we are calling this function from within
         // DisputeGameFactory.create.
         if (disputeGameFactory != address(0)) {
-            require(_enteredDGFCreate, "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create while disputeGameFactory is set");
+            require(
+                _enteredDGFCreate,
+                "L2OutputOracle: cannot propose L2 output from outside DisputeGameFactory.create while disputeGameFactory is set"
+            );
         } else {
             require(
                 !_enteredDGFCreate,
