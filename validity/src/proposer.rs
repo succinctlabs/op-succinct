@@ -17,7 +17,8 @@ use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::proto::types::{ExecutionStatus, FulfillmentStatus},
-    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    Elf, HashableKey, NetworkProver, Prover, ProverClient, ProvingKey, SP1Proof,
+    SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -93,22 +94,22 @@ where
         });
 
         let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build().await);
 
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
+        let (range_pk, agg_pk) = tokio::try_join!(
+            network_prover.setup(Elf::Static(get_range_elf_embedded())),
+            network_prover.setup(Elf::Static(AGGREGATION_ELF)),
+        )?;
 
-        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
-        let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
+        let multi_block_vkey_u8 = u32_to_u8(range_pk.verifying_key().hash_u32());
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
-        let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
+        let agg_vkey_hash = B256::from_str(&agg_pk.verifying_key().bytes32()).unwrap();
 
         // Initialize fetcher
         let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
 
         let program_config = ProgramConfig {
-            range_vk: Arc::new(range_vk),
             range_pk: Arc::new(range_pk),
-            agg_vk: Arc::new(agg_vk),
             agg_pk: Arc::new(agg_pk),
             commitments: CommitmentConfig {
                 range_vkey_commitment,

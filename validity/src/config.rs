@@ -4,7 +4,7 @@ use op_succinct_host_utils::{
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
-use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode, SP1ProvingKey, SP1VerifyingKey};
+use sp1_sdk::{network::FulfillmentStrategy, NetworkProver, Prover, SP1ProofMode};
 use std::sync::Arc;
 
 pub struct ContractConfig<P>
@@ -26,10 +26,8 @@ pub struct CommitmentConfig {
 
 #[derive(Clone)]
 pub struct ProgramConfig {
-    pub range_vk: Arc<SP1VerifyingKey>,
-    pub range_pk: Arc<SP1ProvingKey>,
-    pub agg_vk: Arc<SP1VerifyingKey>,
-    pub agg_pk: Arc<SP1ProvingKey>,
+    pub range_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
+    pub agg_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
     pub commitments: CommitmentConfig,
 }
 

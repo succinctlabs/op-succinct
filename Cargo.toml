@@ -127,7 +127,9 @@ alloy-network = { version = "1.0.9" }
 
 # Alloy
 alloy-rlp = { version = "0.3.12", default-features = false }
-alloy-trie = { version = "0.8.1", default-features = false, features = ["ethereum"] }
+alloy-trie = { version = "0.8.1", default-features = false, features = [
+    "ethereum",
+] }
 alloy-eips = { version = "1.0.9", default-features = false }
 alloy-serde = { version = "1.0.9", default-features = false }
 alloy-consensus = { version = "1.0.9", default-features = false }
@@ -172,13 +174,19 @@ revm = { version = "24.0.1", default-features = false, features = [
 op-revm = { version = "5.0.1", default-features = false }
 
 # SP1
-sp1-sdk = { version = "=5.1.0" }
-sp1-lib = { version = "=5.1.0", features = ["verify"] }
-sp1-zkvm = { version = "=5.1.0", features = ["verify"] }
-sp1-build = { version = "=5.1.0" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "verify",
+] }
+sp1-zkvm = { package = "sp1-zkvm-64", git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "verify",
+] }
+sp1-build = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "64bit",
+] }
 
 # kzg
-kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
+kzg-rs = { version = "0.2.7", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
 
 [profile.release-client-lto]
@@ -188,9 +196,11 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
-substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-5.0.0" }
-sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
-p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
-k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-6.0.0" }
+substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0" }
+sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-6.0.0" }
+p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.0.0" }
+k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0" }
+kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "tqn/patch-6.0.0" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }

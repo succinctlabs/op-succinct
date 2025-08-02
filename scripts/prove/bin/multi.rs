@@ -7,7 +7,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{prelude::*, utils, ProverClient};
 use std::{fs, sync::Arc, time::Instant};
 use tracing::debug;
 
@@ -39,13 +39,13 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
 
-    let prover = ProverClient::from_env();
+    let prover = ProverClient::from_env().await;
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(get_range_elf_embedded());
+        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+        let proof = prover.prove(&pk, sp1_stdin).compressed().await?;
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", data_fetcher.get_l2_chain_id().await.unwrap());

@@ -20,8 +20,8 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    network::FulfillmentStrategy, Elf, NetworkProver, ProveRequest, Prover, ProverClient,
+    ProvingKey, SP1ProofMode, SP1ProofWithPublicValues, SP1_CIRCUIT_VERSION,
 };
 use tokio::{sync::Mutex, time};
 
@@ -56,9 +56,8 @@ pub enum TaskInfo {
 #[derive(Clone)]
 struct SP1Prover {
     network_prover: Arc<NetworkProver>,
-    range_pk: Arc<SP1ProvingKey>,
-    range_vk: Arc<SP1VerifyingKey>,
-    agg_pk: Arc<SP1ProvingKey>,
+    range_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
+    agg_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
 }
 
 #[derive(Clone)]
@@ -101,10 +100,13 @@ where
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build());
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+        let network_prover = Arc::new(
+            ProverClient::builder().network().private_key(&network_private_key).build().await,
+        );
+        let (range_pk, agg_pk) = tokio::try_join!(
+            network_prover.setup(Elf::Static(get_range_elf_embedded())),
+            network_prover.setup(Elf::Static(AGGREGATION_ELF))
+        )?;
 
         let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
@@ -122,7 +124,6 @@ where
             prover: SP1Prover {
                 network_prover,
                 range_pk: Arc::new(range_pk),
-                range_vk: Arc::new(range_vk),
                 agg_pk: Arc::new(agg_pk),
             },
             fetcher: fetcher.clone(),
@@ -173,12 +174,15 @@ where
         tracing::info!("Generating Range Proof");
         let range_proof = if self.config.mock_mode {
             tracing::info!("Using mock mode for range proof generation");
-            let (public_values, _) =
-                self.prover.network_prover.execute(get_range_elf_embedded(), &sp1_stdin).run()?;
+            let (public_values, _) = self
+                .prover
+                .network_prover
+                .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
+                .await?;
 
             // Create a mock range proof with the public values.
             SP1ProofWithPublicValues::create_mock_proof(
-                &self.prover.range_pk,
+                self.prover.range_pk.verifying_key(),
                 public_values,
                 SP1ProofMode::Compressed,
                 SP1_CIRCUIT_VERSION,
@@ -186,7 +190,7 @@ where
         } else {
             self.prover
                 .network_prover
-                .prove(&self.prover.range_pk, &sp1_stdin)
+                .prove(&self.prover.range_pk, sp1_stdin)
                 .compressed()
                 .strategy(FulfillmentStrategy::Hosted)
                 .skip_simulation(true)
@@ -215,7 +219,7 @@ where
             vec![proof],
             vec![boot_info.clone()],
             headers,
-            &self.prover.range_vk,
+            self.prover.range_pk.verifying_key(),
             boot_info.l1Head,
             self.prover_address,
         ) {
@@ -232,13 +236,13 @@ where
             let (public_values, _) = self
                 .prover
                 .network_prover
-                .execute(AGGREGATION_ELF, &sp1_stdin)
+                .execute(Elf::Static(AGGREGATION_ELF), sp1_stdin)
                 .deferred_proof_verification(false)
-                .run()?;
+                .await?;
 
             // Create a mock aggregation proof with the public values.
             SP1ProofWithPublicValues::create_mock_proof(
-                &self.prover.agg_pk,
+                self.prover.agg_pk.verifying_key(),
                 public_values,
                 SP1ProofMode::Groth16,
                 SP1_CIRCUIT_VERSION,
@@ -246,7 +250,7 @@ where
         } else {
             self.prover
                 .network_prover
-                .prove(&self.prover.agg_pk, &sp1_stdin)
+                .prove(&self.prover.agg_pk, sp1_stdin)
                 .groth16()
                 .run_async()
                 .await?

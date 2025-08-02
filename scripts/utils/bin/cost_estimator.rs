@@ -15,7 +15,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{utils, Elf, Prover, ProverClient};
 use std::{
     cmp::{max, min},
     fs::{self, OpenOptions},
@@ -24,6 +24,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use tokio::task::JoinSet;
 
 const ONE_WEEK: Duration = Duration::from_secs(60 * 60 * 24 * 7);
 
@@ -37,92 +38,90 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
     start: u64,
     end: u64,
 ) -> Result<()> {
-    let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    unimplemented!();
+    // let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
-    // Fetch all of the execution stats block ranges in parallel.
-    let block_data = futures::stream::iter(ranges.clone())
-        .map(|range| async {
-            let block_data = data_fetcher
-                .get_l2_block_data_range(range.start, range.end)
-                .await
-                .expect("Failed to fetch block data range.");
-            (range, block_data)
-        })
-        .buffered(15)
-        .collect::<Vec<_>>()
-        .await;
+    // // Fetch all of the execution stats block ranges in parallel.
+    // let block_data = futures::stream::iter(ranges.clone())
+    //     .map(|range| async {
+    //         let block_data = data_fetcher
+    //             .get_l2_block_data_range(range.start, range.end)
+    //             .await
+    //             .expect("Failed to fetch block data range.");
+    //         (range, block_data)
+    //     })
+    //     .buffered(15)
+    //     .collect::<Vec<_>>()
+    //     .await;
 
-    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
-    let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let report_path =
-        root_dir.join(format!("execution-reports/{l2_chain_id}/{start}-{end}-report.csv"));
-    // Create the parent directory if it doesn't exist
-    if let Some(parent) = report_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).unwrap();
-        }
-    }
+    // let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
+    // let root_dir = PathBuf::from(cargo_metadata.workspace_root);
+    // let report_path =
+    //     root_dir.join(format!("execution-reports/{l2_chain_id}/{start}-{end}-report.csv"));
+    // // Create the parent directory if it doesn't exist
+    // if let Some(parent) = report_path.parent() {
+    //     if !parent.exists() {
+    //         fs::create_dir_all(parent).unwrap();
+    //     }
+    // }
 
-    // Create an empty file since canonicalize requires the path to exist
-    fs::File::create(&report_path).unwrap();
-    let report_path = report_path.canonicalize().unwrap();
+    // // Create an empty file since canonicalize requires the path to exist
+    // fs::File::create(&report_path).unwrap();
+    // let report_path = report_path.canonicalize().unwrap();
 
-    let prover = ProverClient::builder().cpu().build();
+    // let prover = Arc::new(ProverClient::builder().cpu().build().await);
 
-    // Run the host tasks in parallel using join_all
-    let handles = host_args.iter().map(|host_args| {
-        let host_args = host_args.clone();
-        let host = host.clone();
-        tokio::spawn(async move {
-            let witness_data = host.run(&host_args).await.unwrap();
-            host.witness_generator().get_sp1_stdin(witness_data).unwrap()
-        })
-    });
+    // // Run the host tasks in parallel using join_all
+    // let handles = host_args.iter().map(|host_args| {
+    //     let host_args = host_args.clone();
+    //     let host = host.clone();
+    //     tokio::spawn(async move {
+    //         let witness_data = host.run(&host_args).await.unwrap();
+    //         host.witness_generator().get_sp1_stdin(witness_data).unwrap()
+    //     })
+    // });
 
-    let stdins = futures::future::join_all(handles)
-        .await
-        .into_iter()
-        .map(|r| r.unwrap())
-        .collect::<Vec<_>>();
+    // let stdins = futures::future::join_all(handles)
+    //     .await
+    //     .into_iter()
+    //     .map(|r| r.unwrap())
+    //     .collect::<Vec<_>>();
 
-    let execution_inputs = stdins.iter().zip(block_data.iter()).collect::<Vec<_>>();
+    // // Execute the program for each block range in parallel.
+    // let execution_inputs = core::iter::zip(stdins, &block_data)
+    //     .map(|(sp1_stdin, (range, block_data))| async {
+    //         let result = prover.execute(Elf::Static(get_range_elf_embedded()), sp1_stdin).await;
 
-    // Execute the program for each block range in parallel.
-    execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(get_range_elf_embedded(), sp1_stdin).run();
+    //         if let Some(err) = result.as_ref().err() {
+    //             log::warn!(
+    //                 "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your
+    // `batch-size` if you're running into OOM issues on SP1.",
+    //                 range.start,
+    //                 range.end,
+    //                 err
+    //             );
+    //             return;
+    //         }
 
-        if let Some(err) = result.as_ref().err() {
-            log::warn!(
-                "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
-                range.start,
-                range.end,
-                err
-            );
-            return;
-        }
+    //         let (_, report) = result.unwrap();
 
-        let (_, report) = result.unwrap();
+    //         let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
 
-        let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
+    //         let mut file =
+    // OpenOptions::new().read(true).append(true).open(&report_path).unwrap();
 
-        let mut file = OpenOptions::new()
-            .read(true)
-            .append(true)
-            .open(&report_path)
-            .unwrap();
+    //         // Writes the headers only if the file is empty.
+    //         let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
 
-        // Writes the headers only if the file is empty.
-        let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+    //         let mut csv_writer =
+    //             csv::WriterBuilder::new().has_headers(needs_header).from_writer(file);
 
-        let mut csv_writer = csv::WriterBuilder::new()
-            .has_headers(needs_header)
-            .from_writer(file);
-
-        csv_writer
-            .serialize(execution_stats.clone())
-            .expect("Failed to write execution stats to CSV.");
-        csv_writer.flush().expect("Failed to flush CSV writer.");
-    });
+    //         csv_writer
+    //             .serialize(execution_stats.clone())
+    //             .expect("Failed to write execution stats to CSV.");
+    //         csv_writer.flush().expect("Failed to flush CSV writer.");
+    //     })
+    //     .collect::<JoinSet<()>>();
 
     info!("Execution is complete.");
 
