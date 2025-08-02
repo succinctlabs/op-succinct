@@ -72,28 +72,18 @@ pub fn get_ranges_to_prove_by_gas(
     let mut ranges = Vec::new();
 
     for &(start, end) in disjoint_ranges {
-        // Validate that we have all required block infos
-        // We need blocks from start+1 to end (inclusive)
-        for block_num in (start + 1)..=end {
-            if !block_infos.contains_key(&(block_num)) {
-                return Err(anyhow!(
-                    "Missing BlockInfo for block {} in range ({}, {})",
-                    block_num,
-                    start,
-                    end
-                ));
-            }
-        }
-
         let mut current_start = start;
         let mut accumulated_gas = 0u64;
 
         // Process blocks in the range (start+1 to end inclusive)
         // Note: We don't prove the start block, only use its hash as starting point
         for block_num in (start + 1)..=end {
-            let block_info = block_infos
-                .get(&(block_num))
-                .expect("Block info should exist - we validated above");
+            let block_info = block_infos.get(&(block_num)).ok_or(anyhow!(
+                "Missing BlockInfo for block {} in range ({}, {})",
+                block_num,
+                start,
+                end
+            ))?;
 
             // Validate block number consistency
             if block_info.block_number as i64 != block_num {
@@ -270,9 +260,9 @@ mod tests {
                 (
                     block_number,
                     BlockInfo {
-                        block_number: block_number.try_into().unwrap(),
+                        block_number: block_number as u64,
                         transaction_count: 10,
-                        gas_used: gas_used.try_into().unwrap(),
+                        gas_used: gas_used as u64,
                         total_l1_fees: 1000,
                         total_tx_fees: 2000,
                     },

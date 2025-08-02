@@ -212,8 +212,8 @@ where
         requests.sort_by_key(|r| r.0);
 
         let disjoint_ranges = find_gaps(
-            latest_proposed_block_number.try_into().unwrap(),
-            finalized_block_number.try_into().unwrap(),
+            latest_proposed_block_number as i64,
+            finalized_block_number as i64,
             &requests,
         );
 
