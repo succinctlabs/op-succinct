@@ -13,6 +13,10 @@ use op_succinct_host_utils::{
     setup_logger,
 };
 use op_succinct_signer_utils::Signer;
+use tikv_jemallocator::Jemalloc;
+
+#[global_allocator]
+static ALLOCATOR: Jemalloc = Jemalloc;
 
 #[derive(Parser)]
 struct Args {
@@ -22,10 +26,10 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    setup_logger();
-
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
+
+    setup_logger();
 
     let challenger_signer = Signer::from_env()?;
 
