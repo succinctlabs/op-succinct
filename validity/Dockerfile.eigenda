@@ -15,6 +15,8 @@ WORKDIR /build
 
 # Install SP1
 RUN curl -L https://sp1.succinct.xyz | bash && \
+    rustup install nightly-2025-07-30 && \
+    rustup override set nightly-2025-07-30 && \
     ~/.sp1/bin/sp1up && \
     ~/.sp1/bin/cargo-prove prove --version
 
@@ -46,6 +48,8 @@ RUN apt-get update && apt-get install -y \
 
 # Install SP1
 RUN curl -L https://sp1.succinct.xyz | bash && \
+    rustup install nightly-2025-07-30 && \
+    rustup override set nightly-2025-07-30 && \
     ~/.sp1/bin/sp1up && \
     ~/.sp1/bin/cargo-prove prove --version
 
