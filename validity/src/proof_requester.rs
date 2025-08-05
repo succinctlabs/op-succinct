@@ -152,7 +152,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .strategy(self.range_strategy)
             .skip_simulation(true)
             .cycle_limit(1_000_000_000_000)
-            .timeout(Duration::from_secs(1800))
+            .timeout(Duration::from_secs(3600))
             .request_async()
             .await
         {
@@ -173,7 +173,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
-            .timeout(Duration::from_secs(1800))
+            .timeout(Duration::from_secs(3600))
             .request_async()
             .await
         {
