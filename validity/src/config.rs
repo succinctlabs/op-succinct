@@ -54,4 +54,5 @@ pub struct RequesterConfig {
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
     pub safe_db_fallback: bool,
+    pub prove_timeout: u64,
 }

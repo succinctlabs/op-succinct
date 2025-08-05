@@ -129,6 +129,7 @@ where
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
             requester_config.safe_db_fallback,
+            requester_config.prove_timeout,
         ));
 
         let l2oo_contract =

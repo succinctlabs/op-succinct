@@ -26,6 +26,7 @@ pub struct EnvironmentConfig {
     pub mock: bool,
     pub safe_db_fallback: bool,
     pub op_succinct_config_name: String,
+    pub prove_timeout: u64,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -111,6 +112,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
             "OP_SUCCINCT_CONFIG_NAME",
             Some("opsuccinct_genesis".to_string()),
         )?,
+        prove_timeout: get_env_var("PROVE_TIMEOUT", Some(3600))?,
     };
 
     Ok(config)

@@ -9,15 +9,18 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
+    NetworkProver, SP1_CIRCUIT_VERSION, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin,
     network::proto::types::{ExecutionStatus, FulfillmentStrategy},
-    NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
-use std::{sync::Arc, time::{Duration, Instant}};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::{info, warn};
 
 use crate::{
-    db::DriverDBClient, OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics,
-    RequestStatus, RequestType, ValidityGauge,
+    OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics, RequestStatus, RequestType,
+    ValidityGauge, db::DriverDBClient,
 };
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
@@ -31,6 +34,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
     pub safe_db_fallback: bool,
+    pub prove_timeout: u64,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -46,6 +50,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
         safe_db_fallback: bool,
+        prove_timeout: u64,
     ) -> Self {
         Self {
             host,
@@ -58,6 +63,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_strategy,
             agg_mode,
             safe_db_fallback,
+            prove_timeout,
         }
     }
 
@@ -152,7 +158,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .strategy(self.range_strategy)
             .skip_simulation(true)
             .cycle_limit(1_000_000_000_000)
-            .timeout(Duration::from_secs(3600))
+            .timeout(Duration::from_secs(self.prove_timeout))
             .request_async()
             .await
         {
@@ -173,7 +179,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
-            .timeout(Duration::from_secs(3600))
+            .timeout(Duration::from_secs(self.prove_timeout))
             .request_async()
             .await
         {
