@@ -3,6 +3,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use celo_host::single::CeloSingleChainHost;
 use hana_host::celestia::CelestiaChainHost;
+use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
 use kona_host::single::SingleChainHostError;
 use kona_preimage::{BidirectionalChannel, Channel};
 use tokio::task::JoinHandle;
@@ -36,6 +37,20 @@ impl PreimageServerStarter for CeloSingleChainHost {
 
 #[async_trait]
 impl PreimageServerStarter for CelestiaChainHost {
+    async fn start_server<C>(
+        &self,
+        hint: C,
+        preimage: C,
+    ) -> Result<JoinHandle<Result<(), SingleChainHostError>>, SingleChainHostError>
+    where
+        C: Channel + Send + Sync + 'static,
+    {
+        self.start_server(hint, preimage).await
+    }
+}
+
+#[async_trait]
+impl PreimageServerStarter for SingleChainHostWithEigenDA {
     async fn start_server<C>(
         &self,
         hint: C,

@@ -32,12 +32,13 @@ FROM rust-base AS builder
 COPY . .
 
 # Build the challenger binary
-RUN cargo build --release --bin challenger
+RUN cargo build --release --bin challenger --features eigenda
 
 # Runtime stage (minimal image)
 FROM ubuntu:24.04
 
 WORKDIR /app
+COPY resources/ ./resources/
 
 # Install only necessary runtime dependencies
 RUN apt-get update && apt-get install -y \

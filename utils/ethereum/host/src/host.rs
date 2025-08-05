@@ -40,7 +40,7 @@ impl OPSuccinctHost for SingleChainOPSuccinctHost {
         };
 
         let host = self.fetcher.get_host_args(l2_start_block, l2_end_block, l1_head_hash).await?;
-        Ok(host)
+        Ok(CeloSingleChainHost { kona_cfg: host, eigenda_proxy_address: None, verbose: 1 })
     }
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {

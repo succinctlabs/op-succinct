@@ -1,6 +1,7 @@
 name: Cycle Count Diff
 
-#on:
+on:
+  workflow_dispatch:
 #  pull_request:
 #    paths:
 #      - 'elf/range-elf-embedded'
@@ -20,25 +21,37 @@ jobs:
     steps:
       - name: Checkout Repository (for local actions)
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup CI
         uses: ./.github/actions/setup
+        with:
+           submodules: recursive
+      
+      - name: Install SP1 toolchain
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up 
+          ~/.sp1/bin/cargo-prove prove --version
+          source ~/.bashrc
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-d592b3e0f142d694c3be539702704a4a73238773
 
       - name: Checkout PR Branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
-          fetch-depth: 0
           path: new_code
+          submodules: recursive
 
       - name: Checkout Base Branch
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
-          fetch-depth: 0
           path: old_code
+          submodules: recursive
 
       - name: Run Test On New Branch
         run: |

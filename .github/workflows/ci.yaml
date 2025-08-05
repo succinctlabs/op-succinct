@@ -14,10 +14,22 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: nightly
     - run: rustup toolchain install stable --profile minimal
     - uses: Swatinem/rust-cache@v2  
+    - name: Install SP1 toolchain
+      run: |
+        curl -L https://sp1.succinct.xyz | bash
+        ~/.sp1/bin/sp1up 
+        ~/.sp1/bin/cargo-prove prove --version
+        source ~/.bashrc
     - name: Test
-      run: cargo test --release -- --skip e2e --skip test_proposer_defends_successfully --skip test_cycle_count_diff --skip test_post_to_github
+      run: cargo test --release -- --skip test_cycle_count_diff --skip test_post_to_github --skip test_honest_proposer --skip test_honest_challenger
       env:
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }} # TODO: set proper RPCs in secret to run the tests
         L1_RPC: ${{ secrets.L1_RPC }}
