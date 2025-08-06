@@ -10,7 +10,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::initialize_host;
-use op_succinct_prove::{execute_multi, DEFAULT_RANGE, ONE_HOUR};
+use op_succinct_prove::{execute_multi, DEFAULT_RANGE, TWO_HOURS};
 
 mod common;
 
@@ -22,7 +22,7 @@ async fn execute_batch() -> Result<()> {
 
     // Take the latest blocks
     let (l2_start_block, l2_end_block) =
-        get_rolling_block_range(&data_fetcher, ONE_HOUR, DEFAULT_RANGE).await?;
+        get_rolling_block_range(&data_fetcher, TWO_HOURS, DEFAULT_RANGE).await?;
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
 
