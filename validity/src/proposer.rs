@@ -932,7 +932,6 @@ where
                 self.requester_config.op_succinct_config_name_hash,
                 completed_agg_proof.proof.as_ref().unwrap().clone().into(),
             ));
-            // dummy
 
             let transaction_request = self
                 .contract_config
