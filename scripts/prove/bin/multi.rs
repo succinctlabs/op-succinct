@@ -39,6 +39,23 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
 
+    // Save program.bin and stdin.bin
+    let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
+    let data_dir = format!("data/{}/binaries", l2_chain_id);
+    if !std::path::Path::new(&data_dir).exists() {
+        fs::create_dir_all(&data_dir)?;
+    }
+    
+    // Save program binary
+    let program_path = format!("{}/{l2_start_block}-{l2_end_block}_program.bin", data_dir);
+    fs::write(&program_path, get_range_elf_embedded())?;
+    println!("Saved program binary to: {}", program_path);
+    
+    // Save stdin binary
+    let stdin_path = format!("{}/{l2_start_block}-{l2_end_block}_stdin.bin", data_dir);
+    fs::write(&stdin_path, bincode::serialize(&sp1_stdin)?)?;
+    println!("Saved stdin binary to: {}", stdin_path);
+
     let prover = ProverClient::from_env().await;
 
     if args.prove {

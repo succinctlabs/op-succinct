@@ -7484,6 +7484,7 @@ version = "3.0.0-rc.1"
 dependencies = [
  "alloy-primitives",
  "anyhow",
+ "bincode",
  "cargo_metadata",
  "clap",
  "csv",
