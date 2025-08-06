@@ -932,7 +932,7 @@ where
                     output.output_root,
                     U256::from(completed_agg_proof.end_block),
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
-                    completed_agg_proof.proof.clone().unwrap().into(),
+                    completed_agg_proof.proof.as_ref().unwrap().clone().into(),
                     self.requester_config.prover_address,
                 )
                 .value(init_bond)
@@ -944,8 +944,7 @@ where
                     self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
                     transaction_request,
                 )
-                .await
-                .map_err(|e| anyhow!("Failed to relay aggregation proof onchain. end_block: {}, checkpointed_l1_block_number: {}, error: {}", completed_agg_proof.end_block, completed_agg_proof.checkpointed_l1_block_number.unwrap(), e))?
+                .await?
         } else {
             // Propose the L2 output to the L2OutputOracle directly.
             let transaction_request = self
