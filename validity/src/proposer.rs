@@ -487,7 +487,10 @@ where
 
         // Get the highest block number of the completed range proofs.
         let highest_proven_contiguous_block_number = match self
-            .get_highest_proven_contiguous_block(completed_range_proofs)?
+            .get_highest_proven_contiguous_block(
+                latest_proposed_block_number,
+                completed_range_proofs
+            )?
         {
             Some(block) => block,
             None => return Ok(()), /* No completed range proofs contiguous to the latest proposed
@@ -1229,7 +1232,10 @@ where
 
         // Get the highest proven contiguous block.
         let highest_block_number = self
-            .get_highest_proven_contiguous_block(completed_range_proofs)?
+            .get_highest_proven_contiguous_block(
+                latest_proposed_block_number as i64,
+                completed_range_proofs
+            )?
             .map_or(latest_proposed_block_number, |block| block as u64);
 
         // Fetch request counts for different statuses
@@ -1383,12 +1389,20 @@ where
     }
 
     /// Get the highest block number at the end of the largest contiguous range of completed range
-    /// proofs. Returns None if there are no completed range proofs.
+    /// proofs. Returns None if there are no completed contiguous range proofs.
+    #[tracing::instrument(name = "proposer.get_highest_proven_contiguous_block", skip(self))]
     fn get_highest_proven_contiguous_block(
         &self,
+        latest_proposed_block_number: i64,
         completed_range_proofs: Vec<(i64, i64)>,
     ) -> Result<Option<i64>> {
         if completed_range_proofs.is_empty() {
+            return Ok(None);
+        }
+
+        let current_start = completed_range_proofs[0].0;
+        if latest_proposed_block_number != current_start {
+            debug!("Skipping proven ranges not contiguous with {}", latest_proposed_block_number);
             return Ok(None);
         }
 
