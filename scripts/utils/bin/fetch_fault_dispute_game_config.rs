@@ -1,16 +1,18 @@
-use alloy_eips::BlockId;
+use std::{env, sync::Arc};
+
 use anyhow::Result;
 use fault_proof::config::FaultDisputeGameConfig;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
+    host::OPSuccinctHost,
     OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
+use op_succinct_proof_utils::initialize_host;
 use op_succinct_scripts::config_common::{
     find_project_root, get_shared_config_data, parse_addresses, write_config_file,
     TWO_WEEKS_IN_SECONDS,
 };
 use serde_json::Value;
-use std::env;
 
 /// Updates and generates the fault dispute game configuration file.
 ///
@@ -70,6 +72,7 @@ use std::env;
 /// needed for the Solidity deployment scripts.
 async fn update_fdg_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+    let host = initialize_host(Arc::new(data_fetcher.clone()));
     let shared_config = get_shared_config_data().await?;
 
     // Game configuration.
@@ -126,8 +129,13 @@ async fn update_fdg_config() -> Result<()> {
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
         Ok(n) => n.parse().unwrap(),
         Err(_) => {
-            let latest_finalized_header =
-                data_fetcher.get_l2_header(BlockId::finalized()).await.unwrap();
+            let finalized_l2_block_number = host
+                .get_finalized_l2_block_number(
+                    &data_fetcher,
+                    0, // latest_proposed_block_number
+                )
+                .await?
+                .unwrap();
 
             let block_time = &data_fetcher
                 .rollup_config
@@ -137,7 +145,7 @@ async fn update_fdg_config() -> Result<()> {
 
             let num_blocks_to_subtract = dispute_game_finality_delay_seconds / block_time;
 
-            latest_finalized_header.number.saturating_sub(num_blocks_to_subtract)
+            finalized_l2_block_number.saturating_sub(num_blocks_to_subtract)
         }
     };
 
