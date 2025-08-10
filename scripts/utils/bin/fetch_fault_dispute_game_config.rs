@@ -1,5 +1,6 @@
 use std::{env, sync::Arc};
 
+use alloy_eips::BlockId;
 use anyhow::Result;
 use fault_proof::config::FaultDisputeGameConfig;
 use op_succinct_host_utils::{
@@ -127,15 +128,15 @@ async fn update_fdg_config() -> Result<()> {
 
     // Get starting block number - use `latest finalized - dispute game finality delay` if not set.
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
-        Ok(n) => n.parse().unwrap(),
+        Ok(n) => {
+            let block_num = n.parse().unwrap();
+
+            block_num
+        }
         Err(_) => {
-            let finalized_l2_block_number = host
-                .get_finalized_l2_block_number(
-                    &data_fetcher,
-                    0, // latest_proposed_block_number
-                )
-                .await?
-                .unwrap();
+            // Use finalized block minus the finality delay as a starting point
+            let finalized_l2_header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
+            let finalized_l2_block = finalized_l2_header.number;
 
             let block_time = &data_fetcher
                 .rollup_config
@@ -143,9 +144,17 @@ async fn update_fdg_config() -> Result<()> {
                 .ok_or(anyhow::anyhow!("Rollup config not found"))?
                 .block_time;
 
-            let num_blocks_to_subtract = dispute_game_finality_delay_seconds / block_time;
+            let num_blocks_for_finality = dispute_game_finality_delay_seconds / block_time;
+            let search_start = finalized_l2_block.saturating_sub(num_blocks_for_finality);
 
-            finalized_l2_block_number.saturating_sub(num_blocks_to_subtract)
+            // Now search for the highest finalized block with available data
+            let finalized_l2_block_number =
+                match host.get_finalized_l2_block_number(&data_fetcher, search_start).await? {
+                    Some(block_num) => block_num,
+                    None => search_start,
+                };
+
+            finalized_l2_block_number.saturating_sub(num_blocks_for_finality)
         }
     };
 
