@@ -128,11 +128,7 @@ async fn update_fdg_config() -> Result<()> {
 
     // Get starting block number - use `latest finalized - dispute game finality delay` if not set.
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
-        Ok(n) => {
-            let block_num = n.parse().unwrap();
-
-            block_num
-        }
+        Ok(n) => n.parse().unwrap(),
         Err(_) => {
             // Use finalized block minus the finality delay as a starting point
             let finalized_l2_header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
