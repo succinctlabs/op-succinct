@@ -741,10 +741,10 @@ where
             "Attempting to resolve game"
         );
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
-        
+
         // Get L2 block number for context
         let l2_block_number = contract.l2BlockNumber().call().await?;
-        
+
         let transaction_request = contract.resolve().into_transaction_request();
         match signer.send_transaction_request(l1_rpc.clone(), transaction_request).await {
             Ok(receipt) => {

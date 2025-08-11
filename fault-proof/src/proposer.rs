@@ -179,11 +179,11 @@ where
             // Record execution stats
             let total_instruction_cycles = report.total_instruction_count();
             let total_sp1_gas = report.gas.unwrap_or(0);
-            
+
             // Update Prometheus metrics
             ProposerGauge::TotalInstructionCycles.set(total_instruction_cycles as f64);
             ProposerGauge::TotalSP1Gas.set(total_sp1_gas as f64);
-            
+
             tracing::info!(
                 total_instruction_cycles = total_instruction_cycles,
                 total_sp1_gas = total_sp1_gas,
@@ -197,11 +197,12 @@ where
                 SP1ProofMode::Compressed,
                 SP1_CIRCUIT_VERSION,
             );
-            
+
             (proof, total_instruction_cycles, total_sp1_gas)
         } else {
             // In network mode, we don't have access to execution stats
-            let proof = self.prover
+            let proof = self
+                .prover
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
@@ -210,7 +211,7 @@ where
                 .cycle_limit(1_000_000_000_000)
                 .run_async()
                 .await?;
-            
+
             (proof, 0, 0)
         };
 
@@ -431,7 +432,7 @@ where
 
             // Create a contract instance for the game
             let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-            
+
             // Get L2 block number for context
             let l2_block_number = game.l2BlockNumber().call().await?;
 
@@ -875,7 +876,8 @@ where
                 let rt = tokio::runtime::Handle::current();
                 rt.block_on(async move {
                     let start_time = std::time::Instant::now();
-                    let (tx_hash, total_instruction_cycles, total_sp1_gas) = proposer.prove_game(game_address).await?;
+                    let (tx_hash, total_instruction_cycles, total_sp1_gas) =
+                        proposer.prove_game(game_address).await?;
 
                     // Record successful proving
                     ProposerGauge::GamesProven.increment(1.0);
@@ -897,7 +899,8 @@ where
         } else {
             tokio::spawn(async move {
                 let start_time = std::time::Instant::now();
-                let (tx_hash, total_instruction_cycles, total_sp1_gas) = proposer.prove_game(game_address).await?;
+                let (tx_hash, total_instruction_cycles, total_sp1_gas) =
+                    proposer.prove_game(game_address).await?;
 
                 // Record successful proving
                 ProposerGauge::GamesProven.increment(1.0);
