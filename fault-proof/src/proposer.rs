@@ -132,6 +132,13 @@ where
         })
     }
 
+    /// Proves a dispute game at the given address.
+    ///
+    /// # Returns
+    /// A tuple containing:
+    /// - `TxHash`: The transaction hash of the proof submission
+    /// - `u64`: Total instruction cycles used in the proof generation
+    /// - `u64`: Total SP1 gas consumed in the proof generation
     #[tracing::instrument(name = "[[Proving]]", skip(self), fields(game_address = ?game_address))]
     pub async fn prove_game(&self, game_address: Address) -> Result<(TxHash, u64, u64)> {
         tracing::info!("Attempting to prove game {:?}", game_address);
@@ -173,8 +180,12 @@ where
         tracing::info!("Generating Range Proof");
         let (range_proof, total_instruction_cycles, total_sp1_gas) = if self.config.mock_mode {
             tracing::info!("Using mock mode for range proof generation");
-            let (public_values, report) =
-                self.prover.network_prover.execute(get_range_elf_embedded(), &sp1_stdin).run()?;
+            let (public_values, report) = self
+                .prover
+                .network_prover
+                .execute(get_range_elf_embedded(), &sp1_stdin)
+                .calculate_gas(true)
+                .run()?;
 
             // Record execution stats
             let total_instruction_cycles = report.total_instruction_count();
