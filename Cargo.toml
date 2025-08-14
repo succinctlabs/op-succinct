@@ -186,10 +186,10 @@ revm = { version = "24.0.1", default-features = false, features = [
 op-revm = { version = "5.0.1", default-features = false }
 
 # SP1
-sp1-sdk = { version = "=5.1.0" }
-sp1-lib = { version = "=5.1.0", features = ["verify"] }
-sp1-zkvm = { version = "=5.1.0", features = ["verify"] }
-sp1-build = { version = "=5.1.0" }
+sp1-sdk = { version = "=5.2.1", default-features = false, features = ["network"] }
+sp1-lib = { version = "=5.2.1", features = ["verify"] }
+sp1-zkvm = { version = "=5.2.1", features = ["verify"] }
+sp1-build = { version = "=5.2.1" }
 
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
