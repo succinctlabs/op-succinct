@@ -173,10 +173,13 @@ where
         let network_prover = if config.use_kms_requester {
             // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
             let signer = NetworkSigner::aws_kms(&network_private_key).await?;
+            tracing::info!("Using KMS requester with address: {:?}", signer.address());
             Arc::new(ProverClient::builder().network().signer(signer).build())
         } else {
             // Otherwise, use a private key with a default value to avoid errors in mock mode.
-            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build())
+            let signer = NetworkSigner::local(&network_private_key)?;
+            tracing::info!("Using local requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
         };
 
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
