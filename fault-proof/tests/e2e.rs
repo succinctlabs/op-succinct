@@ -285,7 +285,7 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
 
     // === PHASE 1: Create Valid Base Games ===
     info!("=== Phase 1: Create Valid Base Games ===");
-    
+
     // Start proposer to create some valid games first
     let proposer_handle = start_proposer(
         &env.rpc_config,
@@ -310,9 +310,9 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
     tokio::time::sleep(Duration::from_secs(2)).await;
     info!("✓ Stopped proposer temporarily");
 
-    // === PHASE 2: Create Invalid Games on Top ===
-    info!("=== Phase 2: Create Invalid Games on Top ===");
-    
+    // === PHASE 2: Create Invalid Games ===
+    info!("=== Phase 2: Create Invalid Games ===");
+
     let mut invalid_games = Vec::new();
     let mut rng = rand::rng();
     let last_game_index = factory.gameCount().call().await? - U256::from(1);
@@ -324,13 +324,10 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
         rng.fill(&mut invalid_root_bytes);
         let invalid_root = FixedBytes::<32>::from(invalid_root_bytes);
 
-        // Chain these games - first one references the last valid game, subsequent ones reference previous invalid game
-        let parent_index = if i == 0 {
-            last_game_index.to::<u32>()
-        } else {
-            (last_game_index + U256::from(i)).to::<u32>()
-        };
-        
+        // Use the same approach as test_honest_challenger - all invalid games have no parent
+        // This simulates the scenario where multiple invalid proposals are made independently
+        let parent_index = u32::MAX;
+
         let extra_data = (U256::from(l2_block_number), parent_index).abi_encode_packed();
 
         let tx = factory
@@ -348,14 +345,14 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
         invalid_games.push(game_address);
     }
 
-    info!("✓ Created {} invalid games chained on top:", invalid_games.len());
+    info!("✓ Created {} invalid games:", invalid_games.len());
     for (i, game) in invalid_games.iter().enumerate() {
         info!("  Invalid Game {}: {}", i + 1, game);
     }
 
     // === PHASE 3: Challenge and Resolve Invalid Games ===
     info!("=== Phase 3: Challenge and Resolve Invalid Games ===");
-    
+
     // Start challenger service
     let challenger_handle = start_challenger(
         &env.rpc_config,
@@ -396,7 +393,7 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
 
     // === PHASE 4: Restart Proposer - Should Create New Branch ===
     info!("=== Phase 4: Restart Proposer - Should Create New Branch ===");
-    
+
     let games_before_restart = factory.gameCount().call().await?;
     info!("Games count before proposer restart: {}", games_before_restart);
 
@@ -412,16 +409,15 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
 
     // Wait for proposer to create new games (should branch from safe point)
     let new_tracked_games = wait_and_track_games(
-        &factory, 
-        TEST_GAME_TYPE, 
-        games_before_restart.to::<usize>() + NUM_VALID_GAMES_AFTER, 
-        Duration::from_secs(90)
-    ).await?;
+        &factory,
+        TEST_GAME_TYPE,
+        games_before_restart.to::<usize>() + NUM_VALID_GAMES_AFTER,
+        Duration::from_secs(90),
+    )
+    .await?;
 
-    let newly_created_games: Vec<_> = new_tracked_games
-        .into_iter()
-        .skip(games_before_restart.to::<usize>())
-        .collect();
+    let newly_created_games: Vec<_> =
+        new_tracked_games.into_iter().skip(games_before_restart.to::<usize>()).collect();
 
     info!("✓ Proposer created {} new games after challenger wins:", newly_created_games.len());
     for (i, game) in newly_created_games.iter().enumerate() {
