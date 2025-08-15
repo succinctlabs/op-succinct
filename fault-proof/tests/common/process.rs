@@ -42,6 +42,8 @@ pub async fn start_proposer(
         safe_db_fallback: false,
         metrics_port: 9000,
         fast_finality_proving_limit: 1,
+        use_kms_requester: false,
+        max_price_per_pgu: 1_000_000_000_000u64, // 1 PROVE per 1M PGUs
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
