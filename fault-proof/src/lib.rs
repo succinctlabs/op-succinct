@@ -257,6 +257,37 @@ where
         l1_rpc: Url,
         l1_provider: L1Provider,
     ) -> Result<()>;
+
+    /// Get games that need proving based on current game tree state.
+    /// 
+    /// This method provides stateless restart recovery by examining the current game tree
+    /// to find games that need proving, regardless of previous in-memory state.
+    /// 
+    /// Returns games that are:
+    /// 1. Unchallenged and unproven (fast finality mode)
+    /// 2. Challenged and unproven (defense mode)
+    /// 3. Have valid output roots (from proposer's perspective)
+    async fn get_games_needing_proving(
+        &self,
+        proposer_address: Address,
+        max_games_to_check: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Vec<Address>>;
+
+    /// Get the proposer's unclaimed games that are unproven but should be proven.
+    /// 
+    /// This specifically looks for games where:
+    /// - The proposer created the game (is the prover address)
+    /// - The game has a valid output root 
+    /// - The game is either unchallenged or challenged but not yet proven
+    async fn get_proposer_games_needing_proving(
+        &self,
+        proposer_address: Address,
+        max_games_to_check: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Vec<Address>>;
 }
 
 #[async_trait]
@@ -824,5 +855,129 @@ where
         }
 
         Ok(())
+    }
+
+    /// Get games that need proving based on current game tree state.
+    async fn get_games_needing_proving(
+        &self,
+        proposer_address: Address,
+        max_games_to_check: u64,
+        _l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Vec<Address>> {
+        let mut games_needing_proving = Vec::new();
+
+        // Get latest game index, return empty if no games exist
+        let Some(latest_game_index) = self.fetch_latest_game_index().await? else {
+            return Ok(games_needing_proving);
+        };
+
+        // Calculate the range to check
+        let start_index = latest_game_index.saturating_sub(U256::from(max_games_to_check - 1));
+
+        // Check games from oldest to newest in our window
+        for i in 0..max_games_to_check {
+            let game_index = start_index + U256::from(i);
+            if game_index > latest_game_index {
+                break;
+            }
+
+            let game_address = match self.fetch_game_address_by_index(game_index).await {
+                Ok(addr) => addr,
+                Err(e) => {
+                    tracing::warn!("Failed to fetch game at index {}: {:?}", game_index, e);
+                    continue;
+                }
+            };
+
+            let game = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
+            
+            // Get game data sequentially to avoid borrowing issues
+            let l2_block_number = match game.l2BlockNumber().call().await {
+                Ok(block) => block,
+                Err(e) => {
+                    tracing::warn!("Failed to fetch L2 block number for {:?}: {:?}", game_address, e);
+                    continue;
+                }
+            };
+
+            let root_claim = match game.rootClaim().call().await {
+                Ok(claim) => claim,
+                Err(e) => {
+                    tracing::warn!("Failed to fetch root claim for {:?}: {:?}", game_address, e);
+                    continue;
+                }
+            };
+
+            let claim_data = match game.claimData().call().await {
+                Ok(data) => data,
+                Err(e) => {
+                    tracing::warn!("Failed to fetch claim data for {:?}: {:?}", game_address, e);
+                    continue;
+                }
+            };
+
+            // Skip if game is already resolved
+            if claim_data.status == ProposalStatus::Resolved {
+                continue;
+            }
+
+            // Check if this game has a valid output root (from proposer's perspective)
+            let actual_output_root = match l2_provider.compute_output_root_at_block(l2_block_number).await {
+                Ok(root) => root,
+                Err(e) => {
+                    tracing::warn!("Failed to compute output root for block {}: {:?}", l2_block_number, e);
+                    continue;
+                }
+            };
+
+            // Only consider games with correct output roots that the proposer should defend
+            if actual_output_root != root_claim {
+                continue;
+            }
+
+            // Check if this game needs proving based on its current status
+            let needs_proving = match claim_data.status {
+                // Unchallenged games that haven't been proven yet (fast finality mode)
+                ProposalStatus::Unchallenged => {
+                    // Check if proposer created this game
+                    claim_data.prover == proposer_address
+                },
+                // Challenged games that haven't been proven yet (defense mode)
+                ProposalStatus::Challenged => {
+                    // Check if proposer created this game  
+                    claim_data.prover == proposer_address
+                },
+                // Already proven games don't need proving
+                ProposalStatus::UnchallengedAndValidProofProvided |
+                ProposalStatus::ChallengedAndValidProofProvided |
+                ProposalStatus::Resolved => false,
+                // Invalid status should be skipped
+                ProposalStatus::__Invalid => false,
+            };
+
+            if needs_proving {
+                tracing::info!(
+                    "Found game {:?} at index {} needing proving (status: {:?}, prover: {:?})",
+                    game_address, game_index, claim_data.status, claim_data.prover
+                );
+                games_needing_proving.push(game_address);
+            }
+        }
+
+        tracing::info!("Found {} games needing proving", games_needing_proving.len());
+        Ok(games_needing_proving)
+    }
+
+    /// Get the proposer's unclaimed games that are unproven but should be proven.
+    async fn get_proposer_games_needing_proving(
+        &self,
+        proposer_address: Address,
+        max_games_to_check: u64,
+        l1_provider: L1Provider,
+        l2_provider: L2Provider,
+    ) -> Result<Vec<Address>> {
+        // Use the general method and filter for proposer-specific games
+        self.get_games_needing_proving(proposer_address, max_games_to_check, l1_provider, l2_provider).await
     }
 }

@@ -531,9 +531,74 @@ where
             as u64
     }
 
+    /// Recover unproven games on startup (stateless restart recovery).
+    /// 
+    /// This method examines the current game tree state to find games that need proving,
+    /// providing automatic recovery after proposer restarts without relying on previous state.
+    async fn recover_unproven_games(&self) -> Result<()> {
+        tracing::info!("Starting stateless recovery: checking for unproven games...");
+
+        let games_needing_proving = self
+            .factory
+            .get_proposer_games_needing_proving(
+                self.prover_address,
+                self.config.max_games_to_check_for_defense,
+                self.l1_provider.clone(),
+                self.l2_provider.clone(),
+            )
+            .await?;
+
+        if games_needing_proving.is_empty() {
+            tracing::info!("No unproven games found during startup recovery");
+            return Ok(());
+        }
+
+        tracing::info!(
+            "Found {} unproven games during startup recovery, spawning proving tasks...", 
+            games_needing_proving.len()
+        );
+
+        // Spawn proving tasks for recovered games, respecting concurrency limits
+        let mut spawned_count = 0;
+        for game_address in games_needing_proving {
+            // Check if we've hit the proving limit in fast finality mode
+            if self.config.fast_finality_mode {
+                let active_proving = self.count_active_proving_tasks().await;
+                if active_proving >= self.config.fast_finality_proving_limit {
+                    tracing::info!(
+                        "Reached proving capacity ({}/{}) during recovery, remaining games will be handled in main loop",
+                        active_proving,
+                        self.config.fast_finality_proving_limit
+                    );
+                    break;
+                }
+            }
+
+            // Check if we already have a proving task for this game
+            if !self.has_active_proving_for_game(game_address).await {
+                if let Err(e) = self.spawn_game_proving_task(game_address).await {
+                    tracing::warn!("Failed to spawn recovery proving task for game {:?}: {:?}", game_address, e);
+                } else {
+                    spawned_count += 1;
+                }
+            } else {
+                tracing::debug!("Game {:?} already has active proving task", game_address);
+            }
+        }
+
+        tracing::info!("Startup recovery complete: spawned {} proving tasks", spawned_count);
+        Ok(())
+    }
+
     /// Runs the proposer indefinitely.
     pub async fn run(self: Arc<Self>) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
+        
+        // On startup, recover any games that need proving (stateless restart recovery)
+        if let Err(e) = self.recover_unproven_games().await {
+            tracing::warn!("Failed to recover unproven games on startup: {:?}", e);
+        }
+
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
         // Spawn a dedicated task for continuous metrics collection
@@ -547,7 +612,7 @@ where
                 tracing::warn!("Failed to handle completed tasks: {:?}", e);
             }
 
-            // 2. Spawn new work (non-blocking)
+            // 2. Spawn new work (non-blocking) - now includes stateless game tree analysis
             if let Err(e) = self.spawn_pending_operations().await {
                 tracing::warn!("Failed to spawn pending operations: {:?}", e);
             }
@@ -641,11 +706,16 @@ where
             tracing::info!("Game creation task already active");
         }
 
-        // Check if we should defend games
+        // Check if we should defend games using both legacy and stateless approaches
         match self.spawn_game_defense_tasks().await {
             Ok(true) => tracing::info!("Successfully spawned game defense task"),
             Ok(false) => tracing::debug!("No games need defense or task already active"),
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
+        }
+
+        // Additional stateless check for any missed games needing proving
+        if let Err(e) = self.spawn_stateless_proving_tasks().await {
+            tracing::warn!("Failed to spawn stateless proving tasks: {:?}", e);
         }
 
         // Check if we should resolve games
@@ -1007,5 +1077,58 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(true)
+    }
+
+    /// Spawn proving tasks for any games that need proving based on stateless game tree analysis.
+    /// This provides continuous recovery and ensures no games are missed due to restart issues.
+    async fn spawn_stateless_proving_tasks(&self) -> Result<()> {
+        // In fast finality mode, respect the proving limit
+        if self.config.fast_finality_mode {
+            let active_proving = self.count_active_proving_tasks().await;
+            if active_proving >= self.config.fast_finality_proving_limit {
+                return Ok(()); // At capacity, skip this check
+            }
+        }
+
+        // Get games that need proving from the current game tree state
+        let games_needing_proving = self
+            .factory
+            .get_proposer_games_needing_proving(
+                self.prover_address,
+                self.config.max_games_to_check_for_defense,
+                self.l1_provider.clone(),
+                self.l2_provider.clone(),
+            )
+            .await?;
+
+        let mut spawned_count = 0;
+        for game_address in games_needing_proving {
+            // Check if we already have a proving task for this game
+            if !self.has_active_proving_for_game(game_address).await {
+                // In fast finality mode, check capacity before each spawn
+                if self.config.fast_finality_mode {
+                    let active_proving = self.count_active_proving_tasks().await;
+                    if active_proving >= self.config.fast_finality_proving_limit {
+                        break; // Reached capacity
+                    }
+                }
+
+                if let Err(e) = self.spawn_game_proving_task(game_address).await {
+                    tracing::warn!(
+                        "Failed to spawn stateless proving task for game {:?}: {:?}", 
+                        game_address, e
+                    );
+                } else {
+                    spawned_count += 1;
+                    tracing::debug!("Spawned stateless proving task for game {:?}", game_address);
+                }
+            }
+        }
+
+        if spawned_count > 0 {
+            tracing::info!("Spawned {} stateless proving tasks", spawned_count);
+        }
+
+        Ok(())
     }
 }

@@ -232,6 +232,7 @@ where
     /// resolve.
     pub async fn run(&mut self) -> Result<()> {
         tracing::info!("OP Succinct Challenger running...");
+        tracing::info!("Challenger is stateless and will automatically handle game tree state");
         if self.config.malicious_challenge_percentage > 0.0 {
             tracing::warn!(
                 "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
@@ -242,12 +243,12 @@ where
         }
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
-        // Each loop, check the oldest challengeable game and challenge it if it exists.
-        // Eventually, all games will be challenged (as long as the rate at which games are being
-        // created is slower than the fetch interval).
+        // The challenger operates statelessly by examining the current game tree on each iteration.
+        // This ensures automatic recovery after restarts without needing to track previous state.
         loop {
             interval.tick().await;
 
+            // 1. Handle game challenging based on current game tree state
             match self.handle_game_challenging().await {
                 Ok(Action::Performed) => {
                     ChallengerGauge::GamesChallenged.increment(1.0);
@@ -259,11 +260,13 @@ where
                 }
             }
 
+            // 2. Handle game resolution based on current game tree state
             if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
                 ChallengerGauge::GameResolutionError.increment(1.0);
             }
 
+            // 3. Handle bond claiming based on current game tree state
             match self.handle_bond_claiming().await {
                 Ok(Action::Performed) => {
                     ChallengerGauge::GamesBondsClaimed.increment(1.0);
