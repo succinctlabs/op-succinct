@@ -115,7 +115,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
             Some("opsuccinct_genesis".to_string()),
         )?,
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
-        max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(1_000_000_000_000u64))?, // 1 PROVE per 1M PGUs
+        max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(1_000_000_000_000u64))?, /* 1 PROVE per 1M PGUs */
     };
 
     Ok(config)
