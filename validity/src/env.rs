@@ -27,6 +27,7 @@ pub struct EnvironmentConfig {
     pub safe_db_fallback: bool,
     pub op_succinct_config_name: String,
     pub use_kms_requester: bool,
+    pub max_price_per_pgu: u64,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -60,24 +61,27 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     // will verify `tx.origin` matches the `proverAddress`.
     let prover_address = get_env_var("PROVER_ADDRESS", Some(signer.address()))?;
 
-    // Parse strategy values
-    let range_proof_strategy = if get_env_var("RANGE_PROOF_STRATEGY", Some("reserved".to_string()))?
-        .to_lowercase() ==
-        "hosted"
-    {
-        FulfillmentStrategy::Hosted
-    } else {
-        FulfillmentStrategy::Reserved
-    };
+    // TODO: implement feature flag.
+    // let range_proof_strategy = if get_env_var("RANGE_PROOF_STRATEGY",
+    // Some("reserved".to_string()))?     .to_lowercase() ==
+    //     "hosted"
+    // {
+    //     FulfillmentStrategy::Hosted
+    // } else {
+    //     FulfillmentStrategy::Reserved
+    // };
+    let range_proof_strategy = FulfillmentStrategy::Auction;
 
-    let agg_proof_strategy = if get_env_var("AGG_PROOF_STRATEGY", Some("reserved".to_string()))?
-        .to_lowercase() ==
-        "hosted"
-    {
-        FulfillmentStrategy::Hosted
-    } else {
-        FulfillmentStrategy::Reserved
-    };
+    // TODO: implement feature flag.
+    // let agg_proof_strategy = if get_env_var("AGG_PROOF_STRATEGY", Some("reserved".to_string()))?
+    //     .to_lowercase() ==
+    //     "hosted"
+    // {
+    //     FulfillmentStrategy::Hosted
+    // } else {
+    //     FulfillmentStrategy::Reserved
+    // };
+    let agg_proof_strategy = FulfillmentStrategy::Auction;
 
     // Parse proof mode
     let agg_proof_mode =
@@ -113,6 +117,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
             Some("opsuccinct_genesis".to_string()),
         )?,
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
+        max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(1_000_000_000_000u64))?, // 1 PROVE per 1M PGUs
     };
 
     Ok(config)
