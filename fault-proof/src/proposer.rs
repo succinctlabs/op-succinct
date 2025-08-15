@@ -385,16 +385,35 @@ where
                     latest_game_idx.to::<u32>(),
                 ),
                 None => {
-                    let anchor_l2_block_number =
-                        self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
-                    tracing::info!("Anchor L2 block number: {:?}", anchor_l2_block_number);
-                    (
-                        anchor_l2_block_number,
-                        anchor_l2_block_number
-                            .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                            .unwrap(),
-                        u32::MAX,
-                    )
+                    // No valid proposals found. Check if we can create a new branch from a safe point.
+                    if let Some((safe_block, safe_game_index)) = self
+                        .factory
+                        .get_latest_safe_branch_point(self.l2_provider.clone())
+                        .await?
+                    {
+                        tracing::info!(
+                            "No valid proposals available. Creating new branch from safe game at block {:?}, index {:?}",
+                            safe_block,
+                            safe_game_index
+                        );
+                        (
+                            safe_block,
+                            safe_block + U256::from(self.config.proposal_interval_in_blocks),
+                            safe_game_index.to::<u32>(),
+                        )
+                    } else {
+                        // Fall back to anchor if no safe branch point is available
+                        let anchor_l2_block_number =
+                            self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
+                        tracing::info!("Anchor L2 block number: {:?}", anchor_l2_block_number);
+                        (
+                            anchor_l2_block_number,
+                            anchor_l2_block_number
+                                .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                                .unwrap(),
+                            u32::MAX,
+                        )
+                    }
                 }
             };
 
@@ -781,15 +800,29 @@ where
                     latest_game_idx.to::<u32>(),
                 ),
                 None => {
-                    let anchor_l2_block_number =
-                        self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
-                    (
-                        anchor_l2_block_number,
-                        anchor_l2_block_number
-                            .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                            .unwrap(),
-                        u32::MAX,
-                    )
+                    // No valid proposals found. Check if we can create a new branch from a safe point.
+                    if let Some((safe_block, _safe_game_index)) = self
+                        .factory
+                        .get_latest_safe_branch_point(self.l2_provider.clone())
+                        .await?
+                    {
+                        (
+                            safe_block,
+                            safe_block + U256::from(self.config.proposal_interval_in_blocks),
+                            u32::MAX, // Will be updated when we create the game
+                        )
+                    } else {
+                        // Fall back to anchor if no safe branch point is available
+                        let anchor_l2_block_number =
+                            self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
+                        (
+                            anchor_l2_block_number,
+                            anchor_l2_block_number
+                                .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                                .unwrap(),
+                            u32::MAX,
+                        )
+                    }
                 }
             };
 
@@ -813,11 +846,21 @@ where
                 Ok(latest_block + U256::from(self.config.proposal_interval_in_blocks))
             }
             None => {
-                let anchor_l2_block_number =
-                    self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
-                Ok(anchor_l2_block_number
-                    .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                    .unwrap())
+                // No valid proposals found. Check if we can create a new branch from a safe point.
+                if let Some((safe_block, _safe_game_index)) = self
+                    .factory
+                    .get_latest_safe_branch_point(self.l2_provider.clone())
+                    .await?
+                {
+                    Ok(safe_block + U256::from(self.config.proposal_interval_in_blocks))
+                } else {
+                    // Fall back to anchor if no safe branch point is available
+                    let anchor_l2_block_number =
+                        self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
+                    Ok(anchor_l2_block_number
+                        .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                        .unwrap())
+                }
             }
         }
     }

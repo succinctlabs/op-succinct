@@ -136,10 +136,18 @@ where
     /// Fetches the game address by index.
     async fn fetch_game_address_by_index(&self, game_index: U256) -> Result<Address>;
 
+    /// Check if a game or any of its ancestors have been resolved as CHALLENGER_WINS.
+    async fn has_challenger_won_ancestor(&self, game_index: U256) -> Result<bool>;
+
+    /// Get the latest safe branch point when recent games have been invalidated.
+    /// This finds the most recent game that was resolved as DEFENDER_WINS and has no challenger-won ancestors,
+    /// allowing the proposer to create a new branch from a safe state.
+    async fn get_latest_safe_branch_point(&self, l2_provider: L2Provider) -> Result<Option<(U256, U256)>>;
+
     /// Get the latest valid proposal.
     ///
     /// This function checks from the latest game to the earliest game, returning the latest valid
-    /// proposal.
+    /// proposal that hasn't been resolved as CHALLENGER_WINS and doesn't have any challenger-won ancestors.
     async fn get_latest_valid_proposal(
         &self,
         l2_provider: L2Provider,
@@ -299,10 +307,89 @@ where
         Ok(game)
     }
 
+    /// Check if a game or any of its ancestors have been resolved as CHALLENGER_WINS.
+    /// This helps prevent building on top of a chain that has been invalidated.
+    async fn has_challenger_won_ancestor(&self, game_index: U256) -> Result<bool> {
+        let mut current_index = game_index;
+        
+        loop {
+            let game_address = self.fetch_game_address_by_index(current_index).await?;
+            let game = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
+            
+            // Check if this game was resolved as CHALLENGER_WINS
+            let game_status = game.status().call().await?;
+            if game_status == GameStatus::CHALLENGER_WINS {
+                tracing::info!(
+                    "Found challenger-won ancestor at index {:?}, address {:?}",
+                    current_index,
+                    game_address
+                );
+                return Ok(true);
+            }
+            
+            // Get parent index to continue checking ancestors
+            let claim_data = game.claimData().call().await?;
+            if claim_data.parentIndex == u32::MAX {
+                // Reached the root, no challenger-won ancestors found
+                break;
+            }
+            
+            current_index = U256::from(claim_data.parentIndex);
+        }
+        
+        Ok(false)
+    }
+
+    /// Get the latest safe branch point when recent games have been invalidated.
+    /// This finds the most recent game that was resolved as DEFENDER_WINS and has no challenger-won ancestors,
+    /// allowing the proposer to create a new branch from a safe state.
+    async fn get_latest_safe_branch_point(&self, l2_provider: L2Provider) -> Result<Option<(U256, U256)>> {
+        // Get latest game index, return None if no games exist.
+        let Some(mut game_index) = self.fetch_latest_game_index().await? else {
+            return Ok(None);
+        };
+
+        // Loop through games in reverse order (latest to earliest) to find a safe branch point
+        loop {
+            let game_address = self.fetch_game_address_by_index(game_index).await?;
+            let game = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
+
+            // Get the game status
+            let game_status = game.status().call().await?;
+            
+            // We're looking for games that are resolved as DEFENDER_WINS
+            if game_status == GameStatus::DEFENDER_WINS {
+                let block_number = game.l2BlockNumber().call().await?;
+                let game_claim = game.rootClaim().call().await?;
+                let output_root = l2_provider.compute_output_root_at_block(block_number).await?;
+                
+                // Verify the output root is correct and there are no challenger-won ancestors
+                if output_root == game_claim && !self.has_challenger_won_ancestor(game_index).await? {
+                    tracing::info!(
+                        "Found safe branch point at game index {:?}, address {:?}, block {:?}",
+                        game_index,
+                        game_address,
+                        block_number
+                    );
+                    return Ok(Some((block_number, game_index)));
+                }
+            }
+
+            // If we've reached index 0 (the earliest game) and still haven't found a safe branch point
+            if game_index == U256::ZERO {
+                tracing::info!("No safe branch point found after checking all games");
+                return Ok(None);
+            }
+
+            // Decrement the game index to check the previous game
+            game_index -= U256::from(1);
+        }
+    }
+
     /// Get the latest valid proposal.
     ///
     /// This function checks from the latest game to the earliest game, returning the latest valid
-    /// proposal.
+    /// proposal that hasn't been resolved as CHALLENGER_WINS and doesn't have any challenger-won ancestors.
     async fn get_latest_valid_proposal(
         &self,
         l2_provider: L2Provider,
@@ -335,9 +422,52 @@ where
             // Compute the actual output root at the L2 block number.
             let output_root = l2_provider.compute_output_root_at_block(block_number).await?;
 
-            // If the output root matches the game claim, we've found the latest valid proposal.
+            // Check if the game has been resolved as CHALLENGER_WINS
+            let game_status = game.status().call().await?;
+            if game_status == GameStatus::CHALLENGER_WINS {
+                tracing::info!(
+                    "Skipping game {:?} at block {:?} because it was resolved as CHALLENGER_WINS",
+                    game_address,
+                    block_number
+                );
+                
+                // If we've reached index 0 (the earliest game) and still haven't found a valid
+                // proposal. Return `None` as no valid proposals were found.
+                if game_index == U256::ZERO {
+                    tracing::info!("No valid proposals found after checking all games");
+                    return Ok(None);
+                }
+
+                // Decrement the game index to check the previous game.
+                game_index -= U256::from(1);
+                continue;
+            }
+
+            // If the output root matches the game claim, check if this game or its ancestors
+            // have been resolved as CHALLENGER_WINS
             if output_root == game_claim {
-                break;
+                // Check if this game or any of its ancestors have been resolved as CHALLENGER_WINS
+                if self.has_challenger_won_ancestor(game_index).await? {
+                    tracing::info!(
+                        "Skipping game {:?} at block {:?} because it has challenger-won ancestors",
+                        game_address,
+                        block_number
+                    );
+                    
+                    // If we've reached index 0 (the earliest game) and still haven't found a valid
+                    // proposal. Return `None` as no valid proposals were found.
+                    if game_index == U256::ZERO {
+                        tracing::info!("No valid proposals found after checking all games");
+                        return Ok(None);
+                    }
+
+                    // Decrement the game index to check the previous game.
+                    game_index -= U256::from(1);
+                    continue;
+                } else {
+                    // Found a valid proposal with correct output root and no challenger-won ancestors
+                    break;
+                }
             }
 
             // If the output root doesn't match the game claim, we need to find earlier games.
