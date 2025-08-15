@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
         safe_db_fallback: env_config.safe_db_fallback,
         op_succinct_config_name_hash,
         use_kms_requester: env_config.use_kms_requester,
+        max_price_per_pgu: env_config.max_price_per_pgu,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
