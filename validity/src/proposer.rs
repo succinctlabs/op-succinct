@@ -16,7 +16,8 @@ use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::proto::types::{ExecutionStatus, FulfillmentStatus},
-    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    HashableKey, NetworkProver, NetworkSigner, Prover, ProverClient, SP1Proof,
+    SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -84,16 +85,25 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        // Set a default network private key to avoid an error in mock mode.
-        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
-            tracing::warn!(
-                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-            );
-            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-        });
+        // Set up the network prover.
+        let network_prover = if requester_config.use_kms_requester {
+            // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
+            let kms_key_arn = env::var("NETWORK_PRIVATE_KEY")
+                .context("NETWORK_PRIVATE_KEY must be set when use_kms_requester is true")?;
 
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+            let signer = NetworkSigner::aws_kms(&kms_key_arn).await?;
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        } else {
+            // Otherwise, use a private key with a default value to avoid errors in mock mode.
+            let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
+                tracing::warn!(
+                    "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+                );
+                "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+            });
+
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build())
+        };
 
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
 

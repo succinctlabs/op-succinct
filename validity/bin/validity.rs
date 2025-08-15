@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
         prover_address: env_config.prover_address,
         safe_db_fallback: env_config.safe_db_fallback,
         op_succinct_config_name_hash,
+        use_kms_requester: env_config.use_kms_requester,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
