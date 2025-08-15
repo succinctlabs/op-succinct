@@ -71,6 +71,10 @@ pub struct ProposerConfig {
     /// Maximum concurrent proving tasks allowed in fast finality mode.
     /// This limit prevents game creation when proving capacity is reached.
     pub fast_finality_proving_limit: u64,
+
+    /// Whether to to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a
+    /// plaintext private key.
+    pub use_kms_requester: bool,
 }
 
 impl ProposerConfig {
@@ -127,6 +131,9 @@ impl ProposerConfig {
                 .parse()?,
             fast_finality_proving_limit: env::var("FAST_FINALITY_PROVING_LIMIT")
                 .unwrap_or("1".to_string())
+                .parse()?,
+            use_kms_requester: env::var("USE_KMS_REQUESTER")
+                .unwrap_or("false".to_string())
                 .parse()?,
         })
     }
