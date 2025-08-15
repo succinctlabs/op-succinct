@@ -16,6 +16,10 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::Signer;
+use tikv_jemallocator::Jemalloc;
+
+#[global_allocator]
+static ALLOCATOR: Jemalloc = Jemalloc;
 
 #[derive(Parser)]
 struct Args {
@@ -27,10 +31,10 @@ struct Args {
 async fn main() -> Result<()> {
     rustls::crypto::ring::default_provider().install_default().unwrap();
 
-    setup_logger();
-
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
+
+    setup_logger();
 
     let proposer_signer = Signer::from_env()?;
 

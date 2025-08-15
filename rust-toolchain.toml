@@ -1,5 +1,3 @@
 [toolchain]
-# Pin this project to a specific 1.90 nightly build, before it branched into 1.91.
-# This is to avoid the breaking changes in 1.91.
 channel = "nightly-2025-08-02"
-components = ["llvm-tools", "rustc-dev"]
+components = ["llvm-tools", "rustc-dev", "rustfmt", "clippy"]

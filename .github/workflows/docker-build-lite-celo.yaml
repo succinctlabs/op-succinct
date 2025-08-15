@@ -42,6 +42,7 @@ jobs:
             type=semver,pattern={{version}}
             type=edge
             type=sha
+            type=raw,value=latest
 
       - name: Docker meta for challenger
         id: meta-challenger
@@ -52,6 +53,7 @@ jobs:
             type=semver,pattern={{version}}
             type=edge
             type=sha
+            type=raw,value=latest
 
       - name: Login at GCP Artifact Registry
         uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
@@ -68,9 +70,7 @@ jobs:
           push: true
           tags: ${{ steps.meta-proposer.outputs.tags }}
           labels: ${{ steps.meta-proposer.outputs.labels }}
-          platforms: |
-            linux/amd64
-            linux/arm64
+          platforms: linux/amd64
           cache-from: type=registry,ref=${{ env.REGISTRY_URL }}/proposer-buildcache:buildcache
           cache-to: type=registry,mode=max,ref=${{ env.REGISTRY_URL }}/proposer-buildcache:buildcache
 
@@ -82,8 +82,6 @@ jobs:
           push: true
           tags: ${{ steps.meta-challenger.outputs.tags }}
           labels: ${{ steps.meta-challenger.outputs.labels }}
-          platforms: |
-            linux/amd64
-            linux/arm64
+          platforms: linux/amd64
           cache-from: type=registry,ref=${{ env.REGISTRY_URL }}/challenger-buildcache:buildcache
           cache-to: type=registry,mode=max,ref=${{ env.REGISTRY_URL }}/challenger-buildcache:buildcache

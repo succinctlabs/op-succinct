@@ -188,7 +188,7 @@ where
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
-                .strategy(FulfillmentStrategy::Hosted)
+                .strategy(FulfillmentStrategy::Reserved)
                 .skip_simulation(true)
                 .cycle_limit(self.config.cycle_limit)
                 .run_async()
@@ -247,6 +247,7 @@ where
             self.prover
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
+                .strategy(FulfillmentStrategy::Reserved)
                 .groth16()
                 .run_async()
                 .await?
@@ -386,7 +387,7 @@ where
     }
 
     /// Handles claiming bonds from resolved games.
-    #[tracing::instrument(name = "[[Claiming Bonds]]", skip(self))]
+    #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self))]
     async fn handle_bond_claiming(&self) -> Result<Action> {
         if let Some(game_address) = self
             .factory
@@ -394,10 +395,14 @@ where
                 self.config.game_type,
                 self.config.max_games_to_check_for_bond_claiming,
                 self.prover_address,
+                Mode::Proposer,
             )
             .await?
         {
-            tracing::info!("Attempting to claim bond from game {:?}", game_address);
+            tracing::info!(
+                "Attempting to claim bond from game {:?} where proposer won",
+                game_address
+            );
 
             // Create a contract instance for the game
             let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -414,7 +419,7 @@ where
             {
                 Ok(receipt) => {
                     tracing::info!(
-                        "\x1b[1mSuccessfully claimed bond from game {:?} with tx {:?}\x1b[0m",
+                        "\x1b[1mSuccessfully claimed proposer bond from game {:?} with tx {:?}\x1b[0m",
                         game_address,
                         receipt.transaction_hash
                     );
@@ -422,13 +427,13 @@ where
                     Ok(Action::Performed)
                 }
                 Err(e) => Err(anyhow::anyhow!(
-                    "Failed to claim bond from game {:?}: {:?}",
+                    "Failed to claim proposer bond from game {:?}: {:?}",
                     game_address,
                     e
                 )),
             }
         } else {
-            tracing::info!("No new games to claim bonds from");
+            tracing::info!("No games found where proposer won to claim bonds from");
 
             Ok(Action::Skipped)
         }
@@ -463,7 +468,18 @@ where
             self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
         ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game_l2_block_number.to::<u64>() as f64);
 
+        // Update active proving tasks metric
+        let active_proving = self.count_active_proving_tasks().await;
+        ProposerGauge::ActiveProvingTasks.set(active_proving as f64);
+
         Ok(())
+    }
+
+    /// Count active proving tasks
+    async fn count_active_proving_tasks(&self) -> u64 {
+        let tasks = self.tasks.lock().await;
+        tasks.iter().filter(|(_, (_, info))| matches!(info, TaskInfo::GameProving { .. })).count()
+            as u64
     }
 
     /// Runs the proposer indefinitely.
@@ -622,11 +638,15 @@ where
         let active_count = tasks.len();
         if active_count > 0 {
             let mut task_counts: HashMap<&str, usize> = HashMap::new();
+            let mut proving_games: Vec<String> = Vec::new();
 
             for (_, (_, info)) in tasks.iter() {
                 let task_type = match info {
                     TaskInfo::GameCreation { .. } => "GameCreation",
-                    TaskInfo::GameProving { .. } => "GameProving",
+                    TaskInfo::GameProving { game_address } => {
+                        proving_games.push(format!("{game_address:?}"));
+                        "GameProving"
+                    }
                     TaskInfo::GameResolution => "GameResolution",
                     TaskInfo::BondClaim => "BondClaim",
                 };
@@ -639,6 +659,11 @@ where
                 .collect();
 
             tracing::info!("Active tasks: {} ({})", active_count, task_types.join(", "));
+
+            // Log specific games being proven
+            if !proving_games.is_empty() {
+                tracing::info!("Games being proven: {}", proving_games.join(", "));
+            }
         }
     }
 
@@ -680,6 +705,21 @@ where
 
     /// Check if we should create a game
     async fn should_create_game(&self) -> Result<bool> {
+        // In fast finality mode, check if we're at proving capacity
+        // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
+        // and defense proving with a priority system.
+        if self.config.fast_finality_mode {
+            let active_proving = self.count_active_proving_tasks().await;
+            if active_proving >= self.config.fast_finality_proving_limit {
+                tracing::info!(
+                    "Skipping game creation in fast finality mode: proving at capacity ({}/{})",
+                    active_proving,
+                    self.config.fast_finality_proving_limit
+                );
+                return Ok(false);
+            }
+        }
+
         // Use the existing logic from handle_game_creation
         let latest_valid_proposal =
             self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
@@ -797,22 +837,36 @@ where
                 // Use a runtime for the blocking task to handle async operations
                 let rt = tokio::runtime::Handle::current();
                 rt.block_on(async move {
+                    let start_time = std::time::Instant::now();
                     let tx_hash = proposer.prove_game(game_address).await?;
+
+                    // Record successful proving
+                    ProposerGauge::GamesProven.increment(1.0);
+                    ProposerGauge::ProvingDurationSeconds.set(start_time.elapsed().as_secs_f64());
+
                     tracing::info!(
-                        "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
+                        "\x1b[1mSuccessfully proved game {:?} with tx {:?} in {:.2}s\x1b[0m",
                         game_address,
-                        tx_hash
+                        tx_hash,
+                        start_time.elapsed().as_secs_f64()
                     );
                     Ok(())
                 })
             })
         } else {
             tokio::spawn(async move {
+                let start_time = std::time::Instant::now();
                 let tx_hash = proposer.prove_game(game_address).await?;
+
+                // Record successful proving
+                ProposerGauge::GamesProven.increment(1.0);
+                ProposerGauge::ProvingDurationSeconds.set(start_time.elapsed().as_secs_f64());
+
                 tracing::info!(
-                    "\x1b[1mSuccessfully proved game {:?} with tx {:?}\x1b[0m",
+                    "\x1b[1mSuccessfully proved game {:?} with tx {:?} in {:.2}s\x1b[0m",
                     game_address,
-                    tx_hash
+                    tx_hash,
+                    start_time.elapsed().as_secs_f64()
                 );
                 Ok(())
             })
@@ -829,6 +883,7 @@ where
     /// - Ok(true): Resolution task was successfully spawned
     /// - Ok(false): No work needed (no games to resolve)
     /// - Err: Actual error occurred during task spawning
+    #[tracing::instrument(name = "[[Proposer Resolving]]", skip(self))]
     async fn spawn_game_resolution_task(&self) -> Result<bool> {
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
@@ -866,6 +921,7 @@ where
                 self.config.game_type,
                 self.config.max_games_to_check_for_bond_claiming,
                 self.prover_address,
+                Mode::Proposer,
             )
             .await?
             .is_some();
