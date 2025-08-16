@@ -54,4 +54,9 @@ pub struct RequesterConfig {
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
     pub safe_db_fallback: bool,
+    /// Whether to to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a
+    /// plaintext private key.
+    pub use_kms_requester: bool,
+    /// The maximum price per pgu for proving.
+    pub max_price_per_pgu: u64,
 }
