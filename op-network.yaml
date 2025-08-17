@@ -1,33 +1,50 @@
 optimism_package:
   chains:
-    - participants:
-      - el_type: op-geth
-        cl_type: op-node
-        cl_extra_params: ["--safedb.path=/safe-db"]
+    op-succinct-base:
+      participants:
+        node0:
+          el:
+            type: op-geth
+          cl:
+            type: op-node
       network_params:
-        network: "kurtosis"
         network_id: "2151908"
         seconds_per_slot: 2
-        name: "op-kurtosis"
         fjord_time_offset: 0
         granite_time_offset: 0
         holocene_time_offset: 0
         fund_dev_accounts: true
-      # Default batcher configuration
-      batcher_params:
-        # The Docker image that should be used for the batcher; leave blank to use the default op-batcher image
-        image: ""
-
-        # A list of optional extra params that will be passed to the batcher container for modifying its behaviour
-        extra_params: ["--batch-type=1"]
   global_log_level: "info"
   global_node_selectors: {}
   global_tolerations: []
   persistent: false
 ethereum_package:
+  port_publisher:
+    nat_exit_ip: KURTOSIS_IP_ADDR_PLACEHOLDER
+    el:
+      enabled: true
+      public_port_start: 52000
+    cl:
+      enabled: true
+      public_port_start: 53000
+    vc:
+      enabled: true
+      public_port_start: 54000
+    remote_signer:
+      enabled: true
+      public_port_start: 55000
+    additional_services:
+      enabled: true
+      public_port_start: 56000
   network_params:
+    network_id: "31337"
+    seconds_per_slot: 12
+    eth1_follow_distance: 2048
+    min_validator_withdrawability_delay: 256
+    shard_committee_period: 256
     preset: minimal
-    genesis_delay: 5
+    genesis_delay: 12
+    electra_fork_epoch: 1
     additional_preloaded_contracts: '
       {
         "0x4e59b44847b379578588920cA78FbF26c0B4956C": {
