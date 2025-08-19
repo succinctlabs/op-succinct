@@ -158,22 +158,56 @@ where
         Ok(proposer)
     }
 
-    /// Use the in-memory index of the highest block number to add new ranges to the database.
+    /// Use the highest proven contiguous block from the database to add new ranges to the database.
     #[tracing::instrument(name = "proposer.add_new_ranges", skip(self))]
     pub async fn add_new_ranges(&self) -> Result<()> {
         // Get the latest proposed block number on the contract.
-        let latest_proposed_block_number = get_latest_proposed_block_number(
+        let contract_latest_proposed_block_number = get_latest_proposed_block_number(
             self.contract_config.l2oo_address,
             self.driver_config.fetcher.as_ref(),
         )
         .await?;
+
+        // Get the highest proven contiguous block from the database to use as our starting point.
+        // This prevents creating duplicate range requests when the database has proofs beyond
+        // what's been proposed to the contract.
+        let completed_range_proofs = self
+            .driver_config
+            .driver_db_client
+            .fetch_completed_ranges(
+                &self.program_config.commitments,
+                0, // Start from block 0 to get all completed ranges
+                self.requester_config.l1_chain_id,
+                self.requester_config.l2_chain_id,
+            )
+            .await?;
+
+        // Use the highest proven contiguous block as our starting point, falling back to contract's
+        // latest block
+        let starting_block_number =
+            match self.get_highest_proven_contiguous_block(completed_range_proofs)? {
+                Some(highest_proven_block) => {
+                    tracing::debug!(
+                        "Using highest proven contiguous block from database: {}",
+                        highest_proven_block
+                    );
+                    highest_proven_block as u64
+                }
+                None => {
+                    tracing::debug!(
+                    "No completed range proofs found, using contract's latest proposed block: {}",
+                    contract_latest_proposed_block_number
+                );
+                    contract_latest_proposed_block_number
+                }
+            };
 
         let finalized_block_number = match self
             .proof_requester
             .host
             .get_finalized_l2_block_number(
                 self.driver_config.fetcher.as_ref(),
-                latest_proposed_block_number,
+                starting_block_number,
             )
             .await?
         {
@@ -182,13 +216,13 @@ where
                 block_number
             }
             None => {
-                tracing::debug!("No new finalized block number found since last proposed block. No new range proof requests will be added.");
+                tracing::debug!("No new finalized block number found since starting block. No new range proof requests will be added.");
                 return Ok(());
             }
         };
 
         // Get all active (non-failed) requests with the same commitment config and start block >=
-        // latest_proposed_block_number. These requests are non-overlapping.
+        // starting_block_number. These requests are non-overlapping.
         let mut requests = self
             .driver_config
             .driver_db_client
@@ -200,7 +234,7 @@ where
                     RequestStatus::Prove,
                     RequestStatus::Complete,
                 ],
-                latest_proposed_block_number as i64,
+                starting_block_number as i64,
                 &self.program_config.commitments,
                 self.requester_config.l1_chain_id,
                 self.requester_config.l2_chain_id,
@@ -210,11 +244,8 @@ where
         // Sort the requests by start block.
         requests.sort_by_key(|r| r.0);
 
-        let disjoint_ranges = find_gaps(
-            latest_proposed_block_number as i64,
-            finalized_block_number as i64,
-            &requests,
-        );
+        let disjoint_ranges =
+            find_gaps(starting_block_number as i64, finalized_block_number as i64, &requests);
 
         let ranges_to_prove = get_ranges_to_prove(
             &disjoint_ranges,
