@@ -60,8 +60,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 let (_pk, canoe_vk) = client.setup(CANOE_ELF);
 
                 let reduced_proof: SP1ReduceProof<InnerSC> =
-                    serde_cbor::from_slice(proof_bytes)
-                        .expect("Failed to deserialize canoe proof");
+                    serde_cbor::from_slice(proof_bytes).expect("Failed to deserialize canoe proof");
                 stdin.write_proof(reduced_proof, canoe_vk.vk.clone());
             }
         }
