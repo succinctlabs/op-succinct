@@ -31,6 +31,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
     pub safe_db_fallback: bool,
+    pub max_price_per_pgu: u64,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -46,6 +47,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
         safe_db_fallback: bool,
+        max_price_per_pgu: u64,
     ) -> Self {
         Self {
             host,
@@ -58,6 +60,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_strategy,
             agg_mode,
             safe_db_fallback,
+            max_price_per_pgu,
         }
     }
 
@@ -150,6 +153,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.range_pk, &stdin)
             .compressed()
             .strategy(self.range_strategy)
+            // TODO: implement feature flag.
+            .max_price_per_pgu(self.max_price_per_pgu)
             .skip_simulation(true)
             .cycle_limit(1_000_000_000_000)
             .request_async()
@@ -172,6 +177,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
+            // TODO: implement feature flag.
+            .max_price_per_pgu(self.max_price_per_pgu)
             .request_async()
             .await
         {

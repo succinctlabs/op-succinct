@@ -20,7 +20,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    network::FulfillmentStrategy, NetworkProver, Prover, ProverClient, SP1ProofMode,
+    network::FulfillmentStrategy, NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode,
     SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{sync::Mutex, time};
@@ -101,8 +101,19 @@ where
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build());
+        // Set up the network prover.
+        let network_prover = if config.use_kms_requester {
+            // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
+            let signer = NetworkSigner::aws_kms(&network_private_key).await?;
+            tracing::info!("Using KMS requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        } else {
+            // Otherwise, use a private key with a default value to avoid errors in mock mode.
+            let signer = NetworkSigner::local(&network_private_key)?;
+            tracing::info!("Using local requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        };
+
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
         let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
 
@@ -217,7 +228,9 @@ where
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
-                .strategy(FulfillmentStrategy::Hosted)
+                // TODO: implement feature flag.
+                .strategy(FulfillmentStrategy::Auction)
+                .max_price_per_pgu(self.config.max_price_per_pgu)
                 .skip_simulation(true)
                 .cycle_limit(1_000_000_000_000)
                 .run_async()
@@ -278,6 +291,9 @@ where
             self.prover
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
+                // TODO: implement feature flag.
+                .strategy(FulfillmentStrategy::Auction)
+                .max_price_per_pgu(self.config.max_price_per_pgu)
                 .groth16()
                 .run_async()
                 .await?
