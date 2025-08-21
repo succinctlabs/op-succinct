@@ -44,6 +44,11 @@ pub async fn start_proposer(
         fast_finality_proving_limit: 1,
         use_kms_requester: false,
         max_price_per_pgu: 1_000_000_000_000u64, // 1 PROVE per 1M PGUs
+        timeout: 14400,                          // 4 hours
+        range_cycle_limit: 1_000_000_000_000,
+        range_gas_limit: 1_000_000_000_000,
+        agg_cycle_limit: 1_000_000_000_000,
+        agg_gas_limit: 1_000_000_000_000,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());

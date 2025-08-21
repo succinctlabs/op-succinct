@@ -27,6 +27,11 @@ pub struct EnvironmentConfig {
     pub op_succinct_config_name: String,
     pub use_kms_requester: bool,
     pub max_price_per_pgu: u64,
+    pub timeout: u64,
+    pub range_cycle_limit: u64,
+    pub range_gas_limit: u64,
+    pub agg_cycle_limit: u64,
+    pub agg_gas_limit: u64,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -116,6 +121,11 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         )?,
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
         max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(1_000_000_000_000u64))?, /* 1 PROVE per 1M PGUs */
+        timeout: get_env_var("TIMEOUT", Some(14400))?,                                    // 4 hours
+        range_cycle_limit: get_env_var("RANGE_CYCLE_LIMIT", Some(1_000_000_000_000))?, // 1 trillion
+        range_gas_limit: get_env_var("RANGE_GAS_LIMIT", Some(1_000_000_000_000))?,     // 1 trillion
+        agg_cycle_limit: get_env_var("AGG_CYCLE_LIMIT", Some(1_000_000_000_000))?,     // 1 trillion
+        agg_gas_limit: get_env_var("AGG_GAS_LIMIT", Some(1_000_000_000_000))?,         // 1 trillion
     };
 
     Ok(config)

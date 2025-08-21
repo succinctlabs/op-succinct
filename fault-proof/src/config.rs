@@ -63,6 +63,21 @@ pub struct ProposerConfig {
 
     /// The maximum price per pgu for proving.
     pub max_price_per_pgu: u64,
+
+    /// The timeout to use for proving (in seconds).
+    pub timeout: u64,
+
+    /// The cycle limit to use for range proofs.
+    pub range_cycle_limit: u64,
+
+    /// The gas limit to use for range proofs.
+    pub range_gas_limit: u64,
+
+    /// The cycle limit to use for aggregation proofs.
+    pub agg_cycle_limit: u64,
+
+    /// The gas limit to use for aggregation proofs.
+    pub agg_gas_limit: u64,
 }
 
 impl ProposerConfig {
@@ -113,6 +128,19 @@ impl ProposerConfig {
                 .parse()?,
             max_price_per_pgu: env::var("MAX_PRICE_PER_PGU")
                 .unwrap_or("1000000000000".to_string()) // 1 PROVE per 1M PGUs
+                .parse()?,
+            timeout: env::var("TIMEOUT").unwrap_or("14400".to_string()).parse()?, // 4 hours
+            range_cycle_limit: env::var("RANGE_CYCLE_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            range_gas_limit: env::var("RANGE_GAS_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            agg_cycle_limit: env::var("AGG_CYCLE_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            agg_gas_limit: env::var("AGG_GAS_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
         })
     }

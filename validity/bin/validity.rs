@@ -66,6 +66,11 @@ async fn main() -> Result<()> {
         op_succinct_config_name_hash,
         use_kms_requester: env_config.use_kms_requester,
         max_price_per_pgu: env_config.max_price_per_pgu,
+        timeout: env_config.timeout,
+        range_cycle_limit: env_config.range_cycle_limit,
+        range_gas_limit: env_config.range_gas_limit,
+        agg_cycle_limit: env_config.agg_cycle_limit,
+        agg_gas_limit: env_config.agg_gas_limit,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());

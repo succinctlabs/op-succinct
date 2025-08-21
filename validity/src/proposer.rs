@@ -141,6 +141,11 @@ where
             requester_config.agg_proof_mode,
             requester_config.safe_db_fallback,
             requester_config.max_price_per_pgu,
+            requester_config.timeout,
+            requester_config.range_cycle_limit,
+            requester_config.range_gas_limit,
+            requester_config.agg_cycle_limit,
+            requester_config.agg_gas_limit,
         ));
 
         let l2oo_contract =
