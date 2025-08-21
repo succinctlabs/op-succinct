@@ -145,6 +145,14 @@ where
         l2_provider: L2Provider,
     ) -> Result<Option<(U256, U256)>>;
 
+    /// Check if a game and its entire ancestor chain are valid.
+    ///
+    /// A game chain is valid if:
+    /// 1. All games in the chain have correct output roots
+    /// 2. No games in the chain have been resolved as CHALLENGER_WINS
+    /// 3. The chain traces back to the anchor game (parentIndex == u32::MAX)
+    async fn is_game_chain_valid(&self, game_index: U256, l2_provider: L2Provider) -> Result<bool>;
+
     /// Get the anchor state registry address.
     async fn get_anchor_state_registry_address(&self, game_type: u32) -> Result<Address>;
 
@@ -329,22 +337,20 @@ where
                 block_number
             );
 
-            // Get the output root the game is proposing.
-            let game_claim = game.rootClaim().call().await?;
-
-            // Compute the actual output root at the L2 block number.
-            let output_root = l2_provider.compute_output_root_at_block(block_number).await?;
-
-            // If the output root matches the game claim, we've found the latest valid proposal.
-            if output_root == game_claim {
+            // Check if this game and its entire ancestor chain are valid
+            if self.is_game_chain_valid(game_index, l2_provider.clone()).await? {
+                tracing::info!(
+                    "Found valid game chain at index {:?}, block {:?}",
+                    game_index,
+                    block_number
+                );
                 break;
             }
 
-            // If the output root doesn't match the game claim, we need to find earlier games.
+            // If the game chain is invalid, we need to find earlier games.
             tracing::info!(
-                "Output root {:?} is not same as game claim {:?}",
-                output_root,
-                game_claim
+                "Game chain at index {:?} is invalid, checking previous games",
+                game_index
             );
 
             // If we've reached index 0 (the earliest game) and still haven't found a valid
@@ -365,6 +371,56 @@ where
         );
 
         Ok(Some((block_number, game_index)))
+    }
+
+    /// Check if a game and its entire ancestor chain are valid.
+    async fn is_game_chain_valid(&self, game_index: U256, l2_provider: L2Provider) -> Result<bool> {
+        let game_address = self.fetch_game_address_by_index(game_index).await?;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, self.provider());
+
+        // Check if this game has been resolved as CHALLENGER_WINS
+        let status = game.status().call().await?;
+        if status == GameStatus::CHALLENGER_WINS {
+            tracing::debug!(
+                "Game {:?} at index {:?} resolved as CHALLENGER_WINS, chain invalid",
+                game_address,
+                game_index
+            );
+            return Ok(false);
+        }
+
+        // Check if this game has a valid output root
+        let block_number = game.l2BlockNumber().call().await?;
+        let game_claim = game.rootClaim().call().await?;
+        let output_root = l2_provider.compute_output_root_at_block(block_number).await?;
+        if output_root != game_claim {
+            tracing::debug!(
+                "Game {:?} at index {:?} has invalid output root, chain invalid",
+                game_address,
+                game_index
+            );
+            return Ok(false);
+        }
+
+        // Check parent chain
+        let claim_data = game.claimData().call().await?;
+        if claim_data.parentIndex == u32::MAX {
+            // Reached anchor game, chain is valid
+            tracing::debug!(
+                "Game {:?} at index {:?} is anchor game, chain valid",
+                game_address,
+                game_index
+            );
+            return Ok(true);
+        }
+
+        // Recursively check parent game
+        tracing::debug!(
+            "Checking parent game at index {:?} for game {:?}",
+            claim_data.parentIndex,
+            game_address
+        );
+        self.is_game_chain_valid(U256::from(claim_data.parentIndex), l2_provider).await
     }
 
     /// Get the anchor state registry address.
