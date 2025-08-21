@@ -159,6 +159,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             // TODO: implement feature flag.
             .max_price_per_pgu(self.max_price_per_pgu)
             .skip_simulation(true)
+            .timeout(Duration::from_secs(3600)) // 1 hour
             .cycle_limit(1_000_000_000_000)
             .gas_limit(1_000_000_000_000)
             .timeout(Duration::from_secs(4 * 60 * 60))
