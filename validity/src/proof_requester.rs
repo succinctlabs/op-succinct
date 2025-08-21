@@ -35,6 +35,11 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_mode: SP1ProofMode,
     pub safe_db_fallback: bool,
     pub max_price_per_pgu: u64,
+    pub timeout: u64,
+    pub range_cycle_limit: u64,
+    pub range_gas_limit: u64,
+    pub agg_cycle_limit: u64,
+    pub agg_gas_limit: u64,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -51,6 +56,11 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_mode: SP1ProofMode,
         safe_db_fallback: bool,
         max_price_per_pgu: u64,
+        timeout: u64,
+        range_cycle_limit: u64,
+        range_gas_limit: u64,
+        agg_cycle_limit: u64,
+        agg_gas_limit: u64,
     ) -> Self {
         Self {
             host,
@@ -64,6 +74,11 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_mode,
             safe_db_fallback,
             max_price_per_pgu,
+            timeout,
+            range_cycle_limit,
+            range_gas_limit,
+            agg_cycle_limit,
+            agg_gas_limit,
         }
     }
 
@@ -156,13 +171,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.range_pk, &stdin)
             .compressed()
             .strategy(self.range_strategy)
-            // TODO: implement feature flag.
-            .max_price_per_pgu(self.max_price_per_pgu)
             .skip_simulation(true)
-            .timeout(Duration::from_secs(3600)) // 1 hour
-            .cycle_limit(50_000_000_000) // 50 billion
-            .gas_limit(70_000_000_000) // 70 billion
-            .timeout(Duration::from_secs(4 * 60 * 60))
+            // TODO: implement feature flag.
+            .timeout(Duration::from_secs(self.timeout))
+            .max_price_per_pgu(self.max_price_per_pgu)
+            .cycle_limit(self.range_cycle_limit)
+            .gas_limit(self.range_gas_limit)
             .request_async()
             .await
         {
@@ -184,8 +198,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
             // TODO: implement feature flag.
+            .timeout(Duration::from_secs(self.timeout))
             .max_price_per_pgu(self.max_price_per_pgu)
-            .timeout(Duration::from_secs(4 * 60 * 60))
+            .cycle_limit(self.agg_cycle_limit)
+            .gas_limit(self.agg_gas_limit)
             .request_async()
             .await
         {
