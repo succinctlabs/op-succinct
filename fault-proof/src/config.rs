@@ -177,8 +177,10 @@ impl ChallengerConfig {
 /// Note: The fields should be in alphabetical order for Solidity to parse it correctly.
 pub struct FaultDisputeGameConfig {
     pub aggregation_vkey: String,
+    pub anchor_state_registry_address: String,
     pub challenger_addresses: Vec<String>,
     pub challenger_bond_wei: u64,
+    pub dispute_game_factory_address: String,
     pub dispute_game_finality_delay_seconds: u64,
     pub fallback_timeout_fp_secs: u64,
     pub game_type: u32,
@@ -192,6 +194,7 @@ pub struct FaultDisputeGameConfig {
     pub rollup_config_hash: String,
     pub starting_l2_block_number: u64,
     pub starting_root: String,
+    pub superchain_config_address: String,
     pub use_sp1_mock_verifier: bool,
     pub verifier_address: String,
 }

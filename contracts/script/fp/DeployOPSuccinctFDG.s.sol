@@ -73,23 +73,16 @@ contract DeployOPSuccinctFDG is Script, Utils {
     }
 
     function deployContracts(FDGConfig memory config) internal returns (DeployedContracts memory) {
-        // Deploy factory proxy.
-        ERC1967Proxy factoryProxy = new ERC1967Proxy(
-            address(new DisputeGameFactory()),
-            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
-        );
+        // Deploy or get DisputeGameFactory
+        ERC1967Proxy factoryProxy = deployOrGetDisputeGameFactoryProxy(config);
         DisputeGameFactory factory = DisputeGameFactory(address(factoryProxy));
 
-        GameType gameType = GameType.wrap(config.gameType);
-
         // Deploy MockOptimismPortal2 or get OptimismPortal2
+        GameType gameType = GameType.wrap(config.gameType);
         address payable portalAddress = deployOrGetOptimismPortal2(config, gameType);
 
-        OutputRoot memory startingAnchorRoot =
-            OutputRoot({root: Hash.wrap(config.startingRoot), l2BlockNumber: config.startingL2BlockNumber});
-
-        // Deploy anchor state registry
-        AnchorStateRegistry registry = deployAnchorStateRegistry(factory, portalAddress, startingAnchorRoot);
+        // Deploy or get AnchorStateRegistry
+        AnchorStateRegistry registry = deployOrGetAnchorStateRegistry(config, factory, portalAddress);
 
         // Deploy and configure access manager
         AccessManager accessManager = deployAccessManager(config, address(factoryProxy));
@@ -101,9 +94,12 @@ contract DeployOPSuccinctFDG is Script, Utils {
         OPSuccinctFaultDisputeGame gameImpl =
             deployGameImplementation(config, factory, sp1Config, registry, accessManager);
 
-        // Set initial bond and implementation in factory.
+        // Set initial bond and implementation in factory
         factory.setInitBond(gameType, config.initialBondWei);
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
+
+        // Set respected game type
+        IOptimismPortal2(portalAddress).setRespectedGameType(gameType);
 
         // Create deployed contracts struct
         DeployedContracts memory deployedContracts = DeployedContracts({
@@ -139,27 +135,57 @@ contract DeployOPSuccinctFDG is Script, Utils {
         );
     }
 
-    function deployAnchorStateRegistry(
-        DisputeGameFactory factory,
-        address payable portalAddress,
-        OutputRoot memory startingAnchorRoot
-    ) internal returns (AnchorStateRegistry) {
-        // Deploy the anchor state registry proxy.
-        ERC1967Proxy registryProxy = new ERC1967Proxy(
-            address(new AnchorStateRegistry()),
-            abi.encodeCall(
-                AnchorStateRegistry.initialize,
-                (
-                    ISuperchainConfig(address(new SuperchainConfig())),
-                    IDisputeGameFactory(address(factory)),
-                    IOptimismPortal2(portalAddress),
-                    startingAnchorRoot
-                )
-            )
-        );
+    function deployOrGetDisputeGameFactoryProxy(FDGConfig memory config) internal returns (ERC1967Proxy) {
+        if (config.disputeGameFactoryAddress != address(0)) {
+            return ERC1967Proxy(payable(config.disputeGameFactoryAddress));
+        } else {
+            return new ERC1967Proxy(
+                address(new DisputeGameFactory()),
+                abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
+            );
+        }
+    }
 
-        AnchorStateRegistry registry = AnchorStateRegistry(address(registryProxy));
-        console.log("Anchor state registry:", address(registry));
+    function deployOrGetAnchorStateRegistry(
+        FDGConfig memory config,
+        DisputeGameFactory factory,
+        address payable portalAddress
+    ) internal returns (AnchorStateRegistry) {
+        AnchorStateRegistry registry;
+        if (config.anchorStateRegistryAddress != address(0)) {
+            // Re-use anchor state registry
+            registry = AnchorStateRegistry(config.anchorStateRegistryAddress);
+            console.log("Using existing AnchorStateRegistry:", address(registry));
+        } else {
+            OutputRoot memory startingAnchorRoot =
+                OutputRoot({root: Hash.wrap(config.startingRoot), l2BlockNumber: config.startingL2BlockNumber});
+
+            // Get or create superchain config
+            ISuperchainConfig superchainConfig;
+            if (config.superchainConfigAddress != address(0)) {
+                superchainConfig = ISuperchainConfig(config.superchainConfigAddress);
+            } else {
+                superchainConfig = ISuperchainConfig(address(new SuperchainConfig()));
+            }
+
+            // Deploy the anchor state registry proxy
+            ERC1967Proxy registryProxy = new ERC1967Proxy(
+                address(new AnchorStateRegistry()),
+                abi.encodeCall(
+                    AnchorStateRegistry.initialize,
+                    (
+                        superchainConfig,
+                        IDisputeGameFactory(address(factory)),
+                        IOptimismPortal2(portalAddress),
+                        startingAnchorRoot
+                    )
+                )
+            );
+
+            registry = AnchorStateRegistry(address(registryProxy));
+            console.log("Deployed AnchorStateRegistry:", address(registry));
+        }
+
         return registry;
     }
 
@@ -191,10 +217,12 @@ contract DeployOPSuccinctFDG is Script, Utils {
             SP1MockVerifier sp1Verifier = new SP1MockVerifier();
             sp1Config.verifierAddress = address(sp1Verifier);
             console.log("Using SP1 Mock Verifier:", address(sp1Verifier));
-        } else {
+        } else if (config.verifierAddress != address(0)) {
             // Use provided verifier address for production.
             sp1Config.verifierAddress = config.verifierAddress;
             console.log("Using SP1 Verifier Gateway:", sp1Config.verifierAddress);
+        } else {
+            revert("Verifier address cannot be 0!");
         }
 
         return sp1Config;
