@@ -453,6 +453,70 @@ async fn test_proposer_branch_creation_after_challenger_wins() -> Result<()> {
         info!("  New Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
     }
 
+    // === CRITICAL VERIFICATION: Ensure new games don't reference invalidated chain ===
+    info!("=== Verifying Branch Safety ===");
+    
+    // Get the index of the invalid game that was challenged and won
+    let invalid_game_index = game_index.to::<u32>();
+    
+    for (i, game) in newly_created_games.iter().enumerate() {
+        let game_contract =
+            op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
+                game.address,
+                provider_with_signer.clone(),
+            );
+        
+        let claim_data = game_contract.claimData().call().await?;
+        
+        // Verify this game doesn't reference the invalidated chain
+        assert_ne!(
+            claim_data.parentIndex,
+            invalid_game_index,
+            "New game {} incorrectly references invalidated game at index {}",
+            i + 1,
+            invalid_game_index
+        );
+        
+        // Also verify it doesn't reference u32::MAX unless it's the first game from anchor
+        if claim_data.parentIndex != u32::MAX {
+            // It should reference one of the valid games created in Phase 1
+            let parent_game_info = factory.gameAtIndex(U256::from(claim_data.parentIndex)).call().await?;
+            let parent_game_contract =
+                op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
+                    parent_game_info.proxy_,
+                    provider_with_signer.clone(),
+                );
+            let parent_status_raw = parent_game_contract.status().call().await?;
+            
+            // Convert u8 to GameStatus for comparison
+            let parent_status = match parent_status_raw {
+                0 => GameStatus::IN_PROGRESS,
+                1 => GameStatus::CHALLENGER_WINS,
+                2 => GameStatus::DEFENDER_WINS,
+                _ => panic!("Invalid game status: {}", parent_status_raw),
+            };
+            
+            // Parent should be DEFENDER_WINS (valid) or IN_PROGRESS
+            assert!(
+                parent_status == GameStatus::DEFENDER_WINS || parent_status == GameStatus::IN_PROGRESS,
+                "New game {} references parent with invalid status: {:?}",
+                i + 1,
+                parent_status
+            );
+            
+            info!(
+                "  ✓ New Game {} correctly references parent index {} with status {:?}",
+                i + 1,
+                claim_data.parentIndex,
+                parent_status
+            );
+        } else {
+            info!("  ✓ New Game {} correctly references anchor (no parent)", i + 1);
+        }
+    }
+    
+    info!("✓ All new games correctly avoid invalidated chain - branch safety verified");
+
     // Verify the new games are valid by checking they don't get challenged
     tokio::time::sleep(Duration::from_secs(10)).await;
     info!("✓ New games remained unchallengeable for 10 seconds - likely valid");

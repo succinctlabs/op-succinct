@@ -363,59 +363,38 @@ where
     /// Returns the address of the created game, if one was created.
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
-        // Get the latest valid proposal.
-        let latest_valid_proposal =
-            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
-
         // Determine next block number and parent game index.
         //
-        // Two cases based on the result of `get_latest_valid_proposal`:
+        // Three cases based on the result of `determine_proposal_parameters`:
         // 1. With existing valid proposal:
         //    - Block number = latest valid proposal's block + proposal interval.
         //    - Parent = latest valid game's index.
         //
-        // 2. Without valid proposal (first game or all existing games being faulty):
+        // 2. With safe branch point (when recent games are invalidated):
+        //    - Block number = safe game's block + proposal interval.
+        //    - Parent = safe game's index.
+        //
+        // 3. Without valid proposal or safe branch point (first game or all games faulty):
         //    - Block number = anchor L2 block number + proposal interval.
         //    - Parent = u32::MAX (special value indicating no parent).
         let (latest_proposed_block_number, next_l2_block_number_for_proposal, parent_game_index) =
-            match latest_valid_proposal {
-                Some((latest_block, latest_game_idx)) => (
-                    latest_block,
-                    latest_block + U256::from(self.config.proposal_interval_in_blocks),
-                    latest_game_idx.to::<u32>(),
-                ),
-                None => {
-                    // No valid proposals found. Check if we can create a new branch from a safe point.
-                    if let Some((safe_block, safe_game_index)) = self
-                        .factory
-                        .get_latest_safe_branch_point(self.l2_provider.clone())
-                        .await?
-                    {
-                        tracing::info!(
-                            "No valid proposals available. Creating new branch from safe game at block {:?}, index {:?}",
-                            safe_block,
-                            safe_game_index
-                        );
-                        (
-                            safe_block,
-                            safe_block + U256::from(self.config.proposal_interval_in_blocks),
-                            safe_game_index.to::<u32>(),
-                        )
-                    } else {
-                        // Fall back to anchor if no safe branch point is available
-                        let anchor_l2_block_number =
-                            self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
-                        tracing::info!("Anchor L2 block number: {:?}", anchor_l2_block_number);
-                        (
-                            anchor_l2_block_number,
-                            anchor_l2_block_number
-                                .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                                .unwrap(),
-                            u32::MAX,
-                        )
-                    }
-                }
-            };
+            self.determine_proposal_parameters().await?;
+
+        // Log branching information for debugging
+        if parent_game_index != u32::MAX {
+            let latest_valid_proposal =
+                self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
+            
+            if latest_valid_proposal.is_none() {
+                tracing::info!(
+                    "No valid proposals available. Creating new branch from safe game at block {:?}, parent index {:?}",
+                    latest_proposed_block_number,
+                    parent_game_index
+                );
+            }
+        } else {
+            tracing::info!("Anchor L2 block number: {:?}", latest_proposed_block_number);
+        }
 
         let finalized_l2_head_block_number = self
             .host
@@ -771,6 +750,45 @@ where
         Ok(true)
     }
 
+    /// Determine proposal parameters based on valid proposals and safe branch points
+    async fn determine_proposal_parameters(&self) -> Result<(U256, U256, u32)> {
+        let latest_valid_proposal =
+            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
+
+        match latest_valid_proposal {
+            Some((latest_block, latest_game_idx)) => Ok((
+                latest_block,
+                latest_block + U256::from(self.config.proposal_interval_in_blocks),
+                latest_game_idx.to::<u32>(),
+            )),
+            None => {
+                // No valid proposals found. Check if we can create a new branch from a safe point.
+                if let Some((safe_block, safe_game_index)) = self
+                    .factory
+                    .get_latest_safe_branch_point(self.l2_provider.clone())
+                    .await?
+                {
+                    Ok((
+                        safe_block,
+                        safe_block + U256::from(self.config.proposal_interval_in_blocks),
+                        safe_game_index.to::<u32>(),
+                    ))
+                } else {
+                    // Fall back to anchor if no safe branch point is available
+                    let anchor_l2_block_number =
+                        self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
+                    Ok((
+                        anchor_l2_block_number,
+                        anchor_l2_block_number
+                            .checked_add(U256::from(self.config.proposal_interval_in_blocks))
+                            .unwrap(),
+                        u32::MAX,
+                    ))
+                }
+            }
+        }
+    }
+
     /// Check if we should create a game
     async fn should_create_game(&self) -> Result<bool> {
         // In fast finality mode, check if we're at proving capacity
@@ -788,43 +806,8 @@ where
             }
         }
 
-        // Use the existing logic from handle_game_creation
-        let latest_valid_proposal =
-            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
-
         let (latest_proposed_block_number, next_l2_block_number_for_proposal, _) =
-            match latest_valid_proposal {
-                Some((latest_block, latest_game_idx)) => (
-                    latest_block,
-                    latest_block + U256::from(self.config.proposal_interval_in_blocks),
-                    latest_game_idx.to::<u32>(),
-                ),
-                None => {
-                    // No valid proposals found. Check if we can create a new branch from a safe point.
-                    if let Some((safe_block, _safe_game_index)) = self
-                        .factory
-                        .get_latest_safe_branch_point(self.l2_provider.clone())
-                        .await?
-                    {
-                        (
-                            safe_block,
-                            safe_block + U256::from(self.config.proposal_interval_in_blocks),
-                            u32::MAX, // Will be updated when we create the game
-                        )
-                    } else {
-                        // Fall back to anchor if no safe branch point is available
-                        let anchor_l2_block_number =
-                            self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
-                        (
-                            anchor_l2_block_number,
-                            anchor_l2_block_number
-                                .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                                .unwrap(),
-                            u32::MAX,
-                        )
-                    }
-                }
-            };
+            self.determine_proposal_parameters().await?;
 
         let finalized_l2_head_block_number = self
             .host
