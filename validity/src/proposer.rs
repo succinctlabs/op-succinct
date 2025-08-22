@@ -328,7 +328,10 @@ where
 
             // Cancel the request in the network if the auction timeout is exceeded.
             if let Some(request_details) = request_details {
-                if current_time > request_details.created_at + self.requester_config.auction_timeout
+                if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                    current_time < status.deadline &&
+                    current_time >
+                        request_details.created_at + self.requester_config.auction_timeout
                 {
                     self.driver_config
                         .network_prover
