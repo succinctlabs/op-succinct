@@ -180,7 +180,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .skip_simulation(true)
             // TODO: implement feature flag.
             .timeout(Duration::from_secs(self.timeout))
-            .auction_timeout(Duration::from_secs(self.auction_timeout))
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
@@ -207,7 +206,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .strategy(self.agg_strategy)
             // TODO: implement feature flag.
             .timeout(Duration::from_secs(self.timeout))
-            .auction_timeout(Duration::from_secs(self.auction_timeout))
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)

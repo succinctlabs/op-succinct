@@ -314,18 +314,41 @@ where
             let (status, proof) =
                 self.driver_config.network_prover.get_proof_status(proof_request_id).await?;
 
+            let request_details = self
+                .driver_config
+                .network_prover
+                .get_proof_request(B256::from_slice(proof_request_id))
+                .await?;
+
             // Check if current time exceeds deadline. If so, the proof has timed out.
             let current_time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
 
-            // Mark the timed-out request as Cancelled instead of Failed.
+            // Cancel the request in the network if the auction timeout is exceeded.
+            if let Some(request_details) = request_details {
+                if current_time > request_details.created_at + self.requester_config.auction_timeout
+                {
+                    self.driver_config
+                        .network_prover
+                        .cancel_request(B256::from_slice(proof_request_id))
+                        .await?;
+                }
+            }
+
             if current_time > status.deadline {
-                self.driver_config
-                    .driver_db_client
-                    .update_request_status(request.id, RequestStatus::Cancelled)
-                    .await?;
+                match self
+                    .proof_requester
+                    .handle_failed_request(request.clone(), status.execution_status())
+                    .await
+                {
+                    Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                    Err(e) => {
+                        ValidityGauge::RetryErrorCount.increment(1.0);
+                        return Err(e);
+                    }
+                }
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
