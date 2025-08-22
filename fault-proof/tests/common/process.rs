@@ -34,7 +34,6 @@ pub async fn start_proposer(
         proposal_interval_in_blocks: 10, // Much smaller interval for testing
         fetch_interval: 2,               // Check more frequently in tests
         game_type,
-        enable_game_resolution: true,
         safe_db_fallback: false,
         metrics_port: 9000,
         fast_finality_proving_limit: 1,
@@ -87,13 +86,11 @@ pub async fn start_challenger(
         factory_address: *factory_address,
         fetch_interval: 2, // Check more frequently in tests
         game_type,
-        enable_game_resolution: true,
         metrics_port: 9001,
         malicious_challenge_percentage: malicious_percentage.unwrap_or(0.0),
         max_games_to_check_for_challenge: 10, // Check more games
         max_games_to_check_for_resolution: 100,
         max_games_to_check_for_bond_claiming: 100,
-        max_depth_to_check: 100,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());

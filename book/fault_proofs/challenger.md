@@ -49,7 +49,6 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | Variable | Description | Default Value |
 |----------|-------------|---------------|
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
-| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
 | `MALICIOUS_CHALLENGE_PERCENTAGE` | Percentage (0.0-100.0) of valid games to challenge for testing defense mechanisms | `0.0` |
 | `MAX_GAMES_TO_CHECK_FOR_CHALLENGE` | Maximum number of games to scan for challenges | `100` |
@@ -67,12 +66,10 @@ PRIVATE_KEY=             # Private key for transaction signing
 
 # Optional Configuration
 FETCH_INTERVAL=30                     # Polling interval in seconds
-ENABLE_GAME_RESOLUTION=true           # Whether to enable automatic game resolution
 CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 MAX_GAMES_TO_CHECK_FOR_CHALLENGE=100  # Maximum number of games to scan for challenges
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for resolution
 MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
-MAX_DEPTH_TO_CHECK=100  # Maximum depth to validate when checking game chain ancestry
 
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
@@ -139,7 +136,7 @@ The challenger provides clear logging to distinguish between challenge types:
 - Provides detailed logging of challenge actions
 
 ### Game Resolution
-When enabled (`ENABLE_GAME_RESOLUTION=true`), the challenger:
+The challenger:
 - Monitors challenged games
 - Resolves games after their resolution period expires
 - Handles resolution of multiple games efficiently

@@ -36,10 +36,6 @@ pub struct ProposerConfig {
     /// The type of game to propose.
     pub game_type: u32,
 
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the proposer will only propose new games.
-    pub enable_game_resolution: bool,
-
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
     pub safe_db_fallback: bool,
@@ -81,9 +77,6 @@ impl ProposerConfig {
                 .parse()?,
             fetch_interval: env::var("FETCH_INTERVAL").unwrap_or("30".to_string()).parse()?,
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
-            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
-                .parse()?,
             safe_db_fallback: env::var("SAFE_DB_FALLBACK")
                 .unwrap_or("false".to_string())
                 .parse()?,
@@ -121,10 +114,6 @@ pub struct ChallengerConfig {
     /// The game type to challenge.
     pub game_type: u32,
 
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the challenger will only challenge games.
-    pub enable_game_resolution: bool,
-
     /// The metrics port.
     pub metrics_port: u16,
 
@@ -145,9 +134,6 @@ pub struct ChallengerConfig {
 
     /// The maximum number of games to check for bond claiming.
     pub max_games_to_check_for_bond_claiming: u64,
-
-    /// The maximum depth to check for game chain validation.
-    pub max_depth_to_check: u32,
 }
 
 impl ChallengerConfig {
@@ -161,9 +147,6 @@ impl ChallengerConfig {
             max_games_to_check_for_challenge: env::var("MAX_GAMES_TO_CHECK_FOR_CHALLENGE")
                 .unwrap_or("100".to_string())
                 .parse()?,
-            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
-                .parse()?,
             max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
                 .unwrap_or("100".to_string())
                 .parse()?,
@@ -175,9 +158,6 @@ impl ChallengerConfig {
                 .parse()?,
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
-                .parse()?,
-            max_depth_to_check: env::var("MAX_DEPTH_TO_CHECK")
-                .unwrap_or("100".to_string())
                 .parse()?,
         })
     }

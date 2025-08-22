@@ -165,7 +165,7 @@ where
         game_index: U256,
         l2_provider: &L2Provider,
         max_depth_to_check: u32,
-    ) -> anyhow::Result<()>;
+    ) -> Result<()>;
 
     /// Get the anchor state registry address.
     async fn get_anchor_state_registry_address(&self, game_type: u32) -> Result<Address>;
@@ -398,7 +398,7 @@ where
         mut game_index: U256,
         l2_provider: &L2Provider,
         max_depth_to_check: u32,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let mut depth = 0;
 
         loop {

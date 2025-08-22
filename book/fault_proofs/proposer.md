@@ -53,7 +53,6 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `FAST_FINALITY_MODE` | Whether to use fast finality mode | `false` |
 | `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
-| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. | (Only used if `FAST_FINALITY_MODE` is `true`) |
@@ -84,7 +83,6 @@ MOCK_MODE=false                          # Whether to use mock mode
 FAST_FINALITY_MODE=false                 # Whether to use fast finality mode
 PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                        # Polling interval in seconds
-ENABLE_GAME_RESOLUTION=false             # Whether to enable automatic game resolution
 PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
 MAX_GAMES_TO_CHECK_FOR_DEFENSE=100       # Maximum number of recent games to check for defense
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100    # Maximum number of games to check for resolution
@@ -128,8 +126,9 @@ The proposer will run indefinitely, creating new games and optionally resolving 
   - Have valid output root claims
 - Generates and submits proofs using the Succinct Prover Network
 - Supports mock mode for testing without using the Succinct Prover Network. (Set `MOCK_MODE=true` in `.env.proposer`)
+
 ### Game Resolution
-When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
+The proposer:
 - **Fast Finality**: Immediately resolves proven games (UnchallengedAndValidProofProvided or ChallengedAndValidProofProvided)
 - Monitors unchallenged games
 - Resolves games after their challenge period expires
