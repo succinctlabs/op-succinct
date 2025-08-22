@@ -11,6 +11,11 @@ use alloy_rpc_types_eth::Block;
 use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{bail, Context, Result};
+
+/// Default maximum depth for game chain validation.
+/// This prevents stack overflow and infinite loops from malicious long chains.
+/// Can be overridden by the MAX_GAME_CHAIN_VALIDATION_DEPTH environment variable.
+const DEFAULT_MAX_GAME_CHAIN_VALIDATION_DEPTH: u32 = 100;
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
@@ -345,7 +350,7 @@ where
             );
 
             // Check if this game and its entire ancestor chain are valid
-            match self.validate_game_chain(game_index, &l2_provider, 100).await {
+            match self.validate_game_chain(game_index, &l2_provider, DEFAULT_MAX_GAME_CHAIN_VALIDATION_DEPTH).await {
                 Ok(()) => {
                     tracing::info!(
                         "Found valid game chain at index {:?}, block {:?}",
