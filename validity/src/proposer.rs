@@ -319,17 +319,11 @@ where
                 .unwrap()
                 .as_secs();
             if current_time > status.deadline {
-                match self
-                    .proof_requester
-                    .handle_failed_request(request.clone(), status.execution_status())
-                    .await
-                {
-                    Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
-                    Err(e) => {
-                        ValidityGauge::RetryErrorCount.increment(1.0);
-                        return Err(e);
-                    }
-                }
+                // Mark the timed-out request as Cancelled instead of Failed
+                self.driver_config
+                    .driver_db_client
+                    .update_request_status(request.id, RequestStatus::Cancelled)
+                    .await?;
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
