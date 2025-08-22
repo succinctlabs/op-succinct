@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
 use anyhow::Result;
@@ -32,6 +32,7 @@ pub struct EnvironmentConfig {
     pub range_gas_limit: u64,
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
+    pub whitelist: Option<Vec<Address>>,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -49,6 +50,26 @@ where
             None => anyhow::bail!("{} is not set", key),
         },
     }
+}
+
+/// Helper function to parse a comma-separated list of addresses
+fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
+    if whitelist_str.is_empty() {
+        return Ok(None);
+    }
+
+    let addresses: Result<Vec<Address>> = whitelist_str
+        .split(',')
+        .map(|addr_str| {
+            let addr_str = addr_str.trim();
+            // Add 0x prefix since addresses are provided without it
+            let addr_with_prefix = format!("0x{}", addr_str);
+            Address::from_str(&addr_with_prefix)
+                .map_err(|e| anyhow::anyhow!("Failed to parse address '{}': {:?}", addr_str, e))
+        })
+        .collect();
+
+    addresses.map(|addrs| if addrs.is_empty() { None } else { Some(addrs) })
 }
 
 // 1 minute default loop interval.
@@ -126,6 +147,7 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
         range_gas_limit: get_env_var("RANGE_GAS_LIMIT", Some(1_000_000_000_000))?,     // 1 trillion
         agg_cycle_limit: get_env_var("AGG_CYCLE_LIMIT", Some(1_000_000_000_000))?,     // 1 trillion
         agg_gas_limit: get_env_var("AGG_GAS_LIMIT", Some(1_000_000_000_000))?,         // 1 trillion
+        whitelist: parse_whitelist(&get_env_var("WHITELIST", Some("".to_string()))?)?,
     };
 
     Ok(config)

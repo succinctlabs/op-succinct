@@ -146,6 +146,7 @@ where
             requester_config.range_gas_limit,
             requester_config.agg_cycle_limit,
             requester_config.agg_gas_limit,
+            requester_config.whitelist.clone(),
         ));
 
         let l2oo_contract =

@@ -73,4 +73,7 @@ pub struct RequesterConfig {
 
     /// The gas limit to use for aggregation proofs.
     pub agg_gas_limit: u64,
+
+    /// The list of prover addresses that are allowed to bid on proof requests.
+    pub whitelist: Option<Vec<Address>>,
 }

@@ -71,6 +71,7 @@ async fn main() -> Result<()> {
         range_gas_limit: env_config.range_gas_limit,
         agg_cycle_limit: env_config.agg_cycle_limit,
         agg_gas_limit: env_config.agg_gas_limit,
+        whitelist: env_config.whitelist,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());

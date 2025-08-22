@@ -40,6 +40,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub range_gas_limit: u64,
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
+    pub whitelist: Option<Vec<Address>>,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -61,6 +62,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         range_gas_limit: u64,
         agg_cycle_limit: u64,
         agg_gas_limit: u64,
+        whitelist: Option<Vec<Address>>,
     ) -> Self {
         Self {
             host,
@@ -79,6 +81,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             range_gas_limit,
             agg_cycle_limit,
             agg_gas_limit,
+            whitelist,
         }
     }
 
@@ -177,6 +180,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
+            .whitelist(self.whitelist.clone())
             .request_async()
             .await
         {
@@ -202,6 +206,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
+            .whitelist(self.whitelist.clone())
             .request_async()
             .await
         {
