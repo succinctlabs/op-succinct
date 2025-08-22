@@ -121,22 +121,9 @@ pub struct ChallengerConfig {
     /// The game type to challenge.
     pub game_type: u32,
 
-    /// The number of games to check for challenges.
-    /// The challenger will check for challenges up to `max_games_to_check_for_challenge` games
-    /// behind the latest game.
-    pub max_games_to_check_for_challenge: u64,
-
     /// Whether to enable game resolution.
     /// When game resolution is not enabled, the challenger will only challenge games.
     pub enable_game_resolution: bool,
-
-    /// The number of games to check for resolution.
-    /// When game resolution is enabled, the challenger will attempt to resolve games that are
-    /// challenged up to `max_games_to_check_for_resolution` games behind the latest game.
-    pub max_games_to_check_for_resolution: u64,
-
-    /// The maximum number of games to check for bond claiming.
-    pub max_games_to_check_for_bond_claiming: u64,
 
     /// The metrics port.
     pub metrics_port: u16,
@@ -145,6 +132,19 @@ pub struct ChallengerConfig {
     /// Set to 0.0 (default) for production use (honest challenging only).
     /// Set to >0.0 for testing defense mechanisms.
     pub malicious_challenge_percentage: f64,
+
+    /// The number of games to check for challenges.
+    /// The challenger will check for challenges up to `max_games_to_check_for_challenge` games
+    /// behind the latest game.
+    pub max_games_to_check_for_challenge: u64,
+
+    /// The number of games to check for resolution.
+    /// When game resolution is enabled, the challenger will attempt to resolve games that are
+    /// challenged up to `max_games_to_check_for_resolution` games behind the latest game.
+    pub max_games_to_check_for_resolution: u64,
+
+    /// The maximum number of games to check for bond claiming.
+    pub max_games_to_check_for_bond_claiming: u64,
 
     /// The maximum depth to check for game chain validation.
     pub max_depth_to_check: u32,
