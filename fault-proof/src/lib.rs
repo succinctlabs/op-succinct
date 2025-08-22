@@ -12,10 +12,6 @@ use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{bail, Context, Result};
 
-/// Default maximum depth for game chain validation.
-/// This prevents stack overflow and infinite loops from malicious long chains.
-/// Can be overridden by the MAX_GAME_CHAIN_VALIDATION_DEPTH environment variable.
-const DEFAULT_MAX_GAME_CHAIN_VALIDATION_DEPTH: u32 = 100;
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
@@ -148,6 +144,7 @@ where
     async fn get_latest_valid_proposal(
         &self,
         l2_provider: L2Provider,
+        max_depth_to_check: u32,
     ) -> Result<Option<(U256, U256)>>;
 
     /// Validate that a game and its entire ancestor chain are valid.
@@ -155,14 +152,19 @@ where
     /// A game chain is valid if:
     /// 1. All games in the chain have correct output roots
     /// 2. No games in the chain have been resolved as CHALLENGER_WINS
-    /// 3. The chain traces back to the anchor game (parentIndex == u32::MAX)
+    /// 3. The chain traces back to the anchor game (parentIndex == u32::MAX) OR reaches the maximum
+    ///    validation depth without finding any invalid games
+    ///
+    /// If the validation depth limit is reached without finding issues, the chain is
+    /// considered valid. This handles cases where there are more games than the
+    /// configured validation window.
     ///
     /// Returns Ok(()) if valid, Err with details if invalid or on error.
     async fn validate_game_chain(
         &self,
         game_index: U256,
         l2_provider: &L2Provider,
-        max_depth: u32,
+        max_depth_to_check: u32,
     ) -> anyhow::Result<()>;
 
     /// Get the anchor state registry address.
@@ -326,6 +328,7 @@ where
     async fn get_latest_valid_proposal(
         &self,
         l2_provider: L2Provider,
+        max_depth_to_check: u32,
     ) -> Result<Option<(U256, U256)>> {
         // Get latest game index, return None if no games exist.
         let Some(mut game_index) = self.fetch_latest_game_index().await? else {
@@ -350,7 +353,7 @@ where
             );
 
             // Check if this game and its entire ancestor chain are valid
-            match self.validate_game_chain(game_index, &l2_provider, DEFAULT_MAX_GAME_CHAIN_VALIDATION_DEPTH).await {
+            match self.validate_game_chain(game_index, &l2_provider, max_depth_to_check).await {
                 Ok(()) => {
                     tracing::info!(
                         "Found valid game chain at index {:?}, block {:?}",
@@ -394,19 +397,11 @@ where
         &self,
         mut game_index: U256,
         l2_provider: &L2Provider,
-        max_depth: u32,
+        max_depth_to_check: u32,
     ) -> anyhow::Result<()> {
-        let start_time = std::time::Instant::now();
         let mut depth = 0;
 
         loop {
-            // Check depth limit
-            anyhow::ensure!(
-                depth < max_depth,
-                "Game chain validation exceeded maximum depth of {} games",
-                max_depth
-            );
-
             let game_address =
                 self.fetch_game_address_by_index(game_index).await.with_context(|| {
                     format!("Failed to fetch game address for index {}", game_index)
@@ -464,11 +459,18 @@ where
 
             if claim_data.parentIndex == u32::MAX {
                 // Reached anchor game, chain is valid
-                let elapsed = start_time.elapsed();
+                tracing::info!("Game chain validation completed: {} games validated", depth + 1);
+                return Ok(());
+            }
+
+            // Check if we've reached our validation depth limit
+            if depth >= max_depth_to_check {
+                // If we've validated the configured window of games without finding issues,
+                // consider the chain valid. This handles cases where there are more games
+                // than our validation window.
                 tracing::info!(
-                    "Game chain validation completed: {} games validated in {:?}",
-                    depth + 1,
-                    elapsed
+                    "Game chain validation completed: validated {} games (reached depth limit)",
+                    depth + 1
                 );
                 return Ok(());
             }

@@ -39,7 +39,7 @@ ENABLE_GAME_RESOLUTION=true         # Whether to enable automatic game resolutio
 MAX_GAMES_TO_CHECK_FOR_DEFENSE=100    # Maximum number of recent games to check for defense
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100  # Maximum number of games to check for resolution
 MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
-MAX_GAME_CHAIN_VALIDATION_DEPTH=100   # Maximum depth to validate when checking game chain ancestry
+MAX_DEPTH_TO_CHECK=100   # Maximum depth to validate when checking game chain ancestry
 ```
 
 ### Challenger Configuration (.env.challenger)
@@ -58,7 +58,7 @@ ENABLE_GAME_RESOLUTION=true           # Whether to enable automatic game resolut
 MAX_GAMES_TO_CHECK_FOR_CHALLENGE=100  # Maximum number of games to check for challenges
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for resolution
 MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
-MAX_GAME_CHAIN_VALIDATION_DEPTH=100   # Maximum depth to validate when checking game chain ancestry
+MAX_DEPTH_TO_CHECK=100   # Maximum depth to validate when checking game chain ancestry
 ```
 
 2. Start the services:

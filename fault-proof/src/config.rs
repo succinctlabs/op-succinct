@@ -62,9 +62,8 @@ pub struct ProposerConfig {
     /// The maximum number of games to check for bond claiming.
     pub max_games_to_check_for_bond_claiming: u64,
 
-    /// Maximum depth to validate when checking game chain ancestry.
-    /// Prevents infinite loops and stack overflow from malicious long chains.
-    pub max_game_chain_validation_depth: u32,
+    /// The maximum depth to check for game chain validation.
+    pub max_depth_to_check: u32,
 }
 
 impl ProposerConfig {
@@ -103,7 +102,7 @@ impl ProposerConfig {
             max_games_to_check_for_bond_claiming: env::var("MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING")
                 .unwrap_or("100".to_string())
                 .parse()?,
-            max_game_chain_validation_depth: env::var("MAX_GAME_CHAIN_VALIDATION_DEPTH")
+            max_depth_to_check: env::var("MAX_DEPTH_TO_CHECK")
                 .unwrap_or("100".to_string())
                 .parse()?,
         })
@@ -147,9 +146,8 @@ pub struct ChallengerConfig {
     /// Set to >0.0 for testing defense mechanisms.
     pub malicious_challenge_percentage: f64,
 
-    /// Maximum depth to validate when checking game chain ancestry.
-    /// Prevents infinite loops and stack overflow from malicious long chains.
-    pub max_game_chain_validation_depth: u32,
+    /// The maximum depth to check for game chain validation.
+    pub max_depth_to_check: u32,
 }
 
 impl ChallengerConfig {
@@ -178,7 +176,7 @@ impl ChallengerConfig {
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
                 .parse()?,
-            max_game_chain_validation_depth: env::var("MAX_GAME_CHAIN_VALIDATION_DEPTH")
+            max_depth_to_check: env::var("MAX_DEPTH_TO_CHECK")
                 .unwrap_or("100".to_string())
                 .parse()?,
         })

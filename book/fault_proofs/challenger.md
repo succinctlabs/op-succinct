@@ -55,7 +55,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `MAX_GAMES_TO_CHECK_FOR_CHALLENGE` | Maximum number of games to scan for challenges | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
-| `MAX_GAME_CHAIN_VALIDATION_DEPTH` | Maximum depth to validate when checking game chain ancestry. Prevents infinite loops and stack overflow from malicious long chains. | `100` |
+| `MAX_DEPTH_TO_CHECK` | Maximum depth to validate when checking game chain ancestry. Prevents infinite loops and stack overflow from malicious long chains. | `100` |
 
 ```env
 # Required Configuration
@@ -72,7 +72,7 @@ CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
 MAX_GAMES_TO_CHECK_FOR_CHALLENGE=100  # Maximum number of games to scan for challenges
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for resolution
 MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
-MAX_GAME_CHAIN_VALIDATION_DEPTH=100  # Maximum depth to validate when checking game chain ancestry
+MAX_DEPTH_TO_CHECK=100  # Maximum depth to validate when checking game chain ancestry
 
 # Testing Configuration (Optional)
 MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge for testing (0.0 = disabled)
