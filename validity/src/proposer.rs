@@ -335,6 +335,9 @@ where
                         .network_prover
                         .cancel_request(B256::from_slice(proof_request_id))
                         .await?;
+
+                    // Don't check deadline this iteration.
+                    return Ok(());
                 }
             }
 
