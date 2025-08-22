@@ -147,6 +147,7 @@ where
             requester_config.agg_cycle_limit,
             requester_config.agg_gas_limit,
             requester_config.whitelist.clone(),
+            requester_config.auction_timeout,
         ));
 
         let l2oo_contract =
@@ -318,8 +319,9 @@ where
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
+
+            // Mark the timed-out request as Cancelled instead of Failed.
             if current_time > status.deadline {
-                // Mark the timed-out request as Cancelled instead of Failed
                 self.driver_config
                     .driver_db_client
                     .update_request_status(request.id, RequestStatus::Cancelled)

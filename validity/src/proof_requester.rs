@@ -41,6 +41,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
     pub whitelist: Option<Vec<Address>>,
+    pub auction_timeout: u64,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -63,6 +64,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_cycle_limit: u64,
         agg_gas_limit: u64,
         whitelist: Option<Vec<Address>>,
+        auction_timeout: u64,
     ) -> Self {
         Self {
             host,
@@ -82,6 +84,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_cycle_limit,
             agg_gas_limit,
             whitelist,
+            auction_timeout,
         }
     }
 
@@ -177,6 +180,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .skip_simulation(true)
             // TODO: implement feature flag.
             .timeout(Duration::from_secs(self.timeout))
+            .auction_timeout(Duration::from_secs(self.auction_timeout))
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
@@ -203,6 +207,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .strategy(self.agg_strategy)
             // TODO: implement feature flag.
             .timeout(Duration::from_secs(self.timeout))
+            .auction_timeout(Duration::from_secs(self.auction_timeout))
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
