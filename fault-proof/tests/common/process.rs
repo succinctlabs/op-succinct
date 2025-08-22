@@ -49,6 +49,7 @@ pub async fn start_proposer(
         range_gas_limit: 1_000_000_000_000,
         agg_cycle_limit: 1_000_000_000_000,
         agg_gas_limit: 1_000_000_000_000,
+        whitelist: None,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());

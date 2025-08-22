@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
@@ -78,6 +78,29 @@ pub struct ProposerConfig {
 
     /// The gas limit to use for aggregation proofs.
     pub agg_gas_limit: u64,
+
+    /// The list of prover addresses that are allowed to bid on proof requests.
+    pub whitelist: Option<Vec<Address>>,
+}
+
+/// Helper function to parse a comma-separated list of addresses
+fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
+    if whitelist_str.is_empty() {
+        return Ok(None);
+    }
+
+    let addresses: Result<Vec<Address>> = whitelist_str
+        .split(',')
+        .map(|addr_str| {
+            let addr_str = addr_str.trim();
+            // Add 0x prefix since addresses are provided without it
+            let addr_with_prefix = format!("0x{}", addr_str);
+            Address::from_str(&addr_with_prefix)
+                .map_err(|e| anyhow::anyhow!("Failed to parse address '{}': {:?}", addr_str, e))
+        })
+        .collect();
+
+    addresses.map(|addrs| if addrs.is_empty() { None } else { Some(addrs) })
 }
 
 impl ProposerConfig {
@@ -142,6 +165,7 @@ impl ProposerConfig {
             agg_gas_limit: env::var("AGG_GAS_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
+            whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
         })
     }
 }
