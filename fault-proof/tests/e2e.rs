@@ -453,8 +453,32 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
         parent_game_index, parent_game_address
     );
 
-    // === PHASE 2: Challenge and Resolve Parent as CHALLENGER_WINS ===
-    info!("=== Phase 2: Challenging Parent Game ===");
+    // === PHASE 2: Create Child Game Referencing Valid Parent ===
+    info!("=== Phase 2: Creating Child Game with Valid Parent ===");
+
+    let child_block = parent_block + 10;
+    let child_root =
+        fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
+    let child_extra_data =
+        (U256::from(child_block), parent_game_index.to::<u32>()).abi_encode_packed();
+
+    let tx = factory
+        .create(TEST_GAME_TYPE, child_root, child_extra_data.into())
+        .value(init_bond)
+        .send()
+        .await?;
+    tx.get_receipt().await?;
+
+    let child_game_count = factory.gameCount().call().await?;
+    let child_game_index = child_game_count - U256::from(1);
+    let child_game_info = factory.gameAtIndex(child_game_index).call().await?;
+    info!(
+        "✓ Created child game at index {} (address: {})",
+        child_game_index, child_game_info.proxy_
+    );
+
+    // === PHASE 3: Challenge and Resolve Parent as CHALLENGER_WINS ===
+    info!("=== Phase 3: Challenging Parent Game (after child was created) ===");
 
     // Start challenger to challenge the game (using malicious mode to challenge valid game)
     let challenger_handle = start_challenger(
@@ -493,30 +517,6 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
     // Stop challenger
     challenger_handle.abort();
 
-    // === PHASE 3: Create Child Game Referencing Challenged Parent ===
-    info!("=== Phase 3: Creating Child Game with Challenged Parent ===");
-
-    let child_block = parent_block + 10;
-    let child_root =
-        fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
-    let child_extra_data =
-        (U256::from(child_block), parent_game_index.to::<u32>()).abi_encode_packed();
-
-    let tx = factory
-        .create(TEST_GAME_TYPE, child_root, child_extra_data.into())
-        .value(init_bond)
-        .send()
-        .await?;
-    tx.get_receipt().await?;
-
-    let child_game_count = factory.gameCount().call().await?;
-    let child_game_index = child_game_count - U256::from(1);
-    let child_game_info = factory.gameAtIndex(child_game_index).call().await?;
-    info!(
-        "✓ Created child game at index {} (address: {}) with challenged parent",
-        child_game_index, child_game_info.proxy_
-    );
-
     // === PHASE 4: Start Proposer and Verify Chain Rejection ===
     info!("=== Phase 4: Starting Proposer to Validate Chain ===");
 
@@ -550,15 +550,16 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
             );
             let claim_data = new_game.claimData().call().await?;
 
-            // The new game should not reference the challenged parent or its child
-            assert!(
-                U256::from(claim_data.parentIndex) != parent_game_index &&
-                    U256::from(claim_data.parentIndex) != child_game_index,
-                "Proposer should not build on chain with challenged parent"
+            // The new game should be a new anchor game (parentIndex = u32::MAX) 
+            // since the entire chain is invalid due to challenged parent
+            assert_eq!(
+                claim_data.parentIndex, 
+                u32::MAX,
+                "Proposer should create a new anchor game when all chains have challenged ancestors"
             );
 
-            info!("✓ Proposer correctly skipped chain with challenged parent and created new game at index {}", new_game_index);
-            info!("  New game parent index: {}", claim_data.parentIndex);
+            info!("✓ Proposer correctly skipped chain with challenged parent and created new anchor game at index {}", new_game_index);
+            info!("  New game parent index: {} (anchor game)", claim_data.parentIndex);
             break;
         }
     }

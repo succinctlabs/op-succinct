@@ -59,9 +59,9 @@ The test suite includes two comprehensive end-to-end tests that validate the com
 #### 4. Game Chain Validation - Challenged Parent  
 `test_game_chain_validation_challenged_parent()`: Tests that proposer rejects chains with challenged ancestors:
 - **Phase 1: Create Valid Parent Game**: Creates a valid game as the parent
-- **Phase 2: Challenge Parent**: Challenger challenges the parent game and it resolves as CHALLENGER_WINS
-- **Phase 3: Create Child Game**: Creates a child game referencing the challenged parent
-- **Phase 4: Proposer Validation**: Proposer correctly skips the chain with challenged parent and creates a new game
+- **Phase 2: Create Child Game**: Creates a valid child game referencing the parent
+- **Phase 3: Challenge Parent**: Challenger challenges the parent game and it resolves as CHALLENGER_WINS
+- **Phase 4: Proposer Validation**: Proposer correctly skips the chain with challenged parent and creates a new anchor game
 
 ## Running the Tests
 
