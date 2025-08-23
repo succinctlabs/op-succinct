@@ -363,7 +363,7 @@ where
                                 end_block = request.end_block,
                                 auction_deadline = auction_deadline,
                                 current_time = current_time,
-                                "Range proof request timed out"
+                                "Range proof request auction deadline exceeded"
                             );
                         }
                         RequestType::Aggregation => {
@@ -371,9 +371,9 @@ where
                                 proof_id = request.id,
                                 start_block = request.start_block,
                                 end_block = request.end_block,
-                                deadline = status.deadline,
+                                auction_deadline = auction_deadline,
                                 current_time = current_time,
-                                "Aggregation proof request timed out"
+                                "Aggregation proof request auction deadline exceeded"
                             );
                         }
                     }
