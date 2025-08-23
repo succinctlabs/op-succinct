@@ -296,7 +296,7 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
         .value(init_bond)
         .send()
         .await?;
-    tx.get_receipt().await?;
+    let _receipt = tx.get_receipt().await?;
 
     let anchor_game_count = factory.gameCount().call().await?;
     let anchor_game_index = anchor_game_count - U256::from(1);
@@ -467,7 +467,7 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
         .value(init_bond)
         .send()
         .await?;
-    tx.get_receipt().await?;
+    let _receipt = tx.get_receipt().await?;
 
     let child_game_count = factory.gameCount().call().await?;
     let child_game_index = child_game_count - U256::from(1);
