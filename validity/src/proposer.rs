@@ -333,12 +333,58 @@ where
                     current_time >
                         request_details.created_at + self.requester_config.auction_timeout
                 {
+                    tracing::warn!(
+                        proof_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        "Cancelling request due to exceeded auction timeout"
+                    );
+
+                    // Cancel the request in the network.
                     self.driver_config
                         .network_prover
                         .cancel_request(B256::from_slice(proof_request_id))
                         .await?;
 
-                    // Don't check deadline this iteration.
+                    // Mark the request as cancelled in the database.
+                    match self
+                        .proof_requester
+                        .handle_failed_request(request.clone(), status.execution_status(), true)
+                        .await
+                    {
+                        Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                        Err(e) => {
+                            ValidityGauge::RetryErrorCount.increment(1.0);
+                            return Err(e);
+                        }
+                    }
+
+                    ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+
+                    // Log timeout of range proof
+                    match request.req_type {
+                        RequestType::Range => {
+                            warn!(
+                                proof_id = request.id,
+                                start_block = request.start_block,
+                                end_block = request.end_block,
+                                deadline = status.deadline,
+                                current_time = current_time,
+                                "Range proof request timed out"
+                            );
+                        }
+                        RequestType::Aggregation => {
+                            warn!(
+                                proof_id = request.id,
+                                start_block = request.start_block,
+                                end_block = request.end_block,
+                                deadline = status.deadline,
+                                current_time = current_time,
+                                "Aggregation proof request timed out"
+                            );
+                        }
+                    }
+
                     return Ok(());
                 }
             }
@@ -346,7 +392,7 @@ where
             if current_time > status.deadline {
                 match self
                     .proof_requester
-                    .handle_failed_request(request.clone(), status.execution_status())
+                    .handle_failed_request(request.clone(), status.execution_status(), false)
                     .await
                 {
                     Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
@@ -481,7 +527,7 @@ where
                 }
 
                 self.proof_requester
-                    .handle_failed_request(request, status.execution_status())
+                    .handle_failed_request(request, status.execution_status(), false)
                     .await?;
                 ValidityGauge::ProofRequestRetryCount.increment(1.0);
             }
@@ -1169,6 +1215,7 @@ where
                                 .handle_failed_request(
                                     request,
                                     ExecutionStatus::UnspecifiedExecutionStatus,
+                                    false,
                                 )
                                 .await
                             {
@@ -1195,6 +1242,7 @@ where
                             .handle_failed_request(
                                 request,
                                 ExecutionStatus::UnspecifiedExecutionStatus,
+                                false,
                             )
                             .await
                         {
