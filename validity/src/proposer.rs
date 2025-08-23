@@ -328,18 +328,12 @@ where
 
             // Cancel the request in the network if the auction timeout is exceeded.
             if let Some(request_details) = request_details {
+                let auction_deadline =
+                    request_details.created_at + self.requester_config.auction_timeout;
                 if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
                     current_time < status.deadline &&
-                    current_time >
-                        request_details.created_at + self.requester_config.auction_timeout
+                    current_time > auction_deadline
                 {
-                    tracing::warn!(
-                        proof_id = request.id,
-                        start_block = request.start_block,
-                        end_block = request.end_block,
-                        "Cancelling request due to exceeded auction timeout"
-                    );
-
                     // Cancel the request in the network.
                     self.driver_config
                         .network_prover
@@ -361,14 +355,13 @@ where
 
                     ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                    // Log timeout of range proof
                     match request.req_type {
                         RequestType::Range => {
                             warn!(
                                 proof_id = request.id,
                                 start_block = request.start_block,
                                 end_block = request.end_block,
-                                deadline = status.deadline,
+                                auction_deadline = auction_deadline,
                                 current_time = current_time,
                                 "Range proof request timed out"
                             );
@@ -404,7 +397,6 @@ where
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                // Log timeout of range proof
                 match request.req_type {
                     RequestType::Range => {
                         warn!(
