@@ -278,6 +278,11 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
 
     let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
     let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+    
+    // CRITICAL FIX: Advance time after contract deployment
+    // This ensures games created won't be considered "retired" (createdAt > respectedGameTypeUpdatedAt)
+    info!("Advancing time to ensure games won't be retired...");
+    warp_time(&env.anvil.provider, Duration::from_secs(10)).await?;
 
     // === PHASE 1: Create Invalid Parent Chain ===
     info!("=== Phase 1: Creating Invalid Parent Chain ===");
@@ -368,14 +373,17 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
     // Wait for proposer to create a new game (it should skip the invalid chain)
     let initial_game_count = child_game_count;
     let mut new_game_created = false;
+    let mut first_new_game_index = None;
 
     for _ in 0..30 {
         tokio::time::sleep(Duration::from_secs(2)).await;
         let current_game_count = factory.gameCount().call().await?;
 
-        if current_game_count > initial_game_count {
+        if current_game_count > initial_game_count && first_new_game_index.is_none() {
             new_game_created = true;
-            let new_game_index = current_game_count - U256::from(1);
+            // Check the FIRST game created by the proposer
+            let new_game_index = initial_game_count + U256::from(1);
+            first_new_game_index = Some(new_game_index);
             let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
 
             // Check that the new game doesn't build on the invalid chain
