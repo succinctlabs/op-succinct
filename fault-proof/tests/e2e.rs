@@ -8,7 +8,7 @@ use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use fault_proof::{contract::GameStatus, L2ProviderTrait};
 use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
 use rand::Rng;
@@ -281,67 +281,80 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
 
     // === PHASE 1: Create Invalid Parent Chain ===
     info!("=== Phase 1: Creating Invalid Parent Chain ===");
-    
+
     // Step 1: Create a valid anchor game (parentIndex = u32::MAX)
-    let anchor_block = env.anvil.starting_l2_block_number + 100;
-    
+    let anchor_block = env.anvil.starting_l2_block_number + 10;
+
     // Create L2 provider to compute output roots
     let fetcher = op_succinct_host_utils::fetcher::OPSuccinctDataFetcher::new();
-    let anchor_root = fetcher.l2_provider.compute_output_root_at_block(U256::from(anchor_block)).await?;
+    let anchor_root =
+        fetcher.l2_provider.compute_output_root_at_block(U256::from(anchor_block)).await?;
     let anchor_extra_data = (U256::from(anchor_block), u32::MAX).abi_encode_packed();
-    
+
     let tx = factory
         .create(TEST_GAME_TYPE, anchor_root, anchor_extra_data.into())
         .value(init_bond)
         .send()
         .await?;
     tx.get_receipt().await?;
-    
+
     let anchor_game_count = factory.gameCount().call().await?;
     let anchor_game_index = anchor_game_count - U256::from(1);
     let anchor_game_info = factory.gameAtIndex(anchor_game_index).call().await?;
-    info!("✓ Created valid anchor game at index {} (address: {})", anchor_game_index, anchor_game_info.proxy_);
+    info!(
+        "✓ Created valid anchor game at index {} (address: {})",
+        anchor_game_index, anchor_game_info.proxy_
+    );
 
     // Step 2: Create an invalid middle game with wrong output root
-    let middle_block = anchor_block + 100;
+    let middle_block = anchor_block + 10;
     let mut rng = rand::rng();
     let mut invalid_root_bytes = [0u8; 32];
     rng.fill(&mut invalid_root_bytes);
     let invalid_root = FixedBytes::<32>::from(invalid_root_bytes);
-    let middle_extra_data = (U256::from(middle_block), anchor_game_index.to::<u32>()).abi_encode_packed();
-    
+    let middle_extra_data =
+        (U256::from(middle_block), anchor_game_index.to::<u32>()).abi_encode_packed();
+
     let tx = factory
         .create(TEST_GAME_TYPE, invalid_root, middle_extra_data.into())
         .value(init_bond)
         .send()
         .await?;
     tx.get_receipt().await?;
-    
+
     let middle_game_count = factory.gameCount().call().await?;
     let middle_game_index = middle_game_count - U256::from(1);
     let middle_game_info = factory.gameAtIndex(middle_game_index).call().await?;
-    info!("✓ Created invalid middle game at index {} (address: {})", middle_game_index, middle_game_info.proxy_);
+    info!(
+        "✓ Created invalid middle game at index {} (address: {})",
+        middle_game_index, middle_game_info.proxy_
+    );
 
     // Step 3: Create a valid child game pointing to invalid parent
-    let child_block = middle_block + 100;
-    let child_root = fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
-    let child_extra_data = (U256::from(child_block), middle_game_index.to::<u32>()).abi_encode_packed();
-    
+    let child_block = middle_block + 10;
+    let child_root =
+        fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
+    let child_extra_data =
+        (U256::from(child_block), middle_game_index.to::<u32>()).abi_encode_packed();
+
     let tx = factory
         .create(TEST_GAME_TYPE, child_root, child_extra_data.into())
         .value(init_bond)
         .send()
         .await?;
     tx.get_receipt().await?;
-    
+
     let child_game_count = factory.gameCount().call().await?;
     let child_game_index = child_game_count - U256::from(1);
     let child_game_info = factory.gameAtIndex(child_game_index).call().await?;
-    info!("✓ Created valid child game at index {} (address: {})", child_game_index, child_game_info.proxy_);
+    info!(
+        "✓ Created valid child game at index {} (address: {})",
+        child_game_index, child_game_info.proxy_
+    );
 
     // === PHASE 2: Start Proposer and Verify Chain Rejection ===
     info!("=== Phase 2: Starting Proposer to Validate Chain ===");
-    
+
     // Start proposer
     let proposer_handle = start_proposer(
         &env.rpc_config,
@@ -355,37 +368,41 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
     // Wait for proposer to create a new game (it should skip the invalid chain)
     let initial_game_count = child_game_count;
     let mut new_game_created = false;
-    
+
     for _ in 0..30 {
         tokio::time::sleep(Duration::from_secs(2)).await;
         let current_game_count = factory.gameCount().call().await?;
-        
+
         if current_game_count > initial_game_count {
             new_game_created = true;
             let new_game_index = current_game_count - U256::from(1);
             let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
-            
+
             // Check that the new game doesn't build on the invalid chain
             let new_game = op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
                 new_game_info.proxy_,
                 env.anvil.provider.clone(),
             );
             let claim_data = new_game.claimData().call().await?;
-            
+
             // The new game should either be an anchor game or build on the valid anchor game
             assert!(
-                claim_data.parentIndex == u32::MAX || U256::from(claim_data.parentIndex) <= anchor_game_index,
+                claim_data.parentIndex == u32::MAX ||
+                    U256::from(claim_data.parentIndex) <= anchor_game_index,
                 "Proposer should not build on invalid chain"
             );
-            
-            info!("✓ Proposer correctly skipped invalid chain and created new game at index {}", new_game_index);
+
+            info!(
+                "✓ Proposer correctly skipped invalid chain and created new game at index {}",
+                new_game_index
+            );
             info!("  New game parent index: {}", claim_data.parentIndex);
             break;
         }
     }
-    
+
     assert!(new_game_created, "Proposer should have created a new game");
-    
+
     // Stop proposer
     proposer_handle.abort();
     info!("✓ Test complete: Proposer correctly rejected invalid parent chain");
@@ -410,46 +427,80 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
     let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
     let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
 
-    // === PHASE 1: Create Valid Parent Game ===
-    info!("=== Phase 1: Creating Valid Parent Game ===");
-    
-    let parent_block = env.anvil.starting_l2_block_number + 100;
-    
-    // Create L2 provider to compute output roots
+    // === PHASE 0: Create Valid Anchor Game ===
+    info!("=== Phase 0: Creating Valid Anchor Game ===");
+
+    // Create an initial valid game that won't be challenged
+    let anchor_block = env.anvil.starting_l2_block_number + 50;
     let fetcher = op_succinct_host_utils::fetcher::OPSuccinctDataFetcher::new();
-    let parent_root = fetcher.l2_provider.compute_output_root_at_block(U256::from(parent_block)).await?;
-    let parent_extra_data = (U256::from(parent_block), u32::MAX).abi_encode_packed();
-    
+    let anchor_root =
+        fetcher.l2_provider.compute_output_root_at_block(U256::from(anchor_block)).await?;
+    let anchor_extra_data = (U256::from(anchor_block), u32::MAX).abi_encode_packed();
+
+    let tx = factory
+        .create(TEST_GAME_TYPE, anchor_root, anchor_extra_data.into())
+        .value(init_bond)
+        .send()
+        .await?;
+    tx.get_receipt().await?;
+
+    let anchor_game_count = factory.gameCount().call().await?;
+    let anchor_game_index = anchor_game_count - U256::from(1);
+    let anchor_game_info = factory.gameAtIndex(anchor_game_index).call().await?;
+    info!(
+        "✓ Created valid anchor game at index {} (address: {})",
+        anchor_game_index, anchor_game_info.proxy_
+    );
+
+    // === PHASE 1: Create Valid Parent Game (to be challenged) ===
+    info!("=== Phase 1: Creating Valid Parent Game to be Challenged ===");
+
+    let parent_block = anchor_block + 100;
+
+    // Create parent game that will be challenged
+    let parent_root =
+        fetcher.l2_provider.compute_output_root_at_block(U256::from(parent_block)).await?;
+    let parent_extra_data =
+        (U256::from(parent_block), anchor_game_index.to::<u32>()).abi_encode_packed();
+
     let tx = factory
         .create(TEST_GAME_TYPE, parent_root, parent_extra_data.into())
         .value(init_bond)
         .send()
         .await?;
     tx.get_receipt().await?;
-    
+
     let parent_game_count = factory.gameCount().call().await?;
     let parent_game_index = parent_game_count - U256::from(1);
     let parent_game_info = factory.gameAtIndex(parent_game_index).call().await?;
     let parent_game_address = parent_game_info.proxy_;
-    info!("✓ Created valid parent game at index {} (address: {})", parent_game_index, parent_game_address);
+    info!(
+        "✓ Created valid parent game at index {} (address: {})",
+        parent_game_index, parent_game_address
+    );
 
-    // === PHASE 2: Challenge and Resolve Parent as CHALLENGER_WINS ===
+    // === PHASE 2: Challenge Only the Parent Game (not the anchor) ===
     info!("=== Phase 2: Challenging Parent Game ===");
-    
-    // Start challenger to challenge the game (using malicious mode to challenge valid game)
-    let challenger_handle = start_challenger(
-        &env.rpc_config,
-        CHALLENGER_PRIVATE_KEY,
-        &env.deployed.factory,
-        TEST_GAME_TYPE,
-        Some(100.0), // Challenge all games maliciously for testing
-    )
-    .await?;
-    info!("✓ Challenger service started in malicious mode");
 
-    // Wait for challenge
-    wait_for_challenges(&env.anvil.provider, &[parent_game_address], Duration::from_secs(30)).await?;
-    info!("✓ Parent game challenged");
+    // Manually challenge only the parent game
+    let challenger_wallet = PrivateKeySigner::from_str(CHALLENGER_PRIVATE_KEY)?;
+    let challenger_provider = ProviderBuilder::new()
+        .wallet(EthereumWallet::from(challenger_wallet))
+        .connect_http(env.anvil.endpoint.parse::<Url>()?);
+
+    let parent_game =
+        op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
+            parent_game_address,
+            challenger_provider.clone(),
+        );
+
+    // Get the challenger bond amount
+    let challenger_bond = parent_game.challengerBond().call().await?;
+
+    // Challenge the parent game directly with the required bond
+    let tx = parent_game.challenge().value(challenger_bond).send().await?;
+    tx.get_receipt().await?;
+    info!("✓ Parent game challenged with bond {}", challenger_bond);
 
     // Warp time to resolve as CHALLENGER_WINS (no proof submitted)
     warp_time(
@@ -457,92 +508,66 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
         Duration::from_secs(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION),
     )
     .await?;
-    
-    // Wait for resolution
-    wait_and_verify_game_resolutions(
-        &env.anvil.provider,
-        &[parent_game_address],
-        GameStatus::CHALLENGER_WINS,
-        "ChallengerWins",
-        Duration::from_secs(30),
-    )
-    .await?;
+
+    // First resolve the anchor game (parent of the challenged game)
+    let anchor_game =
+        op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
+            anchor_game_info.proxy_,
+            challenger_provider.clone(),
+        );
+    let tx = anchor_game.resolve().send().await?;
+    tx.get_receipt().await?;
+    info!("✓ Anchor game resolved");
+
+    // Now resolve the parent game
+    let tx = parent_game.resolve().send().await?;
+    tx.get_receipt().await?;
+
+    // Verify it resolved as CHALLENGER_WINS
+    let status = parent_game.status().call().await?;
+    assert_eq!(
+        status,
+        GameStatus::CHALLENGER_WINS as u8,
+        "Parent game should resolve as CHALLENGER_WINS"
+    );
     info!("✓ Parent game resolved as CHALLENGER_WINS");
 
-    // Stop challenger
-    challenger_handle.abort();
+    // === PHASE 3: Attempt to Create Child Game Referencing Challenged Parent ===
+    info!("=== Phase 3: Attempting to Create Child Game with Challenged Parent ===");
 
-    // === PHASE 3: Create Child Game Referencing Challenged Parent ===
-    info!("=== Phase 3: Creating Child Game with Challenged Parent ===");
-    
     let child_block = parent_block + 100;
-    let child_root = fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
-    let child_extra_data = (U256::from(child_block), parent_game_index.to::<u32>()).abi_encode_packed();
-    
-    let tx = factory
+    let child_root =
+        fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
+    let child_extra_data =
+        (U256::from(child_block), parent_game_index.to::<u32>()).abi_encode_packed();
+
+    // This should fail with InvalidParentGame error since parent was challenged
+    let result = factory
         .create(TEST_GAME_TYPE, child_root, child_extra_data.into())
         .value(init_bond)
         .send()
-        .await?;
-    tx.get_receipt().await?;
-    
-    let child_game_count = factory.gameCount().call().await?;
-    let child_game_index = child_game_count - U256::from(1);
-    let child_game_info = factory.gameAtIndex(child_game_index).call().await?;
-    info!("✓ Created child game at index {} (address: {}) with challenged parent", 
-          child_game_index, child_game_info.proxy_);
+        .await;
 
-    // === PHASE 4: Start Proposer and Verify Chain Rejection ===
-    info!("=== Phase 4: Starting Proposer to Validate Chain ===");
-    
-    // Start proposer
-    let proposer_handle = start_proposer(
-        &env.rpc_config,
-        PROPOSER_PRIVATE_KEY,
-        &env.deployed.factory,
-        TEST_GAME_TYPE,
-    )
-    .await?;
-    info!("✓ Proposer service started");
-
-    // Wait for proposer to create a new game (it should skip the chain with challenged parent)
-    let initial_game_count = child_game_count;
-    let mut new_game_created = false;
-    
-    for _ in 0..30 {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        let current_game_count = factory.gameCount().call().await?;
-        
-        if current_game_count > initial_game_count {
-            new_game_created = true;
-            let new_game_index = current_game_count - U256::from(1);
-            let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
-            
-            // Check that the new game doesn't build on the challenged parent chain
-            let new_game = op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
-                new_game_info.proxy_,
-                env.anvil.provider.clone(),
-            );
-            let claim_data = new_game.claimData().call().await?;
-            
-            // The new game should not reference the challenged parent or its child
-            assert!(
-                U256::from(claim_data.parentIndex) != parent_game_index && 
-                U256::from(claim_data.parentIndex) != child_game_index,
-                "Proposer should not build on chain with challenged parent"
-            );
-            
-            info!("✓ Proposer correctly skipped chain with challenged parent and created new game at index {}", new_game_index);
-            info!("  New game parent index: {}", claim_data.parentIndex);
-            break;
+    // Verify the transaction reverts with InvalidParentGame error
+    match result {
+        Err(e) => {
+            let error_str = e.to_string();
+            if error_str.contains("0x346119f7") || error_str.contains("InvalidParentGame") {
+                info!("✓ Game creation correctly rejected with InvalidParentGame error");
+            } else {
+                return Err(anyhow!("Expected InvalidParentGame error but got: {}", error_str));
+            }
+        }
+        Ok(_) => {
+            return Err(anyhow!(
+                "Expected game creation to fail with InvalidParentGame but it succeeded"
+            ));
         }
     }
-    
-    assert!(new_game_created, "Proposer should have created a new game");
-    
-    // Stop proposer
-    proposer_handle.abort();
-    info!("✓ Test complete: Proposer correctly rejected chain with challenged parent");
+
+    info!("✓ System correctly prevents creating games with challenged parents");
+
+    info!("✓ Test complete: System correctly prevents creating games with challenged parents");
 
     Ok(())
 }
