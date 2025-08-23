@@ -51,10 +51,25 @@ The test suite includes two comprehensive end-to-end tests that validate the com
 - **Phase 3: Resolution**: Time warp past prove deadline, games resolve in challenger's favor
 - **Phase 4: Bond Claims**: Challenger claims bonds from all defeated games after airgap period
 
+#### 3. Game Chain Validation - Invalid Parent
+`test_game_chain_validation_invalid_parent()`: Tests that proposer correctly rejects chains with invalid ancestors:
+- **Phase 1: Create Invalid Parent Chain**: Creates a valid anchor game, an invalid middle game with wrong output root, and a valid child game pointing to the invalid parent
+- **Phase 2: Proposer Validation**: Proposer starts and correctly skips the entire chain due to invalid ancestor, creating a new game instead
+
+#### 4. Game Chain Validation - Challenged Parent  
+`test_game_chain_validation_challenged_parent()`: Tests that proposer rejects chains with challenged ancestors:
+- **Phase 1: Create Valid Parent Game**: Creates a valid game as the parent
+- **Phase 2: Challenge Parent**: Challenger challenges the parent game and it resolves as CHALLENGER_WINS
+- **Phase 3: Create Child Game**: Creates a child game referencing the challenged parent
+- **Phase 4: Proposer Validation**: Proposer correctly skips the chain with challenged parent and creates a new game
+
 ## Running the Tests
 
 ### Basic Test Execution
 ```bash
 # Run all end-to-end tests
 cargo test --release --test e2e
+
+# Run specific game chain validation tests
+cargo test --release --test e2e test_game_chain_validation
 ```
