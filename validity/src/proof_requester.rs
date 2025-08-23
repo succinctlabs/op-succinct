@@ -356,6 +356,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         &self,
         request: OPSuccinctRequest,
         execution_status: ExecutionStatus,
+        is_cancelled: bool,
     ) -> Result<()> {
         warn!(
             id = request.id,
@@ -366,7 +367,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         );
 
         // Mark the existing request as failed.
-        self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
+        let status = if is_cancelled { RequestStatus::Cancelled } else { RequestStatus::Failed };
+        self.db_client.update_request_status(request.id, status).await?;
 
         let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
         let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
