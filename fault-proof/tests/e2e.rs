@@ -550,10 +550,10 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
             );
             let claim_data = new_game.claimData().call().await?;
 
-            // The new game should be a new anchor game (parentIndex = u32::MAX) 
+            // The new game should be a new anchor game (parentIndex = u32::MAX)
             // since the entire chain is invalid due to challenged parent
             assert_eq!(
-                claim_data.parentIndex, 
+                claim_data.parentIndex,
                 u32::MAX,
                 "Proposer should create a new anchor game when all chains have challenged ancestors"
             );
