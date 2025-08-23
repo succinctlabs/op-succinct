@@ -427,6 +427,12 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
     let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
     let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
 
+    // CRITICAL FIX: Advance time after contract deployment
+    // This ensures games created won't be considered "retired" (createdAt >
+    // respectedGameTypeUpdatedAt)
+    info!("Advancing time to ensure games won't be retired...");
+    warp_time(&env.anvil.provider, Duration::from_secs(10)).await?;
+
     // === PHASE 1: Create Valid Parent Game ===
     info!("=== Phase 1: Creating Valid Parent Game ===");
 
@@ -442,7 +448,10 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
         .value(init_bond)
         .send()
         .await?;
-    tx.get_receipt().await?;
+
+    // Wait for transaction receipt with confirmations
+    let receipt = tx.with_required_confirmations(3).get_receipt().await?;
+    info!("Parent game creation tx confirmed in block {:?}", receipt.block_number);
 
     let parent_game_count = factory.gameCount().call().await?;
     let parent_game_index = parent_game_count - U256::from(1);
@@ -456,18 +465,75 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
     // === PHASE 2: Create Child Game Referencing Valid Parent ===
     info!("=== Phase 2: Creating Child Game with Valid Parent ===");
 
+    // Double-check parent game status right before creating child
+    let parent_game =
+        op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
+            parent_game_address,
+            provider_with_signer.clone(),
+        );
+    let parent_status = parent_game.status().call().await?;
+    info!("Parent game status right before child creation: {:?}", parent_status);
+
+    let was_respected = parent_game.wasRespectedGameTypeWhenCreated().call().await?;
+    info!("Parent game wasRespectedGameTypeWhenCreated: {}", was_respected);
+
+    // Check if parent game is blacklisted or retired via AnchorStateRegistry
+    // We need to get the anchor state registry address from the parent game
+    let anchor_registry_addr = parent_game.anchorStateRegistry().call().await?;
+    info!("AnchorStateRegistry address: {:?}", anchor_registry_addr);
+
+    // Check if the parent game passes the validation checks
+    let anchor_registry = op_succinct_bindings::anchor_state_registry::AnchorStateRegistry::new(
+        anchor_registry_addr,
+        provider_with_signer.clone(),
+    );
+
+    let is_respected = anchor_registry.isGameRespected(parent_game_address).call().await?;
+    let is_blacklisted = anchor_registry.isGameBlacklisted(parent_game_address).call().await?;
+    let is_retired = anchor_registry.isGameRetired(parent_game_address).call().await?;
+
+    info!("Parent game validation via AnchorStateRegistry:");
+    info!("  - isGameRespected: {}", is_respected);
+    info!("  - isGameBlacklisted: {}", is_blacklisted);
+    info!("  - isGameRetired: {}", is_retired);
+
+    // Debug timing issue - why is game retired?
+    if is_retired {
+        let parent_created_at = parent_game.createdAt().call().await?;
+
+        // Get the portal address to check respectedGameTypeUpdatedAt
+        let portal_addr = anchor_registry.portal().call().await?;
+        let portal = op_succinct_bindings::mock_optimism_portal2::MockOptimismPortal2::new(
+            portal_addr,
+            provider_with_signer.clone(),
+        );
+        let respected_game_type_updated_at = portal.respectedGameTypeUpdatedAt().call().await?;
+
+        info!("DEBUG: Game retirement issue:");
+        info!("  - Parent game createdAt: {}", parent_created_at);
+        info!("  - Portal respectedGameTypeUpdatedAt: {}", respected_game_type_updated_at);
+        info!(
+            "  - Game is retired because: {} <= {}",
+            parent_created_at, respected_game_type_updated_at
+        );
+    }
+
     let child_block = parent_block + 10;
     let child_root =
         fetcher.l2_provider.compute_output_root_at_block(U256::from(child_block)).await?;
     let child_extra_data =
         (U256::from(child_block), parent_game_index.to::<u32>()).abi_encode_packed();
 
+    info!("Attempting to create child game with parent index: {}", parent_game_index.to::<u32>());
     let tx = factory
         .create(TEST_GAME_TYPE, child_root, child_extra_data.into())
         .value(init_bond)
         .send()
         .await?;
-    let _receipt = tx.get_receipt().await?;
+
+    // Wait for transaction receipt with confirmations
+    let receipt = tx.with_required_confirmations(3).get_receipt().await?;
+    info!("Child game creation tx confirmed in block {:?}", receipt.block_number);
 
     let child_game_count = factory.gameCount().call().await?;
     let child_game_index = child_game_count - U256::from(1);
