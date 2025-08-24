@@ -381,8 +381,8 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
 
         if current_game_count > initial_game_count && first_new_game_index.is_none() {
             new_game_created = true;
-            // Check the FIRST game created by the proposer
-            let new_game_index = initial_game_count + U256::from(1);
+            // Check the FIRST game created by the proposer (at index initial_game_count)
+            let new_game_index = initial_game_count;  // First new game is at this index
             first_new_game_index = Some(new_game_index);
             let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
 
