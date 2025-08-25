@@ -55,13 +55,18 @@ upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
   cd contracts && forge script script/validity/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader  --rpc-url $L1_RPC --private-key $ADMIN_PK $VERIFY --broadcast --slow
 
 # Deploy OPSuccinct FDG contracts
-deploy-fdg-contracts env_file=".env":
+deploy-fdg-contracts env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
     
     # First fetch FDG config using the env file
     echo "Fetching Fault Dispute Game configuration..."
-    RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
+    if [ -z "{{features}}" ]; then
+        RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
+    else
+        echo "Fetching fault dispute game config with features: {{features}}"
+        RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release --features {{features}} -- --env-file {{env_file}}
+    fi
     
     # Load environment variables from project root
     source {{env_file}}
@@ -273,10 +278,10 @@ add-config config_name env_file=".env" *features='':
     
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
-        RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+        RUST_LOG=info cargo run --bin fetch-l2oo-config --release -- --env-file {{env_file}}
     else
         echo "Fetching rollup config with features: {{features}}"
-        RUST_LOG=info cargo run --bin fetch-rollup-config --release --features {{features}} -- --env-file {{env_file}}
+        RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
     
     # Load environment variables
