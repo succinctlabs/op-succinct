@@ -67,9 +67,6 @@ The test suite includes two comprehensive end-to-end tests that validate the com
 
 ### Basic Test Execution
 ```bash
-# Run all end-to-end tests
-cargo test --release --test e2e
-
-# Run specific game chain validation tests
-cargo test --release --test e2e test_game_chain_validation
+# Run all end-to-end tests sequentially
+cargo test --release --test e2e -- --test-threads=1 --nocapture --show-output
 ```
