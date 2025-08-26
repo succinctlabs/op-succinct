@@ -1,4 +1,4 @@
-name: Build Celo / OP Succinct Lite Docker Images
+name: Push container images for development
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   build:
-    name: Build OP Succinct Lite Docker Images
+    name: Build and push op-succinct container dev-image
     runs-on:
       - self-hosted
       - org
@@ -28,32 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }} # Check out the PR head, rather than the merge commit.
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Docker meta for proposer
-        id: meta-proposer
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY_URL }}/proposer
-          tags: |
-            type=semver,pattern={{version}}
-            type=edge
-            type=sha
-            type=raw,value=latest
-
-      - name: Docker meta for challenger
-        id: meta-challenger
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY_URL }}/challenger
-          tags: |
-            type=semver,pattern={{version}}
-            type=edge
-            type=sha
-            type=raw,value=latest
+          ref: ${{ github.sha }}
 
       - name: Login at GCP Artifact Registry
         uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
@@ -62,26 +37,24 @@ jobs:
           service-account: "op-succinct-gh-dev@devopsre.iam.gserviceaccount.com"
           docker-gcp-registries: us-west1-docker.pkg.dev
 
-      - name: Build and push proposer
-        uses: docker/build-push-action@v6
+      - name: Build, push and scan the proposer container
+        # TODO: pin to release 3.0.0 once approved and tagged
+        uses: celo-org/reusable-workflows/.github/actions/build-container@ezdac/use-docker-metadata-action
         with:
-          context: .
-          file: fault-proof/Dockerfile.proposer
-          push: true
-          tags: ${{ steps.meta-proposer.outputs.tags }}
-          labels: ${{ steps.meta-proposer.outputs.labels }}
           platforms: linux/amd64
-          cache-from: type=registry,ref=${{ env.REGISTRY_URL }}/proposer-buildcache:buildcache
-          cache-to: type=registry,mode=max,ref=${{ env.REGISTRY_URL }}/proposer-buildcache:buildcache
+          registry: us-west1-docker.pkg.dev/devopsre/dev-images
+          app-name: ${{ github.event.repository.name }}/proposer
+          context: .
+          dockerfile: fault-proof/Dockerfile.proposer
+          push: "true"
 
-      - name: Build and push challenger
-        uses: docker/build-push-action@v6
+      - name: Build, push and scan the challenger container
+        # TODO: pin to release 3.0.0 once approved and tagged
+        uses: celo-org/reusable-workflows/.github/actions/build-container@ezdac/use-docker-metadata-action
         with:
-          context: .
-          file: fault-proof/Dockerfile.challenger
-          push: true
-          tags: ${{ steps.meta-challenger.outputs.tags }}
-          labels: ${{ steps.meta-challenger.outputs.labels }}
           platforms: linux/amd64
-          cache-from: type=registry,ref=${{ env.REGISTRY_URL }}/challenger-buildcache:buildcache
-          cache-to: type=registry,mode=max,ref=${{ env.REGISTRY_URL }}/challenger-buildcache:buildcache
+          registry: us-west1-docker.pkg.dev/devopsre/dev-images
+          app-name: ${{ github.event.repository.name }}/challenger
+          context: .
+          dockerfile: fault-proof/Dockerfile.challenger
+          push: "true"
