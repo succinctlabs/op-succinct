@@ -371,17 +371,15 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
     // Wait for proposer to create a new game (it should skip the invalid chain)
     let initial_game_count = child_game_count;
     let mut new_game_created = false;
-    let mut first_new_game_index = None;
 
     for _ in 0..30 {
         tokio::time::sleep(Duration::from_secs(2)).await;
         let current_game_count = factory.gameCount().call().await?;
 
-        if current_game_count > initial_game_count && first_new_game_index.is_none() {
+        if current_game_count > initial_game_count {
             new_game_created = true;
             // Check the FIRST game created by the proposer (at index initial_game_count)
             let new_game_index = initial_game_count; // First new game is at this index
-            first_new_game_index = Some(new_game_index);
             let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
 
             // Check that the new game doesn't build on the invalid chain
