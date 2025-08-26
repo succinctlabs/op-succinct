@@ -278,9 +278,7 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
 
     let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
     let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
-    
-    // CRITICAL FIX: Advance time after contract deployment
-    // This ensures games created won't be considered "retired" (createdAt > respectedGameTypeUpdatedAt)
+
     info!("Advancing time to ensure games won't be retired...");
     warp_time(&env.anvil.provider, Duration::from_secs(10)).await?;
 
@@ -382,7 +380,7 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
         if current_game_count > initial_game_count && first_new_game_index.is_none() {
             new_game_created = true;
             // Check the FIRST game created by the proposer (at index initial_game_count)
-            let new_game_index = initial_game_count;  // First new game is at this index
+            let new_game_index = initial_game_count; // First new game is at this index
             first_new_game_index = Some(new_game_index);
             let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
 
