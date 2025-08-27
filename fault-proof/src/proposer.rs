@@ -364,8 +364,10 @@ where
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
         // Get the latest valid proposal.
-        let latest_valid_proposal =
-            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
+        let latest_valid_proposal = self
+            .factory
+            .get_latest_valid_proposal(self.l2_provider.clone(), self.config.max_depth_to_check)
+            .await?;
 
         // Determine next block number and parent game index.
         //
@@ -491,14 +493,17 @@ where
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
         // Get the latest valid proposal.
-        let latest_proposed_block_number =
-            match self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await? {
-                Some((l2_block_number, _game_index)) => l2_block_number,
-                None => {
-                    tracing::info!("No valid proposals found for metrics");
-                    self.factory.get_anchor_l2_block_number(self.config.game_type).await?
-                }
-            };
+        let latest_proposed_block_number = match self
+            .factory
+            .get_latest_valid_proposal(self.l2_provider.clone(), self.config.max_depth_to_check)
+            .await?
+        {
+            Some((l2_block_number, _game_index)) => l2_block_number,
+            None => {
+                tracing::info!("No valid proposals found for metrics");
+                self.factory.get_anchor_l2_block_number(self.config.game_type).await?
+            }
+        };
 
         // Update metrics for latest game block number.
         ProposerGauge::LatestGameL2BlockNumber.set(latest_proposed_block_number.to::<u64>() as f64);
@@ -770,8 +775,10 @@ where
         }
 
         // Use the existing logic from handle_game_creation
-        let latest_valid_proposal =
-            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
+        let latest_valid_proposal = self
+            .factory
+            .get_latest_valid_proposal(self.l2_provider.clone(), self.config.max_depth_to_check)
+            .await?;
 
         let (latest_proposed_block_number, next_l2_block_number_for_proposal, _) =
             match latest_valid_proposal {
@@ -805,8 +812,10 @@ where
 
     /// Get the next proposal block number
     async fn get_next_proposal_block(&self) -> Result<U256> {
-        let latest_valid_proposal =
-            self.factory.get_latest_valid_proposal(self.l2_provider.clone()).await?;
+        let latest_valid_proposal = self
+            .factory
+            .get_latest_valid_proposal(self.l2_provider.clone(), self.config.max_depth_to_check)
+            .await?;
 
         match latest_valid_proposal {
             Some((latest_block, _)) => {

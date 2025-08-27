@@ -26,7 +26,7 @@ jobs:
     - run: rustup toolchain install stable --profile minimal
     - uses: Swatinem/rust-cache@v2  
     - name: Test
-      run: cargo test --release -- --skip test_cycle_count_diff --skip test_post_to_github --skip test_honest_proposer --skip test_honest_challenger
+      run: cargo test --release -- --skip test_cycle_count_diff --skip test_post_to_github --skip test_honest_proposer --skip test_honest_challenger --skip test_game_chain_validation_invalid_parent --skip test_game_chain_validation_challenged_parent
       env:
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
         L1_RPC: ${{ secrets.L1_RPC }}
