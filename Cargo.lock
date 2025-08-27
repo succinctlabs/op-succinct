@@ -8223,7 +8223,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-eigenda-host-utils"
-version = "3.0.0"
+version = "3.1.0"
 dependencies = [
  "alloy-eips 1.0.9",
  "alloy-primitives 1.1.2",
