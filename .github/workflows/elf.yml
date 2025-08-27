@@ -6,18 +6,16 @@ on:
   pull_request:
     branches:
       - main
+      - develop
   push:
     branches:
       - main
+      - develop
   workflow_dispatch:
 
 jobs:
   elf:
-    runs-on:
-      - runs-on
-      - runner=64cpu-linux-x64
-      - run-id=${{ github.run_id }}
-      - spot=false
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -38,8 +36,8 @@ jobs:
           cd programs/range/ethereum
           ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.1.0 --output-directory ../../../elf
           ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.1.0 --output-directory ../../../elf --features embedded
-          cd ../celestia
-          ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.1.0 --output-directory ../../../elf --features embedded
+          cd ../eigenda
+          ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.1.0 --output-directory ../../../elf --features embedded
           cd ../../aggregation
           ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.1.0 --output-directory ../../elf
           cd ../../
