@@ -10,6 +10,7 @@ To use Celestia DA, you need additional environment variables in the `.env` file
 |-----------|-------------|
 | `CELESTIA_CONNECTION` | URL of the Celestia light node RPC endpoint. For setup instructions, see [Celestia's documentation on light node](https://docs.celestia.org/how-to-guides/light-node). |
 | `NAMESPACE` | Namespace ID for the Celestia DA. A namespace is a unique identifier that allows applications to have their own data availability space within Celestia's data availability layer. For more details, see [Celestia's documentation on Namespaced Merkle Trees (NMTs)](https://docs.celestia.org/learn/how-celestia-works/data-availability-layer#namespaced-merkle-trees-nmts). |
+| `CELESTIA_INDEXER_RPC` | URL of the op-celestia-indexer RPC endpoint. This is required for querying the location of L2 blocks in Celestia or Ethereum DA. |
 
 ## Run the Celestia Proposer Service
 
