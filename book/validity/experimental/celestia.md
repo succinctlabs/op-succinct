@@ -18,6 +18,10 @@ To use Celestia DA, you need additional environment variables.
 
 Additionally, include all the base configuration variables from the [Proposer](../proposer.md) section in the same `.env` file.
 
+<div class="warning">
+When using Celestia DA, ensure L1 node has sufficient proof history (archive node recommended). If the L1 node doesn't have a sufficient proof history, you may see `error distance to target block exceeds maximum proof window` when making `eth_getProof` RPC calls if proposer falls behind.
+</div>
+
 ## op-celestia-indexer
 
 The op-celestia-indexer is a required component that indexes L2 block locations on both Celestia DA and Ethereum DA. It is automatically included in the `docker-compose-celestia.yml` configuration and will start before the OP Succinct proposer service.
