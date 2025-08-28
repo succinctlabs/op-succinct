@@ -42,6 +42,7 @@ fn build_env_filter() -> EnvFilter {
 /// - `OTLP_ENDPOINT`: OpenTelemetry endpoint (defaults to http://localhost:4317)
 /// - `OTLP_ENABLED`: Whether to enable OpenTelemetry export (defaults to false)
 /// - `RUST_LOG`: Standard Rust log level configuration
+/// - `LOG_FORMAT`: Whether to enable pretty logging (defaults to "pretty")
 pub fn setup_logger() {
     INIT.get_or_init(|| {
         let logger_name = std::env::var("LOGGER_NAME").ok();
@@ -63,18 +64,32 @@ pub fn setup_logger() {
         let resource = Resource::new(params);
         global::set_text_map_propagator(TraceContextPropagator::new());
 
-        let env_filter = build_env_filter();
-        // Set up logging using the provided format
-        let fmt_layer = tracing_subscriber::fmt::layer()
-            .with_level(true)
-            .with_target(false)
-            .with_thread_ids(false)
-            .with_thread_names(false)
-            .with_file(false)
-            .with_line_number(false)
-            .with_filter(env_filter);
-
-        let env_filter = build_env_filter();
+        let log_format = std::env::var("LOG_FORMAT").unwrap_or("pretty".to_string());
+        let fmt_layer: Option<Box<dyn Layer<_> + Send + Sync>> =
+            match log_format.to_lowercase().as_str() {
+                "json" => {
+                    // Initialize with JSON formatting
+                    Some(Box::new(
+                        tracing_subscriber::fmt::layer()
+                            .event_format(tracing_subscriber::fmt::format().json())
+                            .with_filter(build_env_filter()),
+                    ))
+                }
+                "pretty" | _ => {
+                    // Default to pretty formatting with ANSI colors
+                    Some(Box::new(
+                        tracing_subscriber::fmt::layer()
+                            .with_level(true)
+                            .with_target(false)
+                            .with_thread_ids(false)
+                            .with_thread_names(false)
+                            .with_file(false)
+                            .with_line_number(false)
+                            .with_ansi(true)
+                            .with_filter(build_env_filter()),
+                    ))
+                }
+            };
 
         let log_export_layer: Option<Box<dyn Layer<_> + Send + Sync>> = if otlp_enabled {
             let export_layer = opentelemetry_otlp::new_pipeline()
@@ -88,7 +103,9 @@ pub fn setup_logger() {
                 )
                 .install_batch(runtime::Tokio)
                 .context("Failed to install OpenTelemetry logging pipeline")?;
-            Some(Box::new(OpenTelemetryTracingBridge::new(&export_layer).with_filter(env_filter)))
+            Some(Box::new(
+                OpenTelemetryTracingBridge::new(&export_layer).with_filter(build_env_filter()),
+            ))
         } else {
             None
         };
