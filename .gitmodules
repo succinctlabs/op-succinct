@@ -7,6 +7,10 @@
 [submodule "contracts/lib/openzeppelin-contracts"]
 	path = contracts/lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "contracts/lib/safe-contracts"]
+	path = contracts/lib/safe-contracts
+	url = https://github.com/celo-org/safe-smart-account
+	branch = mc01/v1.3.0
 [submodule "contracts/lib/sp1-contracts"]
 	path = contracts/lib/sp1-contracts
 	url = https://github.com/succinctlabs/sp1-contracts

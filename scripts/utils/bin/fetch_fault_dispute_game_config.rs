@@ -26,6 +26,11 @@ use serde_json::Value;
 /// ## Game Configuration
 /// - `GAME_TYPE`: Unique identifier for the dispute game type (default: "42")
 ///
+/// ## Deployment Configuration
+/// - `CONFIGURE_CONTRACTS`: If set to false, will just perform predeployment of contracts, which
+///   might be useful when owner of factory is Gnosis Safe. If set to true, will deploy & configure
+///   contracts, which is preferable choice for simple & local environments (default: "true")
+///
 /// ## Timing Configuration
 /// - `DISPUTE_GAME_FINALITY_DELAY_SECONDS`: Delay in seconds before a dispute game can be finalized
 ///   (default: "604800" = 7 days)
@@ -52,6 +57,14 @@ use serde_json::Value;
 /// ## Contract Configuration
 /// - `OPTIMISM_PORTAL2_ADDRESS`: Address of the OptimismPortal2 contract. If not provided or set to
 ///   zero address, a MockOptimismPortal2 will be deployed (default: zero address)
+/// - `ANCHOR_STATE_REGISTRY_ADDRESS` - If set will avoid avoid re-creating new AnchorStateRegistry
+///   (default: zero address)
+/// - `DISPUTE_GAME_FACTORY_ADDRESS` - If set will avoid avoid re-creating new DisputeGameFactory
+///   (default: zero address)
+///
+/// ## Celo-specific Configuration
+/// - `CELO_SUPERCHAIN_CONFIG_ADDRESS` - If set will avoid re-creating new SuperchainConfig while
+///   creating new AnchorStateRegistry (default: zero address)
 ///
 /// ## Starting State Configuration
 /// - `STARTING_L2_BLOCK_NUMBER`: L2 block number to use as the starting point for the dispute game.
@@ -78,6 +91,10 @@ async fn update_fdg_config() -> Result<()> {
 
     // Game configuration.
     let game_type = env::var("GAME_TYPE").unwrap_or("42".to_string()).parse().unwrap();
+
+    // Deployment configuration
+    let configure_contracts =
+        env::var("CONFIGURE_CONTRACTS").unwrap_or("true".to_string()).parse().unwrap();
 
     // Timing configuration.
     let dispute_game_finality_delay_seconds = env::var("DISPUTE_GAME_FINALITY_DELAY_SECONDS")
@@ -166,10 +183,32 @@ async fn update_fdg_config() -> Result<()> {
 
     let starting_output_root = optimism_output_data["outputRoot"].as_str().unwrap().to_string();
 
+    // Optional contract addresses
+    let celo_superchain_config_address =
+        env::var("CELO_SUPERCHAIN_CONFIG_ADDRESS").unwrap_or_else(|_| {
+            // Default to zero address if not provided - will deploy new SuperchainConfig
+            // (only in case of creating new AnchorStateRegistry)
+            "0x0000000000000000000000000000000000000000".to_string()
+        });
+    let anchor_state_registry_address =
+        env::var("ANCHOR_STATE_REGISTRY_ADDRESS").unwrap_or_else(|_| {
+            // Default to zero address if not provided - will deploy new AnchorStateRegistry
+            "0x0000000000000000000000000000000000000000".to_string()
+        });
+    let dispute_game_factory_address =
+        env::var("DISPUTE_GAME_FACTORY_ADDRESS").unwrap_or_else(|_| {
+            // Default to zero address if not provided - will deploy new DisputeGameFactory
+            "0x0000000000000000000000000000000000000000".to_string()
+        });
+
     let fdg_config = FaultDisputeGameConfig {
         aggregation_vkey: shared_config.aggregation_vkey,
+        anchor_state_registry_address,
+        celo_superchain_config_address,
         challenger_addresses,
         challenger_bond_wei,
+        configure_contracts,
+        dispute_game_factory_address,
         dispute_game_finality_delay_seconds,
         fallback_timeout_fp_secs,
         game_type,

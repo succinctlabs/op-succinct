@@ -12,6 +12,7 @@ remappings = [
     # Note: Use zobront/sp1-contracts as the current version for SP1 contracts is not compatible with the hard
     # version for 0.8.15 on some Optimism contracts.
     "@sp1-contracts/=lib/sp1-contracts/contracts/",
+    "@safe-contracts/=lib/safe-contracts/contracts/",
     "@rari-capital/=lib/optimism/packages/contracts-bedrock/lib/",
     # Optimism repo uses absolute imports, so we need to have remappings for the paths we use.
     "src/libraries/=lib/optimism/packages/contracts-bedrock/src/libraries/",

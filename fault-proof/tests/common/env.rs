@@ -31,8 +31,12 @@ pub struct TestEnvironment {
 pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> FaultDisputeGameConfig {
     FaultDisputeGameConfig {
         aggregation_vkey: AGGREGATION_VKEY.to_string(),
+        anchor_state_registry_address: Address::ZERO.to_string(),
+        celo_superchain_config_address: Address::ZERO.to_string(),
         challenger_addresses: vec![CHALLENGER_ADDRESS.to_string()],
         challenger_bond_wei: CHALLENGER_BOND.to::<u64>(),
+        configure_contracts: true,
+        dispute_game_factory_address: Address::ZERO.to_string(),
         dispute_game_finality_delay_seconds: DISPUTE_GAME_FINALITY_DELAY_SECONDS,
         fallback_timeout_fp_secs: FALLBACK_TIMEOUT.to::<u64>(),
         game_type: TEST_GAME_TYPE,
