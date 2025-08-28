@@ -155,6 +155,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .strategy(self.range_strategy)
             .skip_simulation(true)
             .cycle_limit(1_000_000_000_000)
+            .gas_limit(1_000_000_000_000)
             .timeout(Duration::from_secs(4 * 60 * 60))
             .request_async()
             .await
