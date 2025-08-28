@@ -1,13 +1,20 @@
-name: Push container images for development
-
+name: Push container
 on:
-  pull_request:
-    branches:
-      - develop
-  push:
-    branches:
-      - develop
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      registry:
+        required: false
+        default: us-west1-docker.pkg.dev
+        type: string
+      registry-dir:
+        required: true
+        type: string
+      workload-id-provider:
+        required: true
+        type: string
+      service-account:
+        required: true
+        type: string
 
 env:
   REGISTRY_URL: us-west1-docker.pkg.dev/devopsre/dev-images/${{ github.event.repository.name }}
@@ -15,11 +22,7 @@ env:
 jobs:
   build:
     name: Build and push op-succinct container dev-image
-    runs-on:
-      - self-hosted
-      - org
-      - 8-cpu
-
+    runs-on: [self-hosted, org, 8-cpu]
     permissions:
       contents: read
       id-token: write
@@ -33,9 +36,9 @@ jobs:
       - name: Login at GCP Artifact Registry
         uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
         with:
-          workload-id-provider: "projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos"
-          service-account: "op-succinct-gh-dev@devopsre.iam.gserviceaccount.com"
-          docker-gcp-registries: us-west1-docker.pkg.dev
+          workload-id-provider: ${{ inputs.workload-id-provider }}
+          service-account: ${{ inputs.service-account }}
+          docker-gcp-registries: ${{ inputs.registry }}
 
       - name: Build, push and scan the proposer container
         # TODO: pin to release 3.0.0 once approved and tagged
@@ -53,7 +56,7 @@ jobs:
         uses: celo-org/reusable-workflows/.github/actions/build-container@ezdac/use-docker-metadata-action
         with:
           platforms: linux/amd64
-          registry: us-west1-docker.pkg.dev/devopsre/dev-images
+          registry: ${{ inputs.registry }}/${{ inputs.registry-dir }}
           app-name: ${{ github.event.repository.name }}/challenger
           context: .
           dockerfile: fault-proof/Dockerfile.challenger
