@@ -68,7 +68,7 @@ contract Utils is Test, JSONDecoder {
                 );
             } else {
                 multisigCalldata = abi.encodeWithSelector(
-                    ProxyAdmin.upgradeAndCall.selector, cfg.opSuccinctL2OutputOracleImpl, initializationParams
+                    ProxyAdmin.upgradeAndCall.selector, payable(l2OutputOracleProxy), cfg.opSuccinctL2OutputOracleImpl, initializationParams
                 );
             }
 
