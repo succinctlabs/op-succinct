@@ -1,0 +1,34 @@
+{
+    "genesis": {
+        "l1": {
+            "hash": "0x614050145039f11a778f1bd3c85ce2c1f3989492dbc544911fab9a7247e81ca4",
+            "number": 19437305
+        },
+        "l2": {
+            "hash": "0xf70a2270b05820a2b335e70ab9ce91e42e15f50d82db73d9c63085711b312fc8",
+            "number": 61171946
+        },
+        "l2_time": 1710468791,
+        "system_config": {
+            "batcherAddr": "0x2f40d796917ffb642bd2e2bdd2c762a5e40fd749",
+            "overhead": "0x00000000000000000000000000000000000000000000000000000000000000bc",
+            "scalar": "0x0000000000000000000000000000000000000000000000000000000000002710",
+            "gasLimit": 200000000000,
+            "baseFee": 20000000
+        }
+    },
+    "block_time": 2,
+    "max_sequencer_drift": 600,
+    "seq_window_size": 3600,
+    "channel_timeout": 300,
+    "l1_chain_id": 1,
+    "l2_chain_id": 5000,
+    "regolith_time": 0,
+    "base_fee_time": 0,
+    "mantle_skadi_time": 1756278000,
+    "batch_inbox_address": "0xffeeddccbbaa0000000000000000000000000000",
+    "deposit_contract_address": "0xc54cb22944f2be476e02decfcd7e3e7d3e15a8fb",
+    "l1_system_config_address": "0x427ea0710fa5252057f0d88274f7aeb308386caf",
+    "mantle_da_switch": true,
+    "datalayr_service_manager_addr": "0x5BD63a7ECc13b955C4F57e3F12A64c10263C14c1"
+}

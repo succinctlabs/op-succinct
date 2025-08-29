@@ -73,30 +73,30 @@ strum_macros = "0.27.1"
 tempfile = "3.10.1"
 
 # kona
-kona-mpt = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
-kona-derive = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
-kona-driver = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
-kona-preimage = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", features = [
+kona-mpt = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
+kona-derive = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0", default-features = false }
+kona-driver = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
+kona-preimage = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
-kona-proof = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
+kona-executor = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
+kona-proof = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
 
-kona-client = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
-kona-host = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
-kona-providers-alloy = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle" }
-kona-rpc = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
-kona-protocol = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
-kona-registry = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
-kona-genesis = { git = "https://github.com/mantle-xyz/kona", branch = "kona-client/v1.0.1_mantle", default-features = false }
+kona-client = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
+kona-host = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
+kona-providers-alloy = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0" }
+kona-rpc = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0", default-features = false }
+kona-protocol = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0", default-features = false }
+kona-registry = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0", default-features = false }
+kona-genesis = { git = "https://github.com/mantle-xyz/kona", tag = "v2.0.0", default-features = false }
 
 # hydro
-hydro-client = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
-hydro-host = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
-hydro-oracle = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
-hydro-eigenda = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
-hydro-proofs = { git = "https://github.com/PinelliaC/hydro", branch = "main" }
+hydro-client = { git = "https://github.com/mantle-xyz/hydro", tag = "v2.0.0" }
+hydro-host = { git = "https://github.com/mantle-xyz/hydro", tag = "v2.0.0" }
+hydro-oracle = { git = "https://github.com/mantle-xyz/hydro", tag = "v2.0.0" }
+hydro-eigenda = { git = "https://github.com/mantle-xyz/hydro", tag = "v2.0.0" }
+hydro-proofs = { git = "https://github.com/mantle-xyz/hydro", tag = "v2.0.0" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -144,22 +144,22 @@ alloy-sol-types = { version = "1.0.0", default-features = false }
 alloy-sol-macro = { version = "1.0.0", default-features = false }
 
 # OP Alloy
-op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", branch = "v151", default-features = false }
-op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", branch = "v151", default-features = false }
-op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", branch = "v151", default-features = false }
-op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", branch = "v151", default-features = false }
+op-alloy-consensus = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v2.0.0", default-features = false }
+op-alloy-rpc-types = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v2.0.0", default-features = false }
+op-alloy-rpc-types-engine = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v2.0.0", default-features = false }
+op-alloy-network = { git = "https://github.com/mantle-xyz/op-alloy", tag = "v2.0.0", default-features = false }
 
 # Execution
-alloy-evm = { git = "https://github.com/mantle-xyz/evm", branch = "dev", default-features = false, features = [
+alloy-evm = { git = "https://github.com/mantle-xyz/evm", tag = "v2.0.0", default-features = false, features = [
     "op",
 ] }
-alloy-op-evm = { git = "https://github.com/mantle-xyz/evm", branch = "dev", default-features = false }
+alloy-op-evm = { git = "https://github.com/mantle-xyz/evm", tag = "v2.0.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-revm = { git = "https://github.com/mantle-xyz/revm", branch = "skadi_new", default-features = false, features = [
+revm = { git = "https://github.com/mantle-xyz/revm", tag = "v2.0.0", default-features = false, features = [
     "kzg-rs",
     "bn",
 ] }
-op-revm = { git = "https://github.com/mantle-xyz/revm", branch = "skadi_new", default-features = false }
+op-revm = { git = "https://github.com/mantle-xyz/revm", tag = "v2.0.0", default-features = false }
 
 # SP1
 sp1-sdk = { version = "5.0.0" }

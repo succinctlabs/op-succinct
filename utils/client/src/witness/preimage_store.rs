@@ -1,4 +1,3 @@
-use std::hash::Hash;
 use alloy_primitives::{keccak256, map::HashMap};
 use async_trait::async_trait;
 use kona_preimage::{
