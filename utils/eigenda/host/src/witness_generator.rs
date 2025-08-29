@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use async_trait::async_trait;
 use celo_genesis::CeloRollupConfig;
+use celo_protocol::CeloToOpProviderAdapter;
 use hokulea_proof::{
     eigenda_blob_witness::EigenDABlobWitnessData, eigenda_provider::OracleEigenDAProvider,
 };
@@ -116,13 +117,19 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 oracle.clone(),
                 beacon,
                 l1_provider.clone(),
-                l2_provider.clone(),
+                CeloToOpProviderAdapter(l2_provider.clone()),
             )
             .await
             .unwrap();
-            WitnessExecutorTrait::run(&executor, boot_info.clone(), pipeline, cursor, l2_provider)
-                .await
-                .unwrap();
+            WitnessExecutorTrait::run(
+                &executor,
+                boot_info.clone(),
+                pipeline,
+                cursor,
+                l2_provider.to_oracle_l2_chain_provider(),
+            )
+            .await
+            .unwrap();
         }
 
         // Extract the EigenDA witness data

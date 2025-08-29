@@ -22,6 +22,7 @@ kona-proof.workspace = true
 # celo-kona
 celo-host.workspace = true
 celo-genesis.workspace = true
+celo-protocol.workspace = true
 
 # hokulea
 hokulea-eigenda.workspace = true

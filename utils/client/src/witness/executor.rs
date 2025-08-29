@@ -4,7 +4,8 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use celo_driver::CeloDriver;
 use celo_genesis::CeloRollupConfig;
-use celo_proof::executor::CeloExecutor;
+use celo_proof::{executor::CeloExecutor, CeloOracleL2ChainProvider};
+use celo_protocol::CeloToOpProviderAdapter;
 use kona_derive::traits::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
     SignalReceiver,
@@ -29,7 +30,7 @@ pub async fn get_inputs_for_pipeline<O>(
     oracle: Arc<O>,
 ) -> Result<(
     BootInfo,
-    Option<(Arc<RwLock<PipelineCursor>>, OracleL1ChainProvider<O>, OracleL2ChainProvider<O>)>,
+    Option<(Arc<RwLock<PipelineCursor>>, OracleL1ChainProvider<O>, CeloOracleL2ChainProvider<O>)>,
 )>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
@@ -52,7 +53,7 @@ where
 
     let mut l1_provider = OracleL1ChainProvider::new(boot.l1_head, oracle.clone());
     let mut l2_provider =
-        OracleL2ChainProvider::new(safe_head_hash, rollup_config.clone(), oracle.clone());
+        CeloOracleL2ChainProvider::new(safe_head_hash, rollup_config.clone(), oracle.clone());
 
     // Fetch the safe head's block header.
     let safe_head = l2_provider
@@ -78,7 +79,7 @@ where
         rollup_config.as_ref(),
         safe_head,
         &mut l1_provider,
-        &mut l2_provider,
+        &mut CeloToOpProviderAdapter(l2_provider.clone()),
     )
     .await?;
     l2_provider.set_cursor(cursor.clone());

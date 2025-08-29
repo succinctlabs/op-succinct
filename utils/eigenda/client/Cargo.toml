@@ -18,6 +18,8 @@ kona-proof.workspace = true
 
 # celo-kona
 celo-genesis.workspace = true
+celo-proof.workspace = true
+celo-protocol.workspace = true
 
 # hokulea
 hokulea-eigenda.workspace = true

@@ -3,10 +3,11 @@ use std::sync::{Arc, Mutex};
 use anyhow::Result;
 use async_trait::async_trait;
 use celo_genesis::CeloRollupConfig;
+use celo_proof::CeloOracleL2ChainProvider;
+use celo_protocol::CeloToOpProviderAdapter;
 use kona_preimage::{HintWriter, NativeChannel, OracleReader};
 use kona_proof::{
     l1::{OracleBlobProvider, OracleL1ChainProvider},
-    l2::OracleL2ChainProvider,
     CachingOracle,
 };
 use op_succinct_client_utils::witness::{
@@ -27,7 +28,9 @@ pub trait WitnessGenerator {
             O = PreimageWitnessCollector<DefaultOracleBase>,
             B = OnlineBlobStore<OracleBlobProvider<DefaultOracleBase>>,
             L1 = OracleL1ChainProvider<PreimageWitnessCollector<DefaultOracleBase>>,
-            L2 = OracleL2ChainProvider<PreimageWitnessCollector<DefaultOracleBase>>,
+            L2 = CeloToOpProviderAdapter<
+                CeloOracleL2ChainProvider<PreimageWitnessCollector<DefaultOracleBase>>,
+            >,
         > + Sync
         + Send;
 
@@ -67,11 +70,14 @@ pub trait WitnessGenerator {
                     oracle.clone(),
                     beacon,
                     l1_provider.clone(),
-                    l2_provider.clone(),
+                    CeloToOpProviderAdapter(l2_provider.clone()),
                 )
                 .await
                 .unwrap();
-            self.get_executor().run(boot_info, pipeline, cursor, l2_provider).await.unwrap();
+            self.get_executor()
+                .run(boot_info, pipeline, cursor, l2_provider.to_oracle_l2_chain_provider())
+                .await
+                .unwrap();
         }
 
         let witness = Self::WitnessData::from_parts(
