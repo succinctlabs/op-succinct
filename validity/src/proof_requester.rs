@@ -177,6 +177,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
+            .timeout(Duration::from_secs(4 * 60 * 60))
             .request_async()
             .await
         {
