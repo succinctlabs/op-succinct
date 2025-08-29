@@ -281,6 +281,7 @@ where
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
                 .groth16()
+                .timeout(Duration::from_secs(4 * 60 * 60))
                 .run_async()
                 .await?
         };
