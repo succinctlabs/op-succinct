@@ -45,3 +45,5 @@ contracts/opsuccinctfdgconfig.json
 
 # Grafana alloy config
 config.alloy
+
+.idea

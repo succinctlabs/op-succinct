@@ -29,6 +29,10 @@ pub trait WitnessData: Sized {
         owned_preimage_store.check_preimages().expect("Failed to validate preimages");
         println!("cycle-tracker-report-end: oracle-verify");
 
+        println!("cycle-tracker-report-start: eigen-da-blob-verification");
+        owned_preimage_store.check_eigenvalues().expect("Failed to verify eigenvalues");
+        println!("cycle-tracker-report-end: eigen-da-blob-verification");
+
         // Create an Arc of the preimage store.
         let oracle = Arc::new(owned_preimage_store);
 
