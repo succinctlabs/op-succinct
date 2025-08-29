@@ -32,13 +32,12 @@ FROM rust-base AS builder
 COPY . .
 
 # Build the proposer binary
-RUN cargo build --release --bin proposer --features eigenda
+RUN cargo build --release --bin proposer
 
 # Runtime stage (minimal image)
 FROM ubuntu:24.04
 
 WORKDIR /app
-COPY resources/ ./resources/
 
 # Create configs directories and copy pre-existing configs from fault-proof/configs/ for custom L1 (local devnet)
 RUN mkdir -p ./configs/L1

@@ -48,7 +48,7 @@ jobs:
           registry: us-west1-docker.pkg.dev/devopsre/dev-images
           app-name: ${{ github.event.repository.name }}/proposer
           context: .
-          dockerfile: fault-proof/Dockerfile.proposer
+          dockerfile: fault-proof/Dockerfile.proposer.celo
           push: "true"
 
       - name: Build, push and scan the challenger container
@@ -59,5 +59,5 @@ jobs:
           registry: ${{ inputs.registry }}/${{ inputs.registry-dir }}
           app-name: ${{ github.event.repository.name }}/challenger
           context: .
-          dockerfile: fault-proof/Dockerfile.challenger
+          dockerfile: fault-proof/Dockerfile.challenger.celo
           push: "true"

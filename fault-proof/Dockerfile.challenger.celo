@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1.4
+
+FROM rust:1.89.0-trixie AS base
+
+WORKDIR /app
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    clang \
+    build-essential \
+    git \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install SP1
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    ~/.sp1/bin/sp1up && \
+    ~/.sp1/bin/cargo-prove prove --version
+
+
+FROM base AS builder
+
+WORKDIR /app
+COPY . .
+
+# Build the binary
+RUN cargo build --release --bin challenger --features eigenda
+
+# Runtime stage
+FROM rust:1.89.0-trixie 
+
+WORKDIR /app
+COPY resources/ ./resources/
+
+# Copy the built challenger binary
+COPY --from=builder /app/target/release/ /usr/local/bin/
+
+# Set the command
+CMD ["challenger"]
