@@ -4,3 +4,8 @@
 /book
 /audits
 .github
+.git
+.dockerignore
+.gitignore
+Dockerfile*
+gha-creds-*.json
