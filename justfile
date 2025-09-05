@@ -54,12 +54,11 @@ upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
 
   cd contracts && forge script script/validity/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader  --rpc-url $L1_RPC --private-key $ADMIN_PK $VERIFY --broadcast --slow
 
-# Deploy OPSuccinct FDG contracts
-deploy-fdg-contracts env_file=".env" *features='':
+# Fetch config for deployment
+fetch-fdg-config env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
     
-    # First fetch FDG config using the env file
     echo "Fetching Fault Dispute Game configuration..."
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
@@ -67,7 +66,23 @@ deploy-fdg-contracts env_file=".env" *features='':
         echo "Fetching fault dispute game config with features: {{features}}"
         RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release --features {{features}} -- --env-file {{env_file}}
     fi
+
+# Deploy OPSuccinct FDG contracts
+deploy-fdg-contracts env_file=".env" *features='':
+    #!/usr/bin/env bash
+    set -euo pipefail
     
+    # First fetch FDG config using the env file
+    just fetch-fdg-config {{env_file}} {{features}}
+    
+    # Run deployment of contracts
+    just _deploy-fdg-contracts {{env_file}}
+
+# Deploy contracts without fetching config
+_deploy-fdg-contracts env_file=".env" custom_config_file="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
     # Load environment variables from project root
     source {{env_file}}
     
@@ -95,6 +110,13 @@ deploy-fdg-contracts env_file=".env" *features='':
     
     # Change to contracts directory
     cd contracts
+
+    # Use custom config file
+    CUSTOM_CONFIG="{{custom_config_file}}"
+    if [ -n "$CUSTOM_CONFIG" ]; then
+      echo "Using custom config file: $CUSTOM_CONFIG..."
+      cp $CUSTOM_CONFIG opsuccinctfdgconfig.json
+    fi
     
     # Install dependencies
     echo "Installing forge dependencies..."
@@ -115,6 +137,7 @@ deploy-fdg-contracts env_file=".env" *features='':
     echo "Running deployment script..."
     forge script script/fp/DeployOPSuccinctFDG.s.sol \
         --broadcast \
+        --no-storage-caching \
         --rpc-url "$RPC_URL_TO_USE" \
         --private-key "$PRIVATE_KEY" \
         $VERIFY
