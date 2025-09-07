@@ -8,6 +8,6 @@ jobs:
   push-container:
     uses: ./.github/workflows/push-container.yaml
     with:
-      registry-dir: devopsre/dev-images
+      registry-dir: devopsre
       service-account: op-succinct-gh@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-release/providers/github-by-repos
