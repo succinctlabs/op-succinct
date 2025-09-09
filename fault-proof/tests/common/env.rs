@@ -30,6 +30,7 @@ pub struct TestEnvironment {
 /// The test configuration, used for integration tests.
 pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> FaultDisputeGameConfig {
     FaultDisputeGameConfig {
+        activate_contracts: false,
         aggregation_vkey: AGGREGATION_VKEY.to_string(),
         anchor_state_registry_address: Address::ZERO.to_string(),
         celo_superchain_config_address: Address::ZERO.to_string(),

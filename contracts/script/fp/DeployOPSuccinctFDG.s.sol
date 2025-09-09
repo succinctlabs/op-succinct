@@ -50,11 +50,18 @@ contract DeployOPSuccinctFDG is Script, Utils {
         // Deploy contracts
         DeployedContracts memory contracts = deployContracts(config);
 
-        // Configure contracts
+        // Configure and activate contracts
         if (config.configureContracts) {
-            configureContracts(contracts, config);
+            configure(contracts, config);
+
+            // Activate contracts
+            if (config.activateContracts) {
+                activate(contracts, config);
+            } else {
+                console.log("Skipped contracts activation. Ensure to activate contracts manually!");
+            }
         } else {
-            console.log("Skipped contracts configuration. Ensure to configure contracts manually!");
+            console.log("Skipped contracts configuration. Ensure to configure & activate contracts manually!");
         }
 
         vm.stopBroadcast();
@@ -97,8 +104,8 @@ contract DeployOPSuccinctFDG is Script, Utils {
         return deployedContracts;
     }
 
-    /// @dev msg.sender should have owner role of factory & guardian role of superchain
-    function configureContracts(DeployedContracts memory contracts, FDGConfig memory config) internal {
+    /// @dev msg.sender should have owner role of factory
+    function configure(DeployedContracts memory contracts, FDGConfig memory config) internal {
         GameType gameType = GameType.wrap(config.gameType);
         DisputeGameFactory factory = DisputeGameFactory(contracts.factoryProxy);
 
@@ -106,9 +113,14 @@ contract DeployOPSuccinctFDG is Script, Utils {
         /// @dev: Requires factory owner role
         factory.setInitBond(gameType, config.initialBondWei);
         factory.setImplementation(gameType, IDisputeGame(contracts.gameImplementation));
+    }
+
+    /// @dev msg.sender should have guardian role of optimism portal
+    function activate(DeployedContracts memory contracts, FDGConfig memory config) internal {
+        GameType gameType = GameType.wrap(config.gameType);
 
         // Set respected game type
-        /// @dev: Requires superchain guardian role
+        /// @dev: Requires portal guardian role
         IOptimismPortal2(payable(contracts.optimismPortal2)).setRespectedGameType(gameType);
     }
 

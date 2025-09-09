@@ -29,6 +29,7 @@ contract JSONDecoder {
     }
 
     struct FDGConfig {
+        bool activateContracts;
         bytes32 aggregationVkey;
         address anchorStateRegistryAddress;
         address celoSuperchainConfigAddress;

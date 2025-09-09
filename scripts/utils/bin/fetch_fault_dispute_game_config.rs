@@ -27,6 +27,8 @@ use serde_json::Value;
 /// - `GAME_TYPE`: Unique identifier for the dispute game type (default: "42")
 ///
 /// ## Deployment Configuration
+/// - `ACTIVATE_CONTRACTS`: If set to true, will immmidiately activate the deployed contracts. Is
+///   effective only if `CONFIGURE_CONTRACTS` is also true. (default: "false")
 /// - `CONFIGURE_CONTRACTS`: If set to false, will just perform predeployment of contracts, which
 ///   might be useful when owner of factory is Gnosis Safe. If set to true, will deploy & configure
 ///   contracts, which is preferable choice for simple & local environments (default: "true")
@@ -93,6 +95,8 @@ async fn update_fdg_config() -> Result<()> {
     let game_type = env::var("GAME_TYPE").unwrap_or("42".to_string()).parse().unwrap();
 
     // Deployment configuration
+    let activate_contracts =
+        env::var("ACTIVATE_CONTRACTS").unwrap_or("false".to_string()).parse().unwrap();
     let configure_contracts =
         env::var("CONFIGURE_CONTRACTS").unwrap_or("true".to_string()).parse().unwrap();
 
@@ -202,6 +206,7 @@ async fn update_fdg_config() -> Result<()> {
         });
 
     let fdg_config = FaultDisputeGameConfig {
+        activate_contracts,
         aggregation_vkey: shared_config.aggregation_vkey,
         anchor_state_registry_address,
         celo_superchain_config_address,

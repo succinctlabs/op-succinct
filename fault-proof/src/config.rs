@@ -180,6 +180,7 @@ impl ChallengerConfig {
 /// The config for deploying the OPSuccinctFaultDisputeGame.
 /// Note: The fields should be in alphabetical order for Solidity to parse it correctly.
 pub struct FaultDisputeGameConfig {
+    pub activate_contracts: bool,
     pub aggregation_vkey: String,
     pub anchor_state_registry_address: String,
     pub celo_superchain_config_address: String,

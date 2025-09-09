@@ -1,4 +1,5 @@
 {
+  "activateContracts": false,
   "aggregationVkey": "0x000ce954cedc18b3dbb347e363d59a6d993d5e7e4a11df76864599bf41a72ceb",
   "anchorStateRegistryAddress": "0xd088264165cd85ea5cf98303d5f44f5e6c16805a",
   "celoSuperchainConfigAddress": "0x6ac47E296d59A8D3b8933276EA3dB1CC28e920DA",
