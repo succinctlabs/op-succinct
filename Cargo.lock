@@ -2595,7 +2595,7 @@ dependencies = [
 [[package]]
 name = "canoe-bindings"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-sol-types",
 ]
@@ -2603,7 +2603,7 @@ dependencies = [
 [[package]]
 name = "canoe-provider"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "alloy-sol-types",
@@ -2618,7 +2618,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-host"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "alloy-rpc-types 0.14.0",
@@ -2629,7 +2629,6 @@ dependencies = [
  "canoe-bindings",
  "canoe-provider",
  "eigenda-cert",
- "sp1-build",
  "sp1-cc-client-executor",
  "sp1-cc-host-executor",
  "sp1-core-executor",
@@ -3769,7 +3768,7 @@ dependencies = [
 [[package]]
 name = "eigenda-cert"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "alloy-rlp",
@@ -4932,7 +4931,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-consensus 1.0.9",
  "alloy-evm 0.10.0",
@@ -4951,7 +4950,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-evm 0.10.0",
  "cfg-if",
@@ -4969,7 +4968,7 @@ dependencies = [
 [[package]]
 name = "hokulea-compute-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "num",
@@ -4980,11 +4979,10 @@ dependencies = [
 [[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "async-trait",
- "bytes",
  "eigenda-cert",
  "kona-derive",
  "kona-protocol",
@@ -4996,7 +4994,7 @@ dependencies = [
 [[package]]
 name = "hokulea-host-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "anyhow",
@@ -5023,7 +5021,7 @@ dependencies = [
 [[package]]
 name = "hokulea-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-primitives 1.1.2",
  "alloy-sol-types",
@@ -5033,7 +5031,6 @@ dependencies = [
  "canoe-bindings",
  "cfg-if",
  "eigenda-cert",
- "hex",
  "hokulea-eigenda",
  "kona-preimage",
  "kona-proof",
@@ -5043,7 +5040,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "sp1-lib",
- "sp1-verifier",
  "thiserror 2.0.12",
  "tracing",
 ]
@@ -5051,7 +5047,7 @@ dependencies = [
 [[package]]
 name = "hokulea-witgen"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "alloy-consensus 1.0.9",
  "alloy-primitives 1.1.2",
@@ -5072,7 +5068,7 @@ dependencies = [
 [[package]]
 name = "hokulea-zkvm-verification"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=ab9d4f7#ab9d4f71b6bf120551e386df2ac423a0dcb7587c"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=0a6200c#0a6200cd0f22caa28aca040e47860dd42893ae26"
 dependencies = [
  "hokulea-proof",
  "kona-preimage",
@@ -11284,8 +11280,7 @@ checksum = "48fd7bd8a6377e15ad9d42a8ec25371b94ddc67abe7c8b9127bec79bebaaae18"
 [[package]]
 name = "rust-kzg-bn254-primitives"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a986f25bc8871261f26f4ec74ef9215d0920ec140f2ef2dfd441b33fd121738b"
+source = "git+https://github.com/Layr-Labs/rust-kzg-bn254.git?rev=4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d#4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -11303,8 +11298,7 @@ dependencies = [
 [[package]]
 name = "rust-kzg-bn254-prover"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed1af11c66ca1e505ef959e398e86c39d9b2b20d0aa9a45a62e053a8a9044209"
+source = "git+https://github.com/Layr-Labs/rust-kzg-bn254.git?rev=4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d#4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -11321,8 +11315,7 @@ dependencies = [
 [[package]]
 name = "rust-kzg-bn254-verifier"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13b1a1996f1d61c05d732aac54b1ecfc11abbf73a47b3e4ca72f92ecdd75214f"
+source = "git+https://github.com/Layr-Labs/rust-kzg-bn254.git?rev=4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d#4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -12673,21 +12666,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp1-verifier"
-version = "5.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76dd71dd696b258cbe6af9ef276dd22d1e8eedd0dab8184beb90facd414e327a"
-dependencies = [
- "blake3",
- "cfg-if",
- "hex",
- "lazy_static",
- "sha2 0.10.9",
- "substrate-bn-succinct",
- "thiserror 2.0.12",
-]
-
-[[package]]
 name = "sp1-zkvm"
 version = "5.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13069,23 +13047,6 @@ dependencies = [
 name = "substrate-bn"
 version = "0.6.0"
 source = "git+https://github.com/sp1-patches/bn?tag=patch-0.6.0-sp1-5.0.0#e0d67f219b2ad6a1887e3275b7ba09ada4b1afb6"
-dependencies = [
- "bytemuck",
- "byteorder",
- "cfg-if",
- "crunchy",
- "lazy_static",
- "num-bigint 0.4.6",
- "rand 0.8.5",
- "rustc-hex",
- "sp1-lib",
-]
-
-[[package]]
-name = "substrate-bn-succinct"
-version = "0.6.0-v5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ba32f1b74728f92887c3ad17c42bf82998eb52c9091018f35294e9cd388b0c8"
 dependencies = [
  "bytemuck",
  "byteorder",
