@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     str::FromStr,
     sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use alloy_consensus::{BlockHeader, Header};
@@ -105,6 +105,46 @@ pub struct FeeData {
 }
 
 impl OPSuccinctDataFetcher {
+    /// Helper: read env var as usize with default.
+    fn env_usize(key: &str, default: usize) -> usize {
+        env::var(key)
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(default)
+    }
+
+    /// Helper: read env var as u64 with default.
+    fn env_u64(key: &str, default: u64) -> u64 {
+        env::var(key)
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(default)
+    }
+
+    /// Concurrency for per-block data fetches.
+    fn block_data_concurrency() -> usize {
+        Self::env_usize("BLOCK_DATA_CONCURRENCY", 10)
+    }
+
+    /// Concurrency for per-block fee fetches.
+    fn fee_data_concurrency() -> usize {
+        Self::env_usize("FEE_DATA_CONCURRENCY", 10)
+    }
+
+    /// Concurrency for header fetches.
+    fn header_fetch_concurrency() -> usize {
+        Self::env_usize("HEADER_FETCH_CONCURRENCY", 10)
+    }
+
+    /// Number of attempts for transient RPCs.
+    fn rpc_retry_attempts() -> u32 {
+        Self::env_usize("RPC_RETRY_ATTEMPTS", 5) as u32
+    }
+
+    /// Base backoff in milliseconds for RPC retries.
+    fn rpc_retry_base_ms() -> u64 {
+        Self::env_u64("RPC_RETRY_BASE_MS", 500)
+    }
     /// Gets the RPC URL's and saves the rollup config for the chain to the rollup config file.
     pub fn new() -> Self {
         let rpc_config = get_rpcs_from_env();
@@ -169,15 +209,35 @@ impl OPSuccinctDataFetcher {
 
         use futures::stream::{self, StreamExt};
 
-        // Only fetch 100 receipts at a time to better use system resources. Increases stability.
-        let fee_data = stream::iter(start..=end)
+        let results = stream::iter(start..=end)
             .map(|block_number| {
                 let l2_provider = l2_provider.clone();
                 async move {
-                    let receipt =
-                        l2_provider.get_block_receipts(block_number.into()).await.unwrap();
-                    let transactions = receipt.unwrap();
-                    let block_fee_data: Vec<FeeData> = transactions
+                    // Retry get_block_receipts on transient errors
+                    let mut attempt = 0u32;
+                    let receipts = loop {
+                        match l2_provider.get_block_receipts(block_number.into()).await {
+                            Ok(opt) => match opt {
+                                Some(r) => break Ok(r),
+                                None => break Err(anyhow::anyhow!(
+                                    "No receipts found for block {}",
+                                    block_number
+                                )),
+                            },
+                            Err(e) => {
+                                if attempt < OPSuccinctDataFetcher::rpc_retry_attempts() {
+                                    let delay = OPSuccinctDataFetcher::rpc_retry_base_ms()
+                                        * (1u64 << attempt.min(8));
+                                    tokio::time::sleep(Duration::from_millis(delay)).await;
+                                    attempt += 1;
+                                    continue;
+                                }
+                                break Err(anyhow::anyhow!(e));
+                            }
+                        }
+                    }?;
+
+                    let block_fee_data: Vec<FeeData> = receipts
                         .iter()
                         .enumerate()
                         .map(|(tx_index, tx)| FeeData {
@@ -188,16 +248,18 @@ impl OPSuccinctDataFetcher {
                             tx_fee: tx.inner.effective_gas_price * tx.inner.gas_used as u128,
                         })
                         .collect();
-                    block_fee_data
+                    Ok::<Vec<FeeData>, anyhow::Error>(block_fee_data)
                 }
             })
-            .buffered(100)
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .flatten()
-            .collect();
-        Ok(fee_data)
+            .buffered(Self::fee_data_concurrency())
+            .collect::<Vec<Result<Vec<FeeData>>>>()
+            .await;
+
+        let mut out = Vec::new();
+        for r in results {
+            out.extend(r?);
+        }
+        Ok(out)
     }
 
     /// Get the aggregate block statistics for a range of blocks exclusive of the start block.
@@ -209,34 +271,85 @@ impl OPSuccinctDataFetcher {
     pub async fn get_l2_block_data_range(&self, start: u64, end: u64) -> Result<Vec<BlockInfo>> {
         use futures::stream::{self, StreamExt};
 
-        let block_data = stream::iter(start + 1..=end)
-            .map(|block_number| async move {
-                let block =
-                    self.l2_provider.get_block_by_number(block_number.into()).await?.unwrap();
-                let receipts =
-                    self.l2_provider.get_block_receipts(block_number.into()).await?.unwrap();
-                let total_l1_fees: u128 =
-                    receipts.iter().map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0)).sum();
-                let total_tx_fees: u128 = receipts
-                    .iter()
-                    .map(|tx| {
-                        // tx.inner.effective_gas_price * tx.inner.gas_used +
-                        // tx.l1_block_info.l1_fee is the total fee for the transaction.
-                        // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
-                            tx.l1_block_info.l1_fee.unwrap_or(0)
-                    })
-                    .sum();
+        let l2_provider = self.l2_provider.clone();
 
-                Ok(BlockInfo {
-                    block_number,
-                    transaction_count: block.transactions.len() as u64,
-                    gas_used: block.header.gas_used,
-                    total_l1_fees,
-                    total_tx_fees,
-                })
+        let block_data = stream::iter(start + 1..=end)
+            .map(move |block_number| {
+                let l2_provider = l2_provider.clone();
+                async move {
+                    // Retry get_block_by_number
+                    let mut attempt = 0u32;
+                    let block = loop {
+                        match l2_provider.get_block_by_number(block_number.into()).await {
+                            Ok(opt) => match opt {
+                                Some(b) => break Ok(b),
+                                None => break Err(anyhow::anyhow!(
+                                    "Block not found for block number {}",
+                                    block_number
+                                )),
+                            },
+                            Err(e) => {
+                                if attempt < OPSuccinctDataFetcher::rpc_retry_attempts() {
+                                    let delay = OPSuccinctDataFetcher::rpc_retry_base_ms()
+                                        * (1u64 << attempt.min(8));
+                                    tokio::time::sleep(Duration::from_millis(delay)).await;
+                                    attempt += 1;
+                                    continue;
+                                }
+                                break Err(anyhow::anyhow!(e));
+                            }
+                        }
+                    }?;
+
+                    // Retry get_block_receipts
+                    let mut attempt_r = 0u32;
+                    let receipts = loop {
+                        match l2_provider.get_block_receipts(block_number.into()).await {
+                            Ok(opt) => match opt {
+                                Some(r) => break Ok(r),
+                                None => break Err(anyhow::anyhow!(
+                                    "No receipts found for block {}",
+                                    block_number
+                                )),
+                            },
+                            Err(e) => {
+                                if attempt_r < OPSuccinctDataFetcher::rpc_retry_attempts() {
+                                    let delay = OPSuccinctDataFetcher::rpc_retry_base_ms()
+                                        * (1u64 << attempt_r.min(8));
+                                    tokio::time::sleep(Duration::from_millis(delay)).await;
+                                    attempt_r += 1;
+                                    continue;
+                                }
+                                break Err(anyhow::anyhow!(e));
+                            }
+                        }
+                    }?;
+
+                    let total_l1_fees: u128 = receipts
+                        .iter()
+                        .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
+                        .sum();
+                    let total_tx_fees: u128 = receipts
+                        .iter()
+                        .map(|tx| {
+                            // tx.inner.effective_gas_price * tx.inner.gas_used +
+                            // tx.l1_block_info.l1_fee is the total fee for the transaction.
+                            // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
+                            tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
+                                tx.l1_block_info.l1_fee.unwrap_or(0)
+                        })
+                        .sum();
+
+                    Ok(BlockInfo {
+                        block_number,
+                        transaction_count: block.transactions.len() as u64,
+                        gas_used: block.header.gas_used,
+                        total_l1_fees,
+                        total_tx_fees,
+                    })
+                }
             })
-            .buffered(100)
+            .buffered(Self::block_data_concurrency())
             .collect::<Vec<Result<BlockInfo>>>()
             .await;
 
@@ -355,26 +468,74 @@ impl OPSuccinctDataFetcher {
         T: serde::de::DeserializeOwned,
     {
         let client = reqwest::Client::new();
-        let response = client
-            .post(url.clone())
-            .json(&json!({
-                "jsonrpc": "2.0",
-                "method": method,
-                "params": params,
-                "id": 1
-            }))
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
 
-        // Check for RPC error from the JSON RPC response.
-        if let Some(error) = response.get("error") {
-            let error_message = error["message"].as_str().unwrap_or("Unknown error");
-            return Err(anyhow::anyhow!("Error calling {method}: {error_message}"));
+        let max_attempts = Self::rpc_retry_attempts();
+        let base_ms = Self::rpc_retry_base_ms();
+
+        for attempt in 0..=max_attempts {
+            let resp = client
+                .post(url.clone())
+                .json(&json!({
+                    "jsonrpc": "2.0",
+                    "method": method,
+                    "params": params,
+                    "id": 1
+                }))
+                .send()
+                .await;
+
+            match resp {
+                Ok(r) => {
+                    if !r.status().is_success() {
+                        let status = r.status();
+                        let body = r.text().await.unwrap_or_default();
+                        let should_retry = status.as_u16() == 429 || status.is_server_error();
+                        if should_retry && attempt < max_attempts {
+                            let delay = base_ms * (1u64 << attempt.min(8));
+                            tokio::time::sleep(Duration::from_millis(delay)).await;
+                            continue;
+                        }
+                        return Err(anyhow::anyhow!(
+                            "HTTP error {} with body: {}",
+                            status.as_u16(),
+                            body
+                        ));
+                    }
+
+                    let response = r.json::<serde_json::Value>().await?;
+                    if let Some(error) = response.get("error") {
+                        let error_message =
+                            error["message"].as_str().unwrap_or("Unknown error");
+                        let is_transient = error_message
+                            .to_ascii_lowercase()
+                            .contains("rate limit")
+                            || error_message
+                                .to_ascii_lowercase()
+                                .contains("timeout");
+                        if is_transient && attempt < max_attempts {
+                            let delay = base_ms * (1u64 << attempt.min(8));
+                            tokio::time::sleep(Duration::from_millis(delay)).await;
+                            continue;
+                        }
+                        return Err(anyhow::anyhow!(
+                            "Error calling {method}: {error_message}"
+                        ));
+                    }
+
+                    return serde_json::from_value(response["result"].clone()).map_err(Into::into);
+                }
+                Err(e) => {
+                    if attempt < max_attempts {
+                        let delay = base_ms * (1u64 << attempt.min(8));
+                        tokio::time::sleep(Duration::from_millis(delay)).await;
+                        continue;
+                    }
+                    return Err(anyhow::anyhow!(e));
+                }
+            }
         }
 
-        serde_json::from_value(response["result"].clone()).map_err(Into::into)
+        unreachable!("RPC retry loop should have returned or errored")
     }
 
     /// Fetch arbitrary data from the RPC.
@@ -439,7 +600,7 @@ impl OPSuccinctDataFetcher {
         // Process blocks in batches of 10, but maintain original order
         let results = stream::iter(block_numbers)
             .map(|block_number| self.get_l1_header(block_number.into()))
-            .buffered(10)
+            .buffered(Self::header_fetch_concurrency())
             .collect::<Vec<_>>()
             .await;
 

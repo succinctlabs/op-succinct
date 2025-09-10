@@ -54,4 +54,6 @@ pub struct RequesterConfig {
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
     pub safe_db_fallback: bool,
+    /// Parallelism used when creating range requests (limits concurrent block-data fetches).
+    pub range_request_parallelism: usize,
 }

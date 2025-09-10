@@ -26,6 +26,8 @@ pub struct EnvironmentConfig {
     pub mock: bool,
     pub safe_db_fallback: bool,
     pub op_succinct_config_name: String,
+    // Controls how many range requests are created in parallel when scanning for gaps.
+    pub range_request_parallelism: usize,
 }
 
 /// Helper function to get environment variables with a default value and parse them.
@@ -111,6 +113,8 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
             "OP_SUCCINCT_CONFIG_NAME",
             Some("opsuccinct_genesis".to_string()),
         )?,
+        // Keep low by default to avoid RPC 429s during initial queueing.
+        range_request_parallelism: get_env_var("RANGE_REQUEST_PARALLELISM", Some(5))?,
     };
 
     Ok(config)

@@ -65,6 +65,7 @@ async fn main() -> Result<()> {
         prover_address: env_config.prover_address,
         safe_db_fallback: env_config.safe_db_fallback,
         op_succinct_config_name_hash,
+        range_request_parallelism: env_config.range_request_parallelism,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());
