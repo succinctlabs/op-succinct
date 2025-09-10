@@ -9,8 +9,8 @@ use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
+use op_succinct_signer_gcp_utils::{init_client, GcpSigner};
 use tokio::time::Duration;
-
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
 
@@ -21,6 +21,8 @@ pub enum Signer {
     Web3Signer(Url, Address),
     /// The local signer.
     LocalSigner(PrivateKeySigner),
+    /// Cloud HSM signer using Google.
+    CloudHsmSigner(String, Address),
 }
 
 impl Signer {
@@ -28,11 +30,22 @@ impl Signer {
         match self {
             Signer::Web3Signer(_, address) => *address,
             Signer::LocalSigner(signer) => signer.address(),
+            Signer::CloudHsmSigner(_, address) => *address,
         }
     }
 
     pub fn from_env() -> Result<Self> {
-        if let (Ok(signer_url_str), Ok(signer_address_str)) =
+        if let (Ok(key_name), Ok(ethereum_address_str)) =
+            (std::env::var("HSM_API_NAME"), std::env::var("HSM_ETH_ADDRESS"))
+        {
+            if std::env::var("GOOGLE_APPLICATION_CREDENTIALS").is_err() {
+                return Err(anyhow::anyhow!("GOOGLE_APPLICATION_CREDENTIALS is not set"));
+            }
+
+            let ethereum_address = Address::from_str(&ethereum_address_str)
+                .context("Failed to parse HSM_ETH_ADDRESS")?;
+            Ok(Signer::CloudHsmSigner(key_name, ethereum_address))
+        } else if let (Ok(signer_url_str), Ok(signer_address_str)) =
             (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
         {
             let signer_url = Url::parse(&signer_url_str).context("Failed to parse SIGNER_URL")?;
@@ -45,7 +58,10 @@ impl Signer {
             Ok(Signer::LocalSigner(private_key))
         } else {
             anyhow::bail!(
-                "Neither (SIGNER_URL and SIGNER_ADDRESS) nor PRIVATE_KEY are set in environment"
+                "None of the required signer configurations are set in environment:\n\
+                - For Cloud HSM: HSM_API_NAME, HSM_ETH_ADDRESS, GOOGLE_APPLICATION_CREDENTIALS\n\
+                - For Web3Signer: SIGNER_URL and SIGNER_ADDRESS\n\
+                - For Local: PRIVATE_KEY"
             )
         }
     }
@@ -105,6 +121,33 @@ impl Signer {
                     .send_tx_envelope(filled_tx.as_envelope().unwrap().clone())
                     .await
                     .context("Failed to send transaction")?
+                    .with_required_confirmations(NUM_CONFIRMATIONS)
+                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .get_receipt()
+                    .await?;
+
+                Ok(receipt)
+            }
+            Signer::CloudHsmSigner(key_name, ethereum_address) => {
+                let client = init_client().await.unwrap();
+                let signer =
+                    GcpSigner::new(client, key_name.to_string(), None, *ethereum_address).unwrap();
+                // Set the from address to HSM address
+                transaction_request.set_from(*ethereum_address);
+
+                let wallet = EthereumWallet::new(signer.clone());
+                let provider = ProviderBuilder::new()
+                    .network::<Ethereum>()
+                    .wallet(wallet)
+                    .connect_http(l1_rpc);
+
+                // Fill and send transaction (the wallet will handle KMS signing automatically)
+                let filled_tx = provider.fill(transaction_request).await?;
+
+                let receipt = provider
+                    .send_tx_envelope(filled_tx.as_envelope().unwrap().clone())
+                    .await
+                    .context("Failed to send KMS-signed transaction")?
                     .with_required_confirmations(NUM_CONFIRMATIONS)
                     .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
                     .get_receipt()

@@ -5,6 +5,7 @@ members = [
     "utils/build",
     "utils/proof",
     "utils/signer",
+    "utils/signer-gcp",
     "utils/ethereum/client",
     "utils/ethereum/host",
     "programs/range/*",
@@ -65,6 +66,9 @@ opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
 opentelemetry-otlp = { version = "^0.16.0", features = ["default", "logs"] }
 opentelemetry-appender-tracing = "0.4.0"
 
+# Cloud dependencies
+gcloud-sdk = "0.28"
+
 metrics = "0.24.1"
 metrics-exporter-prometheus = "0.16.2"
 metrics-process = "2.4.0"
@@ -112,6 +116,7 @@ op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
 op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
+op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
 op-succinct-range-utils = { path = "programs/range/utils" }
 
 # Alloy (Network)

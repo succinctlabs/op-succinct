@@ -16,6 +16,9 @@ alloy-rpc-types-eth.workspace = true
 alloy-signer-local.workspace = true
 alloy-transport-http.workspace = true
 
+# local
+op-succinct-signer-gcp-utils.workspace = true
+
 # general
 anyhow.workspace = true
 tokio.workspace = true
