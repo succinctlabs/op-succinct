@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY_URL: us-west1-docker.pkg.dev/blockchaintestsglobaltestnet/dev-images/${{ github.event.repository.name }}
+  REGISTRY_URL: us-west1-docker.pkg.dev/devopsre/dev-images/${{ github.event.repository.name }}
 
 jobs:
   build:
@@ -59,7 +59,7 @@ jobs:
         uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
         with:
           workload-id-provider: "projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos"
-          service-account: "op-succinct-dev@blockchaintestsglobaltestnet.iam.gserviceaccount.com"
+          service-account: "op-succinct-gh-dev@devopsre.iam.gserviceaccount.com"
           docker-gcp-registries: us-west1-docker.pkg.dev
 
       - name: Build and push proposer
