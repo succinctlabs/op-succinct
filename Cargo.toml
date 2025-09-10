@@ -103,12 +103,12 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.17
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v0.1.0-beta.17" }
 
 # hokulea
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "0a6200c" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "0a6200c" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "0a6200c" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "0a6200c" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "0a6200c" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "0a6200c" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "fc7202b" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "fc7202b" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "fc7202b" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "fc7202b" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "fc7202b" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "fc7202b" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
