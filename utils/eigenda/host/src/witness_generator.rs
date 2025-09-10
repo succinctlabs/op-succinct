@@ -29,9 +29,7 @@ type WitnessExecutor = EigenDAWitnessExecutor<
     OracleEigenDAProvider<DefaultOracleBase>,
 >;
 
-pub struct EigenDAWitnessGenerator {
-    pub executor: (), // Placeholder - executor will be created dynamically
-}
+pub struct EigenDAWitnessGenerator {}
 
 #[async_trait]
 impl WitnessGenerator for EigenDAWitnessGenerator {
