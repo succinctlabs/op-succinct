@@ -34,6 +34,9 @@ COPY . .
 # Build the proposer binary
 RUN cargo build --release --bin proposer --features eigenda
 
+# Download SRS from an existing release
+FROM ghcr.io/layr-labs/eigenda-proxy:2.2.1 AS srs-source
+
 # Runtime stage (minimal image)
 FROM ubuntu:24.04
 
@@ -52,6 +55,9 @@ RUN rustup install stable && rustup default stable
     
 # Copy the built proposer binary
 COPY --from=builder /usr/src/app/target/release/proposer /usr/local/bin/
+
+# Copy SRS
+COPY --from=srs-source /app/resources  /app/resources
 
 # Set the command
 CMD ["proposer"]

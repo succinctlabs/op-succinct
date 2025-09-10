@@ -28,6 +28,9 @@ RUN --mount=type=ssh \
     cargo build --bin validity --release --features eigenda && \
     cp target/release/validity /build/validity-proposer
 
+# Download SRS from an existing release
+FROM ghcr.io/layr-labs/eigenda-proxy:2.2.1 AS srs-source
+
 # Final stage
 FROM rust:1.85-slim
 
@@ -51,6 +54,9 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 
 # Copy only the built binaries from builder
 COPY --from=builder /build/validity-proposer /usr/local/bin/validity-proposer
+
+# Copy SRS
+COPY --from=srs-source /app/resources  /app/resources
 
 # Set jemalloc flags to aggressively release memory to avoid memory fragmentation.
 ENV JEMALLOC_SYS_WITH_MALLOC_CONF="background_thread:true,narenas:1,tcache:false,dirty_decay_ms:0,muzzy_decay_ms:0,abort_conf:true"
