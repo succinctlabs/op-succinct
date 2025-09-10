@@ -131,6 +131,17 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         // Extract the EigenDA witness data
         let mut eigenda_witness_data = std::mem::take(&mut *eigenda_blobs_witness.lock().unwrap());
 
+        // If there are no EigenDA DA certs collected for this range, skip Canoe proof generation.
+        if eigenda_witness_data.validity.is_empty() {
+            let witness = EigenDAWitnessData {
+                preimage_store: preimage_witness_store.lock().unwrap().clone(),
+                blob_data: blob_data.lock().unwrap().clone(),
+                eigenda_data: None,
+            };
+
+            return Ok(witness);
+        }
+
         // Generate canoe proofs using the reduced proof provider for proof aggregation
         use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
         let eth_rpc_url = std::env::var("L1_RPC")
