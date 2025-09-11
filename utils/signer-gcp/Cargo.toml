@@ -27,6 +27,11 @@ gcloud-sdk = { workspace = true, features = [
 k256 = "0.13"
 thiserror.workspace = true
 tracing.workspace = true
+rustls = { version = "0.23", default-features = false, features = [
+    "std",
+    "tls12",
+    "aws-lc-rs",
+] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

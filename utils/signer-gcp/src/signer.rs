@@ -8,7 +8,8 @@ use gcloud_sdk::{
         v1::{key_management_service_client::KeyManagementServiceClient, AsymmetricSignRequest},
     },
     tonic::{self, Request},
-    GoogleApi, GoogleAuthMiddleware,
+    GoogleApi, GoogleAuthMiddleware, TokenSourceType,
+    GCP_DEFAULT_SCOPES,
 };
 use k256::ecdsa;
 use std::fmt::{self, Debug};
@@ -16,11 +17,18 @@ use thiserror::Error;
 
 type Client = GoogleApi<KeyManagementServiceClient<GoogleAuthMiddleware>>;
 
-pub async fn init_client() -> Result<Client, GcpSignerError> {
-    let client = Client::from_function(
+pub async fn init_client(creds_json_hex: String) -> Result<Client, GcpSignerError> {
+    let creds_json_bytes = hex::decode(&creds_json_hex)
+        .map_err(|e| GcpSignerError::HexDecodeError(e.to_string()))?;
+    let creds_json = String::from_utf8(creds_json_bytes)
+        .map_err(|e| GcpSignerError::Utf8DecodeError(e.to_string()))?;
+    
+    let client = Client::from_function_with_token_source(
         KeyManagementServiceClient::new,
         "https://cloudkms.googleapis.com",
         None,
+        GCP_DEFAULT_SCOPES.clone(),
+        TokenSourceType::Json(creds_json),
     )
     .await
     .expect("Failed to create GCP KMS Client");
@@ -59,6 +67,14 @@ pub enum GcpSignerError {
     /// [`ecdsa`] error.
     #[error(transparent)]
     K256(#[from] ecdsa::Error),
+
+    /// Hex decoding error.
+    #[error("Failed to decode hex string: {0}")]
+    HexDecodeError(String),
+
+    /// UTF-8 decoding error.
+    #[error("Failed to decode UTF-8 string: {0}")]
+    Utf8DecodeError(String),
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
@@ -200,14 +216,14 @@ mod tests {
 
     #[tokio::test]
     async fn sign_message() {
-        if std::env::var("GOOGLE_APPLICATION_CREDENTIALS").is_err() {
-            return;
-        }
-
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("Failed to install default crypto provider");
         let specifier = std::env::var("HSM_API_NAME").expect("HSM_API_NAME");
         let address_str = std::env::var("HSM_ADDRESS").expect("HSM_ADDRESS");
+        let creds_json_hex = std::env::var("HSM_CREDENTIALS").expect("HSM_CREDENTIALS");
         let address: Address = address_str.parse().expect("Invalid address format");
-        let client = init_client().await.unwrap();
+        let client = init_client(creds_json_hex).await.unwrap();
         let signer = GcpSigner::new(client, specifier, None, address).expect("get key");
 
         let message = vec![0, 1, 2, 3];

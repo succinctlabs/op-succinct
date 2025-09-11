@@ -22,7 +22,7 @@ pub enum Signer {
     /// The local signer.
     LocalSigner(PrivateKeySigner),
     /// Cloud HSM signer using Google.
-    CloudHsmSigner(String, Address),
+    CloudHsmSigner(String, Address, String),
 }
 
 impl Signer {
@@ -30,7 +30,7 @@ impl Signer {
         match self {
             Signer::Web3Signer(_, address) => *address,
             Signer::LocalSigner(signer) => signer.address(),
-            Signer::CloudHsmSigner(_, address) => *address,
+            Signer::CloudHsmSigner(_, address, _) => *address,
         }
     }
 
@@ -38,13 +38,11 @@ impl Signer {
         if let (Ok(key_name), Ok(ethereum_address_str)) =
             (std::env::var("HSM_API_NAME"), std::env::var("HSM_ETH_ADDRESS"))
         {
-            if std::env::var("GOOGLE_APPLICATION_CREDENTIALS").is_err() {
-                return Err(anyhow::anyhow!("GOOGLE_APPLICATION_CREDENTIALS is not set"));
-            }
+            let creds_json_hex = std::env::var("HSM_CREDENTIALS").expect("HSM_CREDENTIALS");
 
             let ethereum_address = Address::from_str(&ethereum_address_str)
                 .context("Failed to parse HSM_ETH_ADDRESS")?;
-            Ok(Signer::CloudHsmSigner(key_name, ethereum_address))
+            Ok(Signer::CloudHsmSigner(key_name, ethereum_address, creds_json_hex))
         } else if let (Ok(signer_url_str), Ok(signer_address_str)) =
             (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
         {
@@ -59,7 +57,7 @@ impl Signer {
         } else {
             anyhow::bail!(
                 "None of the required signer configurations are set in environment:\n\
-                - For Cloud HSM: HSM_API_NAME, HSM_ETH_ADDRESS, GOOGLE_APPLICATION_CREDENTIALS\n\
+                - For Cloud HSM: HSM_API_NAME, HSM_ETH_ADDRESS, HSM_CREDENTIALS\n\
                 - For Web3Signer: SIGNER_URL and SIGNER_ADDRESS\n\
                 - For Local: PRIVATE_KEY"
             )
@@ -128,8 +126,8 @@ impl Signer {
 
                 Ok(receipt)
             }
-            Signer::CloudHsmSigner(key_name, ethereum_address) => {
-                let client = init_client().await.unwrap();
+            Signer::CloudHsmSigner(key_name, ethereum_address, creds_json_hex) => {
+                let client = init_client(creds_json_hex.clone()).await.unwrap();
                 let signer =
                     GcpSigner::new(client, key_name.to_string(), None, *ethereum_address).unwrap();
                 // Set the from address to HSM address
@@ -195,6 +193,24 @@ mod tests {
             .await
             .unwrap();
 
+        println!("Signed transaction receipt: {receipt:?}");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_send_transaction_request_cloud_hsm() {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("Failed to install default crypto provider");
+        let signer = Signer::from_env().unwrap();
+        let transaction_request = TransactionRequest::default()
+            .to(Address::from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]))
+            .value(U256::from(1000000000000000000u64))
+            .from(signer.address());
+        let receipt = signer
+            .send_transaction_request("http://localhost:8545".parse().unwrap(), transaction_request)
+            .await
+            .unwrap();
         println!("Signed transaction receipt: {receipt:?}");
     }
 }

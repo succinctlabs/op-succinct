@@ -7740,6 +7740,7 @@ dependencies = [
  "async-trait",
  "gcloud-sdk",
  "k256",
+ "rustls 0.23.31",
  "thiserror 2.0.16",
  "tokio",
  "tracing",
@@ -7760,6 +7761,7 @@ dependencies = [
  "anyhow",
  "op-succinct-host-utils",
  "op-succinct-signer-gcp-utils",
+ "rustls 0.23.31",
  "tokio",
 ]
 
