@@ -199,7 +199,7 @@ impl OPSuccinctDataFetcher {
                     total_tx_fees,
                 })
             })
-            .buffered(100)
+            .buffered(10)
             .collect::<Vec<Result<BlockInfo>>>()
             .await;
 
