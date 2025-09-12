@@ -12931,17 +12931,6 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
- 
-[[package]]
-name = "sp1-lib"
-version = "5.2.1"
-source = "git+https://github.com/succinctlabs/sp1?branch=dev#dc8c999b8894cf66cbb8abe1506921e047bf9da1"
-dependencies = [
- "bincode",
- "elliptic-curve",
- "serde",
- "sp1-primitives 5.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "sp1-lib"
