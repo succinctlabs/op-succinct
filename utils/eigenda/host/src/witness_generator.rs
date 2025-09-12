@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    env,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -146,7 +149,11 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
         let eth_rpc_url = std::env::var("L1_RPC")
             .map_err(|_| anyhow::anyhow!("L1_RPC environment variable not set"))?;
-        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url };
+        let mock_mode = env::var("OP_SUCCINCT_MOCK")
+            .unwrap_or("false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false);
+        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
         let canoe_proofs = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_witness_data,
