@@ -232,6 +232,7 @@ where
                 // TODO: implement feature flag.
                 .strategy(FulfillmentStrategy::Auction)
                 .timeout(Duration::from_secs(self.config.timeout))
+                .min_auction_period(15) // 15 seconds
                 .max_price_per_pgu(self.config.max_price_per_pgu)
                 .cycle_limit(self.config.range_cycle_limit)
                 .gas_limit(self.config.range_gas_limit)
@@ -298,6 +299,7 @@ where
                 // TODO: implement feature flag.
                 .strategy(FulfillmentStrategy::Auction)
                 .timeout(Duration::from_secs(self.config.timeout))
+                .min_auction_period(15) // 15 seconds
                 .max_price_per_pgu(self.config.max_price_per_pgu)
                 .cycle_limit(self.config.agg_cycle_limit)
                 .gas_limit(self.config.agg_gas_limit)
