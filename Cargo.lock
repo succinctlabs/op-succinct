@@ -8410,6 +8410,7 @@ dependencies = [
  "op-succinct-proof-utils",
  "op-succinct-scripts",
  "reqwest 0.12.22",
+ "rustls",
  "serde_json",
  "sp1-sdk",
  "tokio",
