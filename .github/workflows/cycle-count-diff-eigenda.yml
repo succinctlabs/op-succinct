@@ -86,6 +86,7 @@ jobs:
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_EIGENDA_RPC }}
           EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+          OP_SUCCINCT_MOCK: true
 
       - name: Copy Stats File For Old Branch
         run: |
@@ -102,6 +103,7 @@ jobs:
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_EIGENDA_RPC }}
           EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+          OP_SUCCINCT_MOCK: true
 
       - name: Compare Results And Post To Github
         run: |
