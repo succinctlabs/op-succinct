@@ -117,11 +117,6 @@ pub struct ChallengerConfig {
     /// The game type to challenge.
     pub game_type: u32,
 
-    /// The number of games to check for challenges.
-    /// The challenger will check for challenges up to `max_games_to_check_for_challenge` games
-    /// behind the latest game.
-    pub max_games_to_check_for_challenge: u64,
-
     /// Whether to enable game resolution.
     /// When game resolution is not enabled, the challenger will only challenge games.
     pub enable_game_resolution: bool,
@@ -151,9 +146,6 @@ impl ChallengerConfig {
             factory_address: env::var("FACTORY_ADDRESS")?.parse().expect("FACTORY_ADDRESS not set"),
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
             fetch_interval: env::var("FETCH_INTERVAL").unwrap_or("30".to_string()).parse()?,
-            max_games_to_check_for_challenge: env::var("MAX_GAMES_TO_CHECK_FOR_CHALLENGE")
-                .unwrap_or("100".to_string())
-                .parse()?,
             enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
                 .unwrap_or("true".to_string())
                 .parse()?,

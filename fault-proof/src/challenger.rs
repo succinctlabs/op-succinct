@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
@@ -8,9 +9,11 @@ use tokio::time;
 
 use crate::{
     config::ChallengerConfig,
-    contract::{DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame},
+    contract::{
+        DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame, ProposalStatus,
+    },
     prometheus::ChallengerGauge,
-    Action, FactoryTrait, L1Provider, L2Provider, Mode,
+    Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 use op_succinct_signer_utils::Signer;
@@ -26,6 +29,8 @@ where
     l2_provider: L2Provider,
     factory: DisputeGameFactoryInstance<P>,
     challenger_bond: U256,
+    // In-memory scan cursor: last latest index we scanned up to.
+    scan_cursor: Option<U256>,
 }
 
 impl<P> OPSuccinctChallenger<P>
@@ -63,6 +68,7 @@ where
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
             factory,
             challenger_bond,
+            scan_cursor: None,
         })
     }
 
@@ -84,80 +90,217 @@ where
             receipt.transaction_hash
         );
 
+        // Increment metrics on successful challenge
+        ChallengerGauge::GamesChallenged.increment(1.0);
+
         Ok(())
     }
 
-    /// Gets the oldest valid game address for malicious challenging (for defense mechanisms
-    /// testing purposes). This finds games with correct output roots that can be challenged to
-    /// test defense mechanisms.
-    async fn get_oldest_valid_game_for_malicious_challenge(&self) -> Result<Option<Address>> {
-        use crate::contract::ProposalStatus;
+    /// Get the current L1 timestamp (latest block).
+    async fn l1_now(&self) -> Result<u64> {
+        let now = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .unwrap()
+            .header
+            .timestamp;
+        Ok(now)
+    }
 
-        self.factory
-            .get_oldest_game_address(
-                self.config.max_games_to_check_for_challenge,
-                self.l1_provider.clone(),
-                self.l2_provider.clone(),
-                self.config.game_type,
-                |status| status == ProposalStatus::Unchallenged,
-                |output_root, game_claim| output_root == game_claim, /* Valid games (opposite of
-                                                                      * honest challenger) */
-                "Oldest valid game for malicious challenge",
-            )
-            .await
+    /// Scan newly appended games and challenge invalid ones.
+    ///
+    /// - Filters to OP Succinct game type.
+    /// - Considers only in-progress and unexpired (deadline > now) unchallenged games.
+    /// - Computes local output root and challenges on mismatch.
+    async fn scan_and_challenge(&mut self) -> Result<Action> {
+        // Fetch latest index and current L1 time.
+        let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
+            tracing::debug!("No games exist yet, skipping challenging");
+            return Ok(Action::Skipped);
+        };
+        let now = self.l1_now().await?;
+
+        ChallengerGauge::LatestIndex.set(latest_index.to::<u64>() as f64);
+
+        // Determine lower bound for scanning on initial run by finding the first OP Succinct
+        // fault dispute game whose deadline has passed and is still in progress (not resolved).
+        let mut boundary_index: Option<U256> = None;
+        if self.scan_cursor.is_none() {
+            let mut i = latest_index;
+            loop {
+                let game = self.factory.gameAtIndex(i).call().await?;
+                if game.gameType == self.config.game_type {
+                    let game_addr = game.proxy;
+                    let game = OPSuccinctFaultDisputeGame::new(game_addr, self.l1_provider.clone());
+                    let claim = game.claimData().call().await?;
+                    let deadline = U256::from(claim.deadline).to::<u64>();
+                    if claim.status != ProposalStatus::Resolved && deadline < now {
+                        boundary_index = Some(i);
+                        break;
+                    }
+                }
+                if i == U256::ZERO {
+                    break;
+                }
+                i -= U256::from(1);
+            }
+        }
+
+        // Define scan range lower bound (exclusive). None => scan all the way to index 0.
+        let lower_exclusive_opt = match (self.scan_cursor, boundary_index) {
+            (Some(c), _) => Some(c),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+
+        let mut performed = false;
+        let mut oldest_scanned: Option<U256> = None;
+
+        let mut i = latest_index;
+        loop {
+            if let Some(lower_exclusive) = lower_exclusive_opt {
+                if i <= lower_exclusive {
+                    break;
+                }
+            }
+            let game = self.factory.gameAtIndex(i).call().await?;
+            // Filter only OP Succinct fault dispute games
+            if game.gameType != self.config.game_type {
+                if i == U256::ZERO {
+                    break;
+                }
+                i -= U256::from(1);
+                continue;
+            }
+
+            let game_addr = game.proxy;
+            let game = OPSuccinctFaultDisputeGame::new(game_addr, self.l1_provider.clone());
+            let claim = game.claimData().call().await?;
+
+            // Only consider in-progress unchallenged games
+            if claim.status != ProposalStatus::Unchallenged {
+                tracing::debug!(
+                    game_index = %i,
+                    status = ?claim.status,
+                    "Skipping game since not in-progress unchallenged"
+                );
+                if i == U256::ZERO {
+                    break;
+                }
+                i -= U256::from(1);
+                continue;
+            }
+
+            // Skip expired challenges
+            let deadline = U256::from(claim.deadline).to::<u64>();
+            if deadline <= now {
+                tracing::debug!(
+                    game_index = %i,
+                    deadline = %claim.deadline,
+                    now = %now,
+                    "Skipping game due to expired challenge window"
+                );
+                if i == U256::ZERO {
+                    break;
+                }
+                i -= U256::from(1);
+                continue;
+            }
+
+            // Compute expected output root and compare
+            let l2_block_number = game.l2BlockNumber().call().await?;
+            let expected = self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
+            let proposed = game.rootClaim().call().await?;
+
+            oldest_scanned = Some(i);
+
+            if expected != proposed {
+                tracing::info!(
+                    "\x1b[32m[CHALLENGE]\x1b[0m Attempting to challenge invalid game {:?} at index {}",
+                    game_addr,
+                    i
+                );
+                self.challenge_game(game_addr).await?;
+                performed = true;
+            } else {
+                tracing::debug!(
+                    game_index = %i,
+                    l2_block = %l2_block_number,
+                    "Valid game detected (no challenge)"
+                );
+            }
+
+            if i == U256::ZERO {
+                break;
+            }
+            i -= U256::from(1);
+        }
+
+        // Update cursor to the latest index scanned up to.
+        self.scan_cursor = Some(latest_index);
+        ChallengerGauge::CursorIndex.set(latest_index.to::<u64>() as f64);
+        if let Some(oldest) = oldest_scanned {
+            ChallengerGauge::OldestIndexScanned.set(oldest.to::<u64>() as f64);
+        }
+
+        Ok(if performed { Action::Performed } else { Action::Skipped })
     }
 
     /// Handles challenging of invalid games by scanning recent games for potential challenges.
     /// Also supports malicious challenging of valid games for testing defense mechanisms when
     /// configured.
     #[tracing::instrument(skip(self), level = "info", name = "[[Challenging]]")]
-    async fn handle_game_challenging(&self) -> Result<Action> {
+    async fn handle_game_challenging(&mut self) -> Result<Action> {
         // Challenge invalid games (honest challenger behavior)
-        if let Some(game_address) = self
-            .factory
-            .get_oldest_challengable_game_address(
-                self.config.max_games_to_check_for_challenge,
-                self.l1_provider.clone(),
-                self.l2_provider.clone(),
-                self.config.game_type,
-            )
-            .await?
-        {
-            tracing::info!(
-                "\x1b[32m[CHALLENGE]\x1b[0m Attempting to challenge invalid game {:?}",
-                game_address
-            );
-            self.challenge_game(game_address).await?;
-            return Ok(Action::Performed);
+        let action = self.scan_and_challenge().await?;
+        if matches!(action, Action::Performed) {
+            return Ok(action);
         }
 
         // Maliciously challenge valid games (if configured for testing defense mechanisms)
         if self.config.malicious_challenge_percentage > 0.0 {
-            tracing::debug!("Checking for valid games to challenge maliciously...");
-            if let Some(game_address) = self.get_oldest_valid_game_for_malicious_challenge().await?
-            {
-                let mut rng = StdRng::from_os_rng();
-                let should_challenge: f64 = rng.random_range(0.0..100.0);
-                let should_challenge =
-                    should_challenge <= self.config.malicious_challenge_percentage;
-
-                if should_challenge {
-                    tracing::warn!(
-                        "\x1b[31m[MALICIOUS CHALLENGE]\x1b[0m Attempting to challenge valid game {:?} for testing ({}% chance)",
-                        game_address,
-                        self.config.malicious_challenge_percentage
-                    );
-                    self.challenge_game(game_address).await?;
-                    return Ok(Action::Performed);
-                } else {
-                    tracing::debug!(
-                        "Found valid game {:?} but skipping malicious challenge ({}% chance)",
-                        game_address,
-                        self.config.malicious_challenge_percentage
-                    );
+            if let Some(index) = self.scan_cursor {
+                tracing::debug!("Checking scan_cursor index for malicious challenge...");
+                let game = self.factory.gameAtIndex(index).call().await?;
+                if game.gameType == self.config.game_type {
+                    let now = self.l1_now().await?;
+                    let game_addr = game.proxy;
+                    let game = OPSuccinctFaultDisputeGame::new(game_addr, self.l1_provider.clone());
+                    let claim = game.claimData().call().await?;
+                    if claim.status == ProposalStatus::Unchallenged {
+                        let deadline = U256::from(claim.deadline).to::<u64>();
+                        if deadline > now {
+                            let l2_block_number = game.l2BlockNumber().call().await?;
+                            let expected = self
+                                .l2_provider
+                                .compute_output_root_at_block(l2_block_number)
+                                .await?;
+                            let proposed = game.rootClaim().call().await?;
+                            if expected == proposed {
+                                let mut rng = StdRng::from_os_rng();
+                                let should_challenge: f64 = rng.random_range(0.0..100.0);
+                                if should_challenge <= self.config.malicious_challenge_percentage {
+                                    tracing::warn!(
+                                        "\x1b[31m[MALICIOUS CHALLENGE]\x1b[0m Attempting to challenge valid game {:?} for testing ({}% chance)",
+                                        game_addr,
+                                        self.config.malicious_challenge_percentage
+                                    );
+                                    self.challenge_game(game_addr).await?;
+                                    return Ok(Action::Performed);
+                                } else {
+                                    tracing::debug!(
+                                        "Cursor game {:?} valid but skipping malicious challenge ({}% chance)",
+                                        game_addr,
+                                        self.config.malicious_challenge_percentage
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
-                tracing::debug!("No valid games found for malicious challenging");
+                tracing::debug!("Skipping malicious challenge: scan_cursor not initialized yet");
             }
         }
 
@@ -216,6 +359,7 @@ where
                         game_address,
                         receipt.transaction_hash
                     );
+                    ChallengerGauge::GamesBondsClaimed.increment(1.0);
 
                     Ok(Action::Performed)
                 }
@@ -253,9 +397,7 @@ where
             interval.tick().await;
 
             match self.handle_game_challenging().await {
-                Ok(Action::Performed) => {
-                    ChallengerGauge::GamesChallenged.increment(1.0);
-                }
+                Ok(Action::Performed) => {}
                 Ok(Action::Skipped) => {}
                 Err(e) => {
                     tracing::warn!("Failed to handle game challenging: {:?}", e);
@@ -269,9 +411,7 @@ where
             }
 
             match self.handle_bond_claiming().await {
-                Ok(Action::Performed) => {
-                    ChallengerGauge::GamesBondsClaimed.increment(1.0);
-                }
+                Ok(Action::Performed) => {}
                 Ok(Action::Skipped) => {}
                 Err(e) => {
                     tracing::warn!("Failed to handle bond claiming: {:?}", e);

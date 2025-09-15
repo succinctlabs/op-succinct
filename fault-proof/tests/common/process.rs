@@ -93,7 +93,6 @@ pub async fn start_challenger(
         factory_address: *factory_address,
         fetch_interval: 2, // Check more frequently in tests
         game_type,
-        max_games_to_check_for_challenge: 10, // Check more games
         enable_game_resolution: true,
         max_games_to_check_for_resolution: 100,
         max_games_to_check_for_bond_claiming: 100,
