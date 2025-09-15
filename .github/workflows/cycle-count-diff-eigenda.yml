@@ -52,6 +52,28 @@ jobs:
           path: old_code
           submodules: recursive
 
+      - name: Restore EigenDA SRS cache
+        id: cache-srs
+        uses: actions/cache@v4
+        with:
+          path: srs
+          key: eigenda-srs-2.2.1
+
+      - name: Download EigenDA SRS (from container)
+        if: steps.cache-srs.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p srs
+          docker pull ghcr.io/layr-labs/eigenda-proxy:2.2.1
+          cid=$(docker create ghcr.io/layr-labs/eigenda-proxy:2.2.1)
+          docker cp "$cid:/app/resources" ./srs
+          docker rm -f "$cid"
+
+      - name: Copy SRS into workspaces
+        run: |
+          cp -r ./srs/resources ./new_code
+          cp -r ./srs/resources ./old_code
+
       - name: Run Test On New Branch
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture
@@ -89,4 +111,3 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           POST_TO_GITHUB: ${{ github.event_name == 'pull_request' }}
-
