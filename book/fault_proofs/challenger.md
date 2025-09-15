@@ -50,7 +50,6 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 |----------|-------------|---------------|
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
-| `MAX_GAMES_TO_CHECK_FOR_CHALLENGE` | Maximum number of games to scan for challenges | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
 | `CHALLENGER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9001` |
@@ -67,7 +66,6 @@ PRIVATE_KEY=             # Private key for transaction signing
 # Optional Configuration
 FETCH_INTERVAL=30                     # Polling interval in seconds
 ENABLE_GAME_RESOLUTION=true           # Whether to enable automatic game resolution
-MAX_GAMES_TO_CHECK_FOR_CHALLENGE=100  # Maximum number of games to scan for challenges
 MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100 # Maximum number of games to check for resolution
 MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
 CHALLENGER_METRICS_PORT=9001          # The port to expose metrics on
@@ -127,8 +125,8 @@ The challenger provides clear logging to distinguish between challenge types:
 ### Game Monitoring
 - Continuously scans for invalid games
 - Checks game validity against L2 state
-- Prioritizes oldest challengeable games
-- Maintains efficient scanning through configurable limits
+- Filters to the configured OP Succinct game type
+- Uses a cursor + deadline-based cutoff to avoid rescanning
 
 ### Game Challenging
 - Challenges invalid games with counter-proofs

@@ -179,16 +179,7 @@ where
         S: Fn(ProposalStatus) -> bool + Send + Sync,
         O: Fn(B256, B256) -> bool + Send + Sync;
 
-    /// Get the oldest challengable game address.
-    ///
-    /// This function checks a window of recent games, starting from.
-    /// (latest_game_index - max_games_to_check_for_challenge) up to latest_game_index.
-    async fn get_oldest_challengable_game_address(
-        &self,
-        max_games_to_check_for_challenge: u64,
-        l1_provider: L1Provider,
-        l2_provider: L2Provider,
-    ) -> Result<Option<Address>>;
+    // Note: Challenging scan now handled by the challenger using a cursor-based approach.
 
     /// Get the oldest defensible game address.
     ///
@@ -524,24 +515,6 @@ where
         }
 
         Ok(None)
-    }
-
-    /// Get the oldest challengable game address.
-    async fn get_oldest_challengable_game_address(
-        &self,
-        max_games_to_check_for_challenge: u64,
-        l1_provider: L1Provider,
-        l2_provider: L2Provider,
-    ) -> Result<Option<Address>> {
-        self.get_oldest_game_address(
-            max_games_to_check_for_challenge,
-            l1_provider,
-            l2_provider,
-            |status| status == ProposalStatus::Unchallenged,
-            |output_root, game_claim| output_root != game_claim,
-            "Oldest challengable game",
-        )
-        .await
     }
 
     /// Get the oldest defensible game address.
