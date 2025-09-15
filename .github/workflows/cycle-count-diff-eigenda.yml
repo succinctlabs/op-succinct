@@ -71,8 +71,10 @@ jobs:
 
       - name: Copy SRS into workspaces
         run: |
-          cp -r ./srs/resources ./new_code
-          cp -r ./srs/resources ./old_code
+          mkdir -p ./new_code/scripts/prove
+          mkdir -p ./old_code/scripts/prove
+          cp -r ./srs/resources ./new_code/scripts/prove
+          cp -r ./srs/resources ./old_code/scripts/prove
 
       - name: Run Test On New Branch
         run: |
