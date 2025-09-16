@@ -280,9 +280,7 @@ where
                             if expected == proposed {
                                 let mut rng = StdRng::from_os_rng();
                                 let should_challenge: f64 = rng.random_range(0.0..100.0);
-                                if should_challenge
-                                    <= self.config.malicious_challenge_percentage
-                                {
+                                if should_challenge <= self.config.malicious_challenge_percentage {
                                     tracing::warn!(
                                         "\x1b[31m[MALICIOUS CHALLENGE]\x1b[0m Attempting to challenge valid game {:?} for testing ({}% chance)",
                                         game_addr,
