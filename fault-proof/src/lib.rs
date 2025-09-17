@@ -10,7 +10,7 @@ use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_eth::Block;
 use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
@@ -141,16 +141,6 @@ where
 
     /// Fetches the game by index.
     async fn fetch_game_by_index(&self, game_index: U256) -> Result<Game>;
-
-    /// Get the latest valid proposal.
-    ///
-    /// This function checks from the latest game to the earliest game, returning the latest valid
-    /// proposal.
-    async fn get_latest_valid_proposal(
-        &self,
-        l2_provider: L2Provider,
-        expected_game_type: u32,
-    ) -> Result<Option<(U256, U256)>>;
 
     /// Get the anchor state registry address.
     async fn get_anchor_state_registry_address(&self, game_type: u32) -> Result<Address>;
@@ -293,6 +283,23 @@ where
     ) -> Result<()>;
 }
 
+impl<P> DisputeGameFactoryInstance<P>
+where
+    P: Provider + Clone,
+{
+    /// Helper method to get an AnchorStateRegistry instance for a given game type.
+    async fn get_anchor_state_registry(
+        &self,
+        game_type: u32,
+    ) -> Result<AnchorStateRegistry::AnchorStateRegistryInstance<P>> {
+        let anchor_state_registry_address = self
+            .get_anchor_state_registry_address(game_type)
+            .await
+            .context("Failed to get anchor state registry address")?;
+        Ok(AnchorStateRegistry::new(anchor_state_registry_address, self.provider().clone()))
+    }
+}
+
 #[async_trait]
 impl<P> FactoryTrait<P> for DisputeGameFactoryInstance<P>
 where
@@ -333,69 +340,6 @@ where
         Ok(Game { game_type: game.gameType, address: game.proxy })
     }
 
-    /// Get the latest valid proposal.
-    ///
-    /// This function checks from the latest game to the earliest game, returning the latest valid
-    /// proposal.
-    async fn get_latest_valid_proposal(
-        &self,
-        l2_provider: L2Provider,
-        expected_game_type: u32,
-    ) -> Result<Option<(U256, U256)>> {
-        // Get latest game index, return None if no games exist.
-        let Some(mut game_index) = self.fetch_latest_game_index().await? else {
-            return Ok(None);
-        };
-
-        // Loop through games in reverse order (latest to earliest) to find the most recent valid
-        // game.
-        loop {
-            let game = self.fetch_game_by_index(game_index).await?;
-
-            if game.game_type != expected_game_type {
-                tracing::debug!(
-                    game_index = %game_index,
-                    game_type = game.game_type,
-                    expected_game_type,
-                    "Skipping game with unexpected type"
-                );
-            } else {
-                let game_contract = OPSuccinctFaultDisputeGame::new(game.address, self.provider());
-                let block_number = game_contract.l2BlockNumber().call().await?;
-                tracing::debug!(
-                    "Checking if game {:?} at block {:?} is valid",
-                    game.address,
-                    block_number
-                );
-
-                let game_claim = game_contract.rootClaim().call().await?;
-                let output_root = l2_provider.compute_output_root_at_block(block_number).await?;
-
-                if output_root == game_claim {
-                    tracing::info!(
-                        "Latest valid proposal at game index {:?} with l2 block number: {:?}",
-                        game_index,
-                        block_number
-                    );
-                    return Ok(Some((block_number, game_index)));
-                }
-
-                tracing::info!(
-                    "Output root {:?} is not same as game claim {:?}",
-                    output_root,
-                    game_claim
-                );
-            }
-
-            if game_index == U256::ZERO {
-                tracing::info!("No valid proposals found after checking all games");
-                return Ok(None);
-            }
-
-            game_index -= U256::from(1);
-        }
-    }
-
     /// Get the anchor state registry address.
     async fn get_anchor_state_registry_address(&self, game_type: u32) -> Result<Address> {
         let game_impl_address = self.gameImpls(game_type).call().await?;
@@ -408,21 +352,24 @@ where
     ///
     /// This function returns the L2 block number of the anchor game for a given game type.
     async fn get_anchor_l2_block_number(&self, game_type: u32) -> Result<U256> {
-        let anchor_state_registry_address =
-            self.get_anchor_state_registry_address(game_type).await?;
-        let anchor_state_registry =
-            AnchorStateRegistry::new(anchor_state_registry_address, self.provider());
-        let anchor_l2_block_number = anchor_state_registry.getAnchorRoot().call().await?._1;
-        Ok(anchor_l2_block_number)
+        let anchor_state_registry = self.get_anchor_state_registry(game_type).await?;
+        // getAnchorRoot returns a struct with fields _0 (root_hash) and _1 (l2_block_number)
+        let anchor_root_data = anchor_state_registry
+            .getAnchorRoot()
+            .call()
+            .await
+            .context("Failed to fetch anchor root from registry")?;
+        Ok(anchor_root_data._1)
     }
 
     /// Check if a game is finalized.
     async fn is_game_finalized(&self, game_type: u32, game_address: Address) -> Result<bool> {
-        let anchor_state_registry_address =
-            self.get_anchor_state_registry_address(game_type).await?;
-        let anchor_state_registry =
-            AnchorStateRegistry::new(anchor_state_registry_address, self.provider());
-        let is_finalized = anchor_state_registry.isGameFinalized(game_address).call().await?;
+        let anchor_state_registry = self.get_anchor_state_registry(game_type).await?;
+        let is_finalized = anchor_state_registry
+            .isGameFinalized(game_address)
+            .call()
+            .await
+            .context("Failed to check if game is finalized")?;
         Ok(is_finalized)
     }
 
