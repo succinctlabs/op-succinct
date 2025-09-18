@@ -110,6 +110,21 @@ pub enum ChallengerGauge {
         message = "Total number of games that bonds were claimed by the challenger"
     )]
     GamesBondsClaimed,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_cursor_index",
+        message = "Challenger scan cursor index"
+    )]
+    CursorIndex,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_latest_index",
+        message = "Latest game index observed by challenger"
+    )]
+    LatestIndex,
+    #[strum(
+        serialize = "op_succinct_fp_challenger_oldest_index_scanned",
+        message = "Oldest game index scanned in last tick"
+    )]
+    OldestIndexScanned,
     // Error metrics
     #[strum(
         serialize = "op_succinct_fp_challenger_game_challenging_error",
