@@ -844,11 +844,22 @@ where
             )
             .await?;
 
+        let mut active_proving_tasks_count = self.count_active_proving_tasks().await;
         let mut tasks_spawned = false;
         for game_address in game_addresses {
+            if active_proving_tasks_count >= self.config.max_concurrent_defense_tasks {
+                tracing::debug!(
+                    "The max concurrent proving tasks count ({}) has been reached",
+                    self.config.max_concurrent_defense_tasks,
+                );
+
+                return Ok(tasks_spawned)
+            }
+
             // Check if we already have a proving task for this game
             if !self.has_active_proving_for_game(game_address).await {
                 self.spawn_game_proving_task(game_address).await?;
+                active_proving_tasks_count += 1;
                 tasks_spawned = true;
             }
         }
