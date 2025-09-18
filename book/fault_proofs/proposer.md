@@ -59,8 +59,6 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
 | `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
-| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
-| `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
 | `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
 | `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
@@ -92,8 +90,6 @@ RANGE_PROOF_STRATEGY=reserved            # Set to hosted to use hosted proof str
 AGG_PROOF_STRATEGY=reserved              # Set to hosted to use hosted proof strategy
 PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                        # Polling interval in seconds
-ENABLE_GAME_RESOLUTION=false             # Whether to enable automatic game resolution
-MAX_GAMES_TO_CHECK_FOR_RESOLUTION=100    # Maximum number of games to check for resolution
 MAX_GAMES_TO_CHECK_FOR_DEFENSE=100       # Maximum number of recent games to check for defense
 MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING=100 # Maximum number of games to check for bond claiming
 PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
@@ -136,12 +132,9 @@ The proposer will run indefinitely, creating new games and optionally resolving 
 - Generates and submits proofs using the Succinct Prover Network
 - Supports mock mode for testing without using the Succinct Prover Network. (Set `MOCK_MODE=true` in `.env.proposer`)
 ### Game Resolution
-When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
-- **Fast Finality**: Immediately resolves proven games (UnchallengedAndValidProofProvided or ChallengedAndValidProofProvided)
-- Monitors unchallenged games
-- Resolves games after their challenge period expires
-- Respects parent-child game relationships in resolution
-- Only resolves games whose parent games are already resolved
+- Automatically resolves proven games (UnchallengedAndValidProofProvided or ChallengedAndValidProofProvided)
+- Monitors unchallenged games and resolves them once their challenge period expires
+- Respects parent-child game relationships; a child is only resolved after its parent finishes
 
 ### Bond Claiming
 - Monitors games for bond claiming opportunities

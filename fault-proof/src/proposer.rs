@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, TxHash, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
@@ -30,7 +31,7 @@ use crate::{
     contract::{
         AnchorStateRegistry,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
-        GameStatus, OPSuccinctFaultDisputeGame,
+        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
     prometheus::ProposerGauge,
     Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode,
@@ -69,6 +70,8 @@ struct Game {
     parent_index: u32,
     l2_block: U256,
     status: GameStatus,
+    proposal_status: ProposalStatus,
+    deadline: u64,
 }
 
 #[derive(Default)]
@@ -166,6 +169,7 @@ impl ProposerState {
             .find_map(|(index, game)| if game.address == address { Some(*index) } else { None })
     }
 
+    /// Retain only games whose ancestry leads back to the current anchor.
     fn retain_descendants_of_anchor(&mut self) {
         let anchor_index =
             self.anchor_index.expect("anchor index must be set before pruning descendants");
@@ -208,6 +212,7 @@ impl ProposerState {
         self.recompute_canonical_head();
     }
 
+    /// Drop a game and every cached descendant below it.
     fn remove_subtree(&mut self, root_index: U256) {
         let mut stack = vec![root_index];
         let mut to_remove = HashSet::new();
@@ -243,6 +248,48 @@ impl ProposerState {
         }
 
         self.recompute_canonical_head();
+    }
+
+    fn parent_ready(&self, game: &Game) -> bool {
+        if game.parent_index == u32::MAX {
+            return true;
+        }
+
+        let parent_index = U256::from(game.parent_index);
+        match self.games.get(&parent_index) {
+            Some(parent) => parent.status != GameStatus::IN_PROGRESS,
+            None => false,
+        }
+    }
+
+    fn proposer_ready(game: &Game, now_ts: u64) -> bool {
+        match game.proposal_status {
+            ProposalStatus::Unchallenged => now_ts >= game.deadline,
+            ProposalStatus::UnchallengedAndValidProofProvided |
+            ProposalStatus::ChallengedAndValidProofProvided => true,
+            _ => false,
+        }
+    }
+
+    fn challenger_ready(game: &Game, now_ts: u64) -> bool {
+        matches!(game.proposal_status, ProposalStatus::Challenged) && now_ts >= game.deadline
+    }
+
+    fn resolvable_candidates(&self, mode: Mode, now_ts: u64) -> Vec<U256> {
+        let mut games: Vec<&Game> = self.games.values().collect();
+        games.sort_by_key(|game| game.index);
+
+        games
+            .into_iter()
+            .filter(|game| game.status == GameStatus::IN_PROGRESS)
+            .filter(|game| game.proposal_status != ProposalStatus::Resolved)
+            .filter(|game| self.parent_ready(game))
+            .filter(|game| match mode {
+                Mode::Proposer => Self::proposer_ready(game, now_ts),
+                Mode::Challenger => Self::challenger_ready(game, now_ts),
+            })
+            .map(|game| game.index)
+            .collect()
     }
 }
 
@@ -551,6 +598,7 @@ where
         Ok((game_address, game_index))
     }
 
+    /// Synchronize the cached game graph with on-chain anchor and latest game data.
     async fn refresh_state(&self) -> Result<()> {
         let anchor_registry_address =
             self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
@@ -698,20 +746,80 @@ where
 
         for (index, game_address) in targets {
             let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+            let claim_data = contract.claimData().call().await?;
             let status = contract.status().call().await?;
+            let deadline = U256::from(claim_data.deadline).to::<u64>();
 
             let mut state = self.state.lock().await;
+            let mut remove = false;
 
             if let Some(game) = state.games.get_mut(&index) {
                 if status == GameStatus::CHALLENGER_WINS {
-                    state.remove_subtree(index);
-                } else if status != game.status {
+                    remove = true;
+                } else {
                     game.status = status;
+                    game.proposal_status = claim_data.status;
+                    game.deadline = deadline;
+                }
+            }
+
+            if remove {
+                state.remove_subtree(index);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn resolve_candidates(&self, candidate_indices: Vec<U256>) -> Result<()> {
+        for index in candidate_indices {
+            let maybe_game = {
+                let state = self.state.lock().await;
+                state.games.get(&index).cloned()
+            };
+
+            if let Some(game) = maybe_game {
+                if let Err(error) = self.submit_resolution_transaction(&game).await {
+                    tracing::warn!(
+                        game_index = %index,
+                        game_address = ?game.address,
+                        l2_block_end = %game.l2_block,
+                        ?error,
+                        "Failed to resolve game"
+                    );
                 }
             }
         }
 
         Ok(())
+    }
+
+    async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let transaction_request = contract.resolve().into_transaction_request();
+        let receipt = self
+            .signer
+            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .await?;
+
+        tracing::info!(
+            game_index = %game.index,
+            game_address = ?game.address,
+            l2_block_end = %game.l2_block,
+            tx_hash = ?receipt.transaction_hash,
+            "Game resolved successfully"
+        );
+
+        ProposerGauge::GamesResolved.increment(1.0);
+        self.mark_game_proposal_resolved(game.index).await;
+        Ok(())
+    }
+
+    async fn mark_game_proposal_resolved(&self, index: U256) {
+        let mut state = self.state.lock().await;
+        if let Some(game) = state.games.get_mut(&index) {
+            game.proposal_status = ProposalStatus::Resolved;
+        }
     }
 
     async fn fetch_game(&self, index: U256) -> Result<Option<Game>> {
@@ -738,6 +846,7 @@ where
 
         let claim_data = contract.claimData().call().await?;
         let status = contract.status().call().await?;
+        let deadline = U256::from(claim_data.deadline).to::<u64>();
 
         Ok(Some(Game {
             index,
@@ -745,6 +854,8 @@ where
             parent_index: claim_data.parentIndex,
             l2_block,
             status,
+            proposal_status: claim_data.status,
+            deadline,
         }))
     }
 
@@ -1069,8 +1180,6 @@ where
                 Ok(false) => tracing::debug!("No games need resolution"),
                 Err(e) => tracing::warn!("Failed to spawn game resolution task: {:?}", e),
             }
-        } else {
-            tracing::info!("Game resolution task already active");
         }
 
         // Check if we should claim bonds
@@ -1353,22 +1462,27 @@ where
     /// - Err: Actual error occurred during task spawning
     #[tracing::instrument(name = "[[Proposer Resolving]]", skip(self))]
     async fn spawn_game_resolution_task(&self) -> Result<bool> {
+        let latest_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .context("Failed to fetch latest L1 block for resolution task")?;
+        let now_ts = latest_block.header.timestamp;
+
+        let candidate_indices = {
+            let state = self.state.lock().await;
+            state.resolvable_candidates(Mode::Proposer, now_ts)
+        };
+
+        if candidate_indices.is_empty() {
+            return Ok(false);
+        }
+
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
-            proposer
-                .factory
-                .resolve_games(
-                    Mode::Proposer,
-                    proposer.config.max_games_to_check_for_resolution,
-                    proposer.signer.clone(),
-                    proposer.config.l1_rpc.clone(),
-                    proposer.l1_provider.clone(),
-                    proposer.config.game_type,
-                )
-                .await
-        });
+        let handle =
+            tokio::spawn(async move { proposer.resolve_candidates(candidate_indices).await });
 
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
