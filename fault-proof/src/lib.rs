@@ -181,20 +181,6 @@ where
         l2_provider: L2Provider,
     ) -> Result<Option<Address>>;
 
-    /// Get the oldest defensible game address.
-    ///
-    /// Defensible games are games with valid claims that have been challenged but have not been
-    /// proven yet.
-    ///
-    /// This function checks a window of recent games, starting from
-    /// (latest_game_index - max_games_to_check_for_defense) up to latest_game_index.
-    async fn get_oldest_defensible_game_address(
-        &self,
-        max_games_to_check_for_defense: u64,
-        l1_provider: L1Provider,
-        l2_provider: L2Provider,
-    ) -> Result<Option<Address>>;
-
     /// Get the oldest game address with claimable bonds.
     ///
     /// Claimable games are games that have been finalized and have a determined bond distribution
@@ -483,24 +469,6 @@ where
             |status| status == ProposalStatus::Unchallenged,
             |output_root, game_claim| output_root != game_claim,
             "Oldest challengable game",
-        )
-        .await
-    }
-
-    /// Get the oldest defensible game address.
-    async fn get_oldest_defensible_game_address(
-        &self,
-        max_games_to_check_for_defense: u64,
-        l1_provider: L1Provider,
-        l2_provider: L2Provider,
-    ) -> Result<Option<Address>> {
-        self.get_oldest_game_address(
-            max_games_to_check_for_defense,
-            l1_provider,
-            l2_provider,
-            |status| status == ProposalStatus::Challenged,
-            |output_root, game_claim| output_root == game_claim,
-            "Oldest defensible game",
         )
         .await
     }

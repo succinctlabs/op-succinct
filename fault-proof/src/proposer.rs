@@ -1347,25 +1347,32 @@ where
     #[tracing::instrument(name = "[[Defending]]", skip(self))]
     async fn spawn_game_defense_tasks(&self) -> Result<bool> {
         // Check if there are games needing defense
-        if let Some(game_address) = self
-            .factory
-            .get_oldest_defensible_game_address(
-                self.config.max_games_to_check_for_defense,
-                self.l1_provider.clone(),
-                self.l2_provider.clone(),
-            )
-            .await?
-        {
-            // Check if we already have a proving task for this game
-            if !self.has_active_proving_for_game(game_address).await {
-                self.spawn_game_proving_task(game_address).await?;
-                Ok(true)
-            } else {
-                Ok(false) // Task already exists - no new work needed
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.status == GameStatus::IN_PROGRESS)
+                .filter(|game| matches!(game.proposal_status, ProposalStatus::Challenged))
+                .map(|game| (game.index, game.address))
+                .collect::<Vec<_>>()
+        };
+
+        for (index, game_address) in candidates {
+            if self.has_active_proving_for_game(game_address).await {
+                continue;
             }
-        } else {
-            Ok(false) // No games need defense - normal case
+
+            tracing::info!(
+                game_address = ?game_address,
+                game_index = %index,
+                "Spawning defense for challenged game"
+            );
+            self.spawn_game_proving_task(game_address).await?;
+            return Ok(true);
         }
+
+        Ok(false)
     }
 
     /// Check if there's an active proving task for a specific game
