@@ -59,7 +59,6 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
 | `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
-| `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. | (Only used if `FAST_FINALITY_MODE` is `true`) |
@@ -88,7 +87,6 @@ RANGE_PROOF_STRATEGY=reserved            # Set to hosted to use hosted proof str
 AGG_PROOF_STRATEGY=reserved              # Set to hosted to use hosted proof strategy
 PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                        # Polling interval in seconds
-MAX_GAMES_TO_CHECK_FOR_DEFENSE=100       # Maximum number of recent games to check for defense
 PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
 ```
 
@@ -121,7 +119,7 @@ The proposer will run indefinitely, creating new games and optionally resolving 
 ### Game Defense
 - Monitors games for challenges against valid claims
 - Automatically defends valid claims by providing proofs
-- Checks games within a configurable window (set by `MAX_GAMES_TO_CHECK_FOR_DEFENSE`)
+- Checks all challenged games tracked in memory
 - Only defends games that:
   - Have been challenged
   - Are within their proof submission window

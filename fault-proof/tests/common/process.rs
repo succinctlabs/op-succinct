@@ -37,7 +37,6 @@ pub async fn start_proposer(
         proposal_interval_in_blocks: 10, // Much smaller interval for testing
         fetch_interval: 2,               // Check more frequently in tests
         game_type,
-        max_games_to_check_for_defense: 100,
         safe_db_fallback: false,
         metrics_port: 9000,
         fast_finality_proving_limit: 1,

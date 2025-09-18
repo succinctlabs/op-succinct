@@ -1357,34 +1357,43 @@ where
     #[tracing::instrument(name = "[[Defending]]", skip(self))]
     async fn spawn_game_defense_tasks(&self) -> Result<bool> {
         // Check if there are games needing defense
-        let game_addresses = self
-            .factory
-            .get_defensible_game_addresses(
-                self.config.max_games_to_check_for_defense,
-                self.l1_provider.clone(),
-                self.l2_provider.clone(),
-                self.config.game_type,
-            )
-            .await?;
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.status == GameStatus::IN_PROGRESS)
+                .filter(|game| matches!(game.proposal_status, ProposalStatus::Challenged))
+                .map(|game| (game.index, game.address))
+                .collect::<Vec<_>>()
+        };
 
         let mut active_defense_tasks_count = self.count_active_defense_tasks().await;
+        let max_concurrent = self.config.max_concurrent_defense_tasks;
+
         let mut tasks_spawned = false;
-        for game_address in game_addresses {
-            if active_defense_tasks_count >= self.config.max_concurrent_defense_tasks {
+
+        for (index, game_address) in candidates {
+            if active_defense_tasks_count >= max_concurrent {
                 tracing::debug!(
-                    "The max concurrent proving tasks count ({}) has been reached",
-                    self.config.max_concurrent_defense_tasks,
+                    "The max concurrent defense tasks count ({}) has been reached",
+                    max_concurrent
                 );
-
-                return Ok(tasks_spawned)
+                break;
             }
 
-            // Check if we already have a proving task for this game
-            if !self.has_active_proving_for_game(game_address).await {
-                self.spawn_game_proving_task(game_address, true).await?;
-                active_defense_tasks_count += 1;
-                tasks_spawned = true;
+            if self.has_active_proving_for_game(game_address).await {
+                continue;
             }
+
+            tracing::info!(
+                game_address = ?game_address,
+                game_index = %index,
+                "Spawning defense for challenged game"
+            );
+            self.spawn_game_proving_task(game_address, true).await?;
+            active_defense_tasks_count += 1;
+            tasks_spawned = true;
         }
 
         Ok(tasks_spawned)

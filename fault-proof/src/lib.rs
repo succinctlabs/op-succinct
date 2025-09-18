@@ -206,21 +206,6 @@ where
         expected_game_type: u32,
     ) -> Result<Option<Address>>;
 
-    /// Get the defensible game addresses.
-    ///
-    /// Defensible games are games with valid claims that have been challenged but have not been
-    /// proven yet.
-    ///
-    /// This function checks a window of recent games, starting from
-    /// (latest_game_index - max_games_to_check_for_defense) up to latest_game_index.
-    async fn get_defensible_game_addresses(
-        &self,
-        max_games_to_check_for_defense: u64,
-        l1_provider: L1Provider,
-        l2_provider: L2Provider,
-        expected_game_type: u32,
-    ) -> Result<Vec<Address>>;
-
     /// Get the oldest game address with claimable bonds.
     ///
     /// Claimable games are games that have been finalized and have a determined bond distribution
@@ -621,26 +606,6 @@ where
             |status| status == ProposalStatus::Unchallenged,
             |output_root, game_claim| output_root != game_claim,
             "Oldest challengable game",
-        )
-        .await
-    }
-
-    /// Get the oldest defensible game address.
-    async fn get_defensible_game_addresses(
-        &self,
-        max_games_to_check_for_defense: u64,
-        l1_provider: L1Provider,
-        l2_provider: L2Provider,
-        expected_game_type: u32,
-    ) -> Result<Vec<Address>> {
-        self.get_game_addresses(
-            max_games_to_check_for_defense,
-            l1_provider,
-            l2_provider,
-            expected_game_type,
-            |status| status == ProposalStatus::Challenged,
-            |output_root, game_claim| output_root == game_claim,
-            "Defensible games",
         )
         .await
     }
