@@ -63,11 +63,7 @@ contract MockPermissionedDisputeGame is IDisputeGame {
         extraData_ = bytes("");
     }
 
-    function gameData()
-        external
-        pure
-        returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_)
-    {
+    function gameData() external pure returns (GameType gameType_, Claim rootClaim_, bytes memory extraData_) {
         gameType_ = GameType.wrap(1);
         rootClaim_ = Claim.wrap(bytes32(0));
         extraData_ = bytes("");
