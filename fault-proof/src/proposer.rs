@@ -844,16 +844,16 @@ where
             )
             .await?;
 
-        let mut tasks_spanned = false;
+        let mut tasks_spawned = false;
         for game_address in game_addresses {
             // Check if we already have a proving task for this game
             if !self.has_active_proving_for_game(game_address).await {
                 self.spawn_game_proving_task(game_address).await?;
-                tasks_spanned = true;
+                tasks_spawned = true;
             }
         }
 
-        Ok(tasks_spanned)
+        Ok(tasks_spawned)
     }
 
     /// Check if there's an active proving task for a specific game
