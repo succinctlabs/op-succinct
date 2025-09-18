@@ -44,6 +44,7 @@
 - [Advanced](./advanced/intro.md)
   - [Cost Estimator](./advanced/cost-estimator.md)
   - [Reproduce Binaries](./advanced/verify-binaries.md)
+  - [Run Multi-Block Execution](./advanced/run-multi.md)
   - [Node Setup](./advanced/node-setup.md)
   - [Kurtosis](./advanced/kurtosis.md)
   - [FAQ](./faq.md)

@@ -2,7 +2,7 @@ default:
   @just --list
 
 # Runs the op-succinct program for a single block.
-run-single l2_block_num use-cache="false" prove="false":
+run-single l2_block_num use-cache="false" prove="false" save-artifacts="false":
   #!/usr/bin/env bash
   CACHE_FLAG=""
   if [ "{{use-cache}}" = "true" ]; then
@@ -12,10 +12,14 @@ run-single l2_block_num use-cache="false" prove="false":
   if [ "{{prove}}" = "true" ]; then
     PROVE_FLAG="--prove"
   fi
-  cargo run --bin single --release -- --l2-block {{l2_block_num}} $CACHE_FLAG $PROVE_FLAG
+  SAVE_ARTIFACTS_FLAG=""
+  if [ "{{save-artifacts}}" = "true" ]; then
+    SAVE_ARTIFACTS_FLAG="--save-artifacts"
+  fi
+  RUST_LOG=info cargo run --bin single --release -- --l2-block {{l2_block_num}} $CACHE_FLAG $PROVE_FLAG $SAVE_ARTIFACTS_FLAG
 
 # Runs the op-succinct program for multiple blocks.
-run-multi start end use-cache="false" prove="false":
+run-multi start end use-cache="false" prove="false" save-artifacts="false":
   #!/usr/bin/env bash
   CACHE_FLAG=""
   if [ "{{use-cache}}" = "true" ]; then
@@ -26,7 +30,12 @@ run-multi start end use-cache="false" prove="false":
     PROVE_FLAG="--prove"
   fi
 
-  cargo run --bin multi --release -- --start {{start}} --end {{end}} $CACHE_FLAG $PROVE_FLAG
+  SAVE_ARTIFACTS_FLAG=""
+  if [ "{{save-artifacts}}" = "true" ]; then
+    SAVE_ARTIFACTS_FLAG="--save-artifacts"
+  fi
+
+  RUST_LOG=info cargo run --bin multi --release -- --start {{start}} --end {{end}} $CACHE_FLAG $PROVE_FLAG $SAVE_ARTIFACTS_FLAG
 
 # Runs the cost estimator for a given block range.
 # If no range is provided, runs for the last 5 finalized blocks.
