@@ -1,11 +1,10 @@
 {
   "activateContracts": false,
-  "aggregationVkey": "0x000ce954cedc18b3dbb347e363d59a6d993d5e7e4a11df76864599bf41a72ceb",
+  "aggregationVkey": "0x003ed2b6318ad003780dde61c4b370f8633249a1f2da84640dd0ab5a23f38408",
   "anchorStateRegistryAddress": "0xd088264165cd85ea5cf98303d5f44f5e6c16805a",
   "celoSuperchainConfigAddress": "0x6ac47E296d59A8D3b8933276EA3dB1CC28e920DA",
   "challengerAddresses": [
-    "0xDc94436A193a827786270dD4F6cD4b35c3f0C8f8",
-    "0x85c7AC265419359806B147Fba6Ea654229928333"
+    "0xDc94436A193a827786270dD4F6cD4b35c3f0C8f8"
   ],
   "challengerBondWei": 1000000000000000,
   "configureContracts": false,
@@ -15,17 +14,16 @@
   "gameType": 42,
   "initialBondWei": 1000000000000000,
   "maxChallengeDuration": 604800,
-  "maxProveDuration": 86400,
+  "maxProveDuration": 21600,
   "optimismPortal2Address": "0x87e9cB54f185a32266689138fbA56F0C994CF50c",
   "permissionlessMode": false,
   "proposerAddresses": [
-    "0x85c7AC265419359806B147Fba6Ea654229928333",
-    "0xDc94436A193a827786270dD4F6cD4b35c3f0C8f8"
+    "0x85c7AC265419359806B147Fba6Ea654229928333"
   ],
-  "rangeVkeyCommitment": "0x623b11a11a7d5920445f58cb486e6e0334e058e2739312c0642bebf1189998d5",
+  "rangeVkeyCommitment": "0x768300836a3dc424340ac35a3ca46aa03cdcecae1c3d195217b104dd490947a7",
   "rollupConfigHash": "0xaa8b37306ef7ede9abb7f4d5a69d5656b6eb22582e2cbec99e81c932a36fd0ba",
-  "startingL2BlockNumber": 43774884,
-  "startingRoot": "0x105d274f50c50eed1435f5cd9fbb38b21b8993ac7ab4a86cd255cbc806043bf4",
+  "startingL2BlockNumber": 46117531,
+  "startingRoot": "0x6d0a151585b63375d2910a495cb17df188db688d635e72eec5c3d256f56665ff",
   "useSp1MockVerifier": false,
   "verifierAddress": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
 }

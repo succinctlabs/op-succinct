@@ -38,7 +38,7 @@ contract ConfigureDeploymentSafe is Script, Utils {
     function readEnv() internal view returns (EnvConfig memory) {
         return EnvConfig(
             uint32(vm.envOr("GAME_TYPE", uint256(42))),
-            vm.envUint("INITIAL_BOND"),
+            vm.envOr("INITIAL_BOND", uint256(0)), // allow to skip setting bond in case of upgrade only
             vm.envAddress("FACTORY"),
             vm.envAddress("GAME_IMPL"),
             vm.envOr("PORTAL", address(0)), // skip portal configuration if env not present
@@ -53,7 +53,9 @@ contract ConfigureDeploymentSafe is Script, Utils {
 
         // Determine number of operations
         uint8 opNumber;
-        if (config.optimismPortal2 == address(0)) {
+        if (config.optimismPortal2 == address(0) && config.initialBondWei == 0) {
+            opNumber = 1;
+        } else if (config.optimismPortal2 == address(0) || config.initialBondWei == 0) {
             opNumber = 2;
         } else {
             opNumber = 3;
@@ -61,20 +63,25 @@ contract ConfigureDeploymentSafe is Script, Utils {
 
         // Build IMulticall3 calldata
         IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](opNumber);
-        calls[0] = IMulticall3.Call3(
+        uint8 _op = 0;
+        calls[_op] = IMulticall3.Call3(
             config.factoryProxy,
             false,
             abi.encodeWithSelector(DisputeGameFactory.setInitBond.selector, gameType, config.initialBondWei)
         );
-        calls[1] = IMulticall3.Call3(
-            config.factoryProxy,
-            false,
-            abi.encodeWithSelector(
-                DisputeGameFactory.setImplementation.selector, gameType, IDisputeGame(config.gameImplementation)
-            )
-        );
+        if (config.initialBondWei != 0) {
+            _op++;
+            calls[_op] = IMulticall3.Call3(
+                config.factoryProxy,
+                false,
+                abi.encodeWithSelector(
+                    DisputeGameFactory.setImplementation.selector, gameType, IDisputeGame(config.gameImplementation)
+                )
+            );
+        }
         if (config.optimismPortal2 != address(0)) {
-            calls[2] = IMulticall3.Call3(
+            _op++;
+            calls[_op] = IMulticall3.Call3(
                 config.optimismPortal2,
                 false,
                 abi.encodeWithSelector(IOptimismPortal2.setRespectedGameType.selector, gameType)

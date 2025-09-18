@@ -41,13 +41,13 @@ contract UpgradeOPSuccinctFDG is Script {
             IAnchorStateRegistry(vm.envAddress("ANCHOR_STATE_REGISTRY")),
             AccessManager(vm.envAddress("ACCESS_MANAGER"))
         );
-
         console.log("New OPSuccinctFaultDisputeGame implementation deployed at: ", address(newImpl));
 
-        // Set the new implementation.
-        factory.setImplementation(gameType, IDisputeGame(address(newImpl)));
-
-        console.log("New implementation set in factory: ", address(factory.gameImpls(gameType)));
+        // Optionally set the new implementation.
+        if (vm.envOr("SET_IMPL", false)) {
+            factory.setImplementation(gameType, IDisputeGame(address(newImpl)));
+            console.log("New implementation set in factory: ", address(factory.gameImpls(gameType)));
+        }
 
         vm.stopBroadcast();
     }
