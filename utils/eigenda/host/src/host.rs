@@ -80,11 +80,6 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
 
 impl EigenDAOPSuccinctHost {
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self {
-            fetcher,
-            witness_generator: Arc::new(EigenDAWitnessGenerator {
-                executor: (), // Placeholder - will be created in witness_generator
-            }),
-        }
+        Self { fetcher, witness_generator: Arc::new(EigenDAWitnessGenerator {}) }
     }
 }

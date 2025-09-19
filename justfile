@@ -58,7 +58,7 @@ upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
 fetch-fdg-config env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     echo "Fetching Fault Dispute Game configuration..."
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
@@ -71,10 +71,10 @@ fetch-fdg-config env_file=".env" *features='':
 deploy-fdg-contracts env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # First fetch FDG config using the env file
     just fetch-fdg-config {{env_file}} {{features}}
-    
+
     # Run deployment of contracts
     just _deploy-fdg-contracts {{env_file}}
 
@@ -85,29 +85,29 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
 
     # Load environment variables from project root
     source {{env_file}}
-    
+
     # Load environment variables from contracts directory if it exists
     if [ -f "contracts/.env" ]; then
         source contracts/.env
     fi
-    
+
     # Check if required environment variables are set
     if [ -z "${RPC_URL:-}" ] && [ -z "${L1_RPC:-}" ]; then
         echo "Error: Neither RPC_URL nor L1_RPC environment variable is set"
         exit 1
     fi
-    
+
     if [ -z "${PRIVATE_KEY:-}" ]; then
         echo "Error: PRIVATE_KEY environment variable is not set"
         exit 1
     fi
-    
+
     # Use RPC_URL if set, otherwise fall back to L1_RPC
     RPC_URL_TO_USE="${RPC_URL:-$L1_RPC}"
     echo "Using RPC URL: $RPC_URL_TO_USE"
 
     echo "Deploying FDG contracts..."
-    
+
     # Change to contracts directory
     cd contracts
 
@@ -117,22 +117,22 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
       echo "Using custom config file: $CUSTOM_CONFIG..."
       cp $CUSTOM_CONFIG opsuccinctfdgconfig.json
     fi
-    
+
     # Install dependencies
     echo "Installing forge dependencies..."
     forge install
-    
+
     # Build contracts
     echo "Building contracts..."
     forge build
-    
+
     # Setup verification flags
     VERIFY=""
     if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
         VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --retries 10 --delay 5"
         echo "Verification enabled with Etherscan"
     fi
-    
+
     # Run deployment script
     echo "Running deployment script..."
     forge script script/fp/DeployOPSuccinctFDG.s.sol \
@@ -141,7 +141,7 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
         --rpc-url "$RPC_URL_TO_USE" \
         --private-key "$PRIVATE_KEY" \
         $VERIFY
-    
+
     echo "FDG contract deployment complete!"
 
 # Deploy mock verifier
@@ -150,12 +150,12 @@ deploy-mock-verifier env_file=".env":
     set -a
     source {{env_file}}
     set +a
-    
+
     if [ -z "$L1_RPC" ]; then
         echo "L1_RPC not set in {{env_file}}"
         exit 1
     fi
-    
+
     if [ -z "$PRIVATE_KEY" ]; then
         echo "PRIVATE_KEY not set in {{env_file}}"
         exit 1
@@ -167,7 +167,7 @@ deploy-mock-verifier env_file=".env":
     if [ $ETHERSCAN_API_KEY != "" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
-    
+
     forge script script/validity/DeployMockVerifier.s.sol:DeployMockVerifier \
     --rpc-url $L1_RPC \
     --private-key $PRIVATE_KEY \
@@ -178,7 +178,7 @@ deploy-mock-verifier env_file=".env":
 deploy-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release -- --env-file {{env_file}}
@@ -186,7 +186,7 @@ deploy-oracle env_file=".env" *features='':
         echo "Fetching rollup config with features: {{features}}"
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
-    
+
     # Load environment variables
     source {{env_file}}
 
@@ -197,11 +197,11 @@ deploy-oracle env_file=".env" *features='':
     if [ "$ETHERSCAN_API_KEY" != "" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
-    
+
     ENV_VARS=""
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
-    
+
     # Run the forge deployment script
     $ENV_VARS forge script script/validity/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
         --rpc-url $L1_RPC \
@@ -213,7 +213,7 @@ deploy-oracle env_file=".env" *features='':
 upgrade-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release -- --env-file {{env_file}}
@@ -221,7 +221,7 @@ upgrade-oracle env_file=".env" *features='':
         echo "Fetching rollup config with features: {{features}}"
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
-    
+
     # Load environment variables
     source {{env_file}}
 
@@ -230,16 +230,16 @@ upgrade-oracle env_file=".env" *features='':
 
     # forge install
     forge install
-    
+
     # Run the forge upgrade script
-    
+
     ENV_VARS="L2OO_ADDRESS=$L2OO_ADDRESS"
     if [ -n "${EXECUTE_UPGRADE_CALL:-}" ]; then ENV_VARS="$ENV_VARS EXECUTE_UPGRADE_CALL=$EXECUTE_UPGRADE_CALL"; fi
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
 
-    
-    
+
+
     VERIFY_FLAGS=""
     if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
         VERIFY_FLAGS="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
@@ -260,7 +260,7 @@ upgrade-oracle env_file=".env" *features='':
 deploy-dispute-game-factory env_file=".env":
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # Load environment variables
     source {{env_file}}
 
@@ -284,7 +284,7 @@ deploy-dispute-game-factory env_file=".env":
     if [ -n "$ETHERSCAN_API_KEY" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
-    
+
     # Run the forge deployment script
     env L2OO_ADDRESS=$L2OO_ADDRESS \
         PROPOSER_ADDRESSES=$PROPOSER_ADDRESSES \
@@ -298,15 +298,15 @@ deploy-dispute-game-factory env_file=".env":
 add-config config_name env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
-        RUST_LOG=info cargo run --bin fetch-rollup-config --release -- --env-file {{env_file}}
+        RUST_LOG=info cargo run --bin fetch-l2oo-config --release -- --env-file {{env_file}}
     else
         echo "Fetching rollup config with features: {{features}}"
-        RUST_LOG=info cargo run --bin fetch-rollup-config --release --features {{features}} -- --env-file {{env_file}}
+        RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
-    
+
     # Load environment variables
     source {{env_file}}
 
@@ -315,7 +315,7 @@ add-config config_name env_file=".env" *features='':
 
     # forge install
     forge install
-    
+
     # Run the forge script to add config
     env L2OO_ADDRESS="$L2OO_ADDRESS" \
         ${EXECUTE_UPGRADE_CALL:+EXECUTE_UPGRADE_CALL="$EXECUTE_UPGRADE_CALL"} \
@@ -327,11 +327,11 @@ add-config config_name env_file=".env" *features='':
         --private-key $PRIVATE_KEY \
         --broadcast
 
-# Remove an OpSuccinctConfig from the L2 Output Oracle  
+# Remove an OpSuccinctConfig from the L2 Output Oracle
 remove-config config_name env_file=".env":
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # Load environment variables
     source {{env_file}}
 
@@ -340,7 +340,7 @@ remove-config config_name env_file=".env":
 
     # forge install
     forge install
-    
+
     # Run the forge script to remove config
     env L2OO_ADDRESS="$L2OO_ADDRESS" \
         ${EXECUTE_UPGRADE_CALL:+EXECUTE_UPGRADE_CALL="$EXECUTE_UPGRADE_CALL"} \

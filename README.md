@@ -61,6 +61,28 @@ Important is the fact of 2-stage config generation:
 
 For more details on environment variables check: [configuration.md](book/contracts/configuration.md)
 
+## Development
+
+### Book
+
+Make sure you install the following on your machine:
+
+```bash
+cargo install mdbook
+cargo install mdbook-mermaid
+cargo install mdbook-admonish
+```
+
+Then run the server:
+
+```sh
+mdbook serve --open
+```
+
+### OP Succinct
+
+To configure or change the OP Succinct codebase, please refer to the [OP Succinct Book](https://succinctlabs.github.io/op-succinct).
+
 ## Acknowledgments
 
 This repo would not exist without:

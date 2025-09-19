@@ -41,7 +41,17 @@ contract DeployOPSuccinctFDG is Script, Utils {
         address optimismPortal2;
     }
 
-    function run() public returns (DeployedContracts memory) {
+    function run()
+        public
+        returns (
+            address factoryProxy,
+            address gameImplementation,
+            address sp1Verifier,
+            address anchorStateRegistry,
+            address accessManager,
+            address optimismPortal2
+        )
+    {
         vm.startBroadcast();
 
         // Load configuration
@@ -66,7 +76,14 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
         vm.stopBroadcast();
 
-        return contracts;
+        return (
+            contracts.factoryProxy,
+            contracts.gameImplementation,
+            contracts.sp1Verifier,
+            contracts.anchorStateRegistry,
+            contracts.accessManager,
+            contracts.optimismPortal2
+        );
     }
 
     function deployContracts(FDGConfig memory config) internal returns (DeployedContracts memory) {

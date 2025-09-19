@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    env,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -31,9 +34,7 @@ type WitnessExecutor = EigenDAWitnessExecutor<
     OracleEigenDAProvider<DefaultOracleBase>,
 >;
 
-pub struct EigenDAWitnessGenerator {
-    pub executor: (), // Placeholder - executor will be created dynamically
-}
+pub struct EigenDAWitnessGenerator {}
 
 #[async_trait]
 impl WitnessGenerator for EigenDAWitnessGenerator {
@@ -44,17 +45,18 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         panic!("get_executor should not be called directly for EigenDAWitnessGenerator")
     }
 
-    fn get_sp1_stdin(&self, witness: Self::WitnessData) -> Result<SP1Stdin> {
+    fn get_sp1_stdin(&self, mut witness: Self::WitnessData) -> Result<SP1Stdin> {
         let mut stdin = SP1Stdin::new();
 
         // If eigenda blob witness data is present, write the canoe proof to stdin
         if let Some(eigenda_data) = &witness.eigenda_data {
-            let eigenda_blob_witness_data: EigenDABlobWitnessData =
-                serde_cbor::from_slice(eigenda_data)
-                    .expect("Failed to deserialize EigenDA blob witness data");
+            let mut eigenda_blob_witness_data: EigenDABlobWitnessData =
+                serde_cbor::from_slice(eigenda_data).map_err(|e| {
+                    anyhow::anyhow!("Failed to deserialize EigenDA blob witness data: {}", e)
+                })?;
 
-            // If there's a canoe proof, deserialize and write it
-            if let Some(proof_bytes) = &eigenda_blob_witness_data.canoe_proof_bytes {
+            // Take the canoe proof bytes from the witness data
+            if let Some(proof_bytes) = eigenda_blob_witness_data.canoe_proof_bytes.take() {
                 // Get the canoe SP1 CC client ELF and setup verification key
                 // The ELF is included in the canoe-sp1-cc-host crate
                 const CANOE_ELF: &[u8] = canoe_sp1_cc_host::ELF;
@@ -62,8 +64,15 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 let (_pk, canoe_vk) = client.setup(CANOE_ELF);
 
                 let reduced_proof: SP1ReduceProof<InnerSC> =
-                    serde_cbor::from_slice(proof_bytes).expect("Failed to deserialize canoe proof");
+                    serde_cbor::from_slice(&proof_bytes)
+                        .map_err(|e| anyhow::anyhow!("Failed to deserialize canoe proof: {}", e))?;
                 stdin.write_proof(reduced_proof, canoe_vk.vk.clone());
+
+                // Re-serialize the witness data without the proof
+                witness.eigenda_data =
+                    Some(serde_cbor::to_vec(&eigenda_blob_witness_data).map_err(|e| {
+                        anyhow::anyhow!("Failed to serialize sanitized EigenDA data: {}", e)
+                    })?);
             }
         }
 
@@ -135,11 +144,26 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         // Extract the EigenDA witness data
         let mut eigenda_witness_data = std::mem::take(&mut *eigenda_blobs_witness.lock().unwrap());
 
+        // If there are no EigenDA DA certs collected for this range, skip Canoe proof generation.
+        if eigenda_witness_data.validity.is_empty() {
+            let witness = EigenDAWitnessData {
+                preimage_store: preimage_witness_store.lock().unwrap().clone(),
+                blob_data: blob_data.lock().unwrap().clone(),
+                eigenda_data: None,
+            };
+
+            return Ok(witness);
+        }
+
         // Generate canoe proofs using the reduced proof provider for proof aggregation
         use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
-        let canoe_provider = CanoeSp1CCReducedProofProvider {
-            eth_rpc_url: std::env::var("L1_RPC").ok().unwrap_or_default(),
-        };
+        let eth_rpc_url = std::env::var("L1_RPC")
+            .map_err(|_| anyhow::anyhow!("L1_RPC environment variable not set"))?;
+        let mock_mode = env::var("OP_SUCCINCT_MOCK")
+            .unwrap_or("false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false);
+        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
         let canoe_proofs = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_witness_data,
