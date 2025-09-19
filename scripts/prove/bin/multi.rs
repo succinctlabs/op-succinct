@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use bincode;
 use clap::Parser;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost,
@@ -38,6 +39,11 @@ async fn main() -> Result<()> {
 
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
+
+    // Write sp1_stdin to example.bin file
+    let stdin_bytes = bincode::serialize(&sp1_stdin)?;
+    fs::write("example.bin", stdin_bytes)?;
+    
 
     let prover = ProverClient::from_env();
 
