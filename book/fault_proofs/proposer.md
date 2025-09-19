@@ -25,7 +25,11 @@ The proposer performs several key functions:
 
 ## Configuration
 
-The proposer is configured through various environment variables. Create a `.env.proposer` file in the fault_proof directory:
+The proposer is configured through environment variables.
+
+Create a `.env` file in the `fault-proof` directory with all required variables. This single file is used by:
+- Docker Compose (for both variable substitution and runtime configuration)
+- Direct binary execution (source it with `. .env` before running)
 
 ### Required Environment Variables
 
@@ -56,6 +60,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
+| `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
 | `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
