@@ -218,7 +218,7 @@ where
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
-                .strategy(self.config.range_proof_strategy.clone())
+                .strategy(self.config.range_proof_strategy)
                 .skip_simulation(true)
                 .cycle_limit(1_000_000_000_000)
                 .gas_limit(1_000_000_000_000)
@@ -282,7 +282,7 @@ where
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
                 .groth16()
-                .strategy(self.config.agg_proof_strategy.clone())
+                .strategy(self.config.agg_proof_strategy)
                 .timeout(Duration::from_secs(4 * 60 * 60))
                 .run_async()
                 .await?
