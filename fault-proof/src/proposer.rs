@@ -219,9 +219,7 @@ where
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
                 .strategy(FulfillmentStrategy::Reserved)
-                .skip_simulation(true)
-                .cycle_limit(self.config.cycle_limit)
-                .gas_limit(1_000_000_000_000)
+                .skip_simulation(false)
                 .timeout(Duration::from_secs(4 * 60 * 60))
                 .run_async()
                 .await?;
