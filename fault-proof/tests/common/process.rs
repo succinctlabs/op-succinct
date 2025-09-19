@@ -11,6 +11,7 @@ use fault_proof::{
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCConfig};
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::Signer;
+use sp1_sdk::network::FulfillmentStrategy;
 use tracing::Instrument;
 
 /// Start a proposer, and return a handle to the proposer task.
