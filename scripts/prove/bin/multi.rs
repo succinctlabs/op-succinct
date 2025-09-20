@@ -39,6 +39,26 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
 
+    let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
+
+    if args.save_artifacts {
+        // Save program.bin and stdin.bin
+        let data_dir = format!("data/{}/binaries", l2_chain_id);
+        if !std::path::Path::new(&data_dir).exists() {
+            fs::create_dir_all(&data_dir)?;
+        }
+
+        // Save program binary
+        let program_path = format!("{}/{l2_start_block}-{l2_end_block}_program.bin", data_dir);
+        fs::write(&program_path, get_range_elf_embedded())?;
+        println!("Saved program binary to: {}", program_path);
+
+        // Save stdin binary
+        let stdin_path = format!("{}/{l2_start_block}-{l2_end_block}_stdin.bin", data_dir);
+        fs::write(&stdin_path, bincode::serialize(&sp1_stdin)?)?;
+        println!("Saved stdin binary to: {}", stdin_path);
+    }
+
     let prover = ProverClient::from_env();
 
     if args.prove {
@@ -48,17 +68,15 @@ async fn main() -> Result<()> {
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
-        let proof_dir = format!("data/{}/proofs", data_fetcher.get_l2_chain_id().await.unwrap());
+        let proof_dir = format!("data/{}/proofs", l2_chain_id);
         if !std::path::Path::new(&proof_dir).exists() {
-            fs::create_dir_all(&proof_dir).unwrap();
+            fs::create_dir_all(&proof_dir)?;
         }
         // Save the proof to the proof directory corresponding to the chain ID.
         proof
             .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
             .expect("saving proof failed");
     } else {
-        let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
-
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
