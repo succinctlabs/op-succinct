@@ -63,6 +63,12 @@ struct SP1Prover {
     agg_pk: Arc<SP1ProvingKey>,
 }
 
+/// Represents a dispute game in the on-chain game DAG.
+///
+/// Games form a directed acyclic graph where each game (except the anchor)
+/// builds upon a parent game, extending the chain with a new proposed output root.
+/// The proposer tracks these games to determine when to propose new games,
+/// defend existing ones, or resolve completed games.
 #[derive(Clone)]
 struct Game {
     index: U256,
@@ -76,6 +82,18 @@ struct Game {
     proposer_credit_available: bool,
 }
 
+/// Central state management for tracking the game DAG and canonical chain.
+///
+/// The state maintains:
+/// 1. **Anchor state**: The current finalized anchor game that all valid games must descend from
+/// 2. **Canonical head**: The valid game with the highest L2 block number
+/// 3. **Game cache**: All games that are descendants of the current anchor
+/// 4. **Cursor**: Progress marker for loading games from the factory
+///
+/// The state ensures consistency by:
+/// - Only keeping games that descend from the anchor
+/// - Automatically recomputing the canonical head when games are added/removed
+/// - Resetting completely when the anchor changes to a non-cached game
 #[derive(Default)]
 struct ProposerState {
     anchor_index: Option<U256>,
@@ -87,6 +105,10 @@ struct ProposerState {
     games: HashMap<U256, Game>,
 }
 
+/// Immutable snapshot of key state values for lock-free access.
+///
+/// Used to make decisions about game creation without holding the state lock,
+/// preventing contention between concurrent operations.
 #[derive(Clone, Copy)]
 struct StateSnapshot {
     anchor_l2_block: U256,
@@ -95,6 +117,9 @@ struct StateSnapshot {
 }
 
 impl ProposerState {
+    /// Creates an immutable snapshot of the current state for lock-free access.
+    ///
+    /// Returns None if the state is not initialized (no anchor set).
     fn snapshot(&self) -> Option<StateSnapshot> {
         let anchor_l2_block = self.anchor_l2_block?;
         let canonical_head_l2_block = self.canonical_head_l2_block.unwrap_or(anchor_l2_block);
@@ -106,6 +131,10 @@ impl ProposerState {
         })
     }
 
+    /// Resets all state when the anchor changes to an unknown game.
+    ///
+    /// This is called when the anchor changes to a game not in our cache,
+    /// requiring a full reload of the game DAG from scratch.
     fn reset(&mut self) {
         self.anchor_index = None;
         self.anchor_address = None;
@@ -116,6 +145,13 @@ impl ProposerState {
         self.games.clear();
     }
 
+    /// Sets a new anchor game and initializes associated state.
+    ///
+    /// This function:
+    /// 1. Sets the anchor indices and address
+    /// 2. Adds the anchor game to the cache
+    /// 3. Sets the anchor as the canonical head (since no descendants exist yet)
+    /// 4. Updates the cursor to start loading from this point
     fn set_anchor(&mut self, game: &Game) {
         self.anchor_index = Some(game.index);
         self.anchor_address = Some(game.address);
@@ -125,19 +161,29 @@ impl ProposerState {
         self.cursor = Some(game.index);
     }
 
+    /// Updates the canonical head to point to a specific game.
+    ///
+    /// The canonical head represents the valid game with the highest L2 block number,
+    /// which determines where new games should build from.
     fn set_canonical_head(&mut self, game: &Game) {
         self.canonical_head_index = Some(game.index);
         self.canonical_head_l2_block = Some(game.l2_block);
     }
 
+    /// Returns the current cursor position for incremental game loading.
     fn cursor(&self) -> Option<U256> {
         self.cursor
     }
 
+    /// Updates the cursor to track progress through the game list.
     fn set_cursor(&mut self, index: U256) {
         self.cursor = Some(index);
     }
 
+    /// Updates the canonical head if the candidate has a higher L2 block.
+    ///
+    /// This maintains the invariant that the canonical head always points to
+    /// the valid game with the highest L2 block number.
     fn update_canonical_head_if_better(&mut self, candidate: &Game) {
         match self.canonical_head_l2_block {
             Some(current_block) if candidate.l2_block <= current_block => {}
@@ -145,6 +191,11 @@ impl ProposerState {
         }
     }
 
+    /// Recomputes the canonical head by scanning all cached games.
+    ///
+    /// This is called after game removal or cache changes to ensure the
+    /// canonical head remains accurate. Falls back to the anchor block
+    /// if no games exist in the cache.
     fn recompute_canonical_head(&mut self) {
         let mut best_game: Option<Game> = None;
 
@@ -165,6 +216,9 @@ impl ProposerState {
         }
     }
 
+    /// Finds a game's index given its on-chain address.
+    ///
+    /// Returns None if the game is not in the cache.
     fn find_index_by_address(&self, address: Address) -> Option<U256> {
         self.games
             .iter()
@@ -172,6 +226,15 @@ impl ProposerState {
     }
 
     /// Retain only games whose ancestry leads back to the current anchor.
+    ///
+    /// This function performs a graph traversal starting from the anchor to find
+    /// all reachable games. Any games not reachable from the anchor are removed.
+    ///
+    /// The traversal handles both direct parent relationships (via parent_index)
+    /// and special handling for games with parent_index = u32::MAX that should
+    /// connect to the anchor.
+    ///
+    /// After pruning, the canonical head is recomputed to ensure consistency.
     fn retain_descendants_of_anchor(&mut self) {
         let anchor_index =
             self.anchor_index.expect("anchor index must be set before pruning descendants");
@@ -215,6 +278,13 @@ impl ProposerState {
     }
 
     /// Drop a game and every cached descendant below it.
+    ///
+    /// Performs a depth-first traversal to identify all games that descend from
+    /// the root game, then removes them all from the cache. This is used when
+    /// a game is found to be invalid (CHALLENGER_WINS), invalidating its entire
+    /// subtree.
+    ///
+    /// After removal, the canonical head is recomputed to maintain consistency.
     fn remove_subtree(&mut self, root_index: U256) {
         let mut stack = vec![root_index];
         let mut to_remove = HashSet::new();
@@ -252,6 +322,10 @@ impl ProposerState {
         self.recompute_canonical_head();
     }
 
+    /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
+    ///
+    /// A game can only be resolved after its parent is no longer IN_PROGRESS.
+    /// Root games (parent_index = u32::MAX) are always considered ready.
     fn parent_ready(&self, game: &Game) -> bool {
         if game.parent_index == u32::MAX {
             return true;
@@ -264,6 +338,11 @@ impl ProposerState {
         }
     }
 
+    /// Determines if a game is ready for the proposer to resolve it.
+    ///
+    /// A game is ready for proposer resolution when:
+    /// - It's unchallenged and past the deadline (automatic win)
+    /// - A valid proof has been provided (immediate resolution allowed)
     fn proposer_ready(game: &Game, now_ts: u64) -> bool {
         match game.proposal_status {
             ProposalStatus::Unchallenged => now_ts >= game.deadline,
@@ -273,10 +352,23 @@ impl ProposerState {
         }
     }
 
+    /// Determines if a game is ready for the challenger to resolve it.
+    ///
+    /// A game is ready for challenger resolution when it's challenged
+    /// but no proof was provided before the deadline.
     fn challenger_ready(game: &Game, now_ts: u64) -> bool {
         matches!(game.proposal_status, ProposalStatus::Challenged) && now_ts >= game.deadline
     }
 
+    /// Returns games that are ready to be resolved based on mode and timing.
+    ///
+    /// Games must meet all conditions:
+    /// 1. Still IN_PROGRESS (not yet resolved)
+    /// 2. Not already marked as resolved in proposal status
+    /// 3. Parent must be resolved (maintains DAG ordering)
+    /// 4. Meet mode-specific timing requirements
+    ///
+    /// Returns game indices sorted in ascending order for deterministic processing.
     fn resolvable_candidates(&self, mode: Mode, now_ts: u64) -> Vec<U256> {
         let mut games: Vec<&Game> = self.games.values().collect();
         games.sort_by_key(|game| game.index);
@@ -294,6 +386,14 @@ impl ProposerState {
             .collect()
     }
 
+    /// Returns games where the proposer can claim their bond.
+    ///
+    /// A game is claimable when:
+    /// 1. The proposer won (DEFENDER_WINS)
+    /// 2. The game has been finalized on-chain
+    /// 3. Credit is still available (not already claimed)
+    ///
+    /// Returns tuples of (game_index, game_address) sorted by index.
     fn claimable_games(&self) -> Vec<(U256, Address)> {
         let mut games: Vec<&Game> = self.games.values().collect();
         games.sort_by_key(|game| game.index);
@@ -307,6 +407,7 @@ impl ProposerState {
             .collect()
     }
 
+    /// Marks a game's credit as claimed to prevent duplicate claim attempts.
     fn mark_credit_claimed(&mut self, index: U256) {
         if let Some(game) = self.games.get_mut(&index) {
             game.proposer_credit_available = false;
@@ -620,6 +721,16 @@ where
     }
 
     /// Synchronize the cached game graph with on-chain anchor and latest game data.
+    ///
+    /// This function performs three key operations in sequence:
+    /// 1. **Anchor synchronization**: Checks if the on-chain anchor has changed. If it has, either
+    ///    prunes the cache (if anchor is known) or resets entirely.
+    /// 2. **Game loading**: Incrementally loads new games from the factory, validating each one and
+    ///    adding valid games to the cache.
+    /// 3. **Status refresh**: Updates the status of all cached games to reflect current on-chain
+    ///    state, removing any that became invalid.
+    ///
+    /// This should be called periodically to keep state synchronized with on-chain data.
     async fn refresh_state(&self) -> Result<()> {
         let anchor_registry_address =
             self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
@@ -680,6 +791,10 @@ where
         Ok(())
     }
 
+    /// Initializes the state with a new anchor game fetched from the factory.
+    ///
+    /// Called when the anchor changes to a game not in our cache, requiring
+    /// us to fetch the game details and set it as our new baseline.
     async fn initialize_anchor(&self, anchor_game: Address) -> Result<()> {
         let Some(anchor_index) = self.find_game_index_by_address(anchor_game).await? else {
             tracing::warn!("Anchor game {:?} not found in factory listings", anchor_game);
@@ -699,6 +814,15 @@ where
         Ok(())
     }
 
+    /// Incrementally loads new games from the factory starting from the cursor.
+    ///
+    /// This function:
+    /// 1. Determines the starting index (cursor + 1 or 0 if no cursor)
+    /// 2. Fetches the latest game index from factory
+    /// 3. Loads and processes each game in sequence
+    /// 4. Updates the cursor after each game
+    ///
+    /// Games are validated (correct type, valid output root) before being added.
     async fn load_new_games(&self) -> Result<()> {
         let mut next_index = {
             let state = self.state.lock().await;
@@ -725,6 +849,14 @@ where
         Ok(())
     }
 
+    /// Processes a loaded game and updates the cache accordingly.
+    ///
+    /// The processing logic depends on the game's status:
+    /// - CHALLENGER_WINS: Remove the game and its entire subtree
+    /// - Valid parent: Add to cache and potentially update canonical head
+    /// - Invalid parent: Skip (parent not in cache yet)
+    ///
+    /// The cursor is always updated regardless of whether the game is cached.
     async fn process_loaded_game(&self, game: Game) {
         let mut state = self.state.lock().await;
 
@@ -754,6 +886,16 @@ where
         state.set_cursor(game.index);
     }
 
+    /// Refreshes the status of all cached games from on-chain data.
+    ///
+    /// For each cached game, this function:
+    /// 1. Fetches current on-chain status and proposal state
+    /// 2. Checks finalization status in the anchor registry
+    /// 3. Checks for available credit (for claimable games)
+    /// 4. Updates the cached game state
+    /// 5. Removes invalid games (CHALLENGER_WINS) and their subtrees
+    ///
+    /// This ensures our cache reflects the current on-chain state of all games.
     async fn refresh_cached_game_statuses(&self) -> Result<()> {
         let targets: Vec<(U256, Address)> = {
             let state = self.state.lock().await;
