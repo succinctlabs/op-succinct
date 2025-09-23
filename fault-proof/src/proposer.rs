@@ -756,33 +756,29 @@ where
                     state.cursor = None;
                 }
             }
+        } else {
+            let mut needs_reset = false;
+            {
+                let mut state = self.state.lock().await;
 
-            self.load_new_games().await?;
-            self.refresh_cached_game_statuses().await?;
-            return Ok(());
-        }
-
-        let mut needs_reset = false;
-        {
-            let mut state = self.state.lock().await;
-
-            if state.anchor_address == Some(anchor_game) {
-                // Anchor unchanged; nothing to do here.
-            } else if let Some(anchor_index) = state.find_index_by_address(anchor_game) {
-                if let Some(anchor) = state.games.get(&anchor_index).cloned() {
-                    state.anchor_index = Some(anchor_index);
-                    state.anchor_address = Some(anchor.address);
-                    state.anchor_l2_block = Some(anchor.l2_block);
-                    state.retain_descendants_of_anchor();
+                if state.anchor_address == Some(anchor_game) {
+                    // Anchor unchanged; nothing to do here.
+                } else if let Some(anchor_index) = state.find_index_by_address(anchor_game) {
+                    if let Some(anchor) = state.games.get(&anchor_index).cloned() {
+                        state.anchor_index = Some(anchor_index);
+                        state.anchor_address = Some(anchor.address);
+                        state.anchor_l2_block = Some(anchor.l2_block);
+                        state.retain_descendants_of_anchor();
+                    }
+                } else {
+                    state.reset();
+                    needs_reset = true;
                 }
-            } else {
-                state.reset();
-                needs_reset = true;
             }
-        }
 
-        if needs_reset {
-            self.initialize_anchor(anchor_game).await?;
+            if needs_reset {
+                self.initialize_anchor(anchor_game).await?;
+            }
         }
 
         self.load_new_games().await?;
