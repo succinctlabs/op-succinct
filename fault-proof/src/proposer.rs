@@ -184,7 +184,7 @@ impl ProposerState {
     ///
     /// This maintains the invariant that the canonical head always points to
     /// the valid game with the highest L2 block number.
-    fn update_canonical_head_if_better(&mut self, candidate: &Game) {
+    fn update_canonical_head_if_further(&mut self, candidate: &Game) {
         match self.canonical_head_l2_block {
             Some(current_block) if candidate.l2_block <= current_block => {}
             _ => self.set_canonical_head(candidate),
@@ -874,7 +874,7 @@ where
 
         if parent_index_valid {
             state.games.insert(game.index, game.clone());
-            state.update_canonical_head_if_better(&game);
+            state.update_canonical_head_if_further(&game);
         } else {
             tracing::debug!(
                 game_index = %game.index,
