@@ -326,7 +326,7 @@ impl ProposerState {
     ///
     /// A game can only be resolved after its parent is no longer IN_PROGRESS.
     /// Root games (parent_index = u32::MAX) are always considered ready.
-    fn parent_ready(&self, game: &Game) -> bool {
+    fn is_parent_ready(&self, game: &Game) -> bool {
         if game.parent_index == u32::MAX {
             return true;
         }
@@ -343,7 +343,7 @@ impl ProposerState {
     /// A game is ready for proposer resolution when:
     /// - It's unchallenged and past the deadline (automatic win)
     /// - A valid proof has been provided (immediate resolution allowed)
-    fn proposer_ready(game: &Game, now_ts: u64) -> bool {
+    fn is_proposer_ready(game: &Game, now_ts: u64) -> bool {
         match game.proposal_status {
             ProposalStatus::Unchallenged => now_ts >= game.deadline,
             ProposalStatus::UnchallengedAndValidProofProvided |
@@ -356,7 +356,7 @@ impl ProposerState {
     ///
     /// A game is ready for challenger resolution when it's challenged
     /// but no proof was provided before the deadline.
-    fn challenger_ready(game: &Game, now_ts: u64) -> bool {
+    fn is_challenger_ready(game: &Game, now_ts: u64) -> bool {
         matches!(game.proposal_status, ProposalStatus::Challenged) && now_ts >= game.deadline
     }
 
@@ -377,10 +377,10 @@ impl ProposerState {
             .into_iter()
             .filter(|game| game.status == GameStatus::IN_PROGRESS)
             .filter(|game| game.proposal_status != ProposalStatus::Resolved)
-            .filter(|game| self.parent_ready(game))
+            .filter(|game| self.is_parent_ready(game))
             .filter(|game| match mode {
-                Mode::Proposer => Self::proposer_ready(game, now_ts),
-                Mode::Challenger => Self::challenger_ready(game, now_ts),
+                Mode::Proposer => Self::is_proposer_ready(game, now_ts),
+                Mode::Challenger => Self::is_challenger_ready(game, now_ts),
             })
             .map(|game| game.index)
             .collect()
