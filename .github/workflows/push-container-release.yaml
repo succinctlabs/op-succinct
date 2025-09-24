@@ -13,6 +13,8 @@ jobs:
       artifact-registry: us-west1-docker.pkg.dev/devopsre/${{ github.event.repository.name }}-proposer
       service-account: op-succinct-gh@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-release/providers/github-by-repos
+      concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-proposer-release
+
   push_container_challenger_release:
     name: Build and push challenger release image
     uses: ./.github/workflows/push-container.yaml
@@ -21,3 +23,4 @@ jobs:
       artifact-registry: us-west1-docker.pkg.dev/devopsre/${{ github.event.repository.name }}-challenger
       service-account: op-succinct-gh@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-release/providers/github-by-repos
+      concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-challenger-release
