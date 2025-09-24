@@ -43,6 +43,9 @@ pub struct ProposerConfig {
     /// The type of game to propose.
     pub game_type: u32,
 
+    /// The max number of defense tasks to run concurrently.
+    pub max_concurrent_defense_tasks: u64,
+
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
     pub safe_db_fallback: bool,
@@ -86,6 +89,9 @@ impl ProposerConfig {
                 .parse()?,
             fetch_interval: env::var("FETCH_INTERVAL").unwrap_or("30".to_string()).parse()?,
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
+            max_concurrent_defense_tasks: env::var("MAX_CONCURRENT_DEFENSE_TASKS")
+                .unwrap_or("8".to_string())
+                .parse()?,
             safe_db_fallback: env::var("SAFE_DB_FALLBACK")
                 .unwrap_or("false".to_string())
                 .parse()?,

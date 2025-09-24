@@ -59,6 +59,7 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
 | `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
+| `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. | (Only used if `FAST_FINALITY_MODE` is `true`) |
