@@ -2,11 +2,10 @@ name: Push container
 on:
   workflow_call:
     inputs:
-      registry:
-        required: false
-        default: us-west1-docker.pkg.dev
+      artifact-registry:
+        required: true
         type: string
-      registry-dir:
+      file:
         required: true
         type: string
       workload-id-provider:
@@ -15,49 +14,42 @@ on:
       service-account:
         required: true
         type: string
-
-env:
-  REGISTRY_URL: us-west1-docker.pkg.dev/devopsre/dev-images/${{ github.event.repository.name }}
-
 jobs:
-  build:
-    name: Build and push op-succinct container dev-image
+  infer_image_metadata:
+    name: Infer image tags from github ref type
     runs-on: [self-hosted, org, 8-cpu]
-    permissions:
-      contents: read
-      id-token: write
-      security-events: write
+    outputs:
+      tags: ${{ steps.meta.outputs.tags }}
+      labels: ${{ steps.meta.outputs.labels }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - id: meta
+        uses: docker/metadata-action@v5
         with:
-          ref: ${{ github.sha }}
-
-      - name: Login at GCP Artifact Registry
-        uses: celo-org/reusable-workflows/.github/actions/auth-gcp-artifact-registry@v2.0
-        with:
-          workload-id-provider: ${{ inputs.workload-id-provider }}
-          service-account: ${{ inputs.service-account }}
-          docker-gcp-registries: ${{ inputs.registry }}
-
-      - name: Build, push and scan the proposer container
-        # TODO: pin to release 3.0.0 once approved and tagged
-        uses: celo-org/reusable-workflows/.github/actions/build-container@ezdac/use-docker-metadata-action
-        with:
-          platforms: linux/amd64
-          registry: ${{ inputs.registry }}/${{ inputs.registry-dir }}
-          app-name: ${{ github.event.repository.name }}-proposer
-          context: .
-          dockerfile: fault-proof/Dockerfile.proposer.celo
-          push: "true"
-
-      - name: Build, push and scan the challenger container
-        # TODO: pin to release 3.0.0 once approved and tagged
-        uses: celo-org/reusable-workflows/.github/actions/build-container@ezdac/use-docker-metadata-action
-        with:
-          platforms: linux/amd64
-          registry: ${{ inputs.registry }}/${{ inputs.registry-dir }}
-          app-name: ${{ github.event.repository.name }}-challenger
-          context: .
-          dockerfile: fault-proof/Dockerfile.challenger.celo
-          push: "true"
+          images: ${{ inputs.artifact-registry }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=edge
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+  build_push_container:
+    needs: infer_image_metadata
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+      security-events: write
+      attestations: write
+      id-token: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+      cancel-in-progress: true
+    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@v3.0.0
+    with:
+      runs-on: '["self-hosted", "org", "8-cpu"]'
+      workload-id-provider: ${{ inputs.workload-id-provider }}
+      service-account: ${{ inputs.service-account }}
+      artifact-registry: ${{ inputs.artifact-registry}}
+      context: .
+      file: ${{ inputs.file }}
+      tags: ${{ needs.infer_image_metadata.outputs.tags }}
