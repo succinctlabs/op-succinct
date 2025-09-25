@@ -81,7 +81,9 @@ sol! {
 
     #[allow(missing_docs)]
     #[sol(rpc)]
-    interface IAnchorStateRegistry {}
+    interface IAnchorStateRegistry {
+        function anchorGame() external view returns (IDisputeGame anchorGame_);
+    }
 
     #[allow(missing_docs)]
     #[sol(rpc)]
@@ -91,6 +93,9 @@ sol! {
 
         /// @notice Returns whether a game is finalized.
         function isGameFinalized(IDisputeGame _game) public view returns (bool);
+
+        /// @notice Returns the current anchor game reference.
+        function anchorGame() public view returns (IDisputeGame anchorGame_);
     }
 
     #[derive(Debug, PartialEq)]
