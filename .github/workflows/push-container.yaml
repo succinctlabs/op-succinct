@@ -60,3 +60,5 @@ jobs:
       context: .
       file: ${{ inputs.file }}
       tags: ${{ needs.infer_image_metadata.outputs.tags }}
+      #TODO: re-enable, once multiple image scans per workflow are possible via groups
+      trivy-enabled: false
