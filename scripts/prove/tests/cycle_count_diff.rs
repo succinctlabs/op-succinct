@@ -14,9 +14,21 @@ use op_succinct_prove::{execute_multi, DEFAULT_RANGE, TWO_HOURS};
 
 mod common;
 
+fn elf_label() -> &'static str {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "celestia")] {
+            "celestia-range-elf-embedded"
+        } else if #[cfg(feature = "eigenda")] {
+            "eigenda-range-elf-embedded"
+        } else {
+            "range-elf-embedded"
+        }
+    }
+}
+
 fn create_diff_report(base: &ExecutionStats, current: &ExecutionStats) -> String {
     let mut report = String::new();
-    writeln!(report, "## Performance Comparison\n").unwrap();
+    writeln!(report, "## Performance Comparison (ELF: {})\n", elf_label()).unwrap();
     writeln!(report, "Range {}~{}\n", base.batch_start, base.batch_end).unwrap();
     writeln!(
         report,
