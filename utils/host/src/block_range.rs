@@ -14,7 +14,7 @@ use crate::{
     host::OPSuccinctHost,
 };
 
-const ONE_HOUR_IN_BLOCKS: u64 = 1800;
+const TWO_HOUR_IN_BLOCKS: u64 = 3600;
 
 /// Get the start and end block numbers for a range, with validation.
 pub async fn get_validated_block_range<H: OPSuccinctHost>(
@@ -30,8 +30,9 @@ pub async fn get_validated_block_range<H: OPSuccinctHost>(
     // Failure error.
     // L2 Block Validation Failure error might still occur. See
     // [Troubleshooting](../troubleshooting.md#l2-block-validation-failure) for more details.
+    let l2_finalized_block_number = data_fetcher.get_l2_header(BlockId::finalized()).await?.number;
     let end_number = host
-        .get_finalized_l2_block_number(data_fetcher, 0)
+        .get_finalized_l2_block_number(data_fetcher, l2_finalized_block_number - TWO_HOUR_IN_BLOCKS)
         .await?
         .expect("Failed to get finalized L2 block number");
 
@@ -74,7 +75,7 @@ pub async fn get_rolling_block_range<H: OPSuccinctHost>(
 ) -> Result<(u64, u64)> {
     let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
     let l2_end_block = host
-        .get_finalized_l2_block_number(data_fetcher, header.number - ONE_HOUR_IN_BLOCKS)
+        .get_finalized_l2_block_number(data_fetcher, header.number - TWO_HOUR_IN_BLOCKS)
         .await?
         .expect("Failed to get finalized L2 block number");
 
