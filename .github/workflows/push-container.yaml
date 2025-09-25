@@ -55,6 +55,8 @@ jobs:
       workload-id-provider: ${{ inputs.workload-id-provider }}
       service-account: ${{ inputs.service-account }}
       artifact-registry: ${{ inputs.artifact-registry}}
+      access-token-lifetime: 60m
+      timeout-minutes: 60
       context: .
       file: ${{ inputs.file }}
       tags: ${{ needs.infer_image_metadata.outputs.tags }}
