@@ -357,7 +357,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     pub async fn handle_failed_request(
         &self,
         request: OPSuccinctRequest,
-        execution_status: ExecutionStatus,
+        execution_status: i32,
         is_cancelled: bool,
     ) -> Result<()> {
         warn!(
@@ -392,7 +392,9 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     .await?;
 
                 // NOTE: The failed_requests check here can be removed in V5.
-                if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
+                if num_failed_requests > 2 ||
+                    execution_status == ExecutionStatus::Unexecutable as i32
+                {
                     info!("Splitting failed request into two: {:?}", request.id);
                     let mid_block = (request.start_block + request.end_block) / 2;
                     let new_requests = vec![
