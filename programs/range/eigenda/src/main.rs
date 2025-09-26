@@ -9,9 +9,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use hokulea_proof::{
-    canoe_verifier::sp1_cc::CanoeSp1CCVerifier, eigenda_blob_witness::EigenDABlobWitnessData,
-};
+use hokulea_proof::{canoe_verifier::sp1_cc::CanoeSp1CCVerifier, eigenda_witness::EigenDAWitness};
 use hokulea_zkvm_verification::eigenda_witness_to_preloaded_provider;
 use op_succinct_client_utils::witness::{EigenDAWitnessData, WitnessData};
 use op_succinct_eigenda_client_utils::executor::EigenDAWitnessExecutor;
@@ -30,15 +28,16 @@ fn main() {
             .expect("Failed to deserialize witness data.");
 
         let (oracle, _beacon) = witness_data.clone().get_oracle_and_blob_provider().await.unwrap();
-        let eigenda_witness: EigenDABlobWitnessData = serde_cbor::from_slice(
+        let eigenda_witness: EigenDAWitness = serde_cbor::from_slice(
             &witness_data.eigenda_data.clone().expect("eigenda witness data is not present"),
         )
         .expect("cannot deserialize eigenda witness");
-        let preloaded_blob_provider =
+        let preloaded_preimage_provider =
             eigenda_witness_to_preloaded_provider(oracle, CanoeSp1CCVerifier {}, eigenda_witness)
                 .await
                 .expect("Failed to get preloaded blob provider");
 
-        run_range_program(EigenDAWitnessExecutor::new(preloaded_blob_provider), witness_data).await;
+        run_range_program(EigenDAWitnessExecutor::new(preloaded_preimage_provider), witness_data)
+            .await;
     });
 }
