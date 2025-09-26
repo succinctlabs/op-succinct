@@ -16,7 +16,8 @@ use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
     network::proto::types::{ExecutionStatus, FulfillmentStatus},
-    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    HashableKey, NetworkProver, NetworkSigner, Prover, ProverClient, SP1Proof,
+    SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -84,16 +85,26 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        // Set a default network private key to avoid an error in mock mode.
-        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
-            tracing::warn!(
-                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-            );
-            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-        });
-
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+        // Set up the network prover.
+        let network_prover = if requester_config.use_kms_requester {
+            // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
+            let kms_key_arn = env::var("NETWORK_PRIVATE_KEY")
+                .context("NETWORK_PRIVATE_KEY must be set when USE_KMS_REQUESTER is true")?;
+            let signer = NetworkSigner::aws_kms(&kms_key_arn).await?;
+            tracing::info!("Using KMS requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        } else {
+            // Otherwise, use a private key with a default value to avoid errors in mock mode.
+            let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
+                tracing::warn!(
+                    "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+                );
+                "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+            });
+            let signer = NetworkSigner::local(&private_key)?;
+            tracing::info!("Using local requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        };
 
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
 
@@ -129,6 +140,14 @@ where
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
             requester_config.safe_db_fallback,
+            requester_config.max_price_per_pgu,
+            requester_config.timeout,
+            requester_config.range_cycle_limit,
+            requester_config.range_gas_limit,
+            requester_config.agg_cycle_limit,
+            requester_config.agg_gas_limit,
+            requester_config.whitelist.clone(),
+            requester_config.auction_timeout,
         ));
 
         let l2oo_contract =
@@ -295,15 +314,72 @@ where
             let (status, proof) =
                 self.driver_config.network_prover.get_proof_status(proof_request_id).await?;
 
+            let request_details =
+                self.driver_config.network_prover.get_proof_request(proof_request_id).await?;
+
             // Check if current time exceeds deadline. If so, the proof has timed out.
             let current_time = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            if current_time > status.deadline {
+
+            // Cancel the request in the network if the auction timeout is exceeded.
+            if let Some(request_details) = request_details {
+                let auction_deadline =
+                    request_details.created_at + self.requester_config.auction_timeout;
+                if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                    current_time < status.deadline() &&
+                    current_time > auction_deadline
+                {
+                    // Cancel the request in the network.
+                    self.driver_config.network_prover.cancel_request(proof_request_id).await?;
+
+                    // Mark the request as cancelled in the database.
+                    match self
+                        .proof_requester
+                        .handle_failed_request(request.clone(), status.execution_status(), true)
+                        .await
+                    {
+                        Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                        Err(e) => {
+                            ValidityGauge::RetryErrorCount.increment(1.0);
+                            return Err(e);
+                        }
+                    }
+
+                    ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+
+                    match request.req_type {
+                        RequestType::Range => {
+                            warn!(
+                                proof_id = request.id,
+                                start_block = request.start_block,
+                                end_block = request.end_block,
+                                auction_deadline = auction_deadline,
+                                current_time = current_time,
+                                "Range proof request auction deadline exceeded"
+                            );
+                        }
+                        RequestType::Aggregation => {
+                            warn!(
+                                proof_id = request.id,
+                                start_block = request.start_block,
+                                end_block = request.end_block,
+                                auction_deadline = auction_deadline,
+                                current_time = current_time,
+                                "Aggregation proof request auction deadline exceeded"
+                            );
+                        }
+                    }
+
+                    return Ok(());
+                }
+            }
+
+            if current_time > status.deadline() {
                 match self
                     .proof_requester
-                    .handle_failed_request(request.clone(), status.execution_status())
+                    .handle_failed_request(request.clone(), status.execution_status(), false)
                     .await
                 {
                     Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
@@ -315,14 +391,13 @@ where
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                // Log timeout of range proof
                 match request.req_type {
                     RequestType::Range => {
                         warn!(
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            deadline = status.deadline,
+                            deadline = status.deadline(),
                             current_time = current_time,
                             "Range proof request timed out"
                         );
@@ -332,7 +407,7 @@ where
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            deadline = status.deadline,
+                            deadline = status.deadline(),
                             current_time = current_time,
                             "Aggregation proof request timed out"
                         );
@@ -344,7 +419,7 @@ where
 
             // If the proof request has been fulfilled, update the request to status Complete and
             // add the proof bytes to the database.
-            if status.fulfillment_status() == FulfillmentStatus::Fulfilled {
+            if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 {
                 let proof: SP1ProofWithPublicValues = proof.unwrap();
 
                 let proof_bytes = match proof.proof {
@@ -407,7 +482,7 @@ where
                         );
                     }
                 }
-            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable {
+            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable as i32 {
                 // Log failure of range and aggregation proofs.
                 match request.req_type {
                     RequestType::Range => {
@@ -438,7 +513,7 @@ where
                 }
 
                 self.proof_requester
-                    .handle_failed_request(request, status.execution_status())
+                    .handle_failed_request(request, status.execution_status(), false)
                     .await?;
                 ValidityGauge::ProofRequestRetryCount.increment(1.0);
             }
@@ -1125,7 +1200,8 @@ where
                                 .proof_requester
                                 .handle_failed_request(
                                     request,
-                                    ExecutionStatus::UnspecifiedExecutionStatus,
+                                    ExecutionStatus::UnspecifiedExecutionStatus as i32,
+                                    false,
                                 )
                                 .await
                             {
@@ -1151,7 +1227,8 @@ where
                             .proof_requester
                             .handle_failed_request(
                                 request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
+                                ExecutionStatus::UnspecifiedExecutionStatus as i32,
+                                false,
                             )
                             .await
                         {

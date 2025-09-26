@@ -20,8 +20,8 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
-    SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    network::FulfillmentStrategy, NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{sync::Mutex, time};
 
@@ -101,8 +101,19 @@ where
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build());
+        // Set up the network prover.
+        let network_prover = if config.use_kms_requester {
+            // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
+            let signer = NetworkSigner::aws_kms(&network_private_key).await?;
+            tracing::info!("Using KMS requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        } else {
+            // Otherwise, use a private key with a default value to avoid errors in mock mode.
+            let signer = NetworkSigner::local(&network_private_key)?;
+            tracing::info!("Using local requester with address: {:?}", signer.address());
+            Arc::new(ProverClient::builder().network().signer(signer).build())
+        };
+
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
         let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
 
@@ -218,11 +229,15 @@ where
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
-                .strategy(self.config.range_proof_strategy)
                 .skip_simulation(true)
-                .cycle_limit(1_000_000_000_000)
-                .gas_limit(1_000_000_000_000)
-                .timeout(Duration::from_secs(4 * 60 * 60))
+                // TODO: implement feature flag.
+                .strategy(FulfillmentStrategy::Auction)
+                .timeout(Duration::from_secs(self.config.timeout))
+                .min_auction_period(15) // 15 seconds
+                .max_price_per_pgu(self.config.max_price_per_pgu)
+                .cycle_limit(self.config.range_cycle_limit)
+                .gas_limit(self.config.range_gas_limit)
+                .whitelist(self.config.whitelist.clone())
                 .run_async()
                 .await?;
 
@@ -282,8 +297,14 @@ where
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
                 .groth16()
-                .strategy(self.config.agg_proof_strategy)
-                .timeout(Duration::from_secs(4 * 60 * 60))
+                // TODO: implement feature flag.
+                .strategy(FulfillmentStrategy::Auction)
+                .timeout(Duration::from_secs(self.config.timeout))
+                .min_auction_period(15) // 15 seconds
+                .max_price_per_pgu(self.config.max_price_per_pgu)
+                .cycle_limit(self.config.agg_cycle_limit)
+                .gas_limit(self.config.agg_gas_limit)
+                .whitelist(self.config.whitelist.clone())
                 .run_async()
                 .await?
         };

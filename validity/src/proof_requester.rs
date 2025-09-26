@@ -34,6 +34,14 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
     pub safe_db_fallback: bool,
+    pub max_price_per_pgu: u64,
+    pub timeout: u64,
+    pub range_cycle_limit: u64,
+    pub range_gas_limit: u64,
+    pub agg_cycle_limit: u64,
+    pub agg_gas_limit: u64,
+    pub whitelist: Option<Vec<Address>>,
+    pub auction_timeout: u64,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -49,6 +57,14 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
         safe_db_fallback: bool,
+        max_price_per_pgu: u64,
+        timeout: u64,
+        range_cycle_limit: u64,
+        range_gas_limit: u64,
+        agg_cycle_limit: u64,
+        agg_gas_limit: u64,
+        whitelist: Option<Vec<Address>>,
+        auction_timeout: u64,
     ) -> Self {
         Self {
             host,
@@ -61,6 +77,14 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_strategy,
             agg_mode,
             safe_db_fallback,
+            max_price_per_pgu,
+            timeout,
+            range_cycle_limit,
+            range_gas_limit,
+            agg_cycle_limit,
+            agg_gas_limit,
+            whitelist,
+            auction_timeout,
         }
     }
 
@@ -154,9 +178,13 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .compressed()
             .strategy(self.range_strategy)
             .skip_simulation(true)
-            .cycle_limit(1_000_000_000_000)
-            .gas_limit(1_000_000_000_000)
-            .timeout(Duration::from_secs(4 * 60 * 60))
+            // TODO: implement feature flag.
+            .timeout(Duration::from_secs(self.timeout))
+            .min_auction_period(15) // 15 seconds
+            .max_price_per_pgu(self.max_price_per_pgu)
+            .cycle_limit(self.range_cycle_limit)
+            .gas_limit(self.range_gas_limit)
+            .whitelist(self.whitelist.clone())
             .request_async()
             .await
         {
@@ -177,7 +205,13 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
-            .timeout(Duration::from_secs(4 * 60 * 60))
+            // TODO: implement feature flag.
+            .timeout(Duration::from_secs(self.timeout))
+            .min_auction_period(15) // 15 seconds
+            .max_price_per_pgu(self.max_price_per_pgu)
+            .cycle_limit(self.agg_cycle_limit)
+            .gas_limit(self.agg_gas_limit)
+            .whitelist(self.whitelist.clone())
             .request_async()
             .await
         {
@@ -323,7 +357,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     pub async fn handle_failed_request(
         &self,
         request: OPSuccinctRequest,
-        execution_status: ExecutionStatus,
+        execution_status: i32,
+        is_cancelled: bool,
     ) -> Result<()> {
         warn!(
             id = request.id,
@@ -333,58 +368,65 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             "Setting request to failed"
         );
 
-        // Mark the existing request as failed.
-        self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
+        // Only proceed with splitting logic if the request is not cancelled.
+        if is_cancelled {
+            self.db_client.update_request_status(request.id, RequestStatus::Cancelled).await?;
+            Ok(())
+        } else {
+            self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
 
-        let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
-        let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
+            let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
+            let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
 
-        if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
-            let num_failed_requests = self
-                .db_client
-                .fetch_failed_request_count_by_block_range(
-                    request.start_block,
-                    request.end_block,
-                    request.l1_chain_id,
-                    request.l2_chain_id,
-                    &self.program_config.commitments,
-                )
-                .await?;
-
-            // NOTE: The failed_requests check here can be removed in V5.
-            if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
-                info!("Splitting failed request into two: {:?}", request.id);
-                let mid_block = (request.start_block + request.end_block) / 2;
-                let new_requests = vec![
-                    OPSuccinctRequest::create_range_request(
-                        request.mode,
+            if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range
+            {
+                let num_failed_requests = self
+                    .db_client
+                    .fetch_failed_request_count_by_block_range(
                         request.start_block,
-                        mid_block,
-                        self.program_config.commitments.range_vkey_commitment,
-                        self.program_config.commitments.rollup_config_hash,
-                        l1_chain_id as i64,
-                        l2_chain_id as i64,
-                        self.fetcher.clone(),
-                    )
-                    .await?,
-                    OPSuccinctRequest::create_range_request(
-                        request.mode,
-                        mid_block,
                         request.end_block,
-                        self.program_config.commitments.range_vkey_commitment,
-                        self.program_config.commitments.rollup_config_hash,
-                        l1_chain_id as i64,
-                        l2_chain_id as i64,
-                        self.fetcher.clone(),
+                        request.l1_chain_id,
+                        request.l2_chain_id,
+                        &self.program_config.commitments,
                     )
-                    .await?,
-                ];
+                    .await?;
 
-                self.db_client.insert_requests(&new_requests).await?;
+                // NOTE: The failed_requests check here can be removed in V5.
+                if num_failed_requests > 2 ||
+                    execution_status == ExecutionStatus::Unexecutable as i32
+                {
+                    info!("Splitting failed request into two: {:?}", request.id);
+                    let mid_block = (request.start_block + request.end_block) / 2;
+                    let new_requests = vec![
+                        OPSuccinctRequest::create_range_request(
+                            request.mode,
+                            request.start_block,
+                            mid_block,
+                            self.program_config.commitments.range_vkey_commitment,
+                            self.program_config.commitments.rollup_config_hash,
+                            l1_chain_id as i64,
+                            l2_chain_id as i64,
+                            self.fetcher.clone(),
+                        )
+                        .await?,
+                        OPSuccinctRequest::create_range_request(
+                            request.mode,
+                            mid_block,
+                            request.end_block,
+                            self.program_config.commitments.range_vkey_commitment,
+                            self.program_config.commitments.rollup_config_hash,
+                            l1_chain_id as i64,
+                            l2_chain_id as i64,
+                            self.fetcher.clone(),
+                        )
+                        .await?,
+                    ];
+
+                    self.db_client.insert_requests(&new_requests).await?;
+                }
             }
+            Ok(())
         }
-
-        Ok(())
     }
 
     /// Generates the stdin needed for a proof.
