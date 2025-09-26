@@ -49,7 +49,7 @@ jobs:
         && inputs.concurrency-group
         || format('{0}-{1}', github.workflow, (github.head_ref != '' && github.head_ref || github.ref)) }}
       cancel-in-progress: true
-    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@v3.0.0
+    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@ezdac/v3.0.1
     with:
       runs-on: '["self-hosted", "org", "8-cpu"]'
       workload-id-provider: ${{ inputs.workload-id-provider }}
