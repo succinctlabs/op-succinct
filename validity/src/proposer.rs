@@ -314,11 +314,8 @@ where
             let (status, proof) =
                 self.driver_config.network_prover.get_proof_status(proof_request_id).await?;
 
-            let request_details = self
-                .driver_config
-                .network_prover
-                .get_proof_request(B256::from_slice(proof_request_id))
-                .await?;
+            let request_details =
+                self.driver_config.network_prover.get_proof_request(proof_request_id).await?;
 
             // Check if current time exceeds deadline. If so, the proof has timed out.
             let current_time = std::time::SystemTime::now()
@@ -331,14 +328,11 @@ where
                 let auction_deadline =
                     request_details.created_at + self.requester_config.auction_timeout;
                 if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
-                    current_time < status.deadline &&
+                    current_time < status.deadline() &&
                     current_time > auction_deadline
                 {
                     // Cancel the request in the network.
-                    self.driver_config
-                        .network_prover
-                        .cancel_request(B256::from_slice(proof_request_id))
-                        .await?;
+                    self.driver_config.network_prover.cancel_request(proof_request_id).await?;
 
                     // Mark the request as cancelled in the database.
                     match self
@@ -382,7 +376,7 @@ where
                 }
             }
 
-            if current_time > status.deadline {
+            if current_time > status.deadline() {
                 match self
                     .proof_requester
                     .handle_failed_request(request.clone(), status.execution_status(), false)
@@ -403,7 +397,7 @@ where
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            deadline = status.deadline,
+                            deadline = status.deadline(),
                             current_time = current_time,
                             "Range proof request timed out"
                         );
@@ -413,7 +407,7 @@ where
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            deadline = status.deadline,
+                            deadline = status.deadline(),
                             current_time = current_time,
                             "Aggregation proof request timed out"
                         );
@@ -425,7 +419,7 @@ where
 
             // If the proof request has been fulfilled, update the request to status Complete and
             // add the proof bytes to the database.
-            if status.fulfillment_status() == FulfillmentStatus::Fulfilled {
+            if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 {
                 let proof: SP1ProofWithPublicValues = proof.unwrap();
 
                 let proof_bytes = match proof.proof {
@@ -488,7 +482,7 @@ where
                         );
                     }
                 }
-            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable {
+            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable as i32 {
                 // Log failure of range and aggregation proofs.
                 match request.req_type {
                     RequestType::Range => {
@@ -1206,7 +1200,7 @@ where
                                 .proof_requester
                                 .handle_failed_request(
                                     request,
-                                    ExecutionStatus::UnspecifiedExecutionStatus,
+                                    ExecutionStatus::UnspecifiedExecutionStatus as i32,
                                     false,
                                 )
                                 .await
@@ -1233,7 +1227,7 @@ where
                             .proof_requester
                             .handle_failed_request(
                                 request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
+                                ExecutionStatus::UnspecifiedExecutionStatus as i32,
                                 false,
                             )
                             .await

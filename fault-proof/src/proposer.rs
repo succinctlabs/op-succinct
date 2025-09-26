@@ -21,8 +21,8 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues,
-    SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    network::FulfillmentStrategy, NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{sync::Mutex, time};
 

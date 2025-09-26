@@ -57,7 +57,7 @@ base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
 lazy_static = "1.5.0"
 tracing = { version = "0.1.40", default-features = false }
-tracing-subscriber = { version = "0.3.19", features = ["fmt"] }
+tracing-subscriber = { version = "0.3.20", features = ["fmt"] }
 tracing-opentelemetry = "^0.24"
 opentelemetry = { version = "^0.23.0", features = ["trace"] }
 opentelemetry_sdk = { version = "^0.23.0", features = [
@@ -186,10 +186,13 @@ revm = { version = "24.0.1", default-features = false, features = [
 op-revm = { version = "5.0.1", default-features = false }
 
 # SP1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "dev", default-features = false, features = ["network"] }
-sp1-lib = { git = "https://github.com/succinctlabs/sp1", branch = "dev", features = ["verify"] }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "dev", features = ["verify"] }
-sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "dev" }
+sp1-sdk = { version = "5.2.1", default-features = false, features = ["network"] }
+sp1-lib = { version = "5.2.1", features = ["verify"] }
+sp1-zkvm = { version = "5.2.1", features = ["verify"] }
+sp1-build = { version = "5.2.1" }
+sp1-prover = { version = "5.2.1" }
+sp1-core-executor = { version = "5.2.1" }
+
 
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
@@ -208,3 +211,10 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
+
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", branch = "aurelien/bump-sdk-to-v5.2.2" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1", branch = "aurelien/bump-sdk-to-v5.2.2" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", branch = "aurelien/bump-sdk-to-v5.2.2" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1", branch = "aurelien/bump-sdk-to-v5.2.2" }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1", branch = "aurelien/bump-sdk-to-v5.2.2" }
+sp1-core-executor = { git = "https://github.com/succinctlabs/sp1", branch = "aurelien/bump-sdk-to-v5.2.2" }
