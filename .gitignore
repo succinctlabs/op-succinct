@@ -50,3 +50,6 @@ configs/
 **/codegen
 # Grafana alloy config
 config.alloy
+
+# Generated audit forkdiffs
+audits/audit-forkdiff.html

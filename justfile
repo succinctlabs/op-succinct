@@ -351,3 +351,16 @@ remove-config config_name env_file=".env":
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast
+
+audit-forkdiff:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    outpath=audits/audit-forkdiff.html
+
+    docker run --rm \
+        --mount src=$(pwd),target=/host-pwd,type=bind \
+        --platform linux/amd64 \
+        protolambda/forkdiff:latest \
+        -repo /host-pwd/ -fork /host-pwd/audits/audit-forkdiff.yaml -out /host-pwd/$outpath
+
+    echo "Audit forkdiff written to $outpath"

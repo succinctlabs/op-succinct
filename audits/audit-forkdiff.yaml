@@ -1,0 +1,27 @@
+base:
+  name: op-succinct
+  url: https://github.com/succinctlabs/op-succinct
+  hash: fddb191a7c69408224027e6156d5effa36f351eb # Appears to be the most recent commit from upstream
+fork:
+  name: celo op-succinct
+  url: git@github.com:celo-org/op-succinct.git
+  ref: refs/heads/develop
+def:
+    title: "op-succinct Fork diff"
+    description: | # description in markdown
+      Displays a diff that can be used for auditing, "Other changes" and "Ignored changes" should not be included in the audit.
+    globs:
+      - "**/*.rs"
+      - "contracts/**"
+      - "**/Cargo.*"
+      - ".gitignore"
+      - ".gitmodules"
+      - "**/Dockerfile*"
+# files can be ignored globally, these will be listed in a separate grayed-out section,
+# and do not count towards the total line count.
+ignore:
+  - ".github/**"
+  - ".env.example"
+  - "CONTRIBUTING.md"
+  - "book/**"
+
