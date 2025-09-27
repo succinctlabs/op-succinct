@@ -111,6 +111,7 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.0.0" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.0.0" }
 
 # hokulea
+# TODO(fakedev9999): Bump to 1.0.0 once the release is out.
 hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "2dae748" }
 hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "2dae748" }
 hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "2dae748" }
