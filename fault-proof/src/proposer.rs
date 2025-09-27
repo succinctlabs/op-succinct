@@ -495,6 +495,14 @@ where
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
+        // Initialize state with anchor L2 block number
+        let anchor_l2_block = factory.get_anchor_l2_block_number(config.game_type).await?;
+        let initial_state = ProposerState {
+            anchor_l2_block: Some(anchor_l2_block),
+            canonical_head_l2_block: Some(anchor_l2_block),
+            ..Default::default()
+        };
+
         Ok(Self {
             config: config.clone(),
             prover_address,
@@ -514,7 +522,7 @@ where
             host,
             tasks: Arc::new(Mutex::new(HashMap::new())),
             next_task_id: Arc::new(AtomicU64::new(1)),
-            state: Arc::new(Mutex::new(ProposerState::default())),
+            state: Arc::new(Mutex::new(initial_state)),
         })
     }
 
@@ -768,25 +776,7 @@ where
             AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
         let anchor_game = anchor_registry.anchorGame().call().await?;
 
-        if anchor_game == Address::ZERO {
-            let anchor_root_result = anchor_registry.getAnchorRoot().call().await?;
-            let anchor_l2_block = U256::from(anchor_root_result._1);
-
-            {
-                let mut state = self.state.lock().await;
-                state.anchor_index = None;
-                state.anchor_address = None;
-                state.anchor_l2_block = Some(anchor_l2_block);
-
-                if state.canonical_head_index.is_none() {
-                    state.canonical_head_l2_block = Some(anchor_l2_block);
-                }
-
-                if state.games.is_empty() {
-                    state.cursor = None;
-                }
-            }
-        } else {
+        if anchor_game != Address::ZERO {
             let mut needs_reset = false;
             {
                 let mut state = self.state.lock().await;
