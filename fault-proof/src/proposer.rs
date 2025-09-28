@@ -669,11 +669,11 @@ where
     ///
     /// This should be called periodically to keep state synchronized with on-chain data.
     async fn refresh_state(&self) -> Result<()> {
-        // Synchronize the anchor game.
-        self.sync_anchor_game().await?;
-
         // Synchronize the game cache.
         self.sync_games().await?;
+
+        // Synchronize the anchor game.
+        self.sync_anchor_game().await?;
 
         // TODO(fakedev9999): update the canonical head.
 
