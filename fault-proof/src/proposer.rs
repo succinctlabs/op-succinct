@@ -78,7 +78,6 @@ struct Game {
     status: GameStatus,
     proposal_status: ProposalStatus,
     deadline: u64,
-    is_finalized: bool,
     proposer_credit_available: bool,
     is_descendant_of_anchor: bool,
 }
@@ -764,7 +763,6 @@ where
                 game.status = status;
                 game.proposal_status = claim_data.status;
                 game.deadline = deadline;
-                game.is_finalized = is_finalized;
                 game.proposer_credit_available =
                     is_finalized && contract.credit(self.prover_address).call().await? > U256::ZERO;
             }
@@ -873,7 +871,6 @@ where
                 status,
                 proposal_status: claim_data.status,
                 deadline,
-                is_finalized: false,
                 proposer_credit_available: false,
                 is_descendant_of_anchor: false,
             },
