@@ -148,18 +148,6 @@ impl ProposerState {
         self.cursor = Some(index);
     }
 
-    /// Updates the canonical head if the candidate has a higher L2 block.
-    ///
-    /// This maintains the invariant that the canonical head always points to
-    /// the valid game with the highest L2 block number.
-    /// FIXME(fakedev9999)
-    fn update_canonical_head_if_further(&mut self, candidate: &Game) {
-        match self.canonical_head_l2_block {
-            Some(current_block) if candidate.l2_block <= current_block => {}
-            _ => self.set_canonical_head(candidate),
-        }
-    }
-
     /// Recomputes the canonical head by scanning all cached games.
     ///
     /// This is called after game removal or cache changes to ensure the
