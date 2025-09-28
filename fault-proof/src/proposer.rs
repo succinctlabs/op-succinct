@@ -78,8 +78,9 @@ struct Game {
     status: GameStatus,
     proposal_status: ProposalStatus,
     deadline: u64,
-    finalized: bool,
+    is_finalized: bool,
     proposer_credit_available: bool,
+    is_descendant_of_anchor: bool,
 }
 
 /// Central state management for tracking the game DAG and canonical chain.
@@ -96,9 +97,7 @@ struct Game {
 /// - Resetting completely when the anchor changes to a non-cached game
 #[derive(Default)]
 struct ProposerState {
-    anchor_index: Option<U256>,
-    anchor_address: Option<Address>,
-    anchor_l2_block: Option<U256>,
+    anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
     cursor: Option<U256>,
@@ -121,7 +120,7 @@ impl ProposerState {
     ///
     /// Returns None if the state is not initialized (no anchor set).
     fn snapshot(&self) -> Option<StateSnapshot> {
-        let anchor_l2_block = self.anchor_l2_block?;
+        let anchor_l2_block = self.anchor_game.as_ref()?.l2_block;
         let canonical_head_l2_block = self.canonical_head_l2_block.unwrap_or(anchor_l2_block);
 
         Some(StateSnapshot {
@@ -129,36 +128,6 @@ impl ProposerState {
             canonical_head_index: self.canonical_head_index,
             canonical_head_l2_block,
         })
-    }
-
-    /// Resets all state when the anchor changes to an unknown game.
-    ///
-    /// This is called when the anchor changes to a game not in our cache,
-    /// requiring a full reload of the game DAG from scratch.
-    fn reset(&mut self) {
-        self.anchor_index = None;
-        self.anchor_address = None;
-        self.anchor_l2_block = None;
-        self.canonical_head_index = None;
-        self.canonical_head_l2_block = None;
-        self.cursor = None;
-        self.games.clear();
-    }
-
-    /// Sets a new anchor game and initializes associated state.
-    ///
-    /// This function:
-    /// 1. Sets the anchor indices and address
-    /// 2. Adds the anchor game to the cache
-    /// 3. Sets the anchor as the canonical head (since no descendants exist yet)
-    /// 4. Updates the cursor to start loading from this point
-    fn set_anchor(&mut self, game: &Game) {
-        self.anchor_index = Some(game.index);
-        self.anchor_address = Some(game.address);
-        self.anchor_l2_block = Some(game.l2_block);
-        self.games.insert(game.index, game.clone());
-        self.set_canonical_head(game);
-        self.cursor = Some(game.index);
     }
 
     /// Updates the canonical head to point to a specific game.
@@ -184,6 +153,7 @@ impl ProposerState {
     ///
     /// This maintains the invariant that the canonical head always points to
     /// the valid game with the highest L2 block number.
+    /// FIXME(fakedev9999)
     fn update_canonical_head_if_further(&mut self, candidate: &Game) {
         match self.canonical_head_l2_block {
             Some(current_block) if candidate.l2_block <= current_block => {}
@@ -197,82 +167,54 @@ impl ProposerState {
     /// canonical head remains accurate. Falls back to the anchor block
     /// if no games exist in the cache.
     fn recompute_canonical_head(&mut self) {
-        let mut best_game: Option<Game> = None;
-
-        for game in self.games.values() {
-            if best_game.as_ref().map(|current| game.l2_block > current.l2_block).unwrap_or(true) {
-                best_game = Some(game.clone());
-            }
-        }
+        let best_game = self
+            .games
+            .values()
+            .filter(|game| game.is_descendant_of_anchor)
+            .max_by_key(|game| game.l2_block)
+            .cloned();
 
         if let Some(game) = best_game {
             self.set_canonical_head(&game);
-        } else if let Some(anchor_block) = self.anchor_l2_block {
+        } else if let Some(anchor_game) = self.anchor_game.as_ref() {
             self.canonical_head_index = None;
-            self.canonical_head_l2_block = Some(anchor_block);
+            self.canonical_head_l2_block = Some(anchor_game.l2_block);
         } else {
             self.canonical_head_index = None;
             self.canonical_head_l2_block = None;
         }
     }
 
-    /// Finds a game's index given its on-chain address.
+    /// Mark `is_descendant_of_anchor` for all games reachable from the current anchor.
     ///
-    /// Returns None if the game is not in the cache.
-    fn find_index_by_address(&self, address: Address) -> Option<U256> {
-        self.games
-            .iter()
-            .find_map(|(index, game)| if game.address == address { Some(*index) } else { None })
-    }
-
-    /// Retain only games whose ancestry leads back to the current anchor.
-    ///
-    /// This function performs a graph traversal starting from the anchor to find
-    /// all reachable games. Any games not reachable from the anchor are removed.
-    ///
-    /// The traversal handles both direct parent relationships (via parent_index)
-    /// and special handling for games with parent_index = u32::MAX that should
-    /// connect to the anchor.
-    ///
-    /// After pruning, the canonical head is recomputed to ensure consistency.
-    fn retain_descendants_of_anchor(&mut self) {
-        let anchor_index =
-            self.anchor_index.expect("anchor index must be set before pruning descendants");
+    /// Performs a depth-first search from the anchor game index, following child edges where
+    /// `game.parent_index == current`. Every visited index is recorded in `reachable`,
+    /// then each game’s `is_descendant_of_anchor` is updated accordingly. Finally,
+    /// `recompute_canonical_head()` is invoked to keep derived state consistent.
+    fn update_anchor_descendant_flags(&mut self) {
+        let anchor_index = self
+            .anchor_game
+            .as_ref()
+            .map(|game| game.index)
+            .expect("anchor game must be set before updating descendant flags");
 
         let mut reachable: HashSet<U256> = HashSet::new();
         let mut stack = vec![anchor_index];
 
         while let Some(index) = stack.pop() {
-            if !reachable.insert(index) {
-                continue;
+            if reachable.insert(index) {
+                stack.extend(
+                    self.games
+                        .values()
+                        .filter(|game| U256::from(game.parent_index) == index)
+                        .map(|game| game.index),
+                );
             }
-
-            let children: Vec<U256> = self
-                .games
-                .values()
-                .filter_map(|game| {
-                    if game.index == index {
-                        return None;
-                    }
-
-                    if game.parent_index == u32::MAX {
-                        if anchor_index == index {
-                            Some(game.index)
-                        } else {
-                            None
-                        }
-                    } else if U256::from(game.parent_index) == index {
-                        Some(game.index)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            stack.extend(children);
         }
 
-        self.games.retain(|index, _| reachable.contains(index));
+        for game in self.games.values_mut() {
+            game.is_descendant_of_anchor = reachable.contains(&game.index);
+        }
 
         self.recompute_canonical_head();
     }
@@ -307,6 +249,7 @@ impl ProposerState {
                     } else if U256::from(game.parent_index) == index {
                         Some(game.index)
                     } else {
+                        // FIXME(fakedev9999): fix.
                         None
                     }
                 })
@@ -384,34 +327,6 @@ impl ProposerState {
             })
             .map(|game| game.index)
             .collect()
-    }
-
-    /// Returns games where the proposer can claim their bond.
-    ///
-    /// A game is claimable when:
-    /// 1. The proposer won (DEFENDER_WINS)
-    /// 2. The game has been finalized on-chain
-    /// 3. Credit is still available (not already claimed)
-    ///
-    /// Returns tuples of (game_index, game_address) sorted by index.
-    fn claimable_games(&self) -> Vec<(U256, Address)> {
-        let mut games: Vec<&Game> = self.games.values().collect();
-        games.sort_by_key(|game| game.index);
-
-        games
-            .into_iter()
-            .filter(|game| game.status == GameStatus::DEFENDER_WINS)
-            .filter(|game| game.finalized)
-            .filter(|game| game.proposer_credit_available)
-            .map(|game| (game.index, game.address))
-            .collect()
-    }
-
-    /// Marks a game's credit as claimed to prevent duplicate claim attempts.
-    fn mark_credit_claimed(&mut self, index: U256) {
-        if let Some(game) = self.games.get_mut(&index) {
-            game.proposer_credit_available = false;
-        }
     }
 }
 
@@ -497,11 +412,8 @@ where
 
         // Initialize state with anchor L2 block number
         let anchor_l2_block = factory.get_anchor_l2_block_number(config.game_type).await?;
-        let initial_state = ProposerState {
-            anchor_l2_block: Some(anchor_l2_block),
-            canonical_head_l2_block: Some(anchor_l2_block),
-            ..Default::default()
-        };
+        let initial_state =
+            ProposerState { canonical_head_l2_block: Some(anchor_l2_block), ..Default::default() };
 
         Ok(Self {
             config: config.clone(),
@@ -700,7 +612,7 @@ where
         &self,
         l2_block_number: U256,
         parent_game_index: u32,
-    ) -> Result<(Address, U256)> {
+    ) -> Result<Address> {
         tracing::info!(
             "Creating game at L2 block number: {:?}, with parent game index: {:?}",
             l2_block_number,
@@ -755,7 +667,7 @@ where
             }
         }
 
-        Ok((game_address, game_index))
+        Ok(game_address)
     }
 
     /// Synchronize the cached game graph with on-chain anchor and latest game data.
@@ -770,76 +682,49 @@ where
     ///
     /// This should be called periodically to keep state synchronized with on-chain data.
     async fn refresh_state(&self) -> Result<()> {
+        // Synchronize the anchor game.
+        self.sync_anchor_game().await?;
+
+        // Synchronize the game cache.
+        self.sync_games().await?;
+
+        // TODO(fakedev9999): update the canonical head.
+
+        Ok(())
+    }
+
+    /// Synchronizes the anchor game from the factory.
+    async fn sync_anchor_game(&self) -> Result<()> {
         let anchor_registry_address =
             self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
         let anchor_registry =
             AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
-        let anchor_game = anchor_registry.anchorGame().call().await?;
+        let anchor_address = anchor_registry.anchorGame().call().await?;
 
-        if anchor_game != Address::ZERO {
-            let mut needs_reset = false;
-            {
-                let mut state = self.state.lock().await;
-
-                if state.anchor_address == Some(anchor_game) {
-                    // Anchor unchanged; nothing to do here.
-                } else if let Some(anchor_index) = state.find_index_by_address(anchor_game) {
-                    if let Some(anchor) = state.games.get(&anchor_index).cloned() {
-                        state.anchor_index = Some(anchor_index);
-                        state.anchor_address = Some(anchor.address);
-                        state.anchor_l2_block = Some(anchor.l2_block);
-                        state.retain_descendants_of_anchor();
-                    }
-                } else {
-                    state.reset();
-                    needs_reset = true;
-                }
-            }
-
-            if needs_reset {
-                self.initialize_anchor(anchor_game).await?;
-            }
-        }
-
-        self.load_new_games().await?;
-        self.refresh_cached_game_statuses().await?;
-
-        Ok(())
-    }
-
-    /// Initializes the state with a new anchor game fetched from the factory.
-    ///
-    /// Called when the anchor changes to a game not in our cache, requiring
-    /// us to fetch the game details and set it as our new baseline.
-    async fn initialize_anchor(&self, anchor_game: Address) -> Result<()> {
-        let Some(anchor_index) = self.find_game_index_by_address(anchor_game).await? else {
-            tracing::warn!("Anchor game {:?} not found in factory listings", anchor_game);
-            return Ok(());
-        };
-
-        let Some(game) = self.fetch_game(anchor_index).await? else {
-            tracing::warn!("Anchor game {:?} failed validation when fetching", anchor_game);
-            return Ok(());
-        };
-
-        {
+        if anchor_address != Address::ZERO {
             let mut state = self.state.lock().await;
-            state.set_anchor(&game);
+
+            // Fetch the anchor game from the cache.
+            let (_index, anchor_game) = state
+                .games
+                .iter()
+                .find(|(_, game)| game.address == anchor_address)
+                .expect("Anchor game must be in the cache");
+
+            state.anchor_game = Some(anchor_game.clone());
+            state.update_anchor_descendant_flags();
         }
 
         Ok(())
     }
 
-    /// Incrementally loads new games from the factory starting from the cursor.
+    /// Synchronizes the game cache.
     ///
-    /// This function:
-    /// 1. Determines the starting index (cursor + 1 or 0 if no cursor)
-    /// 2. Fetches the latest game index from factory
-    /// 3. Loads and processes each game in sequence
-    /// 4. Updates the cursor after each game
-    ///
-    /// Games are validated (correct type, valid output root) before being added.
-    async fn load_new_games(&self) -> Result<()> {
+    /// 1. Load new games: Incrementally load new games from the factory starting from the cursor.
+    ///    Games are validated (correct type, valid output root) before being added.
+    /// 2. Synchronize the status of all cached games.
+    async fn sync_games(&self) -> Result<()> {
+        // 1. Load new games.
         let mut next_index = {
             let state = self.state.lock().await;
             match state.cursor() {
@@ -853,104 +738,40 @@ where
         };
 
         while next_index <= latest_index {
-            if let Some(game) = self.fetch_game(next_index).await? {
-                self.process_loaded_game(game).await;
-            } else {
-                let mut state = self.state.lock().await;
-                state.set_cursor(next_index);
-            }
+            self.fetch_game(next_index).await?;
             next_index += U256::from(1);
         }
 
-        Ok(())
-    }
-
-    /// Processes a loaded game and updates the cache accordingly.
-    ///
-    /// The processing logic depends on the game's status:
-    /// - CHALLENGER_WINS: Remove the game and its entire subtree
-    /// - Valid parent: Add to cache and potentially update canonical head
-    /// - Invalid parent: Skip (parent not in cache yet)
-    ///
-    /// The cursor is always updated regardless of whether the game is cached.
-    async fn process_loaded_game(&self, game: Game) {
+        // 2. Synchronize the status of all cached games.
         let mut state = self.state.lock().await;
 
-        if game.status == GameStatus::CHALLENGER_WINS {
-            state.remove_subtree(game.index);
-            state.set_cursor(game.index);
-            return;
-        }
+        let mut to_remove = Vec::new();
 
-        let parent_index_valid = if game.parent_index == u32::MAX {
-            true
-        } else {
-            state.games.contains_key(&U256::from(game.parent_index))
-        };
-
-        if parent_index_valid {
-            state.games.insert(game.index, game.clone());
-            state.update_canonical_head_if_further(&game);
-        } else {
-            tracing::debug!(
-                game_index = %game.index,
-                parent_index = game.parent_index,
-                "Skipping game with missing parent in cache"
-            );
-        }
-
-        state.set_cursor(game.index);
-    }
-
-    /// Refreshes the status of all cached games from on-chain data.
-    ///
-    /// For each cached game, this function:
-    /// 1. Fetches current on-chain status and proposal state
-    /// 2. Checks finalization status in the anchor registry
-    /// 3. Checks for available credit (for claimable games)
-    /// 4. Updates the cached game state
-    /// 5. Removes invalid games (CHALLENGER_WINS) and their subtrees
-    ///
-    /// This ensures our cache reflects the current on-chain state of all games.
-    async fn refresh_cached_game_statuses(&self) -> Result<()> {
-        let targets: Vec<(U256, Address)> = {
-            let state = self.state.lock().await;
-            state.games.values().map(|game| (game.index, game.address)).collect()
-        };
-
-        for (index, game_address) in targets {
-            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        for (index, game) in state.games.iter_mut() {
+            // Fetch the game's status.
+            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
             let claim_data = contract.claimData().call().await?;
             let status = contract.status().call().await?;
             let deadline = U256::from(claim_data.deadline).to::<u64>();
             let registry_address = contract.anchorStateRegistry().call().await?;
             let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
-            let is_finalized = registry.isGameFinalized(game_address).call().await?;
+            let is_finalized = registry.isGameFinalized(game.address).call().await?;
 
-            let mut proposer_credit_available = false;
-            if is_finalized && status == GameStatus::DEFENDER_WINS {
-                proposer_credit_available =
-                    contract.credit(self.prover_address).call().await? > U256::ZERO;
+            if status == GameStatus::CHALLENGER_WINS {
+                to_remove.push(*index);
+                continue;
+            } else {
+                game.status = status;
+                game.proposal_status = claim_data.status;
+                game.deadline = deadline;
+                game.is_finalized = is_finalized;
+                game.proposer_credit_available =
+                    is_finalized && contract.credit(self.prover_address).call().await? > U256::ZERO;
             }
+        }
 
-            let mut state = self.state.lock().await;
-            let mut remove = false;
-
-            if let Some(game) = state.games.get_mut(&index) {
-                if status == GameStatus::CHALLENGER_WINS {
-                    remove = true;
-                } else {
-                    game.status = status;
-                    game.proposal_status = claim_data.status;
-                    game.deadline = deadline;
-                    game.finalized = is_finalized;
-                    game.proposer_credit_available = proposer_credit_available;
-                }
-            }
-
-            if remove {
-                state.remove_subtree(index);
-            }
+        for index in to_remove {
+            state.remove_subtree(index);
         }
 
         Ok(())
@@ -1007,16 +828,18 @@ where
         }
     }
 
-    async fn mark_credit_claimed(&self, index: U256) {
+    async fn update_cursor(&self, index: U256) {
         let mut state = self.state.lock().await;
-        state.mark_credit_claimed(index);
+        state.set_cursor(index);
     }
 
-    async fn fetch_game(&self, index: U256) -> Result<Option<Game>> {
+    async fn fetch_game(&self, index: U256) -> Result<()> {
         let game = self.factory.gameAtIndex(index).call().await?;
 
+        // TODO(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead and use IDisputeGame
         if game.gameType != self.config.game_type {
-            return Ok(None);
+            self.update_cursor(index).await;
+            return Ok(());
         }
 
         let game_address = game.proxy;
@@ -1031,49 +854,32 @@ where
                 ?game_address,
                 "Skipping game due to mismatched output root"
             );
-            return Ok(None);
+            self.update_cursor(index).await;
+            return Ok(());
         }
 
         let claim_data = contract.claimData().call().await?;
         let status = contract.status().call().await?;
         let deadline = U256::from(claim_data.deadline).to::<u64>();
 
-        Ok(Some(Game {
+        let mut state = self.state.lock().await;
+        state.games.insert(
             index,
-            address: game_address,
-            parent_index: claim_data.parentIndex,
-            l2_block,
-            status,
-            proposal_status: claim_data.status,
-            deadline,
-            finalized: false,
-            proposer_credit_available: false,
-        }))
-    }
+            Game {
+                index,
+                address: game_address,
+                parent_index: claim_data.parentIndex,
+                l2_block,
+                status,
+                proposal_status: claim_data.status,
+                deadline,
+                is_finalized: false,
+                proposer_credit_available: false,
+                is_descendant_of_anchor: false,
+            },
+        );
 
-    async fn find_game_index_by_address(&self, address: Address) -> Result<Option<U256>> {
-        let game_count = self.factory.gameCount().call().await?;
-
-        if game_count == U256::ZERO {
-            return Ok(None);
-        }
-
-        let mut index = game_count - U256::from(1);
-
-        loop {
-            let game = self.factory.gameAtIndex(index).call().await?;
-            if game.proxy == address {
-                return Ok(Some(index));
-            }
-
-            if index == U256::ZERO {
-                break;
-            }
-
-            index -= U256::from(1);
-        }
-
-        Ok(None)
+        Ok(())
     }
 
     async fn state_snapshot(&self) -> Option<StateSnapshot> {
@@ -1111,15 +917,8 @@ where
         // head block number is at least the next L2 block number for proposal.
         if let Some(finalized_block) = finalized_l2_head_block_number {
             if U256::from(finalized_block) >= next_l2_block_number_for_proposal {
-                let (game_address, game_index) =
+                let game_address =
                     self.create_game(next_l2_block_number_for_proposal, parent_game_index).await?;
-
-                if let Some(game) = self.fetch_game(game_index).await? {
-                    self.process_loaded_game(game).await;
-                } else {
-                    let mut state = self.state.lock().await;
-                    state.set_cursor(game_index);
-                }
 
                 Ok(Some(game_address))
             } else {
@@ -1146,7 +945,7 @@ where
                 game_address = ?game_address,
                 "No credit available for proposer; skipping claim"
             );
-            self.mark_credit_claimed(index).await;
+
             return Ok(Action::Skipped);
         }
 
@@ -1166,7 +965,7 @@ where
                     tx_hash = ?receipt.transaction_hash,
                     "Bond claimed successfully"
                 );
-                self.mark_credit_claimed(index).await;
+
                 Ok(Action::Performed)
             }
             Err(e) => {
@@ -1654,27 +1453,37 @@ where
     /// - Ok(false): No work needed (no claimable bonds available)
     /// - Err: Actual error occurred during task spawning
     async fn spawn_bond_claim_task(&self) -> Result<bool> {
-        let candidate = {
+        let candidates: Vec<_> = {
             let state = self.state.lock().await;
-            state.claimable_games().into_iter().next()
-        };
-
-        let Some((index, game_address)) = candidate else {
-            return Ok(false);
+            state
+                .games
+                .values()
+                .filter_map(|game| {
+                    if game.proposer_credit_available {
+                        Some((game.index, game.address))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
         };
 
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            match proposer.claim_bond_for_game(index, game_address).await {
-                Ok(Action::Performed) => {
-                    ProposerGauge::GamesBondsClaimed.increment(1.0);
-                    Ok(())
+            for (index, game_address) in candidates {
+                match proposer.claim_bond_for_game(index, game_address).await {
+                    Ok(Action::Performed) => {
+                        let mut state = proposer.state.lock().await;
+                        state.games.remove(&index);
+                        ProposerGauge::GamesBondsClaimed.increment(1.0);
+                    }
+                    Ok(Action::Skipped) => {}
+                    Err(e) => return Err(e),
                 }
-                Ok(Action::Skipped) => Ok(()),
-                Err(e) => Err(e),
             }
+            Ok(())
         });
 
         let task_info = TaskInfo::BondClaim;
