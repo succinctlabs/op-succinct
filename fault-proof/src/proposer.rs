@@ -129,15 +129,6 @@ impl ProposerState {
         })
     }
 
-    /// Updates the canonical head to point to a specific game.
-    ///
-    /// The canonical head represents the valid game with the highest L2 block number,
-    /// which determines where new games should build from.
-    fn set_canonical_head(&mut self, game: &Game) {
-        self.canonical_head_index = Some(game.index);
-        self.canonical_head_l2_block = Some(game.l2_block);
-    }
-
     /// Returns the current cursor position for incremental game loading.
     fn cursor(&self) -> Option<U256> {
         self.cursor
@@ -148,36 +139,11 @@ impl ProposerState {
         self.cursor = Some(index);
     }
 
-    /// Recomputes the canonical head by scanning all cached games.
-    ///
-    /// This is called after game removal or cache changes to ensure the
-    /// canonical head remains accurate. Falls back to the anchor block
-    /// if no games exist in the cache.
-    fn recompute_canonical_head(&mut self) {
-        let best_game = self
-            .games
-            .values()
-            .filter(|game| game.is_descendant_of_anchor)
-            .max_by_key(|game| game.l2_block)
-            .cloned();
-
-        if let Some(game) = best_game {
-            self.set_canonical_head(&game);
-        } else if let Some(anchor_game) = self.anchor_game.as_ref() {
-            self.canonical_head_index = None;
-            self.canonical_head_l2_block = Some(anchor_game.l2_block);
-        } else {
-            self.canonical_head_index = None;
-            self.canonical_head_l2_block = None;
-        }
-    }
-
     /// Mark `is_descendant_of_anchor` for all games reachable from the current anchor.
     ///
     /// Performs a depth-first search from the anchor game index, following child edges where
     /// `game.parent_index == current`. Every visited index is recorded in `reachable`,
-    /// then each game’s `is_descendant_of_anchor` is updated accordingly. Finally,
-    /// `recompute_canonical_head()` is invoked to keep derived state consistent.
+    /// then each game’s `is_descendant_of_anchor` is updated accordingly.
     fn update_anchor_descendant_flags(&mut self) {
         let anchor_index = self
             .anchor_game
@@ -202,8 +168,6 @@ impl ProposerState {
         for game in self.games.values_mut() {
             game.is_descendant_of_anchor = reachable.contains(&game.index);
         }
-
-        self.recompute_canonical_head();
     }
 
     /// Drop a game and every cached descendant below it.
@@ -248,8 +212,6 @@ impl ProposerState {
         for index in to_remove {
             self.games.remove(&index);
         }
-
-        self.recompute_canonical_head();
     }
 
     /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
@@ -675,7 +637,8 @@ where
         // Synchronize the anchor game.
         self.sync_anchor_game().await?;
 
-        // TODO(fakedev9999): update the canonical head.
+        // Compute the canonical head.
+        self.compute_canonical_head().await;
 
         Ok(())
     }
@@ -761,6 +724,26 @@ where
         }
 
         Ok(())
+    }
+
+    /// Computes the canonical head by scanning all cached games.
+    ///
+    /// Canonical head is the game with the highest L2 block number. When an anchor game is present,
+    /// only its descendants are eligible for canonical head.
+    async fn compute_canonical_head(&self) {
+        let mut state = self.state.lock().await;
+
+        let canonical_head = state
+            .games
+            .values()
+            .filter(|g| state.anchor_game.as_ref().is_none_or(|_| g.is_descendant_of_anchor))
+            .max_by_key(|g| g.l2_block)
+            .cloned();
+
+        if let Some(canonical_head) = canonical_head {
+            state.canonical_head_index = Some(canonical_head.index);
+            state.canonical_head_l2_block = Some(canonical_head.l2_block);
+        }
     }
 
     async fn resolve_candidates(&self, candidate_indices: Vec<U256>) -> Result<()> {
