@@ -103,32 +103,7 @@ struct ProposerState {
     games: HashMap<U256, Game>,
 }
 
-/// Immutable snapshot of key state values for lock-free access.
-///
-/// Used to make decisions about game creation without holding the state lock,
-/// preventing contention between concurrent operations.
-#[derive(Clone, Copy)]
-struct StateSnapshot {
-    anchor_l2_block: U256,
-    canonical_head_index: Option<U256>,
-    canonical_head_l2_block: U256,
-}
-
 impl ProposerState {
-    /// Creates an immutable snapshot of the current state for lock-free access.
-    ///
-    /// Returns None if the state is not initialized (no anchor set).
-    fn snapshot(&self) -> Option<StateSnapshot> {
-        let anchor_l2_block = self.anchor_game.as_ref()?.l2_block;
-        let canonical_head_l2_block = self.canonical_head_l2_block.unwrap_or(anchor_l2_block);
-
-        Some(StateSnapshot {
-            anchor_l2_block,
-            canonical_head_index: self.canonical_head_index,
-            canonical_head_l2_block,
-        })
-    }
-
     /// Returns the current cursor position for incremental game loading.
     fn cursor(&self) -> Option<U256> {
         self.cursor
@@ -850,30 +825,26 @@ where
         Ok(())
     }
 
-    async fn state_snapshot(&self) -> Option<StateSnapshot> {
-        let state = self.state.lock().await;
-        state.snapshot()
-    }
-
     /// Handles the creation of a new game if conditions are met.
     /// Returns the address of the created game, if one was created.
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
     pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
-        let snapshot = {
+        let (latest_proposed_block_number, parent_game_index) = {
             let state = self.state.lock().await;
-            state.snapshot()
-        };
 
-        let Some(snapshot) = snapshot else {
-            tracing::info!("State not initialized; skipping game creation");
+            let Some(latest_proposed_block_number) = state.canonical_head_l2_block else {
+                tracing::info!("No canonical head; skipping game creation");
             return Ok(None);
         };
 
-        let latest_proposed_block_number = snapshot.canonical_head_l2_block;
+            let parent_game_index =
+                state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
+
+            (latest_proposed_block_number, parent_game_index)
+        };
+
         let next_l2_block_number_for_proposal =
             latest_proposed_block_number + U256::from(self.config.proposal_interval_in_blocks);
-        let parent_game_index =
-            snapshot.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
 
         let finalized_l2_head_block_number = self
             .host
@@ -954,24 +925,29 @@ where
 
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
-        if let Some(snapshot) = self.state_snapshot().await {
-            ProposerGauge::LatestGameL2BlockNumber
-                .set(snapshot.canonical_head_l2_block.to::<u64>() as f64);
+        let (canonical_head_l2_block, anchor_game) = {
+            let state = self.state.lock().await;
+            (state.canonical_head_l2_block, state.anchor_game.clone())
+        };
+
+        if let Some(canonical_head_l2_block) = canonical_head_l2_block {
+            ProposerGauge::LatestGameL2BlockNumber.set(canonical_head_l2_block.to::<u64>() as f64);
 
             if let Some(finalized_l2_block_number) = self
                 .host
-                .get_finalized_l2_block_number(
-                    &self.fetcher,
-                    snapshot.canonical_head_l2_block.to::<u64>(),
-                )
+                .get_finalized_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
                 .await?
             {
                 ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
             }
 
-            ProposerGauge::AnchorGameL2BlockNumber.set(snapshot.anchor_l2_block.to::<u64>() as f64);
+            if let Some(anchor_game) = anchor_game {
+                ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game.l2_block.to::<u64>() as f64);
         } else {
-            tracing::info!("No state snapshot available for metrics update");
+                ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
+            }
+        } else {
+            tracing::warn!("canonical_head_l2_block is None; skipping metrics update");
         }
 
         // Update active proving tasks metric
@@ -1162,7 +1138,7 @@ where
     /// - Err: Actual error occurred during task spawning
     async fn spawn_game_creation_task(&self) -> Result<bool> {
         // First check if we should create a game
-        let should_create = self.should_create_game().await?;
+        let (should_create, next_l2_block_number_for_proposal) = self.should_create_game().await?;
         if !should_create {
             return Ok(false); // No work needed - normal case
         }
@@ -1181,17 +1157,23 @@ where
             }
         });
 
-        // Get the next proposal block for task info
-        let next_block = self.get_next_proposal_block().await.unwrap_or(U256::ZERO);
-        let task_info = TaskInfo::GameCreation { block_number: next_block };
+        let task_info = TaskInfo::GameCreation { block_number: next_l2_block_number_for_proposal };
 
         self.tasks.lock().await.insert(task_id, (handle, task_info));
-        tracing::info!("Spawned game creation task {} for block {}", task_id, next_block);
+        tracing::info!(
+            "Spawned game creation task {} for block {}",
+            task_id,
+            next_l2_block_number_for_proposal
+        );
         Ok(true)
     }
 
     /// Check if we should create a game
-    async fn should_create_game(&self) -> Result<bool> {
+    ///
+    /// Compares the next L2 block number for proposal with the finalized L2 block number.
+    /// If the finalized L2 block number is greater than or equal to the next L2 block number for
+    /// proposal, we should create a game.
+    async fn should_create_game(&self) -> Result<(bool, U256)> {
         // In fast finality mode, check if we're at proving capacity
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
@@ -1203,44 +1185,31 @@ where
                     active_proving,
                     self.config.fast_finality_proving_limit
                 );
-                return Ok(false);
+                return Ok((false, U256::ZERO));
             }
         }
 
-        // Get the next L2 block number for proposal
-        let next_l2_block_number_for_proposal = self.get_next_proposal_block().await?;
-
-        // Get the latest proposed block number to use for finalized block check
-        // If there's no snapshot, fall back to the anchor block
-        let latest_proposed_block_number = if let Some(snapshot) = self.state_snapshot().await {
-            snapshot.canonical_head_l2_block
-        } else {
-            // Use anchor block as the reference point when no snapshot exists
-            self.factory.get_anchor_l2_block_number(self.config.game_type).await?
+        let Some(canonical_head_l2_block) = self.state.lock().await.canonical_head_l2_block else {
+            tracing::info!("No canonical head; skipping game creation");
+            return Ok((false, U256::ZERO));
         };
+
+        let next_l2_block_number_for_proposal =
+            canonical_head_l2_block + U256::from(self.config.proposal_interval_in_blocks);
 
         let finalized_l2_head_block_number = self
             .host
-            .get_finalized_l2_block_number(&self.fetcher, latest_proposed_block_number.to::<u64>())
+            .get_finalized_l2_block_number(&self.fetcher, canonical_head_l2_block.to::<u64>())
             .await?;
 
-        Ok(finalized_l2_head_block_number
-            .map(|finalized_block| U256::from(finalized_block) >= next_l2_block_number_for_proposal)
-            .unwrap_or(false))
-    }
-
-    /// Get the next proposal block number
-    async fn get_next_proposal_block(&self) -> Result<U256> {
-        if let Some(snapshot) = self.state_snapshot().await {
-            Ok(snapshot.canonical_head_l2_block +
-                U256::from(self.config.proposal_interval_in_blocks))
-        } else {
-            let anchor_l2_block_number =
-                self.factory.get_anchor_l2_block_number(self.config.game_type).await?;
-            Ok(anchor_l2_block_number
-                .checked_add(U256::from(self.config.proposal_interval_in_blocks))
-                .unwrap())
-        }
+        Ok((
+            finalized_l2_head_block_number
+                .map(|finalized_block| {
+                    U256::from(finalized_block) >= next_l2_block_number_for_proposal
+                })
+                .unwrap_or(false),
+            next_l2_block_number_for_proposal,
+        ))
     }
 
     /// Spawn game defense tasks if needed
