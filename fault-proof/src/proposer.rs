@@ -347,36 +347,6 @@ where
     P: Provider + Clone + Send + Sync + 'static,
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
-    /// Runs the proposer indefinitely.
-    pub async fn run(self: Arc<Self>) -> Result<()> {
-        tracing::info!("OP Succinct Proposer running...");
-        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
-
-        // Spawn a dedicated task for continuous metrics collection
-        self.spawn_metrics_collector();
-
-        loop {
-            interval.tick().await;
-
-            if let Err(e) = self.refresh_state().await {
-                tracing::warn!("Failed to refresh proposer state: {:?}", e);
-            }
-
-            // 1. Handle completed tasks
-            if let Err(e) = self.handle_completed_tasks().await {
-                tracing::warn!("Failed to handle completed tasks: {:?}", e);
-            }
-
-            // 2. Spawn new work (non-blocking)
-            if let Err(e) = self.spawn_pending_operations().await {
-                tracing::warn!("Failed to spawn pending operations: {:?}", e);
-            }
-
-            // 3. Log task statistics
-            self.log_task_stats().await;
-        }
-    }
-
     /// Creates a new proposer instance with the provided L1 provider with wallet and factory
     /// contract instance.
     pub async fn new(
@@ -423,6 +393,36 @@ where
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(Mutex::new(initial_state)),
         })
+    }
+
+    /// Runs the proposer indefinitely.
+    pub async fn run(self: Arc<Self>) -> Result<()> {
+        tracing::info!("OP Succinct Proposer running...");
+        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+
+        // Spawn a dedicated task for continuous metrics collection
+        self.spawn_metrics_collector();
+
+        loop {
+            interval.tick().await;
+
+            if let Err(e) = self.refresh_state().await {
+                tracing::warn!("Failed to refresh proposer state: {:?}", e);
+            }
+
+            // 1. Handle completed tasks
+            if let Err(e) = self.handle_completed_tasks().await {
+                tracing::warn!("Failed to handle completed tasks: {:?}", e);
+            }
+
+            // 2. Spawn new work (non-blocking)
+            if let Err(e) = self.spawn_pending_operations().await {
+                tracing::warn!("Failed to spawn pending operations: {:?}", e);
+            }
+
+            // 3. Log task statistics
+            self.log_task_stats().await;
+        }
     }
 
     /// Proves a dispute game at the given address.
