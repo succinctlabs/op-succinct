@@ -158,7 +158,7 @@ impl ProposerState {
             if to_remove.insert(index) {
                 stack.extend(
                     self.games
-                .values()
+                        .values()
                         .filter(|game| U256::from(game.parent_index) == index)
                         .map(|game| game.index),
                 );
@@ -816,8 +816,8 @@ where
 
             let Some(latest_proposed_block_number) = state.canonical_head_l2_block else {
                 tracing::info!("No canonical head; skipping game creation");
-            return Ok(None);
-        };
+                return Ok(None);
+            };
 
             let parent_game_index =
                 state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
@@ -925,7 +925,7 @@ where
 
             if let Some(anchor_game) = anchor_game {
                 ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game.l2_block.to::<u64>() as f64);
-        } else {
+            } else {
                 ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
             }
         } else {
