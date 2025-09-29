@@ -828,8 +828,8 @@ where
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
-        let claim_data = match contract.claimData().call().await {
-            Ok(data) => data,
+        let (parent_index, proposal_status, deadline) = match contract.claimData().call().await {
+            Ok(data) => (data.parentIndex, data.status, U256::from(data.deadline).to::<u64>()),
             Err(error) => {
                 tracing::debug!(
                     game_index = %index,
@@ -837,7 +837,7 @@ where
                     ?error,
                     "Falling back to legacy game with dummy claim data"
                 );
-                ClaimData::default()
+                (u32::MAX, ProposalStatus::Unchallenged, 0)
             }
         };
 
@@ -859,11 +859,11 @@ where
             Game {
                 index,
                 address: game_address,
-                parent_index: claim_data.parentIndex,
+                parent_index,
                 l2_block,
                 status: contract.status().call().await?,
-                proposal_status: claim_data.status,
-                deadline: U256::from(claim_data.deadline).to::<u64>(),
+                proposal_status,
+                deadline,
                 should_attempt_to_resolve: false,
                 should_attempt_to_claim_bond: false,
             },
