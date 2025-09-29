@@ -821,6 +821,10 @@ where
         })
     }
 
+    /// Fetch game from the factory.
+    ///
+    /// Drop game if the game type is invalid or the output root is not valid.
+    /// Drop game if the parent game does not exist.
     async fn fetch_game(&self, index: U256) -> Result<()> {
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
@@ -851,6 +855,26 @@ where
             );
             self.update_cursor(index).await;
             return Ok(());
+        }
+
+        // Drop game if the parent game does not exist.
+        if parent_index != u32::MAX {
+            let parent_index = U256::from(parent_index);
+            let parent_exists = {
+                let state = self.state.lock().await;
+                state.games.contains_key(&parent_index)
+            };
+
+            if !parent_exists {
+                tracing::debug!(
+                    game_index = %index,
+                    ?game_address,
+                    parent_index = %parent_index,
+                    "Dropping game due to missing parent"
+                );
+                self.update_cursor(index).await;
+                return Ok(());
+            }
         }
 
         let mut state = self.state.lock().await;
