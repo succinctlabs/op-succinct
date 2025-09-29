@@ -114,6 +114,9 @@ impl ProposerState {
     }
 
     /// Returns all game indices reachable from `root_index`, including the root.
+    ///
+    /// NOTE(fakedev9999): If this becomes hot, consider maintaining an adjacency index
+    /// `parent -> Vec<child>`.
     fn descendants_of(&self, root_index: U256) -> HashSet<U256> {
         let mut reachable: HashSet<U256> = HashSet::new();
         let mut stack = vec![root_index];
@@ -132,27 +135,12 @@ impl ProposerState {
         reachable
     }
 
-    /// Drop a game and every cached descendant below it.
+    /// Remove a game subtree from the cache.
     ///
-    /// Performs a depth-first traversal to identify all games that descend from
-    /// the game at `root_index`, then removes them all from the cache. This is used when
-    /// a game is found to be invalid (CHALLENGER_WINS), invalidating its entire subtree.
+    /// Used when a game is invalidated (i.e., `CHALLENGER_WINS`) and its entire subtree must be
+    /// dropped.
     fn remove_subtree(&mut self, root_index: U256) {
-        let mut stack = vec![root_index];
-        let mut to_remove = HashSet::new();
-
-        while let Some(index) = stack.pop() {
-            if to_remove.insert(index) {
-                stack.extend(
-                    self.games
-                        .values()
-                        .filter(|game| U256::from(game.parent_index) == index)
-                        .map(|game| game.index),
-                );
-            }
-        }
-
-        for index in to_remove {
+        for index in self.descendants_of(root_index) {
             self.games.remove(&index);
         }
     }
@@ -659,6 +647,7 @@ where
             }
         }
 
+        // For each CHALLENGER_WINS game, drop the entire subtree from the cache.
         for index in to_remove {
             state.remove_subtree(index);
         }
