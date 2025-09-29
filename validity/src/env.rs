@@ -2,6 +2,7 @@ use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
 use anyhow::Result;
+use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use op_succinct_signer_utils::Signer;
 use reqwest::Url;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
@@ -87,27 +88,15 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     // will verify `tx.origin` matches the `proverAddress`.
     let prover_address = get_env_var("PROVER_ADDRESS", Some(signer.address()))?;
 
-    // TODO: implement feature flag.
-    // let range_proof_strategy = if get_env_var("RANGE_PROOF_STRATEGY",
-    // Some("reserved".to_string()))?     .to_lowercase() ==
-    //     "hosted"
-    // {
-    //     FulfillmentStrategy::Hosted
-    // } else {
-    //     FulfillmentStrategy::Reserved
-    // };
-    let range_proof_strategy = FulfillmentStrategy::Auction;
-
-    // TODO: implement feature flag.
-    // let agg_proof_strategy = if get_env_var("AGG_PROOF_STRATEGY", Some("reserved".to_string()))?
-    //     .to_lowercase() ==
-    //     "hosted"
-    // {
-    //     FulfillmentStrategy::Hosted
-    // } else {
-    //     FulfillmentStrategy::Reserved
-    // };
-    let agg_proof_strategy = FulfillmentStrategy::Auction;
+    // Parse strategy values
+    let range_proof_strategy = parse_fulfillment_strategy(get_env_var(
+        "RANGE_PROOF_STRATEGY",
+        Some("reserved".to_string()),
+    )?)?;
+    let agg_proof_strategy = parse_fulfillment_strategy(get_env_var(
+        "AGG_PROOF_STRATEGY",
+        Some("reserved".to_string()),
+    )?)?;
 
     // Parse proof mode
     let agg_proof_mode =

@@ -178,7 +178,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .compressed()
             .strategy(self.range_strategy)
             .skip_simulation(true)
-            // TODO: implement feature flag.
             .timeout(Duration::from_secs(self.timeout))
             .min_auction_period(15) // 15 seconds
             .max_price_per_pgu(self.max_price_per_pgu)
@@ -205,7 +204,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
-            // TODO: implement feature flag.
             .timeout(Duration::from_secs(self.timeout))
             .min_auction_period(15) // 15 seconds
             .max_price_per_pgu(self.max_price_per_pgu)

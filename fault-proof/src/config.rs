@@ -3,6 +3,7 @@ use std::{env, str::FromStr};
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
+use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::network::FulfillmentStrategy;
 
@@ -113,22 +114,12 @@ impl ProposerConfig {
             fast_finality_mode: env::var("FAST_FINALITY_MODE")
                 .unwrap_or("false".to_string())
                 .parse()?,
-            range_proof_strategy: if env::var("RANGE_PROOF_STRATEGY")
-                .unwrap_or("reserved".to_string())
-                .eq_ignore_ascii_case("hosted")
-            {
-                FulfillmentStrategy::Hosted
-            } else {
-                FulfillmentStrategy::Reserved
-            },
-            agg_proof_strategy: if env::var("AGG_PROOF_STRATEGY")
-                .unwrap_or("reserved".to_string())
-                .eq_ignore_ascii_case("hosted")
-            {
-                FulfillmentStrategy::Hosted
-            } else {
-                FulfillmentStrategy::Reserved
-            },
+            range_proof_strategy: parse_fulfillment_strategy(
+                env::var("RANGE_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
+            )?,
+            agg_proof_strategy: parse_fulfillment_strategy(
+                env::var("AGG_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
+            )?,
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
                 .unwrap_or("1800".to_string())
                 .parse()?,

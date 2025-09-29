@@ -16,13 +16,13 @@ use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
-    metrics::MetricsGauge, witness_generation::WitnessGenerator,
+    metrics::MetricsGauge, network::determine_network_mode, witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    network::FulfillmentStrategy, NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues,
+    SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{sync::Mutex, time};
 
@@ -170,18 +170,21 @@ where
         host: Arc<H>,
     ) -> Result<Self> {
         // Set up the network prover.
-        let network_prover = if config.use_kms_requester {
+        let network_signer = if config.use_kms_requester {
             // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
-            let signer = NetworkSigner::aws_kms(&network_private_key).await?;
             tracing::info!("Using KMS requester with address: {:?}", signer.address());
-            Arc::new(ProverClient::builder().network().signer(signer).build())
+            NetworkSigner::aws_kms(&network_private_key).await?
         } else {
             // Otherwise, use a private key with a default value to avoid errors in mock mode.
-            let signer = NetworkSigner::local(&network_private_key)?;
             tracing::info!("Using local requester with address: {:?}", signer.address());
-            Arc::new(ProverClient::builder().network().signer(signer).build())
+            NetworkSigner::local(&network_private_key)?
         };
 
+        let network_mode =
+            determine_network_mode(config.range_proof_strategy, config.agg_proof_strategy)?;
+        let network_prover = Arc::new(
+            ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
+        );
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
         let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
 
@@ -559,8 +562,7 @@ where
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
                 .skip_simulation(true)
-                // TODO: implement feature flag.
-                .strategy(FulfillmentStrategy::Auction)
+                .strategy(self.config.range_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
                 .min_auction_period(15) // 15 seconds
                 .max_price_per_pgu(self.config.max_price_per_pgu)
@@ -626,8 +628,7 @@ where
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
                 .groth16()
-                // TODO: implement feature flag.
-                .strategy(FulfillmentStrategy::Auction)
+                .strategy(self.config.agg_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
                 .min_auction_period(15) // 15 seconds
                 .max_price_per_pgu(self.config.max_price_per_pgu)
