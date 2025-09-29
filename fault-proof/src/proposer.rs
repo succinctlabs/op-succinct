@@ -65,10 +65,9 @@ struct SP1Prover {
 
 /// Represents a dispute game in the on-chain game DAG.
 ///
-/// Games form a directed acyclic graph where each game (except the anchor)
-/// builds upon a parent game, extending the chain with a new proposed output root.
-/// The proposer tracks these games to determine when to propose new games,
-/// defend existing ones, or resolve completed games.
+/// Games form a directed acyclic graph where each game builds upon a parent game, extending the
+/// chain with a new proposed output root. The proposer tracks these games to determine when to
+/// propose new games, defend existing ones, resolve completed games and claim bonds.
 #[derive(Clone)]
 struct Game {
     index: U256,
@@ -96,18 +95,13 @@ impl Game {
     }
 }
 
-/// Central state management for tracking the game DAG and canonical chain.
+/// Central cache of the proposer's view of dispute games.
 ///
-/// The state maintains:
-/// 1. **Anchor state**: The current finalized anchor game that all valid games must descend from
-/// 2. **Canonical head**: The valid game with the highest L2 block number
-/// 3. **Game cache**: All games that are descendants of the current anchor
-/// 4. **Cursor**: Progress marker for loading games from the factory
-///
-/// The state ensures consistency by:
-/// - Only keeping games that descend from the anchor
-/// - Automatically recomputing the canonical head when games are added/removed
-/// - Resetting completely when the anchor changes to a non-cached game
+/// Tracks:
+/// - `anchor_game`: the latest anchor fetched from the registry
+/// - `canonical_head_index`/`canonical_head_l2_block`: the best known game for scheduling work
+/// - `cursor`: the last index of factory's dispute game list processed during incremental syncs
+/// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
 struct ProposerState {
     anchor_game: Option<Game>,
@@ -163,7 +157,8 @@ impl ProposerState {
     /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
     ///
     /// A game can only be resolved after its parent is no longer IN_PROGRESS.
-    /// For root games (parent_index = u32::MAX), the parent is always considered resolved.
+    /// For games with anchor as parent (parent_index = u32::MAX), the parent is always considered
+    /// resolved.
     fn is_parent_resolved(&self, game: &Game) -> bool {
         if game.parent_index == u32::MAX {
             return true;
@@ -260,7 +255,7 @@ where
         loop {
             interval.tick().await;
 
-            // 1. Sync cached dispute state before scheduling work.
+            // 1. Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync proposer state: {:?}", e);
             }
@@ -277,6 +272,197 @@ where
 
             // 4. Log task statistics.
             self.log_task_stats().await;
+        }
+    }
+
+    /// Synchronizes the proposer's cached view of the dispute-game tree with the on-chain state.
+    ///
+    /// Steps run in order:
+    /// 1. `sync_games` pulls newly created games and refreshes cached metadata.
+    /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
+    /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
+    async fn sync_state(&self) -> Result<()> {
+        // Pull new games and synchronize cached game statuses.
+        self.sync_games().await?;
+
+        // Align anchor information after the cached game statuses have been synchronized.
+        self.sync_anchor_game().await?;
+
+        // With the cached game statuses and anchor synchronized, recompute the canonical head.
+        self.compute_canonical_head().await;
+
+        Ok(())
+    }
+
+    /// Synchronizes the anchor game from the factory.
+    async fn sync_anchor_game(&self) -> Result<()> {
+        let anchor_registry_address =
+            self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
+        let anchor_registry =
+            AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
+        let anchor_address = anchor_registry.anchorGame().call().await?;
+
+        if anchor_address != Address::ZERO {
+            let mut state = self.state.lock().await;
+
+            // Fetch the anchor game from the cache.
+            let (_index, anchor_game) = state
+                .games
+                .iter()
+                .find(|(_, game)| game.address == anchor_address)
+                .expect("Anchor game must be in the cache");
+
+            state.anchor_game = Some(anchor_game.clone());
+        }
+
+        Ok(())
+    }
+
+    /// Synchronizes the game cache.
+    ///
+    /// 1. Load new games.
+    ///    - Incrementally load new games from the factory starting from the cursor.
+    ///    - Games are validated (correct type, valid output root) before being added.
+    /// 2. Synchronize the status of all cached games.
+    ///    - Games are marked for resolution if the parent is resolved and the game is over.
+    ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
+    /// 3. Evict games from the cache.
+    ///    - Games that are finalized but there is no credit left to claim.
+    ///    - The entire subtree of a CHALLENGER_WINS game.
+    async fn sync_games(&self) -> Result<()> {
+        // 1. Load new games.
+        let mut next_index = {
+            let state = self.state.lock().await;
+            match state.cursor() {
+                Some(cursor) => cursor + U256::from(1),
+                None => U256::ZERO,
+            }
+        };
+
+        let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
+            return Ok(());
+        };
+
+        while next_index <= latest_index {
+            self.fetch_game(next_index).await?;
+            next_index += U256::from(1);
+        }
+
+        // 2. Synchronize the status of all cached games.
+        let indices = {
+            let state = self.state.lock().await;
+            state.games.keys().cloned().collect::<Vec<_>>()
+        };
+
+        let mut to_remove = Vec::new();
+
+        for index in indices {
+            let game_address = {
+                let state = self.state.lock().await;
+                match state.games.get(&index) {
+                    Some(g) => g.address,
+                    None => continue,
+                }
+            };
+
+            // Fetch game statuses from the on-chain.
+            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+            let claim_data = contract.claimData().call().await?;
+            let status = contract.status().call().await?;
+            let deadline = U256::from(claim_data.deadline).to::<u64>();
+            let registry_address = contract.anchorStateRegistry().call().await?;
+            let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
+            let is_finalized = registry.isGameFinalized(game_address).call().await?;
+            let credit = contract.credit(self.signer.address()).call().await?;
+            let now_ts = self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .context("Failed to fetch latest L1 block timestamp")?
+                .header
+                .timestamp;
+
+            // Check if the parent game is resolved.
+            let is_parent_resolved = {
+                let state = self.state.lock().await;
+                if let Some(game) = state.games.get(&index) {
+                    state.is_parent_resolved(game)
+                } else {
+                    false
+                }
+            };
+
+            {
+                let mut state = self.state.lock().await;
+                let Some(game) = state.games.get_mut(&index) else { continue };
+
+                match status {
+                    GameStatus::IN_PROGRESS => {
+                        game.proposal_status = claim_data.status;
+                        game.deadline = deadline;
+
+                        if contract.gameType().call().await? == self.config.game_type &&
+                            is_parent_resolved &&
+                            game.is_game_over(now_ts) &&
+                            self.is_own_game(game).await?
+                        {
+                            game.should_attempt_to_resolve = true;
+                        }
+                    }
+                    GameStatus::DEFENDER_WINS => {
+                        game.status = status;
+
+                        if is_finalized {
+                            if credit > U256::ZERO {
+                                game.should_attempt_to_claim_bond = true;
+                            } else {
+                                // 3.Evict games that are finalized but there is no credit left to
+                                // claim.
+                                state.games.remove(&index);
+                            }
+                        }
+                    }
+                    GameStatus::CHALLENGER_WINS => {
+                        to_remove.push(index);
+                    }
+                    _ => unreachable!("Unexpected game status: {:?}", status),
+                }
+            }
+        }
+
+        // 3.Drop the entire subtree of a CHALLENGER_WINS game.
+        {
+            let mut state = self.state.lock().await;
+            for index in to_remove {
+                state.remove_subtree(index);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Computes the canonical head by scanning all cached games.
+    ///
+    /// Canonical head is the game with the highest L2 block number. When an anchor game is present,
+    /// only its descendants are eligible for canonical head.
+    async fn compute_canonical_head(&self) {
+        let mut state = self.state.lock().await;
+
+        let canonical_head = if let Some(anchor_game) = state.anchor_game.as_ref() {
+            let reachable = state.descendants_of(anchor_game.index);
+            state
+                .games
+                .values()
+                .filter(|game| reachable.contains(&game.index))
+                .max_by_key(|game| game.l2_block)
+                .cloned()
+        } else {
+            state.games.values().max_by_key(|game| game.l2_block).cloned()
+        };
+
+        if let Some(canonical_head) = canonical_head {
+            state.canonical_head_index = Some(canonical_head.index);
+            state.canonical_head_l2_block = Some(canonical_head.l2_block);
         }
     }
 
@@ -512,194 +698,6 @@ where
         Ok(game_address)
     }
 
-    /// Synchronizes the proposer's cached view of the dispute-game tree.
-    ///
-    /// Steps run in order:
-    /// 1. `sync_games` pulls newly created games and refreshes cached metadata.
-    /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
-    /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
-    ///
-    /// Call this regularly to keep local state in lockstep with on-chain updates.
-    async fn sync_state(&self) -> Result<()> {
-        // Pull new games and refresh cached status data first.
-        self.sync_games().await?;
-
-        // Align anchor information after the cache has been refreshed.
-        self.sync_anchor_game().await?;
-
-        // With the cache and anchor settled, recompute the canonical head.
-        self.compute_canonical_head().await;
-
-        Ok(())
-    }
-
-    /// Synchronizes the anchor game from the factory.
-    async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_registry_address =
-            self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
-        let anchor_registry =
-            AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
-        let anchor_address = anchor_registry.anchorGame().call().await?;
-
-        if anchor_address != Address::ZERO {
-            let mut state = self.state.lock().await;
-
-            // Fetch the anchor game from the cache.
-            let (_index, anchor_game) = state
-                .games
-                .iter()
-                .find(|(_, game)| game.address == anchor_address)
-                .expect("Anchor game must be in the cache");
-
-            state.anchor_game = Some(anchor_game.clone());
-        }
-
-        Ok(())
-    }
-
-    /// Synchronizes the game cache.
-    ///
-    /// 1. Load new games.
-    ///    - Incrementally load new games from the factory starting from the cursor.
-    ///    - Games are validated (correct type, valid output root) before being added.
-    /// 2. Synchronize the status of all cached games.
-    ///    - Games are marked for resolution if the parent is resolved and the game is over.
-    ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
-    /// 3. Evict games from the cache.
-    ///    - Games that are finalized but there is no credit left to claim.
-    ///    - The entire subtree of a CHALLENGER_WINS game.
-    async fn sync_games(&self) -> Result<()> {
-        // Load new games.
-        let mut next_index = {
-            let state = self.state.lock().await;
-            match state.cursor() {
-                Some(cursor) => cursor + U256::from(1),
-                None => U256::ZERO,
-            }
-        };
-
-        let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
-            return Ok(());
-        };
-
-        while next_index <= latest_index {
-            self.fetch_game(next_index).await?;
-            next_index += U256::from(1);
-        }
-
-        // Synchronize the status of all cached games.
-        let indices = {
-            let state = self.state.lock().await;
-            state.games.keys().cloned().collect::<Vec<_>>()
-        };
-
-        let mut to_remove = Vec::new();
-
-        for index in indices {
-            let game_address = {
-                let state = self.state.lock().await;
-                match state.games.get(&index) {
-                    Some(g) => g.address,
-                    None => continue,
-                }
-            };
-
-            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-            let claim_data = contract.claimData().call().await?;
-            let status = contract.status().call().await?;
-            let deadline = U256::from(claim_data.deadline).to::<u64>();
-            let registry_address = contract.anchorStateRegistry().call().await?;
-            let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
-            let is_finalized = registry.isGameFinalized(game_address).call().await?;
-            let credit = contract.credit(self.signer.address()).call().await?;
-            let now_ts = self
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await?
-                .context("Failed to fetch latest L1 block timestamp")?
-                .header
-                .timestamp;
-
-            let is_parent_resolved = {
-                let state = self.state.lock().await;
-                if let Some(game) = state.games.get(&index) {
-                    state.is_parent_resolved(game)
-                } else {
-                    false
-                }
-            };
-
-            {
-                let mut state = self.state.lock().await;
-                let Some(game) = state.games.get_mut(&index) else { continue };
-
-                match status {
-                    GameStatus::IN_PROGRESS => {
-                        game.proposal_status = claim_data.status;
-                        game.deadline = deadline;
-
-                        // TODO(fakedev9999): resolve own games only.
-                        if is_parent_resolved && game.is_game_over(now_ts) {
-                            game.should_attempt_to_resolve = true;
-                        }
-                    }
-                    GameStatus::DEFENDER_WINS => {
-                        game.status = status;
-
-                        if is_finalized {
-                            if credit > U256::ZERO {
-                                game.should_attempt_to_claim_bond = true;
-                            } else {
-                                // Evict games that are finalized but there is no credit left to
-                                // claim.
-                                state.games.remove(&index);
-                            }
-                        }
-                    }
-                    GameStatus::CHALLENGER_WINS => {
-                        to_remove.push(index);
-                    }
-                    _ => unreachable!("Unexpected game status: {:?}", status),
-                }
-            }
-        }
-
-        // Drop the entire subtree of a CHALLENGER_WINS game.
-        {
-            let mut state = self.state.lock().await;
-            for index in to_remove {
-                state.remove_subtree(index);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Computes the canonical head by scanning all cached games.
-    ///
-    /// Canonical head is the game with the highest L2 block number. When an anchor game is present,
-    /// only its descendants are eligible for canonical head.
-    async fn compute_canonical_head(&self) {
-        let mut state = self.state.lock().await;
-
-        let canonical_head = if let Some(anchor_game) = state.anchor_game.as_ref() {
-            let reachable = state.descendants_of(anchor_game.index);
-            state
-                .games
-                .values()
-                .filter(|game| reachable.contains(&game.index))
-                .max_by_key(|game| game.l2_block)
-                .cloned()
-        } else {
-            state.games.values().max_by_key(|game| game.l2_block).cloned()
-        };
-
-        if let Some(canonical_head) = canonical_head {
-            state.canonical_head_index = Some(canonical_head.index);
-            state.canonical_head_l2_block = Some(canonical_head.l2_block);
-        }
-    }
-
     async fn resolve_games(&self) -> Result<()> {
         let candidates = {
             let state = self.state.lock().await;
@@ -807,6 +805,21 @@ where
         state.set_cursor(index);
     }
 
+    async fn is_own_game(&self, game: &Game) -> Result<bool> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let creator = contract.gameCreator().call().await?;
+        let prover = contract.claimData().call().await?.prover;
+
+        Ok(match game.proposal_status {
+            ProposalStatus::Unchallenged => creator == self.signer.address(),
+            ProposalStatus::UnchallengedAndValidProofProvided |
+            ProposalStatus::ChallengedAndValidProofProvided => {
+                creator == self.signer.address() || prover == self.signer.address()
+            }
+            _ => false,
+        })
+    }
+
     async fn fetch_game(&self, index: U256) -> Result<()> {
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
@@ -818,8 +831,9 @@ where
         let status = contract.status().call().await?;
         let deadline = U256::from(claim_data.deadline).to::<u64>();
 
-        // FIXME(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead and use IDisputeGame
-        if game.gameType != self.config.game_type || output_root != claim {
+        // NOTE(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead of configured game type
+        // to handle upgrade scenarios.
+        if contract.wasRespectedGameTypeWhenCreated().call().await? || output_root != claim {
             tracing::debug!(
                 game_index = %index,
                 ?game_address,

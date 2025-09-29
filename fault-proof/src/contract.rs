@@ -36,6 +36,12 @@ sol! {
 
     #[sol(rpc)]
     contract OPSuccinctFaultDisputeGame {
+        /// @notice Getter for the game type.
+        function gameType() public pure returns (GameType gameType_);
+
+        /// @notice Getter for the creator of the dispute game.
+        function gameCreator() public pure returns (address creator_);
+
         /// @notice The L2 block number for which this game is proposing an output root.
         function l2BlockNumber() public pure returns (uint256 l2BlockNumber_);
 
@@ -50,6 +56,9 @@ sol! {
 
         /// @notice Getter for the claim data.
         function claimData() public view returns (ClaimData memory claimData_);
+
+        /// @notice Getter for the was respected game type when created.
+        function wasRespectedGameTypeWhenCreated() external view returns (bool wasRespectedGameTypeWhenCreated_);
 
         /// @notice Challenges the game.
         function challenge() external payable returns (ProposalStatus);
