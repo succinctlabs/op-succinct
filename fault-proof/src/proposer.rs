@@ -29,7 +29,7 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ProposerConfig,
     contract::{
-        AnchorStateRegistry,
+        AnchorStateRegistry, ClaimData,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
         GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
@@ -410,6 +410,7 @@ where
                         }
                     }
                     GameStatus::DEFENDER_WINS => {
+                        game.should_attempt_to_resolve = false;
                         game.status = status;
 
                         if is_finalized {
@@ -827,13 +828,22 @@ where
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
-        let claim_data = contract.claimData().call().await?;
-        let status = contract.status().call().await?;
-        let deadline = U256::from(claim_data.deadline).to::<u64>();
+        let claim_data = match contract.claimData().call().await {
+            Ok(data) => data,
+            Err(error) => {
+                tracing::debug!(
+                    game_index = %index,
+                    ?game_address,
+                    ?error,
+                    "Falling back to legacy game with dummy claim data"
+                );
+                ClaimData::default()
+            }
+        };
 
         // NOTE(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead of configured game type
         // to handle upgrade scenarios.
-        if contract.wasRespectedGameTypeWhenCreated().call().await? || output_root != claim {
+        if !contract.wasRespectedGameTypeWhenCreated().call().await? || output_root != claim {
             tracing::debug!(
                 game_index = %index,
                 ?game_address,
@@ -851,9 +861,9 @@ where
                 address: game_address,
                 parent_index: claim_data.parentIndex,
                 l2_block,
-                status,
+                status: contract.status().call().await?,
                 proposal_status: claim_data.status,
-                deadline,
+                deadline: U256::from(claim_data.deadline).to::<u64>(),
                 should_attempt_to_resolve: false,
                 should_attempt_to_claim_bond: false,
             },

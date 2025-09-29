@@ -132,7 +132,7 @@ sol! {
         Resolved
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Default)]
     /// @notice The `ClaimData` struct represents the data associated with a Claim.
     struct ClaimData {
         uint32 parentIndex;
