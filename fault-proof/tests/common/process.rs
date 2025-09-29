@@ -23,7 +23,6 @@ pub async fn start_proposer(
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
     // Create signer directly from private key
     let signer = Signer::new_local_signer(private_key)?;
-    let prover_address = signer.address();
 
     // Create proposer config with test-specific settings
     let config = fault_proof::config::ProposerConfig {
@@ -54,16 +53,9 @@ pub async fn start_proposer(
     let host = initialize_host(fetcher.clone());
 
     Ok(tokio::spawn(async move {
-        let proposer = OPSuccinctProposer::new(
-            config,
-            network_private_key,
-            prover_address,
-            signer,
-            factory,
-            fetcher,
-            host,
-        )
-        .await?;
+        let proposer =
+            OPSuccinctProposer::new(config, network_private_key, signer, factory, fetcher, host)
+                .await?;
         Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER")).await
     }))
 }
