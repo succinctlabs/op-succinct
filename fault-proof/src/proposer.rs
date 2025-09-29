@@ -343,21 +343,22 @@ where
         loop {
             interval.tick().await;
 
+            // 1. Refresh the state.
             if let Err(e) = self.refresh_state().await {
                 tracing::warn!("Failed to refresh proposer state: {:?}", e);
             }
 
-            // 1. Handle completed tasks
+            // 2. Handle completed tasks.
             if let Err(e) = self.handle_completed_tasks().await {
                 tracing::warn!("Failed to handle completed tasks: {:?}", e);
             }
 
-            // 2. Spawn new work (non-blocking)
+            // 3. Spawn new work (non-blocking).
             if let Err(e) = self.spawn_pending_operations().await {
                 tracing::warn!("Failed to spawn pending operations: {:?}", e);
             }
 
-            // 3. Log task statistics
+            // 4. Log task statistics.
             self.log_task_stats().await;
         }
     }
