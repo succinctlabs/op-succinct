@@ -268,23 +268,6 @@ where
     ) -> Result<()>;
 }
 
-impl<P> DisputeGameFactoryInstance<P>
-where
-    P: Provider + Clone,
-{
-    /// Helper method to get an AnchorStateRegistry instance for a given game type.
-    async fn get_anchor_state_registry(
-        &self,
-        game_type: u32,
-    ) -> Result<AnchorStateRegistry::AnchorStateRegistryInstance<P>> {
-        let anchor_state_registry_address = self
-            .get_anchor_state_registry_address(game_type)
-            .await
-            .context("Failed to get anchor state registry address")?;
-        Ok(AnchorStateRegistry::new(anchor_state_registry_address, self.provider().clone()))
-    }
-}
-
 #[async_trait]
 impl<P> FactoryTrait<P> for DisputeGameFactoryInstance<P>
 where
@@ -337,24 +320,21 @@ where
     ///
     /// This function returns the L2 block number of the anchor game for a given game type.
     async fn get_anchor_l2_block_number(&self, game_type: u32) -> Result<U256> {
-        let anchor_state_registry = self.get_anchor_state_registry(game_type).await?;
-        // getAnchorRoot returns a struct with fields _0 (root_hash) and _1 (l2_block_number)
-        let anchor_root_data = anchor_state_registry
-            .getAnchorRoot()
-            .call()
-            .await
-            .context("Failed to fetch anchor root from registry")?;
-        Ok(anchor_root_data._1)
+        let anchor_state_registry_address =
+            self.get_anchor_state_registry_address(game_type).await?;
+        let anchor_state_registry =
+            AnchorStateRegistry::new(anchor_state_registry_address, self.provider());
+        let anchor_l2_block_number = anchor_state_registry.getAnchorRoot().call().await?._1;
+        Ok(anchor_l2_block_number)
     }
 
     /// Check if a game is finalized.
     async fn is_game_finalized(&self, game_type: u32, game_address: Address) -> Result<bool> {
-        let anchor_state_registry = self.get_anchor_state_registry(game_type).await?;
-        let is_finalized = anchor_state_registry
-            .isGameFinalized(game_address)
-            .call()
-            .await
-            .context("Failed to check if game is finalized")?;
+        let anchor_state_registry_address =
+            self.get_anchor_state_registry_address(game_type).await?;
+        let anchor_state_registry =
+            AnchorStateRegistry::new(anchor_state_registry_address, self.provider());
+        let is_finalized = anchor_state_registry.isGameFinalized(game_address).call().await?;
         Ok(is_finalized)
     }
 

@@ -62,7 +62,6 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
-| `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `SAFE_DB_FALLBACK` | Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node. When `false`, proposer will return an error if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. | `false` |
 | `PROPOSER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9000` |
 | `FAST_FINALITY_PROVING_LIMIT` | Maximum number of concurrent proving tasks allowed in fast finality mode. | `1` |
@@ -107,6 +106,20 @@ To run the proposer, from the fault-proof directory:
 
 The proposer will run indefinitely, creating new games and optionally resolving them based on the configuration.
 
+## Runtime Loop
+
+`OPSuccinctProposer::run` wakes up every `FETCH_INTERVAL` seconds and performs four phases:
+
+1. **State sync** – Reloads dispute games from the factory, tracks the anchor, and recomputes the canonical head using the cached `ProposerState`.
+2. **Task cleanup** – Collects results from previously spawned tasks and updates metrics based on success or failure.
+3. **Scheduling** – Starts new asynchronous jobs when capacity is available:
+   - Game creation once the finalized L2 head surpasses the proposal interval
+   - Challenged-game defenses, respecting `MAX_CONCURRENT_DEFENSE_TASKS`
+   - Resolution of finished games and bond claims for finalized ones
+4. **Metrics refresh** – Publishes gauges such as canonical head block, finalized block, active proving tasks, and error counters.
+
+All long-running work executes in dedicated Tokio tasks stored in a `TaskMap`, preventing duplicate submissions while allowing creation/defense/resolution/bond claiming to progress in parallel. Fast finality mode additionally enforces `FAST_FINALITY_PROVING_LIMIT` before spawning new fast finality proving tasks.
+
 ## Features
 
 ### Game Creation
@@ -127,6 +140,7 @@ The proposer will run indefinitely, creating new games and optionally resolving 
   - Have valid output root claims
 - Generates and submits proofs using the Succinct Prover Network
 - Supports mock mode for testing without using the Succinct Prover Network. (Set `MOCK_MODE=true` in `.env.proposer`)
+
 ### Game Resolution
 - Automatically resolves proven games (UnchallengedAndValidProofProvided or ChallengedAndValidProofProvided)
 - Monitors unchallenged games and resolves them once their challenge period expires
