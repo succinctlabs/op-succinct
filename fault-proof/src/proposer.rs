@@ -324,9 +324,9 @@ where
         loop {
             interval.tick().await;
 
-            // 1. Refresh the state.
-            if let Err(e) = self.refresh_state().await {
-                tracing::warn!("Failed to refresh proposer state: {:?}", e);
+            // 1. Sync cached dispute state before scheduling work.
+            if let Err(e) = self.sync_state().await {
+                tracing::warn!("Failed to sync proposer state: {:?}", e);
             }
 
             // 2. Handle completed tasks.
@@ -576,25 +576,22 @@ where
         Ok(game_address)
     }
 
-    /// Synchronize the cached game graph with on-chain anchor and latest game data.
+    /// Synchronizes the proposer's cached view of the dispute-game tree.
     ///
-    /// This function performs three key operations in sequence:
-    /// 1. **Anchor synchronization**: Checks if the on-chain anchor has changed. If it has, either
-    ///    prunes the cache (if anchor is known) or resets entirely.
-    /// 2. **Game loading**: Incrementally loads new games from the factory, validating each one and
-    ///    adding valid games to the cache.
-    /// 3. **Status refresh**: Updates the status of all cached games to reflect current on-chain
-    ///    state, removing any that became invalid.
+    /// Steps run in order:
+    /// 1. `sync_games` pulls newly created games and refreshes cached metadata.
+    /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
+    /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
     ///
-    /// This should be called periodically to keep state synchronized with on-chain data.
-    async fn refresh_state(&self) -> Result<()> {
-        // Synchronize the game cache.
+    /// Call this regularly to keep local state in lockstep with on-chain updates.
+    async fn sync_state(&self) -> Result<()> {
+        // Pull new games and refresh cached status data first.
         self.sync_games().await?;
 
-        // Synchronize the anchor game.
+        // Align anchor information after the cache has been refreshed.
         self.sync_anchor_game().await?;
 
-        // Compute the canonical head.
+        // With the cache and anchor settled, recompute the canonical head.
         self.compute_canonical_head().await;
 
         Ok(())
