@@ -10,7 +10,7 @@ use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_eth::Block;
 use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
