@@ -761,32 +761,25 @@ where
 
     async fn fetch_game(&self, index: U256) -> Result<()> {
         let game = self.factory.gameAtIndex(index).call().await?;
-
-        // TODO(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead and use IDisputeGame
-        if game.gameType != self.config.game_type {
-            self.update_cursor(index).await;
-            return Ok(());
-        }
-
         let game_address = game.proxy;
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
+        let claim_data = contract.claimData().call().await?;
+        let status = contract.status().call().await?;
+        let deadline = U256::from(claim_data.deadline).to::<u64>();
 
-        if output_root != claim {
+        // FIXME(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead and use IDisputeGame
+        if game.gameType != self.config.game_type || output_root != claim {
             tracing::debug!(
                 game_index = %index,
                 ?game_address,
-                "Skipping game due to mismatched output root"
+                "Dropping game due to invalid game type or output root"
             );
             self.update_cursor(index).await;
             return Ok(());
         }
-
-        let claim_data = contract.claimData().call().await?;
-        let status = contract.status().call().await?;
-        let deadline = U256::from(claim_data.deadline).to::<u64>();
 
         let mut state = self.state.lock().await;
         state.games.insert(
