@@ -47,13 +47,6 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from
-    // the private key.
-    let prover_address = env::var("PROVER_ADDRESS")
-        .ok()
-        .and_then(|addr| addr.parse::<Address>().ok())
-        .unwrap_or_else(|| proposer_signer.address());
-
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
 
@@ -69,7 +62,6 @@ async fn main() -> Result<()> {
         OPSuccinctProposer::new(
             ProposerConfig::from_env()?,
             network_private_key,
-            prover_address,
             proposer_signer,
             factory,
             Arc::new(fetcher),

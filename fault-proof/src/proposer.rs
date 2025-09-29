@@ -34,7 +34,7 @@ use crate::{
         GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
     prometheus::ProposerGauge,
-    Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
 
 /// Type alias for task ID
@@ -78,7 +78,22 @@ struct Game {
     status: GameStatus,
     proposal_status: ProposalStatus,
     deadline: u64,
-    proposer_credit_available: bool,
+    should_attempt_to_resolve: bool,
+    should_attempt_to_claim_bond: bool,
+}
+
+impl Game {
+    /// Determines if the game is finished in favor of the proposer.
+    ///
+    /// Returns true if the game is either expired or proven.
+    fn is_game_over(&self, now_ts: u64) -> bool {
+        match self.proposal_status {
+            ProposalStatus::Unchallenged => now_ts >= self.deadline,
+            ProposalStatus::UnchallengedAndValidProofProvided |
+            ProposalStatus::ChallengedAndValidProofProvided => true,
+            _ => false,
+        }
+    }
 }
 
 /// Central state management for tracking the game DAG and canonical chain.
@@ -148,8 +163,8 @@ impl ProposerState {
     /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
     ///
     /// A game can only be resolved after its parent is no longer IN_PROGRESS.
-    /// Root games (parent_index = u32::MAX) are always considered ready.
-    fn is_parent_ready(&self, game: &Game) -> bool {
+    /// For root games (parent_index = u32::MAX), the parent is always considered resolved.
+    fn is_parent_resolved(&self, game: &Game) -> bool {
         if game.parent_index == u32::MAX {
             return true;
         }
@@ -160,54 +175,6 @@ impl ProposerState {
             None => false,
         }
     }
-
-    /// Determines if a game is ready for the proposer to resolve it.
-    ///
-    /// A game is ready for proposer resolution when:
-    /// - It's unchallenged and past the deadline (automatic win)
-    /// - A valid proof has been provided (immediate resolution allowed)
-    fn is_proposer_ready(game: &Game, now_ts: u64) -> bool {
-        match game.proposal_status {
-            ProposalStatus::Unchallenged => now_ts >= game.deadline,
-            ProposalStatus::UnchallengedAndValidProofProvided |
-            ProposalStatus::ChallengedAndValidProofProvided => true,
-            _ => false,
-        }
-    }
-
-    /// Determines if a game is ready for the challenger to resolve it.
-    ///
-    /// A game is ready for challenger resolution when it's challenged
-    /// but no proof was provided before the deadline.
-    fn is_challenger_ready(game: &Game, now_ts: u64) -> bool {
-        matches!(game.proposal_status, ProposalStatus::Challenged) && now_ts >= game.deadline
-    }
-
-    /// Returns games that are ready to be resolved based on mode and timing.
-    ///
-    /// Games must meet all conditions:
-    /// 1. Still IN_PROGRESS (not yet resolved)
-    /// 2. Not already marked as resolved in proposal status
-    /// 3. Parent must be resolved (maintains DAG ordering)
-    /// 4. Meet mode-specific timing requirements
-    ///
-    /// Returns game indices sorted in ascending order for deterministic processing.
-    fn resolvable_candidates(&self, mode: Mode, now_ts: u64) -> Vec<U256> {
-        let mut games: Vec<&Game> = self.games.values().collect();
-        games.sort_by_key(|game| game.index);
-
-        games
-            .into_iter()
-            .filter(|game| game.status == GameStatus::IN_PROGRESS)
-            .filter(|game| game.proposal_status != ProposalStatus::Resolved)
-            .filter(|game| self.is_parent_ready(game))
-            .filter(|game| match mode {
-                Mode::Proposer => Self::is_proposer_ready(game, now_ts),
-                Mode::Challenger => Self::is_challenger_ready(game, now_ts),
-            })
-            .map(|game| game.index)
-            .collect()
-    }
 }
 
 #[derive(Clone)]
@@ -217,10 +184,6 @@ where
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
     pub config: ProposerConfig,
-    // The address being committed to when generating the aggregation proof to prevent
-    // front-running attacks. This should be the same address that is being used to send
-    // `prove` transactions.
-    pub prover_address: Address,
     pub signer: Signer,
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
@@ -245,7 +208,6 @@ where
     pub async fn new(
         config: ProposerConfig,
         network_private_key: String,
-        prover_address: Address,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
@@ -267,7 +229,6 @@ where
 
         Ok(Self {
             config: config.clone(),
-            prover_address,
             signer,
             l1_provider,
             l2_provider,
@@ -438,7 +399,7 @@ where
             headers,
             &self.prover.range_vk,
             boot_info.l1Head,
-            self.prover_address,
+            self.signer.address(),
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -598,11 +559,17 @@ where
 
     /// Synchronizes the game cache.
     ///
-    /// 1. Load new games: Incrementally load new games from the factory starting from the cursor.
-    ///    Games are validated (correct type, valid output root) before being added.
+    /// 1. Load new games.
+    ///    - Incrementally load new games from the factory starting from the cursor.
+    ///    - Games are validated (correct type, valid output root) before being added.
     /// 2. Synchronize the status of all cached games.
+    ///    - Games are marked for resolution if the parent is resolved and the game is over.
+    ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
+    /// 3. Evict games from the cache.
+    ///    - Games that are finalized but there is no credit left to claim.
+    ///    - The entire subtree of a CHALLENGER_WINS game.
     async fn sync_games(&self) -> Result<()> {
-        // 1. Load new games.
+        // Load new games.
         let mut next_index = {
             let state = self.state.lock().await;
             match state.cursor() {
@@ -620,36 +587,89 @@ where
             next_index += U256::from(1);
         }
 
-        // 2. Synchronize the status of all cached games.
-        let mut state = self.state.lock().await;
+        // Synchronize the status of all cached games.
+        let indices = {
+            let state = self.state.lock().await;
+            state.games.keys().cloned().collect::<Vec<_>>()
+        };
 
         let mut to_remove = Vec::new();
 
-        for (index, game) in state.games.iter_mut() {
-            // Fetch the game's status.
-            let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        for index in indices {
+            let game_address = {
+                let state = self.state.lock().await;
+                match state.games.get(&index) {
+                    Some(g) => g.address,
+                    None => continue,
+                }
+            };
+
+            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
             let claim_data = contract.claimData().call().await?;
             let status = contract.status().call().await?;
             let deadline = U256::from(claim_data.deadline).to::<u64>();
             let registry_address = contract.anchorStateRegistry().call().await?;
             let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
-            let is_finalized = registry.isGameFinalized(game.address).call().await?;
+            let is_finalized = registry.isGameFinalized(game_address).call().await?;
+            let credit = contract.credit(self.signer.address()).call().await?;
+            let now_ts = self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .context("Failed to fetch latest L1 block timestamp")?
+                .header
+                .timestamp;
 
-            if status == GameStatus::CHALLENGER_WINS {
-                to_remove.push(*index);
-                continue;
-            } else {
-                game.status = status;
-                game.proposal_status = claim_data.status;
-                game.deadline = deadline;
-                game.proposer_credit_available =
-                    is_finalized && contract.credit(self.prover_address).call().await? > U256::ZERO;
+            let is_parent_resolved = {
+                let state = self.state.lock().await;
+                if let Some(game) = state.games.get(&index) {
+                    state.is_parent_resolved(game)
+                } else {
+                    false
+                }
+            };
+
+            {
+                let mut state = self.state.lock().await;
+                let Some(game) = state.games.get_mut(&index) else { continue };
+
+                match status {
+                    GameStatus::IN_PROGRESS => {
+                        game.proposal_status = claim_data.status;
+                        game.deadline = deadline;
+
+                        // TODO(fakedev9999): resolve own games only.
+                        if is_parent_resolved && game.is_game_over(now_ts) {
+                            game.should_attempt_to_resolve = true;
+                        }
+                    }
+                    GameStatus::DEFENDER_WINS => {
+                        game.status = status;
+
+                        if is_finalized {
+                            if credit > U256::ZERO {
+                                game.should_attempt_to_claim_bond = true;
+                            } else {
+                                // Evict games that are finalized but there is no credit left to
+                                // claim.
+                                state.games.remove(&index);
+                            }
+                        }
+                    }
+                    GameStatus::CHALLENGER_WINS => {
+                        to_remove.push(index);
+                    }
+                    _ => unreachable!("Unexpected game status: {:?}", status),
+                }
             }
         }
 
-        // For each CHALLENGER_WINS game, drop the entire subtree from the cache.
-        for index in to_remove {
-            state.remove_subtree(index);
+        // Drop the entire subtree of a CHALLENGER_WINS game.
+        {
+            let mut state = self.state.lock().await;
+            for index in to_remove {
+                state.remove_subtree(index);
+            }
         }
 
         Ok(())
@@ -665,8 +685,8 @@ where
         let canonical_head = if let Some(anchor_game) = state.anchor_game.as_ref() {
             let reachable = state.descendants_of(anchor_game.index);
             state
-            .games
-            .values()
+                .games
+                .values()
                 .filter(|game| reachable.contains(&game.index))
                 .max_by_key(|game| game.l2_block)
                 .cloned()
@@ -680,24 +700,62 @@ where
         }
     }
 
-    async fn resolve_candidates(&self, candidate_indices: Vec<U256>) -> Result<()> {
-        for index in candidate_indices {
-            let maybe_game = {
-                let state = self.state.lock().await;
-                state.games.get(&index).cloned()
-            };
+    async fn resolve_games(&self) -> Result<()> {
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.should_attempt_to_resolve)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
 
-            if let Some(game) = maybe_game {
-                if let Err(error) = self.submit_resolution_transaction(&game).await {
-                    tracing::warn!(
-                        game_index = %index,
-                        game_address = ?game.address,
-                        l2_block_end = %game.l2_block,
-                        ?error,
-                        "Failed to resolve game"
-                    );
-                }
+        for game in candidates {
+            if let Err(error) = self.submit_resolution_transaction(&game).await {
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    l2_block_end = %game.l2_block,
+                    ?error,
+                    "Failed to resolve game"
+                );
+                ProposerGauge::GameResolutionError.increment(1.0);
+                continue;
             }
+
+            ProposerGauge::GamesResolved.increment(1.0);
+        }
+
+        Ok(())
+    }
+
+    /// Attempt to claim proposer bonds for any games flagged for claiming
+    async fn claim_bonds(&self) -> Result<()> {
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.should_attempt_to_claim_bond)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+
+        for game in candidates {
+            if let Err(error) = self.submit_bond_claim_transaction(&game).await {
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    l2_block_end = %game.l2_block,
+                    ?error,
+                    "Failed to claim bond for game"
+                );
+                ProposerGauge::BondClaimingError.increment(1.0);
+                continue;
+            }
+
+            ProposerGauge::GamesBondsClaimed.increment(1.0);
         }
 
         Ok(())
@@ -719,16 +777,29 @@ where
             "Game resolved successfully"
         );
 
-        ProposerGauge::GamesResolved.increment(1.0);
-        self.mark_game_proposal_resolved(game.index).await;
         Ok(())
     }
 
-    async fn mark_game_proposal_resolved(&self, index: U256) {
-        let mut state = self.state.lock().await;
-        if let Some(game) = state.games.get_mut(&index) {
-            game.proposal_status = ProposalStatus::Resolved;
-        }
+    /// Submit the on-chain transaction to claim the proposer's bond for a given game.
+    #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
+    async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let transaction_request =
+            contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
+        let receipt = self
+            .signer
+            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .await?;
+
+        tracing::info!(
+            game_index = %game.index,
+            game_address = ?game.address,
+            l2_block_end = %game.l2_block,
+            tx_hash = ?receipt.transaction_hash,
+            "Bond claimed successfully"
+        );
+
+        Ok(())
     }
 
     async fn update_cursor(&self, index: U256) {
@@ -769,7 +840,8 @@ where
                 status,
                 proposal_status: claim_data.status,
                 deadline,
-                proposer_credit_available: false,
+                should_attempt_to_resolve: false,
+                should_attempt_to_claim_bond: false,
             },
         );
 
@@ -819,58 +891,6 @@ where
         } else {
             tracing::info!("No new finalized block number found since last proposed block");
             Ok(None)
-        }
-    }
-
-    /// Handles claiming bonds from resolved games.
-    #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self))]
-    async fn claim_bond_for_game(&self, index: U256, game_address: Address) -> Result<Action> {
-        tracing::info!("Attempting to claim bond from game {:?} where proposer won", game_address);
-
-        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-        let credit = game.credit(self.prover_address).call().await?;
-
-        if credit == U256::ZERO {
-            tracing::info!(
-                game_address = ?game_address,
-                "No credit available for proposer; skipping claim"
-            );
-
-            return Ok(Action::Skipped);
-        }
-
-        let l2_block_number = game.l2BlockNumber().call().await?;
-        let transaction_request =
-            game.claimCredit(self.prover_address).gas(200_000).into_transaction_request();
-
-        match self
-            .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
-            .await
-        {
-            Ok(receipt) => {
-                tracing::info!(
-                    game_address = ?game_address,
-                    l2_block_end = %l2_block_number,
-                    tx_hash = ?receipt.transaction_hash,
-                    "Bond claimed successfully"
-                );
-
-                Ok(Action::Performed)
-            }
-            Err(e) => {
-                tracing::error!(
-                    game_address = ?game_address,
-                    l2_block_end = %l2_block_number,
-                    error = %e,
-                    "Bond claiming failed"
-                );
-                Err(anyhow::anyhow!(
-                    "Failed to claim proposer bond from game {:?}: {:?}",
-                    game_address,
-                    e
-                ))
-            }
         }
     }
 
@@ -1015,21 +1035,21 @@ where
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
-        // Check if we should resolve games
+        // Spawn game resolution task
         if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
-            match self.spawn_game_resolution_task().await {
-                Ok(true) => tracing::info!("Successfully spawned game resolution task"),
-                Ok(false) => tracing::debug!("No games need resolution"),
-                Err(e) => tracing::warn!("Failed to spawn game resolution task: {:?}", e),
+            if let Err(e) = self.spawn_game_resolution_task().await {
+                tracing::warn!("Failed to spawn game resolution task: {:?}", e);
+            } else {
+                tracing::info!("Successfully spawned game resolution task");
             }
         }
 
-        // Check if we should claim bonds
+        // Spawn bond claim task
         if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
-            match self.spawn_bond_claim_task().await {
-                Ok(true) => tracing::info!("Successfully spawned bond claim task"),
-                Ok(false) => tracing::debug!("No bonds available to claim"),
-                Err(e) => tracing::warn!("Failed to spawn bond claim task: {:?}", e),
+            if let Err(e) = self.spawn_bond_claim_task().await {
+                tracing::warn!("Failed to spawn bond claim task: {:?}", e);
+            } else {
+                tracing::info!("Successfully spawned bond claim task");
             }
         } else {
             tracing::info!("Bond claim task already active");
@@ -1298,85 +1318,30 @@ where
         Ok(())
     }
 
-    /// Spawn a game resolution task if needed
-    ///
-    /// Returns:
-    /// - Ok(true): Resolution task was successfully spawned
-    /// - Ok(false): No work needed (no games to resolve)
-    /// - Err: Actual error occurred during task spawning
+    /// Spawn a game resolution task
     #[tracing::instrument(name = "[[Proposer Resolving]]", skip(self))]
-    async fn spawn_game_resolution_task(&self) -> Result<bool> {
-        let latest_block = self
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await?
-            .context("Failed to fetch latest L1 block for resolution task")?;
-        let now_ts = latest_block.header.timestamp;
-
-        let candidate_indices = {
-            let state = self.state.lock().await;
-            state.resolvable_candidates(Mode::Proposer, now_ts)
-        };
-
-        if candidate_indices.is_empty() {
-            return Ok(false);
-        }
-
+    async fn spawn_game_resolution_task(&self) -> Result<()> {
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle =
-            tokio::spawn(async move { proposer.resolve_candidates(candidate_indices).await });
+        let handle = tokio::spawn(async move { proposer.resolve_games().await });
 
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned game resolution task {}", task_id);
-        Ok(true)
+        Ok(())
     }
 
-    /// Spawn a bond claim task if needed
-    ///
-    /// Returns:
-    /// - Ok(true): Bond claim task was successfully spawned
-    /// - Ok(false): No work needed (no claimable bonds available)
-    /// - Err: Actual error occurred during task spawning
-    async fn spawn_bond_claim_task(&self) -> Result<bool> {
-        let candidates: Vec<_> = {
-            let state = self.state.lock().await;
-            state
-                .games
-                .values()
-                .filter_map(|game| {
-                    if game.proposer_credit_available {
-                        Some((game.index, game.address))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        };
-
+    /// Spawn a bond claim task
+    async fn spawn_bond_claim_task(&self) -> Result<()> {
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
-            for (index, game_address) in candidates {
-                match proposer.claim_bond_for_game(index, game_address).await {
-                    Ok(Action::Performed) => {
-                        let mut state = proposer.state.lock().await;
-                        state.games.remove(&index);
-                        ProposerGauge::GamesBondsClaimed.increment(1.0);
-                    }
-                    Ok(Action::Skipped) => {}
-                    Err(e) => return Err(e),
-                }
-            }
-            Ok(())
-        });
+        let handle = tokio::spawn(async move { proposer.claim_bonds().await });
 
         let task_info = TaskInfo::BondClaim;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
-        Ok(true)
+        Ok(())
     }
 }
