@@ -29,7 +29,7 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ProposerConfig,
     contract::{
-        AnchorStateRegistry, ClaimData,
+        AnchorStateRegistry,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
         GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
