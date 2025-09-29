@@ -34,7 +34,7 @@ use crate::{
         GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
     prometheus::ProposerGauge,
-    Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
 
 /// Type alias for task ID
@@ -588,9 +588,9 @@ where
         }
 
         // Synchronize the status of all cached games.
-        let indices: Vec<_> = {
+        let indices = {
             let state = self.state.lock().await;
-            state.games.keys().cloned().collect()
+            state.games.keys().cloned().collect::<Vec<_>>()
         };
 
         let mut to_remove = Vec::new();
@@ -701,27 +701,61 @@ where
     }
 
     async fn resolve_games(&self) -> Result<()> {
-        let state = self.state.lock().await;
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.should_attempt_to_resolve)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
 
-        let candidate_indices: Vec<_> = state
-            .games
-            .values()
-            .filter(|game| game.should_attempt_to_resolve)
-            .map(|game| game.index)
-            .collect();
-
-        for index in candidate_indices {
-            if let Some(game) = state.games.get(&index) {
-                if let Err(error) = self.submit_resolution_transaction(game).await {
-                    tracing::warn!(
-                        game_index = %index,
-                        game_address = ?game.address,
-                        l2_block_end = %game.l2_block,
-                        ?error,
-                        "Failed to resolve game"
-                    );
-                }
+        for game in candidates {
+            if let Err(error) = self.submit_resolution_transaction(&game).await {
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    l2_block_end = %game.l2_block,
+                    ?error,
+                    "Failed to resolve game"
+                );
+                ProposerGauge::GameResolutionError.increment(1.0);
+                continue;
             }
+
+            ProposerGauge::GamesResolved.increment(1.0);
+        }
+
+        Ok(())
+    }
+
+    /// Attempt to claim proposer bonds for any games flagged for claiming
+    async fn claim_bonds(&self) -> Result<()> {
+        let candidates = {
+            let state = self.state.lock().await;
+            state
+                .games
+                .values()
+                .filter(|game| game.should_attempt_to_claim_bond)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+
+        for game in candidates {
+            if let Err(error) = self.submit_bond_claim_transaction(&game).await {
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    l2_block_end = %game.l2_block,
+                    ?error,
+                    "Failed to claim bond for game"
+                );
+                ProposerGauge::BondClaimingError.increment(1.0);
+                continue;
+            }
+
+            ProposerGauge::GamesBondsClaimed.increment(1.0);
         }
 
         Ok(())
@@ -743,16 +777,29 @@ where
             "Game resolved successfully"
         );
 
-        ProposerGauge::GamesResolved.increment(1.0);
-        self.mark_game_proposal_resolved(game.index).await;
         Ok(())
     }
 
-    async fn mark_game_proposal_resolved(&self, index: U256) {
-        let mut state = self.state.lock().await;
-        if let Some(game) = state.games.get_mut(&index) {
-            game.proposal_status = ProposalStatus::Resolved;
-        }
+    /// Submit the on-chain transaction to claim the proposer's bond for a given game.
+    #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
+    async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let transaction_request =
+            contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
+        let receipt = self
+            .signer
+            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .await?;
+
+        tracing::info!(
+            game_index = %game.index,
+            game_address = ?game.address,
+            l2_block_end = %game.l2_block,
+            tx_hash = ?receipt.transaction_hash,
+            "Bond claimed successfully"
+        );
+
+        Ok(())
     }
 
     async fn update_cursor(&self, index: U256) {
@@ -844,58 +891,6 @@ where
         } else {
             tracing::info!("No new finalized block number found since last proposed block");
             Ok(None)
-        }
-    }
-
-    /// Handles claiming bonds from resolved games.
-    #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self))]
-    async fn claim_bond_for_game(&self, index: U256, game_address: Address) -> Result<Action> {
-        tracing::info!("Attempting to claim bond from game {:?} where proposer won", game_address);
-
-        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-        let credit = game.credit(self.signer.address()).call().await?;
-
-        if credit == U256::ZERO {
-            tracing::info!(
-                game_address = ?game_address,
-                "No credit available for proposer; skipping claim"
-            );
-
-            return Ok(Action::Skipped);
-        }
-
-        let l2_block_number = game.l2BlockNumber().call().await?;
-        let transaction_request =
-            game.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
-
-        match self
-            .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
-            .await
-        {
-            Ok(receipt) => {
-                tracing::info!(
-                    game_address = ?game_address,
-                    l2_block_end = %l2_block_number,
-                    tx_hash = ?receipt.transaction_hash,
-                    "Bond claimed successfully"
-                );
-
-                Ok(Action::Performed)
-            }
-            Err(e) => {
-                tracing::error!(
-                    game_address = ?game_address,
-                    l2_block_end = %l2_block_number,
-                    error = %e,
-                    "Bond claiming failed"
-                );
-                Err(anyhow::anyhow!(
-                    "Failed to claim proposer bond from game {:?}: {:?}",
-                    game_address,
-                    e
-                ))
-            }
         }
     }
 
@@ -1040,21 +1035,21 @@ where
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
-        // Check if we should resolve games
+        // Spawn game resolution task
         if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
-            match self.spawn_game_resolution_task().await {
-                Ok(true) => tracing::info!("Successfully spawned game resolution task"),
-                Ok(false) => tracing::debug!("No games need resolution"),
-                Err(e) => tracing::warn!("Failed to spawn game resolution task: {:?}", e),
+            if let Err(e) = self.spawn_game_resolution_task().await {
+                tracing::warn!("Failed to spawn game resolution task: {:?}", e);
+            } else {
+                tracing::info!("Successfully spawned game resolution task");
             }
         }
 
-        // Check if we should claim bonds
+        // Spawn bond claim task
         if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
-            match self.spawn_bond_claim_task().await {
-                Ok(true) => tracing::info!("Successfully spawned bond claim task"),
-                Ok(false) => tracing::debug!("No bonds available to claim"),
-                Err(e) => tracing::warn!("Failed to spawn bond claim task: {:?}", e),
+            if let Err(e) = self.spawn_bond_claim_task().await {
+                tracing::warn!("Failed to spawn bond claim task: {:?}", e);
+            } else {
+                tracing::info!("Successfully spawned bond claim task");
             }
         } else {
             tracing::info!("Bond claim task already active");
@@ -1323,14 +1318,9 @@ where
         Ok(())
     }
 
-    /// Spawn a game resolution task if needed
-    ///
-    /// Returns:
-    /// - Ok(true): Resolution task was successfully spawned
-    /// - Ok(false): No work needed (no games to resolve)
-    /// - Err: Actual error occurred during task spawning
+    /// Spawn a game resolution task
     #[tracing::instrument(name = "[[Proposer Resolving]]", skip(self))]
-    async fn spawn_game_resolution_task(&self) -> Result<bool> {
+    async fn spawn_game_resolution_task(&self) -> Result<()> {
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
@@ -1339,52 +1329,19 @@ where
         let task_info = TaskInfo::GameResolution;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned game resolution task {}", task_id);
-        Ok(true)
+        Ok(())
     }
 
-    /// Spawn a bond claim task if needed
-    ///
-    /// Returns:
-    /// - Ok(true): Bond claim task was successfully spawned
-    /// - Ok(false): No work needed (no claimable bonds available)
-    /// - Err: Actual error occurred during task spawning
-    async fn spawn_bond_claim_task(&self) -> Result<bool> {
-        let candidates: Vec<_> = {
-            let state = self.state.lock().await;
-            state
-                .games
-                .values()
-                .filter_map(|game| {
-                    if game.should_attempt_to_claim_bond {
-                        Some((game.index, game.address))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        };
-
+    /// Spawn a bond claim task
+    async fn spawn_bond_claim_task(&self) -> Result<()> {
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
-        let handle = tokio::spawn(async move {
-            for (index, game_address) in candidates {
-                match proposer.claim_bond_for_game(index, game_address).await {
-                    Ok(Action::Performed) => {
-                        let mut state = proposer.state.lock().await;
-                        state.games.remove(&index);
-                        ProposerGauge::GamesBondsClaimed.increment(1.0);
-                    }
-                    Ok(Action::Skipped) => {}
-                    Err(e) => return Err(e),
-                }
-            }
-            Ok(())
-        });
+        let handle = tokio::spawn(async move { proposer.claim_bonds().await });
 
         let task_info = TaskInfo::BondClaim;
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
-        Ok(true)
+        Ok(())
     }
 }
