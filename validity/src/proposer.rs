@@ -9,6 +9,7 @@ use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
+    network::determine_network_mode,
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
@@ -86,13 +87,12 @@ where
             .await?;
 
         // Set up the network prover.
-        let network_prover = if requester_config.use_kms_requester {
+        let network_signer = if requester_config.use_kms_requester {
             // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
             let kms_key_arn = env::var("NETWORK_PRIVATE_KEY")
                 .context("NETWORK_PRIVATE_KEY must be set when USE_KMS_REQUESTER is true")?;
-            let signer = NetworkSigner::aws_kms(&kms_key_arn).await?;
             tracing::info!("Using KMS requester with address: {:?}", signer.address());
-            Arc::new(ProverClient::builder().network().signer(signer).build())
+            NetworkSigner::aws_kms(&kms_key_arn).await?
         } else {
             // Otherwise, use a private key with a default value to avoid errors in mock mode.
             let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
@@ -101,10 +101,16 @@ where
                 );
                 "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
             });
-            let signer = NetworkSigner::local(&private_key)?;
             tracing::info!("Using local requester with address: {:?}", signer.address());
-            Arc::new(ProverClient::builder().network().signer(signer).build())
+            NetworkSigner::local(&private_key)?
         };
+        let network_mode = determine_network_mode(
+            requester_config.range_proof_strategy,
+            requester_config.agg_proof_strategy,
+        )?;
+        let network_prover = Arc::new(
+            ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
+        );
 
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
 
