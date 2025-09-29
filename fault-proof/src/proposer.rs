@@ -148,40 +148,21 @@ impl ProposerState {
     /// Drop a game and every cached descendant below it.
     ///
     /// Performs a depth-first traversal to identify all games that descend from
-    /// the root game, then removes them all from the cache. This is used when
-    /// a game is found to be invalid (CHALLENGER_WINS), invalidating its entire
-    /// subtree.
-    ///
-    /// After removal, the canonical head is recomputed to maintain consistency.
+    /// the game at `root_index`, then removes them all from the cache. This is used when
+    /// a game is found to be invalid (CHALLENGER_WINS), invalidating its entire subtree.
     fn remove_subtree(&mut self, root_index: U256) {
         let mut stack = vec![root_index];
         let mut to_remove = HashSet::new();
 
         while let Some(index) = stack.pop() {
-            if !to_remove.insert(index) {
-                continue;
-            }
-
-            let children: Vec<U256> = self
-                .games
+            if to_remove.insert(index) {
+                stack.extend(
+                    self.games
                 .values()
-                .filter_map(|game| {
-                    if game.index == index {
-                        return None;
-                    }
-
-                    if game.parent_index == u32::MAX {
-                        None
-                    } else if U256::from(game.parent_index) == index {
-                        Some(game.index)
-                    } else {
-                        // FIXME(fakedev9999): fix.
-                        None
-                    }
-                })
-                .collect();
-
-            stack.extend(children);
+                        .filter(|game| U256::from(game.parent_index) == index)
+                        .map(|game| game.index),
+                );
+            }
         }
 
         for index in to_remove {
