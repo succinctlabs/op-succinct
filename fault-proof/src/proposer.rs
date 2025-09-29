@@ -79,7 +79,6 @@ struct Game {
     proposal_status: ProposalStatus,
     deadline: u64,
     proposer_credit_available: bool,
-    is_descendant_of_anchor: bool,
 }
 
 /// Central state management for tracking the game DAG and canonical chain.
@@ -114,20 +113,10 @@ impl ProposerState {
         self.cursor = Some(index);
     }
 
-    /// Mark `is_descendant_of_anchor` for all games reachable from the current anchor.
-    ///
-    /// Performs a depth-first search from the anchor game index, following child edges where
-    /// `game.parent_index == current`. Every visited index is recorded in `reachable`,
-    /// then each game’s `is_descendant_of_anchor` is updated accordingly.
-    fn update_anchor_descendant_flags(&mut self) {
-        let anchor_index = self
-            .anchor_game
-            .as_ref()
-            .map(|game| game.index)
-            .expect("anchor game must be set before updating descendant flags");
-
+    /// Returns all game indices reachable from `root_index`, including the root.
+    fn descendants_of(&self, root_index: U256) -> HashSet<U256> {
         let mut reachable: HashSet<U256> = HashSet::new();
-        let mut stack = vec![anchor_index];
+        let mut stack = vec![root_index];
 
         while let Some(index) = stack.pop() {
             if reachable.insert(index) {
@@ -140,9 +129,7 @@ impl ProposerState {
             }
         }
 
-        for game in self.games.values_mut() {
-            game.is_descendant_of_anchor = reachable.contains(&game.index);
-        }
+        reachable
     }
 
     /// Drop a game and every cached descendant below it.
@@ -616,7 +603,6 @@ where
                 .expect("Anchor game must be in the cache");
 
             state.anchor_game = Some(anchor_game.clone());
-            state.update_anchor_descendant_flags();
         }
 
         Ok(())
@@ -687,12 +673,17 @@ where
     async fn compute_canonical_head(&self) {
         let mut state = self.state.lock().await;
 
-        let canonical_head = state
+        let canonical_head = if let Some(anchor_game) = state.anchor_game.as_ref() {
+            let reachable = state.descendants_of(anchor_game.index);
+            state
             .games
             .values()
-            .filter(|g| state.anchor_game.as_ref().is_none_or(|_| g.is_descendant_of_anchor))
-            .max_by_key(|g| g.l2_block)
-            .cloned();
+                .filter(|game| reachable.contains(&game.index))
+                .max_by_key(|game| game.l2_block)
+                .cloned()
+        } else {
+            state.games.values().max_by_key(|game| game.l2_block).cloned()
+        };
 
         if let Some(canonical_head) = canonical_head {
             state.canonical_head_index = Some(canonical_head.index);
@@ -790,7 +781,6 @@ where
                 proposal_status: claim_data.status,
                 deadline,
                 proposer_credit_available: false,
-                is_descendant_of_anchor: false,
             },
         );
 
