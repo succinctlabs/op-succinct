@@ -306,18 +306,12 @@ where
             let mut state = self.state.lock().await;
 
             // Fetch the anchor game from the cache.
-            let anchor_game = state.games.iter().find(|(_, game)| game.address == anchor_address);
-
-            match anchor_game {
-                Some((_index, game)) => {
-                    state.anchor_game = Some(game.clone());
-                }
-                None => {
-                    tracing::debug!(
-                        anchor_address = ?anchor_address,
-                        "Anchor game not in cache yet"
-                    );
-                }
+            if let Some((_, anchor_game)) =
+                state.games.iter().find(|(_, game)| game.address == anchor_address)
+            {
+                state.anchor_game = Some(anchor_game.clone());
+            } else {
+                tracing::debug!(?anchor_address, "Anchor game not in cache yet");
             }
         }
 
