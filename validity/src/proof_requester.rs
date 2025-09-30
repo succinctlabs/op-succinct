@@ -356,7 +356,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         &self,
         request: OPSuccinctRequest,
         execution_status: i32,
-        is_cancelled: bool,
     ) -> Result<()> {
         warn!(
             id = request.id,
@@ -366,65 +365,72 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             "Setting request to failed"
         );
 
-        // Only proceed with splitting logic if the request is not cancelled.
-        if is_cancelled {
-            self.db_client.update_request_status(request.id, RequestStatus::Cancelled).await?;
-            Ok(())
-        } else {
-            self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
+        self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
 
-            let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
-            let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
+        let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
+        let l2_chain_id = self.fetcher.l2_provider.get_chain_id().await?;
 
-            if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range
-            {
-                let num_failed_requests = self
-                    .db_client
-                    .fetch_failed_request_count_by_block_range(
+        if request.end_block - request.start_block > 1 && request.req_type == RequestType::Range {
+            let num_failed_requests = self
+                .db_client
+                .fetch_failed_request_count_by_block_range(
+                    request.start_block,
+                    request.end_block,
+                    request.l1_chain_id,
+                    request.l2_chain_id,
+                    &self.program_config.commitments,
+                )
+                .await?;
+
+            // NOTE: The failed_requests check here can be removed in V5.
+            if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable as i32 {
+                info!("Splitting failed request into two: {:?}", request.id);
+                let mid_block = (request.start_block + request.end_block) / 2;
+                let new_requests = vec![
+                    OPSuccinctRequest::create_range_request(
+                        request.mode,
                         request.start_block,
-                        request.end_block,
-                        request.l1_chain_id,
-                        request.l2_chain_id,
-                        &self.program_config.commitments,
+                        mid_block,
+                        self.program_config.commitments.range_vkey_commitment,
+                        self.program_config.commitments.rollup_config_hash,
+                        l1_chain_id as i64,
+                        l2_chain_id as i64,
+                        self.fetcher.clone(),
                     )
-                    .await?;
+                    .await?,
+                    OPSuccinctRequest::create_range_request(
+                        request.mode,
+                        mid_block,
+                        request.end_block,
+                        self.program_config.commitments.range_vkey_commitment,
+                        self.program_config.commitments.rollup_config_hash,
+                        l1_chain_id as i64,
+                        l2_chain_id as i64,
+                        self.fetcher.clone(),
+                    )
+                    .await?,
+                ];
 
-                // NOTE: The failed_requests check here can be removed in V5.
-                if num_failed_requests > 2 ||
-                    execution_status == ExecutionStatus::Unexecutable as i32
-                {
-                    info!("Splitting failed request into two: {:?}", request.id);
-                    let mid_block = (request.start_block + request.end_block) / 2;
-                    let new_requests = vec![
-                        OPSuccinctRequest::create_range_request(
-                            request.mode,
-                            request.start_block,
-                            mid_block,
-                            self.program_config.commitments.range_vkey_commitment,
-                            self.program_config.commitments.rollup_config_hash,
-                            l1_chain_id as i64,
-                            l2_chain_id as i64,
-                            self.fetcher.clone(),
-                        )
-                        .await?,
-                        OPSuccinctRequest::create_range_request(
-                            request.mode,
-                            mid_block,
-                            request.end_block,
-                            self.program_config.commitments.range_vkey_commitment,
-                            self.program_config.commitments.rollup_config_hash,
-                            l1_chain_id as i64,
-                            l2_chain_id as i64,
-                            self.fetcher.clone(),
-                        )
-                        .await?,
-                    ];
-
-                    self.db_client.insert_requests(&new_requests).await?;
-                }
+                self.db_client.insert_requests(&new_requests).await?;
             }
-            Ok(())
         }
+
+        Ok(())
+    }
+
+    #[tracing::instrument(name = "proof_requester.handle_cancelled_request", skip(self, request))]
+    pub async fn handle_cancelled_request(&self, request: OPSuccinctRequest) -> Result<()> {
+        warn!(
+            id = request.id,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            req_type = ?request.req_type,
+            "Setting request to cancelled"
+        );
+
+        self.db_client.update_request_status(request.id, RequestStatus::Cancelled).await?;
+
+        Ok(())
     }
 
     /// Generates the stdin needed for a proof.
