@@ -341,11 +341,7 @@ where
                     self.driver_config.network_prover.cancel_request(proof_request_id).await?;
 
                     // Mark the request as cancelled in the database.
-                    match self
-                        .proof_requester
-                        .handle_failed_request(request.clone(), status.execution_status(), true)
-                        .await
-                    {
+                    match self.proof_requester.handle_cancelled_request(request.clone()).await {
                         Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
                         Err(e) => {
                             ValidityGauge::RetryErrorCount.increment(1.0);
@@ -385,7 +381,7 @@ where
             if current_time > status.deadline() {
                 match self
                     .proof_requester
-                    .handle_failed_request(request.clone(), status.execution_status(), false)
+                    .handle_failed_request(request.clone(), status.execution_status())
                     .await
                 {
                     Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
@@ -519,7 +515,7 @@ where
                 }
 
                 self.proof_requester
-                    .handle_failed_request(request, status.execution_status(), false)
+                    .handle_failed_request(request, status.execution_status())
                     .await?;
                 ValidityGauge::ProofRequestRetryCount.increment(1.0);
             }
@@ -1207,7 +1203,6 @@ where
                                 .handle_failed_request(
                                     request,
                                     ExecutionStatus::UnspecifiedExecutionStatus as i32,
-                                    false,
                                 )
                                 .await
                             {
@@ -1234,7 +1229,6 @@ where
                             .handle_failed_request(
                                 request,
                                 ExecutionStatus::UnspecifiedExecutionStatus as i32,
-                                false,
                             )
                             .await
                         {
