@@ -62,6 +62,7 @@ tracing.workspace = true
 hex.workspace = true
 strum = { workspace = true, features = ["derive"] }
 strum_macros.workspace = true
+tikv-jemallocator = "0.6.0"
 
 [dev-dependencies]
 alloy-signer-local.workspace = true
@@ -77,4 +78,5 @@ which = "4.4"
 [features]
 default = ["ethereum"]
 celestia = ["op-succinct-proof-utils/celestia"]
+eigenda = ["op-succinct-proof-utils/eigenda"]
 ethereum = ["op-succinct-proof-utils/ethereum"]

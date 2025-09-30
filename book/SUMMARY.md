@@ -21,11 +21,12 @@
   - [Upgrading OP Succinct](./validity/upgrade.md)
   - [Experimental Features](./validity/experimental/experimental.md)
     - [Celestia DA](./validity/experimental/celestia.md)
+    - [EigenDA DA](./validity/experimental/eigenda.md)
 
 - [OP Succinct Lite (Fault Proofs)](./fault_proofs/intro.md)
   - [Architecture](./fault_proofs/fault_proof_architecture.md)
   - [Quick Start](./fault_proofs/quick_start.md)
-  - [Contracts](./fault_proofs/contracts.md)
+  - [Contract Management](./fault_proofs/contracts.md)
     - [Deploy FP Contracts](./fault_proofs/deploy.md)
     - [Upgrade FP Contracts](./fault_proofs/upgrade.md)
   - [Running OP Succinct Lite](./fault_proofs/validity-mode.md)
@@ -38,6 +39,7 @@
     - [Best Practices](./fault_proofs/best_practices.md)
   - [Experimental Features](./fault_proofs/experimental/experimental.md)
     - [Celestia DA](./fault_proofs/experimental/celestia.md)
+    - [EigenDA DA](./fault_proofs/experimental/eigenda.md)
 
 - [Advanced](./advanced/intro.md)
   - [Cost Estimator](./advanced/cost-estimator.md)

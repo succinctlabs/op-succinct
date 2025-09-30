@@ -25,7 +25,11 @@ The proposer performs several key functions:
 
 ## Configuration
 
-The proposer is configured through various environment variables. Create a `.env.proposer` file in the fault_proof directory:
+The proposer is configured through environment variables.
+
+Create a `.env` file in the `fault-proof` directory with all required variables. This single file is used by:
+- Docker Compose (for both variable substitution and runtime configuration)
+- Direct binary execution (source it with `. .env` before running)
 
 ### Required Environment Variables
 
@@ -35,7 +39,7 @@ The proposer is configured through various environment variables. Create a `.env
 | `L2_RPC` | L2 RPC endpoint URL |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
-| `NETWORK_PRIVATE_KEY` | Private key for the succinct prover network (Set to `0x0000000000000000000000000000000000000000000000000000000000000001` if not using fast finality mode) |
+| `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. (Set to `0x0000000000000000000000000000000000000000000000000000000000000001` if not using fast finality mode) |
 
 Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for transaction signing:
 
@@ -45,25 +49,27 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 | `SIGNER_URL` | URL of the web3 signer service (if using web3 signer) |
 | `SIGNER_ADDRESS` | Address of the account managed by the web3 signer (if using web3 signer) |
 
-To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
-
 ### Optional Environment Variables
 
 | Variable | Description | Default Value |
 |----------|-------------|---------------|
 | `MOCK_MODE` | Whether to use mock mode | `false` |
 | `FAST_FINALITY_MODE` | Whether to use fast finality mode | `false` |
+| `RANGE_PROOF_STRATEGY` | Proof fulfillment strategy for range proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
+| `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
 | `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
 | `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
 | `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
 | `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
+| `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
 | `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `SAFE_DB_FALLBACK` | Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node. When `false`, proposer will return an error if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. | `false` |
 | `PROPOSER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9000` |
+| `FAST_FINALITY_PROVING_LIMIT` | Maximum number of concurrent proving tasks allowed in fast finality mode. | `1` |
 
 ```env
 # Required Configuration
@@ -82,6 +88,8 @@ SIGNER_ADDRESS=          # Address of the account managed by the web3 signer
 # Optional Configuration
 MOCK_MODE=false                          # Whether to use mock mode
 FAST_FINALITY_MODE=false                 # Whether to use fast finality mode
+RANGE_PROOF_STRATEGY=reserved            # Set to hosted to use hosted proof strategy
+AGG_PROOF_STRATEGY=reserved              # Set to hosted to use hosted proof strategy
 PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
 FETCH_INTERVAL=30                        # Polling interval in seconds
 ENABLE_GAME_RESOLUTION=false             # Whether to enable automatic game resolution
@@ -100,7 +108,7 @@ PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
 
 ## Running
 
-To run the proposer:
+To run the proposer, from the fault-proof directory:
    ```bash
    cargo run --bin proposer
    ```
@@ -129,6 +137,7 @@ The proposer will run indefinitely, creating new games and optionally resolving 
 - Supports mock mode for testing without using the Succinct Prover Network. (Set `MOCK_MODE=true` in `.env.proposer`)
 ### Game Resolution
 When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
+- **Fast Finality**: Immediately resolves proven games (UnchallengedAndValidProofProvided or ChallengedAndValidProofProvided)
 - Monitors unchallenged games
 - Resolves games after their challenge period expires
 - Respects parent-child game relationships in resolution

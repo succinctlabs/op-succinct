@@ -25,7 +25,7 @@ use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove_by_blocks,
     get_ranges_to_prove_by_gas, CommitmentConfig, ContractConfig, OPSuccinctProofRequester,
-    ProgramConfig, RequesterConfig, ValidityGauge,
+    ProgramConfig, RequestExecutionStatistics, RequesterConfig, ValidityGauge,
 };
 
 /// Configuration for the driver.
@@ -278,7 +278,7 @@ where
 
             // Log details for each created range proof request.
             for request in &new_range_requests {
-                info!(
+                debug!(
                     start_block = request.start_block,
                     end_block = request.end_block,
                     "Range proof request created and inserted into database"
@@ -316,11 +316,9 @@ where
     #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self, request))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
-            let (status, proof) = self
-                .driver_config
-                .network_prover
-                .get_proof_status(B256::from_slice(proof_request_id))
-                .await?;
+            let proof_request_id = B256::from_slice(proof_request_id);
+            let (status, proof) =
+                self.driver_config.network_prover.get_proof_status(proof_request_id).await?;
 
             // Check if current time exceeds deadline. If so, the proof has timed out.
             let current_time = std::time::SystemTime::now()
@@ -389,6 +387,22 @@ where
                     .await?;
                 // Update the prove_duration based on the current time and the proof_request_time.
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
+
+                if let Some(proof_request) =
+                    self.driver_config.network_prover.get_proof_request(proof_request_id).await?
+                {
+                    let execution_statistics = RequestExecutionStatistics::from(&proof_request);
+
+                    // Write the execution data to the database.
+                    self.driver_config
+                        .driver_db_client
+                        .insert_execution_statistics(
+                            request.id,
+                            serde_json::to_value(execution_statistics)?,
+                            0,
+                        )
+                        .await?;
+                }
 
                 // Log completion of range and aggregation proofs.
                 match request.req_type {

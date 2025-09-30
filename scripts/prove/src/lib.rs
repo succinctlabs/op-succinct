@@ -7,7 +7,6 @@ use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 
 pub const DEFAULT_RANGE: u64 = 5;
 pub const TWO_WEEKS: Duration = Duration::from_secs(14 * 24 * 60 * 60);
-pub const ONE_HOUR: Duration = Duration::from_secs(60 * 60);
 
 pub async fn execute_multi(
     data_fetcher: &OPSuccinctDataFetcher,
@@ -18,7 +17,12 @@ pub async fn execute_multi(
     let start_time = Instant::now();
     let prover = ProverClient::builder().mock().build();
 
-    let (_, report) = prover.execute(get_range_elf_embedded(), &sp1_stdin).run().unwrap();
+    let (_, report) = prover
+        .execute(get_range_elf_embedded(), &sp1_stdin)
+        .calculate_gas(true)
+        .deferred_proof_verification(false)
+        .run()
+        .unwrap();
 
     let execution_duration = start_time.elapsed();
 

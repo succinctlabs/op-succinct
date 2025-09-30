@@ -11,6 +11,7 @@ use fault_proof::{
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCConfig};
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::Signer;
+use sp1_sdk::network::FulfillmentStrategy;
 use tracing::Instrument;
 
 /// Start a proposer, and return a handle to the proposer task.
@@ -31,15 +32,19 @@ pub async fn start_proposer(
         factory_address: *factory_address,
         mock_mode: true,
         fast_finality_mode: false,
+        range_proof_strategy: FulfillmentStrategy::Hosted,
+        agg_proof_strategy: FulfillmentStrategy::Hosted,
         proposal_interval_in_blocks: 10, // Much smaller interval for testing
         fetch_interval: 2,               // Check more frequently in tests
         game_type,
         max_games_to_check_for_defense: 100,
+        max_concurrent_defense_tasks: 8,
         enable_game_resolution: true,
         max_games_to_check_for_resolution: 100,
         max_games_to_check_for_bond_claiming: 100,
         safe_db_fallback: false,
         metrics_port: 9000,
+        fast_finality_proving_limit: 1,
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());

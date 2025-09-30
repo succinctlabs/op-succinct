@@ -282,7 +282,7 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         _enteredDGFCreate = false;
 
-        /// This is set to the zero address by default.
+        // This is set to the zero address by default.
         disputeGameFactory = address(0);
     }
 
@@ -473,6 +473,8 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
     }
 
     /// @notice Proposes an L2 output through the dispute game factory.
+    /// @dev We can only invoke `disputeGameFactory.create` through this function, ensuring that
+    ///      no one can interact with `proposeL2Output` directly when the dispute game factory is set.
     /// @param _configName The name of the OpSuccinctConfig to use.
     /// @param _outputRoot The root of the L2 output to propose.
     /// @param _l2BlockNumber The L2 block number of the output to propose.

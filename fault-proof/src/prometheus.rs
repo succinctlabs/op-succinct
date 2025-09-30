@@ -36,6 +36,21 @@ pub enum ProposerGauge {
         message = "Total number of games that bonds were claimed by the proposer"
     )]
     GamesBondsClaimed,
+    #[strum(
+        serialize = "op_succinct_fp_active_proving_tasks",
+        message = "Number of game proving tasks currently in progress"
+    )]
+    ActiveProvingTasks,
+    #[strum(
+        serialize = "op_succinct_fp_games_proven",
+        message = "Total number of games successfully proven by the proposer"
+    )]
+    GamesProven,
+    #[strum(
+        serialize = "op_succinct_fp_proving_duration_seconds",
+        message = "Duration of last successful game proving in seconds"
+    )]
+    ProvingDurationSeconds,
     // Error metrics
     #[strum(
         serialize = "op_succinct_fp_game_creation_error",
@@ -62,6 +77,16 @@ pub enum ProposerGauge {
         message = "Total number of metrics errors encountered by the proposer"
     )]
     MetricsError,
+    #[strum(
+        serialize = "op_succinct_fp_total_instruction_cycles",
+        message = "Total instruction cycles from last successful game proving"
+    )]
+    TotalInstructionCycles,
+    #[strum(
+        serialize = "op_succinct_fp_total_sp1_gas",
+        message = "Total SP1 gas used in last successful game proving"
+    )]
+    TotalSP1Gas,
 }
 
 impl MetricsGauge for ProposerGauge {}

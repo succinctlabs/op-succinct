@@ -13,12 +13,12 @@ This guide explains how to run the OP Succinct Lite using Docker Compose.
 
 The fault proof system consists of two main components:
 
-- **Proposer**: Creates and defends claims about L2 state. See `fault_proof/Dockerfile.proposer`.
-- **Challenger**: Monitors and challenges invalid claims. See `fault_proof/Dockerfile.challenger`.
+- **Proposer**: Creates and defends claims about L2 state. See `fault-proof/Dockerfile.proposer`.
+- **Challenger**: Monitors and challenges invalid claims. See `fault-proof/Dockerfile.challenger`.
 
 ## Quick Start
 
-1. Create environment files under the `fault_proof` directory for both components:
+1. Create environment files under the `fault-proof` directory for both components:
 
 ### Proposer Configuration (.env.proposer)
 
@@ -108,7 +108,7 @@ L1_BEACON_RPC=           # L1 Beacon RPC endpoint URL
 L2_NODE_RPC=             # L2 Node RPC endpoint URL
 ```
 
-To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/).
+For the Succinct Prover Network setup, see the [quickstart guide](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart).
 
 ## Building Images Manually
 

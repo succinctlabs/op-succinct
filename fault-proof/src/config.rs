@@ -4,6 +4,7 @@ use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use sp1_sdk::network::FulfillmentStrategy;
 
 #[derive(Debug, Clone)]
 pub struct ProposerConfig {
@@ -22,6 +23,12 @@ pub struct ProposerConfig {
     /// Whether to use fast finality mode.
     pub fast_finality_mode: bool,
 
+    /// Proof fulfillment strategy for range proofs.
+    pub range_proof_strategy: FulfillmentStrategy,
+
+    /// Proof fulfillment strategy for aggregation proofs.
+    pub agg_proof_strategy: FulfillmentStrategy,
+
     /// The interval in blocks between proposing new games.
     pub proposal_interval_in_blocks: u64,
 
@@ -38,6 +45,9 @@ pub struct ProposerConfig {
 
     /// The number of games to check for defense.
     pub max_games_to_check_for_defense: u64,
+
+    /// The max number of defense tasks to run concurrently.
+    pub max_concurrent_defense_tasks: u64,
 
     /// Whether to enable game resolution.
     /// When game resolution is not enabled, the proposer will only propose new games.
@@ -57,6 +67,10 @@ pub struct ProposerConfig {
 
     /// The metrics port.
     pub metrics_port: u16,
+
+    /// Maximum concurrent proving tasks allowed in fast finality mode.
+    /// This limit prevents game creation when proving capacity is reached.
+    pub fast_finality_proving_limit: u64,
 }
 
 impl ProposerConfig {
@@ -69,6 +83,22 @@ impl ProposerConfig {
             fast_finality_mode: env::var("FAST_FINALITY_MODE")
                 .unwrap_or("false".to_string())
                 .parse()?,
+            range_proof_strategy: if env::var("RANGE_PROOF_STRATEGY")
+                .unwrap_or("reserved".to_string())
+                .eq_ignore_ascii_case("hosted")
+            {
+                FulfillmentStrategy::Hosted
+            } else {
+                FulfillmentStrategy::Reserved
+            },
+            agg_proof_strategy: if env::var("AGG_PROOF_STRATEGY")
+                .unwrap_or("reserved".to_string())
+                .eq_ignore_ascii_case("hosted")
+            {
+                FulfillmentStrategy::Hosted
+            } else {
+                FulfillmentStrategy::Reserved
+            },
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
                 .unwrap_or("1800".to_string())
                 .parse()?,
@@ -76,6 +106,9 @@ impl ProposerConfig {
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
             max_games_to_check_for_defense: env::var("MAX_GAMES_TO_CHECK_FOR_DEFENSE")
                 .unwrap_or("100".to_string())
+                .parse()?,
+            max_concurrent_defense_tasks: env::var("MAX_CONCURRENT_DEFENSE_TASKS")
+                .unwrap_or("8".to_string())
                 .parse()?,
             enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
                 .unwrap_or("true".to_string())
@@ -91,6 +124,9 @@ impl ProposerConfig {
                 .parse()?,
             metrics_port: env::var("PROPOSER_METRICS_PORT")
                 .unwrap_or("9000".to_string())
+                .parse()?,
+            fast_finality_proving_limit: env::var("FAST_FINALITY_PROVING_LIMIT")
+                .unwrap_or("1".to_string())
                 .parse()?,
         })
     }
