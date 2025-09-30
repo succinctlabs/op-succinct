@@ -15,14 +15,18 @@ use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
-    metrics::MetricsGauge, network::determine_network_mode, witness_generation::WitnessGenerator,
+    fetcher::OPSuccinctDataFetcher,
+    get_agg_proof_stdin,
+    host::OPSuccinctHost,
+    metrics::MetricsGauge,
+    network::{determine_network_mode, get_network_signer},
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    NetworkProver, NetworkSigner, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues,
-    SP1ProvingKey, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
+    SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{sync::Mutex, time};
 
@@ -162,7 +166,7 @@ where
     /// contract instance.
     pub async fn new(
         config: ProposerConfig,
-        network_private_key: String,
+        prover_address: Address,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
         anchor_state_registry: AnchorStateRegistryInstance<P>,
@@ -170,16 +174,7 @@ where
         host: Arc<H>,
     ) -> Result<Self> {
         // Set up the network prover.
-        let network_signer = if config.use_kms_requester {
-            // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
-            tracing::info!("Using KMS requester with address: {:?}", signer.address());
-            NetworkSigner::aws_kms(&network_private_key).await?
-        } else {
-            // Otherwise, use a private key with a default value to avoid errors in mock mode.
-            tracing::info!("Using local requester with address: {:?}", signer.address());
-            NetworkSigner::local(&network_private_key)?
-        };
-
+        let network_signer = get_network_signer(config.use_kms_requester).await?;
         let network_mode =
             determine_network_mode(config.range_proof_strategy, config.agg_proof_strategy)?;
         let network_prover = Arc::new(
