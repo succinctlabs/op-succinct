@@ -65,6 +65,9 @@ pub struct ProposerConfig {
     /// The maximum price per pgu for proving.
     pub max_price_per_pgu: u64,
 
+    /// The minimum auction period.
+    pub min_auction_period: u64,
+
     /// The timeout to use for proving (in seconds).
     pub timeout: u64,
 
@@ -142,6 +145,9 @@ impl ProposerConfig {
                 .parse()?,
             max_price_per_pgu: env::var("MAX_PRICE_PER_PGU")
                 .unwrap_or("1000000000000".to_string()) // 1 PROVE per 1M PGUs
+                .parse()?,
+            min_auction_period: env::var("MIN_AUCTION_PERIOD")
+                .unwrap_or("1".to_string())
                 .parse()?,
             timeout: env::var("TIMEOUT").unwrap_or("14400".to_string()).parse()?, // 4 hours
             range_cycle_limit: env::var("RANGE_CYCLE_LIMIT")

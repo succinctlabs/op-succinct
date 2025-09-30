@@ -564,7 +564,7 @@ where
                 .skip_simulation(true)
                 .strategy(self.config.range_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
-                .min_auction_period(15) // 15 seconds
+                .min_auction_period(self.config.min_auction_period)
                 .max_price_per_pgu(self.config.max_price_per_pgu)
                 .cycle_limit(self.config.range_cycle_limit)
                 .gas_limit(self.config.range_gas_limit)
@@ -630,7 +630,7 @@ where
                 .groth16()
                 .strategy(self.config.agg_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
-                .min_auction_period(15) // 15 seconds
+                .min_auction_period(self.config.min_auction_period)
                 .max_price_per_pgu(self.config.max_price_per_pgu)
                 .cycle_limit(self.config.agg_cycle_limit)
                 .gas_limit(self.config.agg_gas_limit)

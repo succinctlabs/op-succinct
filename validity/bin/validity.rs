@@ -72,6 +72,7 @@ async fn main() -> Result<()> {
         agg_cycle_limit: env_config.agg_cycle_limit,
         agg_gas_limit: env_config.agg_gas_limit,
         whitelist: env_config.whitelist,
+        min_auction_period: env_config.min_auction_period,
         auction_timeout: env_config.auction_timeout,
     };
 

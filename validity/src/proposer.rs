@@ -153,6 +153,7 @@ where
             requester_config.agg_cycle_limit,
             requester_config.agg_gas_limit,
             requester_config.whitelist.clone(),
+            requester_config.min_auction_period,
             requester_config.auction_timeout,
         ));
 

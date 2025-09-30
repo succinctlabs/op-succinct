@@ -77,6 +77,9 @@ pub struct RequesterConfig {
     /// The list of prover addresses that are allowed to bid on proof requests.
     pub whitelist: Option<Vec<Address>>,
 
+    /// The minimum auction period.
+    pub min_auction_period: u64,
+
     /// How long to wait before cancelling a proof request that hasn't been assigned.
     pub auction_timeout: u64,
 }
