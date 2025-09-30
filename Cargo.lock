@@ -8894,7 +8894,6 @@ dependencies = [
  "op-alloy-network",
  "op-succinct-client-utils",
  "op-succinct-elfs",
- "op-succinct-signer-utils",
  "opentelemetry 0.23.0",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",

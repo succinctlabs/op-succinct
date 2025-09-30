@@ -324,7 +324,6 @@ where
                     request_details.created_at + self.requester_config.auction_timeout;
                 if self.driver_config.network_prover.network_mode() == NetworkMode::Mainnet &&
                     request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
-                    current_time < status.deadline() &&
                     current_time > auction_deadline
                 {
                     // Cancel the request in the network.
