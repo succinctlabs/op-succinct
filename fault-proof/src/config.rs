@@ -116,10 +116,10 @@ impl ProposerConfig {
                 .parse()?,
             range_proof_strategy: parse_fulfillment_strategy(
                 env::var("RANGE_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
-            )?,
+            ),
             agg_proof_strategy: parse_fulfillment_strategy(
                 env::var("AGG_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
-            )?,
+            ),
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
                 .unwrap_or("1800".to_string())
                 .parse()?,
