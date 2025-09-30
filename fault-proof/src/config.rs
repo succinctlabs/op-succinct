@@ -58,7 +58,7 @@ pub struct ProposerConfig {
     /// This limit prevents game creation when proving capacity is reached.
     pub fast_finality_proving_limit: u64,
 
-    /// Whether to to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a
+    /// Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a
     /// plaintext private key.
     pub use_kms_requester: bool,
 
