@@ -1,22 +1,30 @@
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::Result;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use tokio::time;
+use tokio::{sync::Mutex, time};
 
 use crate::{
     config::ChallengerConfig,
     contract::{
-        DisputeGameFactory::DisputeGameFactoryInstance, OPSuccinctFaultDisputeGame, ProposalStatus,
+        DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, OPSuccinctFaultDisputeGame,
+        ProposalStatus,
     },
     prometheus::ChallengerGauge,
     Action, FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, Mode,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 use op_succinct_signer_utils::Signer;
+
+struct Game {}
+
+struct ChallengerState {
+    cursor: Option<U256>,
+    games: HashMap<U256, Game>,
+}
 
 pub struct OPSuccinctChallenger<P>
 where
@@ -29,8 +37,7 @@ where
     l2_provider: L2Provider,
     factory: DisputeGameFactoryInstance<P>,
     challenger_bond: U256,
-    // In-memory scan cursor: last latest index we scanned up to.
-    scan_cursor: Option<U256>,
+    state: Arc<Mutex<ChallengerState>>,
 }
 
 impl<P> OPSuccinctChallenger<P>
@@ -68,7 +75,7 @@ where
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
             factory,
             challenger_bond,
-            scan_cursor: None,
+            state: Arc::new(Mutex::new(ChallengerState { cursor: None, games: HashMap::new() })),
         })
     }
 
@@ -89,8 +96,14 @@ where
         // Each loop, check the oldest challengeable game and challenge it if it exists.
         // Eventually, all games will be challenged (as long as the rate at which games are being
         // created is slower than the fetch interval).
+        // TODO(fakedev9999): update comment.
         loop {
             interval.tick().await;
+
+            // 1. Synchronize cached dispute state before scheduling work.
+            if let Err(e) = self.sync_state().await {
+                tracing::warn!("Failed to sync challenger state: {:?}", e);
+            }
 
             match self.handle_game_challenging().await {
                 Ok(Action::Performed) => {}
@@ -117,26 +130,158 @@ where
         }
     }
 
-    /// Challenges a specific game at the given address.
-    async fn challenge_game(&self, game_address: Address) -> Result<()> {
-        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+    /// Synchronizes the game cache.
+    ///
+    /// 1. Load new games.
+    ///    - Incrementally load new games from the factory starting from the cursor.
+    /// 2. Synchronize the status of all cached games.
+    ///    - Games are marked for resolution if the parent is resolved and the game is over.
+    ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
+    async fn sync_state(&self) -> Result<()> {
+        // 1. Load new games.
+        let mut next_index = {
+            let state = self.state.lock().await;
+            match state.cursor() {
+                Some(cursor) => cursor + U256::from(1),
+                None => U256::ZERO,
+            }
+        };
 
+        let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
+            return Ok(());
+        };
+
+        while next_index <= latest_index {
+            self.fetch_game(next_index).await?;
+            next_index += U256::from(1);
+        }
+
+        // 2. Synchronize the status of all cached games.
+        let indices = {
+            let state = self.state.lock().await;
+            state.games.keys().cloned().collect::<Vec<_>>()
+        };
+
+        for index in indices {
+            let game_address = {
+                let state = self.state.lock().await;
+                match state.games.get(&index) {
+                    Some(g) => g.address,
+                    None => continue,
+                }
+            };
+
+            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+            let claim_data = contract.claimData().call().await?;
+            let status = contract.status().call().await?;
+            let deadline = U256::from(claim_data.deadline).to::<u64>();
+            let registry_address = contract.anchorStateRegistry().call().await?;
+            let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
+            let is_finalized = registry.isGameFinalized(game_address).call().await?;
+            let credit = contract.credit(self.signer.address()).call().await?;
+            let now_ts = self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .context("Failed to fetch latest L1 block timestamp")?
+                .header
+                .timestamp;
+
+            {
+                let mut state = self.state.lock().await;
+                let Some(game) = state.games.get_mut(&index) else { continue };
+
+                match status {
+                    GameStatus::IN_PROGRESS => {
+                        game.proposal_status = claim_data.status;
+                        // TODO(fakedev9999): remove when fix to gameOver contract call.
+                        game.deadline = deadline;
+
+                        if claim_data.status == ProposalStatus::Unchallenged {
+                            game.should_attempt_to_challenge = true;
+                        } else if claim_data.status == ProposalStatus::Challenged {
+                            // TODO(fakedev9999): fix to gameOver contract call.
+                            if is_parent_resolved &&
+                                game.is_game_over(now_ts) &&
+                                self.is_own_game(game).await?
+                            {
+                                game.should_attempt_to_resolve = true;
+                            }
+                        }
+                    }
+                    GameStatus::CHALLENGER_WINS => {
+                        if is_finalized && credit > U256::ZERO {
+                            game.should_attempt_to_claim_bond = true;
+                        }
+                    }
+                    GameStatus::DEFENDER_WINS => {
+                        state.games.remove(&index);
+                    }
+                    _ => unreachable!("Unexpected game status: {:?}", status),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Fetch game from the factory.
+    ///
+    /// Drop game if the game type is invalid.
+    async fn fetch_game(&self, index: U256) -> Result<()> {
+        let game = self.factory.gameAtIndex(index).call().await?;
+        let game_address = game.proxy;
+        let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        let l2_block_number = contract.l2BlockNumber().call().await?;
+        let output_root = contract.rootClaim().call().await?;
+        let computed_output_root =
+            self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
+
+        // TODO(fakedev9999): fetch all games no matter of the validity of the output root.
+        // This is because all descendants of the invalid game are also invalid. However, if
+        // the descendants of the invalid game are not challenged prior to resolution, the
+        // proposer bond is burnt. To maximize the profit of the challenger, we should fetch all
+        // games no matter of the validity of the output root.
+        //
+        // The current implementation fetches only invalid games for simplicity, but handles
+        // the worst case scenario where invalid output root gets finalized.
+        //
+        // When updating the implementation, we should clevererly decide when to evict games,
+        // since essentially, the challenger should track all games to maximize the profit.
+        if !contract.wasRespectedGameTypeWhenCreated().call().await? ||
+            output_root == computed_output_root
+        {
+            tracing::debug!(
+                game_index = %index,
+                ?game_address,
+                "Dropping game due to invalid game type or valid output root"
+            );
+            self.update_cursor(index).await;
+            return Ok(());
+        }
+
+        let mut state = self.state.lock().await;
+        state.games.insert(index, Game { index, address: game_address });
+
+        Ok(())
+    }
+
+    async fn submit_challenge_transaction(&self, game: &Game) -> Result<()> {
+        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
-            game.challenge().value(self.challenger_bond).into_transaction_request();
-
+            contract.challenge().value(self.challenger_bond).into_transaction_request();
         let receipt = self
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
 
         tracing::info!(
-            "Successfully challenged game {:?} with tx {:?}",
-            game_address,
-            receipt.transaction_hash
+            game_index = %game.index,
+            game_address = ?game.address,
+            l1_block = %game.l2_block,
+            tx_hash = ?receipt.transaction_hash,
+            "Game challenged successfully"
         );
-
-        // Increment metrics on successful challenge
-        ChallengerGauge::GamesChallenged.increment(1.0);
 
         Ok(())
     }
@@ -296,11 +441,25 @@ where
     /// Also supports malicious challenging of valid games for testing defense mechanisms when
     /// configured.
     #[tracing::instrument(skip(self), level = "info", name = "[[Challenging]]")]
-    async fn handle_game_challenging(&mut self) -> Result<Action> {
-        // Challenge invalid games (honest challenger behavior)
-        let action = self.scan_and_challenge().await?;
-        if matches!(action, Action::Performed) {
-            return Ok(action);
+    async fn handle_game_challenging(&mut self) -> Result<()> {
+        let candidates = {
+            let state = self.state.lock().await;
+            state.games.values().filter(|game| game.should_attempt_to_challenge).collect::<Vec<_>>()
+        };
+
+        for game in candidates {
+            if let Err(error) = self.submit_challenge_transaction(game).await {
+                tracing::warn!(
+                    game_index = %game.index,
+                    game_address = ?game.address,
+                    ?error,
+                    "Failed to challenge game"
+                );
+                ChallengerGauge::GameChallengingError.increment(1.0);
+                continue;
+            }
+
+            ChallengerGauge::GamesChallenged.increment(1.0);
         }
 
         // Maliciously challenge valid games (if configured for testing defense mechanisms)
