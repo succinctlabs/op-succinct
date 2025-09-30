@@ -63,7 +63,7 @@ fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
     let addresses: Result<Vec<Address>> = whitelist_str
         .split(',')
         .map(|addr_str| {
-            let addr_str = addr_str.trim();
+            let addr_str = addr_str.trim().trim_start_matches("0x");
             // Add 0x prefix since addresses are provided without it
             let addr_with_prefix = format!("0x{}", addr_str);
             Address::from_str(&addr_with_prefix)
