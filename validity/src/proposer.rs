@@ -16,7 +16,10 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    network::proto::types::{ExecutionStatus, FulfillmentStatus},
+    network::{
+        proto::types::{ExecutionStatus, FulfillmentStatus},
+        NetworkMode,
+    },
     HashableKey, NetworkProver, NetworkSigner, Prover, ProverClient, SP1Proof,
     SP1ProofWithPublicValues,
 };
@@ -334,7 +337,8 @@ where
             if let Some(request_details) = request_details {
                 let auction_deadline =
                     request_details.created_at + self.requester_config.auction_timeout;
-                if request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                if self.driver_config.network_prover.network_mode() == NetworkMode::Mainnet &&
+                    request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
                     current_time < status.deadline() &&
                     current_time > auction_deadline
                 {
