@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -8,8 +8,10 @@ use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
-    network::determine_network_mode,
+    fetcher::OPSuccinctDataFetcher,
+    host::OPSuccinctHost,
+    metrics::MetricsGauge,
+    network::{determine_network_mode, get_network_signer},
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
@@ -20,8 +22,7 @@ use sp1_sdk::{
         proto::types::{ExecutionStatus, FulfillmentStatus},
         NetworkMode,
     },
-    HashableKey, NetworkProver, NetworkSigner, Prover, ProverClient, SP1Proof,
-    SP1ProofWithPublicValues,
+    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -90,23 +91,7 @@ where
             .await?;
 
         // Set up the network prover.
-        let network_signer = if requester_config.use_kms_requester {
-            // If using KMS, NETWORK_PRIVATE_KEY should be a KMS key ARN.
-            let kms_key_arn = env::var("NETWORK_PRIVATE_KEY")
-                .context("NETWORK_PRIVATE_KEY must be set when USE_KMS_REQUESTER is true")?;
-            tracing::info!("Using KMS requester with address: {:?}", signer.address());
-            NetworkSigner::aws_kms(&kms_key_arn).await?
-        } else {
-            // Otherwise, use a private key with a default value to avoid errors in mock mode.
-            let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
-                tracing::warn!(
-                    "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-                );
-                "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-            });
-            tracing::info!("Using local requester with address: {:?}", signer.address());
-            NetworkSigner::local(&private_key)?
-        };
+        let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
         let network_mode = determine_network_mode(
             requester_config.range_proof_strategy,
             requester_config.agg_proof_strategy,

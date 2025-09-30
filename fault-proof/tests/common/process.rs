@@ -58,25 +58,12 @@ pub async fn start_proposer(
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
-
-    // For testing, we use mock mode, so we use a dummy network private key.
-    let network_private_key =
-        "0x0000000000000000000000000000000000000000000000000000000000000001".to_string();
-
     let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
     let host = initialize_host(fetcher.clone());
 
     Ok(tokio::spawn(async move {
-        let proposer = OPSuccinctProposer::new(
-            config,
-            network_private_key,
-            prover_address,
-            signer,
-            factory,
-            fetcher,
-            host,
-        )
-        .await?;
+        let proposer =
+            OPSuccinctProposer::new(config, prover_address, signer, factory, fetcher, host).await?;
         Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER")).await
     }))
 }
