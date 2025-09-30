@@ -41,6 +41,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_cycle_limit: u64,
     pub agg_gas_limit: u64,
     pub whitelist: Option<Vec<Address>>,
+    pub min_auction_period: u64,
     pub auction_timeout: u64,
 }
 
@@ -64,6 +65,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_cycle_limit: u64,
         agg_gas_limit: u64,
         whitelist: Option<Vec<Address>>,
+        min_auction_period: u64,
         auction_timeout: u64,
     ) -> Self {
         Self {
@@ -84,6 +86,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_cycle_limit,
             agg_gas_limit,
             whitelist,
+            min_auction_period,
             auction_timeout,
         }
     }
@@ -179,7 +182,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .strategy(self.range_strategy)
             .skip_simulation(true)
             .timeout(Duration::from_secs(self.timeout))
-            .min_auction_period(15) // 15 seconds
+            .min_auction_period(self.min_auction_period)
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
@@ -205,7 +208,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
             .timeout(Duration::from_secs(self.timeout))
-            .min_auction_period(15) // 15 seconds
+            .min_auction_period(self.min_auction_period)
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
