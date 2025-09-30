@@ -294,30 +294,6 @@ where
         Ok(())
     }
 
-    /// Synchronizes the anchor game from the factory.
-    async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_registry_address =
-            self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
-        let anchor_registry =
-            AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
-        let anchor_address = anchor_registry.anchorGame().call().await?;
-
-        if anchor_address != Address::ZERO {
-            let mut state = self.state.lock().await;
-
-            // Fetch the anchor game from the cache.
-            if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == anchor_address)
-            {
-                state.anchor_game = Some(anchor_game.clone());
-            } else {
-                tracing::debug!(?anchor_address, "Anchor game not in cache yet");
-            }
-        }
-
-        Ok(())
-    }
-
     /// Synchronizes the game cache.
     ///
     /// 1. Load new games.
@@ -436,6 +412,30 @@ where
             let mut state = self.state.lock().await;
             for index in to_remove {
                 state.remove_subtree(index);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Synchronizes the anchor game from the factory.
+    async fn sync_anchor_game(&self) -> Result<()> {
+        let anchor_registry_address =
+            self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
+        let anchor_registry =
+            AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
+        let anchor_address = anchor_registry.anchorGame().call().await?;
+
+        if anchor_address != Address::ZERO {
+            let mut state = self.state.lock().await;
+
+            // Fetch the anchor game from the cache.
+            if let Some((_, anchor_game)) =
+                state.games.iter().find(|(_, game)| game.address == anchor_address)
+            {
+                state.anchor_game = Some(anchor_game.clone());
+            } else {
+                tracing::debug!(?anchor_address, "Anchor game not in cache yet");
             }
         }
 
