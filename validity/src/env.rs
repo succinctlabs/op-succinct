@@ -131,12 +131,12 @@ pub fn read_proposer_env() -> Result<EnvironmentConfig> {
             Some("opsuccinct_genesis".to_string()),
         )?,
         use_kms_requester: get_env_var("USE_KMS_REQUESTER", Some(false))?,
-        max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(1_000_000_000_000u64))?, /* 1 PROVE per 1M PGUs */
-        timeout: get_env_var("TIMEOUT", Some(14400))?,                                    // 4 hours
+        max_price_per_pgu: get_env_var("MAX_PRICE_PER_PGU", Some(300_000_000u64))?, /* 0.3 PROVE per billion PGU */
+        timeout: get_env_var("TIMEOUT", Some(14400))?,                              // 4 hours
         range_cycle_limit: get_env_var("RANGE_CYCLE_LIMIT", Some(1_000_000_000_000))?, // 1 trillion
-        range_gas_limit: get_env_var("RANGE_GAS_LIMIT", Some(1_000_000_000_000))?,     // 1 trillion
-        agg_cycle_limit: get_env_var("AGG_CYCLE_LIMIT", Some(1_000_000_000_000))?,     // 1 trillion
-        agg_gas_limit: get_env_var("AGG_GAS_LIMIT", Some(1_000_000_000_000))?,         // 1 trillion
+        range_gas_limit: get_env_var("RANGE_GAS_LIMIT", Some(1_000_000_000_000))?,  // 1 trillion
+        agg_cycle_limit: get_env_var("AGG_CYCLE_LIMIT", Some(1_000_000_000_000))?,  // 1 trillion
+        agg_gas_limit: get_env_var("AGG_GAS_LIMIT", Some(1_000_000_000_000))?,      // 1 trillion
         whitelist: parse_whitelist(&get_env_var("WHITELIST", Some("".to_string()))?)?,
         auction_timeout: get_env_var("AUCTION_TIMEOUT", Some(60))?, // 1 minute
     };

@@ -43,8 +43,8 @@ pub async fn start_proposer(
         metrics_port: 9000,
         fast_finality_proving_limit: 1,
         use_kms_requester: false,
-        max_price_per_pgu: 1_000_000_000_000u64, // 1 PROVE per 1M PGUs
-        timeout: 14400,                          // 4 hours
+        max_price_per_pgu: 300_000_000u64, // 0.3 PROVE per billion PGU
+        timeout: 14400,                    // 4 hours
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
         agg_cycle_limit: 1_000_000_000_000,
