@@ -72,6 +72,51 @@ where
         })
     }
 
+    /// Runs the challenger in an infinite loop, periodically checking for games to challenge and
+    /// resolve.
+    pub async fn run(&mut self) -> Result<()> {
+        tracing::info!("OP Succinct Challenger running...");
+        if self.config.malicious_challenge_percentage > 0.0 {
+            tracing::warn!(
+                "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
+                self.config.malicious_challenge_percentage
+            );
+        } else {
+            tracing::info!("Honest challenger mode (malicious challenging disabled)");
+        }
+        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+
+        // Each loop, check the oldest challengeable game and challenge it if it exists.
+        // Eventually, all games will be challenged (as long as the rate at which games are being
+        // created is slower than the fetch interval).
+        loop {
+            interval.tick().await;
+
+            match self.handle_game_challenging().await {
+                Ok(Action::Performed) => {}
+                Ok(Action::Skipped) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to handle game challenging: {:?}", e);
+                    ChallengerGauge::GameChallengingError.increment(1.0);
+                }
+            }
+
+            if let Err(e) = self.handle_game_resolution().await {
+                tracing::warn!("Failed to handle game resolution: {:?}", e);
+                ChallengerGauge::GameResolutionError.increment(1.0);
+            }
+
+            match self.handle_bond_claiming().await {
+                Ok(Action::Performed) => {}
+                Ok(Action::Skipped) => {}
+                Err(e) => {
+                    tracing::warn!("Failed to handle bond claiming: {:?}", e);
+                    ChallengerGauge::BondClaimingError.increment(1.0);
+                }
+            }
+        }
+    }
+
     /// Challenges a specific game at the given address.
     async fn challenge_game(&self, game_address: Address) -> Result<()> {
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -373,51 +418,6 @@ where
             tracing::info!("No games found where challenger won to claim bonds from");
 
             Ok(Action::Skipped)
-        }
-    }
-
-    /// Runs the challenger in an infinite loop, periodically checking for games to challenge and
-    /// resolve.
-    pub async fn run(&mut self) -> Result<()> {
-        tracing::info!("OP Succinct Challenger running...");
-        if self.config.malicious_challenge_percentage > 0.0 {
-            tracing::warn!(
-                "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
-                self.config.malicious_challenge_percentage
-            );
-        } else {
-            tracing::info!("Honest challenger mode (malicious challenging disabled)");
-        }
-        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
-
-        // Each loop, check the oldest challengeable game and challenge it if it exists.
-        // Eventually, all games will be challenged (as long as the rate at which games are being
-        // created is slower than the fetch interval).
-        loop {
-            interval.tick().await;
-
-            match self.handle_game_challenging().await {
-                Ok(Action::Performed) => {}
-                Ok(Action::Skipped) => {}
-                Err(e) => {
-                    tracing::warn!("Failed to handle game challenging: {:?}", e);
-                    ChallengerGauge::GameChallengingError.increment(1.0);
-                }
-            }
-
-            if let Err(e) = self.handle_game_resolution().await {
-                tracing::warn!("Failed to handle game resolution: {:?}", e);
-                ChallengerGauge::GameResolutionError.increment(1.0);
-            }
-
-            match self.handle_bond_claiming().await {
-                Ok(Action::Performed) => {}
-                Ok(Action::Skipped) => {}
-                Err(e) => {
-                    tracing::warn!("Failed to handle bond claiming: {:?}", e);
-                    ChallengerGauge::BondClaimingError.increment(1.0);
-                }
-            }
         }
     }
 }
