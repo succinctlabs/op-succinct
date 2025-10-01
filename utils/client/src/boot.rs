@@ -15,7 +15,7 @@ pub const AGGREGATION_OUTPUTS_SIZE: usize = 6 * 32;
 /// on-chain, so switching to a different hash function is not a concern, as long as the config hash
 /// is consistent with the one on the contract.
 pub fn hash_rollup_config(config: &CeloRollupConfig) -> B256 {
-    let serialized_config = serde_json::to_string_pretty(&config.op_rollup_config).unwrap();
+    let serialized_config = serde_json::to_string_pretty(&config.0).unwrap();
 
     // Create a SHA256 hasher
     let mut hasher = Sha256::new();
@@ -42,8 +42,7 @@ sol! {
 impl From<BootInfo> for BootInfoStruct {
     fn from(boot_info: BootInfo) -> Self {
         // Wrap RollupConfig with CeloRollupConfig
-        let celo_rollup_config =
-            CeloRollupConfig { op_rollup_config: boot_info.rollup_config.clone() };
+        let celo_rollup_config = CeloRollupConfig(boot_info.rollup_config.clone());
         BootInfoStruct {
             l1Head: boot_info.l1_head,
             l2PreRoot: boot_info.agreed_l2_output_root,

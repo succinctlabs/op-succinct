@@ -91,10 +91,7 @@ where
 
                 // If we are in interop mode, this error must be handled by the caller.
                 // Otherwise, we continue the loop to halt derivation on the next iteration.
-                if cfg
-                    .op_rollup_config
-                    .is_interop_active(driver.cursor.read().l2_safe_head().block_info.number)
-                {
+                if cfg.is_interop_active(driver.cursor.read().l2_safe_head().block_info.number) {
                     return Err(PipelineError::EndOfSource.crit().into());
                 } else {
                     continue;
@@ -118,8 +115,7 @@ where
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
 
-                if cfg.op_rollup_config.is_holocene_active(attributes.payload_attributes.timestamp)
-                {
+                if cfg.is_holocene_active(attributes.payload_attributes.timestamp) {
                     // Retry with a deposit-only block.
                     warn!(target: "client", "Flushing current channel and retrying deposit only block");
 

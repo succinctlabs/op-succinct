@@ -138,7 +138,7 @@ impl OPSuccinctDataFetcher {
 
         // Add warning if the chain is pre-Holocene, as derivation is significantly slower.
         let unix_timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        if !rollup_config.op_rollup_config.is_holocene_active(unix_timestamp) {
+        if !rollup_config.is_holocene_active(unix_timestamp) {
             tracing::warn!("WARNING: Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
         }
 
@@ -304,10 +304,10 @@ impl OPSuccinctDataFetcher {
 
         // Save rollup config to a file named by chain ID
         let rollup_config_path =
-            rollup_config_dir.join(format!("{}.json", rollup_config.op_rollup_config.l2_chain_id));
+            rollup_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
 
         // Write the rollup config to the file
-        let rollup_config_str = serde_json::to_string_pretty(&rollup_config.op_rollup_config)?;
+        let rollup_config_str = serde_json::to_string_pretty(&rollup_config.0)?;
         fs::write(&rollup_config_path, rollup_config_str)?;
 
         // Return both the rollup config and the path to the temporary file
@@ -553,7 +553,7 @@ impl OPSuccinctDataFetcher {
         if self.rollup_config.is_none() {
             return Err(anyhow::anyhow!("Rollup config not loaded."));
         }
-        let genesis = self.rollup_config.as_ref().unwrap().op_rollup_config.genesis;
+        let genesis = self.rollup_config.as_ref().unwrap().genesis;
         let block = self.get_l2_block_by_number(block_number).await?;
         Ok(CeloL2BlockInfo::from_block_and_genesis(&block, &genesis)?)
     }

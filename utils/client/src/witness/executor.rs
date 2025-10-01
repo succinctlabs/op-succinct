@@ -123,7 +123,7 @@ pub trait WitnessExecutor {
         let boot_clone = boot.clone();
 
         // Wrap RollupConfig with CeloRollupConfig
-        let celo_rollup_config = CeloRollupConfig { op_rollup_config: boot.rollup_config.clone() };
+        let celo_rollup_config = CeloRollupConfig(boot.rollup_config.clone());
         let celo_rollup_config = Arc::new(celo_rollup_config);
         let executor = CeloExecutor::new(
             celo_rollup_config.as_ref(),

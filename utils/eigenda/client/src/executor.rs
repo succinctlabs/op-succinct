@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use celo_genesis::CeloRollupConfig;
 use celo_proof::CeloOracleL2ChainProvider;
 use celo_protocol::CeloToOpProviderAdapter;
-use hokulea_eigenda::{EigenDABlobProvider, EigenDABlobSource, EigenDADataSource};
+use hokulea_eigenda::{EigenDADataSource, EigenDAPreimageProvider, EigenDAPreimageSource};
 use kona_derive::{sources::EthereumDataSource, traits::BlobProvider};
 use kona_driver::PipelineCursor;
 use kona_preimage::CommsClient;
@@ -20,7 +20,7 @@ pub struct EigenDAWitnessExecutor<O, B, E>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
     B: BlobProvider + Send + Sync + Debug + Clone,
-    E: EigenDABlobProvider + Send + Sync + Debug + Clone,
+    E: EigenDAPreimageProvider + Send + Sync + Debug + Clone,
 {
     eigenda_blob_provider: E,
     _marker: std::marker::PhantomData<(O, B)>,
@@ -30,7 +30,7 @@ impl<O, B, E> EigenDAWitnessExecutor<O, B, E>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
     B: BlobProvider + Send + Sync + Debug + Clone,
-    E: EigenDABlobProvider + Send + Sync + Debug + Clone,
+    E: EigenDAPreimageProvider + Send + Sync + Debug + Clone,
 {
     pub fn new(eigenda_blob_provider: E) -> Self {
         Self { eigenda_blob_provider, _marker: std::marker::PhantomData }
@@ -42,7 +42,7 @@ impl<O, B, E> WitnessExecutor for EigenDAWitnessExecutor<O, B, E>
 where
     O: CommsClient + FlushableCache + Send + Sync + Debug,
     B: BlobProvider + Send + Sync + Debug + Clone,
-    E: EigenDABlobProvider + Send + Sync + Debug + Clone,
+    E: EigenDAPreimageProvider + Send + Sync + Debug + Clone,
 {
     type O = O;
     type B = B;
@@ -59,16 +59,14 @@ where
         l1_provider: Self::L1,
         l2_provider: Self::L2,
     ) -> Result<OraclePipeline<Self::O, Self::L1, Self::L2, Self::DA>> {
-        let ethereum_data_source = EthereumDataSource::new_from_parts(
-            l1_provider.clone(),
-            beacon,
-            &rollup_config.op_rollup_config,
-        );
-        let eigenda_blob_source = EigenDABlobSource::new(self.eigenda_blob_provider.clone());
-        let da_provider = EigenDADataSource::new(ethereum_data_source, eigenda_blob_source);
+        let ethereum_data_source =
+            EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
+        let eigenda_preimage_source =
+            EigenDAPreimageSource::new(self.eigenda_blob_provider.clone());
+        let da_provider = EigenDADataSource::new(ethereum_data_source, eigenda_preimage_source);
 
         Ok(OraclePipeline::new(
-            Arc::new(rollup_config.op_rollup_config.clone()),
+            Arc::new(rollup_config.0.clone()),
             cursor,
             oracle,
             da_provider,

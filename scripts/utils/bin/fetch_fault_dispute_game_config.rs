@@ -159,7 +159,6 @@ async fn update_fdg_config() -> Result<()> {
                 .rollup_config
                 .as_ref()
                 .ok_or(anyhow::anyhow!("Rollup config not found"))?
-                .op_rollup_config
                 .block_time;
 
             let num_blocks_for_finality = dispute_game_finality_delay_seconds / block_time;

@@ -60,8 +60,7 @@ pub trait WitnessGenerator {
         let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
         if let Some((cursor, l1_provider, l2_provider)) = input {
             // Wrap RollupConfig with CeloRollupConfig
-            let celo_rollup_config =
-                CeloRollupConfig { op_rollup_config: boot_info.rollup_config.clone() };
+            let celo_rollup_config = CeloRollupConfig(boot_info.rollup_config.clone());
             let pipeline = self
                 .get_executor()
                 .create_pipeline(

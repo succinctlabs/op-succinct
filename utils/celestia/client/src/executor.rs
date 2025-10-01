@@ -57,17 +57,14 @@ where
         l1_provider: Self::L1,
         l2_provider: Self::L2,
     ) -> Result<OraclePipeline<Self::O, Self::L1, Self::L2, Self::DA>> {
-        let ethereum_data_source = EthereumDataSource::new_from_parts(
-            l1_provider.clone(),
-            beacon,
-            &rollup_config.op_rollup_config,
-        );
+        let ethereum_data_source =
+            EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
         let celestia_data_source =
             CelestiaDASource::new(OracleCelestiaProvider::new(oracle.clone()));
         let da_provider = CelestiaDADataSource::new(ethereum_data_source, celestia_data_source);
 
         Ok(OraclePipeline::new(
-            Arc::new(rollup_config.op_rollup_config.clone()),
+            Arc::new(rollup_config.0.clone()),
             cursor,
             oracle,
             da_provider,

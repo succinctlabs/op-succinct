@@ -55,7 +55,7 @@ async fn update_l2oo_config() -> Result<()> {
     let shared_config = get_shared_config_data().await?;
 
     let rollup_config = data_fetcher.rollup_config.as_ref().unwrap();
-    let l2_block_time = rollup_config.op_rollup_config.block_time;
+    let l2_block_time = rollup_config.block_time;
 
     let submission_interval =
         env::var("SUBMISSION_INTERVAL").map(|p| p.parse().unwrap()).unwrap_or(10);

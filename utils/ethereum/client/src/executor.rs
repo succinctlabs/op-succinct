@@ -55,13 +55,10 @@ where
         l1_provider: Self::L1,
         l2_provider: Self::L2,
     ) -> Result<OraclePipeline<Self::O, Self::L1, Self::L2, Self::DA>> {
-        let da_provider = EthereumDataSource::new_from_parts(
-            l1_provider.clone(),
-            beacon,
-            &rollup_config.op_rollup_config,
-        );
+        let da_provider =
+            EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
         Ok(OraclePipeline::new(
-            Arc::new(rollup_config.op_rollup_config.clone()),
+            Arc::new(rollup_config.0.clone()),
             cursor,
             oracle,
             da_provider,
