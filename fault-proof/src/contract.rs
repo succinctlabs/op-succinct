@@ -74,6 +74,9 @@ sol! {
         ///         its claim within the `MAX_PROVE_DURATION`.
         function resolve() external returns (GameStatus status_);
 
+        /// @notice Determines if the game is finished.
+        function gameOver() external view returns (bool gameOver_);
+
         /// @notice Returns the max challenge duration.
         function maxChallengeDuration() external view returns (uint256 maxChallengeDuration_);
 
