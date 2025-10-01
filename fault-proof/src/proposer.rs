@@ -31,7 +31,7 @@ use crate::{
     contract::{
         AnchorStateRegistry,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
-        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
+        GameStatus, IDisputeGame, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
     prometheus::ProposerGauge,
     FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
@@ -151,23 +151,6 @@ impl ProposerState {
     fn remove_subtree(&mut self, root_index: U256) {
         for index in self.descendants_of(root_index) {
             self.games.remove(&index);
-        }
-    }
-
-    /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
-    ///
-    /// A game can only be resolved after its parent is no longer IN_PROGRESS.
-    /// For games with anchor as parent (parent_index = u32::MAX), the parent is always considered
-    /// resolved.
-    fn is_parent_resolved(&self, game: &Game) -> bool {
-        if game.parent_index == u32::MAX {
-            return true;
-        }
-
-        let parent_index = U256::from(game.parent_index);
-        match self.games.get(&parent_index) {
-            Some(parent) => parent.status != GameStatus::IN_PROGRESS,
-            None => false,
         }
     }
 }
@@ -346,6 +329,7 @@ where
             let claim_data = contract.claimData().call().await?;
             let status = contract.status().call().await?;
             let deadline = U256::from(claim_data.deadline).to::<u64>();
+            let parent_index = claim_data.parentIndex;
             let registry_address = contract.anchorStateRegistry().call().await?;
             let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
             let is_finalized = registry.isGameFinalized(game_address).call().await?;
@@ -358,16 +342,6 @@ where
                 .header
                 .timestamp;
 
-            // Check if the parent game is resolved.
-            let is_parent_resolved = {
-                let state = self.state.lock().await;
-                if let Some(game) = state.games.get(&index) {
-                    state.is_parent_resolved(game)
-                } else {
-                    false
-                }
-            };
-
             {
                 let mut state = self.state.lock().await;
                 let Some(game) = state.games.get_mut(&index) else { continue };
@@ -378,7 +352,8 @@ where
                         game.deadline = deadline;
 
                         if contract.gameType().call().await? == self.config.game_type &&
-                            is_parent_resolved &&
+                            self.is_parent_resolved(parent_index, self.l1_provider.clone())
+                                .await? &&
                             game.is_game_over(now_ts) &&
                             self.is_own_game(game).await?
                         {
@@ -393,7 +368,7 @@ where
                             if credit > U256::ZERO {
                                 game.should_attempt_to_claim_bond = true;
                             } else {
-                                // 3.Evict games that are finalized but there is no credit left to
+                                // 3. Evict games that are finalized but there is no credit left to
                                 // claim.
                                 state.games.remove(&index);
                             }
@@ -1391,5 +1366,26 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(())
+    }
+
+    /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
+    ///
+    /// A game can only be resolved after its parent is no longer IN_PROGRESS.
+    /// For games with anchor as parent (parent_index = u32::MAX), the parent is always considered
+    /// resolved.
+    async fn is_parent_resolved(&self, parent_index: u32, l1_provider: L1Provider) -> Result<bool> {
+        if parent_index == u32::MAX {
+            return Ok(true);
+        }
+
+        let parent_game_address =
+            self.factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+        let parent_game_contract = IDisputeGame::new(parent_game_address, l1_provider);
+
+        if parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }

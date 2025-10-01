@@ -32,7 +32,9 @@ sol! {
 
     #[allow(missing_docs)]
     #[sol(rpc)]
-    interface IDisputeGame {}
+    interface IDisputeGame {
+        function status() external view returns (GameStatus status_);
+    }
 
     #[sol(rpc)]
     contract OPSuccinctFaultDisputeGame {
