@@ -112,16 +112,6 @@ struct ProposerState {
 }
 
 impl ProposerState {
-    /// Returns the current cursor position for incremental game loading.
-    fn cursor(&self) -> Option<U256> {
-        self.cursor
-    }
-
-    /// Updates the cursor to track progress through the game list.
-    fn set_cursor(&mut self, index: U256) {
-        self.cursor = Some(index);
-    }
-
     /// Returns all game indices reachable from `root_index`, including the root.
     ///
     /// NOTE(fakedev9999): If this becomes hot, consider maintaining an adjacency index
@@ -292,7 +282,7 @@ where
         // 1. Load new games.
         let mut next_index = {
             let state = self.state.lock().await;
-            match state.cursor() {
+            match state.cursor {
                 Some(cursor) => cursor + U256::from(1),
                 None => U256::ZERO,
             }
@@ -776,11 +766,6 @@ where
         Ok(())
     }
 
-    async fn update_cursor(&self, index: U256) {
-        let mut state = self.state.lock().await;
-        state.set_cursor(index);
-    }
-
     async fn is_own_game(&self, game: &Game) -> Result<bool> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let creator = contract.gameCreator().call().await?;
@@ -828,7 +813,7 @@ where
                 ?game_address,
                 "Dropping game due to invalid game type or output root"
             );
-            self.update_cursor(index).await;
+            self.state.lock().await.cursor = Some(index);
             return Ok(());
         }
 
@@ -847,7 +832,7 @@ where
                     parent_index = %parent_index,
                     "Dropping game due to missing parent"
                 );
-                self.update_cursor(index).await;
+                self.state.lock().await.cursor = Some(index);
                 return Ok(());
             }
         }
