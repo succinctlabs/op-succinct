@@ -71,7 +71,7 @@ These tests focus on anchor selection, parent validation, and handling of invali
 - `test_game_chain_validation_challenged_parent()`: Creates a valid parent/child pair, allows the
   parent to be challenged and resolved to `ChallengerWins`, and confirms the proposer restarts from
   a fresh anchor instead of extending the tainted chain.
-- `test_game_chain_validation_anchor_reset()`: Constructs two branches, finalises an alternate
+- `test_game_chain_validation_anchor_reset()`: Constructs two branches, finalizes an alternate
   branch, manually resets the anchor registry, and verifies the proposer begins building on the new
   canonical ancestor (`parentIndex == b1_index`).
 
