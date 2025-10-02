@@ -29,7 +29,7 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ProposerConfig,
     contract::{
-        AnchorStateRegistry,
+        AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
         GameStatus, IDisputeGame, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
@@ -79,20 +79,6 @@ struct Game {
     deadline: u64,
     should_attempt_to_resolve: bool,
     should_attempt_to_claim_bond: bool,
-}
-
-impl Game {
-    /// Determines if the game is finished in favor of the proposer.
-    ///
-    /// Returns true if the game is either expired or proven.
-    fn is_game_over(&self, now_ts: u64) -> bool {
-        match self.proposal_status {
-            ProposalStatus::Unchallenged => now_ts >= self.deadline,
-            ProposalStatus::UnchallengedAndValidProofProvided |
-            ProposalStatus::ChallengedAndValidProofProvided => true,
-            _ => false,
-        }
-    }
 }
 
 /// Central cache of the proposer's view of dispute games.
@@ -156,6 +142,7 @@ where
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
+    pub anchor_state_registry: Arc<AnchorStateRegistryInstance<P>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
@@ -178,6 +165,7 @@ where
         network_private_key: String,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
+        anchor_state_registry: AnchorStateRegistryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
@@ -201,6 +189,7 @@ where
             l1_provider,
             l2_provider,
             factory: Arc::new(factory.clone()),
+            anchor_state_registry: Arc::new(anchor_state_registry.clone()),
             init_bond,
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
@@ -298,32 +287,12 @@ where
         }
 
         // 2. Synchronize the status of all cached games.
-        let indices = {
+        let games = {
             let state = self.state.lock().await;
-            state.games.keys().cloned().collect::<Vec<_>>()
+            state.games.values().map(|game| (game.index, game.address)).collect::<Vec<_>>()
         };
 
-        let mut to_remove = Vec::new();
-
-        for index in indices {
-            let game_address = {
-                let state = self.state.lock().await;
-                match state.games.get(&index) {
-                    Some(g) => g.address,
-                    None => continue,
-                }
-            };
-
-            // Fetch game statuses from the on-chain.
-            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-            let claim_data = contract.claimData().call().await?;
-            let status = contract.status().call().await?;
-            let deadline = U256::from(claim_data.deadline).to::<u64>();
-            let parent_index = claim_data.parentIndex;
-            let registry_address = contract.anchorStateRegistry().call().await?;
-            let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
-            let is_finalized = registry.isGameFinalized(game_address).call().await?;
-            let credit = contract.credit(self.signer.address()).call().await?;
+        if !games.is_empty() {
             let now_ts = self
                 .l1_provider
                 .get_block_by_number(BlockNumberOrTag::Latest)
@@ -331,52 +300,116 @@ where
                 .context("Failed to fetch latest L1 block timestamp")?
                 .header
                 .timestamp;
+            let signer_address = self.signer.address();
 
-            {
-                let mut state = self.state.lock().await;
-                let Some(game) = state.games.get_mut(&index) else { continue };
+            enum GameSyncAction {
+                Update {
+                    index: U256,
+                    status: GameStatus,
+                    proposal_status: ProposalStatus,
+                    deadline: u64,
+                    should_attempt_to_resolve: bool,
+                    should_attempt_to_claim_bond: bool,
+                },
+                Remove(U256),
+                RemoveSubtree(U256),
+            }
+
+            let mut actions = Vec::with_capacity(games.len());
+
+            for (index, game_address) in games {
+                let contract =
+                    OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+                let claim_data = contract.claimData().call().await?;
+                let status = contract.status().call().await?;
+                let deadline = U256::from(claim_data.deadline).to::<u64>();
+                let parent_index = claim_data.parentIndex;
+                let is_finalized =
+                    self.anchor_state_registry.isGameFinalized(game_address).call().await?;
+                let credit = contract.credit(signer_address).call().await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
-                        game.proposal_status = claim_data.status;
-                        game.deadline = deadline;
+                        let game_type = contract.gameType().call().await?;
+                        let parent_resolved =
+                            self.is_parent_resolved(parent_index, self.l1_provider.clone()).await?;
+                        let is_game_over = match claim_data.status {
+                            ProposalStatus::Unchallenged => now_ts >= deadline,
+                            ProposalStatus::UnchallengedAndValidProofProvided |
+                            ProposalStatus::ChallengedAndValidProofProvided => true,
+                            _ => false,
+                        };
+                        let creator = contract.gameCreator().call().await?;
+                        let is_own_game = match claim_data.status {
+                            ProposalStatus::Unchallenged => creator == signer_address,
+                            ProposalStatus::UnchallengedAndValidProofProvided |
+                            ProposalStatus::ChallengedAndValidProofProvided => {
+                                creator == signer_address || claim_data.prover == signer_address
+                            }
+                            _ => false,
+                        };
 
-                        if contract.gameType().call().await? == self.config.game_type &&
-                            self.is_parent_resolved(parent_index, self.l1_provider.clone())
-                                .await? &&
-                            game.is_game_over(now_ts) &&
-                            self.is_own_game(game).await?
-                        {
-                            game.should_attempt_to_resolve = true;
-                        }
+                        let should_attempt_to_resolve = game_type == self.config.game_type &&
+                            parent_resolved &&
+                            is_game_over &&
+                            is_own_game;
+
+                        actions.push(GameSyncAction::Update {
+                            index,
+                            status,
+                            proposal_status: claim_data.status,
+                            deadline,
+                            should_attempt_to_resolve,
+                            should_attempt_to_claim_bond: false,
+                        });
                     }
                     GameStatus::DEFENDER_WINS => {
-                        game.should_attempt_to_resolve = false;
-                        game.status = status;
-
-                        if is_finalized {
-                            if credit > U256::ZERO {
-                                game.should_attempt_to_claim_bond = true;
-                            } else {
-                                // 3. Evict games that are finalized but there is no credit left to
-                                // claim.
-                                state.games.remove(&index);
-                            }
+                        if is_finalized && credit == U256::ZERO {
+                            actions.push(GameSyncAction::Remove(index));
+                        } else {
+                            actions.push(GameSyncAction::Update {
+                                index,
+                                status,
+                                proposal_status: claim_data.status,
+                                deadline,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_claim_bond: is_finalized && credit > U256::ZERO,
+                            });
                         }
                     }
                     GameStatus::CHALLENGER_WINS => {
-                        to_remove.push(index);
+                        actions.push(GameSyncAction::RemoveSubtree(index));
                     }
                     _ => unreachable!("Unexpected game status: {:?}", status),
                 }
             }
-        }
 
-        // 3.Drop the entire subtree of a CHALLENGER_WINS game.
-        {
             let mut state = self.state.lock().await;
-            for index in to_remove {
-                state.remove_subtree(index);
+            for action in actions {
+                match action {
+                    GameSyncAction::Update {
+                        index,
+                        status,
+                        proposal_status,
+                        deadline,
+                        should_attempt_to_resolve,
+                        should_attempt_to_claim_bond,
+                    } => {
+                        if let Some(game) = state.games.get_mut(&index) {
+                            game.status = status;
+                            game.proposal_status = proposal_status;
+                            game.deadline = deadline;
+                            game.should_attempt_to_resolve = should_attempt_to_resolve;
+                            game.should_attempt_to_claim_bond = should_attempt_to_claim_bond;
+                        }
+                    }
+                    GameSyncAction::Remove(index) => {
+                        state.games.remove(&index);
+                    }
+                    GameSyncAction::RemoveSubtree(index) => {
+                        state.remove_subtree(index);
+                    }
+                }
             }
         }
 
@@ -385,11 +418,7 @@ where
 
     /// Synchronizes the anchor game from the factory.
     async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_registry_address =
-            self.factory.get_anchor_state_registry_address(self.config.game_type).await?;
-        let anchor_registry =
-            AnchorStateRegistry::new(anchor_registry_address, self.l1_provider.clone());
-        let anchor_address = anchor_registry.anchorGame().call().await?;
+        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
 
         if anchor_address != Address::ZERO {
             let mut state = self.state.lock().await;
@@ -764,21 +793,6 @@ where
         );
 
         Ok(())
-    }
-
-    async fn is_own_game(&self, game: &Game) -> Result<bool> {
-        let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
-        let creator = contract.gameCreator().call().await?;
-        let prover = contract.claimData().call().await?.prover;
-
-        Ok(match game.proposal_status {
-            ProposalStatus::Unchallenged => creator == self.signer.address(),
-            ProposalStatus::UnchallengedAndValidProofProvided |
-            ProposalStatus::ChallengedAndValidProofProvided => {
-                creator == self.signer.address() || prover == self.signer.address()
-            }
-            _ => false,
-        })
     }
 
     /// Fetch game from the factory.

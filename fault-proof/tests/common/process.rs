@@ -5,7 +5,9 @@ use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
 use anyhow::Result;
 use fault_proof::{
-    challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
+    challenger::OPSuccinctChallenger,
+    config::ChallengerConfig,
+    contract::{AnchorStateRegistry, DisputeGameFactory, OPSuccinctFaultDisputeGame},
     proposer::OPSuccinctProposer,
 };
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCConfig};
@@ -45,6 +47,12 @@ pub async fn start_proposer(
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
+    let game_impl_address = factory.gameImpls(config.game_type).call().await?;
+    let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider.clone());
+    let anchor_state_registry_address = game_impl.anchorStateRegistry().call().await?;
+    let anchor_state_registry =
+        AnchorStateRegistry::new(anchor_state_registry_address, l1_provider.clone());
+
     // For testing, we use mock mode, so we use a dummy network private key.
     let network_private_key =
         "0x0000000000000000000000000000000000000000000000000000000000000001".to_string();
@@ -53,9 +61,16 @@ pub async fn start_proposer(
     let host = initialize_host(fetcher.clone());
 
     Ok(tokio::spawn(async move {
-        let proposer =
-            OPSuccinctProposer::new(config, network_private_key, signer, factory, fetcher, host)
-                .await?;
+        let proposer = OPSuccinctProposer::new(
+            config,
+            network_private_key,
+            signer,
+            factory,
+            anchor_state_registry,
+            fetcher,
+            host,
+        )
+        .await?;
         Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER")).await
     }))
 }
