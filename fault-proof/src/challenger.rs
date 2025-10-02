@@ -10,7 +10,6 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ChallengerConfig,
     contract::{
-        AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, OPSuccinctFaultDisputeGame,
         ProposalStatus,
     },
@@ -30,7 +29,6 @@ where
     l1_provider: L1Provider,
     l2_provider: L2Provider,
     factory: DisputeGameFactoryInstance<P>,
-    anchor_state_registry: AnchorStateRegistryInstance<P>,
     challenger_bond: U256,
     state: Arc<Mutex<ChallengerState>>,
 }
@@ -44,7 +42,6 @@ where
         config: ChallengerConfig,
         l1_provider: L1Provider,
         factory: DisputeGameFactoryInstance<P>,
-        anchor_state_registry: AnchorStateRegistryInstance<P>,
         signer: Signer,
     ) -> Result<Self> {
         let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
@@ -56,7 +53,6 @@ where
             l1_provider: l1_provider.clone(),
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
             factory,
-            anchor_state_registry,
             challenger_bond,
             state: Arc::new(Mutex::new(ChallengerState {
                 cursor: U256::ZERO,
@@ -210,8 +206,10 @@ where
                         }
                     }
                     GameStatus::CHALLENGER_WINS => {
-                        let is_finalized =
-                            self.anchor_state_registry.isGameFinalized(game.address).call().await?;
+                        let is_finalized = self
+                            .factory
+                            .is_game_finalized(self.config.game_type, game.address)
+                            .await?;
                         let credit = contract.credit(signer_address).call().await?;
 
                         if is_finalized && credit == U256::ZERO {

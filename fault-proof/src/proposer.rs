@@ -29,7 +29,6 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ProposerConfig,
     contract::{
-        AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
         GameStatus, IDisputeGame, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
@@ -142,7 +141,6 @@ where
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
-    pub anchor_state_registry: Arc<AnchorStateRegistryInstance<P>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
@@ -165,7 +163,6 @@ where
         network_private_key: String,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
-        anchor_state_registry: AnchorStateRegistryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
@@ -179,7 +176,8 @@ where
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         // Initialize state with anchor L2 block number
-        let anchor_l2_block = factory.get_anchor_l2_block_number(config.game_type).await?;
+        let anchor_l2_block =
+            factory.get_anchor_game(config.game_type).await?.l2BlockNumber().call().await?;
         let initial_state =
             ProposerState { canonical_head_l2_block: Some(anchor_l2_block), ..Default::default() };
 
@@ -189,7 +187,6 @@ where
             l1_provider,
             l2_provider,
             factory: Arc::new(factory.clone()),
-            anchor_state_registry: Arc::new(anchor_state_registry.clone()),
             init_bond,
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
@@ -326,7 +323,7 @@ where
                 let deadline = U256::from(claim_data.deadline).to::<u64>();
                 let parent_index = claim_data.parentIndex;
                 let is_finalized =
-                    self.anchor_state_registry.isGameFinalized(game_address).call().await?;
+                    self.factory.is_game_finalized(self.config.game_type, game_address).await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
@@ -420,14 +417,15 @@ where
 
     /// Synchronizes the anchor game from the factory.
     async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
+        let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
+        let anchor_address = anchor_game.address();
 
-        if anchor_address != Address::ZERO {
+        if *anchor_address != Address::ZERO {
             let mut state = self.state.lock().await;
 
             // Fetch the anchor game from the cache.
             if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == anchor_address)
+                state.games.iter().find(|(_, game)| game.address == *anchor_address)
             {
                 state.anchor_game = Some(anchor_game.clone());
             } else {

@@ -6,9 +6,7 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    challenger::OPSuccinctChallenger,
-    config::ChallengerConfig,
-    contract::{AnchorStateRegistry, DisputeGameFactory, OPSuccinctFaultDisputeGame},
+    challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
     prometheus::ChallengerGauge,
 };
 use op_succinct_host_utils::{
@@ -48,21 +46,10 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    let game_impl_address = factory.gameImpls(challenger_config.game_type).call().await?;
-    let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider.clone());
-    let anchor_state_registry_address = game_impl.anchorStateRegistry().call().await?;
-    let anchor_state_registry =
-        AnchorStateRegistry::new(anchor_state_registry_address, l1_provider.clone());
-
-    let mut challenger = OPSuccinctChallenger::new(
-        challenger_config,
-        l1_provider,
-        factory,
-        anchor_state_registry,
-        challenger_signer,
-    )
-    .await
-    .unwrap();
+    let mut challenger =
+        OPSuccinctChallenger::new(challenger_config, l1_provider, factory, challenger_signer)
+            .await
+            .unwrap();
 
     // Initialize challenger gauges.
     ChallengerGauge::register_all();

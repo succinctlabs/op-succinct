@@ -36,6 +36,12 @@ sol! {
         function status() external view returns (GameStatus status_);
     }
 
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    interface IFaultDisputeGame {
+        function l2BlockNumber() external view returns (uint256 l2BlockNumber_);
+    }
+
     #[sol(rpc)]
     contract OPSuccinctFaultDisputeGame {
         /// @notice Getter for the game type.

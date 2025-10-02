@@ -18,7 +18,8 @@ use op_alloy_rpc_types::Transaction;
 
 use crate::contract::{
     AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, IDisputeGame,
-    L2Output, OPSuccinctFaultDisputeGame, ProposalStatus,
+    IFaultDisputeGame, IFaultDisputeGame::IFaultDisputeGameInstance, L2Output,
+    OPSuccinctFaultDisputeGame, ProposalStatus,
 };
 
 pub type L1Provider = RootProvider;
@@ -122,7 +123,7 @@ where
     /// Get the anchor L2 block number.
     ///
     /// This function returns the L2 block number of the anchor game for a given game type.
-    async fn get_anchor_l2_block_number(&self, game_type: u32) -> Result<U256>;
+    async fn get_anchor_game(&self, game_type: u32) -> Result<IFaultDisputeGameInstance<P>>;
 
     /// Check if a game is finalized.
     async fn is_game_finalized(&self, game_type: u32, game_address: Address) -> Result<bool>;
@@ -170,16 +171,15 @@ where
         Ok(anchor_state_registry_address)
     }
 
-    /// Get the anchor L2 block number.
-    ///
-    /// This function returns the L2 block number of the anchor game for a given game type.
-    async fn get_anchor_l2_block_number(&self, game_type: u32) -> Result<U256> {
+    /// Get the anchor game for the given game type.
+    async fn get_anchor_game(&self, game_type: u32) -> Result<IFaultDisputeGameInstance<P>> {
         let anchor_state_registry_address =
             self.get_anchor_state_registry_address(game_type).await?;
         let anchor_state_registry =
             AnchorStateRegistry::new(anchor_state_registry_address, self.provider());
-        let anchor_l2_block_number = anchor_state_registry.getAnchorRoot().call().await?._1;
-        Ok(anchor_l2_block_number)
+        let anchor_game = anchor_state_registry.anchorGame().call().await?;
+        let anchor_game = IFaultDisputeGame::new(anchor_game, self.provider().clone());
+        Ok(anchor_game)
     }
 
     /// Check if a game is finalized.
