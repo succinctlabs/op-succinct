@@ -1,8 +1,9 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
 use alloy_provider::{Provider, ProviderBuilder};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use tokio::{sync::Mutex, time};
 
@@ -55,6 +56,7 @@ where
             l1_provider: l1_provider.clone(),
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
             factory,
+            anchor_state_registry,
             challenger_bond,
             state: Arc::new(Mutex::new(ChallengerState { cursor: None, games: HashMap::new() })),
         })
@@ -86,6 +88,7 @@ where
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
             }
 
+            // FIXME(fakedev9999): fix like proposer main loop.
             if let Err(e) = self.handle_game_challenging().await {
                 tracing::warn!("Failed to handle game challenging: {:?}", e);
             }
@@ -107,7 +110,6 @@ where
     /// 2. Synchronize the status of all cached games.
     ///    - Games are marked for resolution if the parent is resolved and the game is over.
     ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
-    /// FIXME(fakedev9999): lock acquisition.
     async fn sync_state(&self) -> Result<()> {
         // 1. Load new games.
         let mut next_index = {
@@ -128,78 +130,151 @@ where
         }
 
         // 2. Synchronize the status of all cached games.
-        let indices = {
+        let games = {
             let state = self.state.lock().await;
-            state.games.keys().cloned().collect::<Vec<_>>()
+            // FIXME(fakedev9999): don't clone?
+            state.games.values().cloned().collect::<Vec<_>>()
         };
 
-        for index in indices {
-            let game_address = {
-                let state = self.state.lock().await;
-                match state.games.get(&index) {
-                    Some(g) => g.address,
-                    None => continue,
-                }
-            };
+        if !games.is_empty() {
+            let now_ts = self
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await?
+                .context("Failed to fetch latest L1 block timestamp")?
+                .header
+                .timestamp;
+            let signer_address = self.signer.address();
 
-            let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
-            // FIXME(fakedev9999): game might be not opsuccinct fault dispute game. Check
-            // compatibilty with the IDisputeGame interface. claimData does not exist in the
-            // IDisputeGame interface.
-            let claim_data = contract.claimData().call().await?;
-            let status = contract.status().call().await?;
-            let is_finalized =
-                self.anchor_state_registry.isGameFinalized(game_address).call().await?;
-            let credit = contract.credit(self.signer.address()).call().await?;
-            let computed_output_root =
-                self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
+            enum GameSyncAction {
+                Update {
+                    index: U256,
+                    status: GameStatus,
+                    proposal_status: ProposalStatus,
+                    should_attempt_to_challenge: bool,
+                    should_attempt_to_resolve: bool,
+                    should_attempt_to_claim_bond: bool,
+                },
+                Remove(U256),
+            }
 
-            {
-                let mut state = self.state.lock().await;
-                let Some(game) = state.games.get_mut(&index) else { continue };
+            let mut actions = Vec::with_capacity(games.len());
+
+            for game in games {
+                let contract =
+                    OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+                let status = contract.status().call().await?;
+                let claim_data = contract.claimData().call().await?;
+                let parent_index = claim_data.parentIndex;
+                let proposal_status = claim_data.status;
+                let deadline = U256::from(claim_data.deadline).to::<u64>();
+                let is_finalized =
+                    self.anchor_state_registry.isGameFinalized(game.address).call().await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
-                        game.proposal_status = claim_data.status;
+                        let computed_output_root = self
+                            .l2_provider
+                            .compute_output_root_at_block(game.l2_block_number)
+                            .await?;
+                        let is_game_over = match proposal_status {
+                            ProposalStatus::Challenged => now_ts >= deadline,
+                            _ => false,
+                        };
 
-                        if claim_data.status == ProposalStatus::Unchallenged {
-                            if !contract.gameOver().call().await? &&
-                                output_root != computed_output_root &&
-                                (parent_index == u32::MAX ||
-                                    parent_game_contract.status().call().await? ==
-                                        GameStatus::CHALLENGER_WINS)
-                            {
-                                game.should_attempt_to_challenge = true;
-                            }
-                        } else if claim_data.status == ProposalStatus::Challenged {
-                            game.should_attempt_to_challenge = false;
+                        if proposal_status == ProposalStatus::Unchallenged {
+                            let is_parent_challenger_wins = if parent_index == u32::MAX {
+                                false
+                            } else {
+                                let parent_game_address = self
+                                    .factory
+                                    .gameAtIndex(U256::from(parent_index))
+                                    .call()
+                                    .await?
+                                    .proxy;
+                                let parent_game_contract = OPSuccinctFaultDisputeGame::new(
+                                    parent_game_address,
+                                    self.l1_provider.clone(),
+                                );
+                                parent_game_contract.status().call().await? ==
+                                    GameStatus::CHALLENGER_WINS
+                            };
 
-                            if is_parent_resolved(&self.state, index, self.l1_provider.clone())
-                                .await? &&
-                                contract.gameOver().call().await? &&
-                                claim_data.counteredBy == self.signer.address()
+                            if !is_game_over &&
+                                (game.output_root != computed_output_root ||
+                                    is_parent_challenger_wins)
                             {
-                                game.should_attempt_to_resolve = true;
+                                actions.push(GameSyncAction::Update {
+                                    index: game.index,
+                                    status,
+                                    proposal_status,
+                                    should_attempt_to_challenge: true,
+                                    should_attempt_to_resolve: false,
+                                    should_attempt_to_claim_bond: false,
+                                });
                             }
+                        } else if proposal_status == ProposalStatus::Challenged &&
+                            is_parent_resolved(&game, self.factory.clone()).await? &&
+                            is_game_over &&
+                            claim_data.counteredBy == signer_address
+                        {
+                            actions.push(GameSyncAction::Update {
+                                index: game.index,
+                                status,
+                                proposal_status,
+                                should_attempt_to_challenge: false,
+                                should_attempt_to_resolve: true,
+                                should_attempt_to_claim_bond: false,
+                            });
                         }
                     }
                     GameStatus::CHALLENGER_WINS => {
-                        game.status = status;
+                        let credit = contract.credit(signer_address).call().await?;
 
-                        if is_finalized && credit > U256::ZERO {
-                            game.should_attempt_to_claim_bond = true;
-                        } else if is_finalized {
-                            // Remove the entire subtree when challenger wins and no credit to claim
-                            drop(state);
-                            let mut state = self.state.lock().await;
-                            state.remove_subtree(index);
-                            continue;
+                        if is_finalized && credit == U256::ZERO {
+                            actions.push(GameSyncAction::Remove(game.index));
+                        } else {
+                            actions.push(GameSyncAction::Update {
+                                index: game.index,
+                                status,
+                                proposal_status,
+                                should_attempt_to_challenge: false,
+                                should_attempt_to_resolve: false,
+                                should_attempt_to_claim_bond: is_finalized && credit > U256::ZERO,
+                            });
                         }
                     }
                     GameStatus::DEFENDER_WINS => {
-                        state.games.remove(&index);
+                        actions.push(GameSyncAction::Remove(game.index));
                     }
                     _ => unreachable!("Unexpected game status: {:?}", status),
+                }
+            }
+
+            let mut state = self.state.lock().await;
+            for action in actions {
+                match action {
+                    GameSyncAction::Update {
+                        index,
+                        status,
+                        proposal_status,
+                        should_attempt_to_challenge,
+                        should_attempt_to_resolve,
+                        should_attempt_to_claim_bond,
+                    } => {
+                        // FIXME(fakedev9999): missing any updates? Do we need all the fields then
+                        // for Update action? or too much?
+                        if let Some(game) = state.games.get_mut(&index) {
+                            game.status = status;
+                            game.proposal_status = proposal_status;
+                            game.should_attempt_to_challenge = should_attempt_to_challenge;
+                            game.should_attempt_to_resolve = should_attempt_to_resolve;
+                            game.should_attempt_to_claim_bond = should_attempt_to_claim_bond;
+                        }
+                    }
+                    GameSyncAction::Remove(index) => {
+                        state.games.remove(&index);
+                    }
                 }
             }
         }
@@ -229,7 +304,7 @@ where
         let claim_data = contract.claimData().call().await?;
 
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
-        let game_type = contract.gameType().call().await?;
+        let status = contract.status().call().await?;
 
         let mut state = self.state.lock().await;
 
@@ -239,12 +314,11 @@ where
                 Game {
                     index,
                     address: game_address,
-                    parent_index,
+                    parent_index: claim_data.parentIndex,
                     l2_block_number,
                     output_root,
-                    status: contract.status().call().await?,
-                    proposal_status,
-                    deadline,
+                    status,
+                    proposal_status: claim_data.status,
                     should_attempt_to_challenge: false,
                     should_attempt_to_resolve: false,
                     should_attempt_to_claim_bond: false,

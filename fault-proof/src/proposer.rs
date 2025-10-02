@@ -326,7 +326,6 @@ where
                 let parent_index = claim_data.parentIndex;
                 let is_finalized =
                     self.anchor_state_registry.isGameFinalized(game_address).call().await?;
-                let credit = contract.credit(signer_address).call().await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
@@ -364,6 +363,8 @@ where
                         });
                     }
                     GameStatus::DEFENDER_WINS => {
+                        let credit = contract.credit(signer_address).call().await?;
+
                         if is_finalized && credit == U256::ZERO {
                             actions.push(GameSyncAction::Remove(index));
                         } else {
@@ -1360,6 +1361,7 @@ where
     /// A game can only be resolved after its parent is no longer IN_PROGRESS.
     /// For games with anchor as parent (parent_index = u32::MAX), the parent is always considered
     /// resolved.
+    /// FIXME(fakedev9999): Reduce code duplication with challenger (but lives in lib.rs)
     async fn is_parent_resolved(&self, parent_index: u32, l1_provider: L1Provider) -> Result<bool> {
         if parent_index == u32::MAX {
             return Ok(true);

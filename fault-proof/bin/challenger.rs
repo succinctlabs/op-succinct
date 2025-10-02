@@ -7,7 +7,8 @@ use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
     challenger::OPSuccinctChallenger,
-    contract::{AnchorStateRegistry, DisputeGameFactory},
+    config::ChallengerConfig,
+    contract::{AnchorStateRegistry, DisputeGameFactory, OPSuccinctFaultDisputeGame},
     prometheus::ChallengerGauge,
 };
 use op_succinct_host_utils::{

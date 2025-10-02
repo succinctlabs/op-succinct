@@ -103,10 +103,21 @@ pub async fn start_challenger(
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
+    let game_impl_address = factory.gameImpls(config.game_type).call().await?;
+    let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider.clone());
+    let anchor_state_registry_address = game_impl.anchorStateRegistry().call().await?;
+    let anchor_state_registry =
+        AnchorStateRegistry::new(anchor_state_registry_address, l1_provider.clone());
+
     Ok(tokio::spawn(async move {
-        let mut challenger =
-            OPSuccinctChallenger::new_with_config(config, l1_provider.clone(), factory, signer)
-                .await?;
+        let mut challenger = OPSuccinctChallenger::new(
+            config,
+            l1_provider.clone(),
+            factory,
+            anchor_state_registry,
+            signer,
+        )
+        .await?;
         challenger.run().instrument(tracing::info_span!("CHALLENGER")).await
     }))
 }

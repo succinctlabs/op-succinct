@@ -15,7 +15,6 @@ use anyhow::{bail, Result};
 use async_trait::async_trait;
 use op_alloy_network::Optimism;
 use op_alloy_rpc_types::Transaction;
-use tokio::sync::Mutex;
 
 use crate::contract::{
     AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, IDisputeGame,
@@ -203,7 +202,6 @@ struct Game {
     output_root: FixedBytes<32>,
     status: GameStatus,
     proposal_status: ProposalStatus,
-    deadline: u64,
     should_attempt_to_challenge: bool,
     should_attempt_to_resolve: bool,
     should_attempt_to_claim_bond: bool,
@@ -214,73 +212,22 @@ pub struct ChallengerState {
     games: HashMap<U256, Game>,
 }
 
-impl ChallengerState {
-    /// Returns all game indices reachable from `root_index`, including the root.
-    fn descendants_of(&self, root_index: U256) -> std::collections::HashSet<U256> {
-        let mut reachable: std::collections::HashSet<U256> = std::collections::HashSet::new();
-        let mut stack = vec![root_index];
-
-        while let Some(index) = stack.pop() {
-            if reachable.insert(index) {
-                stack.extend(
-                    self.games
-                        .values()
-                        .filter(|game| U256::from(game.parent_index) == index)
-                        .map(|game| game.index),
-                );
-            }
-        }
-
-        reachable
-    }
-
-    /// Remove a game subtree from the cache.
-    ///
-    /// Used when a game is invalidated (i.e., `CHALLENGER_WINS`) and its entire subtree must be
-    /// dropped.
-    fn remove_subtree(&mut self, root_index: U256) {
-        for index in self.descendants_of(root_index) {
-            self.games.remove(&index);
-        }
-    }
-}
-
 // TODO(fakedev9999): traitify state.
 // TODO(fakedev9999): check if there's any corner cases where the game we're checking is not
 // opsuccinct fault dispute game.
-async fn is_parent_resolved(
-    state: &Mutex<ChallengerState>,
-    game_index: U256,
-    l1_provider: L1Provider,
-) -> Result<bool> {
-    let state = state.lock().await;
-    let Some(game) = state.games.get(&game_index) else {
-        return Ok(false);
-    };
+async fn is_parent_resolved<P>(game: &Game, factory: DisputeGameFactoryInstance<P>) -> Result<bool>
+where
+    P: Provider + Clone,
+{
+    let parent_index = game.parent_index;
+    if parent_index == u32::MAX {
+        return Ok(true);
+    }
 
-    let game_contract = OPSuccinctFaultDisputeGame::new(game.address, l1_provider.clone());
-    let claim_data = match game_contract.claimData().call().await {
-        Ok(data) => data,
-        Err(error) => {
-            tracing::debug!(game_index = %game_index, game_address = ?game.address, ?error,
-                "Parent unresolved: claimData() unavailable");
-            return Ok(false);
-        }
-    };
-    let parent_index = claim_data.parentIndex;
+    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+    let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
 
-    let parent_game = state.games.get(&U256::from(parent_index));
-    // If parent_game is Some, instantiate the IDisputeGame contract.
-    // If parent_game is None return false.
-    let parent_game_contract = if let Some(parent_game) = parent_game {
-        IDisputeGame::new(parent_game.address, l1_provider)
-    } else {
-        return Ok(false);
-    };
-
-    if parent_index == u32::MAX ||
-        parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS
-    {
+    if parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS {
         Ok(true)
     } else {
         Ok(false)
