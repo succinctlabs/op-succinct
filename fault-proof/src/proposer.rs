@@ -789,55 +789,41 @@ where
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
         let (parent_index, proposal_status, deadline) = match contract.claimData().call().await {
             Ok(data) => (data.parentIndex, data.status, U256::from(data.deadline).to::<u64>()),
             Err(error) => {
-                tracing::debug!(
-                    game_index = %index,
-                    ?game_address,
-                    ?error,
-                    "Falling back to legacy game with dummy claim data"
-                );
+                tracing::debug!(game_index = %index, ?game_address, ?error,
+                    "Falling back to legacy game with dummy claim data");
                 (u32::MAX, ProposalStatus::Unchallenged, 0)
             }
         };
 
-        // NOTE(fakedev9999): use `wasRespectedGameTypeWhenCreated` instead of configured game type
-        // to handle upgrade scenarios.
-        if !contract.wasRespectedGameTypeWhenCreated().call().await? || output_root != claim {
-            tracing::debug!(
-                game_index = %index,
-                ?game_address,
-                "Dropping game due to invalid game type or output root"
-            );
-            self.state.lock().await.cursor = Some(index);
+        let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
+        let status = contract.status().call().await?;
+
+        let mut state = self.state.lock().await;
+
+        if !was_respected || output_root != claim {
+            tracing::debug!(game_index = %index, ?game_address,
+                "Dropping game due to invalid game type or output root");
+            state.cursor = Some(index);
             return Ok(());
         }
 
-        // Drop game if the parent game does not exist.
         if parent_index != u32::MAX {
-            let parent_index = U256::from(parent_index);
-            let parent_exists = {
-                let state = self.state.lock().await;
-                state.games.contains_key(&parent_index)
-            };
-
-            if !parent_exists {
-                tracing::debug!(
-                    game_index = %index,
-                    ?game_address,
-                    parent_index = %parent_index,
-                    "Dropping game due to missing parent"
-                );
-                self.state.lock().await.cursor = Some(index);
+            let parent_idx = U256::from(parent_index);
+            if !state.games.contains_key(&parent_idx) {
+                tracing::debug!(game_index = %index, ?game_address,
+                    parent_index = %parent_idx, "Dropping game due to missing parent");
+                state.cursor = Some(index);
                 return Ok(());
             }
         }
 
-        let mut state = self.state.lock().await;
         state.games.insert(
             index,
             Game {
@@ -845,13 +831,15 @@ where
                 address: game_address,
                 parent_index,
                 l2_block,
-                status: contract.status().call().await?,
+                status,
                 proposal_status,
                 deadline,
                 should_attempt_to_resolve: false,
                 should_attempt_to_claim_bond: false,
             },
         );
+
+        state.cursor = Some(index);
 
         Ok(())
     }
