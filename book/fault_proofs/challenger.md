@@ -18,10 +18,10 @@ Before running the challenger, ensure you have:
 
 The challenger performs several key functions:
 
-1. **Game Monitoring**: Continuously scans for invalid games that need to be challenged
-2. **Game Challenging**: Challenges invalid games by providing counter-proofs
-3. **Game Resolution**: Optionally resolves challenged games after their deadline passes
-4. **Bond Management**: Handles proof rewards and challenge bonds
+1. **Game Monitoring**: Continuously syncs new games from the factory, validates their output roots, and marks ones that inherit a challenger win from their parent.
+2. **Game Challenging**: Submits challenges for games flagged by the sync step and supports optional malicious testing.
+3. **Game Resolution**: Resolves games the challenger countered once their deadlines pass and the parent dispute has settled.
+4. **Bond Management**: Tracks finalized games and claims the challenger's credit before removing them from the cache.
 
 ## Configuration
 
@@ -104,36 +104,37 @@ MALICIOUS_CHALLENGE_PERCENTAGE=25.5
 When malicious challenging is enabled:
 
 1. **Priority 1**: Challenge invalid games (honest challenger behavior)
-2. **Priority 2**: Challenge valid games at the configured percentage (defense mechanisms testing behavior)
+2. **Priority 2**: Challenge valid games at the configured percentage (defense mechanisms testing behavior); the percentage acts as a per-iteration probability gate.
 
 The challenger will always prioritize challenging invalid games first, then optionally challenge valid games based on the configured percentage.
 
 ### Logging
 
-The challenger provides clear logging to distinguish between challenge types:
-- `[CHALLENGE]` - Honest challenges of invalid games
-- `[MALICIOUS CHALLENGE]` - Testing defense mechanisms of challenged valid games
+The challenger relies on structured `tracing` logs:
+- Honest challenges are logged as `Game challenged successfully` within the `[[Challenging]]` span.
+- Malicious attempts emit `\x1b[31m[MALICIOUS CHALLENGE]\x1b[0m` so they stand out in the logs.
 
 ## Features
 
 ### Game Monitoring
-- Continuously scans for invalid games
-- Checks game validity against L2 state
-- Filters to the configured OP Succinct game type
-- Uses a cursor + deadline-based cutoff to avoid rescanning
+- Incrementally pulls new games from the factory using an on-chain index cursor
+- Checks game validity against the L2 state commitment
+- Filters to the configured OP Succinct fault dispute game type that was respected at creation time
+- Marks games for challenging, resolution, or bond claiming based on proposal status, parent outcomes, and deadlines
 
 ### Game Challenging
-- Challenges invalid games with counter-proofs
-- Handles proof reward bonds
-- Ensures proper transaction confirmation
-- Provides detailed logging of challenge actions
+- Submits challenges for games flagged by the sync step
+- Challenges games that are in progress and either invalid or the parent is challenger wins
+- Supports malicious challenging of valid games when enabled
 
 ### Game Resolution
 The challenger:
-- Monitors challenged games
-- Resolves games after their resolution period expires
-- Handles resolution of multiple games efficiently
-- Respects game resolution requirements
+- Tracks only games it countered
+- Resolves games after their deadline once the parent dispute is resolved and it is own game
+
+### Bond Claiming
+- Flags challenger-win games once the anchor registry marks them finalized and there is credit to claim
+- Claims credit for the challenger's address and removes games from the cache after claiming credit
 
 ## Architecture
 
@@ -145,18 +146,11 @@ The challenger is built around the `OPSuccinctChallenger` struct which manages:
 
 Key components:
 - `ChallengerConfig`: Handles environment-based configuration
-- `handle_game_challenging`: Main function for challenging invalid games that:
-  - Scans for challengeable games
-  - Determines game validity
-  - Executes challenge transactions
-- `handle_game_resolution`: Main function for resolving games that:
-  - Checks if resolution is enabled
-  - Manages resolution of challenged games
-  - Handles resolution confirmations
-- `run`: Main loop that:
-  - Runs at configurable intervals
-  - Handles both challenging and resolution
-  - Provides error isolation between tasks
+- `sync_state`: Keeps the in-memory cache in sync with on-chain state, marking games for challenge, resolution, or bond claims
+- `handle_game_challenging`: Submits challenge transactions for games flagged by the sync step and supports malicious testing
+- `handle_game_resolution`: Resolves flagged games once they are eligible based on deadlines, parent outcomes and whether it is own game
+- `handle_bond_claiming`: Claims challenger credit from finalized games and trims settled entries from the cache
+- `run`: Main loop that orchestrates state syncing, challenging, resolution, and bond claiming at the configured interval while isolating task failures
 
 ## Error Handling
 
