@@ -6,7 +6,9 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    challenger::OPSuccinctChallenger, contract::DisputeGameFactory, prometheus::ChallengerGauge,
+    challenger::OPSuccinctChallenger,
+    contract::{AnchorStateRegistry, DisputeGameFactory},
+    prometheus::ChallengerGauge,
 };
 use op_succinct_host_utils::{
     metrics::{init_metrics, MetricsGauge},
@@ -31,6 +33,7 @@ async fn main() -> Result<()> {
 
     setup_logger();
 
+    let challenger_config = ChallengerConfig::from_env()?;
     let challenger_signer = Signer::from_env()?;
 
     let l1_provider = ProviderBuilder::default()
@@ -44,8 +47,21 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    let mut challenger =
-        OPSuccinctChallenger::from_env(l1_provider, factory, challenger_signer).await.unwrap();
+    let game_impl_address = factory.gameImpls(challenger_config.game_type).call().await?;
+    let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider.clone());
+    let anchor_state_registry_address = game_impl.anchorStateRegistry().call().await?;
+    let anchor_state_registry =
+        AnchorStateRegistry::new(anchor_state_registry_address, l1_provider.clone());
+
+    let mut challenger = OPSuccinctChallenger::new(
+        challenger_config,
+        l1_provider,
+        factory,
+        anchor_state_registry,
+        challenger_signer,
+    )
+    .await
+    .unwrap();
 
     // Initialize challenger gauges.
     ChallengerGauge::register_all();

@@ -198,10 +198,12 @@ where
 struct Game {
     index: U256,
     address: Address,
-    game_type: u32,
+    parent_index: u32,
     l2_block_number: U256,
+    output_root: FixedBytes<32>,
     status: GameStatus,
     proposal_status: ProposalStatus,
+    deadline: u64,
     should_attempt_to_challenge: bool,
     should_attempt_to_resolve: bool,
     should_attempt_to_claim_bond: bool,
@@ -210,6 +212,37 @@ struct Game {
 pub struct ChallengerState {
     cursor: Option<U256>,
     games: HashMap<U256, Game>,
+}
+
+impl ChallengerState {
+    /// Returns all game indices reachable from `root_index`, including the root.
+    fn descendants_of(&self, root_index: U256) -> std::collections::HashSet<U256> {
+        let mut reachable: std::collections::HashSet<U256> = std::collections::HashSet::new();
+        let mut stack = vec![root_index];
+
+        while let Some(index) = stack.pop() {
+            if reachable.insert(index) {
+                stack.extend(
+                    self.games
+                        .values()
+                        .filter(|game| U256::from(game.parent_index) == index)
+                        .map(|game| game.index),
+                );
+            }
+        }
+
+        reachable
+    }
+
+    /// Remove a game subtree from the cache.
+    ///
+    /// Used when a game is invalidated (i.e., `CHALLENGER_WINS`) and its entire subtree must be
+    /// dropped.
+    fn remove_subtree(&mut self, root_index: U256) {
+        for index in self.descendants_of(root_index) {
+            self.games.remove(&index);
+        }
+    }
 }
 
 // TODO(fakedev9999): traitify state.
@@ -226,7 +259,15 @@ async fn is_parent_resolved(
     };
 
     let game_contract = OPSuccinctFaultDisputeGame::new(game.address, l1_provider.clone());
-    let parent_index = game_contract.claimData().call().await?.parentIndex;
+    let claim_data = match game_contract.claimData().call().await {
+        Ok(data) => data,
+        Err(error) => {
+            tracing::debug!(game_index = %game_index, game_address = ?game.address, ?error,
+                "Parent unresolved: claimData() unavailable");
+            return Ok(false);
+        }
+    };
+    let parent_index = claim_data.parentIndex;
 
     let parent_game = state.games.get(&U256::from(parent_index));
     // If parent_game is Some, instantiate the IDisputeGame contract.

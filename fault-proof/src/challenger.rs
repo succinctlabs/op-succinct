@@ -9,8 +9,9 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ChallengerConfig,
     contract::{
-        AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus,
-        OPSuccinctFaultDisputeGame, ProposalStatus,
+        AnchorStateRegistry::AnchorStateRegistryInstance,
+        DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, OPSuccinctFaultDisputeGame,
+        ProposalStatus,
     },
     is_parent_resolved,
     prometheus::ChallengerGauge,
@@ -28,6 +29,7 @@ where
     l1_provider: L1Provider,
     l2_provider: L2Provider,
     factory: DisputeGameFactoryInstance<P>,
+    anchor_state_registry: AnchorStateRegistryInstance<P>,
     challenger_bond: U256,
     state: Arc<Mutex<ChallengerState>>,
 }
@@ -36,23 +38,12 @@ impl<P> OPSuccinctChallenger<P>
 where
     P: Provider + Clone,
 {
-    /// Creates a new challenger instance with the provided L1 provider with wallet and factory
-    /// contract instance.
-    pub async fn from_env(
-        l1_provider: L1Provider,
-        factory: DisputeGameFactoryInstance<P>,
-        signer: Signer,
-    ) -> Result<Self> {
-        let config = ChallengerConfig::from_env()?;
-
-        Self::new_with_config(config, l1_provider, factory, signer).await
-    }
-
     /// Creates a new challenger instance for testing with provided configuration.
-    pub async fn new_with_config(
+    pub async fn new(
         config: ChallengerConfig,
         l1_provider: L1Provider,
         factory: DisputeGameFactoryInstance<P>,
+        anchor_state_registry: AnchorStateRegistryInstance<P>,
         signer: Signer,
     ) -> Result<Self> {
         let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
@@ -116,6 +107,7 @@ where
     /// 2. Synchronize the status of all cached games.
     ///    - Games are marked for resolution if the parent is resolved and the game is over.
     ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
+    /// FIXME(fakedev9999): lock acquisition.
     async fn sync_state(&self) -> Result<()> {
         // 1. Load new games.
         let mut next_index = {
@@ -156,10 +148,11 @@ where
             // IDisputeGame interface.
             let claim_data = contract.claimData().call().await?;
             let status = contract.status().call().await?;
-            let registry_address = contract.anchorStateRegistry().call().await?;
-            let registry = AnchorStateRegistry::new(registry_address, self.l1_provider.clone());
-            let is_finalized = registry.isGameFinalized(game_address).call().await?;
+            let is_finalized =
+                self.anchor_state_registry.isGameFinalized(game_address).call().await?;
             let credit = contract.credit(self.signer.address()).call().await?;
+            let computed_output_root =
+                self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
 
             {
                 let mut state = self.state.lock().await;
@@ -170,18 +163,24 @@ where
                         game.proposal_status = claim_data.status;
 
                         if claim_data.status == ProposalStatus::Unchallenged {
-                            if contract.gameType().call().await? == self.config.game_type &&
-                                !contract.gameOver().call().await?
+                            if !contract.gameOver().call().await? &&
+                                output_root != computed_output_root &&
+                                (parent_index == u32::MAX ||
+                                    parent_game_contract.status().call().await? ==
+                                        GameStatus::CHALLENGER_WINS)
                             {
                                 game.should_attempt_to_challenge = true;
                             }
-                        } else if claim_data.status == ProposalStatus::Challenged &&
-                            is_parent_resolved(&self.state, index, self.l1_provider.clone())
+                        } else if claim_data.status == ProposalStatus::Challenged {
+                            game.should_attempt_to_challenge = false;
+
+                            if is_parent_resolved(&self.state, index, self.l1_provider.clone())
                                 .await? &&
-                            contract.gameOver().call().await? &&
-                            claim_data.counteredBy == self.signer.address()
-                        {
-                            game.should_attempt_to_resolve = true;
+                                contract.gameOver().call().await? &&
+                                claim_data.counteredBy == self.signer.address()
+                            {
+                                game.should_attempt_to_resolve = true;
+                            }
                         }
                     }
                     GameStatus::CHALLENGER_WINS => {
@@ -189,10 +188,14 @@ where
 
                         if is_finalized && credit > U256::ZERO {
                             game.should_attempt_to_claim_bond = true;
+                        } else if is_finalized {
+                            // Remove the entire subtree when challenger wins and no credit to claim
+                            drop(state);
+                            let mut state = self.state.lock().await;
+                            state.remove_subtree(index);
+                            continue;
                         }
                     }
-                    // TODO(fakedev9999): is this correct? Won't this affect is_parent_resolved
-                    // check for resolution?
                     GameStatus::DEFENDER_WINS => {
                         state.games.remove(&index);
                     }
@@ -206,41 +209,42 @@ where
 
     /// Fetch game from the factory.
     ///
-    /// Drop game if the game type is invalid.
+    /// Drop game if the game type is invalid or the game was not respected at the time of creation.
     async fn fetch_game(&self, index: U256) -> Result<()> {
-        // FIXME(fakedev9999): game might be not opsuccinct fault dispute game.
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+
+        let game_type = contract.gameType().call().await?;
+        if game_type != self.config.game_type {
+            tracing::debug!(game_index = %index, ?game_address, game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game due to invalid game type"
+            );
+            return Ok(());
+        }
+
         let l2_block_number = contract.l2BlockNumber().call().await?;
         let output_root = contract.rootClaim().call().await?;
-        let computed_output_root =
-            self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
+        let claim_data = contract.claimData().call().await?;
 
-        // TODO(fakedev9999): fetch all games no matter of the validity of the output root.
-        // This is because all descendants of the invalid game are also invalid. However, if
-        // the descendants of the invalid game are not challenged prior to resolution, the
-        // proposer bond is burnt. To maximize the profit of the challenger, we should fetch all
-        // games no matter of the validity of the output root.
-        //
-        // The current implementation fetches only invalid games for simplicity, but handles
-        // the worst case scenario where invalid output root gets finalized.
-        //
-        // When updating the implementation, we should clevererly decide when to evict games,
-        // since essentially, the challenger should track all games to maximize the profit.
-        if contract.wasRespectedGameTypeWhenCreated().call().await? &&
-            output_root != computed_output_root
-        {
-            let mut state = self.state.lock().await;
+        let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
+        let game_type = contract.gameType().call().await?;
+
+        let mut state = self.state.lock().await;
+
+        if was_respected {
             state.games.insert(
                 index,
                 Game {
                     index,
                     address: game_address,
-                    game_type: contract.gameType().call().await?,
+                    parent_index,
                     l2_block_number,
+                    output_root,
                     status: contract.status().call().await?,
-                    proposal_status: contract.claimData().call().await?.status,
+                    proposal_status,
+                    deadline,
                     should_attempt_to_challenge: false,
                     should_attempt_to_resolve: false,
                     should_attempt_to_claim_bond: false,
@@ -250,16 +254,18 @@ where
             tracing::debug!(
                 game_index = %index,
                 ?game_address,
-                "Dropping game due to invalid game type or valid output root"
+                game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game because its type was not respected at the time of creation"
             );
         }
 
-        self.state.lock().await.cursor = Some(index);
+        state.cursor = Some(index);
 
         Ok(())
     }
 
-    /// Handles challenging of invalid games by scanning recent games for potential challenges.
+    /// Challenges games flagged for challenging.
     /// Also supports malicious challenging of valid games for testing defense mechanisms when
     /// configured.
     #[tracing::instrument(skip(self), level = "info", name = "[[Challenging]]")]
@@ -300,10 +306,7 @@ where
                     state
                         .games
                         .values()
-                        .filter(|game| {
-                            !game.should_attempt_to_challenge &&
-                                game.game_type == self.config.game_type
-                        })
+                        .filter(|game| !game.should_attempt_to_challenge)
                         .max_by_key(|game| game.index)
                         .cloned()
                 };
@@ -354,7 +357,7 @@ where
         Ok(())
     }
 
-    /// Handles resolution of challenged games that are ready to be resolved.
+    /// Resolves games flagged for resolution.
     #[tracing::instrument(skip(self), level = "info", name = "[[Resolving]]")]
     async fn handle_game_resolution(&self) -> Result<()> {
         let candidates = {
@@ -405,7 +408,7 @@ where
         Ok(())
     }
 
-    /// Handles claiming bonds from resolved games.
+    /// Claims bonds from games flagged for claiming.
     #[tracing::instrument(skip(self), level = "info", name = "[[Claiming Challenger Bonds]]")]
     pub async fn handle_bond_claiming(&self) -> Result<()> {
         let candidates = {
