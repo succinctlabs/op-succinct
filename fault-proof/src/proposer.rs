@@ -262,7 +262,8 @@ where
     ///    - Incrementally load new games from the factory starting from the cursor.
     ///    - Games are validated (correct type, valid output root) before being added.
     /// 2. Synchronize the status of all cached games.
-    ///    - Games are marked for resolution if the parent is resolved and the game is over.
+    ///    - Games are marked for resolution if the parent is resolved, the game is over, and it's
+    ///      own game.
     ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
     /// 3. Evict games from the cache.
     ///    - Games that are finalized but there is no credit left to claim.

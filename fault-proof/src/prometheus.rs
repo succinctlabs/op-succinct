@@ -110,6 +110,7 @@ pub enum ChallengerGauge {
         message = "Total number of games that bonds were claimed by the challenger"
     )]
     GamesBondsClaimed,
+    // FIXME(fakedev9999): add monitoring in the main loop like proposer.
     #[strum(
         serialize = "op_succinct_fp_challenger_cursor_index",
         message = "Challenger scan cursor index"

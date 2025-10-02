@@ -199,7 +199,7 @@ struct Game {
     address: Address,
     parent_index: u32,
     l2_block_number: U256,
-    output_root: FixedBytes<32>,
+    is_invalid: bool,
     status: GameStatus,
     proposal_status: ProposalStatus,
     should_attempt_to_challenge: bool,
@@ -208,7 +208,7 @@ struct Game {
 }
 
 pub struct ChallengerState {
-    cursor: Option<U256>,
+    cursor: U256,
     games: HashMap<U256, Game>,
 }
 
@@ -227,9 +227,23 @@ where
     let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
     let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
 
-    if parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS {
-        Ok(true)
-    } else {
-        Ok(false)
+    Ok(parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS)
+}
+
+async fn is_parent_challenger_wins<P>(
+    game: &Game,
+    factory: DisputeGameFactoryInstance<P>,
+) -> Result<bool>
+where
+    P: Provider + Clone,
+{
+    let parent_index = game.parent_index;
+    if parent_index == u32::MAX {
+        return Ok(true);
     }
+
+    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+    let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
+
+    Ok(parent_game_contract.status().call().await? == GameStatus::CHALLENGER_WINS)
 }
