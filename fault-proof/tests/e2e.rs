@@ -40,6 +40,8 @@ alloy_sol_types::sol! {
     }
 }
 
+// Covers the proposer happy path from creation through resolution to bond claim.
+// Ensures the proposer keeps running and completes every stage cleanly.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_honest_proposer_native() -> Result<()> {
     TestEnvironment::init_logging();
@@ -129,6 +131,8 @@ async fn test_honest_proposer_native() -> Result<()> {
     Ok(())
 }
 
+// Seeds legacy games, transitions game types, and verifies the proposer ignores them.
+// Confirms new games are created, resolved, and bonds claimed despite history.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
     TestEnvironment::init_logging();
@@ -293,6 +297,8 @@ async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
     Ok(())
 }
 
+// Creates invalid output root games and runs the challenger to win and claim bonds.
+// Validates the challenger lifecycle handles creation, challenge, resolution, and payouts.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_honest_challenger_native() -> Result<()> {
     TestEnvironment::init_logging();
@@ -436,6 +442,8 @@ async fn test_honest_challenger_native() -> Result<()> {
     Ok(())
 }
 
+// Builds a chain with an invalid parent root and ensures the proposer rejects it.
+// Demonstrates new games anchor on valid history instead of corrupted branches.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_game_chain_validation_invalid_parent() -> Result<()> {
     TestEnvironment::init_logging();
@@ -588,6 +596,8 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
     Ok(())
 }
 
+// Challenges the parent after a child is created and checks proposer behavior.
+// Confirms the chain with a challenged ancestor is abandoned for a fresh anchor.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_game_chain_validation_challenged_parent() -> Result<()> {
     TestEnvironment::init_logging();
@@ -817,6 +827,8 @@ async fn test_game_chain_validation_challenged_parent() -> Result<()> {
     Ok(())
 }
 
+// Resets the anchor to a new finalized chain and monitors proposer syncing.
+// Verifies new games follow the updated anchor branch after reset events.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_game_chain_validation_anchor_reset() -> Result<()> {
     TestEnvironment::init_logging();
