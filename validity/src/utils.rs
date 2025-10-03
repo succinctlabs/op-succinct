@@ -66,7 +66,7 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
 /// ```
 pub fn get_ranges_to_prove_by_gas(
     disjoint_ranges: &[(i64, i64)],
-    gas_limit: u64,
+    evm_gas_limit: u64,
     range_proof_interval: i64,
     block_infos: &HashMap<i64, BlockInfo>,
 ) -> Result<Vec<(i64, i64)>> {
@@ -96,7 +96,7 @@ pub fn get_ranges_to_prove_by_gas(
             }
 
             // Check if adding this block would exceed gas limit
-            if (accumulated_gas > 0 && accumulated_gas + block_info.gas_used > gas_limit) ||
+            if (accumulated_gas > 0 && accumulated_gas + block_info.gas_used > evm_gas_limit) ||
                 (range_proof_interval > 0 && block_num - current_start > range_proof_interval)
             {
                 // Create a range from current_start to the previous block

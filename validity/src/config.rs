@@ -42,9 +42,9 @@ pub struct RequesterConfig {
     pub prover_address: Address,
     pub l2oo_address: Address,
     pub dgf_address: Address,
-    /// The gas limit for each range proof. Ranges will be split to not exceed this gas limit.
+    /// The evm gas limit for each range proof. Ranges will be split to not exceed this gas limit.
     /// If 0, will use range_proof_interval instead.
-    pub gas_limit: u64,
+    pub evm_gas_limit: u64,
     /// The number of blocks in each range proof. Used when gas_limit is 0.
     pub range_proof_interval: u64,
     pub submission_interval: u64,

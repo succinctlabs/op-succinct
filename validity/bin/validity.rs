@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
         alloy_primitives::keccak256(env_config.op_succinct_config_name.as_bytes());
 
     // Validate that at least one of gas_limit or range_proof_interval is nonzero
-    if env_config.gas_limit == 0 && env_config.range_proof_interval == 0 {
+    if env_config.evm_gas_limit == 0 && env_config.range_proof_interval == 0 {
         return Err(anyhow::anyhow!(
             "At least one of GAS_LIMIT or RANGE_PROOF_INTERVAL must be non-zero"
         ));
@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
         l2_chain_id: fetcher.l2_provider.get_chain_id().await? as i64,
         l2oo_address: env_config.l2oo_address,
         dgf_address: env_config.dgf_address,
-        gas_limit: env_config.gas_limit,
+        evm_gas_limit: env_config.evm_gas_limit,
         range_proof_interval: env_config.range_proof_interval,
         max_concurrent_witness_gen: env_config.max_concurrent_witness_gen,
         max_concurrent_proof_requests: env_config.max_concurrent_proof_requests,

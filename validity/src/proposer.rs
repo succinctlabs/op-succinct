@@ -217,7 +217,7 @@ where
             &requests,
         );
 
-        let ranges_to_prove = if self.requester_config.gas_limit > 0 {
+        let ranges_to_prove = if self.requester_config.evm_gas_limit > 0 {
             // Use gas-based splitting
             let mut all_block_infos = std::collections::HashMap::new();
             for &(start, end) in &disjoint_ranges {
@@ -236,7 +236,7 @@ where
 
             get_ranges_to_prove_by_gas(
                 &disjoint_ranges,
-                self.requester_config.gas_limit,
+                self.requester_config.evm_gas_limit,
                 self.requester_config.range_proof_interval as i64,
                 &all_block_infos,
             )?
