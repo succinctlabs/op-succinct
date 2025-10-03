@@ -261,8 +261,8 @@ where
                     };
                     OPSuccinctRequest::create_range_request(
                         mode,
-                        range.0,
-                        range.1,
+                        range.start,
+                        range.end,
                         self.program_config.commitments.range_vkey_commitment,
                         self.program_config.commitments.rollup_config_hash,
                         self.requester_config.l1_chain_id,
