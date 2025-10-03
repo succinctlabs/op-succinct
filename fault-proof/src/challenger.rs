@@ -173,7 +173,7 @@ where
 
                         if proposal_status == ProposalStatus::Unchallenged {
                             let is_parent_challenger_wins =
-                                is_parent_challenger_wins(&game, self.factory.clone()).await?;
+                                is_parent_challenger_wins(&game, &self.factory).await?;
 
                             if !is_game_over && (game.is_invalid || is_parent_challenger_wins) {
                                 actions.push(GameSyncAction::Update {
@@ -187,7 +187,7 @@ where
                             }
                         } else if proposal_status == ProposalStatus::Challenged {
                             let is_parent_resolved =
-                                is_parent_resolved(&game, self.factory.clone()).await?;
+                                is_parent_resolved(game.parent_index, &self.factory).await?;
                             let is_own_game = claim_data.counteredBy == signer_address;
 
                             if is_game_over && is_parent_resolved && is_own_game {
@@ -510,4 +510,23 @@ where
 
         Ok(())
     }
+}
+
+#[derive(Clone)]
+struct Game {
+    index: U256,
+    address: Address,
+    parent_index: u32,
+    l2_block_number: U256,
+    is_invalid: bool,
+    status: GameStatus,
+    proposal_status: ProposalStatus,
+    should_attempt_to_challenge: bool,
+    should_attempt_to_resolve: bool,
+    should_attempt_to_claim_bond: bool,
+}
+
+pub struct ChallengerState {
+    cursor: U256,
+    games: HashMap<U256, Game>,
 }

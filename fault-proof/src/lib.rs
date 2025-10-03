@@ -193,33 +193,13 @@ where
     }
 }
 
-#[derive(Clone)]
-struct Game {
-    index: U256,
-    address: Address,
+async fn is_parent_resolved<P>(
     parent_index: u32,
-    l2_block_number: U256,
-    is_invalid: bool,
-    status: GameStatus,
-    proposal_status: ProposalStatus,
-    should_attempt_to_challenge: bool,
-    should_attempt_to_resolve: bool,
-    should_attempt_to_claim_bond: bool,
-}
-
-pub struct ChallengerState {
-    cursor: U256,
-    games: HashMap<U256, Game>,
-}
-
-// TODO(fakedev9999): traitify state.
-// TODO(fakedev9999): check if there's any corner cases where the game we're checking is not
-// opsuccinct fault dispute game.
-async fn is_parent_resolved<P>(game: &Game, factory: DisputeGameFactoryInstance<P>) -> Result<bool>
+    factory: &DisputeGameFactoryInstance<P>,
+) -> Result<bool>
 where
     P: Provider + Clone,
 {
-    let parent_index = game.parent_index;
     if parent_index == u32::MAX {
         return Ok(true);
     }
@@ -232,7 +212,7 @@ where
 
 async fn is_parent_challenger_wins<P>(
     game: &Game,
-    factory: DisputeGameFactoryInstance<P>,
+    factory: &DisputeGameFactoryInstance<P>,
 ) -> Result<bool>
 where
     P: Provider + Clone,

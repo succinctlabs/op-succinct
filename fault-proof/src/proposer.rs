@@ -30,8 +30,9 @@ use crate::{
     config::ProposerConfig,
     contract::{
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
-        GameStatus, IDisputeGame, OPSuccinctFaultDisputeGame, ProposalStatus,
+        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
+    is_parent_resolved,
     prometheus::ProposerGauge,
     FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
@@ -329,7 +330,7 @@ where
                     GameStatus::IN_PROGRESS => {
                         let game_type = contract.gameType().call().await?;
                         let parent_resolved =
-                            self.is_parent_resolved(parent_index, self.l1_provider.clone()).await?;
+                            is_parent_resolved(parent_index, self.factory.as_ref()).await?;
                         let is_game_over = match claim_data.status {
                             ProposalStatus::Unchallenged => now_ts >= deadline,
                             ProposalStatus::UnchallengedAndValidProofProvided |
@@ -1353,27 +1354,5 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(())
-    }
-
-    /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
-    ///
-    /// A game can only be resolved after its parent is no longer IN_PROGRESS.
-    /// For games with anchor as parent (parent_index = u32::MAX), the parent is always considered
-    /// resolved.
-    /// FIXME(fakedev9999): Reduce code duplication with challenger (but lives in lib.rs)
-    async fn is_parent_resolved(&self, parent_index: u32, l1_provider: L1Provider) -> Result<bool> {
-        if parent_index == u32::MAX {
-            return Ok(true);
-        }
-
-        let parent_game_address =
-            self.factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
-        let parent_game_contract = IDisputeGame::new(parent_game_address, l1_provider);
-
-        if parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 }
