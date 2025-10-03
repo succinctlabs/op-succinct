@@ -95,7 +95,7 @@ pub fn get_ranges_to_prove_by_gas(
                 ));
             }
 
-            // Check if adding this block would exceed gas limit
+            // Check if adding this block would exceed gas limit or block count limit
             if (accumulated_gas > 0 && accumulated_gas + block_info.gas_used > evm_gas_limit) ||
                 (range_proof_interval > 0 && block_num - current_start > range_proof_interval)
             {
