@@ -61,10 +61,10 @@ where
         })
     }
 
-    /// Runs the challenger in an infinite loop, periodically checking for games to challenge and
-    /// resolve.
+    /// Runs the main challenger loop. On each tick it waits for the configured interval, refreshes
+    /// cached state, and then handles challenging, resolution, and bond-claiming tasks.
     pub async fn run(&mut self) -> Result<()> {
-        tracing::info!("OP Succinct Challenger running...");
+        tracing::info!("OP Succinct Lite Challenger running...");
         if self.config.malicious_challenge_percentage > 0.0 {
             tracing::warn!(
                 "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
@@ -110,6 +110,8 @@ where
     ///    - Games are marked for resolution if the parent is resolved, the game is over, and it's
     ///      own game.
     ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
+    ///    - Games are evicted once finalized with no remaining credit or whenever resolves as
+    ///      defender wins.
     async fn sync_state(&self) -> Result<()> {
         // 1. Load new games.
         let mut next_index = {
