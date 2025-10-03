@@ -237,6 +237,7 @@ where
             get_ranges_to_prove_by_gas(
                 &disjoint_ranges,
                 self.requester_config.gas_limit,
+                self.requester_config.range_proof_interval as i64,
                 &all_block_infos,
             )?
         } else {

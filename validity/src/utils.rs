@@ -67,6 +67,7 @@ pub fn find_gaps(overall_start: i64, overall_end: i64, ranges: &[(i64, i64)]) ->
 pub fn get_ranges_to_prove_by_gas(
     disjoint_ranges: &[(i64, i64)],
     gas_limit: u64,
+    range_proof_interval: i64,
     block_infos: &HashMap<i64, BlockInfo>,
 ) -> Result<Vec<(i64, i64)>> {
     let mut ranges = Vec::new();
@@ -95,7 +96,9 @@ pub fn get_ranges_to_prove_by_gas(
             }
 
             // Check if adding this block would exceed gas limit
-            if accumulated_gas > 0 && accumulated_gas + block_info.gas_used > gas_limit {
+            if (accumulated_gas > 0 && accumulated_gas + block_info.gas_used > gas_limit) ||
+                (range_proof_interval > 0 && block_num - current_start > range_proof_interval)
+            {
                 // Create a range from current_start to the previous block
                 ranges.push((current_start, block_num - 1));
                 current_start = block_num - 1;
@@ -282,7 +285,8 @@ mod tests {
             (4, 30_000_000),
         ]);
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 4)], 100_000_000, &block_infos).unwrap();
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 4)], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![(0, 3), (3, 4)]);
     }
 
@@ -297,7 +301,8 @@ mod tests {
             (5, 60_000_000), // 110M total - would exceed, so create range (2, 4)
         ]);
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 5)], 100_000_000, &block_infos).unwrap();
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 5)], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![(0, 2), (2, 4), (4, 5)]);
     }
 
@@ -310,7 +315,8 @@ mod tests {
             (3, 100_000_000), // Would be 200M total - exceeds limit
         ]);
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 3)], 100_000_000, &block_infos).unwrap();
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 3)], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![(0, 2), (2, 3)]);
     }
 
@@ -329,8 +335,73 @@ mod tests {
         ]);
 
         let result =
-            get_ranges_to_prove_by_gas(&[(0, 3), (5, 7)], 100_000_000, &block_infos).unwrap();
+            get_ranges_to_prove_by_gas(&[(0, 3), (5, 7)], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![(0, 2), (2, 3), (5, 6), (6, 7)]);
+    }
+
+    #[test]
+    fn test_max_interval_and_some_empty_blocks() {
+        // Test case: max interval and some empty blocks
+        let block_infos = create_block_infos(vec![
+            // First range
+            (1, 40_000_000), // 40M
+            (2, 40_000_000), // 80M total
+            // Second range
+            (3, 40_000_000), // 40M
+            (4, 0),
+            (5, 0),
+            // Third range
+            (6, 0),
+            (7, 60_000_000), // 60M
+        ]);
+
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 7)], 100_000_000, 3, &block_infos).unwrap();
+        assert_eq!(result, vec![(0, 2), (2, 5), (5, 7)]);
+    }
+
+    #[test]
+    fn test_max_interval_and_small_blocks() {
+        // Test case: multiple small blocks
+        let block_infos = create_block_infos(vec![
+            // First range
+            (1, 1_000),
+            (2, 1_000),
+            (3, 1_000),
+            // Second range
+            (4, 1_000),
+            (5, 1_000),
+            (6, 1_000),
+            // Third range
+            (7, 1_000),
+            (8, 1_000),
+        ]);
+
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 8)], 100_000_000, 3, &block_infos).unwrap();
+        assert_eq!(result, vec![(0, 3), (3, 6), (6, 8)]);
+    }
+
+    #[test]
+    fn test_zero_max_interval() {
+        // Test case: multiple small blocks
+        let block_infos = create_block_infos(vec![
+            // First range
+            (1, 40_000),
+            (2, 20_000),
+            (3, 20_000),
+            // Second range
+            (4, 40_000),
+            (5, 20_000),
+            (6, 20_000),
+            // Third range
+            (7, 40_000),
+            (8, 40_000),
+        ]);
+
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 8)], 100_000, 0, &block_infos).unwrap();
+        assert_eq!(result, vec![(0, 3), (3, 6), (6, 8)]);
     }
 
     #[test]
@@ -338,7 +409,8 @@ mod tests {
         // Test case: single block exceeding gas limit
         let block_infos = create_block_infos(vec![(1, 150_000_000)]);
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 1)], 100_000_000, &block_infos).unwrap();
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 1)], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![(0, 1)]);
     }
 
@@ -347,7 +419,8 @@ mod tests {
         // Test case: empty range (start == end)
         let block_infos = HashMap::new();
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 0)], 100_000_000, &block_infos).unwrap();
+        let result =
+            get_ranges_to_prove_by_gas(&[(0, 0)], 100_000_000, 600, &block_infos).unwrap();
         assert_eq!(result, vec![]);
     }
 
@@ -356,7 +429,7 @@ mod tests {
         // Test case: missing block info should return error
         let block_infos = create_block_infos(vec![(1, 30_000_000)]); // Missing block 2
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 2)], 100_000_000, &block_infos);
+        let result = get_ranges_to_prove_by_gas(&[(0, 2)], 100_000_000, 600, &block_infos);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Missing BlockInfo for block 2"));
     }
@@ -376,7 +449,7 @@ mod tests {
             },
         );
 
-        let result = get_ranges_to_prove_by_gas(&[(0, 1)], 100_000_000, &block_infos);
+        let result = get_ranges_to_prove_by_gas(&[(0, 1)], 100_000_000, 600, &block_infos);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("inconsistent block number"));
     }
