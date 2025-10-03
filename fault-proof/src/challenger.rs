@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use anyhow::{Context, Result};
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -15,7 +15,7 @@ use crate::{
     },
     is_parent_challenger_wins, is_parent_resolved,
     prometheus::ChallengerGauge,
-    ChallengerState, FactoryTrait, Game, L1Provider, L2Provider, L2ProviderTrait,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 use op_succinct_signer_utils::Signer;
@@ -175,7 +175,7 @@ where
 
                         if proposal_status == ProposalStatus::Unchallenged {
                             let is_parent_challenger_wins =
-                                is_parent_challenger_wins(&game, &self.factory).await?;
+                                is_parent_challenger_wins(game.parent_index, &self.factory).await?;
 
                             if !is_game_over && (game.is_invalid || is_parent_challenger_wins) {
                                 actions.push(GameSyncAction::Update {

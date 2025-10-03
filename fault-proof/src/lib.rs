@@ -4,8 +4,6 @@ pub mod contract;
 pub mod prometheus;
 pub mod proposer;
 
-use std::collections::HashMap;
-
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{address, keccak256, Address, FixedBytes, B256, U256};
 use alloy_provider::{Provider, RootProvider};
@@ -19,7 +17,7 @@ use op_alloy_rpc_types::Transaction;
 use crate::contract::{
     AnchorStateRegistry, DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, IDisputeGame,
     IFaultDisputeGame, IFaultDisputeGame::IFaultDisputeGameInstance, L2Output,
-    OPSuccinctFaultDisputeGame, ProposalStatus,
+    OPSuccinctFaultDisputeGame,
 };
 
 pub type L1Provider = RootProvider;
@@ -211,13 +209,12 @@ where
 }
 
 async fn is_parent_challenger_wins<P>(
-    game: &Game,
+    parent_index: u32,
     factory: &DisputeGameFactoryInstance<P>,
 ) -> Result<bool>
 where
     P: Provider + Clone,
 {
-    let parent_index = game.parent_index;
     if parent_index == u32::MAX {
         return Ok(true);
     }
