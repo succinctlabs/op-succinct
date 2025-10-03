@@ -5,9 +5,7 @@ use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
 use anyhow::Result;
 use fault_proof::{
-    challenger::OPSuccinctChallenger,
-    config::ChallengerConfig,
-    contract::{AnchorStateRegistry, DisputeGameFactory, OPSuccinctFaultDisputeGame},
+    challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
     proposer::OPSuccinctProposer,
 };
 use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCConfig};
@@ -47,12 +45,6 @@ pub async fn start_proposer(
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
-    let game_impl_address = factory.gameImpls(config.game_type).call().await?;
-    let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, l1_provider.clone());
-    let anchor_state_registry_address = game_impl.anchorStateRegistry().call().await?;
-    let anchor_state_registry =
-        AnchorStateRegistry::new(anchor_state_registry_address, l1_provider.clone());
-
     // For testing, we use mock mode, so we use a dummy network private key.
     let network_private_key =
         "0x0000000000000000000000000000000000000000000000000000000000000001".to_string();
@@ -61,16 +53,9 @@ pub async fn start_proposer(
     let host = initialize_host(fetcher.clone());
 
     Ok(tokio::spawn(async move {
-        let proposer = OPSuccinctProposer::new(
-            config,
-            network_private_key,
-            signer,
-            factory,
-            anchor_state_registry,
-            fetcher,
-            host,
-        )
-        .await?;
+        let proposer =
+            OPSuccinctProposer::new(config, network_private_key, signer, factory, fetcher, host)
+                .await?;
         Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER")).await
     }))
 }
@@ -93,10 +78,6 @@ pub async fn start_challenger(
         factory_address: *factory_address,
         fetch_interval: 2, // Check more frequently in tests
         game_type,
-        max_games_to_check_for_challenge: 10, // Check more games
-        enable_game_resolution: true,
-        max_games_to_check_for_resolution: 100,
-        max_games_to_check_for_bond_claiming: 100,
         metrics_port: 9001,
         malicious_challenge_percentage: malicious_percentage.unwrap_or(0.0),
     };
@@ -106,8 +87,7 @@ pub async fn start_challenger(
 
     Ok(tokio::spawn(async move {
         let mut challenger =
-            OPSuccinctChallenger::new_with_config(config, l1_provider.clone(), factory, signer)
-                .await?;
+            OPSuccinctChallenger::new(config, l1_provider.clone(), factory, signer).await?;
         challenger.run().instrument(tracing::info_span!("CHALLENGER")).await
     }))
 }

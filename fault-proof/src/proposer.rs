@@ -29,10 +29,10 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ProposerConfig,
     contract::{
-        AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
-        GameStatus, IDisputeGame, OPSuccinctFaultDisputeGame, ProposalStatus,
+        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
+    is_parent_resolved,
     prometheus::ProposerGauge,
     FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
@@ -142,7 +142,6 @@ where
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
-    pub anchor_state_registry: Arc<AnchorStateRegistryInstance<P>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
@@ -165,7 +164,6 @@ where
         network_private_key: String,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
-        anchor_state_registry: AnchorStateRegistryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
@@ -179,7 +177,8 @@ where
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         // Initialize state with anchor L2 block number
-        let anchor_l2_block = factory.get_anchor_l2_block_number(config.game_type).await?;
+        let anchor_l2_block =
+            factory.get_anchor_game(config.game_type).await?.l2BlockNumber().call().await?;
         let initial_state =
             ProposerState { canonical_head_l2_block: Some(anchor_l2_block), ..Default::default() };
 
@@ -189,7 +188,6 @@ where
             l1_provider,
             l2_provider,
             factory: Arc::new(factory.clone()),
-            anchor_state_registry: Arc::new(anchor_state_registry.clone()),
             init_bond,
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
@@ -262,7 +260,8 @@ where
     ///    - Incrementally load new games from the factory starting from the cursor.
     ///    - Games are validated (correct type, valid output root) before being added.
     /// 2. Synchronize the status of all cached games.
-    ///    - Games are marked for resolution if the parent is resolved and the game is over.
+    ///    - Games are marked for resolution if the parent is resolved, the game is over, and it's
+    ///      own game.
     ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
     /// 3. Evict games from the cache.
     ///    - Games that are finalized but there is no credit left to claim.
@@ -325,14 +324,13 @@ where
                 let deadline = U256::from(claim_data.deadline).to::<u64>();
                 let parent_index = claim_data.parentIndex;
                 let is_finalized =
-                    self.anchor_state_registry.isGameFinalized(game_address).call().await?;
-                let credit = contract.credit(signer_address).call().await?;
+                    self.factory.is_game_finalized(self.config.game_type, game_address).await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
                         let game_type = contract.gameType().call().await?;
                         let parent_resolved =
-                            self.is_parent_resolved(parent_index, self.l1_provider.clone()).await?;
+                            is_parent_resolved(parent_index, self.factory.as_ref()).await?;
                         let is_game_over = match claim_data.status {
                             ProposalStatus::Unchallenged => now_ts >= deadline,
                             ProposalStatus::UnchallengedAndValidProofProvided |
@@ -364,6 +362,8 @@ where
                         });
                     }
                     GameStatus::DEFENDER_WINS => {
+                        let credit = contract.credit(signer_address).call().await?;
+
                         if is_finalized && credit == U256::ZERO {
                             actions.push(GameSyncAction::Remove(index));
                         } else {
@@ -418,14 +418,15 @@ where
 
     /// Synchronizes the anchor game from the factory.
     async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
+        let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
+        let anchor_address = anchor_game.address();
 
-        if anchor_address != Address::ZERO {
+        if *anchor_address != Address::ZERO {
             let mut state = self.state.lock().await;
 
             // Fetch the anchor game from the cache.
             if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == anchor_address)
+                state.games.iter().find(|(_, game)| game.address == *anchor_address)
             {
                 state.anchor_game = Some(anchor_game.clone());
             } else {
@@ -1353,26 +1354,5 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(())
-    }
-
-    /// Checks if a game's parent is in a resolved state, allowing this game to be resolved.
-    ///
-    /// A game can only be resolved after its parent is no longer IN_PROGRESS.
-    /// For games with anchor as parent (parent_index = u32::MAX), the parent is always considered
-    /// resolved.
-    async fn is_parent_resolved(&self, parent_index: u32, l1_provider: L1Provider) -> Result<bool> {
-        if parent_index == u32::MAX {
-            return Ok(true);
-        }
-
-        let parent_game_address =
-            self.factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
-        let parent_game_contract = IDisputeGame::new(parent_game_address, l1_provider);
-
-        if parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 }
