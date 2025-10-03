@@ -76,19 +76,16 @@ where
 
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
-        // Each loop, check the oldest challengeable game and challenge it if it exists.
-        // Eventually, all games will be challenged (as long as the rate at which games are being
-        // created is slower than the fetch interval).
-        // TODO(fakedev9999): update comment.
+        // Each loop iteration waits for the configured interval, synchronizes the cached state,
+        // and then attempts to challenge, resolve, and claim bonds for any eligible games.
         loop {
             interval.tick().await;
 
-            // 1. Synchronize cached dispute state before scheduling work.
+            // Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
             }
 
-            // FIXME(fakedev9999): fix like proposer main loop.
             if let Err(e) = self.handle_game_challenging().await {
                 tracing::warn!("Failed to handle game challenging: {:?}", e);
             }
@@ -443,7 +440,6 @@ where
         Ok(())
     }
 
-    // TODO(fakedev9999): Reduce code dup with proposer.
     async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
@@ -494,8 +490,6 @@ where
         Ok(())
     }
 
-    // TODO(fakedev9999): Reduce code dup with proposer.
-    /// Submit the on-chain transaction to claim the proposer's bond for a given game.
     #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
     async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
