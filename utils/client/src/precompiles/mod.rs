@@ -10,10 +10,10 @@ use revm::{
     context::{Cfg, ContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
-    precompile::{PrecompileError, Precompile as PrecompileWithAddress, Precompiles},
+    precompile::{Precompile as PrecompileWithAddress, PrecompileError, Precompiles},
     primitives::hardfork::SpecId,
 };
-use revm_precompile::{secp256k1, secp256r1, kzg_point_evaluation, bn254};
+use revm_precompile::{bn254, kzg_point_evaluation, secp256k1, secp256r1};
 
 mod factory;
 pub use factory::ZkvmOpEvmFactory;
