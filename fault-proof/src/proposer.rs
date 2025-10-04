@@ -404,7 +404,17 @@ where
                         }
                     }
                     GameSyncAction::Remove(index) => {
-                        state.games.remove(&index);
+                        let is_canonical_head =
+                            state.canonical_head_index.map_or(false, |head| head == index);
+
+                        if is_canonical_head {
+                            tracing::debug!(
+                                game_index = %index,
+                                "Retaining canonical head game in cache despite zero credit"
+                            );
+                        } else {
+                            state.games.remove(&index);
+                        }
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
