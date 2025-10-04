@@ -404,8 +404,7 @@ where
                         }
                     }
                     GameSyncAction::Remove(index) => {
-                        let is_canonical_head =
-                            state.canonical_head_index.map_or(false, |head| head == index);
+                        let is_canonical_head = state.canonical_head_index == Some(index);
 
                         if is_canonical_head {
                             tracing::debug!(
