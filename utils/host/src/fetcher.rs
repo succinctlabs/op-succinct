@@ -664,10 +664,12 @@ impl OPSuccinctDataFetcher {
             l1_beacon_address: Some(
                 self.rpc_config.l1_beacon_rpc.as_str().trim_end_matches('/').to_string(),
             ),
+            l1_beacon_skip_blob_verification: false,
             data_dir: None, // Use in-memory key-value store.
             native: false,
             server: true,
             rollup_config_path: self.rollup_config_path.clone(),
+            l1_config_path: None,
             enable_experimental_witness_endpoint: false,
         })
     }
