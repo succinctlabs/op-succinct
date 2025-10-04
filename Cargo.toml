@@ -78,30 +78,31 @@ tempfile = "3.10.1"
 
 # kona
 # TODO(fakedev9999): Replace with release tag once we have a new release for kona-client.
-# Bumped to 24ff29c for Fusaka support (aligned with hana eee748a)
-kona-mpt = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-derive = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-preimage = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", features = [
+# Bumped to 24ff29c for Fusaka support (aligned with hana be92ab6)
+# Patched to f7b7f8d to make it compile.
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-proof = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
 
-kona-client = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-host = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-rpc = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-protocol = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
+kona-client = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06" }
+kona-rpc = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", rev = "f7b7f8d284d14e0499c3a15f74b75669302b0b06", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "eee748a" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "eee748a" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "eee748a" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "eee748a" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "be92ab6" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "be92ab6" }
+hana-host = { git = "https://github.com/celestiaorg/hana", rev = "be92ab6" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "be92ab6" }
 
 # hokulea
 # Bumped to 7285ad7 for Fusaka support with kona 24ff29c

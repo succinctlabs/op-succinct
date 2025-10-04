@@ -97,6 +97,7 @@ pub trait WitnessExecutor {
     type DA: DataAvailabilityProvider + Send + Sync + Debug + Clone;
 
     // Constructs the derivation pipeline.
+    #[allow(clippy::too_many_arguments)]
     async fn create_pipeline(
         &self,
         rollup_config: Arc<RollupConfig>,
