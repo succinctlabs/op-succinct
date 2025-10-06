@@ -620,7 +620,7 @@ where
                 self.requester_config.l2_chain_id,
                 checkpointed_l1_block_number,
                 checkpointed_l1_block_hash,
-                self.requester_config.prover_address,
+                self.driver_config.signer.address(),
             );
 
             self.driver_config.driver_db_client.insert_request(&agg_request).await?;
@@ -974,7 +974,7 @@ where
                     U256::from(completed_agg_proof.end_block),
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
                     completed_agg_proof.proof.clone().unwrap().into(),
-                    self.requester_config.prover_address,
+                    self.driver_config.signer.address(),
                 )
                 .value(init_bond)
                 .into_transaction_request();
@@ -998,7 +998,7 @@ where
                     U256::from(completed_agg_proof.end_block),
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
                     completed_agg_proof.proof.clone().unwrap().into(),
-                    self.requester_config.prover_address,
+                    self.driver_config.signer.address(),
                 )
                 .into_transaction_request();
 
