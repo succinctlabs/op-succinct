@@ -248,7 +248,9 @@ where
             )
         };
 
-        if !ranges_to_prove.is_empty() {
+        if ranges_to_prove.is_empty() {
+            warn!("No range proof requests inserted into the database.")
+        } else {
             info!("Inserting {} range proof requests into the database.", ranges_to_prove.len());
 
             // Create range proof requests for the ranges to prove in parallel
