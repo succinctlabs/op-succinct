@@ -1,4 +1,5 @@
 use std::sync::OnceLock;
+use std::env;
 
 use anyhow::{Context, Result};
 use opentelemetry::{global, KeyValue};
@@ -42,7 +43,7 @@ fn build_env_filter() -> EnvFilter {
 /// - `OTLP_ENDPOINT`: OpenTelemetry endpoint (defaults to http://localhost:4317)
 /// - `OTLP_ENABLED`: Whether to enable OpenTelemetry export (defaults to false)
 /// - `RUST_LOG`: Standard Rust log level configuration
-/// - `LOG_FORMAT`: Whether to enable pretty logging (defaults to "pretty")
+/// - `LOG_FORMAT`: Output format (pretty or json, defaults to pretty)
 pub fn setup_logger() {
     INIT.get_or_init(|| {
         let logger_name = std::env::var("LOGGER_NAME").ok();
@@ -77,6 +78,8 @@ pub fn setup_logger() {
                 }
                 "pretty" | _ => {
                     // Default to pretty formatting with ANSI colors
+                    let ansi = cfg!(feature = "ansi") && env::var("NO_COLOR").map_or(true, |v| v.is_empty());
+
                     Some(Box::new(
                         tracing_subscriber::fmt::layer()
                             .with_level(true)
@@ -85,7 +88,8 @@ pub fn setup_logger() {
                             .with_thread_names(false)
                             .with_file(false)
                             .with_line_number(false)
-                            .with_ansi(true)
+                            .with_ansi(ansi)
+
                             .with_filter(build_env_filter()),
                     ))
                 }
