@@ -408,6 +408,15 @@ mod tests {
     }
 
     #[test]
+    fn test_single_small_block() {
+        // Test case: single block exceeding gas limit
+        let block_infos = create_block_infos(vec![(1, 10_000)]);
+
+        let result = get_ranges_to_prove_by_gas(&[(0, 1)], 100_000_000, 600, &block_infos).unwrap();
+        assert_eq!(result, vec![0..1]);
+    }
+
+    #[test]
     fn test_empty_range() {
         // Test case: empty range (start == end)
         let block_infos = HashMap::new();
