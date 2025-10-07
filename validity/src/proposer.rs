@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, env, ops::Range, str::FromStr, sync::Arc, time::Duration};
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -220,7 +220,7 @@ where
         let ranges_to_prove = if self.requester_config.evm_gas_limit > 0 {
             // Use gas-based splitting
             let mut all_block_infos = std::collections::HashMap::new();
-            for &(start, end) in &disjoint_ranges {
+            for &Range { start, end } in &disjoint_ranges {
                 if start < end {
                     let block_data = self
                         .driver_config
