@@ -25,6 +25,11 @@ fn main() {
         let witness_data = rkyv::from_bytes::<DefaultWitnessData, Error>(&witness_rkyv_bytes)
             .expect("Failed to deserialize witness data.");
 
-        run_range_program(ETHDAWitnessExecutor::new(), witness_data).await;
+        let (oracle, beacon) = witness_data
+            .get_oracle_and_blob_provider()
+            .await
+            .expect("Failed to load oracle and blob provider");
+
+        run_range_program(ETHDAWitnessExecutor::new(), oracle, beacon).await;
     });
 }
