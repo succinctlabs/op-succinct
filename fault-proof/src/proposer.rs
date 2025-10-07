@@ -21,9 +21,10 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
+    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, ProvingKey,
     SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
+use sp1_sdk::prover::ProveRequest;
 use tokio::{sync::Mutex, time};
 
 use crate::{
@@ -58,9 +59,9 @@ pub enum TaskInfo {
 #[derive(Clone)]
 struct SP1Prover {
     network_prover: Arc<NetworkProver>,
-    range_pk: Arc<SP1ProvingKey>,
+    range_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
     range_vk: Arc<SP1VerifyingKey>,
-    agg_pk: Arc<SP1ProvingKey>,
+    agg_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
 }
 
 /// Represents a dispute game in the on-chain game DAG.
@@ -169,10 +170,13 @@ where
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build());
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+        let network_prover = Arc::new(
+            ProverClient::builder().network().private_key(&network_private_key).build().await,
+        );
+        let (range_pk, agg_pk) = tokio::try_join!(
+            network_prover.setup(sp1_sdk::Elf::Static(get_range_elf_embedded())),
+            network_prover.setup(sp1_sdk::Elf::Static(AGGREGATION_ELF))
+        )?;
 
         let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
@@ -512,10 +516,10 @@ where
             let (public_values, report) = self
                 .prover
                 .network_prover
-                .execute(get_range_elf_embedded(), &sp1_stdin)
+                .execute(sp1_sdk::Elf::Static(get_range_elf_embedded()), sp1_stdin)
                 .calculate_gas(true)
                 .deferred_proof_verification(false)
-                .run()?;
+                .await?;
 
             // Record execution stats
             let total_instruction_cycles = report.total_instruction_count();
@@ -533,7 +537,7 @@ where
 
             // Create a mock range proof with the public values.
             let proof = SP1ProofWithPublicValues::create_mock_proof(
-                &self.prover.range_pk,
+                self.prover.range_pk.verifying_key(),
                 public_values,
                 SP1ProofMode::Compressed,
                 SP1_CIRCUIT_VERSION,
@@ -545,14 +549,13 @@ where
             let proof = self
                 .prover
                 .network_prover
-                .prove(&self.prover.range_pk, &sp1_stdin)
+                .prove(&self.prover.range_pk, sp1_stdin)
                 .compressed()
                 .strategy(self.config.range_proof_strategy)
                 .skip_simulation(true)
                 .cycle_limit(1_000_000_000_000)
                 .gas_limit(1_000_000_000_000)
                 .timeout(Duration::from_secs(4 * 60 * 60))
-                .run_async()
                 .await?;
 
             (proof, 0, 0)
@@ -595,13 +598,13 @@ where
             let (public_values, _) = self
                 .prover
                 .network_prover
-                .execute(AGGREGATION_ELF, &sp1_stdin)
+                .execute(sp1_sdk::Elf::Static(AGGREGATION_ELF), sp1_stdin)
                 .deferred_proof_verification(false)
-                .run()?;
+                .await?;
 
             // Create a mock aggregation proof with the public values.
             SP1ProofWithPublicValues::create_mock_proof(
-                &self.prover.agg_pk,
+                self.prover.agg_pk.verifying_key(),
                 public_values,
                 SP1ProofMode::Groth16,
                 SP1_CIRCUIT_VERSION,

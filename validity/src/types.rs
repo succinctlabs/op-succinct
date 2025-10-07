@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use sp1_sdk::{
     network::{proto::types::ProofRequest, FulfillmentStrategy},
-    ExecutionReport, NetworkProver, SP1ProofMode, SP1ProvingKey, SP1VerifyingKey,
+    ExecutionReport, NetworkProver, SP1ProofMode, SP1VerifyingKey, Prover
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -83,8 +83,8 @@ pub struct ProofStatus {
 #[derive(Clone)]
 pub struct SuccinctProposerConfig {
     pub range_vk: Arc<SP1VerifyingKey>,
-    pub range_pk: Arc<SP1ProvingKey>,
-    pub agg_pk: Arc<SP1ProvingKey>,
+    pub range_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
+    pub agg_pk: Arc<<NetworkProver as Prover>::ProvingKey>,
     pub agg_vk: Arc<SP1VerifyingKey>,
     pub agg_vkey_hash: B256,
     pub range_vkey_commitment: B256,

@@ -32,7 +32,7 @@ version = "3.2.2"
 # general
 anyhow = { version = "1.0.86", default-features = false }
 thiserror = { version = "2.0.3" }
-cfg-if = "1.0.0"
+cfg-if = "1.0.3"
 spin = { version = "0.10.0" }
 lru = "0.12.3"
 async-trait = "0.1.80"
@@ -186,10 +186,14 @@ revm = { version = "24.0.1", default-features = false, features = [
 op-revm = { version = "5.0.1", default-features = false }
 
 # SP1
-sp1-sdk = { version = "=5.1.0" }
-sp1-lib = { version = "=5.1.0", features = ["verify"] }
-sp1-zkvm = { version = "=5.1.0", features = ["verify"] }
-sp1-build = { version = "=5.1.0" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "verify",
+] }
+sp1-zkvm = { package = "sp1-zkvm", git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "verify",
+] }
+sp1-build = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
 
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
