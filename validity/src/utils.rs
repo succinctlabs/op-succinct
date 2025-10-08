@@ -181,10 +181,10 @@ fn merge_ranges(mut ranges: Vec<Range<i64>>) -> Vec<Range<i64>> {
         return ranges;
     }
 
-    // Sort ranges by start position
-    ranges.sort_by_key(|r| r.start);
+    // Sort by start, then end if starts are equal.
+    ranges.sort_unstable_by(|a, b| a.start.cmp(&b.start).then(a.end.cmp(&b.end)));
 
-    let mut merged = Vec::new();
+    let mut merged = Vec::with_capacity(ranges.len());
     let mut current = ranges[0].clone();
 
     for range in ranges.into_iter().skip(1) {
