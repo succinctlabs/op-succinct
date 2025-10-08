@@ -44,7 +44,7 @@ impl From<BlobData> for BlobStore {
 impl BlobProvider for BlobStore {
     type Error = BlobProviderError;
 
-    async fn get_blobs(
+    async fn get_and_validate_blobs(
         &mut self,
         _: &BlockInfo,
         blob_hashes: &[IndexedBlobHash],
