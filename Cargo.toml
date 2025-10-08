@@ -78,23 +78,23 @@ tempfile = "3.10.1"
 
 # kona
 # TODO(fakedev9999): Replace with release tag once we have a new release for kona-client.
-kona-mpt = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-derive = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-preimage = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-proof = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
 
-kona-client = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-host = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471" }
-kona-rpc = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-protocol = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", rev = "24ff29c8a7caa3a33bd40a5639a421f785011471", default-features = false }
+kona-client = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-rpc = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
 
 # hana
 hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "6e39b1c" }
@@ -210,3 +210,19 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
+
+[patch."https://github.com/celestiaorg/hana"]
+# hana
+hana-blobstream = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
+hana-celestia = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
+hana-host = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
+hana-oracle = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
+
+[patch."https://github.com/Layr-Labs/hokulea"]
+# hokulea
+hokulea-eigenda = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
+hokulea-host-bin = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
+hokulea-proof = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
+hokulea-witgen = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
+hokulea-zkvm-verification = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
+canoe-sp1-cc-host = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
