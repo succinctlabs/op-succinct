@@ -84,11 +84,6 @@ const DEFAULT_LOOP_INTERVAL: u64 = 60;
 pub fn read_proposer_env() -> Result<EnvironmentConfig> {
     let signer = Signer::from_env()?;
 
-    // The prover address takes precedence over the signer address. Note: Setting the prover address
-    // in the context of the OP Succinct proposer typically does not make sense, as the contract
-    // will verify `tx.origin` matches the `proverAddress`.
-    let prover_address = get_env_var("PROVER_ADDRESS", Some(signer.address()))?;
-
     // Parse strategy values
     let range_proof_strategy = parse_fulfillment_strategy(get_env_var(
         "RANGE_PROOF_STRATEGY",
