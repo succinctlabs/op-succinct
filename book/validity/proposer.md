@@ -68,7 +68,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `AGG_GAS_LIMIT` | Default: `1,000,000,000,000`. The gas limit to use for aggregation proofs. |
 | `WHITELIST` | Default: ``. The list of prover addresses that are allowed to bid on proof requests. |
 | `MIN_AUCTION_PERIOD` | Default: `1`. The minimum auction period (in seconds). |
-| `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before cancelling a proof request that hasn't been assigned (in seconds). |
+| `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before canceling a proof request that hasn't been assigned (in seconds). |
 
 ## Build the Proposer Service
 
