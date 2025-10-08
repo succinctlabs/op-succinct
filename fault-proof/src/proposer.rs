@@ -166,7 +166,6 @@ where
     /// contract instance.
     pub async fn new(
         config: ProposerConfig,
-        prover_address: Address,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
         anchor_state_registry: AnchorStateRegistryInstance<P>,

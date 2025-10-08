@@ -62,7 +62,6 @@ async fn main() -> Result<()> {
     let proposer = Arc::new(
         OPSuccinctProposer::new(
             ProposerConfig::from_env()?,
-            prover_address,
             proposer_signer,
             factory,
             anchor_state_registry,
