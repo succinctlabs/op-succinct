@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{fmt::Debug, str::FromStr};
 
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
@@ -6,10 +6,14 @@ use alloy_network::{Ethereum, EthereumWallet, TransactionBuilder};
 use alloy_primitives::{Address, Bytes, TxKind};
 use alloy_provider::{Provider, ProviderBuilder, Web3Signer};
 use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
+use alloy_signer::Signer as AlloySigner;
+use alloy_signer_gcp::{GcpKeyRingRef, GcpSigner, KeySpecifier};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
-use op_succinct_signer_gcp_utils::{init_client, GcpSigner};
+use gcloud_sdk::{
+    google::cloud::kms::v1::key_management_service_client::KeyManagementServiceClient, GoogleApi,
+};
 use tokio::time::Duration;
 
 pub const NUM_CONFIRMATIONS: u64 = 3;
@@ -23,7 +27,7 @@ pub enum Signer {
     /// The local signer.
     LocalSigner(PrivateKeySigner),
     /// Cloud HSM signer using Google.
-    CloudHsmSigner(String, Address, String),
+    CloudHsmSigner(GcpSigner),
 }
 
 impl Signer {
@@ -31,7 +35,7 @@ impl Signer {
         match self {
             Signer::Web3Signer(_, address) => *address,
             Signer::LocalSigner(signer) => signer.address(),
-            Signer::CloudHsmSigner(_, address, _) => *address,
+            Signer::CloudHsmSigner(signer) => signer.address(),
         }
     }
 
@@ -47,15 +51,29 @@ impl Signer {
         Ok(Signer::LocalSigner(private_key))
     }
 
-    pub fn from_env() -> Result<Self> {
-        if let (Ok(key_name), Ok(ethereum_address_str)) =
-            (std::env::var("HSM_API_NAME"), std::env::var("HSM_ETH_ADDRESS"))
-        {
-            let creds_json_hex = std::env::var("HSM_CREDENTIALS").expect("HSM_CREDENTIALS");
+    pub async fn from_env() -> Result<Self> {
+        if let (Ok(project_id), Ok(location), Ok(keyring_name)) = (
+            std::env::var("GOOGLE_PROJECT_ID"),
+            std::env::var("GOOGLE_LOCATION"),
+            std::env::var("GOOGLE_KEYRING"),
+        ) {
+            let key_name = std::env::var("HSM_KEY_NAME").expect("HSM_KEY_NAME");
+            let key_version =
+                std::env::var("HSM_KEY_VERSION").unwrap_or("1".to_string()).parse()?;
 
-            let ethereum_address = Address::from_str(&ethereum_address_str)
-                .context("Failed to parse HSM_ETH_ADDRESS")?;
-            Ok(Signer::CloudHsmSigner(key_name, ethereum_address, creds_json_hex))
+            let keyring = GcpKeyRingRef::new(&project_id, &location, &keyring_name);
+
+            let key_specifier = KeySpecifier::new(keyring, &key_name, key_version);
+
+            let client = GoogleApi::from_function(
+                KeyManagementServiceClient::new,
+                "https://cloudkms.googleapis.com",
+                None,
+            )
+            .await?;
+            let signer = GcpSigner::new(client, key_specifier, None).await?;
+
+            Ok(Signer::CloudHsmSigner(signer))
         } else if let (Ok(signer_url_str), Ok(signer_address_str)) =
             (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
         {
@@ -68,7 +86,7 @@ impl Signer {
         } else {
             anyhow::bail!(
                 "None of the required signer configurations are set in environment:\n\
-                - For Cloud HSM: HSM_API_NAME, HSM_ETH_ADDRESS, HSM_CREDENTIALS\n\
+                - For Cloud HSM: GOOGLE_PROJECT_ID, GOOGLE_LOCATION, GOOGLE_KEYRING\n\
                 - For Web3Signer: SIGNER_URL and SIGNER_ADDRESS\n\
                 - For Local: PRIVATE_KEY"
             )
@@ -139,12 +157,9 @@ impl Signer {
 
                 Ok(receipt)
             }
-            Signer::CloudHsmSigner(key_name, ethereum_address, creds_json_hex) => {
-                let client = init_client(creds_json_hex.clone()).await.unwrap();
-                let signer =
-                    GcpSigner::new(client, key_name.to_string(), None, *ethereum_address).unwrap();
+            Signer::CloudHsmSigner(signer) => {
                 // Set the from address to HSM address
-                transaction_request.set_from(*ethereum_address);
+                transaction_request.set_from(signer.address());
 
                 let wallet = EthereumWallet::new(signer.clone());
                 let provider = ProviderBuilder::new()
@@ -215,7 +230,7 @@ mod tests {
         rustls::crypto::aws_lc_rs::default_provider()
             .install_default()
             .expect("Failed to install default crypto provider");
-        let signer = Signer::from_env().unwrap();
+        let signer = Signer::from_env().await.unwrap();
         let transaction_request = TransactionRequest::default()
             .to(Address::from([
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,

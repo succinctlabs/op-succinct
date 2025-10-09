@@ -9,7 +9,6 @@ members = [
     "utils/eigenda/host",
     "utils/proof",
     "utils/signer",
-    "utils/signer-gcp",
     "utils/ethereum/client",
     "utils/ethereum/host",
     "programs/range/*",
@@ -156,6 +155,7 @@ alloy-rpc-types-beacon = { version = "1.0.38", default-features = false }
 alloy-rpc-types-eth = { version = "1.0.38", default-features = false }
 alloy-rpc-types-trace = { version = "1.0.38", default-features = false }
 alloy-signer = { version = "1.0.38", default-features = false }
+alloy-signer-gcp = { version = "1.0.38", default-features = false }
 alloy = { version = "1.0.38", features = [
     "reqwest",
     "network",
@@ -202,7 +202,7 @@ kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
 
 # Cloud dependencies
-gcloud-sdk = "0.28"
+gcloud-sdk = "0.27"
 
 [profile.release-client-lto]
 inherits = "release"

@@ -6,9 +6,6 @@ edition.workspace = true
 
 [dependencies]
 
-# workspace
-op-succinct-signer-gcp-utils.workspace = true
-
 # alloy
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
@@ -16,7 +13,9 @@ alloy-network.workspace = true
 alloy-primitives.workspace = true
 alloy-provider.workspace = true
 alloy-rpc-types-eth.workspace = true
+alloy-signer.workspace = true
 alloy-signer-local.workspace = true
+alloy-signer-gcp.workspace = true
 alloy-transport-http.workspace = true
 
 # general
@@ -27,6 +26,7 @@ rustls = { version = "0.23", default-features = false, features = [
     "tls12",
     "aws-lc-rs",
 ] }
+gcloud-sdk.workspace = true
 
 [dev-dependencies]
 op-succinct-host-utils.workspace = true
