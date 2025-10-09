@@ -48,7 +48,7 @@ log = "0.4.22"
 itertools = "0.13.0"
 reqwest = { version = "0.12", features = ["json"] }
 csv = "1.3.0"
-serde = { version = "1.0.226", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.117", default-features = false }
 rkyv = { version = "0.8", features = ["hashbrown-0_15", "std"] }
 hex = "0.4.3"
@@ -78,38 +78,38 @@ tempfile = "3.10.1"
 
 # kona
 # TODO(fakedev9999): Replace with release tag once we have a new release for kona-client.
-kona-mpt = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
-kona-derive = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
-kona-preimage = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
+kona-derive = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
+kona-preimage = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
-kona-proof = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
+kona-executor = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
+kona-proof = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
 
-kona-client = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
-kona-host = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce" }
-kona-rpc = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
-kona-protocol = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", rev = "f91fbcce24a2e81a5d498d02ec8156399b9744ce", default-features = false }
+kona-client = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
+kona-host = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b" }
+kona-rpc = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", rev = "31241796e226199ece84c78c57b40d9e8389ff5b", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "6e39b1c" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "6e39b1c" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "6e39b1c" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "6e39b1c" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "4f4dcc5d17a5afa90a885305e5ea7e4c5878b435" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "4f4dcc5d17a5afa90a885305e5ea7e4c5878b435" }
+hana-host = { git = "https://github.com/celestiaorg/hana", rev = "4f4dcc5d17a5afa90a885305e5ea7e4c5878b435" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "4f4dcc5d17a5afa90a885305e5ea7e4c5878b435" }
 
 # hokulea
-# Bumped to 7285ad7 for Fusaka support with kona 24ff29c8a7caa3a33bd40a5639a421f785011471
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "7285ad7" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "7285ad7" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "7285ad7" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "7285ad7" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "7285ad7" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "7285ad7" }
+# Bumped to 390d2f88b5e29bade1af05757ac3221bfd3d2398 for Fusaka support with kona 24ff29c8a7caa3a33bd40a5639a421f785011471
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "390d2f88b5e29bade1af05757ac3221bfd3d2398" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "390d2f88b5e29bade1af05757ac3221bfd3d2398" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "390d2f88b5e29bade1af05757ac3221bfd3d2398" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "390d2f88b5e29bade1af05757ac3221bfd3d2398" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "390d2f88b5e29bade1af05757ac3221bfd3d2398" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "390d2f88b5e29bade1af05757ac3221bfd3d2398" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -131,30 +131,30 @@ op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
 # Alloy (Network)
-alloy-signer-local = { version = "1.0.35" }
-alloy-provider = { version = "1.0.35" }
-alloy-transport = { version = "1.0.35" }
-alloy-transport-http = { version = "1.0.35" }
-alloy-contract = { version = "1.0.35" }
-alloy-network = { version = "1.0.35" }
+alloy-signer-local = { version = "1.0.38" }
+alloy-provider = { version = "1.0.38" }
+alloy-transport = { version = "1.0.38" }
+alloy-transport-http = { version = "1.0.38" }
+alloy-contract = { version = "1.0.38" }
+alloy-network = { version = "1.0.38" }
 
 # Alloy
 alloy-rlp = { version = "0.3.12", default-features = false }
-alloy-trie = { version = "0.8.1", default-features = false, features = [
+alloy-trie = { version = "0.9.1", default-features = false, features = [
     "ethereum",
 ] }
-alloy-eips = { version = "1.0.35", default-features = false }
-alloy-serde = { version = "1.0.35", default-features = false }
-alloy-consensus = { version = "1.0.35", default-features = false }
-alloy-rpc-types = { version = "1.0.35", default-features = false }
-alloy-rpc-client = { version = "1.0.35", default-features = false }
-alloy-node-bindings = { version = "1.0.35", default-features = false }
-alloy-rpc-types-engine = { version = "1.0.35", default-features = false }
-alloy-rpc-types-beacon = { version = "1.0.35", default-features = false }
-alloy-rpc-types-eth = { version = "1.0.35", default-features = false }
-alloy-rpc-types-trace = { version = "1.0.35", default-features = false }
-alloy-signer = { version = "1.0.35", default-features = false }
-alloy = { version = "1.0.35", features = [
+alloy-eips = { version = "1.0.38", default-features = false }
+alloy-serde = { version = "1.0.38", default-features = false }
+alloy-consensus = { version = "1.0.38", default-features = false }
+alloy-rpc-types = { version = "1.0.38", default-features = false }
+alloy-rpc-client = { version = "1.0.38", default-features = false }
+alloy-node-bindings = { version = "1.0.38", default-features = false }
+alloy-rpc-types-engine = { version = "1.0.38", default-features = false }
+alloy-rpc-types-beacon = { version = "1.0.38", default-features = false }
+alloy-rpc-types-eth = { version = "1.0.38", default-features = false }
+alloy-rpc-types-trace = { version = "1.0.38", default-features = false }
+alloy-signer = { version = "1.0.38", default-features = false }
+alloy = { version = "1.0.38", features = [
     "reqwest",
     "network",
     "providers",
@@ -180,12 +180,12 @@ op-alloy-network = { version = "0.20.0", default-features = false }
 alloy-evm = { version = "0.21.0", default-features = false }
 alloy-op-evm = { version = "0.21.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-revm = { version = "29.0.0", default-features = false, features = [
+revm = { version = "29.0.1", default-features = false, features = [
     "kzg-rs",
     "bn",
 ] }
 revm-precompile = { version = "27.0.0", default-features = false }
-op-revm = { version = "10.0.0", default-features = false }
+op-revm = { version = "10.1.0", default-features = false }
 
 # SP1
 sp1-sdk = { version = "=5.2.1" }
@@ -210,19 +210,3 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
-
-[patch."https://github.com/celestiaorg/hana"]
-# hana
-hana-blobstream = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
-hana-celestia = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
-hana-host = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
-hana-oracle = { git = "https://github.com/theochap/hana", rev = "8259ddd527845db023fc8b1e9b5d1f5042ddc14d" }
-
-[patch."https://github.com/Layr-Labs/hokulea"]
-# hokulea
-hokulea-eigenda = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
-hokulea-host-bin = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
-hokulea-proof = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
-hokulea-witgen = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
-hokulea-zkvm-verification = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
-canoe-sp1-cc-host = { git = "https://github.com/theochap/hokulea", rev = "3e2b5e2efa5c5afadefc504bdcd50da3cec51dd8" }
