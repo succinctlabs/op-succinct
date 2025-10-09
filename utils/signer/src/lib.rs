@@ -9,6 +9,7 @@ use alloy_rpc_types_eth::{TransactionReceipt, TransactionRequest};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
+use op_succinct_signer_gcp_utils::{init_client, GcpSigner};
 use tokio::time::Duration;
 
 pub const NUM_CONFIRMATIONS: u64 = 3;
@@ -21,6 +22,8 @@ pub enum Signer {
     Web3Signer(Url, Address),
     /// The local signer.
     LocalSigner(PrivateKeySigner),
+    /// Cloud HSM signer using Google.
+    CloudHsmSigner(String, Address, String),
 }
 
 impl Signer {
@@ -28,6 +31,7 @@ impl Signer {
         match self {
             Signer::Web3Signer(_, address) => *address,
             Signer::LocalSigner(signer) => signer.address(),
+            Signer::CloudHsmSigner(_, address, _) => *address,
         }
     }
 
@@ -44,7 +48,15 @@ impl Signer {
     }
 
     pub fn from_env() -> Result<Self> {
-        if let (Ok(signer_url_str), Ok(signer_address_str)) =
+        if let (Ok(key_name), Ok(ethereum_address_str)) =
+            (std::env::var("HSM_API_NAME"), std::env::var("HSM_ETH_ADDRESS"))
+        {
+            let creds_json_hex = std::env::var("HSM_CREDENTIALS").expect("HSM_CREDENTIALS");
+
+            let ethereum_address = Address::from_str(&ethereum_address_str)
+                .context("Failed to parse HSM_ETH_ADDRESS")?;
+            Ok(Signer::CloudHsmSigner(key_name, ethereum_address, creds_json_hex))
+        } else if let (Ok(signer_url_str), Ok(signer_address_str)) =
             (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
         {
             let signer_url = Url::parse(&signer_url_str).context("Failed to parse SIGNER_URL")?;
@@ -55,7 +67,10 @@ impl Signer {
             Signer::new_local_signer(&private_key_str)
         } else {
             anyhow::bail!(
-                "Neither (SIGNER_URL and SIGNER_ADDRESS) nor PRIVATE_KEY are set in environment"
+                "None of the required signer configurations are set in environment:\n\
+                - For Cloud HSM: HSM_API_NAME, HSM_ETH_ADDRESS, HSM_CREDENTIALS\n\
+                - For Web3Signer: SIGNER_URL and SIGNER_ADDRESS\n\
+                - For Local: PRIVATE_KEY"
             )
         }
     }
@@ -124,6 +139,33 @@ impl Signer {
 
                 Ok(receipt)
             }
+            Signer::CloudHsmSigner(key_name, ethereum_address, creds_json_hex) => {
+                let client = init_client(creds_json_hex.clone()).await.unwrap();
+                let signer =
+                    GcpSigner::new(client, key_name.to_string(), None, *ethereum_address).unwrap();
+                // Set the from address to HSM address
+                transaction_request.set_from(*ethereum_address);
+
+                let wallet = EthereumWallet::new(signer.clone());
+                let provider = ProviderBuilder::new()
+                    .network::<Ethereum>()
+                    .wallet(wallet)
+                    .connect_http(l1_rpc);
+
+                // Fill and send transaction (the wallet will handle KMS signing automatically)
+                let filled_tx = provider.fill(transaction_request).await?;
+
+                let receipt = provider
+                    .send_tx_envelope(filled_tx.as_envelope().unwrap().clone())
+                    .await
+                    .context("Failed to send KMS-signed transaction")?
+                    .with_required_confirmations(NUM_CONFIRMATIONS)
+                    .with_timeout(Some(Duration::from_secs(TIMEOUT_SECONDS)))
+                    .get_receipt()
+                    .await?;
+
+                Ok(receipt)
+            }
         }
     }
 }
@@ -164,6 +206,26 @@ mod tests {
             .await
             .unwrap();
 
+        println!("Signed transaction receipt: {receipt:?}");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn test_send_transaction_request_cloud_hsm() {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("Failed to install default crypto provider");
+        let signer = Signer::from_env().unwrap();
+        let transaction_request = TransactionRequest::default()
+            .to(Address::from([
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+            ]))
+            .value(U256::from(1000000000000000000u64))
+            .from(signer.address());
+        let receipt = signer
+            .send_transaction_request("http://localhost:8545".parse().unwrap(), transaction_request)
+            .await
+            .unwrap();
         println!("Signed transaction receipt: {receipt:?}");
     }
 }

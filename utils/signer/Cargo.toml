@@ -6,6 +6,9 @@ edition.workspace = true
 
 [dependencies]
 
+# workspace
+op-succinct-signer-gcp-utils.workspace = true
+
 # alloy
 alloy-consensus.workspace = true
 alloy-eips.workspace = true
@@ -19,6 +22,11 @@ alloy-transport-http.workspace = true
 # general
 anyhow.workspace = true
 tokio.workspace = true
+rustls = { version = "0.23", default-features = false, features = [
+    "std",
+    "tls12",
+    "aws-lc-rs",
+] }
 
 [dev-dependencies]
 op-succinct-host-utils.workspace = true

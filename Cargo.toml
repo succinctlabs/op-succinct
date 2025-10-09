@@ -9,6 +9,7 @@ members = [
     "utils/eigenda/host",
     "utils/proof",
     "utils/signer",
+    "utils/signer-gcp",
     "utils/ethereum/client",
     "utils/ethereum/host",
     "programs/range/*",
@@ -127,6 +128,7 @@ op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
 op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
+op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
 op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
@@ -198,6 +200,9 @@ sp1-core-executor = { version = "=5.2.2" }
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
+
+# Cloud dependencies
+gcloud-sdk = "0.28"
 
 [profile.release-client-lto]
 inherits = "release"
