@@ -15,8 +15,12 @@ use anyhow::{Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
-    metrics::MetricsGauge, witness_generation::WitnessGenerator,
+    fetcher::OPSuccinctDataFetcher,
+    get_agg_proof_stdin,
+    host::OPSuccinctHost,
+    metrics::MetricsGauge,
+    network::{determine_network_mode, get_network_signer},
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
@@ -161,14 +165,18 @@ where
     /// contract instance.
     pub async fn new(
         config: ProposerConfig,
-        network_private_key: String,
         signer: Signer,
         factory: DisputeGameFactoryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&network_private_key).build());
+        // Set up the network prover.
+        let network_signer = get_network_signer(config.use_kms_requester).await?;
+        let network_mode =
+            determine_network_mode(config.range_proof_strategy, config.agg_proof_strategy)?;
+        let network_prover = Arc::new(
+            ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
+        );
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
         let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
 
@@ -404,7 +412,16 @@ where
                         }
                     }
                     GameSyncAction::Remove(index) => {
-                        state.games.remove(&index);
+                        let is_canonical_head = state.canonical_head_index == Some(index);
+
+                        if is_canonical_head {
+                            tracing::debug!(
+                                game_index = %index,
+                                "Retaining canonical head game in cache despite zero credit"
+                            );
+                        } else {
+                            state.games.remove(&index);
+                        }
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
@@ -548,11 +565,14 @@ where
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
-                .strategy(self.config.range_proof_strategy)
                 .skip_simulation(true)
-                .cycle_limit(1_000_000_000_000)
-                .gas_limit(1_000_000_000_000)
-                .timeout(Duration::from_secs(4 * 60 * 60))
+                .strategy(self.config.range_proof_strategy)
+                .timeout(Duration::from_secs(self.config.timeout))
+                .min_auction_period(self.config.min_auction_period)
+                .max_price_per_pgu(self.config.max_price_per_pgu)
+                .cycle_limit(self.config.range_cycle_limit)
+                .gas_limit(self.config.range_gas_limit)
+                .whitelist(self.config.whitelist.clone())
                 .run_async()
                 .await?;
 
@@ -613,7 +633,12 @@ where
                 .prove(&self.prover.agg_pk, &sp1_stdin)
                 .groth16()
                 .strategy(self.config.agg_proof_strategy)
-                .timeout(Duration::from_secs(4 * 60 * 60))
+                .timeout(Duration::from_secs(self.config.timeout))
+                .min_auction_period(self.config.min_auction_period)
+                .max_price_per_pgu(self.config.max_price_per_pgu)
+                .cycle_limit(self.config.agg_cycle_limit)
+                .gas_limit(self.config.agg_gas_limit)
+                .whitelist(self.config.whitelist.clone())
                 .run_async()
                 .await?
         };
@@ -1152,18 +1177,116 @@ where
 
     /// Check if we should create a game
     ///
-    /// Compares the next L2 block number for proposal with the finalized L2 block number.
+    /// In fast finality mode, prioritizes proving existing games over creating new ones, preventing
+    /// the proposer from abandoning in-progress games after a restart.
+    ///
+    /// Then compares the next L2 block number for proposal with the finalized L2 block number.
     /// If the finalized L2 block number is greater than or equal to the next L2 block number for
     /// proposal, we should create a game.
     async fn should_create_game(&self) -> Result<(bool, U256)> {
-        // In fast finality mode, check if we're at proving capacity
+        // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
         if self.config.fast_finality_mode {
-            let active_proving = self.count_active_proving_tasks().await;
+            let mut active_proving = self.count_active_proving_tasks().await;
+
+            // Resume proving for existing unproven games before creating new ones.
+            if active_proving < self.config.fast_finality_proving_limit {
+                let signer_address = self.signer.address();
+
+                let unproven_games = {
+                    let state = self.state.lock().await;
+                    let tasks = self.tasks.lock().await;
+
+                    let candidates = state
+                        .games
+                        .values()
+                        .filter(|game| game.status == GameStatus::IN_PROGRESS)
+                        .filter(|game| game.proposal_status == ProposalStatus::Unchallenged)
+                        .map(|game| (game.index, game.address))
+                        .collect::<Vec<_>>();
+
+                    let proving_set = tasks
+                        .values()
+                        .filter_map(|(_, info)| match info {
+                            TaskInfo::GameProving { game_address, .. } => Some(*game_address),
+                            _ => None,
+                        })
+                        .collect::<HashSet<_>>();
+
+                    // Filter games being proven
+                    candidates
+                        .into_iter()
+                        .filter(|(_, address)| !proving_set.contains(address))
+                        .collect::<Vec<_>>()
+                };
+
+                let mut spawned_count = 0;
+
+                for (index, game_address) in unproven_games {
+                    if active_proving >= self.config.fast_finality_proving_limit {
+                        tracing::debug!(
+                            "Reached fast finality proving capacity ({}/{}) while resuming games",
+                            active_proving,
+                            self.config.fast_finality_proving_limit
+                        );
+                        break;
+                    }
+
+                    // Check if we own this game
+                    let contract =
+                        OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+                    let creator = match contract.gameCreator().call().await {
+                        Ok(c) => c,
+                        Err(e) => {
+                            tracing::warn!(
+                                ?game_address,
+                                ?e,
+                                "Failed to check game creator, skipping"
+                            );
+                            continue;
+                        }
+                    };
+
+                    if creator != signer_address {
+                        continue;
+                    }
+
+                    // Spawn proving task
+                    match self.spawn_game_proving_task(game_address, false).await {
+                        Ok(()) => {
+                            tracing::info!(
+                                game_address = ?game_address,
+                                game_index = %index,
+                                "Resumed fast finality proving for existing game"
+                            );
+                            spawned_count += 1;
+                            active_proving += 1;
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                ?game_address,
+                                ?e,
+                                "Failed to spawn proving task, continuing"
+                            );
+                        }
+                    }
+                }
+
+                if spawned_count > 0 {
+                    tracing::info!(
+                        "Resumed proving for {} existing game(s), now at {}/{} capacity",
+                        spawned_count,
+                        active_proving,
+                        self.config.fast_finality_proving_limit
+                    );
+                }
+            }
+
+            // Check capacity after resuming existing games
             if active_proving >= self.config.fast_finality_proving_limit {
                 tracing::info!(
-                    "Skipping game creation in fast finality mode: proving at capacity ({}/{})",
+                    "Skipping game creation: at proving capacity ({}/{})",
                     active_proving,
                     self.config.fast_finality_proving_limit
                 );
