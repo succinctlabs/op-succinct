@@ -13,7 +13,7 @@ use alloy_primitives::{keccak256, Address, Bytes, B256, U256, U64};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use futures::{stream, StreamExt};
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
@@ -322,22 +322,26 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch and save the L1 config based on the rollup config's L1 chain ID.
     async fn fetch_and_save_l1_config(rollup_config: &RollupConfig) -> Result<PathBuf> {
-        // Try to get L1 config from registry first
-        let l1_config = L1_CONFIGS
-            .get(&rollup_config.l1_chain_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "L1 chain ID {} not found in registry. For unknown L1 chains, the L1 config must be provided via file path.",
-                    rollup_config.l1_chain_id
-                )
-            })?;
-
-        // Create configs directory if it doesn't exist
+        // Check if the L1 config file exists. If it does, return the path to the file.
         let l1_config_dir = PathBuf::from("configs/L1");
-        fs::create_dir_all(&l1_config_dir)?;
-
-        // Save L1 config to a file named by L1 chain ID
         let l1_config_path = l1_config_dir.join(format!("{}.json", rollup_config.l1_chain_id));
+        if l1_config_path.exists() {
+            return Ok(l1_config_path);
+        }
+
+        // Lookup the L1 config from the registry.
+        let l1_config = L1_CONFIGS.get(&rollup_config.l1_chain_id).ok_or_else(|| {
+            anyhow::anyhow!(
+                "L1 chain config {} not found in registry. For unknown L1 chains (e.g., Kurtosis), \
+                 provide a file at {}.",
+                rollup_config.l1_chain_id,
+                l1_config_path.display()
+            )
+        })?;
+
+        // Create the L1 config directory if it doesn't exist.
+        fs::create_dir_all(&l1_config_dir)
+            .with_context(|| format!("creating {}", l1_config_dir.display()))?;
 
         // Write the L1 config to the file
         let l1_config_str = serde_json::to_string_pretty(l1_config)?;
