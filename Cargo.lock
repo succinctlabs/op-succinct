@@ -8474,6 +8474,7 @@ dependencies = [
  "kona-preimage",
  "kona-proof",
  "kona-protocol",
+ "kona-registry",
  "kona-rpc",
  "kzg-rs",
  "lazy_static",

@@ -18,6 +18,7 @@ use futures::{stream, StreamExt};
 use kona_genesis::RollupConfig;
 use kona_host::single::SingleChainHost;
 use kona_protocol::L2BlockInfo;
+use kona_registry::L1_CONFIGS;
 use kona_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_consensus::OpBlock;
 use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network, Optimism};
@@ -38,6 +39,7 @@ pub struct OPSuccinctDataFetcher {
     pub l2_provider: Arc<RootProvider<Optimism>>,
     pub rollup_config: Option<RollupConfig>,
     pub rollup_config_path: Option<PathBuf>,
+    pub l1_config_path: Option<PathBuf>,
 }
 
 impl Default for OPSuccinctDataFetcher {
@@ -120,6 +122,7 @@ impl OPSuccinctDataFetcher {
             l2_provider,
             rollup_config: None,
             rollup_config_path: None,
+            l1_config_path: None,
         }
     }
 
@@ -141,12 +144,16 @@ impl OPSuccinctDataFetcher {
             tracing::warn!("WARNING: Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
         }
 
+        // Fetch and save L1 config based on the rollup config's L1 chain ID
+        let l1_config_path = Self::fetch_and_save_l1_config(&rollup_config).await?;
+
         Ok(OPSuccinctDataFetcher {
             rpc_config,
             l1_provider,
             l2_provider,
             rollup_config: Some(rollup_config),
             rollup_config_path: Some(rollup_config_path),
+            l1_config_path: Some(l1_config_path),
         })
     }
 
@@ -298,7 +305,7 @@ impl OPSuccinctDataFetcher {
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
         // Create configs directory if it doesn't exist
-        let rollup_config_dir = PathBuf::from("configs");
+        let rollup_config_dir = PathBuf::from("configs/L2");
         fs::create_dir_all(&rollup_config_dir)?;
 
         // Save rollup config to a file named by chain ID
@@ -311,6 +318,32 @@ impl OPSuccinctDataFetcher {
 
         // Return both the rollup config and the path to the temporary file
         Ok((rollup_config, rollup_config_path))
+    }
+
+    /// Fetch and save the L1 config based on the rollup config's L1 chain ID.
+    async fn fetch_and_save_l1_config(rollup_config: &RollupConfig) -> Result<PathBuf> {
+        // Try to get L1 config from registry first
+        let l1_config = L1_CONFIGS
+            .get(&rollup_config.l1_chain_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "L1 chain ID {} not found in registry. For unknown L1 chains, the L1 config must be provided via file path.",
+                    rollup_config.l1_chain_id
+                )
+            })?;
+
+        // Create configs directory if it doesn't exist
+        let l1_config_dir = PathBuf::from("configs/L1");
+        fs::create_dir_all(&l1_config_dir)?;
+
+        // Save L1 config to a file named by L1 chain ID
+        let l1_config_path = l1_config_dir.join(format!("{}.json", rollup_config.l1_chain_id));
+
+        // Write the L1 config to the file
+        let l1_config_str = serde_json::to_string_pretty(l1_config)?;
+        fs::write(&l1_config_path, l1_config_str)?;
+
+        Ok(l1_config_path)
     }
 
     async fn fetch_rpc_data<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
@@ -668,7 +701,7 @@ impl OPSuccinctDataFetcher {
             native: false,
             server: true,
             rollup_config_path: self.rollup_config_path.clone(),
-            l1_config_path: None,
+            l1_config_path: self.l1_config_path.clone(),
             enable_experimental_witness_endpoint: false,
         })
     }
