@@ -26,7 +26,7 @@ edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
-version = "3.2.2"
+version = "3.3.0"
 
 [workspace.dependencies]
 # general
@@ -96,18 +96,20 @@ kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "e3659186c795667175b5ff73c808d6e21e18634d" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "e3659186c795667175b5ff73c808d6e21e18634d" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "e3659186c795667175b5ff73c808d6e21e18634d" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "e3659186c795667175b5ff73c808d6e21e18634d" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
 
 # hokulea
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "4fd1f3735f0343345008481aab46698158b6e4a8" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "4fd1f3735f0343345008481aab46698158b6e4a8" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "4fd1f3735f0343345008481aab46698158b6e4a8" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "4fd1f3735f0343345008481aab46698158b6e4a8" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "4fd1f3735f0343345008481aab46698158b6e4a8" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "4fd1f3735f0343345008481aab46698158b6e4a8" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
