@@ -25,6 +25,7 @@ anyhow.workspace = true
 dotenv.workspace = true
 csv.workspace = true
 tracing.workspace = true
+cfg-if.workspace = true
 
 # local
 op-succinct-host-utils.workspace = true
@@ -42,6 +43,7 @@ sp1-sdk.workspace = true
 [dev-dependencies]
 reqwest = { version = "0.12.4", features = ["json"] }
 serde_json.workspace = true
+rustls = { version = "0.23", features = ["ring"] }
 
 [build-dependencies]
 op-succinct-build-utils.workspace = true
@@ -49,4 +51,5 @@ op-succinct-build-utils.workspace = true
 [features]
 default = ["ethereum"]
 celestia = ["op-succinct-proof-utils/celestia"]
+eigenda = ["op-succinct-proof-utils/eigenda"]
 ethereum = ["op-succinct-proof-utils/ethereum"]

@@ -1,9 +1,11 @@
-use std::env;
+use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
+use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use serde::{Deserialize, Serialize};
+use sp1_sdk::network::FulfillmentStrategy;
 
 #[derive(Debug, Clone)]
 pub struct ProposerConfig {
@@ -22,6 +24,12 @@ pub struct ProposerConfig {
     /// Whether to use fast finality mode.
     pub fast_finality_mode: bool,
 
+    /// Proof fulfillment strategy for range proofs.
+    pub range_proof_strategy: FulfillmentStrategy,
+
+    /// Proof fulfillment strategy for aggregation proofs.
+    pub agg_proof_strategy: FulfillmentStrategy,
+
     /// The interval in blocks between proposing new games.
     pub proposal_interval_in_blocks: u64,
 
@@ -36,20 +44,8 @@ pub struct ProposerConfig {
     /// The type of game to propose.
     pub game_type: u32,
 
-    /// The number of games to check for defense.
-    pub max_games_to_check_for_defense: u64,
-
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the proposer will only propose new games.
-    pub enable_game_resolution: bool,
-
-    /// The number of games to check for resolution.
-    /// When game resolution is enabled, the proposer will attempt to resolve games that are
-    /// unchallenged up to `max_games_to_check_for_resolution` games behind the latest game.
-    pub max_games_to_check_for_resolution: u64,
-
-    /// The maximum number of games to check for bond claiming.
-    pub max_games_to_check_for_bond_claiming: u64,
+    /// The max number of defense tasks to run concurrently.
+    pub max_concurrent_defense_tasks: u64,
 
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
@@ -61,6 +57,54 @@ pub struct ProposerConfig {
     /// Maximum concurrent proving tasks allowed in fast finality mode.
     /// This limit prevents game creation when proving capacity is reached.
     pub fast_finality_proving_limit: u64,
+
+    /// Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a
+    /// plaintext private key.
+    pub use_kms_requester: bool,
+
+    /// The maximum price per pgu for proving.
+    pub max_price_per_pgu: u64,
+
+    /// The minimum auction period (in seconds).
+    pub min_auction_period: u64,
+
+    /// The timeout to use for proving (in seconds).
+    pub timeout: u64,
+
+    /// The cycle limit to use for range proofs.
+    pub range_cycle_limit: u64,
+
+    /// The gas limit to use for range proofs.
+    pub range_gas_limit: u64,
+
+    /// The cycle limit to use for aggregation proofs.
+    pub agg_cycle_limit: u64,
+
+    /// The gas limit to use for aggregation proofs.
+    pub agg_gas_limit: u64,
+
+    /// The list of prover addresses that are allowed to bid on proof requests.
+    pub whitelist: Option<Vec<Address>>,
+}
+
+/// Helper function to parse a comma-separated list of addresses
+fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
+    if whitelist_str.is_empty() {
+        return Ok(None);
+    }
+
+    let addresses: Result<Vec<Address>> = whitelist_str
+        .split(',')
+        .map(|addr_str| {
+            let addr_str = addr_str.trim().trim_start_matches("0x");
+            // Add 0x prefix since addresses are provided without it
+            let addr_with_prefix = format!("0x{}", addr_str);
+            Address::from_str(&addr_with_prefix)
+                .map_err(|e| anyhow::anyhow!("Failed to parse address '{}': {:?}", addr_str, e))
+        })
+        .collect();
+
+    addresses.map(|addrs| if addrs.is_empty() { None } else { Some(addrs) })
 }
 
 impl ProposerConfig {
@@ -73,22 +117,19 @@ impl ProposerConfig {
             fast_finality_mode: env::var("FAST_FINALITY_MODE")
                 .unwrap_or("false".to_string())
                 .parse()?,
+            range_proof_strategy: parse_fulfillment_strategy(
+                env::var("RANGE_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
+            ),
+            agg_proof_strategy: parse_fulfillment_strategy(
+                env::var("AGG_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
+            ),
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
                 .unwrap_or("1800".to_string())
                 .parse()?,
             fetch_interval: env::var("FETCH_INTERVAL").unwrap_or("30".to_string()).parse()?,
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
-            max_games_to_check_for_defense: env::var("MAX_GAMES_TO_CHECK_FOR_DEFENSE")
-                .unwrap_or("100".to_string())
-                .parse()?,
-            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
-                .parse()?,
-            max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-                .unwrap_or("100".to_string())
-                .parse()?,
-            max_games_to_check_for_bond_claiming: env::var("MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING")
-                .unwrap_or("100".to_string())
+            max_concurrent_defense_tasks: env::var("MAX_CONCURRENT_DEFENSE_TASKS")
+                .unwrap_or("8".to_string())
                 .parse()?,
             safe_db_fallback: env::var("SAFE_DB_FALLBACK")
                 .unwrap_or("false".to_string())
@@ -99,6 +140,29 @@ impl ProposerConfig {
             fast_finality_proving_limit: env::var("FAST_FINALITY_PROVING_LIMIT")
                 .unwrap_or("1".to_string())
                 .parse()?,
+            use_kms_requester: env::var("USE_KMS_REQUESTER")
+                .unwrap_or("false".to_string())
+                .parse()?,
+            max_price_per_pgu: env::var("MAX_PRICE_PER_PGU")
+                .unwrap_or("300000000".to_string()) // 0.3 PROVE per billion PGU
+                .parse()?,
+            min_auction_period: env::var("MIN_AUCTION_PERIOD")
+                .unwrap_or("1".to_string())
+                .parse()?,
+            timeout: env::var("TIMEOUT").unwrap_or("14400".to_string()).parse()?, // 4 hours
+            range_cycle_limit: env::var("RANGE_CYCLE_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            range_gas_limit: env::var("RANGE_GAS_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            agg_cycle_limit: env::var("AGG_CYCLE_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            agg_gas_limit: env::var("AGG_GAS_LIMIT")
+                .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
         })
     }
 }
