@@ -160,6 +160,11 @@ impl Signer {
             Signer::CloudHsmSigner(signer) => {
                 // Set the from address to HSM address
                 transaction_request.set_from(signer.address());
+                if transaction_request.to.is_none() {
+                    // NOTE(fakedev9999): Anvil's wallet filler insists on a `to` field even for
+                    // deployments. Mark the request as contract creation so it can be signed.
+                    transaction_request.to = Some(TxKind::Create);
+                }
 
                 let wallet = EthereumWallet::new(signer.clone());
                 let provider = ProviderBuilder::new()
@@ -167,11 +172,8 @@ impl Signer {
                     .wallet(wallet)
                     .connect_http(l1_rpc);
 
-                // Fill and send transaction (the wallet will handle KMS signing automatically)
-                let filled_tx = provider.fill(transaction_request).await?;
-
                 let receipt = provider
-                    .send_tx_envelope(filled_tx.as_envelope().unwrap().clone())
+                    .send_transaction(transaction_request)
                     .await
                     .context("Failed to send KMS-signed transaction")?
                     .with_required_confirmations(NUM_CONFIRMATIONS)
@@ -195,7 +197,7 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_send_transaction_request() {
+    async fn test_send_transaction_request_web3() {
         let proposer_signer = Signer::Web3Signer(
             "http://localhost:9000".parse().unwrap(),
             "0x9b3F173823E944d183D532ed236Ee3B83Ef15E1d".parse().unwrap(),
@@ -226,16 +228,23 @@ mod tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_send_transaction_request_cloud_hsm() {
+    // This test is meant to be ran locally to test various signers implementations,
+    // depending of the envvars set.
+    async fn test_send_transaction_request() {
+        dotenv::dotenv().ok();
+
         rustls::crypto::aws_lc_rs::default_provider()
             .install_default()
             .expect("Failed to install default crypto provider");
         let signer = Signer::from_env().await.unwrap();
+
+        println!("Signer: {}", signer.address());
+
         let transaction_request = TransactionRequest::default()
             .to(Address::from([
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
             ]))
-            .value(U256::from(1000000000000000000u64))
+            .value(U256::from(100000u64))
             .from(signer.address());
         let receipt = signer
             .send_transaction_request("http://localhost:8545".parse().unwrap(), transaction_request)

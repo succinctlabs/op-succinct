@@ -8789,6 +8789,7 @@ dependencies = [
  "alloy-signer-local",
  "alloy-transport-http",
  "anyhow",
+ "dotenv",
  "gcloud-sdk",
  "op-succinct-host-utils",
  "rustls 0.23.32",
