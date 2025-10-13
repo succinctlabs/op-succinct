@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Result;
 use async_trait::async_trait;
+use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
 use hokulea_proof::{
     eigenda_provider::OracleEigenDAPreimageProvider, eigenda_witness::EigenDAWitness,
 };
@@ -149,6 +150,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             &eigenda_witness_data,
             oracle.clone(),
             canoe_provider,
+            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
         )
         .await?;
 
