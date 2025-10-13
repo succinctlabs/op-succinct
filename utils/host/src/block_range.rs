@@ -15,6 +15,7 @@ use crate::{
 };
 
 const TWO_HOURS_IN_BLOCKS: u64 = 3600;
+const ONE_WEEK_IN_BLOCKS: u64 = TWO_HOURS_IN_BLOCKS * 24 * 7;
 
 /// Get the start and end block numbers for a range, with validation.
 pub async fn get_validated_block_range<H: OPSuccinctHost>(
@@ -78,7 +79,7 @@ pub async fn get_rolling_block_range<H: OPSuccinctHost>(
 ) -> Result<(u64, u64)> {
     let header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
     let l2_end_block = host
-        .get_finalized_l2_block_number(data_fetcher, header.number - TWO_HOURS_IN_BLOCKS)
+        .get_finalized_l2_block_number(data_fetcher, header.number - ONE_WEEK_IN_BLOCKS)
         .await?
         .expect("Failed to get finalized L2 block number");
 
