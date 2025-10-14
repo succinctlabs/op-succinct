@@ -62,8 +62,6 @@ jobs:
           cargo test --release --test e2e -- --test-threads=1 --nocapture
         fi
       env:
-        L1_RPC: ${{ secrets.L1_RPC }}
-        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ secrets.L2_RPC }}
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
 
