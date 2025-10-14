@@ -1,5 +1,4 @@
-use std::sync::OnceLock;
-use std::env;
+use std::{env, sync::OnceLock};
 
 use anyhow::{Context, Result};
 use opentelemetry::{global, KeyValue};
@@ -78,7 +77,8 @@ pub fn setup_logger() {
                 }
                 "pretty" | _ => {
                     // Default to pretty formatting with ANSI colors
-                    let ansi = cfg!(feature = "ansi") && env::var("NO_COLOR").map_or(true, |v| v.is_empty());
+                    let ansi = cfg!(feature = "ansi") &&
+                        env::var("NO_COLOR").map_or(true, |v| v.is_empty());
 
                     Some(Box::new(
                         tracing_subscriber::fmt::layer()
@@ -89,7 +89,6 @@ pub fn setup_logger() {
                             .with_file(false)
                             .with_line_number(false)
                             .with_ansi(ansi)
-
                             .with_filter(build_env_filter()),
                     ))
                 }
