@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Result;
 use async_trait::async_trait;
+use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloToOpProviderAdapter;
 use hokulea_proof::{
@@ -151,11 +152,13 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             .parse::<bool>()
             .unwrap_or(false);
         let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
+        let canoe_address_fetcher = CanoeVerifierAddressFetcherDeployedByEigenLabs {};
         let canoe_proofs = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_witness_data,
             oracle.clone(),
             canoe_provider,
+            canoe_address_fetcher,
         )
         .await?;
 
