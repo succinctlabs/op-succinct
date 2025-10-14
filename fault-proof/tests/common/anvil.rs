@@ -76,6 +76,7 @@ pub async fn setup_anvil_fork(fork_url: &str) -> Result<AnvilFork> {
     let anvil = Anvil::new()
         .fork(fork_url)
         .fork_block_number(l1_block_number)
+        .block_time(1)
         .arg("--disable-code-size-limit");
 
     let anvil_instance = anvil.spawn();
