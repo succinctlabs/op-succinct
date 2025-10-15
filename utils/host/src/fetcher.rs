@@ -396,7 +396,7 @@ impl OPSuccinctDataFetcher {
     {
         let url = self
             .get_rpc_url(rpc_mode)
-            .ok_or_else(|| anyhow!("RPC URL for mode {rpc_mode:?} is not set.",))?;
+            .ok_or_else(|| anyhow!("RPC URL for mode {rpc_mode:?} is not set"))?;
         Self::fetch_rpc_data(url, method, params).await
     }
 
