@@ -49,7 +49,7 @@ For transaction signing, the following methods are supported:
 | Web3 wallet | Sign transactions using an external web3 signer service |
 | Google HSM | Sign transactions using Google Cloud Hardware Security Module |
 
-Depending of the one you choose, you must provide the corresponding environment variables:
+Depending on the one you choose, you must provide the corresponding environment variables:
 
 #### Local wallet
 
