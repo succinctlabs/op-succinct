@@ -116,7 +116,12 @@ where
         // 1. Load new games.
         let mut next_index = {
             let state = self.state.lock().await;
-            state.cursor + U256::from(1)
+            // If cursor is 0, start from 0; otherwise, start from cursor + 1
+            if state.cursor == U256::ZERO && state.games.is_empty() {
+                U256::ZERO
+            } else {
+                state.cursor + U256::from(1)
+            }
         };
 
         let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
@@ -346,6 +351,14 @@ where
                 continue;
             }
 
+            // Clear the challenge flag after successful challenge
+            {
+                let mut state = self.state.lock().await;
+                if let Some(game_state) = state.games.get_mut(&game.index) {
+                    game_state.should_attempt_to_challenge = false;
+                }
+            }
+
             ChallengerGauge::GamesChallenged.increment(1.0);
         }
 
@@ -382,6 +395,13 @@ where
                         );
                         ChallengerGauge::GameChallengingError.increment(1.0);
                     } else {
+                        // Clear the challenge flag after successful malicious challenge
+                        {
+                            let mut state = self.state.lock().await;
+                            if let Some(game_state) = state.games.get_mut(&game.index) {
+                                game_state.should_attempt_to_challenge = false;
+                            }
+                        }
                         ChallengerGauge::GamesChallenged.increment(1.0);
                     }
                 }

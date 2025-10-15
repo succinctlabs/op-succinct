@@ -121,6 +121,9 @@ where
     /// Get the anchor L2 block number.
     ///
     /// This function returns the L2 block number of the anchor game for a given game type.
+    async fn get_anchor_l2_block_number(&self, game_type: u32) -> Result<U256>;
+
+    /// Get the anchor game for the given game type.
     async fn get_anchor_game(&self, game_type: u32) -> Result<IFaultDisputeGameInstance<P>>;
 
     /// Check if a game is finalized.
@@ -167,6 +170,18 @@ where
         let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, self.provider());
         let anchor_state_registry_address = game_impl.anchorStateRegistry().call().await?;
         Ok(anchor_state_registry_address)
+    }
+
+    /// Get the anchor L2 block number.
+    ///
+    /// This function returns the L2 block number of the anchor game for a given game type.
+    async fn get_anchor_l2_block_number(&self, game_type: u32) -> Result<U256> {
+        let anchor_state_registry_address =
+            self.get_anchor_state_registry_address(game_type).await?;
+        let anchor_state_registry =
+            AnchorStateRegistry::new(anchor_state_registry_address, self.provider());
+        let anchor_l2_block_number = anchor_state_registry.getAnchorRoot().call().await?._1;
+        Ok(anchor_l2_block_number)
     }
 
     /// Get the anchor game for the given game type.

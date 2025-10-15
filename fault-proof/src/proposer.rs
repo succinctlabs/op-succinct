@@ -185,8 +185,7 @@ where
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         // Initialize state with anchor L2 block number
-        let anchor_l2_block =
-            factory.get_anchor_game(config.game_type).await?.l2BlockNumber().call().await?;
+        let anchor_l2_block = factory.get_anchor_l2_block_number(config.game_type).await?;
         let initial_state =
             ProposerState { canonical_head_l2_block: Some(anchor_l2_block), ..Default::default() };
 
