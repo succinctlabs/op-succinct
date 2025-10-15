@@ -20,11 +20,7 @@ pub fn setup_tracing() {
     tracing::subscriber::set_global_default(subscriber).map_err(|e| anyhow!(e)).unwrap();
 }
 
-pub async fn run_range_program<E>(
-    executor: E,
-    oracle: Arc<PreimageStore>,
-    beacon: BlobStore,
-)
+pub async fn run_range_program<E>(executor: E, oracle: Arc<PreimageStore>, beacon: BlobStore)
 where
     E: WitnessExecutor<
             O = PreimageStore,
