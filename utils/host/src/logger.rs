@@ -75,7 +75,7 @@ pub fn setup_logger() {
                             .with_filter(build_env_filter()),
                     ))
                 }
-                "pretty" | _ => {
+                _ => {
                     // Default to pretty formatting with ANSI colors
                     let ansi = cfg!(feature = "ansi") &&
                         env::var("NO_COLOR").map_or(true, |v| v.is_empty());
