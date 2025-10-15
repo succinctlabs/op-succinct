@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
     paths:
       - 'fault-proof/**'
       - 'bindings/**'
@@ -25,10 +26,8 @@ on:
 jobs:
   e2e-tests:
     name: Run E2E Tests
-    runs-on:
-      - runs-on
-      - runner=64cpu-linux-x64
-      - run-id=${{ github.run_id }}
+    environment: e2e
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     
     steps:
