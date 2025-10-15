@@ -27,7 +27,7 @@ import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 
 // Utils
 import {Utils} from "../../test/helpers/Utils.sol";
-import {MockOptimismPortal2} from "../../utils/MockOptimismPortal2.sol";
+import {MockOptimismPortal2} from "../../src/utils/MockOptimismPortal2.sol";
 
 contract DeployOPSuccinctFDG is Script, Utils {
     using stdJson for string;
@@ -163,10 +163,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
         return registry;
     }
 
-    function deployOrGetOptimismPortal2(FDGConfig memory config, GameType gameType)
-        internal
-        returns (address payable)
-    {
+    function deployOrGetOptimismPortal2(FDGConfig memory config, GameType gameType) internal returns (address payable) {
         address payable portalAddress;
         if (config.optimismPortal2Address != address(0)) {
             portalAddress = payable(config.optimismPortal2Address);

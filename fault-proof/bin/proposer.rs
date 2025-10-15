@@ -34,6 +34,7 @@ async fn main() -> Result<()> {
 
     setup_logger();
 
+    let proposer_config = ProposerConfig::from_env()?;
     let proposer_signer = Signer::from_env()?;
 
     let l1_provider =
@@ -47,36 +48,13 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from
-    // the private key.
-    let prover_address = env::var("PROVER_ADDRESS")
-        .ok()
-        .and_then(|addr| addr.parse::<Address>().ok())
-        .unwrap_or_else(|| proposer_signer.address());
-
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
 
-    // Set a default network private key to avoid an error in mock mode.
-    let network_private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
-        tracing::warn!(
-            "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-        );
-        "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-    });
-
     let proposer = Arc::new(
-        OPSuccinctProposer::new(
-            ProposerConfig::from_env()?,
-            network_private_key,
-            prover_address,
-            proposer_signer,
-            factory,
-            Arc::new(fetcher),
-            host,
-        )
-        .await
-        .unwrap(),
+        OPSuccinctProposer::new(proposer_config, proposer_signer, factory, Arc::new(fetcher), host)
+            .await
+            .unwrap(),
     );
 
     // Initialize proposer gauges.

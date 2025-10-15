@@ -12,7 +12,10 @@ use sp1_sdk::{
     network::{proto::types::ExecutionStatus, FulfillmentStrategy},
     NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::{info, warn};
 
 use crate::{
@@ -31,6 +34,15 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
     pub safe_db_fallback: bool,
+    pub max_price_per_pgu: u64,
+    pub timeout: u64,
+    pub range_cycle_limit: u64,
+    pub range_gas_limit: u64,
+    pub agg_cycle_limit: u64,
+    pub agg_gas_limit: u64,
+    pub whitelist: Option<Vec<Address>>,
+    pub min_auction_period: u64,
+    pub auction_timeout: u64,
 }
 
 impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
@@ -46,6 +58,15 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
         safe_db_fallback: bool,
+        max_price_per_pgu: u64,
+        timeout: u64,
+        range_cycle_limit: u64,
+        range_gas_limit: u64,
+        agg_cycle_limit: u64,
+        agg_gas_limit: u64,
+        whitelist: Option<Vec<Address>>,
+        min_auction_period: u64,
+        auction_timeout: u64,
     ) -> Self {
         Self {
             host,
@@ -58,6 +79,15 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             agg_strategy,
             agg_mode,
             safe_db_fallback,
+            max_price_per_pgu,
+            timeout,
+            range_cycle_limit,
+            range_gas_limit,
+            agg_cycle_limit,
+            agg_gas_limit,
+            whitelist,
+            min_auction_period,
+            auction_timeout,
         }
     }
 
@@ -151,7 +181,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .compressed()
             .strategy(self.range_strategy)
             .skip_simulation(true)
-            .cycle_limit(1_000_000_000_000)
+            .timeout(Duration::from_secs(self.timeout))
+            .min_auction_period(self.min_auction_period)
+            .max_price_per_pgu(self.max_price_per_pgu)
+            .cycle_limit(self.range_cycle_limit)
+            .gas_limit(self.range_gas_limit)
+            .whitelist(self.whitelist.clone())
             .request_async()
             .await
         {
@@ -172,6 +207,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
+            .timeout(Duration::from_secs(self.timeout))
+            .min_auction_period(self.min_auction_period)
+            .max_price_per_pgu(self.max_price_per_pgu)
+            .cycle_limit(self.agg_cycle_limit)
+            .gas_limit(self.agg_gas_limit)
+            .whitelist(self.whitelist.clone())
             .request_async()
             .await
         {
@@ -203,7 +244,11 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         let network_prover = self.network_prover.clone();
         // Move the CPU-intensive operation to a dedicated thread.
         let (pv, report) = match tokio::task::spawn_blocking(move || {
-            network_prover.execute(get_range_elf_embedded(), &stdin).calculate_gas(true).run()
+            network_prover
+                .execute(get_range_elf_embedded(), &stdin)
+                .calculate_gas(true)
+                .deferred_proof_verification(false)
+                .run()
         })
         .await?
         {
@@ -313,7 +358,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     pub async fn handle_failed_request(
         &self,
         request: OPSuccinctRequest,
-        execution_status: ExecutionStatus,
+        execution_status: i32,
     ) -> Result<()> {
         warn!(
             id = request.id,
@@ -323,7 +368,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             "Setting request to failed"
         );
 
-        // Mark the existing request as failed.
         self.db_client.update_request_status(request.id, RequestStatus::Failed).await?;
 
         let l1_chain_id = self.fetcher.l1_provider.get_chain_id().await?;
@@ -342,7 +386,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 .await?;
 
             // NOTE: The failed_requests check here can be removed in V5.
-            if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable {
+            if num_failed_requests > 2 || execution_status == ExecutionStatus::Unexecutable as i32 {
                 info!("Splitting failed request into two: {:?}", request.id);
                 let mid_block = (request.start_block + request.end_block) / 2;
                 let new_requests = vec![
@@ -373,6 +417,21 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 self.db_client.insert_requests(&new_requests).await?;
             }
         }
+
+        Ok(())
+    }
+
+    #[tracing::instrument(name = "proof_requester.handle_cancelled_request", skip(self, request))]
+    pub async fn handle_cancelled_request(&self, request: OPSuccinctRequest) -> Result<()> {
+        warn!(
+            id = request.id,
+            start_block = request.start_block,
+            end_block = request.end_block,
+            req_type = ?request.req_type,
+            "Setting request to cancelled"
+        );
+
+        self.db_client.update_request_status(request.id, RequestStatus::Cancelled).await?;
 
         Ok(())
     }

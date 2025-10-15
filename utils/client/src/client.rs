@@ -2,11 +2,7 @@ use alloy_consensus::BlockBody;
 use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use anyhow::Result;
-use kona_derive::{
-    errors::{PipelineError, PipelineErrorKind},
-    traits::{Pipeline, SignalReceiver},
-    types::Signal,
-};
+use kona_derive::{Pipeline, PipelineError, PipelineErrorKind, Signal, SignalReceiver};
 use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, TipCursor};
 use kona_genesis::RollupConfig;
 use kona_preimage::{CommsClient, PreimageKey};
@@ -155,8 +151,9 @@ where
             body: BlockBody {
                 transactions: attributes
                     .transactions
-                    .unwrap_or_default()
-                    .into_iter()
+                    .as_ref()
+                    .unwrap_or(&Vec::new())
+                    .iter()
                     .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
                     .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
                 ommers: Vec::new(),
