@@ -10,7 +10,7 @@
 sp1_zkvm::entrypoint!(main);
 
 use op_succinct_celestia_client_utils::executor::CelestiaDAWitnessExecutor;
-use op_succinct_client_utils::witness::DefaultWitnessData;
+use op_succinct_client_utils::witness::{DefaultWitnessData, WitnessData};
 use op_succinct_range_utils::run_range_program;
 #[cfg(feature = "tracing-subscriber")]
 use op_succinct_range_utils::setup_tracing;

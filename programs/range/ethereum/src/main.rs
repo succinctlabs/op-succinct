@@ -9,7 +9,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use op_succinct_client_utils::witness::DefaultWitnessData;
+use op_succinct_client_utils::witness::{DefaultWitnessData, WitnessData};
 use op_succinct_ethereum_client_utils::executor::ETHDAWitnessExecutor;
 use op_succinct_range_utils::run_range_program;
 #[cfg(feature = "tracing-subscriber")]
