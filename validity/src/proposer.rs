@@ -35,7 +35,7 @@ use crate::{
 };
 
 /// Timeout for network prover calls to prevent indefinite hangs.
-const NETWORK_CALL_TIMEOUT_SECS: u64 = 60;
+const NETWORK_CALL_TIMEOUT_SECS: u64 = 15;
 
 /// Configuration for the driver.
 pub struct DriverConfig {
