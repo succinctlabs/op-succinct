@@ -34,6 +34,9 @@ use crate::{
     ProgramConfig, RequestExecutionStatistics, RequesterConfig, ValidityGauge,
 };
 
+/// Timeout for network prover calls to prevent indefinite hangs.
+const NETWORK_CALL_TIMEOUT_SECS: u64 = 15;
+
 /// Configuration for the driver.
 pub struct DriverConfig {
     pub network_prover: Arc<NetworkProver>,
@@ -334,11 +337,21 @@ where
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
             let proof_request_id = B256::from_slice(proof_request_id);
-            let (status, proof) =
-                self.driver_config.network_prover.get_proof_status(proof_request_id).await?;
+            let (status, proof) = self
+                .network_call_with_timeout(
+                    self.driver_config.network_prover.get_proof_status(proof_request_id),
+                    "waiting for proof status",
+                    &request,
+                )
+                .await?;
 
-            let request_details =
-                self.driver_config.network_prover.get_proof_request(proof_request_id).await?;
+            let request_details = self
+                .network_call_with_timeout(
+                    self.driver_config.network_prover.get_proof_request(proof_request_id),
+                    "waiting for proof request details",
+                    &request,
+                )
+                .await?;
 
             // Check if current time exceeds deadline. If so, the proof has timed out.
             let current_time = std::time::SystemTime::now()
@@ -355,7 +368,12 @@ where
                     current_time > auction_deadline
                 {
                     // Cancel the request in the network.
-                    self.driver_config.network_prover.cancel_request(proof_request_id).await?;
+                    self.network_call_with_timeout(
+                        self.driver_config.network_prover.cancel_request(proof_request_id),
+                        "cancelling proof request",
+                        &request,
+                    )
+                    .await?;
 
                     // Mark the request as cancelled in the database.
                     match self.proof_requester.handle_cancelled_request(request.clone()).await {
@@ -457,8 +475,13 @@ where
                 // Update the prove_duration based on the current time and the proof_request_time.
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
 
-                if let Some(proof_request) =
-                    self.driver_config.network_prover.get_proof_request(proof_request_id).await?
+                if let Some(proof_request) = self
+                    .network_call_with_timeout(
+                        self.driver_config.network_prover.get_proof_request(proof_request_id),
+                        "fetching execution statistics",
+                        &request,
+                    )
+                    .await?
                 {
                     let execution_statistics = RequestExecutionStatistics::from(&proof_request);
 
@@ -635,15 +658,53 @@ where
                 .await?;
 
             // If there's an existing aggregation request with the same start block, end block, and
-            // commitment config that has a checkpointed block hash, use the existing L1 block hash
-            // and number. This is likely caused by an error generating the aggregation
-            // proof, but there's no need to checkpoint the L1 block hash again.
-            let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(
-                existing_request,
-            ) = existing_request
+            // commitment config, try to reuse its checkpoint as long as it still matches the
+            // on-chain mapping.
+            let reuse_checkpoint = if let Some(existing_request) = existing_request {
+                let existing_l1_block_hash = B256::from_slice(&existing_request.0);
+                let existing_l1_block_number = existing_request.1;
+
+                let existing_l1_block_number_u64 = u64::try_from(existing_l1_block_number)
+                    .context("Existing checkpointed L1 block number is negative")?;
+
+                let onchain_l1_block_hash = self
+                    .contract_config
+                    .l2oo_contract
+                    .historicBlockHashes(U256::from(existing_l1_block_number_u64))
+                    .call()
+                    .await?
+                    .0;
+
+                if onchain_l1_block_hash == B256::ZERO {
+                    warn!(
+                        block_number = existing_l1_block_number,
+                        "Historic block hash missing on-chain for cached checkpoint; re-checkpointing."
+                    );
+                    None
+                } else if onchain_l1_block_hash != existing_l1_block_hash {
+                    warn!(
+                        block_number = existing_l1_block_number,
+                        ?existing_l1_block_hash,
+                        ?onchain_l1_block_hash,
+                        "Historic block hash mismatch between database and contract; re-checkpointing."
+                    );
+                    None
+                } else {
+                    debug!(
+                        block_number = existing_l1_block_number,
+                        ?existing_l1_block_hash,
+                        "Reusing cached checkpointed L1 block hash."
+                    );
+                    Some((existing_l1_block_hash, existing_l1_block_number))
+                }
+            } else {
+                None
+            };
+
+            let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(reuse) =
+                reuse_checkpoint
             {
-                tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
-                (B256::from_slice(&existing_request.0), existing_request.1)
+                reuse
             } else {
                 // Checkpoint an L1 block hash that will be used to create the aggregation proof.
                 let latest_header =
@@ -1512,5 +1573,63 @@ where
         }
 
         Ok(Some(current_end))
+    }
+
+    /// Helper method to wrap network prover calls with timeout and proper error handling.
+    ///
+    /// This method:
+    /// - Wraps the network call in a timeout to prevent indefinite hangs
+    /// - Preserves the original network error context when operations fail
+    /// - Logs timeout events with request context for debugging
+    /// - Increments timeout metrics for monitoring
+    async fn network_call_with_timeout<F, T>(
+        &self,
+        future: F,
+        operation_name: &str,
+        request: &OPSuccinctRequest,
+    ) -> Result<T>
+    where
+        F: std::future::Future<Output = Result<T>>,
+    {
+        match tokio::time::timeout(Duration::from_secs(NETWORK_CALL_TIMEOUT_SECS), future).await {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(network_error)) => {
+                warn!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    operation = operation_name,
+                    error = %network_error,
+                    "Network error during operation"
+                );
+                Err(anyhow!(
+                    "Network error {} for request {} (start_block={}, end_block={}): {}",
+                    operation_name,
+                    request.id,
+                    request.start_block,
+                    request.end_block,
+                    network_error
+                ))
+            }
+            Err(_) => {
+                warn!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    operation = operation_name,
+                    timeout_secs = NETWORK_CALL_TIMEOUT_SECS,
+                    "Network call timeout"
+                );
+                ValidityGauge::NetworkCallTimeoutCount.increment(1.0);
+                Err(anyhow!(
+                    "Timeout after {}s {} for request {} (start_block={}, end_block={})",
+                    NETWORK_CALL_TIMEOUT_SECS,
+                    operation_name,
+                    request.id,
+                    request.start_block,
+                    request.end_block
+                ))
+            }
+        }
     }
 }
