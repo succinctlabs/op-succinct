@@ -25,6 +25,6 @@ pub struct Args {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Adds files to myapp
+    /// List proof requests
     List { status: RequestStatus },
 }
