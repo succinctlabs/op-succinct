@@ -200,8 +200,8 @@ impl OPSuccinctDataFetcher {
                         // tx.inner.effective_gas_price * tx.inner.gas_used +
                         // tx.l1_block_info.l1_fee is the total fee for the transaction.
                         // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128
-                            + tx.l1_block_info.l1_fee.unwrap_or(0)
+                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
+                            tx.l1_block_info.l1_fee.unwrap_or(0)
                     })
                     .sum();
 
