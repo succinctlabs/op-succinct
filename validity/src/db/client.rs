@@ -29,9 +29,9 @@ impl DriverDBClient {
         l2_chain_id: i64,
     ) -> Result<PgQueryResult, Error> {
         sqlx::query!(
-            "INSERT INTO chain_locks (l1_chain_id, l2_chain_id, locked_at) 
+            "INSERT INTO chain_locks (l1_chain_id, l2_chain_id, locked_at)
              VALUES ($1, $2, NOW())
-             ON CONFLICT (l1_chain_id, l2_chain_id) 
+             ON CONFLICT (l1_chain_id, l2_chain_id)
              DO UPDATE SET locked_at = NOW()",
             l1_chain_id,
             l2_chain_id
@@ -245,7 +245,7 @@ impl DriverDBClient {
         Ok(count.count.unwrap_or(0))
     }
 
-    /// Fetch all requests with a specific status from the database.
+    /// Fetch requests from provided commitment with a specific status from the database.
     pub async fn fetch_requests_by_status(
         &self,
         status: RequestStatus,
@@ -261,6 +261,20 @@ impl DriverDBClient {
         .bind(status as i16)
         .bind(l1_chain_id)
         .bind(l2_chain_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(requests)
+    }
+
+    /// Fetch all requests with a specific status from the database.
+    pub async fn fetch_all_requests_by_status(
+        &self,
+        status: RequestStatus,
+    ) -> Result<Vec<OPSuccinctRequest>, Error> {
+        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
+            "SELECT * FROM requests WHERE status = $1 ORDER BY start_block ASC",
+        )
+        .bind(status as i16)
         .fetch_all(&self.pool)
         .await?;
         Ok(requests)
@@ -511,7 +525,7 @@ impl DriverDBClient {
     ) -> Result<PgQueryResult, Error> {
         sqlx::query!(
             r#"
-            UPDATE requests 
+            UPDATE requests
             SET status = $1, updated_at = NOW()
             WHERE id = $2
             "#,
@@ -532,7 +546,7 @@ impl DriverDBClient {
     ) -> Result<PgQueryResult, Error> {
         sqlx::query!(
             r#"
-            UPDATE requests 
+            UPDATE requests
             SET status = $1, proof_request_id = $2, proof_request_time = NOW(), updated_at = NOW()
             WHERE id = $3
             "#,
@@ -686,11 +700,11 @@ impl DriverDBClient {
             let mut query_builder = sqlx::QueryBuilder::new(
                 "INSERT INTO requests (
                     status, req_type, mode, start_block, end_block, created_at, updated_at,
-                    proof_request_id, proof_request_time, checkpointed_l1_block_number, 
-                    checkpointed_l1_block_hash, execution_statistics, witnessgen_duration, 
+                    proof_request_id, proof_request_time, checkpointed_l1_block_number,
+                    checkpointed_l1_block_hash, execution_statistics, witnessgen_duration,
                     execution_duration, prove_duration, range_vkey_commitment,
-                    aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, 
-                    total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, 
+                    aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof,
+                    total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees,
                     l1_chain_id, l2_chain_id, contract_address, prover_address, l1_head_block_number) ",
             );
 

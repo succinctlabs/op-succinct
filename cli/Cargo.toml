@@ -1,0 +1,22 @@
+[package]
+name = "op-succinct-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+# local
+op-succinct-validity.workspace = true
+
+# alloy
+alloy-primitives.workspace = true
+
+# general
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
+comfy-table = "7.2.1"
+dotenv.workspace = true
+tokio.workspace = true

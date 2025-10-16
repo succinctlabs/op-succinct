@@ -17,6 +17,7 @@ members = [
     "validity",
     "fault-proof",
     "bindings",
+    "cli",
 ]
 resolver = "2"
 

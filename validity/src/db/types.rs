@@ -6,7 +6,7 @@ use serde_json::Value;
 use sqlx::{types::BigDecimal, FromRow, PgPool};
 use std::{fmt::Debug, sync::Arc};
 
-#[derive(sqlx::Type, Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(sqlx::Type, clap::ValueEnum, Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[sqlx(type_name = "smallint")]
 #[repr(i16)]
 pub enum RequestStatus {
