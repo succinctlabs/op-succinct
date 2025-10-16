@@ -111,9 +111,10 @@ async fn find_minimum_blobstream_block(
     let event_signature = "DataCommitmentStored(uint256,uint64,uint64,bytes32)";
     let event_selector = keccak256(event_signature.as_bytes());
 
-    // Start scanning from the indexer-provided block
+    // Start scanning from the indexer-provided block to the latest block minus the channel timeout
     let mut current_start = start_block;
-    let latest_block = fetcher.l1_provider.get_block_number().await?;
+    let latest_block = fetcher.l1_provider.get_block_number().await? -
+        fetcher.rollup_config.as_ref().unwrap().channel_timeout;
 
     tracing::info!(
         "Scanning for Blobstream proof for Celestia height {} starting from L1 block {}",
@@ -144,15 +145,17 @@ async fn find_minimum_blobstream_block(
                 // Decode and verify the event contains our target Celestia height
                 match verify_data_commitment_event(&log, celestia_height) {
                     Ok(true) => {
-                        tracing::info!(
+                        tracing::debug!(
                             "Found verified Blobstream event at L1 block {} containing Celestia height {}",
                             block_number,
                             celestia_height
                         );
-                        return Ok(block_number);
+                        return Ok(
+                            block_number + fetcher.rollup_config.as_ref().unwrap().channel_timeout
+                        );
                     }
                     Ok(false) => {
-                        tracing::info!(
+                        tracing::debug!(
                             "DataCommitmentStored event at L1 block {} does not contain Celestia height {}, continuing search",
                             block_number,
                             celestia_height
