@@ -200,8 +200,8 @@ impl OPSuccinctDataFetcher {
                         // tx.inner.effective_gas_price * tx.inner.gas_used +
                         // tx.l1_block_info.l1_fee is the total fee for the transaction.
                         // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
-                            tx.l1_block_info.l1_fee.unwrap_or(0)
+                        tx.inner.effective_gas_price * tx.inner.gas_used as u128
+                            + tx.l1_block_info.l1_fee.unwrap_or(0)
                     })
                     .sum();
 
@@ -295,12 +295,16 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the RPC URL for the given RPC mode.
-    pub fn get_rpc_url(&self, rpc_mode: RPCMode) -> Option<&Url> {
+    pub fn get_rpc_url(&self, rpc_mode: RPCMode) -> Result<&Url> {
         match rpc_mode {
-            RPCMode::L1 => Some(&self.rpc_config.l1_rpc),
-            RPCMode::L2 => Some(&self.rpc_config.l2_rpc),
-            RPCMode::L1Beacon => self.rpc_config.l1_beacon_rpc.as_ref(),
-            RPCMode::L2Node => Some(&self.rpc_config.l2_node_rpc),
+            RPCMode::L1 => Ok(&self.rpc_config.l1_rpc),
+            RPCMode::L2 => Ok(&self.rpc_config.l2_rpc),
+            RPCMode::L1Beacon => self
+                .rpc_config
+                .l1_beacon_rpc
+                .as_ref()
+                .ok_or_else(|| anyhow!("L1 beacon RPC URL is not set")),
+            RPCMode::L2Node => Ok(&self.rpc_config.l2_node_rpc),
         }
     }
 
@@ -394,9 +398,7 @@ impl OPSuccinctDataFetcher {
     where
         T: serde::de::DeserializeOwned,
     {
-        let url = self
-            .get_rpc_url(rpc_mode)
-            .ok_or_else(|| anyhow!("RPC URL for mode {rpc_mode:?} is not set"))?;
+        let url = self.get_rpc_url(rpc_mode)?;
         Self::fetch_rpc_data(url, method, params).await
     }
 
