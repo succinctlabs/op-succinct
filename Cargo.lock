@@ -8534,6 +8534,7 @@ dependencies = [
  "clap",
  "comfy-table",
  "dotenv",
+ "op-succinct-host-utils",
  "op-succinct-validity",
  "tokio",
 ]
