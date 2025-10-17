@@ -70,6 +70,14 @@ pub async fn split(
     Ok(())
 }
 
+pub async fn kill(id: u64, db_client: DriverDBClient) -> Result<()> {
+    db_client.update_request_status(id as i64, RequestStatus::Failed).await?;
+
+    println!("Marked proof request '{id}' as failed");
+
+    Ok(())
+}
+
 fn build_requests_table(requests: Vec<OPSuccinctRequest>) -> Table {
     let mut table = Table::new();
 

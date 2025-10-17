@@ -35,8 +35,11 @@ async fn main() -> Result<()> {
             let fetcher = OPSuccinctDataFetcher::new();
 
             commands::split(id, at, db_client, Arc::new(fetcher)).await?;
+        }
+        Commands::Kill { id } => {
+            let db_client = DriverDBClient::new(&args.database_url).await?;
 
-            println!("Ok");
+            commands::kill(id, db_client).await?;
         }
     }
 
