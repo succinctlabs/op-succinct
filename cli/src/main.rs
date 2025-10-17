@@ -22,23 +22,25 @@ async fn main() -> Result<()> {
     }
 
     let args = Args::parse();
+    let db_client = DriverDBClient::new(&args.database_url).await?;
 
     match args.command {
         Commands::List { status } => {
-            let db_client = DriverDBClient::new(&args.database_url).await?;
             let table = commands::list(status, db_client).await?;
 
             println!("{table}");
         }
         Commands::Split { id, at } => {
-            let db_client = DriverDBClient::new(&args.database_url).await?;
             let fetcher = OPSuccinctDataFetcher::new();
 
             commands::split(id, at, db_client, Arc::new(fetcher)).await?;
         }
-        Commands::Kill { id } => {
-            let db_client = DriverDBClient::new(&args.database_url).await?;
+        Commands::Join { a, b } => {
+            let fetcher = OPSuccinctDataFetcher::new();
 
+            commands::join(a, b, db_client, Arc::new(fetcher)).await?;
+        }
+        Commands::Kill { id } => {
             commands::kill(id, db_client).await?;
         }
     }
