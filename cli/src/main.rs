@@ -2,15 +2,18 @@ use anyhow::Result;
 use clap::Parser;
 use op_succinct_validity::DriverDBClient;
 
-use crate::cli::{Args, Commands, EnvFileArg};
+use crate::cli::{Args, Commands};
 
 mod cli;
 mod commands;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    if let Ok(arg) = EnvFileArg::try_parse() {
-        dotenv::from_filename(arg.env_file).ok();
+    let env_file = std::env::args_os().skip_while(|arg| arg != "--env-file").nth(1); // Get the next argument after "--env-file"
+
+    if let Some(env_file) = env_file {
+        println!("{env_file:?}");
+        dotenv::from_filename(env_file).ok();
     } else {
         dotenv::dotenv().ok();
     }
