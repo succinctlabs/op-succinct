@@ -280,6 +280,16 @@ impl DriverDBClient {
         Ok(requests)
     }
 
+    /// Fetch a request by its ID.
+    pub async fn fetch_request(&self, id: i64) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request =
+            sqlx::query_as::<_, OPSuccinctRequest>("SELECT * FROM requests WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
+        Ok(request)
+    }
+
     /// Get the consecutive range proofs for a given start block and end block that are complete
     /// with the same range vkey commitment.
     pub async fn get_consecutive_complete_range_proofs(

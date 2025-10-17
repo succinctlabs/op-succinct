@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use clap::Parser;
+use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_validity::DriverDBClient;
 
 use crate::cli::{Args, Commands};
@@ -22,10 +25,18 @@ async fn main() -> Result<()> {
 
     match args.command {
         Commands::List { status } => {
-            let client = DriverDBClient::new(&args.database_url).await?;
-            let table = commands::list(status, client).await?;
+            let db_client = DriverDBClient::new(&args.database_url).await?;
+            let table = commands::list(status, db_client).await?;
 
             println!("{table}");
+        }
+        Commands::Split { id, at } => {
+            let db_client = DriverDBClient::new(&args.database_url).await?;
+            let fetcher = OPSuccinctDataFetcher::new();
+
+            commands::split(id, at, db_client, Arc::new(fetcher)).await?;
+
+            println!("Ok");
         }
     }
 
