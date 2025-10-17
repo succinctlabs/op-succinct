@@ -270,13 +270,20 @@ impl DriverDBClient {
     pub async fn fetch_all_requests_by_status(
         &self,
         status: RequestStatus,
+        from: Option<i64>,
+        to: Option<i64>,
     ) -> Result<Vec<OPSuccinctRequest>, Error> {
-        let requests = sqlx::query_as::<_, OPSuccinctRequest>(
-            "SELECT * FROM requests WHERE status = $1 ORDER BY start_block ASC",
-        )
-        .bind(status as i16)
-        .fetch_all(&self.pool)
-        .await?;
+        let requests =
+            sqlx::query_as::<_, OPSuccinctRequest>(
+                "SELECT * FROM requests WHERE status = $1 AND ($2::BIGINT IS NULL OR start_block >= $2) AND ($3::BIGINT IS NULL OR end_block <= $3) ORDER BY start_block ASC"
+            )
+                .bind(status as i16)
+                .bind(from)
+                .bind(to)
+                .bind(status as i16)
+                .fetch_all(&self.pool)
+                .await?;
+
         Ok(requests)
     }
 

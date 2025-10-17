@@ -6,8 +6,15 @@ use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_validity::{DriverDBClient, OPSuccinctRequest, RequestStatus};
 
-pub async fn list(status: RequestStatus, db_client: DriverDBClient) -> Result<Table> {
-    let requests = db_client.fetch_all_requests_by_status(status).await?;
+pub async fn list(
+    status: RequestStatus,
+    from: Option<u64>,
+    to: Option<u64>,
+    db_client: DriverDBClient,
+) -> Result<Table> {
+    let requests = db_client
+        .fetch_all_requests_by_status(status, from.map(|x| x as i64), to.map(|x| x as i64))
+        .await?;
 
     Ok(build_requests_table(requests))
 }

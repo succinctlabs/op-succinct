@@ -20,7 +20,17 @@ pub struct Args {
 #[command(flatten_help = true)]
 pub enum Commands {
     /// List proof requests
-    List { status: RequestStatus },
+    List {
+        status: RequestStatus,
+
+        /// The starting block number to filter from
+        #[arg(long)]
+        from: Option<u64>,
+
+        /// The ending block number to filter to
+        #[arg(long)]
+        to: Option<u64>,
+    },
 
     /// Split a proof request
     Split {
