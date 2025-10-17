@@ -56,23 +56,86 @@ pub async fn split(
     .await?;
 
     db_client.update_request_status(request.id, RequestStatus::Failed).await?;
-
     println!("Marked {request} as failed");
 
     db_client.insert_request(&a).await?;
-
     println!("Inserted {a}");
 
     db_client.insert_request(&b).await?;
-
     println!("Inserted {b}");
+
+    Ok(())
+}
+
+pub async fn join(
+    a: u64,
+    b: u64,
+    db_client: DriverDBClient,
+    fetcher: Arc<OPSuccinctDataFetcher>,
+) -> Result<()> {
+    let a = db_client
+        .fetch_request(a as i64)
+        .await?
+        .ok_or_else(|| anyhow!("The proof request '{a}' wasn't found in the DB"))?;
+
+    let b = db_client
+        .fetch_request(b as i64)
+        .await?
+        .ok_or_else(|| anyhow!("The proof request '{a}' wasn't found in the DB"))?;
+
+    if a.start_block >= b.end_block || a.end_block != b.start_block {
+        bail!("The {a} and {b} aren't contiguous");
+    }
+
+    if a.mode != b.mode {
+        bail!("The {a} and {b} modes aren't compatible");
+    }
+
+    if a.range_vkey_commitment != b.range_vkey_commitment {
+        bail!("The {a} and {b} range vkey commitment aren't compatible");
+    }
+
+    if a.rollup_config_hash != b.rollup_config_hash {
+        bail!("The {a} and {b} rollup config hash aren't compatible");
+    }
+
+    if a.l1_chain_id != b.l1_chain_id {
+        bail!("The {a} and {b} l1 chain id aren't compatible");
+    }
+
+    if a.l2_chain_id != b.l2_chain_id {
+        bail!("The {a} and {b} l1 chain id aren't compatible");
+    }
+
+    let range_vkey_commitment = B256::from_slice(&a.range_vkey_commitment);
+    let rollup_config_hash = B256::from_slice(&a.rollup_config_hash);
+
+    let joined = OPSuccinctRequest::create_range_request(
+        a.mode,
+        a.start_block,
+        b.end_block,
+        range_vkey_commitment,
+        rollup_config_hash,
+        a.l1_chain_id,
+        a.l2_chain_id,
+        fetcher,
+    )
+    .await?;
+
+    db_client.update_request_status(a.id, RequestStatus::Failed).await?;
+    println!("Marked {a} as failed");
+
+    db_client.update_request_status(b.id, RequestStatus::Failed).await?;
+    println!("Marked {b} as failed");
+
+    db_client.insert_request(&joined).await?;
+    println!("Inserted {joined}");
 
     Ok(())
 }
 
 pub async fn kill(id: u64, db_client: DriverDBClient) -> Result<()> {
     db_client.update_request_status(id as i64, RequestStatus::Failed).await?;
-
     println!("Marked proof request '{id}' as failed");
 
     Ok(())

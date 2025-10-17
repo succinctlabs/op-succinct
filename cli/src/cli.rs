@@ -32,9 +32,21 @@ pub enum Commands {
         #[arg(long)]
         at: u64,
     },
+
+    /// Join 2 proof requests consecutives ranges, marking them as failed
+    Join {
+        /// The id of the first proof request
+        #[arg(long)]
+        a: u64,
+
+        /// The id of the second proof request
+        #[arg(long)]
+        b: u64,
+    },
+
     /// Set a proof request to failed
     Kill {
-        /// The id of the proof request to set as failed and split
+        /// The id of the proof request to set as failed
         #[arg(long)]
         id: u64,
     },

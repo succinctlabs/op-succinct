@@ -223,7 +223,11 @@ impl OPSuccinctRequest {
 
 impl Display for OPSuccinctRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "proof request {}: {} -> {}", self.id, self.start_block, self.end_block)
+        if self.id == 0 {
+            write!(f, "proof request: {} -> {}", self.start_block, self.end_block)
+        } else {
+            write!(f, "proof request {}: {} -> {}", self.id, self.start_block, self.end_block)
+        }
     }
 }
 
