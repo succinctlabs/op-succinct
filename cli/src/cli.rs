@@ -2,14 +2,7 @@ use clap::{Parser, Subcommand};
 use op_succinct_validity::RequestStatus;
 
 #[derive(Parser)]
-pub struct EnvFileArg {
-    /// Path to environment file
-    #[arg(long, default_value = ".env")]
-    pub env_file: String,
-}
-
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(author, version, about)]
 pub struct Args {
     /// Path to environment file
     #[arg(long, default_value = ".env")]
