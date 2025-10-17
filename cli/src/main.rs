@@ -25,8 +25,8 @@ async fn main() -> Result<()> {
     let db_client = DriverDBClient::new(&args.database_url).await?;
 
     match args.command {
-        Commands::List { status } => {
-            let table = commands::list(status, db_client).await?;
+        Commands::List { status, from, to } => {
+            let table = commands::list(status, from, to, db_client).await?;
 
             println!("{table}");
         }
