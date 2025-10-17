@@ -43,7 +43,8 @@ pub enum Commands {
         at: u64,
     },
 
-    /// Join 2 proof requests consecutives ranges, marking them as failed
+    /// Join 2 proof requests consecutives ranges into a new proof reques, marking the 2 inputs as
+    /// failed
     Join {
         /// The id of the first proof request
         #[arg(long)]
