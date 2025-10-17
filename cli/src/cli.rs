@@ -32,4 +32,10 @@ pub enum Commands {
         #[arg(long)]
         at: u64,
     },
+    /// Set a proof request to failed
+    Kill {
+        /// The id of the proof request to set as failed and split
+        #[arg(long)]
+        id: u64,
+    },
 }
