@@ -28,7 +28,6 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | Parameter | Description |
 |-----------|-------------|
 | `L1_RPC` | L1 Archive Node. |
-| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. |
@@ -39,6 +38,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 
 | Parameter | Description |
 |-----------|-------------|
+| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. Could be required for integrations that access consensus-layer data. |
 | `NETWORK_RPC_URL` | Default: `https://rpc.production.succinct.xyz`. RPC URL for the Succinct Prover Network. |
 | `DATABASE_URL` | Default: `postgres://op-succinct@postgres:5432/op-succinct`. The address of a Postgres database for storing the intermediate proposer state. |
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a dispute game with the DisputeGameFactory, rather than the `OPSuccinctL2OutputOracle`. Compatible with `OptimismPortal2`. |
@@ -62,7 +62,8 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `OTLP_ENDPOINT` | Default: `http://localhost:4317`. The endpoint to forward OTLP logs to. |
 | `USE_KMS_REQUESTER` | Default: ``.  Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. |
 | `MAX_PRICE_PER_PGU` | Default: `300,000,000`. The maximum price per pgu for proving. |
-| `TIMEOUT` | Default: `14400` (4 hours). The timeout to use for proving (in seconds). |
+| `PROVING_TIMEOUT` | Default: `14400` (4 hours). The timeout to use for proving (in seconds). |
+| `NETWORK_CALLS_TIMEOUT` | Default: `15` (15 seconds). The timeout for network prover calls (in seconds). |
 | `RANGE_CYCLE_LIMIT` | Default: `1,000,000,000,000`. The cycle limit to use for range proofs. |
 | `RANGE_GAS_LIMIT` | Default: `1,000,000,000,000`. The gas limit to use for range proofs. |
 | `AGG_CYCLE_LIMIT` | Default: `1,000,000,000,000`. The cycle limit to use for aggregation proofs. |
