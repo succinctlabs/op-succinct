@@ -329,3 +329,16 @@ remove-config config_name env_file=".env":
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast
+
+# Build the elf binaries
+build-elfs:
+    #!/usr/bin/env bash
+    cd programs/range/ethereum
+    cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.2 --output-directory ../../../elf
+    cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    cd ../celestia
+    cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    cd ../eigenda
+    cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    cd ../../aggregation
+    cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
