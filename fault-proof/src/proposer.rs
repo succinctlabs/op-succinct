@@ -472,13 +472,33 @@ where
             state.games.values().max_by_key(|game| game.l2_block).cloned()
         };
 
+        let previous_canonical_index = state.canonical_head_index;
+
         if let Some(canonical_head) = canonical_head {
             state.canonical_head_index = Some(canonical_head.index);
             state.canonical_head_l2_block = Some(canonical_head.l2_block);
+
+            if previous_canonical_index != state.canonical_head_index {
+                tracing::info!(
+                    previous_canonical_index = ?previous_canonical_index,
+                    new_canonical_index = %canonical_head.index,
+                    l2_block = %canonical_head.l2_block,
+                    total_games = state.games.len(),
+                    "Canonical head updated"
+                );
+            }
         } else {
             // Clear stale canonical head when no valid games exist.
             state.canonical_head_index = None;
             state.canonical_head_l2_block = None;
+
+            if previous_canonical_index.is_some() {
+                tracing::info!(
+                    previous_canonical_index = ?previous_canonical_index,
+                    total_games = state.games.len(),
+                    "Canonical head cleared: no valid games in cache"
+                );
+            }
         }
     }
 
