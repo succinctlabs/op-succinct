@@ -475,6 +475,10 @@ where
         if let Some(canonical_head) = canonical_head {
             state.canonical_head_index = Some(canonical_head.index);
             state.canonical_head_l2_block = Some(canonical_head.l2_block);
+        } else {
+            // Clear stale canonical head when no valid games exist.
+            state.canonical_head_index = None;
+            state.canonical_head_l2_block = None;
         }
     }
 
