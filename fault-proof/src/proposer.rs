@@ -681,7 +681,6 @@ where
     ///
     /// `output_root`: the output root we are proposing.
     /// `extra_data`: the extra data of the game; the l2 block number and the parent game index.
-
     pub async fn create_game(
         &self,
         output_root: FixedBytes<32>,

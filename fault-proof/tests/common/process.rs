@@ -8,8 +8,10 @@ use fault_proof::{
     challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
     proposer::OPSuccinctProposer,
 };
-use op_succinct_ethereum_host_utils::host::SingleChainOPSuccinctHost;
-use op_succinct_host_utils::fetcher::{OPSuccinctDataFetcher, RPCConfig};
+use op_succinct_host_utils::{
+    fetcher::{OPSuccinctDataFetcher, RPCConfig},
+    host::OPSuccinctHost,
+};
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::network::FulfillmentStrategy;
@@ -20,7 +22,7 @@ pub async fn init_proposer(
     private_key: &str,
     factory_address: &Address,
     game_type: u32,
-) -> Result<OPSuccinctProposer<fault_proof::L1Provider, SingleChainOPSuccinctHost>> {
+) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
     // Create signer directly from private key
     let signer = Signer::new_local_signer(private_key)?;
 
@@ -57,7 +59,7 @@ pub async fn init_proposer(
     let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
     let host = initialize_host(fetcher.clone());
 
-    Ok(OPSuccinctProposer::new(config, signer, factory, fetcher, host).await?)
+    OPSuccinctProposer::new(config, signer, factory, fetcher, host).await
 }
 
 /// Start a proposer, and return a handle to the proposer task.
