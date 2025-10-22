@@ -54,21 +54,12 @@ upgrade-l2oo l1_rpc admin_pk etherscan_api_key="":
 
   cd contracts && forge script script/validity/OPSuccinctUpgrader.s.sol:OPSuccinctUpgrader  --rpc-url $L1_RPC --private-key $ADMIN_PK $VERIFY --broadcast --slow
 
-<<<<<<< HEAD
 # Fetch config for deployment
 fetch-fdg-config env_file=".env" *features='':
-||||||| ae1b78c
-# Deploy OPSuccinct FDG contracts
-deploy-fdg-contracts env_file=".env":
-=======
-# Deploy OPSuccinct FDG contracts
-deploy-fdg-contracts env_file=".env" *features='':
->>>>>>> upstream/main
     #!/usr/bin/env bash
     set -euo pipefail
 
     echo "Fetching Fault Dispute Game configuration..."
-<<<<<<< HEAD
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
     else
@@ -92,10 +83,6 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
     #!/usr/bin/env bash
     set -euo pipefail
 
-||||||| ae1b78c
-    RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
-    
-=======
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
     else
@@ -103,7 +90,6 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
         RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release --features {{features}} -- --env-file {{env_file}}
     fi
     
->>>>>>> upstream/main
     # Load environment variables from project root
     source {{env_file}}
 
@@ -146,7 +132,6 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
     # Build contracts
     echo "Building contracts..."
     forge build
-<<<<<<< HEAD
 
     # Setup verification flags
     VERIFY=""
@@ -155,41 +140,16 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
         echo "Verification enabled with Etherscan"
     fi
 
-||||||| ae1b78c
-    
-=======
-    
-    # Setup verification flags
-    VERIFY=""
-    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
-        VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --retries 10 --delay 5"
-        echo "Verification enabled with Etherscan"
-    fi
-    
->>>>>>> upstream/main
     # Run deployment script
     echo "Running deployment script..."
     forge script script/fp/DeployOPSuccinctFDG.s.sol \
         --broadcast \
-<<<<<<< HEAD
         --no-storage-caching \
-||||||| ae1b78c
-=======
         --slow \
->>>>>>> upstream/main
         --rpc-url "$RPC_URL_TO_USE" \
-<<<<<<< HEAD
         --private-key "$PRIVATE_KEY" \
         $VERIFY
 
-||||||| ae1b78c
-        --private-key "$PRIVATE_KEY"
-    
-=======
-        --private-key "$PRIVATE_KEY" \
-        $VERIFY
-    
->>>>>>> upstream/main
     echo "FDG contract deployment complete!"
 
 # Deploy mock verifier
