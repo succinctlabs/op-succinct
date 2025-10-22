@@ -181,20 +181,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .compressed()
             .strategy(self.range_strategy)
             .skip_simulation(true)
-<<<<<<< HEAD
-            .cycle_limit(1_000_000_000_000)
-            .gas_limit(1_000_000_000_000)
-            .timeout(Duration::from_secs(4 * 60 * 60))
-||||||| ae1b78c
-            .cycle_limit(1_000_000_000_000)
-=======
             .timeout(Duration::from_secs(self.proving_timeout))
             .min_auction_period(self.min_auction_period)
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
             .whitelist(self.whitelist.clone())
->>>>>>> upstream/main
             .request_async()
             .await
         {
@@ -215,17 +207,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .prove(&self.program_config.agg_pk, &stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
-<<<<<<< HEAD
-            .timeout(Duration::from_secs(4 * 60 * 60))
-||||||| ae1b78c
-=======
             .timeout(Duration::from_secs(self.proving_timeout))
             .min_auction_period(self.min_auction_period)
             .max_price_per_pgu(self.max_price_per_pgu)
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
             .whitelist(self.whitelist.clone())
->>>>>>> upstream/main
             .request_async()
             .await
         {
