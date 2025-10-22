@@ -6,7 +6,8 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    challenger::OPSuccinctChallenger, challenger::OPSuccinctChallenger, contract::DisputeGameFactory, prometheus::ChallengerGauge,
+    challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
+    prometheus::ChallengerGauge,
 };
 use op_succinct_host_utils::{
     metrics::{init_metrics, MetricsGauge},
@@ -31,8 +32,6 @@ async fn main() -> Result<()> {
 
     setup_logger();
 
-    setup_logger();
-
     let challenger_config = ChallengerConfig::from_env()?;
     let challenger_signer = Signer::from_env().await?;
 
@@ -48,18 +47,9 @@ async fn main() -> Result<()> {
     );
 
     let mut challenger =
-<<<<<<< HEAD
-        OPSuccinctChallenger::from_env(l1_provider, factory, challenger_signer).await.unwrap();
-||||||| ae1b78c
-        OPSuccinctChallenger::from_env(
-            challenger_signer.address(),
-            challenger_signer,
-            l1_provider,
-            factory,
-        ).await.unwrap();
-=======
-        OPSuccinctChallenger::from_env(challenger_config, l1_provider, factory, challenger_signer).await.unwrap();
->>>>>>> upstream/main
+        OPSuccinctChallenger::new(challenger_config, l1_provider, factory, challenger_signer)
+            .await
+            .unwrap();
 
     // Initialize challenger gauges.
     ChallengerGauge::register_all();

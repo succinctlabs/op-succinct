@@ -6,41 +6,6 @@ use alloy_network::EthereumWallet;
 use alloy_primitives::{Bytes, FixedBytes, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_signer_local::PrivateKeySigner;
-<<<<<<< HEAD
-use alloy_sol_types::{SolCall, SolValue};
-use alloy_transport_http::reqwest::Url;
-use anyhow::{Context, Result};
-use fault_proof::contract::GameStatus;
-use op_succinct_bindings::{
-    dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
-};
-use op_succinct_signer_utils::Signer;
-use rand::Rng;
-use tokio::time::{sleep, Duration};
-use tracing::info;
-
-use common::{
-    constants::{
-        CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-        MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAMES_TO_SEED,
-        MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
-    },
-    contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    monitor::{
-        verify_all_resolved_correctly, wait_and_track_games, wait_and_verify_game_resolutions,
-        wait_for_bond_claims, wait_for_challenges, wait_for_resolutions, TrackedGame,
-    },
-    warp_time, TestEnvironment,
-||||||| ae1b78c
-use alloy_sol_types::SolValue;
-use anyhow::Result;
-use op_alloy_network::EthereumWallet;
-use op_succinct_host_utils::setup_logger;
-use tokio::{
-    process::Command as TokioCommand,
-    time,
-    time::{sleep, Duration},
-=======
 use alloy_sol_types::{SolCall, SolValue};
 use alloy_transport_http::reqwest::Url;
 use anyhow::{Context, Result};
@@ -56,19 +21,7 @@ use common::{
         wait_for_bond_claims, wait_for_challenges, wait_for_resolutions, TrackedGame,
     },
     warp_time, TestEnvironment,
->>>>>>> upstream/main
 };
-<<<<<<< HEAD
-
-use crate::common::{start_challenger, start_proposer};
-||||||| ae1b78c
-
-use fault_proof::{
-    config::ProposerConfig,
-    contract::{DisputeGameFactory, OPSuccinctFaultDisputeGame, ProposalStatus},
-    FactoryTrait,
-};
-=======
 use fault_proof::{contract::GameStatus, L2ProviderTrait};
 use op_succinct_bindings::{
     dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
@@ -77,82 +30,26 @@ use op_succinct_signer_utils::Signer;
 use rand::Rng;
 use tokio::time::{sleep, Duration};
 use tracing::info;
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-alloy_sol_types::sol! {
-    #[sol(rpc)]
-    contract MockPermissionedDisputeGameView {
-        function status() external view returns (uint8);
-    }
-}
-||||||| ae1b78c
-#[tokio::test]
-async fn test_e2e_proposer_wins() -> Result<()> {
-    const NUM_GAMES: usize = 3;
-=======
 use crate::common::{start_challenger, start_proposer};
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-#[tokio::test(flavor = "multi_thread")]
-async fn test_honest_proposer_native() -> Result<()> {
-    TestEnvironment::init_logging();
-    info!("=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
-||||||| ae1b78c
-    setup_logger();
-=======
 alloy_sol_types::sol! {
     #[sol(rpc)]
     contract MockPermissionedDisputeGameView {
         function status() external view returns (uint8);
     }
 }
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-    // Setup common test environment
-    let env = TestEnvironment::setup().await?;
-||||||| ae1b78c
-    let _span = tracing::info_span!("[[TEST]]").entered();
-=======
 // Covers the proposer happy path from creation through resolution to bond claim.
 // Ensures the proposer keeps running and completes every stage cleanly.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_honest_proposer_native() -> Result<()> {
     TestEnvironment::init_logging();
     info!("=== Test: Honest Proposer Full Lifecycle (Create → Resolve → Claim) ===");
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-    // Start proposer
-    let proposer_handle = start_proposer(
-        &env.rpc_config,
-        PROPOSER_PRIVATE_KEY,
-        &env.deployed.factory,
-        TEST_GAME_TYPE,
-    )
-    .await?;
-    info!("✓ Proposer service started");
-||||||| ae1b78c
-    let proposer_config = ProposerConfig::from_env()?;
-=======
     // Setup common test environment
     let env = TestEnvironment::setup().await?;
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-    // Wait for proposer to create games
-    info!("=== Waiting for Game Creation ===");
-    let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
-||||||| ae1b78c
-    let wallet = EthereumWallet::from(
-        env::var("PRIVATE_KEY")
-            .expect("PRIVATE_KEY must be set")
-            .parse::<PrivateKeySigner>()
-            .unwrap(),
-    );
-=======
     // Start proposer
     let proposer_handle = start_proposer(
         &env.rpc_config,
@@ -162,62 +59,11 @@ async fn test_honest_proposer_native() -> Result<()> {
     )
     .await?;
     info!("✓ Proposer service started");
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-    // Track first 3 games (L2 finalized head won't advance far enough for 3)
-    let tracked_games =
-        wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(60)).await?;
-||||||| ae1b78c
-    let l1_provider_with_wallet =
-        ProviderBuilder::new().wallet(wallet.clone()).connect_http(proposer_config.l1_rpc.clone());
-=======
     // Wait for proposer to create games
     info!("=== Waiting for Game Creation ===");
     let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-    info!("✓ Proposer created {} games:", tracked_games.len());
-    for (i, game) in tracked_games.iter().enumerate() {
-        info!("  Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
-||||||| ae1b78c
-    let factory = DisputeGameFactory::new(
-        env::var("FACTORY_ADDRESS")
-            .expect("FACTORY_ADDRESS must be set")
-            .parse::<Address>()
-            .unwrap(),
-        l1_provider_with_wallet.clone(),
-    );
-
-    // Get the start game index.
-    let latest_game_index = factory.fetch_latest_game_index().await?;
-    let start_game_index = latest_game_index.unwrap_or(U256::ZERO);
-    tracing::info!("Start game index: {:?}", start_game_index);
-
-    // Spawn the proposer process to create games.
-    tracing::info!("Spawning proposer to create games");
-    let mut proposer_process = TokioCommand::new("cargo")
-        .args(["run", "--bin", "proposer"])
-        .spawn()
-        .expect("Failed to spawn proposer to create games");
-
-    // Collect the game addresses and indexes created by the proposer.
-    let mut game_addresses_and_indexes = Vec::new();
-    while game_addresses_and_indexes.len() < NUM_GAMES {
-        let latest_game_index = factory.fetch_latest_game_index().await?.unwrap_or(U256::ZERO);
-        if latest_game_index < start_game_index + U256::from(NUM_GAMES) {
-            sleep(Duration::from_secs(10)).await;
-            continue;
-        }
-
-        for i in 0..NUM_GAMES {
-            let game_index = start_game_index + U256::from(i);
-            let game = factory.gameAtIndex(game_index).call().await?;
-            let game_address = game.proxy;
-            game_addresses_and_indexes.push((game_address, game_index));
-        }
-=======
     // Track first 3 games (L2 finalized head won't advance far enough for 3)
     let tracked_games =
         wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(60)).await?;
@@ -225,7 +71,6 @@ async fn test_honest_proposer_native() -> Result<()> {
     info!("✓ Proposer created {} games:", tracked_games.len());
     for (i, game) in tracked_games.iter().enumerate() {
         info!("  Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
->>>>>>> upstream/main
     }
 
     // Verify proposer is still running
@@ -251,41 +96,6 @@ async fn test_honest_proposer_native() -> Result<()> {
     let resolutions =
         wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(30)).await?;
 
-<<<<<<< HEAD
-    // Verify all games resolved correctly (proposer wins)
-    verify_all_resolved_correctly(&resolutions)?;
-
-    // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS
-    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
-        .await?;
-    info!("✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({DISPUTE_GAME_FINALITY_DELAY_SECONDS} seconds) to trigger bond claims");
-
-    // Verify proposer is still running
-    assert!(!proposer_handle.is_finished(), "Proposer should still be running");
-    info!("✓ Proposer is still running successfully");
-
-    // === PHASE 4: Bond Claims ===
-    info!("=== Phase 4: Bond Claims ===");
-
-    // Wait for proposer to claim bonds
-    wait_for_bond_claims(
-        &env.anvil.provider,
-        &tracked_games,
-        PROPOSER_ADDRESS,
-        Duration::from_secs(60),
-    )
-    .await?;
-
-    // Stop proposer
-    info!("=== Stopping Proposer ===");
-    proposer_handle.abort();
-    info!("✓ Proposer stopped gracefully");
-
-    info!("=== Full Lifecycle Test Complete ===");
-    info!("✓ Games created, resolved, and bonds claimed successfully");
-||||||| ae1b78c
-    assert!(done, "Timed out waiting for PROPOSER_WINS. Games were not resolved in time.");
-=======
     // Verify all games resolved correctly (proposer wins)
     verify_all_resolved_correctly(&resolutions)?;
 
@@ -317,28 +127,16 @@ async fn test_honest_proposer_native() -> Result<()> {
 
     info!("=== Full Lifecycle Test Complete ===");
     info!("✓ Games created, resolved, and bonds claimed successfully");
->>>>>>> upstream/main
 
     Ok(())
 }
 
-<<<<<<< HEAD
-#[tokio::test(flavor = "multi_thread")]
-async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
-    TestEnvironment::init_logging();
-    info!("=== Test: Game Type Transition With Legacy Games In History ===");
-||||||| ae1b78c
-#[tokio::test]
-async fn test_e2e_challenger_wins() -> Result<()> {
-    const NUM_GAMES: usize = 3;
-=======
 // Seeds legacy games, transitions game types, and verifies the proposer ignores them.
 // Confirms new games are created, resolved, and bonds claimed despite history.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
     TestEnvironment::init_logging();
     info!("=== Test: Game Type Transition With Legacy Games In History ===");
->>>>>>> upstream/main
 
     let env = TestEnvironment::setup().await?;
     let mut rng = rand::rng();
@@ -418,142 +216,6 @@ async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
         )
         .await?;
 
-<<<<<<< HEAD
-        // Wait for the game to be indexed by the factory
-        loop {
-            let current = factory_reader.gameCount().call().await?;
-            if current > expected_index {
-                expected_index = current;
-                break;
-            }
-            sleep(Duration::from_millis(200)).await;
-        }
-
-        let game_info = factory_reader.gameAtIndex(expected_index - U256::from(1)).call().await?;
-        assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
-        mock_game_addresses.push(game_info.proxy_);
-        info!(
-            "  • Mock permissioned game {}/{} at {}",
-            i + 1,
-            MOCK_PERMISSIONED_GAMES_TO_SEED,
-            game_info.proxy_
-        );
-    }
-
-    let restore_type_call =
-        MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
-    send_contract_transaction(
-        &proposer_signer,
-        &l1_rpc_url,
-        env.deployed.portal,
-        Bytes::from(restore_type_call.abi_encode()),
-        None,
-    )
-    .await?;
-
-    let proposer_handle = start_proposer(
-        &env.rpc_config,
-        PROPOSER_PRIVATE_KEY,
-        &env.deployed.factory,
-        TEST_GAME_TYPE,
-    )
-    .await?;
-    info!("✓ Proposer started after legacy games seeded");
-
-    let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
-    let tracked_games =
-        wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
-    assert_eq!(tracked_games.len(), 3);
-    info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
-
-    warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
-    let resolutions =
-        wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(60)).await?;
-    verify_all_resolved_correctly(&resolutions)?;
-
-    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
-        .await?;
-    wait_for_bond_claims(
-        &env.anvil.provider,
-        &tracked_games,
-        PROPOSER_ADDRESS,
-        Duration::from_secs(90),
-    )
-    .await?;
-
-    proposer_handle.abort();
-
-    for (idx, address) in mock_game_addresses.iter().enumerate() {
-        let legacy_game =
-            MockPermissionedDisputeGameView::new(*address, env.anvil.provider.clone());
-        let status_raw = legacy_game.status().call().await?;
-        let status = GameStatus::try_from(status_raw).with_context(|| {
-            format!("Failed to decode mock permissioned game status for {address}")
-        })?;
-        assert_eq!(
-            status,
-            GameStatus::IN_PROGRESS,
-            "mock permissioned game {idx} should remain untouched"
-        );
-    }
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_honest_challenger_native() -> Result<()> {
-    TestEnvironment::init_logging();
-    info!("=== Test: Honest Challenger Full Lifecycle (Challenge → Resolve → Claim) ===");
-
-    const NUM_INVALID_GAMES: usize = 3;
-
-    // Setup common test environment
-    let env = TestEnvironment::setup().await?;
-    let mut l2_block_number = env.anvil.starting_l2_block_number;
-
-    // Start challenger service
-    info!("=== Starting Challenger Service ===");
-    let challenger_handle = start_challenger(
-        &env.rpc_config,
-        CHALLENGER_PRIVATE_KEY,
-        &env.deployed.factory,
-        TEST_GAME_TYPE,
-        None,
-    )
-    .await?;
-    info!("✓ Challenger service started");
-
-    // === PHASE 1: Create Invalid Games ===
-    info!("=== Phase 1: Create Invalid Games ===");
-
-    // Create a signer for permissioned account 0
-    let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
-    let provider_with_signer = ProviderBuilder::new()
-        .wallet(EthereumWallet::from(wallet))
-        .connect_http(env.anvil.endpoint.parse::<Url>()?);
-
-    let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
-    let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
-
-    let mut invalid_games = Vec::new();
-    let mut rng = rand::rng();
-
-    for _ in 0..NUM_INVALID_GAMES {
-        l2_block_number += 10;
-        // Create game with random invalid output root
-        let mut invalid_root_bytes = [0u8; 32];
-        rng.fill(&mut invalid_root_bytes);
-        let invalid_root = FixedBytes::<32>::from(invalid_root_bytes);
-
-        let parent_index = u32::MAX;
-        let extra_data = (U256::from(l2_block_number), parent_index).abi_encode_packed();
-
-        let tx = factory
-            .create(TEST_GAME_TYPE, invalid_root, extra_data.into())
-||||||| ae1b78c
-        factory
-            .create(game_type, faulty_output_root, extra_data.into())
-=======
         // Wait for the game to be indexed by the factory
         loop {
             let current = factory_reader.gameCount().call().await?;
@@ -687,7 +349,6 @@ async fn test_honest_challenger_native() -> Result<()> {
 
         let tx = factory
             .create(TEST_GAME_TYPE, invalid_root, extra_data.into())
->>>>>>> upstream/main
             .value(init_bond)
             .send()
             .await?;
@@ -701,63 +362,6 @@ async fn test_honest_challenger_native() -> Result<()> {
         invalid_games.push(game_address);
     }
 
-<<<<<<< HEAD
-    info!("✓ Created {} invalid games:", invalid_games.len());
-    for (i, game) in invalid_games.iter().enumerate() {
-        info!("  Game {}: {}", i + 1, game);
-||||||| ae1b78c
-    // Wait for and collect new games
-    let mut game_addresses = Vec::new();
-    let mut logged_indices = HashSet::new();
-    let mut done = false;
-    let max_wait = Duration::from_secs(120); // 2 minutes total wait
-    let start = tokio::time::Instant::now();
-
-    while !done && (tokio::time::Instant::now() - start) < max_wait {
-        let latest_game_index = factory.fetch_latest_game_index().await?.unwrap_or(U256::ZERO);
-
-        if latest_game_index >= start_game_index + U256::from(NUM_GAMES) {
-            // Get latest game addresses
-            game_addresses.clear(); // Clear to avoid duplicates
-            for i in 0..NUM_GAMES {
-                let game_index = start_game_index + U256::from(i);
-                let game = factory.gameAtIndex(game_index).call().await?;
-                let game_address = game.proxy;
-
-                // Only log if we haven't seen this index before
-                if logged_indices.insert(game_index) {
-                    tracing::info!("Game {:?} created at index {}", game_address, game_index);
-                }
-
-                game_addresses.push(game_address);
-            }
-
-            // Check if all games are challenged
-            let provider = std::sync::Arc::new(l1_provider_with_wallet.clone());
-            let all_challenged =
-                futures::future::try_join_all(game_addresses.iter().map(|&game_address| {
-                    let provider = provider.clone();
-                    async move {
-                        let game =
-                            OPSuccinctFaultDisputeGame::new(game_address, (*provider).clone());
-                        let status = game.claimData().call().await?.status;
-                        Ok::<_, anyhow::Error>(status == ProposalStatus::Challenged)
-                    }
-                }))
-                .await?
-                .into_iter()
-                .all(|x| x);
-
-            if all_challenged {
-                done = true;
-                tracing::info!("Successfully challenged all faulty games");
-            }
-        }
-
-        if !done {
-            sleep(Duration::from_secs(10)).await;
-        }
-=======
     info!("✓ Created {} invalid games:", invalid_games.len());
     for (i, game) in invalid_games.iter().enumerate() {
         info!("  Game {}: {}", i + 1, game);
@@ -981,17 +585,8 @@ async fn test_game_chain_validation_invalid_parent() -> Result<()> {
             info!("  New game parent index: {}", claim_data.parentIndex);
             break;
         }
->>>>>>> upstream/main
     }
 
-<<<<<<< HEAD
-    // Verify challenger is still running
-    assert!(!challenger_handle.is_finished(), "Challenger should still be running");
-    info!("✓ Challenger is still running successfully");
-||||||| ae1b78c
-    // Kill the challenger process properly
-    challenger_process.kill().await.expect("Failed to kill challenger process");
-=======
     assert!(new_game_created, "Proposer should have created a new game");
 
     // Stop proposer
@@ -1428,92 +1023,14 @@ async fn test_game_chain_validation_anchor_reset() -> Result<()> {
             break;
         }
     }
->>>>>>> upstream/main
 
-<<<<<<< HEAD
-    // === PHASE 2: Challenge Period ===
-    info!("=== Phase 2: Challenge Period ===");
-    wait_for_challenges(&env.anvil.provider, &invalid_games, Duration::from_secs(60)).await?;
-    info!("✓ All games challenged successfully");
-
-    // === PHASE 3: Resolution ===
-    info!("=== Phase 3: Resolution ===");
-    info!("Warping time past prove deadline to trigger challenger wins...");
-    warp_time(
-        &env.anvil.provider,
-        Duration::from_secs(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION),
-    )
-    .await?;
-    info!(
-        "✓ Warped time by {} seconds (max challenge duration + max prove duration)",
-        MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION
-||||||| ae1b78c
-    assert!(
-        done,
-        "Timed out waiting for CHALLENGER_WINS. Possibly the challenge/resolve window is too long."
-=======
     assert!(
         new_game_parent_verified,
         "Proposer should have created a game on the new anchor branch"
->>>>>>> upstream/main
     );
-<<<<<<< HEAD
-
-    // Wait for and verify challenger wins
-    wait_and_verify_game_resolutions(
-        &env.anvil.provider,
-        &invalid_games,
-        GameStatus::CHALLENGER_WINS,
-        "ChallengerWins",
-        Duration::from_secs(30),
-    )
-    .await?;
-
-    // Warp DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1 for bond claims
-    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1))
-        .await?;
-    info!(
-        "✓ Warped time to enable bond claims ({} seconds)",
-        DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1
-    );
-
-    // Verify challenger is still running
-    assert!(!challenger_handle.is_finished(), "Challenger should still be running");
-    info!("✓ Challenger is still running successfully");
-
-    // === PHASE 4: Bond Claims ===
-    info!("=== Phase 4: Bond Claims ===");
-
-    // Wait for challenger to claim bonds
-    let tracked_games: Vec<_> = invalid_games
-        .iter()
-        .map(|&address| TrackedGame {
-            address,
-            l2_block_number: U256::ZERO, // Not needed for bond claim check
-        })
-        .collect();
-
-    wait_for_bond_claims(
-        &env.anvil.provider,
-        &tracked_games,
-        CHALLENGER_ADDRESS,
-        Duration::from_secs(60),
-    )
-    .await?;
-
-    // Stop challenger
-    info!("=== Stopping Challenger ===");
-    challenger_handle.abort();
-    info!("✓ Challenger stopped gracefully");
-
-    info!("=== Full Lifecycle Test Complete ===");
-    info!("✓ Invalid games challenged, won by challenger, and bonds claimed successfully");
-||||||| ae1b78c
-=======
 
     proposer_handle.abort();
     info!("✓ Test complete: Proposer handled anchor reset correctly");
->>>>>>> upstream/main
 
     Ok(())
 }

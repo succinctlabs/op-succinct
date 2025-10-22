@@ -3,14 +3,9 @@ use std::{env, str::FromStr};
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
-<<<<<<< HEAD
-use serde::{Deserialize, Serialize};
-||||||| ae1b78c
-=======
 use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::network::FulfillmentStrategy;
->>>>>>> upstream/main
 
 #[derive(Debug, Clone)]
 pub struct ProposerConfig {
@@ -49,43 +44,8 @@ pub struct ProposerConfig {
     /// The type of game to propose.
     pub game_type: u32,
 
-<<<<<<< HEAD
-    /// The number of games to check for defense.
-    pub max_games_to_check_for_defense: u64,
-
     /// The max number of defense tasks to run concurrently.
     pub max_concurrent_defense_tasks: u64,
-
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the proposer will only propose new games.
-    pub enable_game_resolution: bool,
-
-    /// The number of games to check for resolution.
-    /// When game resolution is enabled, the proposer will attempt to resolve games that are
-    /// unchallenged up to `max_games_to_check_for_resolution` games behind the latest game.
-    pub max_games_to_check_for_resolution: u64,
-
-    /// The maximum number of games to check for bond claiming.
-    pub max_games_to_check_for_bond_claiming: u64,
-||||||| ae1b78c
-    /// The number of games to check for defense.
-    pub max_games_to_check_for_defense: u64,
-
-    /// Whether to enable game resolution.
-    /// When game resolution is not enabled, the proposer will only propose new games.
-    pub enable_game_resolution: bool,
-
-    /// The number of games to check for resolution.
-    /// When game resolution is enabled, the proposer will attempt to resolve games that are
-    /// unchallenged up to `max_games_to_check_for_resolution` games behind the latest game.
-    pub max_games_to_check_for_resolution: u64,
-
-    /// The maximum number of games to check for bond claiming.
-    pub max_games_to_check_for_bond_claiming: u64,
-=======
-    /// The max number of defense tasks to run concurrently.
-    pub max_concurrent_defense_tasks: u64,
->>>>>>> upstream/main
 
     /// Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not
     /// activated for op-node.
@@ -93,16 +53,6 @@ pub struct ProposerConfig {
 
     /// The metrics port.
     pub metrics_port: u16,
-<<<<<<< HEAD
-
-    /// Maximum concurrent proving tasks allowed in fast finality mode.
-    /// This limit prevents game creation when proving capacity is reached.
-    pub fast_finality_proving_limit: u64,
-
-    /// The cycle limit for the SP1 prover.
-    pub cycle_limit: u64,
-||||||| ae1b78c
-=======
 
     /// Maximum concurrent proving tasks allowed in fast finality mode.
     /// This limit prevents game creation when proving capacity is reached.
@@ -155,7 +105,6 @@ fn parse_whitelist(whitelist_str: &str) -> Result<Option<Vec<Address>>> {
         .collect();
 
     addresses.map(|addrs| if addrs.is_empty() { None } else { Some(addrs) })
->>>>>>> upstream/main
 }
 
 impl ProposerConfig {
@@ -179,37 +128,8 @@ impl ProposerConfig {
                 .parse()?,
             fetch_interval: env::var("FETCH_INTERVAL").unwrap_or("30".to_string()).parse()?,
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
-<<<<<<< HEAD
-            max_games_to_check_for_defense: env::var("MAX_GAMES_TO_CHECK_FOR_DEFENSE")
-                .unwrap_or("100".to_string())
-                .parse()?,
             max_concurrent_defense_tasks: env::var("MAX_CONCURRENT_DEFENSE_TASKS")
                 .unwrap_or("8".to_string())
-                .parse()?,
-            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
-                .parse()?,
-            max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-                .unwrap_or("100".to_string())
-                .parse()?,
-            max_games_to_check_for_bond_claiming: env::var("MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING")
-                .unwrap_or("100".to_string())
-||||||| ae1b78c
-            max_games_to_check_for_defense: env::var("MAX_GAMES_TO_CHECK_FOR_DEFENSE")
-                .unwrap_or("100".to_string())
-                .parse()?,
-            enable_game_resolution: env::var("ENABLE_GAME_RESOLUTION")
-                .unwrap_or("true".to_string())
-                .parse()?,
-            max_games_to_check_for_resolution: env::var("MAX_GAMES_TO_CHECK_FOR_RESOLUTION")
-                .unwrap_or("100".to_string())
-                .parse()?,
-            max_games_to_check_for_bond_claiming: env::var("MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING")
-                .unwrap_or("100".to_string())
-=======
-            max_concurrent_defense_tasks: env::var("MAX_CONCURRENT_DEFENSE_TASKS")
-                .unwrap_or("8".to_string())
->>>>>>> upstream/main
                 .parse()?,
             safe_db_fallback: env::var("SAFE_DB_FALLBACK")
                 .unwrap_or("false".to_string())
@@ -217,13 +137,6 @@ impl ProposerConfig {
             metrics_port: env::var("PROPOSER_METRICS_PORT")
                 .unwrap_or("9000".to_string())
                 .parse()?,
-<<<<<<< HEAD
-            fast_finality_proving_limit: env::var("FAST_FINALITY_PROVING_LIMIT")
-                .unwrap_or("1".to_string())
-                .parse()?,
-            cycle_limit: env::var("CYCLE_LIMIT").unwrap_or("3000000000".to_string()).parse()?,
-||||||| ae1b78c
-=======
             fast_finality_proving_limit: env::var("FAST_FINALITY_PROVING_LIMIT")
                 .unwrap_or("1".to_string())
                 .parse()?,
@@ -250,7 +163,6 @@ impl ProposerConfig {
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
             whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
->>>>>>> upstream/main
         })
     }
 }
@@ -292,7 +204,6 @@ impl ChallengerConfig {
                 .parse()?,
         })
     }
-<<<<<<< HEAD
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -323,32 +234,4 @@ pub struct FaultDisputeGameConfig {
     pub starting_root: String,
     pub use_sp1_mock_verifier: bool,
     pub verifier_address: String,
-||||||| ae1b78c
-=======
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-/// The config for deploying the OPSuccinctFaultDisputeGame.
-/// Note: The fields should be in alphabetical order for Solidity to parse it correctly.
-pub struct FaultDisputeGameConfig {
-    pub aggregation_vkey: String,
-    pub challenger_addresses: Vec<String>,
-    pub challenger_bond_wei: u64,
-    pub dispute_game_finality_delay_seconds: u64,
-    pub fallback_timeout_fp_secs: u64,
-    pub game_type: u32,
-    pub initial_bond_wei: u64,
-    pub max_challenge_duration: u64,
-    pub max_prove_duration: u64,
-    pub optimism_portal2_address: String,
-    pub permissionless_mode: bool,
-    pub proposer_addresses: Vec<String>,
-    pub range_vkey_commitment: String,
-    pub rollup_config_hash: String,
-    pub starting_l2_block_number: u64,
-    pub starting_root: String,
-    pub use_sp1_mock_verifier: bool,
-    pub verifier_address: String,
->>>>>>> upstream/main
 }
