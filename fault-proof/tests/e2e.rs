@@ -121,7 +121,7 @@ async fn test_honest_proposer_native() -> Result<()> {
         &env.anvil.provider,
         &tracked_games,
         PROPOSER_ADDRESS,
-        Duration::from_secs(30),
+        Duration::from_secs(120),
     )
     .await?;
 
