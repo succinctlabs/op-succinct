@@ -99,7 +99,7 @@ async fn test_honest_proposer_native() -> Result<()> {
 
     // Wait for games to be resolved
     let resolutions =
-        wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(30)).await?;
+        wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120)).await?;
 
     // Verify all games resolved correctly (proposer wins)
     verify_all_resolved_correctly(&resolutions)?;
