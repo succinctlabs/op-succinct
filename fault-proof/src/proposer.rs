@@ -8,7 +8,7 @@ use std::{
 };
 
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, TxHash, U256};
+use alloy_primitives::{Address, FixedBytes, TxHash, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{Context, Result};
@@ -73,16 +73,16 @@ struct SP1Prover {
 /// chain with a new proposed output root. The proposer tracks these games to determine when to
 /// propose new games, defend existing ones, resolve completed games and claim bonds.
 #[derive(Clone)]
-struct Game {
-    index: U256,
-    address: Address,
-    parent_index: u32,
-    l2_block: U256,
-    status: GameStatus,
-    proposal_status: ProposalStatus,
-    deadline: u64,
-    should_attempt_to_resolve: bool,
-    should_attempt_to_claim_bond: bool,
+pub struct Game {
+    pub index: U256,
+    pub address: Address,
+    pub parent_index: u32,
+    pub l2_block: U256,
+    pub status: GameStatus,
+    pub proposal_status: ProposalStatus,
+    pub deadline: u64,
+    pub should_attempt_to_resolve: bool,
+    pub should_attempt_to_claim_bond: bool,
 }
 
 /// Central cache of the proposer's view of dispute games.
@@ -129,7 +129,9 @@ impl ProposerState {
     /// Used when a game is invalidated (i.e., `CHALLENGER_WINS`) and its entire subtree must be
     /// dropped.
     fn remove_subtree(&mut self, root_index: U256) {
+        tracing::info!(?root_index, "Removing subtree from cache");
         for index in self.descendants_of(root_index) {
+            tracing::info!(?index, "Removing game from cache");
             self.games.remove(&index);
         }
     }
@@ -677,28 +679,17 @@ where
 
     /// Creates a new game with the given parameters.
     ///
-    /// `l2_block_number`: the L2 block number we are proposing the output root for.
-    /// `parent_game_index`: the index of the parent game.
+    /// `output_root`: the output root we are proposing.
+    /// `extra_data`: the extra data of the game; the l2 block number and the parent game index.
+
     pub async fn create_game(
         &self,
-        l2_block_number: U256,
-        parent_game_index: u32,
+        output_root: FixedBytes<32>,
+        extra_data: Vec<u8>,
     ) -> Result<Address> {
-        tracing::info!(
-            "Creating game at L2 block number: {:?}, with parent game index: {:?}",
-            l2_block_number,
-            parent_game_index
-        );
-
-        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
-
         let transaction_request = self
             .factory
-            .create(
-                self.config.game_type,
-                self.l2_provider.compute_output_root_at_block(l2_block_number).await?,
-                extra_data.into(),
-            )
+            .create(self.config.game_type, output_root, extra_data.into())
             .value(self.init_bond)
             .into_transaction_request();
 
@@ -723,8 +714,6 @@ where
         tracing::info!(
             game_index = %game_index,
             game_address = ?game_address,
-            l2_block_end = %l2_block_number,
-            parent_index = parent_game_index,
             tx_hash = ?receipt.transaction_hash,
             "Game created successfully"
         );
@@ -802,7 +791,7 @@ where
         Ok(())
     }
 
-    async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
         let receipt = self
@@ -886,6 +875,7 @@ where
             }
         }
 
+        tracing::info!(game_index = %index, ?game_address, parent_index = %parent_index, l2_block = %l2_block, ?status, ?proposal_status, deadline = %deadline, "Adding game to cache");
         state.games.insert(
             index,
             Game {
@@ -924,8 +914,37 @@ where
             (latest_proposed_block_number, parent_game_index)
         };
 
-        let next_l2_block_number_for_proposal =
+        // Choose the next L2 block number for proposal.
+        // If there already exists a game at the next L2 block number for proposal, increment the L2
+        // block number by 1
+        let mut next_l2_block_number_for_proposal =
             latest_proposed_block_number + U256::from(self.config.proposal_interval_in_blocks);
+        let mut output_root = self
+            .l2_provider
+            .compute_output_root_at_block(next_l2_block_number_for_proposal)
+            .await?;
+        let mut extra_data =
+            (next_l2_block_number_for_proposal, parent_game_index).abi_encode_packed();
+        let mut maybe_existing_game = self
+            .factory
+            .games(self.config.game_type, output_root, extra_data.clone().into())
+            .call()
+            .await?
+            .proxy;
+        while maybe_existing_game != Address::ZERO {
+            next_l2_block_number_for_proposal += U256::from(1);
+            output_root = self
+                .l2_provider
+                .compute_output_root_at_block(next_l2_block_number_for_proposal)
+                .await?;
+            extra_data = (next_l2_block_number_for_proposal, parent_game_index).abi_encode_packed();
+            maybe_existing_game = self
+                .factory
+                .games(self.config.game_type, output_root, extra_data.clone().into())
+                .call()
+                .await?
+                .proxy;
+        }
 
         let finalized_l2_head_block_number = self
             .host
@@ -937,8 +956,14 @@ where
         // head block number is at least the next L2 block number for proposal.
         if let Some(finalized_block) = finalized_l2_head_block_number {
             if U256::from(finalized_block) >= next_l2_block_number_for_proposal {
-                let game_address =
-                    self.create_game(next_l2_block_number_for_proposal, parent_game_index).await?;
+                tracing::info!(
+                    l2_block_number = %next_l2_block_number_for_proposal,
+                    parent_game_index = %parent_game_index,
+                    output_root = ?output_root,
+                    "Creating game"
+                );
+
+                let game_address = self.create_game(output_root, extra_data).await?;
 
                 Ok(Some(game_address))
             } else {
