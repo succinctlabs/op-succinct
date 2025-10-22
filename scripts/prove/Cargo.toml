@@ -18,35 +18,6 @@ path = "bin/agg.rs"
 [dependencies]
 
 # workspace
-<<<<<<< HEAD
-tokio.workspace = true
-clap.workspace = true
-cargo_metadata.workspace = true
-anyhow.workspace = true
-dotenv.workspace = true
-csv.workspace = true
-tracing.workspace = true
-op-succinct-host-utils.workspace = true
-op-succinct-client-utils.workspace = true
-op-succinct-proof-utils.workspace = true
-op-succinct-elfs.workspace = true
-alloy-primitives.workspace = true
-sp1-sdk.workspace = true
-||||||| ae1b78c
-tokio.workspace = true
-clap.workspace = true
-cargo_metadata.workspace = true
-anyhow.workspace = true
-dotenv.workspace = true
-csv.workspace = true
-tracing.workspace = true
-op-succinct-host-utils.workspace = true
-op-succinct-client-utils.workspace = true
-op-succinct-proof-utils.workspace = true
-op-succinct-elfs.workspace = true
-alloy-primitives.workspace = true
-sp1-sdk.workspace = true
-=======
 tokio.workspace = true
 clap.workspace = true
 cargo_metadata.workspace = true
@@ -55,20 +26,19 @@ dotenv.workspace = true
 csv.workspace = true
 tracing.workspace = true
 cfg-if.workspace = true
+
+# local
 op-succinct-host-utils.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-proof-utils.workspace = true
-op-succinct-elfs.workspace = true
-alloy-primitives.workspace = true
-sp1-sdk.workspace = true
->>>>>>> upstream/main
-
-# local
 op-succinct-scripts = { path = "../utils" }
+op-succinct-elfs.workspace = true
 
 # alloy
+alloy-primitives.workspace = true
 
 # sp1
+sp1-sdk.workspace = true
 
 rustls = { version = "0.23.23", features = ["ring"] }
 
