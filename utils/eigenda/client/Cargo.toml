@@ -4,30 +4,50 @@ version = "0.1.0"
 license.workspace = true
 edition.workspace = true
 
-[dependencies]
+[
+dependencies
+]
 # local
+<<<<<<< HEAD
 op-succinct-client-utils.workspace = true
-
-# kona
 kona-derive.workspace = true
 kona-driver.workspace = true
 kona-executor.workspace = true
 kona-genesis.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
-
-# celo-kona
 celo-genesis.workspace = true
 celo-proof.workspace = true
 celo-protocol.workspace = true
-
-# hokulea
 hokulea-eigenda.workspace = true
 hokulea-proof.workspace = true
 hokulea-witgen.workspace = true
-
-# general
 anyhow.workspace = true
 async-trait.workspace = true
 serde_cbor.workspace = true
 spin.workspace = true
+||||||| ae1b78c
+=======
+op-succinct-client-utils.workspace = true
+kona-derive.workspace = true
+kona-driver.workspace = true
+kona-executor.workspace = true
+kona-genesis.workspace = true
+kona-preimage.workspace = true
+kona-proof.workspace = true
+hokulea-eigenda.workspace = true
+hokulea-witgen.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+serde_cbor.workspace = true
+spin.workspace = true
+>>>>>>> upstream/main
+# kona
+# celo-kona
+# hokulea
+# general
+# local
+# kona
+# hokulea
+hokulea-proof = { workspace = true }
+# general

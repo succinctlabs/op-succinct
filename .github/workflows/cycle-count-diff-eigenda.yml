@@ -1,10 +1,18 @@
 name: Cycle Count Diff (EigenDA)
 
+<<<<<<< HEAD
 on:
   workflow_dispatch:
 #  pull_request:
 #    paths:
 #      - 'elf/eigenda-range-elf-embedded'
+||||||| ae1b78c
+=======
+on:
+  pull_request:
+    paths:
+      - 'elf/eigenda-range-elf-embedded'
+>>>>>>> upstream/main
 
 jobs:
   cycle-count-diff-eigenda:

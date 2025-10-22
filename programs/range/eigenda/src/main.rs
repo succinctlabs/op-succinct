@@ -24,6 +24,7 @@ fn main() {
     #[cfg(feature = "tracing-subscriber")]
     setup_tracing();
 
+<<<<<<< HEAD
     kona_proof::block_on(async move {
         let witness_rkyv_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
         let witness_data = rkyv::from_bytes::<EigenDAWitnessData, Error>(&witness_rkyv_bytes)
@@ -51,4 +52,35 @@ fn main() {
         run_range_program(EigenDAWitnessExecutor::new(preloaded_preimage_provider), oracle, beacon)
             .await;
     });
+||||||| ae1b78c
+    kona_proof::block_on(async move );
+=======
+    kona_proof::block_on(async move {
+        let witness_rkyv_bytes: Vec<u8> = sp1_zkvm::io::read_vec();
+        let witness_data = rkyv::from_bytes::<EigenDAWitnessData, Error>(&witness_rkyv_bytes)
+            .expect("Failed to deserialize witness data.");
+
+        let (oracle, beacon) = witness_data
+            .clone()
+            .get_oracle_and_blob_provider()
+            .await
+            .expect("Failed to load oracle and blob provider");
+
+        let eigenda_witness: EigenDAWitness = serde_cbor::from_slice(
+            &witness_data.eigenda_data.clone().expect("eigenda witness data is not present"),
+        )
+        .expect("cannot deserialize eigenda witness");
+        let preloaded_preimage_provider = eigenda_witness_to_preloaded_provider(
+            oracle.clone(),
+            CanoeSp1CCVerifier {},
+            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
+            eigenda_witness,
+        )
+        .await
+        .expect("Failed to get preloaded blob provider");
+
+        run_range_program(EigenDAWitnessExecutor::new(preloaded_preimage_provider), oracle, beacon)
+            .await;
+    });
+>>>>>>> upstream/main
 }

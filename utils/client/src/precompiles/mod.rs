@@ -1,6 +1,6 @@
 //! [`PrecompileProvider`] for FPVM-accelerated OP Stack precompiles.
 
-use alloc::{boxed::Box, string::String};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use alloy_primitives::{Address, Bytes};
 use op_revm::{
     precompiles::{fjord, granite, isthmus},
@@ -9,14 +9,24 @@ use op_revm::{
 use revm::{
     context::{Cfg, ContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
+<<<<<<< HEAD
     interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
     precompile::{bn128, PrecompileError, PrecompileResult, PrecompileWithAddress, Precompiles},
+||||||| ae1b78c
+    interpreter::{Gas, InputsImpl, InstructionResult, InterpreterResult},
+    precompile::{bn128, PrecompileError, PrecompileResult, PrecompileWithAddress, Precompiles},
+=======
+    interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
+    precompile::{Precompile as PrecompileWithAddress, PrecompileError, Precompiles},
+>>>>>>> upstream/main
     primitives::hardfork::SpecId,
 };
+use revm_precompile::{bn254, kzg_point_evaluation, secp256k1, secp256r1};
 
 mod factory;
 pub use factory::ZkvmOpEvmFactory;
 
+<<<<<<< HEAD
 /// Create an annotated precompile that simply tracks the cycle count of a precompile.
 macro_rules! create_annotated_precompile {
     ($precompile:expr, $name:expr) => {
@@ -34,7 +44,42 @@ macro_rules! create_annotated_precompile {
             result
         })
     };
+||||||| ae1b78c
+/// Create an annotated precompile that simply tracks the cycle count of a precompile.
+macro_rules! create_annotated_precompile {
+    ($precompile:expr, $name:expr) => {
+        PrecompileWithAddress($precompile.0, |input: &Bytes, gas_limit: u64| -> PrecompileResult {
+            let precompile = $precompile.precompile();
+
+            #[cfg(target_os = "zkvm")]
+            println!(concat!("cycle-tracker-report-start: precompile-", $name));
+
+            let result = precompile(input, gas_limit);
+
+            #[cfg(target_os = "zkvm")]
+            println!(concat!("cycle-tracker-report-end: precompile-", $name));
+
+            result
+        })
+    };
+=======
+/// Get the ZKVM-accelerated precompiles.
+///
+/// Note: Cycle tracking has been removed for now due to Precompile::new() requiring
+/// function pointers rather than closures. Cycle tracking can be added back with
+/// a different approach if needed.
+fn get_precompiles() -> Vec<PrecompileWithAddress> {
+    vec![
+        bn254::add::ISTANBUL,
+        bn254::mul::ISTANBUL,
+        bn254::pair::ISTANBUL,
+        secp256k1::ECRECOVER,
+        secp256r1::P256VERIFY,
+        kzg_point_evaluation::POINT_EVALUATION,
+    ]
+>>>>>>> upstream/main
 }
+<<<<<<< HEAD
 
 /// Tuples of the original and annotated precompiles.
 const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
@@ -57,6 +102,25 @@ const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
         ),
     ),
 ];
+||||||| ae1b78c
+
+/// Tuples of the original and annotated precompiles.
+// TODO: Add kzg_point_evaluation once it has standard precompile support in revm-precompile 0.17.0.
+const PRECOMPILES: &[(PrecompileWithAddress, PrecompileWithAddress)] = &[
+    (bn128::add::ISTANBUL, create_annotated_precompile!(bn128::add::ISTANBUL, "bn-add")),
+    (bn128::mul::ISTANBUL, create_annotated_precompile!(bn128::mul::ISTANBUL, "bn-mul")),
+    (bn128::pair::ISTANBUL, create_annotated_precompile!(bn128::pair::ISTANBUL, "bn-pair")),
+    (
+        revm::precompile::secp256k1::ECRECOVER,
+        create_annotated_precompile!(revm::precompile::secp256k1::ECRECOVER, "ec-recover"),
+    ),
+    (
+        revm::precompile::secp256r1::P256VERIFY,
+        create_annotated_precompile!(revm::precompile::secp256r1::P256VERIFY, "p256-verify"),
+    ),
+];
+=======
+>>>>>>> upstream/main
 
 /// The ZKVM-cycle-tracking precompiles.
 #[derive(Debug)]
@@ -81,7 +145,7 @@ impl OpZkvmPrecompiles {
             OpSpecId::ISTHMUS | OpSpecId::INTEROP | OpSpecId::OSAKA => isthmus().clone(),
         };
         let mut precompiles_owned = precompiles.clone();
-        precompiles_owned.extend(PRECOMPILES.iter().map(|p| p.1.clone()).take(1));
+        precompiles_owned.extend(get_precompiles());
         let precompiles = Box::leak(Box::new(precompiles_owned));
 
         Self { inner: EthPrecompiles { precompiles, spec: SpecId::default() }, spec }
@@ -135,7 +199,13 @@ where
         // 2. If the precompile is not accelerated, use the default version.
         // 3. If the precompile is not found, return None.
         let output = if let Some(precompile) = self.inner.precompiles.get(address) {
+<<<<<<< HEAD
             (*precompile)(input_bytes, gas_limit)
+||||||| ae1b78c
+            (*precompile)(&inputs.input, gas_limit)
+=======
+            precompile.execute(input_bytes, gas_limit)
+>>>>>>> upstream/main
         } else {
             return Ok(None);
         };

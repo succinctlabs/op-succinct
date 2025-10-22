@@ -9,7 +9,13 @@ fn build_program(program_name: &str, elf_name: &str, features: Option<Vec<String
         elf_name: Some(elf_name.to_string()),
         output_directory: Some("../../elf".to_string()),
         docker: true,
+<<<<<<< HEAD
         tag: "v5.2.1".to_string(),
+||||||| ae1b78c
+        tag: "v5.0.0".to_string(),
+=======
+        tag: "v5.2.2".to_string(),
+>>>>>>> upstream/main
         workspace_directory: Some("../../".to_string()),
         ..Default::default()
     };

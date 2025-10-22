@@ -41,9 +41,18 @@ where
         Some((cursor, l1_provider, l2_provider)) => {
             // Wrap RollupConfig with CeloRollupConfig
             let celo_rollup_config = CeloRollupConfig(boot_info.rollup_config.clone());
+            let l1_config = Arc::new(boot_info.l1_config.clone());
+
             let pipeline = executor
                 .create_pipeline(
+<<<<<<< HEAD
                     Arc::new(celo_rollup_config),
+||||||| ae1b78c
+                    rollup_config,
+=======
+                    rollup_config,
+                    l1_config,
+>>>>>>> upstream/main
                     cursor.clone(),
                     oracle,
                     beacon,

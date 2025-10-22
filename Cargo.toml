@@ -26,7 +26,13 @@ edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
+<<<<<<< HEAD
 version = "3.1.0"
+||||||| ae1b78c
+version = "3.0.0-rc.1"
+=======
+version = "3.3.0"
+>>>>>>> upstream/main
 
 [workspace.dependencies]
 # general
@@ -48,7 +54,7 @@ log = "0.4.22"
 itertools = "0.13.0"
 reqwest = { version = "0.12", features = ["json"] }
 csv = "1.3.0"
-serde = { version = "1.0.198", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.117", default-features = false }
 rkyv = { version = "0.8", features = ["hashbrown-0_15", "std"] }
 hex = "0.4.3"
@@ -163,7 +169,13 @@ alloy-rpc-types-beacon = { version = "1.0.9", default-features = false }
 alloy-rpc-types-eth = { version = "1.0.9", default-features = false }
 alloy-rpc-types-trace = { version = "1.0.9", default-features = false }
 alloy-signer = { version = "1.0.9", default-features = false }
+<<<<<<< HEAD
 alloy = { version = "1.0.9", features = [
+||||||| ae1b78c
+alloy = { , features = [
+=======
+alloy = { version = "1.0.38", features = [
+>>>>>>> upstream/main
     "reqwest",
     "network",
     "providers",
@@ -172,9 +184,7 @@ alloy = { version = "1.0.9", features = [
 ] }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
-alloy-primitives = { version = "1.0.0", default-features = false, features = [
-    "sha3-keccak",
-] }
+alloy-primitives = { }
 alloy-sol-types = { version = "1.0.0", default-features = false }
 alloy-sol-macro = { version = "1.0.0", default-features = false }
 alloy-chains = { version = "0.2.3", default-features = false }
@@ -195,7 +205,13 @@ celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", tag = "cel
 alloy-evm = { version = "0.10.0", default-features = false }
 alloy-op-evm = { version = "0.10.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
+<<<<<<< HEAD
 revm = { version = "24.0.1", default-features = false, features = [
+||||||| ae1b78c
+revm = { version = "22.0.0", default-features = false, features = [
+=======
+revm = { version = "29.0.1", default-features = false, features = [
+>>>>>>> upstream/main
     "kzg-rs",
     "bn",
 ] }
@@ -213,6 +229,195 @@ sp1-build = { version = "=5.2.1" }
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
+
+
+[workspace.dependencies]
+# general
+anyhow = { version = "1.0.86", default-features = false }
+thiserror = { version = "2.0.3" }
+cfg-if = "1.0.0"
+spin = { version = "0.10.0" }
+lru = "0.12.3"
+async-trait = "0.1.80"
+sha2 = "0.10.8"
+tokio = { version = "1.44.2", features = ["full"] }
+clap = "4.5.9"
+cargo_metadata = "0.18.1"
+dotenv = "0.15.0"
+num-format = "0.4.4"
+futures = "0.3.30"
+serde_cbor = "0.11.2"
+log = "0.4.22"
+itertools = "0.13.0"
+reqwest = { version = "0.12", features = ["json"] }
+csv = "1.3.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = { version = "1.0.117", default-features = false }
+rkyv = { version = "0.8", features = ["hashbrown-0_15", "std"] }
+hex = "0.4.3"
+bincode = "1.3.3"
+base64 = "0.22.1"
+tower-http = { version = "0.5.2", features = ["limit"] }
+lazy_static = "1.5.0"
+tracing = { version = "0.1.40", default-features = false }
+tracing-subscriber = { version = "0.3.20", features = ["fmt", "json"] }
+tracing-opentelemetry = "^0.24"
+opentelemetry = { version = "^0.23.0", features = ["trace"] }
+opentelemetry_sdk = { version = "^0.23.0", features = [
+    "trace",
+    "rt-tokio",
+    "logs_level_enabled",
+] }
+opentelemetry-stdout = { version = "0.2.0", features = ["trace"] }
+opentelemetry-otlp = { version = "^0.16.0", features = ["default", "logs"] }
+opentelemetry-appender-tracing = "0.4.0"
+
+metrics = "0.24.1"
+metrics-exporter-prometheus = "0.16.2"
+metrics-process = "2.4.0"
+strum = "0.27.1"
+strum_macros = "0.27.1"
+tempfile = "3.10.1"
+
+# kona
+kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", features = [
+    "rkyv",
+    "serde",
+] }
+kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+
+kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
+
+# hana
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+
+# hokulea
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+
+# op-succinct
+op-succinct-prove = { path = "scripts/prove" }
+op-succinct-client-utils = { path = "utils/client" }
+op-succinct-host-utils = { path = "utils/host" }
+op-succinct-build-utils = { path = "utils/build" }
+op-succinct-elfs = { path = "utils/elfs" }
+op-succinct-validity = { path = "validity" }
+op-succinct-fp = { path = "fault-proof" }
+op-succinct-ethereum-client-utils = { path = "utils/ethereum/client" }
+op-succinct-ethereum-host-utils = { path = "utils/ethereum/host" }
+op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
+op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
+op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
+op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
+op-succinct-proof-utils = { path = "utils/proof" }
+op-succinct-signer-utils = { path = "utils/signer" }
+op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
+op-succinct-range-utils = { path = "programs/range/utils" }
+op-succinct-bindings = { path = "bindings" }
+
+# Alloy (Network)
+alloy-signer-local = { version = "1.0.38" }
+alloy-provider = { version = "1.0.38" }
+alloy-transport = { version = "1.0.38" }
+alloy-transport-http = { version = "1.0.38" }
+alloy-contract = { version = "1.0.38" }
+alloy-network = { version = "1.0.38" }
+
+# Alloy
+alloy-rlp = { version = "0.3.12", default-features = false }
+alloy-trie = { version = "0.9.1", default-features = false, features = [
+    "ethereum",
+] }
+alloy-eips = { version = "1.0.38", default-features = false }
+alloy-serde = { version = "1.0.38", default-features = false }
+alloy-consensus = { version = "1.0.38", default-features = false }
+alloy-rpc-types = { version = "1.0.38", default-features = false }
+alloy-rpc-client = { version = "1.0.38", default-features = false }
+alloy-node-bindings = { version = "1.0.38", default-features = false }
+alloy-rpc-types-engine = { version = "1.0.38", default-features = false }
+alloy-rpc-types-beacon = { version = "1.0.38", default-features = false }
+alloy-rpc-types-eth = { version = "1.0.38", default-features = false }
+alloy-rpc-types-trace = { version = "1.0.38", default-features = false }
+alloy-signer = { version = "1.0.38", default-features = false }
+alloy-signer-gcp = { version = "1.0.38", default-features = false }
+<<<<<<< HEAD
+alloy = { version = "1.0.9", features = [
+||||||| ae1b78c
+alloy = { , features = [
+=======
+alloy = { version = "1.0.38", features = [
+>>>>>>> upstream/main
+    "reqwest",
+    "network",
+    "providers",
+    "sol-types",
+    "rpc-types",
+] }
+
+# Keccak with the SHA3 patch is more efficient than the default Keccak.
+alloy-primitives = { version = "1.3.1", default-features = false, features = [
+    "sha3-keccak",
+] }
+alloy-sol-types = { version = "1.3.1", default-features = false }
+alloy-sol-macro = { version = "1.3.1", default-features = false }
+alloy-chains = { version = "0.2.7", default-features = false }
+
+# OP Alloy
+op-alloy-consensus = { version = "0.20.0", default-features = false }
+op-alloy-rpc-types = { version = "0.20.0", default-features = false }
+op-alloy-rpc-types-engine = { version = "0.20.0", default-features = false }
+op-alloy-network = { version = "0.20.0", default-features = false }
+
+# Execution
+alloy-evm = { version = "0.21.0", default-features = false }
+alloy-op-evm = { version = "0.21.0", default-features = false }
+# Use kzg-rs and substrate-bn for the zkVM.
+<<<<<<< HEAD
+revm = { version = "24.0.1", default-features = false, features = [
+||||||| ae1b78c
+revm = { version = "22.0.0", default-features = false, features = [
+=======
+revm = { version = "29.0.1", default-features = false, features = [
+>>>>>>> upstream/main
+    "kzg-rs",
+    "bn",
+] }
+revm-precompile = { version = "27.0.0", default-features = false }
+op-revm = { version = "10.1.0", default-features = false }
+
+# SP1
+sp1-sdk = { version = "=5.2.2", default-features = false, features = ["network"] }
+sp1-lib = { version = "=5.2.2", features = ["verify"] }
+sp1-zkvm = { version = "=5.2.2", features = ["verify"] }
+sp1-build = { version = "=5.2.2" }
+sp1-prover = { version = "=5.2.2" }
+sp1-core-executor = { version = "=5.2.2" }
+
+# kzg
+kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
+c-kzg = { version = "2.0.0", default-features = false }
+
+# Cloud dependencies
+gcloud-sdk = "0.27"
 
 [profile.release-client-lto]
 inherits = "release"

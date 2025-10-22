@@ -29,14 +29,23 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+<<<<<<< HEAD
     rustls::crypto::ring::default_provider().install_default().unwrap();
 
+||||||| ae1b78c
+    setup_logger();
+
+=======
+>>>>>>> upstream/main
     let args = Args::parse();
     dotenv::from_filename(args.env_file).ok();
 
     setup_logger();
 
-    let proposer_signer = Signer::from_env()?;
+    setup_logger();
+
+    let proposer_config = ProposerConfig::from_env()?;
+    let proposer_signer = Signer::from_env().await?;
 
     let l1_provider =
         ProviderBuilder::new().connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
@@ -49,15 +58,9 @@ async fn main() -> Result<()> {
         l1_provider.clone(),
     );
 
-    // Use PROVER_ADDRESS from env if available, otherwise use wallet's default signer address from
-    // the private key.
-    let prover_address = env::var("PROVER_ADDRESS")
-        .ok()
-        .and_then(|addr| addr.parse::<Address>().ok())
-        .unwrap_or_else(|| proposer_signer.address());
-
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
+<<<<<<< HEAD
 
     // Set a default network private key to avoid an error in mock mode.
     let network_private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
@@ -67,7 +70,11 @@ async fn main() -> Result<()> {
         "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
     });
 
+||||||| ae1b78c
+=======
+>>>>>>> upstream/main
     let proposer = Arc::new(
+<<<<<<< HEAD
         OPSuccinctProposer::new(
             ProposerConfig::from_env()?,
             network_private_key,
@@ -79,6 +86,15 @@ async fn main() -> Result<()> {
         )
         .await
         .unwrap(),
+||||||| ae1b78c
+        OPSuccinctProposer::new(prover_address, proposer_signer, factory, Arc::new(fetcher), host)
+            .await
+            .unwrap(),
+=======
+        OPSuccinctProposer::new(proposer_config, proposer_signer, factory, Arc::new(fetcher), host)
+            .await
+            .unwrap(),
+>>>>>>> upstream/main
     );
 
     // Initialize proposer gauges.

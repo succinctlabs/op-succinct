@@ -28,7 +28,6 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | Parameter | Description |
 |-----------|-------------|
 | `L1_RPC` | L1 Archive Node. |
-| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. |
 | `L2_RPC` | L2 Execution Node (`op-geth`). |
 | `L2_NODE_RPC` | L2 Rollup Node (`op-node`). |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. |
@@ -39,6 +38,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 
 | Parameter | Description |
 |-----------|-------------|
+| `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. Could be required for integrations that access consensus-layer data. |
 | `NETWORK_RPC_URL` | Default: `https://rpc.production.succinct.xyz`. RPC URL for the Succinct Prover Network. |
 | `DATABASE_URL` | Default: `postgres://op-succinct@postgres:5432/op-succinct`. The address of a Postgres database for storing the intermediate proposer state. |
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a dispute game with the DisputeGameFactory, rather than the `OPSuccinctL2OutputOracle`. Compatible with `OptimismPortal2`. |
@@ -47,12 +47,12 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `AGG_PROOF_MODE` | Default: `groth16`. Set to `plonk` to use PLONK proof type. Note: The verifier gateway contract address must be updated to use PLONK proofs. |
 | `SUBMISSION_INTERVAL` | Default: `1800`. The number of L2 blocks that must be proven before a proof is submitted to the L1. Note: The interval used by the validity service is always >= to the `submissionInterval` configured on the L2OO contract. To allow for the validity service to configure this parameter entirely, set the `submissionInterval` in the contract to `1`. |
 | `RANGE_PROOF_INTERVAL` | Default: `1800`. The number of blocks to include in each range proof. For chains with high throughput, you need to decrease this value. |
+| `RANGE_PROOF_EVM_GAS_LIMIT` | Default: `0`. The total amount of ethereum gas allowed to be in each range proof. If 0, uses the `RANGE_PROOF_INTERVAL` instead to do a fixed number of blocks interval. NOTE: if both `RANGE_PROOF_INTERVAL` and `RANGE_PROOF_EVM_GAS_LIMIT` are set, the number of blocks to include in each range proof is determined either when the cumulative gas reaches `RANGE_PROOF_EVM_GAS_LIMIT` or the number of blocks reaches `RANGE_PROOF_INTERVAL`, whichever occurs first. |
 | `MAX_CONCURRENT_PROOF_REQUESTS` | Default: `1`. The maximum number of concurrent proof requests (in mock and real mode). |
 | `MAX_CONCURRENT_WITNESS_GEN` | Default: `1`. The maximum number of concurrent witness generation requests. |
 | `OP_SUCCINCT_MOCK` | Default: `false`. Set to `true` to run in mock proof mode. The `OPSuccinctL2OutputOracle` contract must be configured to use an `SP1MockVerifier`. |
 | `METRICS_PORT` | Default: `8080`. The port to run the metrics server on. |
 | `LOOP_INTERVAL` | Default: `60`. The interval (in seconds) between each iteration of the OP Succinct service. |
-| `PROVER_ADDRESS` | Address of the account that will be posting output roots to L1. This address is committed to when generating the aggregation proof to prevent front-running attacks. It can be different from the signing address if you want to separate these roles. Default: The address derived from the `PRIVATE_KEY` environment variable. |
 | `SIGNER_URL` | URL for the Web3Signer. Note: This takes precedence over the `PRIVATE_KEY` environment variable. |
 | `SIGNER_ADDRESS` | Address of the account that will be posting output roots to L1. Note: Only set this if the signer is a Web3Signer. Note: Required if `SIGNER_URL` is set. |
 | `SAFE_DB_FALLBACK` | Default: `false`. Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node.  When `false`, proposer will panic if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. |
@@ -60,6 +60,17 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | `OTLP_ENABLED` | Default: `false`. Whether to export logs to [OTLP](https://opentelemetry.io/docs/specs/otel/protocol/). |
 | `LOGGER_NAME` | Default: `op-succinct`. This will be the `service.name` exported in the OTLP logs. |
 | `OTLP_ENDPOINT` | Default: `http://localhost:4317`. The endpoint to forward OTLP logs to. |
+| `USE_KMS_REQUESTER` | Default: ``.  Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. |
+| `MAX_PRICE_PER_PGU` | Default: `300,000,000`. The maximum price per pgu for proving. |
+| `PROVING_TIMEOUT` | Default: `14400` (4 hours). The timeout to use for proving (in seconds). |
+| `NETWORK_CALLS_TIMEOUT` | Default: `15` (15 seconds). The timeout for network prover calls (in seconds). |
+| `RANGE_CYCLE_LIMIT` | Default: `1,000,000,000,000`. The cycle limit to use for range proofs. |
+| `RANGE_GAS_LIMIT` | Default: `1,000,000,000,000`. The gas limit to use for range proofs. |
+| `AGG_CYCLE_LIMIT` | Default: `1,000,000,000,000`. The cycle limit to use for aggregation proofs. |
+| `AGG_GAS_LIMIT` | Default: `1,000,000,000,000`. The gas limit to use for aggregation proofs. |
+| `WHITELIST` | Default: ``. The list of prover addresses that are allowed to bid on proof requests. |
+| `MIN_AUCTION_PERIOD` | Default: `1`. The minimum auction period (in seconds). |
+| `AUCTION_TIMEOUT` | Default: `60` (1 minute). How long to wait before canceling a proof request that hasn't been assigned (in seconds). |
 
 ## Build the Proposer Service
 

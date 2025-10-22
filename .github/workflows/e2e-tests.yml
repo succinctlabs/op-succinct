@@ -2,9 +2,15 @@ name: E2E Tests
 
 on:
   pull_request:
+<<<<<<< HEAD
     branches:
       - main
       - develop
+||||||| ae1b78c
+=======
+    branches:
+      - main
+>>>>>>> upstream/main
     paths:
       - 'fault-proof/**'
       - 'bindings/**'
@@ -27,9 +33,16 @@ jobs:
   e2e-tests:
     name: Run E2E Tests
     environment: e2e
+<<<<<<< HEAD
     runs-on: ubuntu-latest
+||||||| ae1b78c
+=======
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+>>>>>>> upstream/main
     timeout-minutes: 30
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -60,11 +73,21 @@ jobs:
         else
           cargo test --release --test e2e -- --test-threads=1 --nocapture
         fi
+<<<<<<< HEAD
       env:
         L1_RPC: ${{ secrets.L1_RPC }}
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ secrets.L2_RPC }}
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+||||||| ae1b78c
+=======
+      env:
+        # TODO(fakedev9999): Remove L1 RPCs since we are using fresh Anvil chain
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+>>>>>>> upstream/main
         
     - name: Upload test logs on failure
       if: failure()

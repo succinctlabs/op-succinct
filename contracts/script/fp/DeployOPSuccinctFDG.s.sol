@@ -58,7 +58,13 @@ contract DeployOPSuccinctFDG is Script, Utils {
         FDGConfig memory config = readFDGJson("opsuccinctfdgconfig.json");
 
         // Deploy contracts
+<<<<<<< HEAD
         DeployedContracts memory contracts = deployContracts(config);
+||||||| ae1b78c
+        deployContracts(config);
+=======
+        DeployedContracts memory deployedContracts = deployContracts(config);
+>>>>>>> upstream/main
 
         // Configure and activate contracts
         if (config.configureContracts) {
@@ -118,10 +124,30 @@ contract DeployOPSuccinctFDG is Script, Utils {
             optimismPortal2: portalAddress
         });
 
+<<<<<<< HEAD
         return deployedContracts;
+||||||| ae1b78c
+        // Log deployed addresses.
+        console.log("Factory Proxy:", address(factoryProxy));
+        console.log("Game Implementation:", address(gameImpl));
+        console.log("SP1 Verifier:", sp1Config.verifierAddress);
+=======
+        // Create deployed contracts struct
+        DeployedContracts memory deployedContracts = DeployedContracts({
+            factoryProxy: address(factoryProxy),
+            gameImplementation: address(gameImpl),
+            sp1Verifier: sp1Config.verifierAddress,
+            anchorStateRegistry: address(registry),
+            accessManager: address(accessManager),
+            optimismPortal2: portalAddress
+        });
+
+        return deployedContracts;
+>>>>>>> upstream/main
     }
 
     /// @dev msg.sender should have owner role of factory
+
     function configure(DeployedContracts memory contracts, FDGConfig memory config) internal {
         GameType gameType = GameType.wrap(config.gameType);
         DisputeGameFactory factory = DisputeGameFactory(contracts.factoryProxy);
@@ -133,6 +159,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
     }
 
     /// @dev msg.sender should have guardian role of optimism portal
+
     function activate(DeployedContracts memory contracts, FDGConfig memory config) internal {
         GameType gameType = GameType.wrap(config.gameType);
 
@@ -216,10 +243,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
         return registry;
     }
 
-    function deployOrGetOptimismPortal2(FDGConfig memory config, GameType gameType)
-        internal
-        returns (address payable)
-    {
+    function deployOrGetOptimismPortal2(FDGConfig memory config, GameType gameType) internal returns (address payable) {
         address payable portalAddress;
         if (config.optimismPortal2Address != address(0)) {
             portalAddress = payable(config.optimismPortal2Address);

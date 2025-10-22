@@ -7,8 +7,14 @@ use celo_proof::CeloOracleL2ChainProvider;
 use celo_protocol::CeloToOpProviderAdapter;
 use hana_celestia::{CelestiaDADataSource, CelestiaDASource};
 use hana_oracle::provider::OracleCelestiaProvider;
-use kona_derive::{sources::EthereumDataSource, traits::BlobProvider};
+use kona_derive::{BlobProvider, EthereumDataSource};
 use kona_driver::PipelineCursor;
+<<<<<<< HEAD
+||||||| ae1b78c
+use kona_genesis::RollupConfig;
+=======
+use kona_genesis::{L1ChainConfig, RollupConfig};
+>>>>>>> upstream/main
 use kona_preimage::CommsClient;
 use kona_proof::{
     l1::{OracleL1ChainProvider, OraclePipeline},
@@ -50,7 +56,14 @@ where
 
     async fn create_pipeline(
         &self,
+<<<<<<< HEAD
         rollup_config: Arc<CeloRollupConfig>,
+||||||| ae1b78c
+        rollup_config: Arc<RollupConfig>,
+=======
+        rollup_config: Arc<RollupConfig>,
+        l1_config: Arc<L1ChainConfig>,
+>>>>>>> upstream/main
         cursor: Arc<RwLock<PipelineCursor>>,
         oracle: Arc<Self::O>,
         beacon: Self::B,
@@ -64,7 +77,14 @@ where
         let da_provider = CelestiaDADataSource::new(ethereum_data_source, celestia_data_source);
 
         Ok(OraclePipeline::new(
+<<<<<<< HEAD
             Arc::new(rollup_config.0.clone()),
+||||||| ae1b78c
+            rollup_config,
+=======
+            rollup_config,
+            l1_config,
+>>>>>>> upstream/main
             cursor,
             oracle,
             da_provider,
