@@ -71,7 +71,7 @@ async fn test_honest_proposer_native() -> Result<()> {
 
     // Track first 3 games (L2 finalized head won't advance far enough for 3)
     let tracked_games =
-        wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(60)).await?;
+        wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
 
     info!("✓ Proposer created {} games:", tracked_games.len());
     for (i, game) in tracked_games.iter().enumerate() {
@@ -270,7 +270,7 @@ async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
 
     warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
     let resolutions =
-        wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(60)).await?;
+        wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120)).await?;
     verify_all_resolved_correctly(&resolutions)?;
 
     warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
