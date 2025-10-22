@@ -45,14 +45,8 @@ where
 
             let pipeline = executor
                 .create_pipeline(
-<<<<<<< HEAD
                     Arc::new(celo_rollup_config),
-||||||| ae1b78c
-                    rollup_config,
-=======
-                    rollup_config,
                     l1_config,
->>>>>>> upstream/main
                     cursor.clone(),
                     oracle,
                     beacon,
