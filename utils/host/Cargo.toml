@@ -11,166 +11,80 @@ ansi = []
 [dependencies]
 
 # sp1
-<<<<<<< HEAD
 sp1-sdk.workspace = true
+
+# local
 op-succinct-client-utils.workspace = true
 op-succinct-elfs.workspace = true
+
+# op-alloy
 op-alloy-consensus.workspace = true
 op-alloy-network.workspace = true
+
+# celo-alloy
 celo-alloy-consensus.workspace = true
 celo-alloy-network.workspace = true
+
+# kona
 kona-derive.workspace = true
 kona-genesis.workspace = true
 kona-host.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
 kona-protocol.workspace = true
+kona-registry.workspace = true
 kona-rpc.workspace = true
+
+# celo-kona
 celo-host.workspace = true
 celo-protocol.workspace = true
 celo-genesis.workspace = true
 celo-proof.workspace = true
-hana-host.workspace = true
-hokulea-host-bin.workspace = true
-alloy-consensus.workspace = true
-alloy-contract.workspace = true
-alloy-eips.workspace = true
-alloy-primitives.workspace = true
-alloy-provider.workspace = true
-alloy-rlp.workspace = true
-alloy-sol-types.workspace = true
-anyhow.workspace = true
-async-trait.workspace = true
-cfg-if.workspace = true
-c-kzg.workspace = true
-futures.workspace = true
-kzg-rs.workspace = true
-metrics.workspace = true
-metrics-exporter-prometheus.workspace = true
-metrics-process.workspace = true
-num-format.workspace = true
-reqwest.workspace = true
-rkyv.workspace = true
-serde.workspace = true
-serde_cbor.workspace = true
-serde_json.workspace = true
-strum.workspace = true
-tokio.workspace = true
-tracing.workspace = true
-lazy_static.workspace = true
-cargo_metadata.workspace = true
-tracing-opentelemetry.workspace = true
-opentelemetry.workspace = true
-opentelemetry_sdk.workspace = true
-opentelemetry-stdout.workspace = true
-opentelemetry-otlp.workspace = true
-opentelemetry-appender-tracing.workspace = true
-||||||| ae1b78c
-sp1-sdk.workspace = true
-op-succinct-client-utils.workspace = true
-op-succinct-elfs.workspace = true
-op-alloy-consensus.workspace = true
-op-alloy-network.workspace = true
-kona-derive.workspace = true
-kona-genesis.workspace = true
-kona-host.workspace = true
-kona-preimage.workspace = true
-kona-proof.workspace = true
-kona-protocol.workspace = true
-kona-rpc.workspace = true
-hana-host.workspace = true
-alloy-consensus.workspace = true
-alloy-contract.workspace = true
-alloy-eips.workspace = true
-alloy-primitives.workspace = true
-alloy-provider.workspace = true
-alloy-rlp.workspace = true
-alloy-sol-types.workspace = true
-anyhow.workspace = true
-async-trait.workspace = true
-cfg-if.workspace = true
-c-kzg.workspace = true
-futures.workspace = true
-kzg-rs.workspace = true
-metrics.workspace = true
-metrics-exporter-prometheus.workspace = true
-metrics-process.workspace = true
-num-format.workspace = true
-reqwest.workspace = true
-rkyv.workspace = true
-serde.workspace = true
-serde_cbor.workspace = true
-serde_json.workspace = true
-strum.workspace = true
-tokio.workspace = true
-tracing.workspace = true
-tracing-opentelemetry.workspace = true
-opentelemetry.workspace = true
-opentelemetry_sdk.workspace = true
-opentelemetry-stdout.workspace = true
-opentelemetry-otlp.workspace = true
-opentelemetry-appender-tracing.workspace = true
-=======
-sp1-sdk.workspace = true
-op-succinct-client-utils.workspace = true
-op-succinct-elfs.workspace = true
-op-alloy-consensus.workspace = true
-op-alloy-network.workspace = true
-kona-derive.workspace = true
-kona-genesis.workspace = true
-kona-host.workspace = true
-kona-preimage.workspace = true
-kona-proof.workspace = true
-kona-protocol.workspace = true
-kona-rpc.workspace = true
-hana-host.workspace = true
-hokulea-host-bin.workspace = true
-alloy-consensus.workspace = true
-alloy-contract.workspace = true
-alloy-eips.workspace = true
-alloy-primitives.workspace = true
-alloy-provider.workspace = true
-alloy-rlp.workspace = true
-alloy-sol-types.workspace = true
-anyhow.workspace = true
-async-trait.workspace = true
-cfg-if.workspace = true
-c-kzg.workspace = true
-futures.workspace = true
-kzg-rs.workspace = true
-metrics.workspace = true
-metrics-exporter-prometheus.workspace = true
-metrics-process.workspace = true
-num-format.workspace = true
-reqwest.workspace = true
-rkyv.workspace = true
-serde.workspace = true
-serde_cbor.workspace = true
-serde_json.workspace = true
-strum.workspace = true
-tokio.workspace = true
-tracing.workspace = true
-lazy_static.workspace = true
-cargo_metadata.workspace = true
-kona-registry.workspace = true
-tracing-opentelemetry.workspace = true
-opentelemetry.workspace = true
-opentelemetry_sdk.workspace = true
-opentelemetry-stdout.workspace = true
-opentelemetry-otlp.workspace = true
-opentelemetry-appender-tracing.workspace = true
->>>>>>> upstream/main
-# local
-# op-alloy
-# celo-alloy
-# kona
-# celo-kona
+
 # hana
+hana-host.workspace = true
+
 # hokulea
+hokulea-host-bin.workspace = true
+
 # alloy
+alloy-consensus.workspace = true
+alloy-contract.workspace = true
+alloy-eips.workspace = true
+alloy-primitives.workspace = true
+alloy-provider.workspace = true
+alloy-rlp.workspace = true
+alloy-sol-types.workspace = true
+
 # general
+anyhow.workspace = true
+async-trait.workspace = true
+cfg-if.workspace = true
+c-kzg.workspace = true
+futures.workspace = true
+kzg-rs.workspace = true
+metrics.workspace = true
+metrics-exporter-prometheus.workspace = true
+metrics-process.workspace = true
+num-format.workspace = true
+reqwest.workspace = true
+rkyv.workspace = true
+serde.workspace = true
+serde_cbor.workspace = true
+serde_json.workspace = true
+strum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+lazy_static.workspace = true
+
 # cargo metadata
+cargo_metadata.workspace = true
+
 # logging and telemetry
-# hokulea
-# cargo metadata
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-opentelemetry.workspace = true
+opentelemetry.workspace = true
+opentelemetry_sdk.workspace = true
+opentelemetry-stdout.workspace = true
+opentelemetry-otlp.workspace = true
+opentelemetry-appender-tracing.workspace = true

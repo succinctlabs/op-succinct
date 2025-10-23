@@ -2,28 +2,17 @@ use alloy_celo_evm::CeloEvmFactory;
 use alloy_primitives::Sealed;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
-<<<<<<< HEAD
 use celo_driver::CeloDriver;
 use celo_genesis::CeloRollupConfig;
 use celo_proof::{executor::CeloExecutor, CeloOracleL2ChainProvider};
 use celo_protocol::CeloToOpProviderAdapter;
-use kona_derive::traits::{
-||||||| ae1b78c
-use kona_derive::traits::{
-=======
 use kona_derive::{
->>>>>>> upstream/main
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
     SignalReceiver,
 };
 use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
-<<<<<<< HEAD
-||||||| ae1b78c
-use kona_genesis::RollupConfig;
-=======
-use kona_genesis::{L1ChainConfig, RollupConfig};
->>>>>>> upstream/main
+use kona_genesis::{L1ChainConfig};
 use kona_preimage::CommsClient;
 use kona_proof::{
     l1::{OracleL1ChainProvider, OraclePipeline},
@@ -111,14 +100,8 @@ pub trait WitnessExecutor {
     #[allow(clippy::too_many_arguments)]
     async fn create_pipeline(
         &self,
-<<<<<<< HEAD
         rollup_config: Arc<CeloRollupConfig>,
-||||||| ae1b78c
-        rollup_config: Arc<RollupConfig>,
-=======
-        rollup_config: Arc<RollupConfig>,
         l1_config: Arc<L1ChainConfig>,
->>>>>>> upstream/main
         cursor: Arc<RwLock<PipelineCursor>>,
         oracle: Arc<Self::O>,
         beacon: Self::B,

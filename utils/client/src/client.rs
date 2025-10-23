@@ -2,42 +2,16 @@ use alloy_consensus::BlockBody;
 use alloy_primitives::B256;
 use alloy_rlp::Decodable;
 use anyhow::Result;
-<<<<<<< HEAD
 use celo_alloy_consensus::{CeloBlock, CeloTxEnvelope, CeloTxType};
 use celo_alloy_rpc_types_engine::CeloPayloadAttributes;
 use celo_driver::{CeloDriver, CeloExecutorTr};
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloL2BlockInfo;
-use kona_derive::{
-    errors::{PipelineError, PipelineErrorKind},
-    traits::{Pipeline, SignalReceiver},
-    types::Signal,
-};
-use kona_driver::{DriverError, DriverPipeline, DriverResult, TipCursor};
-||||||| ae1b78c
-use kona_derive::{
-    errors::{PipelineError, PipelineErrorKind},
-    traits::{Pipeline, SignalReceiver},
-    types::Signal,
-};
-use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, TipCursor};
-use kona_genesis::RollupConfig;
-=======
 use kona_derive::{Pipeline, PipelineError, PipelineErrorKind, Signal, SignalReceiver};
 use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, TipCursor};
-use kona_genesis::RollupConfig;
->>>>>>> upstream/main
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{errors::OracleProviderError, HintType};
-<<<<<<< HEAD
 use kona_protocol::L2BlockInfo;
-||||||| ae1b78c
-use kona_protocol::{L2BlockInfo, OpAttributesWithParent};
-use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
-=======
-use kona_protocol::L2BlockInfo;
-use op_alloy_consensus::{OpBlock, OpTxEnvelope, OpTxType};
->>>>>>> upstream/main
 use std::fmt::Debug;
 use tracing::{error, info, warn};
 
@@ -131,17 +105,9 @@ where
 
         #[cfg(target_os = "zkvm")]
         println!("cycle-tracker-report-start: block-execution");
-<<<<<<< HEAD
         let celo_attributes = CeloPayloadAttributes { op_payload_attributes: attributes.clone() };
         let outcome = match driver.executor.execute_payload(celo_attributes).await {
             Ok(outcome) => outcome,
-||||||| ae1b78c
-        let execution_result = match driver.executor.execute_payload(attributes.clone()).await {
-            Ok(header) => header,
-=======
-        let outcome = match driver.executor.execute_payload(attributes.clone()).await {
-            Ok(outcome) => outcome,
->>>>>>> upstream/main
             Err(e) => {
                 error!(target: "client", "Failed to execute L2 block: {}", e);
 
@@ -158,13 +124,7 @@ where
                     // Strip out all transactions that are not deposits.
                     attributes.transactions = attributes.transactions.map(|txs| {
                         txs.into_iter()
-<<<<<<< HEAD
                             .filter(|tx| !tx.is_empty() && tx[0] == CeloTxType::Deposit as u8)
-||||||| ae1b78c
-                            .filter(|tx| (!tx.is_empty() && tx[0] == OpTxType::Deposit as u8))
-=======
-                            .filter(|tx| !tx.is_empty() && tx[0] == OpTxType::Deposit as u8)
->>>>>>> upstream/main
                             .collect::<Vec<_>>()
                     });
 
@@ -192,37 +152,16 @@ where
         println!("cycle-tracker-report-end: block-execution");
 
         // Construct the block.
-<<<<<<< HEAD
         let block = CeloBlock {
             header: outcome.header.inner().clone(),
-||||||| ae1b78c
-        let block = OpBlock {
-            header: execution_result.header.inner().clone(),
-=======
-        let block = OpBlock {
-            header: outcome.header.inner().clone(),
->>>>>>> upstream/main
             body: BlockBody {
                 transactions: attributes
                     .transactions
-<<<<<<< HEAD
                     .as_ref()
                     .unwrap_or(&Vec::new())
                     .iter()
                     .map(|tx| CeloTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
                     .collect::<DriverResult<Vec<CeloTxEnvelope>, E::Error>>()?,
-||||||| ae1b78c
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
-                    .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
-=======
-                    .as_ref()
-                    .unwrap_or(&Vec::new())
-                    .iter()
-                    .map(|tx| OpTxEnvelope::decode(&mut tx.as_ref()).map_err(DriverError::Rlp))
-                    .collect::<DriverResult<Vec<OpTxEnvelope>, E::Error>>()?,
->>>>>>> upstream/main
                 ommers: Vec::new(),
                 withdrawals: None,
             },

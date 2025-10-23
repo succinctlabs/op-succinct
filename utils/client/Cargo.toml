@@ -6,81 +6,21 @@ edition.workspace = true
 
 [dependencies]
 # ethereum
-<<<<<<< HEAD
 op-alloy-consensus.workspace = true
 alloy-consensus.workspace = true
 alloy-rlp.workspace = true
 alloy-eips.workspace = true
 alloy-primitives.workspace = true
 alloy-sol-types.workspace = true
-celo-alloy-consensus.workspace = true
-celo-alloy-rpc-types-engine.workspace = true
-alloy-evm.workspace = true
-alloy-op-evm.workspace = true
-op-revm.workspace = true
-revm.workspace = true
-alloy-celo-evm.workspace = true
-kona-preimage.workspace = true
-kona-derive.workspace = true
-kona-proof.workspace = true
-kona-executor.workspace = true
-kona-driver.workspace = true
-kona-protocol.workspace = true
-kona-genesis.workspace = true
-celo-proof.workspace = true
-celo-driver.workspace = true
-celo-protocol.workspace = true
-celo-genesis.workspace = true
-anyhow.workspace = true
-async-trait.workspace = true
-serde_json.workspace = true
-serde.workspace = true
-rkyv.workspace = true
-sha2.workspace = true
-tracing.workspace = true
-spin.workspace = true
-kzg-rs.workspace = true
-cfg-if.workspace = true
-||||||| ae1b78c
-op-alloy-consensus.workspace = true
-alloy-consensus.workspace = true
-alloy-rlp.workspace = true
-alloy-eips.workspace = true
-alloy-primitives.workspace = true
-alloy-sol-types.workspace = true
-alloy-evm.workspace = true
-alloy-op-evm.workspace = true
-op-revm.workspace = true
-revm.workspace = true
-kona-preimage.workspace = true
-kona-derive.workspace = true
-kona-proof.workspace = true
-kona-executor.workspace = true
-kona-driver.workspace = true
-kona-protocol.workspace = true
-kona-genesis.workspace = true
-anyhow.workspace = true
-async-trait.workspace = true
-serde_json.workspace = true
-serde.workspace = true
-rkyv.workspace = true
-sha2.workspace = true
-tracing.workspace = true
-spin.workspace = true
-kzg-rs.workspace = true
-cfg-if.workspace = true
-=======
-op-alloy-consensus.workspace = true
-alloy-consensus.workspace = true
-alloy-rlp.workspace = true
-alloy-eips.workspace = true
-alloy-primitives.workspace = true
-alloy-sol-types.workspace = true
+
+# Execution
 alloy-evm.workspace = true
 alloy-op-evm.workspace = true
 op-revm.workspace = true
 revm.workspace = true
 revm-precompile.workspace = true
+
+# kona
 kona-preimage.workspace = true
 kona-derive.workspace = true
 kona-proof.workspace = true
@@ -88,6 +28,8 @@ kona-executor.workspace = true
 kona-driver.workspace = true
 kona-protocol.workspace = true
 kona-genesis.workspace = true
+
+# general
 anyhow.workspace = true
 async-trait.workspace = true
 serde_json.workspace = true
@@ -96,20 +38,20 @@ rkyv.workspace = true
 sha2.workspace = true
 tracing.workspace = true
 spin.workspace = true
-kzg-rs.workspace = true
-cfg-if.workspace = true
->>>>>>> upstream/main
-
-# celo-alloy
-
-# Execution
-
-# Celo Execution
-
-# kona
-
-# celo-kona
-
-# general
 
 # kzg
+kzg-rs.workspace = true
+cfg-if.workspace = true
+
+# celo-alloy
+celo-alloy-consensus.workspace = true
+celo-alloy-rpc-types-engine.workspace = true
+
+# Celo Execution
+alloy-celo-evm.workspace = true
+
+# celo-kona
+celo-proof.workspace = true
+celo-driver.workspace = true
+celo-protocol.workspace = true
+celo-genesis.workspace = true
