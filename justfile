@@ -79,7 +79,7 @@ deploy-fdg-contracts env_file=".env" *features='':
     just _deploy-fdg-contracts {{env_file}}
 
 # Deploy contracts without fetching config
-_deploy-fdg-contracts env_file=".env" custom_config_file="":
+_deploy-fdg-contracts env_file=".env" custom_config_file="" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
 
