@@ -12,7 +12,7 @@ use kona_derive::{
 };
 use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
-use kona_genesis::{L1ChainConfig};
+use kona_genesis::L1ChainConfig;
 use kona_preimage::CommsClient;
 use kona_proof::{
     l1::{OracleL1ChainProvider, OraclePipeline},
