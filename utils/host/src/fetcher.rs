@@ -333,7 +333,7 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Fetch and save the L1 config based on the rollup config's L1 chain ID.
-    async fn fetch_and_save_l1_config(rollup_config: &RollupConfig) -> Result<PathBuf> {
+    async fn fetch_and_save_l1_config(rollup_config: &CeloRollupConfig) -> Result<PathBuf> {
         // Check if the L1 config file exists. If it does, return the path to the file.
         let l1_config_dir = PathBuf::from("configs/L1");
         let l1_config_path = l1_config_dir.join(format!("{}.json", rollup_config.l1_chain_id));
