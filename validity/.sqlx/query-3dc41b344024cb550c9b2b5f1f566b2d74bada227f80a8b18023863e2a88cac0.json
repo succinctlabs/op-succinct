@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO chain_locks (l1_chain_id, l2_chain_id, locked_at)\n             VALUES ($1, $2, NOW())\n             ON CONFLICT (l1_chain_id, l2_chain_id)\n             DO UPDATE SET locked_at = NOW()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3dc41b344024cb550c9b2b5f1f566b2d74bada227f80a8b18023863e2a88cac0"
+}
