@@ -16,6 +16,9 @@ Include all base variables from the [Proposer](../proposer.md) section, plus the
 | Parameter | Description |
 |-----------|-------------|
 | `EIGENDA_PROXY_ADDRESS` | Base URL of the EigenDA Proxy REST service (e.g., `http://localhost:3100`). OP Succinct Lite connects to this proxy to retrieve and validate EigenDA blobs from DA certificates. |
+| `RANGE_VKEY_COMMITMENT` | The EigenDA range verification key commitment |
+| `AGGREGATION_VKEY` | The EigenDA shared aggregation verification key |
+| `ROLLUP_CONFIG_HASH` | The EigenDA rollup config hash |
 
 ## EigenDA Proxy
 
@@ -26,7 +29,14 @@ The EigenDA Proxy is a REST server that wraps EigenDA client functionality and c
 
 See [EigenDA Proxy](https://github.com/Layr-Labs/eigenda/tree/master/api/proxy) for more details on how to run the proxy.
 
-After running the proxy, set `EIGENDA_PROXY_ADDRESS=http://127.0.0.1:3100` in the `.env.proposer` file.
+After starting the proxy, set the `EIGENDA_PROXY_ADDRESS` variable in your `.env.proposer` file to point to the proxy’s reachable endpoint.
+For example, if the proxy runs locally, use:
+
+```env
+EIGENDA_PROXY_ADDRESS=http://127.0.0.1:3100
+```
+
+If the proxy is hosted on a remote server, replace the address with the server’s accessible address.
 
 ## EigenDA Contract Configuration
 
@@ -42,6 +52,17 @@ The command prints the `Range Verification Key Hash`, `Aggregation Verification 
 When you use the `just` helper below, include the `eigenda` argument so `fetch-fault-dispute-game-config` runs with the correct feature set. If you run `fetch-fault-dispute-game-config` manually, append `--features eigenda`; otherwise the script emits the default Ethereum DA values and your games will revert with `ProofInvalid()` when submitting proofs.
 
 ## Deploying `OPSuccinctFaultDisputeGame` with EigenDA features
+
+Ensure that the following environment variables are correctly set in your
+`fault-proof/.env` file (as obtained in the previous step):
+
+```env
+RANGE_VKEY_COMMITMENT=<YOUR_RANGE_VERIFICATION_KEY_HASH>
+AGGREGATION_VKEY=<YOUR_AGGREGATION_VERIFICATION_KEY_HASH>
+ROLLUP_CONFIG_HASH=<YOUR_ROLLUP_CONFIG_HASH>
+```
+
+Now deploy the contracts with:
 
 ```bash
 just deploy-fdg-contracts .env eigenda
