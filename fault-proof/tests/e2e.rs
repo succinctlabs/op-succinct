@@ -584,8 +584,8 @@ mod e2e {
 
                 // The new game should either be an anchor game or build on the valid anchor game
                 assert!(
-                    claim_data.parentIndex == u32::MAX
-                        || U256::from(claim_data.parentIndex) <= anchor_game_index,
+                    claim_data.parentIndex == u32::MAX ||
+                        U256::from(claim_data.parentIndex) <= anchor_game_index,
                     "Proposer should not build on invalid chain"
                 );
 
