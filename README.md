@@ -22,7 +22,6 @@ The repository is organized into the following directories:
 - `scripts`: Scripts for testing and deploying OP Succinct.
 - `utils`: Shared utilities for the host, client, and proposer.
 
-<<<<<<< HEAD
 ## Celo Modifications
 
 Following modifications were introduced by Celo:
@@ -84,31 +83,6 @@ mdbook serve --open
 
 To configure or change the OP Succinct codebase, please refer to the [OP Succinct Book](https://succinctlabs.github.io/op-succinct).
 
-||||||| ae1b78c
-=======
-## Development
-
-### Book
-
-Make sure you install the following on your machine:
-
-```bash
-cargo install mdbook
-cargo install mdbook-mermaid
-cargo install mdbook-admonish
-```
-
-Then run the server:
-
-```sh
-mdbook serve --open
-```
-
-### OP Succinct
-
-To configure or change the OP Succinct codebase, please refer to the [OP Succinct Book](https://succinctlabs.github.io/op-succinct).
-
->>>>>>> upstream/main
 ## Acknowledgments
 
 This repo would not exist without:
