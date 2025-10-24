@@ -8626,7 +8626,6 @@ dependencies = [
  "clap",
  "dotenv",
  "hex",
- "lazy_static",
  "op-alloy-network",
  "op-alloy-rpc-types",
  "op-succinct-bindings",
