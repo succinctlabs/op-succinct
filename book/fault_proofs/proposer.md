@@ -64,11 +64,6 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `SIGNER_URL` | URL of the web3 signer service (if using web3 signer) |
 | `SIGNER_ADDRESS` | Address of the account managed by the web3 signer (if using web3 signer) |
 
-<<<<<<< HEAD
-||||||| ae1b78c
-To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill out this [form](https://docs.google.com/forms/d/e/1FAIpQLSd2Yil8TrU54cIuohH1WvDvbxTusyqh5rsDmMAtGC85-Arshg/viewform?ref=https://succinctlabs.github.io/op-succinct/). The Succinct team will reach out to you with an RPC endpoint you can use.
-
-=======
 #### Google HSM
 
 | Variable | Description |
@@ -79,7 +74,6 @@ To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill ou
 | `HSM_KEY_NAME` | Name of the HSM key within the key ring |
 | `HSM_KEY_VERSION` | Version number of the HSM key to use |
 
->>>>>>> upstream/main
 ### Optional Environment Variables
 
 | Variable | Description | Default Value |
@@ -90,28 +84,11 @@ To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill ou
 | `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
 | `PROPOSAL_INTERVAL_IN_BLOCKS` | Number of L2 blocks between proposals | `1800` |
 | `FETCH_INTERVAL` | Polling interval in seconds | `30` |
-<<<<<<< HEAD
-| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
-| `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
-| `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
 | `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
-| `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
-||||||| ae1b78c
-| `ENABLE_GAME_RESOLUTION` | Whether to enable automatic game resolution | `true` |
-| `MAX_GAMES_TO_CHECK_FOR_RESOLUTION` | Maximum number of games to check for resolution | `100` |
-| `MAX_GAMES_TO_CHECK_FOR_DEFENSE` | Maximum number of recent games to check for defense | `100` |
-| `MAX_GAMES_TO_CHECK_FOR_BOND_CLAIMING` | Maximum number of games to check for bond claiming | `100` |
-=======
-| `MAX_CONCURRENT_DEFENSE_TASKS` | Maximum number of concurrently running defense tasks | `8` |
->>>>>>> upstream/main
 | `L1_BEACON_RPC` | L1 Beacon RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `L2_NODE_RPC` | L2 Node RPC endpoint URL | (Only used if `FAST_FINALITY_MODE` is `true`) |
 | `SAFE_DB_FALLBACK` | Whether to fallback to timestamp-based L1 head estimation even though SafeDB is not activated for op-node. When `false`, proposer will return an error if SafeDB is not available. It is by default `false` since using the fallback mechanism will result in higher proving cost. | `false` |
 | `PROPOSER_METRICS_PORT` | The port to expose metrics on. Update prometheus.yml to use this port, if using docker compose. | `9000` |
-<<<<<<< HEAD
-| `FAST_FINALITY_PROVING_LIMIT` | Maximum number of concurrent proving tasks allowed in fast finality mode. | `1` |
-||||||| ae1b78c
-=======
 | `FAST_FINALITY_PROVING_LIMIT` | Maximum number of concurrent proving tasks allowed in fast finality mode. | `1` |
 | `USE_KMS_REQUESTER` | Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. | `false` |
 | `MAX_PRICE_PER_PGU` | The maximum price per pgu for proving. | `300,000,000` |
@@ -122,7 +99,6 @@ To get a whitelisted key on the Succinct Prover Network for OP Succinct, fill ou
 | `AGG_CYCLE_LIMIT` | The cycle limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |
->>>>>>> upstream/main
 
 ```env
 # Required Configuration
@@ -202,24 +178,9 @@ Metrics are published by a separate background collector that samples the canoni
 - Supports mock mode for testing without using the Succinct Prover Network (`MOCK_MODE=true`).
 
 ### Game Resolution
-<<<<<<< HEAD
-When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
-- **Fast Finality**: Immediately resolves proven games (UnchallengedAndValidProofProvided or ChallengedAndValidProofProvided)
-- Monitors unchallenged games
-- Resolves games after their challenge period expires
-- Respects parent-child game relationships in resolution
-- Only resolves games whose parent games are already resolved
-||||||| ae1b78c
-When enabled (`ENABLE_GAME_RESOLUTION=true`), the proposer:
-- Monitors unchallenged games
-- Resolves games after their challenge period expires
-- Respects parent-child game relationships in resolution
-- Only resolves games whose parent games are already resolved
-=======
 - Flags games for resolution when their proposal status is `Unchallenged` (deadline passed) or a valid proof has been submitted.
 - Requires the parent dispute to be resolved and the proposer to be either the creator or prover before submitting a `resolve` transaction.
 - Processes eligible games in batches via a dedicated async task and surfaces successes/failures through metrics.
->>>>>>> upstream/main
 
 ### Bond Claiming
 - Flags games for bond claiming once the game registry reports them finalized and there is credit to claim.

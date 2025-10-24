@@ -1,12 +1,6 @@
 # Updating `OPSuccinctL2OutputOracle` Parameters
 
-<<<<<<< HEAD
-OP Succinct supports a rolling update process when [program binaries](/advanced/verify-binaries.md) must be reproduced and only the `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` parameters change. For example, this could happen if
-||||||| ae1b78c
-If you just need to update the `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` parameters and not upgrade the contract itself, you can use the `just add-config` and `just remove-config` command.
-=======
 OP Succinct supports a rolling update process when [program binaries](../../advanced/verify-binaries.md) must be reproduced and only the `aggregationVkey`, `rangeVkeyCommitment` or `rollupConfigHash` parameters change. For example, this could happen if
->>>>>>> upstream/main
 
 -   The SP1 version changes
 -   An optimization to the range program is released
@@ -14,23 +8,9 @@ OP Succinct supports a rolling update process when [program binaries](../../adva
 
 ## Rolling update guide
 
-<<<<<<< HEAD
-1. Generate new elfs, vkeys, and a rollup config hash by following [this guide](/advanced/verify-binaries.md).
-2. From the project's root, run `just add_config my_upgrade`.
-    - This will automatically fetch the `aggregationVkey` and `rangeVkeyCommitment` from the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory, and the `rollupConfigHash` from the `L2_RPC` set in the `.env`. The output will look like the following:
-||||||| ae1b78c
-## 2. Updating configurations
-
-Upon the first deployment, there is a genesis config named `opsuccinct_genesis`. Proposers will interact with this config by default. You can add or remove configurations using the following commands:
-
-### Adding a Configuration
-
-To add a new configuration, run:
-=======
 1. Generate new elfs, vkeys, and a rollup config hash by following [this guide](../../advanced/verify-binaries.md).
 2. From the project's root, run `just add_config my_upgrade`.
     - This will automatically fetch the `aggregationVkey` and `rangeVkeyCommitment` from the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory, and the `rollupConfigHash` from the `L2_RPC` set in the `.env`. The output will look like the following:
->>>>>>> upstream/main
 
 ```bash
 $ just add-config my_upgrade

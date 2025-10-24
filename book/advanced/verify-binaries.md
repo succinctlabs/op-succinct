@@ -37,20 +37,6 @@ To build the binaries, run:
 
 ```bash
 # Build the range elfs
-<<<<<<< HEAD
-cd programs/range/ethereum
-cargo prove build --output-directory ../../../elf --elf-name range-elf-bump --docker --tag v5.2.1
-cargo prove build --output-directory ../../../elf --elf-name range-elf-embedded --docker --tag v5.2.1 --features embedded
-
-cd ../celestia
-cargo prove build --output-directory ../../../elf --elf-name celestia-range-elf-embedded --docker --tag v5.2.1 --features embedded
-
-cd ../eigenda
-cargo prove build --output-directory ../../../elf --elf-name eigenda-range-elf-embedded --docker --tag v5.2.1 --features embedded
-||||||| ae1b78c
-cargo prove build --elf-name range-elf-bump --docker --tag v5.0.0
-cargo prove build --elf-name range-elf-embedded --docker --tag v5.0.0 --features embedded
-=======
 cd programs/range/ethereum
 cargo prove build --output-directory ../../../elf --elf-name range-elf-bump --docker --tag v5.2.2
 cargo prove build --output-directory ../../../elf --elf-name range-elf-embedded --docker --tag v5.2.2 --features embedded
@@ -60,18 +46,10 @@ cargo prove build --output-directory ../../../elf --elf-name celestia-range-elf-
 
 cd ../eigenda
 cargo prove build --output-directory ../../../elf --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --features embedded
->>>>>>> upstream/main
 
 # Build the aggregation-elf
-<<<<<<< HEAD
-cd ../../aggregation
-cargo prove build --output-directory ../../elf --elf-name aggregation-elf --docker --tag v5.2.1
-||||||| ae1b78c
-cargo prove build --elf-name aggregation-elf --docker --tag v5.0.0
-=======
 cd ../../aggregation
 cargo prove build --output-directory ../../elf --elf-name aggregation-elf --docker --tag v5.2.2
->>>>>>> upstream/main
 ```
 
 The updated binaries will be saved in the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory.
@@ -83,19 +61,9 @@ To verify the binaries, run:
 ```bash
 cargo run --bin config --release
 ```
-<<<<<<< HEAD
-
-This will log the rollup config hash, aggregation verification key, and range verification key commitment based on the latest ELFs in the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory.
-
-## Update the contract
-
-After reproducing the binaries, you must either [deploy](/validity/contracts/deploy.md) a new OPSuccinctL2OutputOracle contract or perform a [rolling update](/validity/contracts/update-parameters.md) on an existing contract.
-||||||| ae1b78c
-=======
 
 This will log the rollup config hash, aggregation verification key, and range verification key commitment based on the latest ELFs in the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory.
 
 ## Update the contract
 
 After reproducing the binaries, you must either [deploy](../validity/contracts/deploy.md) a new OPSuccinctL2OutputOracle contract or perform a [rolling update](../validity/contracts/update-parameters.md) on an existing contract.
->>>>>>> upstream/main
