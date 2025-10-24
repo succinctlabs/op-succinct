@@ -23,7 +23,6 @@ for the required setup steps.
   - Challenge bonds (proof rewards)
   - Transaction fees
 
-
 ## Step 1: Deploy Contracts
 
 1. Clone and setup the repository:
