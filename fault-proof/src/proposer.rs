@@ -811,7 +811,7 @@ where
 
     /// Submit the on-chain transaction to claim the proposer's bond for a given game.
     #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
-    async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
             contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();

@@ -1100,7 +1100,7 @@ async fn test_proposer_recovery_after_canonical_head_invalidation() -> Result<()
     challenger.submit_challenge_transaction(&game_to_challenge).await?;
     info!("✓ Challenged game 3");
 
-    // === PHASE 3: Resolve all 3 games ===
+    // === PHASE 3: Resolve all 3 games and finalize the first 2 games ===
     info!("=== Phase 3: Resolve all 3 games ===");
     info!("This should clear game 3 from the proposer's cache");
 
@@ -1139,6 +1139,25 @@ async fn test_proposer_recovery_after_canonical_head_invalidation() -> Result<()
     info!("✓ Challenger resolved game 3 as CHALLENGER_WINS");
 
     assert!(!proposer_handle.is_finished(), "Proposer should still be running");
+
+    // Warp time to allow the proposer to finalize the first 2 games
+    warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
+        .await?;
+    for game in first_two_games {
+        let game = ProposerGame {
+            index: game.index,
+            address: game.address,
+            parent_index: game.parent_index,
+            l2_block: game.l2_block_number,
+            status: GameStatus::DEFENDER_WINS,
+            proposal_status: ProposalStatus::Resolved,
+            deadline: 0,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: true,
+        };
+        proposer.submit_bond_claim_transaction(&game).await?;
+    }
+    info!("✓ Proposer finalized the first 2 games");
 
     // === PHASE 4: Verify Proposer recovers automatically ===
     info!("=== Phase 4: Verify Proposer recovers automatically ===");
