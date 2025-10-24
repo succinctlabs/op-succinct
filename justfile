@@ -336,8 +336,6 @@ tests:
     -- \
     --skip test_cycle_count_diff \
     --skip test_post_to_github \
-    --skip test_honest_proposer \
-    --skip test_honest_challenger
 
 # Run end-to-end tests.
 e2e-tests:
