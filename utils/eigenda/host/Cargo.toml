@@ -36,3 +36,4 @@ anyhow.workspace = true
 async-trait.workspace = true
 rkyv.workspace = true
 serde_cbor.workspace = true
+serde_json.workspace = true
