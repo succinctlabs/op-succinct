@@ -4,17 +4,21 @@ use alloy_primitives::B256;
 use anyhow::{anyhow, bail, Result};
 use comfy_table::{presets::UTF8_FULL, ContentArrangement, Table};
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
-use op_succinct_validity::{DriverDBClient, OPSuccinctRequest, RequestStatus};
+use op_succinct_validity::{
+    fetch_all_requests_by_status, fetch_request, insert_request, update_request_status,
+    OPSuccinctRequest, RequestStatus,
+};
+use sqlx::PgPool;
 
 pub async fn list(
     status: RequestStatus,
     from: Option<u64>,
     to: Option<u64>,
-    db_client: DriverDBClient,
+    pool: &PgPool,
 ) -> Result<Table> {
-    let requests = db_client
-        .fetch_all_requests_by_status(status, from.map(|x| x as i64), to.map(|x| x as i64))
-        .await?;
+    let requests =
+        fetch_all_requests_by_status(status, from.map(|x| x as i64), to.map(|x| x as i64), pool)
+            .await?;
 
     Ok(build_requests_table(requests))
 }
@@ -22,12 +26,13 @@ pub async fn list(
 pub async fn split(
     id: u64,
     at: u64,
-    db_client: DriverDBClient,
+    pool: &PgPool,
     fetcher: Arc<OPSuccinctDataFetcher>,
 ) -> Result<()> {
     let at = at as i64;
-    let request = db_client
-        .fetch_request(id as i64)
+    let mut tx = pool.begin().await?;
+
+    let request = fetch_request(id as i64, &mut tx)
         .await?
         .ok_or_else(|| anyhow!("The proof request '{id}' wasn't found in the DB"))?;
 
@@ -62,14 +67,12 @@ pub async fn split(
     )
     .await?;
 
-    db_client.update_request_status(request.id, RequestStatus::Failed).await?;
-    println!("Marked {request} as failed");
+    update_request_status(request.id, RequestStatus::Failed, &mut tx).await?;
+    insert_request(&a, &mut tx).await?;
+    insert_request(&b, &mut tx).await?;
+    tx.commit().await?;
 
-    db_client.insert_request(&a).await?;
-    println!("Inserted {a}");
-
-    db_client.insert_request(&b).await?;
-    println!("Inserted {b}");
+    println!("Marked {request} as failed and inserted {a} and {b}");
 
     Ok(())
 }
@@ -77,16 +80,16 @@ pub async fn split(
 pub async fn join(
     a: u64,
     b: u64,
-    db_client: DriverDBClient,
+    pool: &PgPool,
     fetcher: Arc<OPSuccinctDataFetcher>,
 ) -> Result<()> {
-    let a = db_client
-        .fetch_request(a as i64)
+    let mut tx = pool.begin().await?;
+
+    let a = fetch_request(a as i64, &mut tx)
         .await?
         .ok_or_else(|| anyhow!("The proof request '{a}' wasn't found in the DB"))?;
 
-    let b = db_client
-        .fetch_request(b as i64)
+    let b = fetch_request(b as i64, &mut tx)
         .await?
         .ok_or_else(|| anyhow!("The proof request '{a}' wasn't found in the DB"))?;
 
@@ -129,20 +132,18 @@ pub async fn join(
     )
     .await?;
 
-    db_client.update_request_status(a.id, RequestStatus::Failed).await?;
-    println!("Marked {a} as failed");
+    update_request_status(a.id, RequestStatus::Failed, &mut tx).await?;
+    update_request_status(b.id, RequestStatus::Failed, &mut tx).await?;
+    insert_request(&joined, &mut tx).await?;
+    tx.commit().await?;
 
-    db_client.update_request_status(b.id, RequestStatus::Failed).await?;
-    println!("Marked {b} as failed");
-
-    db_client.insert_request(&joined).await?;
-    println!("Inserted {joined}");
+    println!("Marked {a} and {b} as failed and inserted {joined}");
 
     Ok(())
 }
 
-pub async fn kill(id: u64, db_client: DriverDBClient) -> Result<()> {
-    db_client.update_request_status(id as i64, RequestStatus::Failed).await?;
+pub async fn kill(id: u64, pool: &PgPool) -> Result<()> {
+    update_request_status(id as i64, RequestStatus::Failed, pool).await?;
     println!("Marked proof request '{id}' as failed");
 
     Ok(())

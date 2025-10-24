@@ -8536,6 +8536,7 @@ dependencies = [
  "dotenv",
  "op-succinct-host-utils",
  "op-succinct-validity",
+ "sqlx",
  "tokio",
 ]
 
