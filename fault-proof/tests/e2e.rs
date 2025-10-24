@@ -1,4 +1,4 @@
-mod common;
+pub mod common;
 
 #[cfg(feature = "e2e")]
 mod e2e {

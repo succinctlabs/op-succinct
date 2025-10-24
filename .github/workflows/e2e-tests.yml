@@ -54,6 +54,9 @@ jobs:
     - name: Run E2E tests
       run: just e2e-tests
       env:
+        # TODO(fakedev9999): Remove L1 RPCs since we are using fresh Anvil chain
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
         L2_RPC: ${{ secrets.L2_RPC }}
         L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
 
