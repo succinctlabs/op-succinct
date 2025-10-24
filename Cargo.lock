@@ -8560,7 +8560,6 @@ dependencies = [
  "op-succinct-host-utils",
  "rkyv",
  "serde_cbor",
- "serde_json",
  "sp1-core-executor",
  "sp1-prover",
  "sp1-sdk",
