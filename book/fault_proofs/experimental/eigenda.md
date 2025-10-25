@@ -87,5 +87,5 @@ docker compose -f docker-compose-eigenda.yml logs -f
 To stop the services, run:
 
 ```bash
-docker compose -f docker-compose-eigenda.yml down
+docker compose -f docker-compose-eigenda.yml down -v
 ```
