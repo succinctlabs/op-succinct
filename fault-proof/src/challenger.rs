@@ -411,7 +411,7 @@ where
         Ok(())
     }
 
-    async fn submit_challenge_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_challenge_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
             contract.challenge().value(self.challenger_bond).into_transaction_request();
@@ -462,7 +462,7 @@ where
         Ok(())
     }
 
-    async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
         let receipt = self
@@ -535,17 +535,17 @@ where
 }
 
 #[derive(Clone)]
-struct Game {
-    index: U256,
-    address: Address,
-    parent_index: u32,
-    l2_block_number: U256,
-    is_invalid: bool,
-    status: GameStatus,
-    proposal_status: ProposalStatus,
-    should_attempt_to_challenge: bool,
-    should_attempt_to_resolve: bool,
-    should_attempt_to_claim_bond: bool,
+pub struct Game {
+    pub index: U256,
+    pub address: Address,
+    pub parent_index: u32,
+    pub l2_block_number: U256,
+    pub is_invalid: bool,
+    pub status: GameStatus,
+    pub proposal_status: ProposalStatus,
+    pub should_attempt_to_challenge: bool,
+    pub should_attempt_to_resolve: bool,
+    pub should_attempt_to_claim_bond: bool,
 }
 
 pub struct ChallengerState {
