@@ -30,9 +30,19 @@ In the root directory, create a file called `.env` and set the following environ
 | `PRIVATE_KEY` | Private key for the account that will be deploying the contract. |
 | `ETHERSCAN_API_KEY` | Etherscan API key for verifying the deployed contracts. |
 
+```admonish note
+If your integration requires access to consensus-layer data, set the
+`L1_BEACON_RPC` (L1 Beacon Node). This is optional and not required by default.
+```
+
 ```admonish info
-If your integration requires access to consensus-layer data, set the `L1_BEACON_RPC` (L1 Beacon Node).  
-This is optional and not required by default.
+Obtaining a Test Private Key
+
+- Anvil (local devnet): Run `anvil` and use one of the pre-funded accounts printed on startup. Copy the Private Key value for any account. Only use these on your local Anvil network.
+
+- Foundry (generate a fresh key): Run `cast wallet new` to generate a human-readable output. Save the private key and fund it on your test network.
+
+⚠️ **Caution:** Never use test keys on mainnet or with real assets.
 ```
 
 ## Step 2: Deploy an `SP1MockVerifier` for verifying mock proofs
