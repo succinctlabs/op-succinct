@@ -4797,7 +4797,7 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=84b817bc6c51812eb428ccef5dcca1864e244d4a#84b817bc6c51812eb428ccef5dcca1864e244d4a"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.2.2-mocha#84d4a951f372d800de4bb4e53007c26c2c069850"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -4815,7 +4815,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=84b817bc6c51812eb428ccef5dcca1864e244d4a#84b817bc6c51812eb428ccef5dcca1864e244d4a"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.2.2-mocha#84d4a951f372d800de4bb4e53007c26c2c069850"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4828,7 +4828,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=84b817bc6c51812eb428ccef5dcca1864e244d4a#84b817bc6c51812eb428ccef5dcca1864e244d4a"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.2.2-mocha#84d4a951f372d800de4bb4e53007c26c2c069850"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -4853,7 +4853,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=84b817bc6c51812eb428ccef5dcca1864e244d4a#84b817bc6c51812eb428ccef5dcca1864e244d4a"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.2.2-mocha#84d4a951f372d800de4bb4e53007c26c2c069850"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -4884,7 +4884,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=84b817bc6c51812eb428ccef5dcca1864e244d4a#84b817bc6c51812eb428ccef5dcca1864e244d4a"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.2.2-mocha#84d4a951f372d800de4bb4e53007c26c2c069850"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4901,7 +4901,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=84b817bc6c51812eb428ccef5dcca1864e244d4a#84b817bc6c51812eb428ccef5dcca1864e244d4a"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.2.2-mocha#84d4a951f372d800de4bb4e53007c26c2c069850"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
