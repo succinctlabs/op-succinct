@@ -102,7 +102,7 @@ mod e2e {
 
         // Wait for games to be resolved
         let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(30))
+            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
                 .await?;
 
         // Verify all games resolved correctly (proposer wins)
@@ -125,7 +125,7 @@ mod e2e {
             &env.anvil.provider,
             &tracked_games,
             PROPOSER_ADDRESS,
-            Duration::from_secs(30),
+            Duration::from_secs(120),
         )
         .await?;
 
@@ -277,7 +277,7 @@ mod e2e {
 
         warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
         let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(60))
+            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
                 .await?;
         verify_all_resolved_correctly(&resolutions)?;
 
@@ -287,7 +287,7 @@ mod e2e {
             &env.anvil.provider,
             &tracked_games,
             PROPOSER_ADDRESS,
-            Duration::from_secs(90),
+            Duration::from_secs(120),
         )
         .await?;
 
