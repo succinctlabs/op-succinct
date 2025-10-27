@@ -23,19 +23,6 @@ jobs:
     - run: rustup toolchain install stable --profile minimal
     - uses: Swatinem/rust-cache@v2  
     - name: Install SP1 toolchain
-<<<<<<< HEAD
-      run: |
-        curl -L https://sp1.succinct.xyz | bash
-        ~/.sp1/bin/sp1up 
-        ~/.sp1/bin/cargo-prove prove --version
-        source ~/.bashrc
-||||||| b0f190e6
-        run: |
-          curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up 
-          ~/.sp1/bin/cargo-prove prove --version
-          source ~/.bashrc
-=======
       run: |
           curl -L https://sp1.succinct.xyz | bash
           ~/.sp1/bin/sp1up 
@@ -45,7 +32,6 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
->>>>>>> e53406c9
     - name: Test
       run: just tests
       env:

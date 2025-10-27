@@ -359,7 +359,6 @@ remove-config config_name env_file=".env":
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast
-<<<<<<< HEAD
 
 audit-forkdiff:
     #!/usr/bin/env bash
@@ -373,8 +372,6 @@ audit-forkdiff:
         -repo /host-pwd/ -fork /host-pwd/audits/audit-forkdiff.yaml -out /host-pwd/$outpath
 
     echo "Audit forkdiff written to $outpath"
-||||||| b0f190e6
-=======
 
 # Run all unit and integration tests except for the specified ones.
 tests:
@@ -387,4 +384,3 @@ tests:
 e2e-tests:
    cd fault-proof && \
    cargo t --release --features e2e -- --test-threads=1 --nocapture
->>>>>>> e53406c9
