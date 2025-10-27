@@ -16,9 +16,6 @@ Include all base variables from the [Proposer](../proposer.md) section, plus the
 | Parameter | Description |
 |-----------|-------------|
 | `EIGENDA_PROXY_ADDRESS` | Base URL of the EigenDA Proxy REST service (e.g., `http://localhost:3100`). OP Succinct Lite connects to this proxy to retrieve and validate EigenDA blobs from DA certificates. |
-| `RANGE_VKEY_COMMITMENT` | The EigenDA range verification key commitment |
-| `AGGREGATION_VKEY` | The EigenDA shared aggregation verification key |
-| `ROLLUP_CONFIG_HASH` | The EigenDA rollup config hash |
 
 ## EigenDA Proxy
 
