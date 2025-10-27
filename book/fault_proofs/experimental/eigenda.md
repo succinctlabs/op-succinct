@@ -49,20 +49,10 @@ cargo run --bin config --release --features eigenda -- --env-file fault-proof/.e
 
 The command prints the `Range Verification Key Hash`, `Aggregation Verification Key Hash`, and `Rollup Config Hash`. Confirm these values before updating on-chain storage in `OPSuccinctFaultDisputeGame`.
 
-When you use the `just` helper below, include the `eigenda` argument so `fetch-fault-dispute-game-config` runs with the correct feature set. If you run `fetch-fault-dispute-game-config` manually, append `--features eigenda`; otherwise the script emits the default Ethereum DA values and your games will revert with `ProofInvalid()` when submitting proofs.
+When using the `just` helper below, include the `eigenda` argument to ensure the `fetch-fault-dispute-game-config` binary runs with the correct feature set. This binary outputs an updated config file (`opsuccinctfdgconfig.json`) to the `contracts` directory, which is used by the Solidity deployer script.
+If you run `fetch-fault-dispute-game-config` manually, append `--features eigenda`; otherwise the script emits the default Ethereum DA values and your games will revert with `ProofInvalid()` when submitting proofs.
 
 ## Deploying `OPSuccinctFaultDisputeGame` with EigenDA features
-
-Ensure that the following environment variables are correctly set in your
-`fault-proof/.env` file (as obtained in the previous step):
-
-```env
-RANGE_VKEY_COMMITMENT=<YOUR_RANGE_VERIFICATION_KEY_HASH>
-AGGREGATION_VKEY=<YOUR_AGGREGATION_VERIFICATION_KEY_HASH>
-ROLLUP_CONFIG_HASH=<YOUR_ROLLUP_CONFIG_HASH>
-```
-
-Now deploy the contracts with:
 
 ```bash
 just deploy-fdg-contracts .env eigenda
@@ -87,5 +77,5 @@ docker compose -f docker-compose-eigenda.yml logs -f
 To stop the services, run:
 
 ```bash
-docker compose -f docker-compose-eigenda.yml down -v
+docker compose -f docker-compose-eigenda.yml down
 ```
