@@ -26,7 +26,7 @@ edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
-version = "3.3.0"
+version = "3.3.1"
 
 [workspace.dependencies]
 # general
@@ -77,23 +77,23 @@ strum_macros = "0.27.1"
 tempfile = "3.10.1"
 
 # kona
-kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
-kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
-kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
-kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
+kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
 
-kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
-kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3" }
-kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
-kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.3", default-features = false }
+kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
 
 # TODO: replace commit hash with tag when available
 # celo-kona
@@ -104,20 +104,21 @@ celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "09b1b34"
 celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "09b1b34", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
-hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.0-mocha" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "84b817bc6c51812eb428ccef5dcca1864e244d4a" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "84b817bc6c51812eb428ccef5dcca1864e244d4a" }
+hana-host = { git = "https://github.com/celestiaorg/hana", rev = "84b817bc6c51812eb428ccef5dcca1864e244d4a" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "84b817bc6c51812eb428ccef5dcca1864e244d4a" }
 
 # hokulea
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "bd6fb19379efcbd1118fe2f5c72318a315940250" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+canoe-provider = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
