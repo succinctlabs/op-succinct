@@ -25,6 +25,11 @@ pub fn hash_rollup_config(config: &CeloRollupConfig) -> B256 {
 
     // Finalize and convert to B256
     let hash = hasher.finalize();
+
+    // We need this because upstream pulls in generic-array 0.14.7 and we use 0.14.9 where as_slice
+    // is deprecated. I imagine this will be resolved fairly soon in upstream and we shoul be able
+    // to remove this change at that point.
+    #[allow(deprecated)]
     B256::from_slice(hash.as_slice())
 }
 
