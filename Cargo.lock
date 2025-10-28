@@ -2651,7 +2651,7 @@ dependencies = [
 [[package]]
 name = "canoe-bindings"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-sol-types",
  "serde",
@@ -2660,7 +2660,7 @@ dependencies = [
 [[package]]
 name = "canoe-bindings"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-sol-types",
  "serde",
@@ -2675,8 +2675,8 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
- "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "serde",
 ]
 
@@ -2691,7 +2691,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
- "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "canoe-provider",
  "rsp-primitives 0.1.0 (git+https://github.com/succinctlabs/rsp?rev=reth-1.8.2)",
  "sp1-cc-client-executor",
@@ -2711,36 +2711,15 @@ dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
  "bincode",
- "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "cfg-if",
-<<<<<<< HEAD
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
-||||||| e53406c9
- "eigenda-cert",
-=======
- "eigenda-cert",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "rsp-primitives 0.1.0 (git+https://github.com/succinctlabs/rsp?rev=reth-1.8.2)",
->>>>>>> v3.3.1-rc.3
  "sha2 0.10.9",
  "sp1-cc-client-executor",
  "sp1-lib",
  "tracing",
-]
-
-[[package]]
-name = "canoe-verifier"
-version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
-dependencies = [
- "alloy-genesis",
- "alloy-primitives",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "reth-chainspec",
- "reth-evm",
- "revm-primitives",
- "serde",
- "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -2759,12 +2738,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "canoe-verifier"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+dependencies = [
+ "alloy-genesis",
+ "alloy-primitives",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "reth-chainspec",
+ "reth-evm",
+ "revm-primitives",
+ "serde",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "canoe-verifier-address-fetcher"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-primitives",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "thiserror 2.0.17",
 ]
 
@@ -4249,12 +4243,12 @@ dependencies = [
 [[package]]
 name = "eigenda-cert"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "anyhow",
- "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca)",
  "serde",
  "thiserror 2.0.17",
 ]
@@ -4262,12 +4256,12 @@ dependencies = [
 [[package]]
 name = "eigenda-cert"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "anyhow",
- "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca)",
+ "canoe-bindings 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "serde",
  "thiserror 2.0.17",
 ]
@@ -4429,18 +4423,18 @@ dependencies = [
 
 [[package]]
 name = "enum-ordinalize"
-version = "4.3.0"
+version = "4.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea0dcfa4e54eeb516fe454635a95753ddd39acda650ce703031c6973e315dd5"
+checksum = "4a1091a7bb1f8f2c4b28f1fe2cef4980ca2d410a3d727d67ecc3178c9b0800f0"
 dependencies = [
  "enum-ordinalize-derive",
 ]
 
 [[package]]
 name = "enum-ordinalize-derive"
-version = "4.3.1"
+version = "4.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d28318a75d4aead5c4db25382e8ef717932d0346600cacae6357eb5941bc5ff"
+checksum = "8ca9601fb2d62598ee17836250842873a413586e5d7ed88b356e38ddbb0ec631"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5433,25 +5427,6 @@ dependencies = [
 [[package]]
 name = "hokulea-client"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
-dependencies = [
- "alloy-consensus",
- "alloy-evm",
- "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "kona-client",
- "kona-derive",
- "kona-driver",
- "kona-executor",
- "kona-preimage",
- "kona-proof",
- "op-alloy-consensus",
- "op-revm",
- "tracing",
-]
-
-[[package]]
-name = "hokulea-client"
-version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-consensus",
@@ -5469,14 +5444,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "hokulea-client-bin"
+name = "hokulea-client"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
+ "alloy-consensus",
+ "alloy-evm",
+ "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "kona-client",
+ "kona-derive",
+ "kona-driver",
+ "kona-executor",
+ "kona-preimage",
+ "kona-proof",
+ "op-alloy-consensus",
+ "op-revm",
+ "tracing",
+]
+
+[[package]]
+name = "hokulea-client-bin"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+dependencies = [
  "alloy-evm",
  "cfg-if",
- "hokulea-client 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-client 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca)",
  "kona-client",
  "kona-preimage",
  "kona-proof",
@@ -5489,12 +5483,12 @@ dependencies = [
 [[package]]
 name = "hokulea-client-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-evm",
  "cfg-if",
- "hokulea-client 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca)",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca)",
+ "hokulea-client 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "kona-client",
  "kona-preimage",
  "kona-proof",
@@ -5519,22 +5513,6 @@ dependencies = [
 [[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
-dependencies = [
- "alloy-primitives",
- "async-trait",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "kona-derive",
- "kona-protocol",
- "rust-kzg-bn254-primitives",
- "serde",
- "thiserror 2.0.17",
- "tracing",
-]
-
-[[package]]
-name = "hokulea-eigenda"
-version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-primitives",
@@ -5549,30 +5527,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "hokulea-host-bin"
+name = "hokulea-eigenda"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-primitives",
- "anyhow",
  "async-trait",
- "clap",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-client-bin 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "kona-cli 0.3.2 (git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.6)",
- "kona-client",
- "kona-host",
- "kona-preimage",
- "kona-proof",
- "kona-std-fpvm 0.2.0 (git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.6)",
- "reqwest 0.12.24",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "kona-derive",
+ "kona-protocol",
+ "rust-kzg-bn254-primitives",
  "serde",
  "thiserror 2.0.17",
- "tokio",
  "tracing",
- "tracing-subscriber 0.3.20",
 ]
 
 [[package]]
@@ -5603,23 +5570,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "hokulea-proof"
+name = "hokulea-host-bin"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
  "alloy-primitives",
- "ark-bn254",
- "ark-ff 0.5.0",
+ "anyhow",
  "async-trait",
- "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "clap",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-client-bin 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "kona-cli 0.3.2 (git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.6)",
+ "kona-client",
+ "kona-host",
  "kona-preimage",
  "kona-proof",
- "rust-kzg-bn254-primitives",
- "rust-kzg-bn254-verifier",
+ "kona-std-fpvm 0.2.0 (git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.6)",
+ "reqwest 0.12.24",
  "serde",
  "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "tracing-subscriber 0.3.20",
 ]
 
 [[package]]
@@ -5643,6 +5617,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "hokulea-proof"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
+dependencies = [
+ "alloy-primitives",
+ "ark-bn254",
+ "ark-ff 0.5.0",
+ "async-trait",
+ "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "kona-preimage",
+ "kona-proof",
+ "rust-kzg-bn254-primitives",
+ "rust-kzg-bn254-verifier",
+ "serde",
+ "thiserror 2.0.17",
+]
+
+[[package]]
 name = "hokulea-witgen"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
@@ -5653,12 +5647,12 @@ dependencies = [
  "anyhow",
  "async-trait",
  "canoe-provider",
- "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "canoe-verifier-address-fetcher",
- "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "eigenda-cert 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "hokulea-compute-proof",
- "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "kona-preimage",
  "kona-proof",
  "tracing",
@@ -5669,9 +5663,9 @@ name = "hokulea-zkvm-verification"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17#847d3ca3d4111415f0b0984c7fb68d93fa9dcb17"
 dependencies = [
- "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "canoe-verifier 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "canoe-verifier-address-fetcher",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "kona-derive",
  "kona-preimage",
  "kona-proof",
@@ -6344,9 +6338,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.81"
+version = "0.3.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec48937a97411dcb524a265206ccd4c90bb711fca92b2792c407f268825b9305"
+checksum = "b011eec8cc36da2aab2d5cff675ec18454fad408585853910a202391cf9f8e65"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
@@ -9027,8 +9021,8 @@ dependencies = [
  "celo-genesis",
  "celo-proof",
  "celo-protocol",
- "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "hokulea-witgen",
  "kona-derive",
  "kona-driver",
@@ -9054,9 +9048,9 @@ dependencies = [
  "celo-genesis",
  "celo-host",
  "celo-protocol",
- "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-host-bin 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-eigenda 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-host-bin 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "hokulea-witgen",
  "kona-preimage",
  "kona-proof",
@@ -9183,7 +9177,7 @@ dependencies = [
  "cfg-if",
  "futures",
  "hana-host",
- "hokulea-host-bin 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-host-bin 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "kona-derive",
  "kona-genesis",
  "kona-host",
@@ -10789,7 +10783,7 @@ version = "0.1.0"
 dependencies = [
  "canoe-sp1-cc-verifier",
  "canoe-verifier-address-fetcher",
- "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=654cb0261ed4c2e8bf9f1f7bb531b954f8f9adb8)",
+ "hokulea-proof 0.1.0 (git+https://github.com/Layr-Labs/hokulea?rev=847d3ca3d4111415f0b0984c7fb68d93fa9dcb17)",
  "hokulea-zkvm-verification",
  "kona-proof",
  "op-succinct-client-utils",
@@ -15104,9 +15098,9 @@ checksum = "b8dad83b4f25e74f184f64c43b150b91efe7647395b42289f38e50566d82855b"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.104"
+version = "0.2.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1da10c01ae9f1ae40cbfac0bac3b1e724b320abfcf52229f80b547c0d250e2d"
+checksum = "da95793dfc411fbbd93f5be7715b0578ec61fe87cb1a42b12eb625caa5c5ea60"
 dependencies = [
  "cfg-if",
  "once_cell",
@@ -15116,24 +15110,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasm-bindgen-backend"
-version = "0.2.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "671c9a5a66f49d8a47345ab942e2cb93c7d1d0339065d4f8139c486121b43b19"
-dependencies = [
- "bumpalo",
- "log",
- "proc-macro2",
- "quote",
- "syn 2.0.108",
- "wasm-bindgen-shared",
-]
-
-[[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.54"
+version = "0.4.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e038d41e478cc73bae0ff9b36c60cff1c98b8f38f8d7e8061e79ee63608ac5c"
+checksum = "551f88106c6d5e7ccc7cd9a16f312dd3b5d36ea8b4954304657d5dfba115d4a0"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -15144,9 +15124,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.104"
+version = "0.2.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ca60477e4c59f5f2986c50191cd972e3a50d8a95603bc9434501cf156a9a119"
+checksum = "04264334509e04a7bf8690f2384ef5265f05143a4bff3889ab7a3269adab59c2"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -15154,22 +15134,22 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.104"
+version = "0.2.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f07d2f20d4da7b26400c9f4a0511e6e0345b040694e8a75bd41d578fa4421d7"
+checksum = "420bc339d9f322e562942d52e115d57e950d12d88983a14c79b86859ee6c7ebc"
 dependencies = [
+ "bumpalo",
  "proc-macro2",
  "quote",
  "syn 2.0.108",
- "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.104"
+version = "0.2.105"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bad67dc8b2a1a6e5448428adec4c3e84c43e561d8c9ee8a9e5aabeb193ec41d1"
+checksum = "76f218a38c84bcb33c25ec7059b07847d465ce0e0a76b995e134a45adcb6af76"
 dependencies = [
  "unicode-ident",
 ]
@@ -15203,9 +15183,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.81"
+version = "0.3.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9367c417a924a74cae129e6a2ae3b47fabb1f8995595ab474029da749a8be120"
+checksum = "3a1f95c0d03a47f4ae1f7a64643a6bb97465d9b740f0fa8f90ea33915c99a9a1"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
@@ -15896,9 +15876,9 @@ dependencies = [
 
 [[package]]
 name = "xml-rs"
-version = "0.8.27"
+version = "0.8.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fd8403733700263c6eb89f192880191f1b83e332f7a20371ddcf421c4a337c7"
+checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xmlparser"
