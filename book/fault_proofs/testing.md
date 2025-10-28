@@ -20,10 +20,14 @@ Before running the tests, ensure you have:
    curl -L https://foundry.paradigm.xyz | bash
    foundryup --install nightly-d592b3e0f142d694c3be539702704a4a73238773
    ```
+    As of July 11, 2025, you need to use Forge nightly for binding generation.
 
-   As of July 11, 2025, you need to use Forge nightly for binding generation.
+3. **`just` installed for task running**. (Can be installed via `cargo`)
+   ```bash
+    cargo install just
+    ```
 
-3. **Environment variables configured**
+4. **Environment variables configured**
    ```bash
    export L1_RPC=<YOUR_L1_RPC>
    export L2_RPC=<YOUR_L2_RPC>
@@ -79,5 +83,5 @@ These tests focus on anchor selection, parent validation, and handling of invali
 ### Basic Test Execution
 ```bash
 # Run all end-to-end tests with single thread and no capture
-cargo test --release --test e2e -- --test-threads=1 --nocapture
+just e2e-tests
 ```
