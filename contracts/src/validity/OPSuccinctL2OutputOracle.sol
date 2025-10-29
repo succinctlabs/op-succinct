@@ -496,16 +496,6 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
         );
         _enteredDGFCreate = false;
     }
-    /// @notice Proposes an L2 output through the dispute game factory.
-    /// @dev We can only invoke `disputeGameFactory.create` through this function, ensuring that
-    ///      no one can interact with `proposeL2Output` directly when the dispute game factory is set.
-    /// @param _configName The name of the OpSuccinctConfig to use.
-    /// @param _outputRoot The root of the L2 output to propose.
-    /// @param _l2BlockNumber The L2 block number of the output to propose.
-    /// @param _l1BlockNumber The L1 block number of the output to propose.
-    /// @param _proof The proof of the output to propose.
-    /// @param _proverAddress The address of the prover to use.
-    /// @return _game The dispute game created.
 
     /// @notice Checkpoints a block hash at a given block number.
     /// @param _blockNumber Block number to checkpoint the hash at.
