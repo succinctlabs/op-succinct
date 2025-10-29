@@ -29,7 +29,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // TODO: check with seola/yoshiki about this line, I can't see that it ever exsited in upstream.
+    // We added this to ensure that proving works.
     // seems it was added in https://github.com/celo-org/op-succinct/commit/2a5653d1381a8db2e19c042325c8bcbe43d55a68
     // see this thread https://clabsco.slack.com/archives/C08C4523K2R/p1750410628172889
     rustls::crypto::ring::default_provider().install_default().unwrap();
