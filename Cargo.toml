@@ -102,6 +102,7 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" 
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" }
 
 # hokulea
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "28eaa376e3399a12a81b0699060a8e8ed74bbaf8" }
 hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "28eaa376e3399a12a81b0699060a8e8ed74bbaf8" }
 hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "28eaa376e3399a12a81b0699060a8e8ed74bbaf8" }
 hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "28eaa376e3399a12a81b0699060a8e8ed74bbaf8" }

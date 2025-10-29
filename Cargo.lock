@@ -1120,6 +1120,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
  "num-traits",
+ "rayon",
  "zeroize",
 ]
 
@@ -1178,6 +1179,7 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
  "paste",
+ "rayon",
  "zeroize",
 ]
 
@@ -1262,6 +1264,7 @@ dependencies = [
  "educe",
  "fnv",
  "hashbrown 0.15.5",
+ "rayon",
 ]
 
 [[package]]
@@ -1325,6 +1328,7 @@ dependencies = [
  "arrayvec",
  "digest 0.10.7",
  "num-bigint 0.4.6",
+ "rayon",
 ]
 
 [[package]]
@@ -1366,6 +1370,7 @@ checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
  "num-traits",
  "rand 0.8.5",
+ "rayon",
 ]
 
 [[package]]
@@ -5108,6 +5113,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hokulea-compute-proof"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=28eaa376e3399a12a81b0699060a8e8ed74bbaf8#28eaa376e3399a12a81b0699060a8e8ed74bbaf8"
+dependencies = [
+ "alloy-primitives",
+ "hokulea-proof",
+ "num",
+ "rust-kzg-bn254-primitives",
+ "rust-kzg-bn254-prover",
+ "spin 0.10.0",
+ "tracing",
+]
+
+[[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
 source = "git+https://github.com/Layr-Labs/hokulea?rev=28eaa376e3399a12a81b0699060a8e8ed74bbaf8#28eaa376e3399a12a81b0699060a8e8ed74bbaf8"
@@ -8531,6 +8550,7 @@ dependencies = [
  "async-trait",
  "canoe-sp1-cc-host",
  "canoe-verifier-address-fetcher",
+ "hokulea-compute-proof",
  "hokulea-eigenda",
  "hokulea-host-bin",
  "hokulea-proof",
@@ -11491,6 +11511,23 @@ dependencies = [
  "serde",
  "sha2 0.10.9",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "rust-kzg-bn254-prover"
+version = "0.1.1"
+source = "git+https://github.com/Layr-Labs/rust-kzg-bn254.git?rev=4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d#4d1d6a84910a3fc1e5e8927f694e4fc10ac5dd9d"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-std 0.5.0",
+ "crossbeam-channel",
+ "num-traits",
+ "num_cpus",
+ "rayon",
+ "rust-kzg-bn254-primitives",
 ]
 
 [[package]]
