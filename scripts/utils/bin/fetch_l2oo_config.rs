@@ -152,13 +152,13 @@ struct Args {
 async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Load the env file in case it's present
-    if !dotenv::from_path(args.env_file.clone()).is_ok() {
-        // This fetches the .env file from the project root. If the command is invoked in the contracts/
-        // directory, the .env file in the root of the repo is used.
-        if let Some(root) = find_project_root() {
-            dotenv::from_path(root.join(args.env_file)).ok();
-        } else {
+    // This fetches the .env file from the project root. If the command is invoked in the contracts/
+    // directory, the .env file in the root of the repo is used.
+    if let Some(root) = find_project_root() {
+        dotenv::from_path(root.join(args.env_file)).ok();
+    } else {
+        // Try to load the env file in case it's present
+        if dotenv::from_path(args.env_file.clone()).is_err() {
             eprintln!("Warning: Could not find project root. {} file not loaded.", args.env_file);
         }
     }
