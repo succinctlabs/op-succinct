@@ -1,9 +1,10 @@
 name: Cycle Count Diff - Celestia
 
 on:
-  pull_request:
-    paths:
-      - 'elf/celestia-range-elf-embedded'
+  workflow_dispatch:
+  # pull_request:
+  #   paths:
+  #     - 'elf/celestia-range-elf-embedded'
 
 jobs:
   cycle-count-diff-celestia:
