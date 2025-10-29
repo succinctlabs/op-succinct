@@ -108,6 +108,11 @@ contract DeployOPSuccinctFDG is Script, Utils {
         OPSuccinctFaultDisputeGame gameImpl =
             deployGameImplementation(config, factory, sp1Config, registry, accessManager);
 
+        // Log deployed addresses.
+        console.log("Factory Proxy:", address(factoryProxy));
+        console.log("Game Implementation:", address(gameImpl));
+        console.log("SP1 Verifier:", sp1Config.verifierAddress);
+
         // Create deployed contracts struct
         DeployedContracts memory deployedContracts = DeployedContracts({
             factoryProxy: address(factoryProxy),
