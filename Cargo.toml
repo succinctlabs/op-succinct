@@ -26,7 +26,7 @@ edition = "2021"
 authors = ["ratankaliani", "zachobront", "fakedev9999", "yuwen01"]
 homepage = "https://succinctlabs.github.io/op-succinct/"
 repository = "https://github.com/succinctlabs/op-succinct"
-version = "3.1.0"
+version = "3.3.1"
 
 [workspace.dependencies]
 # general
@@ -48,7 +48,7 @@ log = "0.4.22"
 itertools = "0.13.0"
 reqwest = { version = "0.12", features = ["json"] }
 csv = "1.3.0"
-serde = { version = "1.0.198", features = ["derive"] }
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = { version = "1.0.117", default-features = false }
 rkyv = { version = "0.8", features = ["hashbrown-0_15", "std"] }
 hex = "0.4.3"
@@ -57,7 +57,7 @@ base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
 lazy_static = "1.5.0"
 tracing = { version = "0.1.40", default-features = false }
-tracing-subscriber = { version = "0.3.20", features = ["fmt"] }
+tracing-subscriber = { version = "0.3.20", features = ["fmt", "json"] }
 tracing-opentelemetry = "^0.24"
 opentelemetry = { version = "^0.23.0", features = ["trace"] }
 opentelemetry_sdk = { version = "^0.23.0", features = [
@@ -77,48 +77,49 @@ strum_macros = "0.27.1"
 tempfile = "3.10.1"
 
 # kona
-kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
-kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2", default-features = false }
-kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
-kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2", features = [
+kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-derive = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-driver = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-preimage = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
-kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
+kona-executor = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
 
-kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
-kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
-kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2" }
-kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2", default-features = false }
-kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2", default-features = false }
-kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2", default-features = false }
-kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.0.2", default-features = false }
+kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6" }
+kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
+kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.6", default-features = false }
 
 # TODO: replace commit hash with tag when available
 # celo-kona
-celo-driver = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2" }
-celo-proof = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2" }
-celo-host = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2" }
-celo-protocol = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
-celo-genesis = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
+celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7" }
+celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7" }
+celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7" }
+celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
+celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.0.0" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.0.0" }
-hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.0.0" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.0.0" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" }
 
 # hokulea
-# TODO(fakedev9999): Bump to 1.0.0 once the release is out.
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "6ff3784" }
+
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+canoe-provider = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "90404fb" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -136,34 +137,36 @@ op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
 op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
+op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
 op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
 # Alloy (Network)
-alloy-signer-local = { version = "1.0.9" }
-alloy-provider = { version = "1.0.9" }
-alloy-transport = { version = "1.0.9" }
-alloy-transport-http = { version = "1.0.9" }
-alloy-contract = { version = "1.0.9" }
-alloy-network = { version = "1.0.9" }
+alloy-signer-local = { version = "1.0.38" }
+alloy-provider = { version = "1.0.38" }
+alloy-transport = { version = "1.0.38" }
+alloy-transport-http = { version = "1.0.38" }
+alloy-contract = { version = "1.0.38" }
+alloy-network = { version = "1.0.38" }
 
 # Alloy
 alloy-rlp = { version = "0.3.12", default-features = false }
-alloy-trie = { version = "0.8.1", default-features = false, features = [
+alloy-trie = { version = "0.9.1", default-features = false, features = [
     "ethereum",
 ] }
-alloy-eips = { version = "1.0.9", default-features = false }
-alloy-serde = { version = "1.0.9", default-features = false }
-alloy-consensus = { version = "1.0.9", default-features = false }
-alloy-rpc-types = { version = "1.0.9", default-features = false }
-alloy-rpc-client = { version = "1.0.9", default-features = false }
-alloy-node-bindings = { version = "1.0.9", default-features = false }
-alloy-rpc-types-engine = { version = "1.0.9", default-features = false }
-alloy-rpc-types-beacon = { version = "1.0.9", default-features = false }
-alloy-rpc-types-eth = { version = "1.0.9", default-features = false }
-alloy-rpc-types-trace = { version = "1.0.9", default-features = false }
-alloy-signer = { version = "1.0.9", default-features = false }
-alloy = { version = "1.0.9", features = [
+alloy-eips = { version = "1.0.38", default-features = false }
+alloy-serde = { version = "1.0.38", default-features = false }
+alloy-consensus = { version = "1.0.38", default-features = false }
+alloy-rpc-types = { version = "1.0.38", default-features = false }
+alloy-rpc-client = { version = "1.0.38", default-features = false }
+alloy-node-bindings = { version = "1.0.38", default-features = false }
+alloy-rpc-types-engine = { version = "1.0.38", default-features = false }
+alloy-rpc-types-beacon = { version = "1.0.38", default-features = false }
+alloy-rpc-types-eth = { version = "1.0.38", default-features = false }
+alloy-rpc-types-trace = { version = "1.0.38", default-features = false }
+alloy-signer = { version = "1.0.38", default-features = false }
+alloy-signer-gcp = { version = "1.0.38", default-features = false }
+alloy = { version = "1.0.38", features = [
     "reqwest",
     "network",
     "providers",
@@ -172,47 +175,55 @@ alloy = { version = "1.0.9", features = [
 ] }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
-alloy-primitives = { version = "1.0.0", default-features = false, features = [
+alloy-primitives = { version = "1.3.1", default-features = false, features = [
     "sha3-keccak",
 ] }
-alloy-sol-types = { version = "1.0.0", default-features = false }
-alloy-sol-macro = { version = "1.0.0", default-features = false }
-alloy-chains = { version = "0.2.3", default-features = false }
+alloy-sol-types = { version = "1.3.1", default-features = false }
+alloy-sol-macro = { version = "1.3.1", default-features = false }
+alloy-chains = { version = "0.2.7", default-features = false }
 
 # OP Alloy
-op-alloy-consensus = { version = "0.17.2", default-features = false }
-op-alloy-rpc-types = { version = "0.17.2", default-features = false }
-op-alloy-rpc-types-engine = { version = "0.17.2", default-features = false }
-op-alloy-network = { version = "0.17.2", default-features = false }
+op-alloy-consensus = { version = "0.20.0", default-features = false }
+op-alloy-rpc-types = { version = "0.20.0", default-features = false }
+op-alloy-rpc-types-engine = { version = "0.20.0", default-features = false }
+op-alloy-network = { version = "0.20.0", default-features = false }
 
 # Celo Alloy
-celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
-celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
-celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
-celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
+celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
+celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
+celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
+celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
 
 # Execution
-alloy-evm = { version = "0.10.0", default-features = false }
-alloy-op-evm = { version = "0.10.0", default-features = false }
+alloy-evm = { version = "0.21.0", default-features = false }
+alloy-op-evm = { version = "0.21.0", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-revm = { version = "24.0.1", default-features = false, features = [
+revm = { version = "29.0.1", default-features = false, features = [
     "kzg-rs",
     "bn",
 ] }
-op-revm = { version = "5.0.1", default-features = false }
+revm-precompile = { version = "27.0.0", default-features = false }
+op-revm = { version = "10.1.0", default-features = false }
 
 # Celo Execution
-alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", tag = "celo/v1.0.0-rc.2", default-features = false }
+alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "24e88d7", default-features = false }
 
 # SP1
-sp1-sdk = { version = "=5.2.1" }
-sp1-lib = { version = "=5.2.1", features = ["verify"] }
-sp1-zkvm = { version = "=5.2.1", features = ["verify"] }
-sp1-build = { version = "=5.2.1" }
+sp1-sdk = { version = "=5.2.2", default-features = false, features = [
+    "network",
+] }
+sp1-lib = { version = "=5.2.2", features = ["verify"] }
+sp1-zkvm = { version = "=5.2.2", features = ["verify"] }
+sp1-build = { version = "=5.2.2" }
+sp1-prover = { version = "=5.2.2" }
+sp1-core-executor = { version = "=5.2.2" }
 
 # kzg
 kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
+
+# Cloud dependencies
+gcloud-sdk = "0.27"
 
 [profile.release-client-lto]
 inherits = "release"
@@ -229,19 +240,19 @@ p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p2
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
 
 [patch."https://github.com/op-rs/kona"]
-kona-mpt = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-derive = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3", default-features = false }
-kona-driver = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-preimage = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3", features = [
+kona-mpt = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-derive = { git = "https://github.com/celo-org/kona", rev = "2c33430", default-features = false }
+kona-driver = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-preimage = { git = "https://github.com/celo-org/kona", rev = "2c33430", features = [
     "rkyv",
     "serde",
 ] }
-kona-executor = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-proof = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-client = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-host = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-providers-alloy = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3" }
-kona-rpc = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3", default-features = false }
-kona-protocol = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3", default-features = false }
-kona-registry = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3", default-features = false }
-kona-genesis = { git = "https://github.com/celo-org/kona", rev = "d6b2bd3", default-features = false }
+kona-executor = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-proof = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-client = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-host = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-providers-alloy = { git = "https://github.com/celo-org/kona", rev = "2c33430" }
+kona-rpc = { git = "https://github.com/celo-org/kona", rev = "2c33430", default-features = false }
+kona-protocol = { git = "https://github.com/celo-org/kona", rev = "2c33430", default-features = false }
+kona-registry = { git = "https://github.com/celo-org/kona", rev = "2c33430", default-features = false }
+kona-genesis = { git = "https://github.com/celo-org/kona", rev = "2c33430", default-features = false }

@@ -4,6 +4,10 @@ version.workspace = true
 license.workspace = true
 edition.workspace = true
 
+[features]
+default = ["ansi"]
+ansi = []
+
 [dependencies]
 
 # sp1
@@ -28,6 +32,7 @@ kona-host.workspace = true
 kona-preimage.workspace = true
 kona-proof.workspace = true
 kona-protocol.workspace = true
+kona-registry.workspace = true
 kona-rpc.workspace = true
 
 # celo-kona

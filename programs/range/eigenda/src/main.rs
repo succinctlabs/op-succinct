@@ -34,7 +34,7 @@ fn main() {
             .get_oracle_and_blob_provider()
             .await
             .expect("Failed to load oracle and blob provider");
-        let canoe_address_fetcher = CanoeVerifierAddressFetcherDeployedByEigenLabs {};
+
         let eigenda_witness: EigenDAWitness = serde_cbor::from_slice(
             &witness_data.eigenda_data.clone().expect("eigenda witness data is not present"),
         )
@@ -42,7 +42,7 @@ fn main() {
         let preloaded_preimage_provider = eigenda_witness_to_preloaded_provider(
             oracle.clone(),
             CanoeSp1CCVerifier {},
-            canoe_address_fetcher,
+            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
             eigenda_witness,
         )
         .await

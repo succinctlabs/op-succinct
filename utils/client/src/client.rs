@@ -7,12 +7,9 @@ use celo_alloy_rpc_types_engine::CeloPayloadAttributes;
 use celo_driver::{CeloDriver, CeloExecutorTr};
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloL2BlockInfo;
-use kona_derive::{
-    errors::{PipelineError, PipelineErrorKind},
-    traits::{Pipeline, SignalReceiver},
-    types::Signal,
-};
-use kona_driver::{DriverError, DriverPipeline, DriverResult, TipCursor};
+use kona_derive::{Pipeline, PipelineError, PipelineErrorKind, Signal, SignalReceiver};
+#[allow(unused_imports)] // Allow unused imprts here to reduce upstream diff.
+use kona_driver::{Driver, DriverError, DriverPipeline, DriverResult, Executor, TipCursor};
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::{errors::OracleProviderError, HintType};
 use kona_protocol::L2BlockInfo;

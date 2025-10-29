@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, ops::Range, str::FromStr, sync::Arc, time::Duration};
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -8,14 +8,20 @@ use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, metrics::MetricsGauge,
+    fetcher::OPSuccinctDataFetcher,
+    host::OPSuccinctHost,
+    metrics::MetricsGauge,
+    network::{determine_network_mode, get_network_signer},
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::Signer;
 use sp1_sdk::{
-    network::proto::types::{ExecutionStatus, FulfillmentStatus},
+    network::{
+        proto::types::{ExecutionStatus, FulfillmentStatus},
+        NetworkMode,
+    },
     HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
@@ -23,8 +29,9 @@ use tracing::{debug, info, warn};
 
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
-    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove, CommitmentConfig,
-    ContractConfig, OPSuccinctProofRequester, ProgramConfig, RequesterConfig, ValidityGauge,
+    find_gaps, get_latest_proposed_block_number, get_ranges_to_prove_by_blocks,
+    get_ranges_to_prove_by_gas, CommitmentConfig, ContractConfig, OPSuccinctProofRequester,
+    ProgramConfig, RequestExecutionStatistics, RequesterConfig, ValidityGauge,
 };
 
 /// Configuration for the driver.
@@ -83,16 +90,15 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        // Set a default network private key to avoid an error in mock mode.
-        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
-            tracing::warn!(
-                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
-            );
-            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
-        });
-
-        let network_prover =
-            Arc::new(ProverClient::builder().network().private_key(&private_key).build());
+        // Set up the network prover.
+        let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
+        let network_mode = determine_network_mode(
+            requester_config.range_proof_strategy,
+            requester_config.agg_proof_strategy,
+        )?;
+        let network_prover = Arc::new(
+            ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
+        );
 
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
 
@@ -128,6 +134,15 @@ where
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
             requester_config.safe_db_fallback,
+            requester_config.max_price_per_pgu,
+            requester_config.proving_timeout,
+            requester_config.range_cycle_limit,
+            requester_config.range_gas_limit,
+            requester_config.agg_cycle_limit,
+            requester_config.agg_gas_limit,
+            requester_config.whitelist.clone(),
+            requester_config.min_auction_period,
+            requester_config.auction_timeout,
         ));
 
         let l2oo_contract =
@@ -216,12 +231,40 @@ where
             &requests,
         );
 
-        let ranges_to_prove = get_ranges_to_prove(
-            &disjoint_ranges,
-            self.requester_config.range_proof_interval as i64,
-        );
+        let ranges_to_prove = if self.requester_config.evm_gas_limit > 0 {
+            // Use gas-based splitting
+            let mut all_block_infos = std::collections::HashMap::new();
+            for &Range { start, end } in &disjoint_ranges {
+                if start < end {
+                    let block_data = self
+                        .driver_config
+                        .fetcher
+                        .get_l2_block_data_range(start as u64, end as u64)
+                        .await?;
 
-        if !ranges_to_prove.is_empty() {
+                    for block_info in block_data {
+                        all_block_infos.insert(block_info.block_number as i64, block_info);
+                    }
+                }
+            }
+
+            get_ranges_to_prove_by_gas(
+                &disjoint_ranges,
+                self.requester_config.evm_gas_limit,
+                self.requester_config.range_proof_interval as i64,
+                &all_block_infos,
+            )?
+        } else {
+            // Use block-based splitting
+            get_ranges_to_prove_by_blocks(
+                &disjoint_ranges,
+                self.requester_config.range_proof_interval as i64,
+            )
+        };
+
+        if ranges_to_prove.is_empty() {
+            warn!("No range proof requests inserted into the database.")
+        } else {
             info!("Inserting {} range proof requests into the database.", ranges_to_prove.len());
 
             // Create range proof requests for the ranges to prove in parallel
@@ -234,8 +277,8 @@ where
                     };
                     OPSuccinctRequest::create_range_request(
                         mode,
-                        range.0,
-                        range.1,
+                        range.start,
+                        range.end,
                         self.program_config.commitments.range_vkey_commitment,
                         self.program_config.commitments.rollup_config_hash,
                         self.requester_config.l1_chain_id,
@@ -290,10 +333,21 @@ where
     #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self, request))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
+            let proof_request_id = B256::from_slice(proof_request_id);
             let (status, proof) = self
-                .driver_config
-                .network_prover
-                .get_proof_status(B256::from_slice(proof_request_id))
+                .network_call_with_timeout(
+                    self.driver_config.network_prover.get_proof_status(proof_request_id),
+                    "waiting for proof status",
+                    &request,
+                )
+                .await?;
+
+            let request_details = self
+                .network_call_with_timeout(
+                    self.driver_config.network_prover.get_proof_request(proof_request_id),
+                    "waiting for proof request details",
+                    &request,
+                )
                 .await?;
 
             // Check if current time exceeds deadline. If so, the proof has timed out.
@@ -301,7 +355,62 @@ where
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            if current_time > status.deadline {
+
+            // Cancel the request in the network if the auction timeout is exceeded.
+            if let Some(request_details) = request_details {
+                let auction_deadline =
+                    request_details.created_at + self.requester_config.auction_timeout;
+                if self.driver_config.network_prover.network_mode() == NetworkMode::Mainnet &&
+                    request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                    current_time > auction_deadline
+                {
+                    // Cancel the request in the network.
+                    self.network_call_with_timeout(
+                        self.driver_config.network_prover.cancel_request(proof_request_id),
+                        "cancelling proof request",
+                        &request,
+                    )
+                    .await?;
+
+                    // Mark the request as cancelled in the database.
+                    match self.proof_requester.handle_cancelled_request(request.clone()).await {
+                        Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+                        Err(e) => {
+                            ValidityGauge::RetryErrorCount.increment(1.0);
+                            return Err(e);
+                        }
+                    }
+
+                    ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
+
+                    match request.req_type {
+                        RequestType::Range => {
+                            warn!(
+                                proof_id = request.id,
+                                start_block = request.start_block,
+                                end_block = request.end_block,
+                                auction_deadline = auction_deadline,
+                                current_time = current_time,
+                                "Range proof request auction deadline exceeded"
+                            );
+                        }
+                        RequestType::Aggregation => {
+                            warn!(
+                                proof_id = request.id,
+                                start_block = request.start_block,
+                                end_block = request.end_block,
+                                auction_deadline = auction_deadline,
+                                current_time = current_time,
+                                "Aggregation proof request auction deadline exceeded"
+                            );
+                        }
+                    }
+
+                    return Ok(());
+                }
+            }
+
+            if current_time > status.deadline() {
                 match self
                     .proof_requester
                     .handle_failed_request(request.clone(), status.execution_status())
@@ -316,14 +425,13 @@ where
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                // Log timeout of range proof
                 match request.req_type {
                     RequestType::Range => {
                         warn!(
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            deadline = status.deadline,
+                            deadline = status.deadline(),
                             current_time = current_time,
                             "Range proof request timed out"
                         );
@@ -333,7 +441,7 @@ where
                             proof_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            deadline = status.deadline,
+                            deadline = status.deadline(),
                             current_time = current_time,
                             "Aggregation proof request timed out"
                         );
@@ -345,7 +453,7 @@ where
 
             // If the proof request has been fulfilled, update the request to status Complete and
             // add the proof bytes to the database.
-            if status.fulfillment_status() == FulfillmentStatus::Fulfilled {
+            if status.fulfillment_status() == FulfillmentStatus::Fulfilled as i32 {
                 let proof: SP1ProofWithPublicValues = proof.unwrap();
 
                 let proof_bytes = match proof.proof {
@@ -363,6 +471,27 @@ where
                     .await?;
                 // Update the prove_duration based on the current time and the proof_request_time.
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
+
+                if let Some(proof_request) = self
+                    .network_call_with_timeout(
+                        self.driver_config.network_prover.get_proof_request(proof_request_id),
+                        "fetching execution statistics",
+                        &request,
+                    )
+                    .await?
+                {
+                    let execution_statistics = RequestExecutionStatistics::from(&proof_request);
+
+                    // Write the execution data to the database.
+                    self.driver_config
+                        .driver_db_client
+                        .insert_execution_statistics(
+                            request.id,
+                            serde_json::to_value(execution_statistics)?,
+                            0,
+                        )
+                        .await?;
+                }
 
                 // Log completion of range and aggregation proofs.
                 match request.req_type {
@@ -392,7 +521,7 @@ where
                         );
                     }
                 }
-            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable {
+            } else if status.fulfillment_status() == FulfillmentStatus::Unfulfillable as i32 {
                 // Log failure of range and aggregation proofs.
                 match request.req_type {
                     RequestType::Range => {
@@ -526,15 +655,53 @@ where
                 .await?;
 
             // If there's an existing aggregation request with the same start block, end block, and
-            // commitment config that has a checkpointed block hash, use the existing L1 block hash
-            // and number. This is likely caused by an error generating the aggregation
-            // proof, but there's no need to checkpoint the L1 block hash again.
-            let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(
-                existing_request,
-            ) = existing_request
+            // commitment config, try to reuse its checkpoint as long as it still matches the
+            // on-chain mapping.
+            let reuse_checkpoint = if let Some(existing_request) = existing_request {
+                let existing_l1_block_hash = B256::from_slice(&existing_request.0);
+                let existing_l1_block_number = existing_request.1;
+
+                let existing_l1_block_number_u64 = u64::try_from(existing_l1_block_number)
+                    .context("Existing checkpointed L1 block number is negative")?;
+
+                let onchain_l1_block_hash = self
+                    .contract_config
+                    .l2oo_contract
+                    .historicBlockHashes(U256::from(existing_l1_block_number_u64))
+                    .call()
+                    .await?
+                    .0;
+
+                if onchain_l1_block_hash == B256::ZERO {
+                    warn!(
+                        block_number = existing_l1_block_number,
+                        "Historic block hash missing on-chain for cached checkpoint; re-checkpointing."
+                    );
+                    None
+                } else if onchain_l1_block_hash != existing_l1_block_hash {
+                    warn!(
+                        block_number = existing_l1_block_number,
+                        ?existing_l1_block_hash,
+                        ?onchain_l1_block_hash,
+                        "Historic block hash mismatch between database and contract; re-checkpointing."
+                    );
+                    None
+                } else {
+                    debug!(
+                        block_number = existing_l1_block_number,
+                        ?existing_l1_block_hash,
+                        "Reusing cached checkpointed L1 block hash."
+                    );
+                    Some((existing_l1_block_hash, existing_l1_block_number))
+                }
+            } else {
+                None
+            };
+
+            let (checkpointed_l1_block_hash, checkpointed_l1_block_number) = if let Some(reuse) =
+                reuse_checkpoint
             {
-                tracing::debug!("Found existing aggregation request with the same start block, end block, and commitment config that has a checkpointed block hash.");
-                (B256::from_slice(&existing_request.0), existing_request.1)
+                reuse
             } else {
                 // Checkpoint an L1 block hash that will be used to create the aggregation proof.
                 let latest_header =
@@ -579,7 +746,7 @@ where
                 self.requester_config.l2_chain_id,
                 checkpointed_l1_block_number,
                 checkpointed_l1_block_hash,
-                self.requester_config.prover_address,
+                self.driver_config.signer.address(),
             );
 
             self.driver_config.driver_db_client.insert_request(&agg_request).await?;
@@ -932,8 +1099,8 @@ where
                     output.output_root,
                     U256::from(completed_agg_proof.end_block),
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
-                    completed_agg_proof.proof.as_ref().unwrap().clone().into(),
-                    self.requester_config.prover_address,
+                    completed_agg_proof.proof.clone().unwrap().into(),
+                    self.driver_config.signer.address(),
                 )
                 .value(init_bond)
                 .into_transaction_request();
@@ -944,7 +1111,8 @@ where
                     self.driver_config.fetcher.as_ref().rpc_config.l1_rpc.clone(),
                     transaction_request,
                 )
-                .await?
+                .await
+                .map_err(|e| anyhow!("Failed to relay aggregation proof onchain. end_block: {}, checkpointed_l1_block_number: {}, error: {}", completed_agg_proof.end_block, completed_agg_proof.checkpointed_l1_block_number.unwrap(), e))?
         } else {
             // Propose the L2 output to the L2OutputOracle directly.
             let transaction_request = self
@@ -956,7 +1124,7 @@ where
                     U256::from(completed_agg_proof.end_block),
                     U256::from(completed_agg_proof.checkpointed_l1_block_number.unwrap()),
                     completed_agg_proof.proof.clone().unwrap().into(),
-                    self.requester_config.prover_address,
+                    self.driver_config.signer.address(),
                 )
                 .into_transaction_request();
 
@@ -1110,7 +1278,7 @@ where
                                 .proof_requester
                                 .handle_failed_request(
                                     request,
-                                    ExecutionStatus::UnspecifiedExecutionStatus,
+                                    ExecutionStatus::UnspecifiedExecutionStatus as i32,
                                 )
                                 .await
                             {
@@ -1136,7 +1304,7 @@ where
                             .proof_requester
                             .handle_failed_request(
                                 request,
-                                ExecutionStatus::UnspecifiedExecutionStatus,
+                                ExecutionStatus::UnspecifiedExecutionStatus as i32,
                             )
                             .await
                         {
@@ -1402,5 +1570,68 @@ where
         }
 
         Ok(Some(current_end))
+    }
+
+    /// Helper method to wrap network prover calls with timeout and proper error handling.
+    ///
+    /// This method:
+    /// - Wraps the network call in a timeout to prevent indefinite hangs
+    /// - Preserves the original network error context when operations fail
+    /// - Logs timeout events with request context for debugging
+    /// - Increments timeout metrics for monitoring
+    async fn network_call_with_timeout<F, T>(
+        &self,
+        future: F,
+        operation_name: &str,
+        request: &OPSuccinctRequest,
+    ) -> Result<T>
+    where
+        F: std::future::Future<Output = Result<T>>,
+    {
+        match tokio::time::timeout(
+            Duration::from_secs(self.requester_config.network_calls_timeout),
+            future,
+        )
+        .await
+        {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(network_error)) => {
+                warn!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    operation = operation_name,
+                    error = %network_error,
+                    "Network error during operation"
+                );
+                Err(anyhow!(
+                    "Network error {} for request {} (start_block={}, end_block={}): {}",
+                    operation_name,
+                    request.id,
+                    request.start_block,
+                    request.end_block,
+                    network_error
+                ))
+            }
+            Err(_) => {
+                warn!(
+                    request_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    operation = operation_name,
+                    timeout_secs = self.requester_config.network_calls_timeout,
+                    "Network call timeout"
+                );
+                ValidityGauge::NetworkCallTimeoutCount.increment(1.0);
+                Err(anyhow!(
+                    "Timeout after {}s {} for request {} (start_block={}, end_block={})",
+                    self.requester_config.network_calls_timeout,
+                    operation_name,
+                    request.id,
+                    request.start_block,
+                    request.end_block
+                ))
+            }
+        }
     }
 }

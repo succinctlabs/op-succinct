@@ -6,12 +6,13 @@ use celo_driver::CeloDriver;
 use celo_genesis::CeloRollupConfig;
 use celo_proof::{executor::CeloExecutor, CeloOracleL2ChainProvider};
 use celo_protocol::CeloToOpProviderAdapter;
-use kona_derive::traits::{
+use kona_derive::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
     SignalReceiver,
 };
 use kona_driver::{DriverPipeline, PipelineCursor};
 use kona_executor::TrieDBProvider;
+use kona_genesis::L1ChainConfig;
 use kona_preimage::CommsClient;
 use kona_proof::{
     l1::{OracleL1ChainProvider, OraclePipeline},
@@ -96,9 +97,11 @@ pub trait WitnessExecutor {
     type DA: DataAvailabilityProvider + Send + Sync + Debug + Clone;
 
     // Constructs the derivation pipeline.
+    #[allow(clippy::too_many_arguments)]
     async fn create_pipeline(
         &self,
         rollup_config: Arc<CeloRollupConfig>,
+        l1_config: Arc<L1ChainConfig>,
         cursor: Arc<RwLock<PipelineCursor>>,
         oracle: Arc<Self::O>,
         beacon: Self::B,

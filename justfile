@@ -79,10 +79,17 @@ deploy-fdg-contracts env_file=".env" *features='':
     just _deploy-fdg-contracts {{env_file}}
 
 # Deploy contracts without fetching config
-_deploy-fdg-contracts env_file=".env" custom_config_file="":
+_deploy-fdg-contracts env_file=".env" custom_config_file="" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
 
+    if [ -z "{{features}}" ]; then
+        RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
+    else
+        echo "Fetching fault dispute game config with features: {{features}}"
+        RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release --features {{features}} -- --env-file {{env_file}}
+    fi
+    
     # Load environment variables from project root
     source {{env_file}}
 
@@ -138,6 +145,7 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
     forge script script/fp/DeployOPSuccinctFDG.s.sol \
         --broadcast \
         --no-storage-caching \
+        --slow \
         --rpc-url "$RPC_URL_TO_USE" \
         --private-key "$PRIVATE_KEY" \
         $VERIFY
@@ -364,3 +372,15 @@ audit-forkdiff:
         -repo /host-pwd/ -fork /host-pwd/audits/audit-forkdiff.yaml -out /host-pwd/$outpath
 
     echo "Audit forkdiff written to $outpath"
+
+# Run all unit and integration tests except for the specified ones.
+tests:
+   cargo t --release \
+    -- \
+    --skip test_cycle_count_diff \
+    --skip test_post_to_github \
+
+# Run end-to-end tests.
+e2e-tests:
+   cd fault-proof && \
+   cargo t --release --features e2e -- --test-threads=1 --nocapture

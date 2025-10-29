@@ -32,10 +32,24 @@ sol! {
 
     #[allow(missing_docs)]
     #[sol(rpc)]
-    interface IDisputeGame {}
+    interface IDisputeGame {
+        function status() external view returns (GameStatus status_);
+    }
+
+    #[allow(missing_docs)]
+    #[sol(rpc)]
+    interface IFaultDisputeGame {
+        function l2BlockNumber() external view returns (uint256 l2BlockNumber_);
+    }
 
     #[sol(rpc)]
     contract OPSuccinctFaultDisputeGame {
+        /// @notice Getter for the game type.
+        function gameType() public pure returns (GameType gameType_);
+
+        /// @notice Getter for the creator of the dispute game.
+        function gameCreator() public pure returns (address creator_);
+
         /// @notice The L2 block number for which this game is proposing an output root.
         function l2BlockNumber() public pure returns (uint256 l2BlockNumber_);
 
@@ -51,6 +65,9 @@ sol! {
         /// @notice Getter for the claim data.
         function claimData() public view returns (ClaimData memory claimData_);
 
+        /// @notice Getter for the was respected game type when created.
+        function wasRespectedGameTypeWhenCreated() external view returns (bool wasRespectedGameTypeWhenCreated_);
+
         /// @notice Challenges the game.
         function challenge() external payable returns (ProposalStatus);
         /// @notice Proves the game.
@@ -62,6 +79,9 @@ sol! {
         ///         `CHALLENGER_WINS` when the proposer's claim has been challenged, but the proposer has not proven
         ///         its claim within the `MAX_PROVE_DURATION`.
         function resolve() external returns (GameStatus status_);
+
+        /// @notice Determines if the game is finished.
+        function gameOver() external view returns (bool gameOver_);
 
         /// @notice Returns the max challenge duration.
         function maxChallengeDuration() external view returns (uint256 maxChallengeDuration_);
@@ -81,7 +101,9 @@ sol! {
 
     #[allow(missing_docs)]
     #[sol(rpc)]
-    interface IAnchorStateRegistry {}
+    interface IAnchorStateRegistry {
+        function anchorGame() external view returns (IDisputeGame anchorGame_);
+    }
 
     #[allow(missing_docs)]
     #[sol(rpc)]
@@ -91,6 +113,9 @@ sol! {
 
         /// @notice Returns whether a game is finalized.
         function isGameFinalized(IDisputeGame _game) public view returns (bool);
+
+        /// @notice Returns the current anchor game reference.
+        function anchorGame() public view returns (IDisputeGame anchorGame_);
     }
 
     #[derive(Debug, PartialEq)]

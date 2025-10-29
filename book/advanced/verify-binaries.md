@@ -38,18 +38,18 @@ To build the binaries, run:
 ```bash
 # Build the range elfs
 cd programs/range/ethereum
-cargo prove build --output-directory ../../../elf --elf-name range-elf-bump --docker --tag v5.2.1
-cargo prove build --output-directory ../../../elf --elf-name range-elf-embedded --docker --tag v5.2.1 --features embedded
+cargo prove build --output-directory ../../../elf --elf-name range-elf-bump --docker --tag v5.2.2
+cargo prove build --output-directory ../../../elf --elf-name range-elf-embedded --docker --tag v5.2.2 --features embedded
 
 cd ../celestia
-cargo prove build --output-directory ../../../elf --elf-name celestia-range-elf-embedded --docker --tag v5.2.1 --features embedded
+cargo prove build --output-directory ../../../elf --elf-name celestia-range-elf-embedded --docker --tag v5.2.2 --features embedded
 
 cd ../eigenda
-cargo prove build --output-directory ../../../elf --elf-name eigenda-range-elf-embedded --docker --tag v5.2.1 --features embedded
+cargo prove build --output-directory ../../../elf --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --features embedded
 
 # Build the aggregation-elf
 cd ../../aggregation
-cargo prove build --output-directory ../../elf --elf-name aggregation-elf --docker --tag v5.2.1
+cargo prove build --output-directory ../../elf --elf-name aggregation-elf --docker --tag v5.2.2
 ```
 
 The updated binaries will be saved in the [`/elf`](https://github.com/succinctlabs/op-succinct/tree/main/elf) directory.
@@ -66,4 +66,4 @@ This will log the rollup config hash, aggregation verification key, and range ve
 
 ## Update the contract
 
-After reproducing the binaries, you must either [deploy](/validity/contracts/deploy.md) a new OPSuccinctL2OutputOracle contract or perform a [rolling update](/validity/contracts/update-parameters.md) on an existing contract.
+After reproducing the binaries, you must either [deploy](../validity/contracts/deploy.md) a new OPSuccinctL2OutputOracle contract or perform a [rolling update](../validity/contracts/update-parameters.md) on an existing contract.

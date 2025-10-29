@@ -118,9 +118,11 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         if let Some((cursor, l1_provider, l2_provider)) = input {
             // Wrap RollupConfig with CeloRollupConfig
             let celo_rollup_config = CeloRollupConfig(boot_info.rollup_config.clone());
+            let l1_config = Arc::new(boot_info.l1_config.clone());
             let pipeline = WitnessExecutorTrait::create_pipeline(
                 &executor,
                 Arc::new(celo_rollup_config),
+                l1_config,
                 cursor.clone(),
                 oracle.clone(),
                 beacon,
@@ -152,13 +154,12 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             .parse::<bool>()
             .unwrap_or(false);
         let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
-        let canoe_address_fetcher = CanoeVerifierAddressFetcherDeployedByEigenLabs {};
         let canoe_proofs = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_witness_data,
             oracle.clone(),
             canoe_provider,
-            canoe_address_fetcher,
+            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
         )
         .await?;
 

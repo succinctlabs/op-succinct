@@ -13,13 +13,14 @@ use alloy_primitives::{keccak256, Address, Bytes, B256, U256, U64};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_rlp::Decodable;
 use alloy_sol_types::SolValue;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use celo_alloy_consensus::CeloBlock;
 use celo_alloy_network::Celo;
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloL2BlockInfo;
 use futures::{stream, StreamExt};
 use kona_host::single::SingleChainHost;
+use kona_registry::L1_CONFIGS;
 use kona_rpc::{OutputResponse, SafeHeadResponse};
 use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network};
 use op_succinct_client_utils::boot::BootInfoStruct;
@@ -39,6 +40,7 @@ pub struct OPSuccinctDataFetcher {
     pub l2_provider: Arc<RootProvider<Celo>>,
     pub rollup_config: Option<CeloRollupConfig>,
     pub rollup_config_path: Option<PathBuf>,
+    pub l1_config_path: Option<PathBuf>,
 }
 
 impl Default for OPSuccinctDataFetcher {
@@ -50,8 +52,7 @@ impl Default for OPSuccinctDataFetcher {
 #[derive(Debug, Clone)]
 pub struct RPCConfig {
     pub l1_rpc: Url,
-    // TODO(fakedev9999): Make optional if possible.
-    pub l1_beacon_rpc: Url,
+    pub l1_beacon_rpc: Option<Url>,
     pub l2_rpc: Url,
     // TODO(fakedev9999): Make optional if possible.
     pub l2_node_rpc: Url,
@@ -74,13 +75,21 @@ pub enum RPCMode {
 /// L2_NODE_RPC: The L2 node RPC URL.
 pub fn get_rpcs_from_env() -> RPCConfig {
     let l1_rpc = env::var("L1_RPC").expect("L1_RPC must be set");
-    let l1_beacon_rpc = env::var("L1_BEACON_RPC").expect("L1_BEACON_RPC must be set");
+    let maybe_l1_beacon_rpc = env::var("L1_BEACON_RPC").ok();
+
+    // L1_BEACON_RPC is optional. If not set or empty, set to None.
+    let l1_beacon_rpc = maybe_l1_beacon_rpc
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|s| Url::parse(s).expect("L1_BEACON_RPC must be a valid URL"));
+
     let l2_rpc = env::var("L2_RPC").expect("L2_RPC must be set");
     let l2_node_rpc = env::var("L2_NODE_RPC").expect("L2_NODE_RPC must be set");
 
     RPCConfig {
         l1_rpc: Url::parse(&l1_rpc).expect("L1_RPC must be a valid URL"),
-        l1_beacon_rpc: Url::parse(&l1_beacon_rpc).expect("L1_BEACON_RPC must be a valid URL"),
+        l1_beacon_rpc,
         l2_rpc: Url::parse(&l2_rpc).expect("L2_RPC must be a valid URL"),
         l2_node_rpc: Url::parse(&l2_node_rpc).expect("L2_NODE_RPC must be a valid URL"),
     }
@@ -121,6 +130,7 @@ impl OPSuccinctDataFetcher {
             l2_provider,
             rollup_config: None,
             rollup_config_path: None,
+            l1_config_path: None,
         }
     }
 
@@ -142,12 +152,16 @@ impl OPSuccinctDataFetcher {
             tracing::warn!("WARNING: Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
         }
 
+        // Fetch and save L1 config based on the rollup config's L1 chain ID
+        let l1_config_path = Self::fetch_and_save_l1_config(&rollup_config).await?;
+
         Ok(OPSuccinctDataFetcher {
             rpc_config,
             l1_provider,
             l2_provider,
             rollup_config: Some(rollup_config),
             rollup_config_path: Some(rollup_config_path),
+            l1_config_path: Some(l1_config_path),
         })
     }
 
@@ -282,12 +296,16 @@ impl OPSuccinctDataFetcher {
     }
 
     /// Get the RPC URL for the given RPC mode.
-    pub fn get_rpc_url(&self, rpc_mode: RPCMode) -> &Url {
+    pub fn get_rpc_url(&self, rpc_mode: RPCMode) -> Result<&Url> {
         match rpc_mode {
-            RPCMode::L1 => &self.rpc_config.l1_rpc,
-            RPCMode::L2 => &self.rpc_config.l2_rpc,
-            RPCMode::L1Beacon => &self.rpc_config.l1_beacon_rpc,
-            RPCMode::L2Node => &self.rpc_config.l2_node_rpc,
+            RPCMode::L1 => Ok(&self.rpc_config.l1_rpc),
+            RPCMode::L2 => Ok(&self.rpc_config.l2_rpc),
+            RPCMode::L1Beacon => self
+                .rpc_config
+                .l1_beacon_rpc
+                .as_ref()
+                .ok_or_else(|| anyhow!("L1 beacon RPC URL is not set")),
+            RPCMode::L2Node => Ok(&self.rpc_config.l2_node_rpc),
         }
     }
 
@@ -299,7 +317,7 @@ impl OPSuccinctDataFetcher {
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
         // Create configs directory if it doesn't exist
-        let rollup_config_dir = PathBuf::from("configs");
+        let rollup_config_dir = PathBuf::from("configs/L2");
         fs::create_dir_all(&rollup_config_dir)?;
 
         // Save rollup config to a file named by chain ID
@@ -312,6 +330,36 @@ impl OPSuccinctDataFetcher {
 
         // Return both the rollup config and the path to the temporary file
         Ok((rollup_config, rollup_config_path))
+    }
+
+    /// Fetch and save the L1 config based on the rollup config's L1 chain ID.
+    async fn fetch_and_save_l1_config(rollup_config: &CeloRollupConfig) -> Result<PathBuf> {
+        // Check if the L1 config file exists. If it does, return the path to the file.
+        let l1_config_dir = PathBuf::from("configs/L1");
+        let l1_config_path = l1_config_dir.join(format!("{}.json", rollup_config.l1_chain_id));
+        if l1_config_path.exists() {
+            return Ok(l1_config_path);
+        }
+
+        // Lookup the L1 config from the registry.
+        let l1_config = L1_CONFIGS.get(&rollup_config.l1_chain_id).ok_or_else(|| {
+            anyhow::anyhow!(
+                "L1 chain config {} not found in registry. For unknown L1 chains (e.g., Kurtosis), \
+                 provide a file at {}.",
+                rollup_config.l1_chain_id,
+                l1_config_path.display()
+            )
+        })?;
+
+        // Create the L1 config directory if it doesn't exist.
+        fs::create_dir_all(&l1_config_dir)
+            .with_context(|| format!("creating {}", l1_config_dir.display()))?;
+
+        // Write the L1 config to the file
+        let l1_config_str = serde_json::to_string_pretty(l1_config)?;
+        fs::write(&l1_config_path, l1_config_str)?;
+
+        Ok(l1_config_path)
     }
 
     async fn fetch_rpc_data<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
@@ -351,7 +399,7 @@ impl OPSuccinctDataFetcher {
     where
         T: serde::de::DeserializeOwned,
     {
-        let url = self.get_rpc_url(rpc_mode);
+        let url = self.get_rpc_url(rpc_mode)?;
         Self::fetch_rpc_data(url, method, params).await
     }
 
@@ -648,6 +696,12 @@ impl OPSuccinctDataFetcher {
         };
         let claimed_l2_output_root = keccak256(l2_claim_encoded.abi_encode());
 
+        let l1_beacon_address = self
+            .rpc_config
+            .l1_beacon_rpc
+            .as_ref()
+            .map(|addr| addr.as_str().trim_end_matches('/').to_string());
+
         Ok(SingleChainHost {
             l1_head: l1_head_hash,
             agreed_l2_output_root,
@@ -662,13 +716,12 @@ impl OPSuccinctDataFetcher {
             l1_node_address: Some(
                 self.rpc_config.l1_rpc.as_str().trim_end_matches('/').to_string(),
             ),
-            l1_beacon_address: Some(
-                self.rpc_config.l1_beacon_rpc.as_str().trim_end_matches('/').to_string(),
-            ),
+            l1_beacon_address,
             data_dir: None, // Use in-memory key-value store.
             native: false,
             server: true,
             rollup_config_path: self.rollup_config_path.clone(),
+            l1_config_path: self.l1_config_path.clone(),
             enable_experimental_witness_endpoint: false,
         })
     }

@@ -42,18 +42,26 @@ async fn main() -> Result<()> {
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Read the environment variables.
-    let env_config = read_proposer_env()?;
+    let env_config = read_proposer_env().await?;
 
     let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
 
     let op_succinct_config_name_hash =
         alloy_primitives::keccak256(env_config.op_succinct_config_name.as_bytes());
 
+    // Validate that at least one of gas_limit or range_proof_interval is nonzero
+    if env_config.evm_gas_limit == 0 && env_config.range_proof_interval == 0 {
+        return Err(anyhow::anyhow!(
+            "At least one of GAS_LIMIT or RANGE_PROOF_INTERVAL must be non-zero"
+        ));
+    }
+
     let proposer_config = RequesterConfig {
         l1_chain_id: fetcher.l1_provider.get_chain_id().await? as i64,
         l2_chain_id: fetcher.l2_provider.get_chain_id().await? as i64,
         l2oo_address: env_config.l2oo_address,
         dgf_address: env_config.dgf_address,
+        evm_gas_limit: env_config.evm_gas_limit,
         range_proof_interval: env_config.range_proof_interval,
         max_concurrent_witness_gen: env_config.max_concurrent_witness_gen,
         max_concurrent_proof_requests: env_config.max_concurrent_proof_requests,
@@ -62,9 +70,19 @@ async fn main() -> Result<()> {
         agg_proof_mode: env_config.agg_proof_mode,
         submission_interval: env_config.submission_interval,
         mock: env_config.mock,
-        prover_address: env_config.prover_address,
         safe_db_fallback: env_config.safe_db_fallback,
         op_succinct_config_name_hash,
+        use_kms_requester: env_config.use_kms_requester,
+        max_price_per_pgu: env_config.max_price_per_pgu,
+        proving_timeout: env_config.proving_timeout,
+        network_calls_timeout: env_config.network_calls_timeout,
+        range_cycle_limit: env_config.range_cycle_limit,
+        range_gas_limit: env_config.range_gas_limit,
+        agg_cycle_limit: env_config.agg_cycle_limit,
+        agg_gas_limit: env_config.agg_gas_limit,
+        whitelist: env_config.whitelist,
+        min_auction_period: env_config.min_auction_period,
+        auction_timeout: env_config.auction_timeout,
     };
 
     let l1_provider = ProviderBuilder::new().connect_http(env_config.l1_rpc.clone());

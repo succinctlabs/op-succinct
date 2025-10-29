@@ -10,10 +10,10 @@ use tracing::info;
 
 use fault_proof::config::FaultDisputeGameConfig;
 
-use crate::common::constants::*;
+use crate::common::{constants::*, ANVIL};
 
 use super::{
-    anvil::{setup_anvil_fork, AnvilFork},
+    anvil::{setup_anvil_chain, AnvilFork},
     contracts::{deploy_test_contracts, DeployedContracts},
 };
 
@@ -27,6 +27,16 @@ pub struct TestEnvironment {
     pub deployed: DeployedContracts,
 }
 
+impl Drop for TestEnvironment {
+    fn drop(&mut self) {
+        let mut anvil_lock = ANVIL.lock().unwrap();
+        if let Some(anvil_instance) = anvil_lock.take() {
+            info!("Stopping Anvil instance");
+            drop(anvil_instance);
+        }
+    }
+}
+
 /// The test configuration, used for integration tests.
 pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> FaultDisputeGameConfig {
     FaultDisputeGameConfig {
@@ -36,12 +46,12 @@ pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> Faul
         celo_superchain_config_address: Address::ZERO.to_string(),
         challenger_addresses: vec![CHALLENGER_ADDRESS.to_string()],
         challenger_bond_wei: CHALLENGER_BOND.to::<u64>(),
-        configure_contracts: true,
-        dispute_game_factory_address: Address::ZERO.to_string(),
         dispute_game_finality_delay_seconds: DISPUTE_GAME_FINALITY_DELAY_SECONDS,
         fallback_timeout_fp_secs: FALLBACK_TIMEOUT.to::<u64>(),
         game_type: TEST_GAME_TYPE,
         initial_bond_wei: INIT_BOND.to::<u64>(),
+        configure_contracts: true,
+        dispute_game_factory_address: Address::ZERO.to_string(),
         max_challenge_duration: MAX_CHALLENGE_DURATION,
         max_prove_duration: MAX_PROVE_DURATION,
         optimism_portal2_address: Address::ZERO.to_string(),
@@ -72,8 +82,8 @@ impl TestEnvironment {
         // Get environment variables
         let mut rpc_config = get_rpcs_from_env();
 
-        // Setup Anvil fork
-        let anvil = setup_anvil_fork(rpc_config.l1_rpc.as_ref()).await?;
+        // Setup fresh Anvil chain
+        let anvil = setup_anvil_chain().await?;
 
         // Put the test config into ../contracts/opsuccinctfdgconfig.json
         let test_config: FaultDisputeGameConfig =

@@ -23,7 +23,7 @@ celo-protocol.workspace = true
 
 # hokulea
 hokulea-eigenda.workspace = true
-hokulea-proof.workspace = true
+hokulea-proof = { workspace = true }
 hokulea-witgen.workspace = true
 
 # general

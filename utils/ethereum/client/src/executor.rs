@@ -5,8 +5,9 @@ use async_trait::async_trait;
 use celo_genesis::CeloRollupConfig;
 use celo_proof::CeloOracleL2ChainProvider;
 use celo_protocol::CeloToOpProviderAdapter;
-use kona_derive::{sources::EthereumDataSource, traits::BlobProvider};
+use kona_derive::{BlobProvider, EthereumDataSource};
 use kona_driver::PipelineCursor;
+use kona_genesis::L1ChainConfig;
 use kona_preimage::CommsClient;
 use kona_proof::{
     l1::{OracleL1ChainProvider, OraclePipeline},
@@ -49,6 +50,7 @@ where
     async fn create_pipeline(
         &self,
         rollup_config: Arc<CeloRollupConfig>,
+        l1_config: Arc<L1ChainConfig>,
         cursor: Arc<RwLock<PipelineCursor>>,
         oracle: Arc<Self::O>,
         beacon: Self::B,
@@ -59,6 +61,7 @@ where
             EthereumDataSource::new_from_parts(l1_provider.clone(), beacon, &rollup_config);
         Ok(OraclePipeline::new(
             Arc::new(rollup_config.0.clone()),
+            l1_config,
             cursor,
             oracle,
             da_provider,
