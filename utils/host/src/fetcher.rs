@@ -342,21 +342,40 @@ impl OPSuccinctDataFetcher {
         }
 
         // Lookup the L1 config from the registry.
-        let l1_config = L1_CONFIGS.get(&rollup_config.l1_chain_id).ok_or_else(|| {
-            anyhow::anyhow!(
+        let mut l1_config = L1_CONFIGS
+            .get(&rollup_config.l1_chain_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
                 "L1 chain config {} not found in registry. For unknown L1 chains (e.g., Kurtosis), \
                  provide a file at {}.",
                 rollup_config.l1_chain_id,
                 l1_config_path.display()
             )
-        })?;
+            })?
+            .clone();
+
+        // Override the L1 config to remove the BPOs and OSAKA timestamp and blob schedule for Celo,
+        // until we're ready for Fusaka in op-geth.
+        // This is done independently of the chain id, because updates are
+        // required once Mainnet or Sepolia has further changes.
+        // Also pay attention when bumping kona if there're any additions to
+        // l1_config.blob_schedule. https://github.com/op-rs/kona/blob/kona-client/v1.1.6/crates/protocol/registry/src/l1/mod.rs#L63-L86
+        l1_config.osaka_time = None;
+        l1_config.bpo1_time = None;
+        l1_config.bpo2_time = None;
+        l1_config.bpo3_time = None;
+        l1_config.bpo4_time = None;
+        l1_config.bpo5_time = None;
+        l1_config.blob_schedule.remove("osaka");
+        l1_config.blob_schedule.remove("bpo1");
+        l1_config.blob_schedule.remove("bpo2");
 
         // Create the L1 config directory if it doesn't exist.
         fs::create_dir_all(&l1_config_dir)
             .with_context(|| format!("creating {}", l1_config_dir.display()))?;
 
         // Write the L1 config to the file
-        let l1_config_str = serde_json::to_string_pretty(l1_config)?;
+        let l1_config_str = serde_json::to_string_pretty(&l1_config)?;
         fs::write(&l1_config_path, l1_config_str)?;
 
         Ok(l1_config_path)

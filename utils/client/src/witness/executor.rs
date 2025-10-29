@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use celo_driver::CeloDriver;
 use celo_genesis::CeloRollupConfig;
-use celo_proof::{executor::CeloExecutor, CeloOracleL2ChainProvider};
+use celo_proof::{executor::CeloExecutor, CeloBootInfo, CeloOracleL2ChainProvider};
 use celo_protocol::CeloToOpProviderAdapter;
 use kona_derive::{
     BlobProvider, ChainProvider, DataAvailabilityProvider, L2ChainProvider, Pipeline,
@@ -40,13 +40,14 @@ where
     //                          PROLOGUE                          //
     ////////////////////////////////////////////////////////////////
 
-    let boot = match BootInfo::load(oracle.as_ref()).await {
+    let celo_boot = match CeloBootInfo::load(oracle.as_ref()).await {
         Ok(boot) => boot,
         Err(e) => {
             return Err(anyhow!("Failed to load boot info: {:?}", e));
         }
     };
 
+    let boot = celo_boot.op_boot_info;
     let boot_clone = boot.clone();
 
     let rollup_config = Arc::new(boot.rollup_config);
