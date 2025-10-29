@@ -564,7 +564,7 @@ where
                 .network_prover
                 .prove(&self.prover.range_pk, &sp1_stdin)
                 .compressed()
-                .skip_simulation(false)
+                .skip_simulation(true)
                 .strategy(self.config.range_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
                 .min_auction_period(self.config.min_auction_period)
