@@ -96,10 +96,10 @@ kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.0", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "a027840b4c17462385816209a15ef206e1cd11c6" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "a027840b4c17462385816209a15ef206e1cd11c6" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "a027840b4c17462385816209a15ef206e1cd11c6" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "a027840b4c17462385816209a15ef206e1cd11c6" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.3.0-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "v1.3.0-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "v1.3.0-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "v1.3.0-mocha" }
 
 # hokulea
 hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "e93d73d2207055a0fa89469d14845cbd0139fbe9" }
