@@ -827,6 +827,14 @@ where
     async fn fetch_game(&self, index: U256) -> Result<()> {
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
+        let game_type = game.gameType;
+        if game_type != self.config.game_type {
+            tracing::debug!(game_index = %index, ?game_address, game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game due to invalid game type"
+            );
+            return Ok(());
+        }
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
         let l2_block = contract.l2BlockNumber().call().await?;
@@ -856,10 +864,21 @@ where
         if parent_index != u32::MAX {
             let parent_idx = U256::from(parent_index);
             if !state.games.contains_key(&parent_idx) {
-                tracing::debug!(game_index = %index, ?game_address,
-                    parent_index = %parent_idx, "Dropping game due to missing parent");
-                state.cursor = Some(index);
-                return Ok(());
+                let parent_game = self.factory.gameAtIndex(parent_idx).call().await?;
+                let parent_game_address = parent_game.proxy;
+                let parent_game_type = parent_game.gameType;
+                if parent_game_type != self.config.game_type {
+                    tracing::debug!(game_index = %index, ?game_address, parent_game_index = %parent_idx,
+                    parent_game_address = ?parent_game_address, parent_game_type,
+                    expected_game_type = self.config.game_type,
+                    "Not dropping game in case of game type transition"
+                    );
+                } else {
+                    tracing::debug!(game_index = %index, ?game_address,
+                      parent_index = %parent_idx, "Dropping game due to missing parent");
+                    state.cursor = Some(index);
+                    return Ok(());
+                }
             }
         }
 

@@ -40,6 +40,10 @@ FROM ubuntu:24.04
 WORKDIR /app
 COPY resources/ ./resources/
 
+# Create configs directories and copy pre-existing configs from fault-proof/configs/ for custom L1 (local devnet)
+RUN mkdir -p ./configs/L1
+COPY --from=builder /usr/src/app/fault-proof/configs/L1/ ./configs/L1/
+
 # Install only necessary runtime dependencies
 RUN apt-get update && apt-get install -y \
     curl \

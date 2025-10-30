@@ -45,6 +45,7 @@ contracts/opsuccinctfdgconfig.json
 
 # Rollup Configs
 configs/
+!fault-proof/configs/
 
 # Contract Bindings
 **/codegen
