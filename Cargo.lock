@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "aggregation"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -4822,7 +4822,7 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -4840,7 +4840,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4853,7 +4853,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
 dependencies = [
  "alloy-consensus",
  "alloy-evm 0.22.6",
@@ -4880,7 +4880,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -4911,7 +4911,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4928,7 +4928,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -8493,7 +8493,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-bindings"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy",
  "alloy-sol-types",
@@ -8503,7 +8503,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-build-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "cargo_metadata",
  "sp1-build",
@@ -8511,7 +8511,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-celestia-client-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8529,7 +8529,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-celestia-host-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -8558,7 +8558,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-client-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -8612,7 +8612,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-eigenda-host-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -8639,11 +8639,11 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-elfs"
-version = "3.3.1"
+version = "3.4.0"
 
 [[package]]
 name = "op-succinct-ethereum-client-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8659,7 +8659,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-ethereum-host-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -8678,7 +8678,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-fp"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy",
  "alloy-contract",
@@ -8721,7 +8721,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-host-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-contract",
@@ -8776,7 +8776,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-proof-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "cfg-if",
  "op-succinct-celestia-host-utils",
@@ -8789,7 +8789,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-prove"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -8814,7 +8814,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-range-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "anyhow",
  "kona-proof",
@@ -8827,7 +8827,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-scripts"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -8856,7 +8856,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-signer-utils"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -8878,7 +8878,7 @@ dependencies = [
 
 [[package]]
 name = "op-succinct-validity"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -10353,7 +10353,7 @@ dependencies = [
 
 [[package]]
 name = "range"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "kona-proof",
  "op-succinct-client-utils",
@@ -10366,7 +10366,7 @@ dependencies = [
 
 [[package]]
 name = "range-celestia"
-version = "3.3.1"
+version = "3.4.0"
 dependencies = [
  "kona-proof",
  "op-succinct-celestia-client-utils",
