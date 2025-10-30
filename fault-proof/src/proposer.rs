@@ -23,7 +23,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
-use op_succinct_signer_utils::Signer;
+use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
     NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
     SP1VerifyingKey, SP1_CIRCUIT_VERSION,
@@ -144,7 +144,7 @@ where
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
     pub config: ProposerConfig,
-    pub signer: Signer,
+    pub signer: SignerLock,
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
@@ -167,7 +167,7 @@ where
     /// contract instance.
     pub async fn new(
         config: ProposerConfig,
-        signer: Signer,
+        signer: SignerLock,
         factory: DisputeGameFactoryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,

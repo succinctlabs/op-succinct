@@ -18,14 +18,14 @@ use crate::{
     FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
-use op_succinct_signer_utils::Signer;
+use op_succinct_signer_utils::SignerLock;
 
 pub struct OPSuccinctChallenger<P>
 where
     P: Provider + Clone,
 {
     pub config: ChallengerConfig,
-    signer: Signer,
+    signer: SignerLock,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
     factory: DisputeGameFactoryInstance<P>,
@@ -42,7 +42,7 @@ where
         config: ChallengerConfig,
         l1_provider: L1Provider,
         factory: DisputeGameFactoryInstance<P>,
-        signer: Signer,
+        signer: SignerLock,
     ) -> Result<Self> {
         let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
         let l2_rpc = config.l2_rpc.clone();

@@ -34,7 +34,7 @@ mod e2e {
     use op_succinct_bindings::{
         dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
     };
-    use op_succinct_signer_utils::Signer;
+    use op_succinct_signer_utils::{Signer, SignerLock};
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
@@ -156,7 +156,7 @@ mod e2e {
         let initial_game_count = factory_reader.gameCount().call().await?;
         let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
 
-        let proposer_signer = Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?;
+        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
 
         let legacy_impl = deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url).await?;
         info!("✓ Deployed mock permissioned implementation at {legacy_impl}");

@@ -19,51 +19,36 @@ use tokio::{sync::Mutex, time::Duration};
 pub const NUM_CONFIRMATIONS: u64 = 3;
 pub const TIMEOUT_SECONDS: u64 = 60;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// The type of signer to use for signing transactions.
-/// Each variant includes a Mutex to serialize transaction sending and prevent nonce conflicts.
 pub enum Signer {
-    /// The signer URL, address, and transaction lock.
-    Web3Signer(Url, Address, Arc<Mutex<()>>),
-    /// The local signer and transaction lock.
-    LocalSigner(PrivateKeySigner, Arc<Mutex<()>>),
-    /// Cloud HSM signer using Google and transaction lock.
-    CloudHsmSigner(GcpSigner, Arc<Mutex<()>>),
-}
-
-impl std::fmt::Debug for Signer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Signer::Web3Signer(url, address, _) => {
-                f.debug_tuple("Web3Signer").field(url).field(address).finish()
-            }
-            Signer::LocalSigner(signer, _) => f.debug_tuple("LocalSigner").field(signer).finish(),
-            Signer::CloudHsmSigner(signer, _) => {
-                f.debug_tuple("CloudHsmSigner").field(signer).finish()
-            }
-        }
-    }
+    /// The signer URL and address.
+    Web3Signer(Url, Address),
+    /// The local signer.
+    LocalSigner(PrivateKeySigner),
+    /// Cloud HSM signer using Google.
+    CloudHsmSigner(GcpSigner),
 }
 
 impl Signer {
     pub fn address(&self) -> Address {
         match self {
-            Signer::Web3Signer(_, address, _) => *address,
-            Signer::LocalSigner(signer, _) => signer.address(),
-            Signer::CloudHsmSigner(signer, _) => signer.address(),
+            Signer::Web3Signer(_, address) => *address,
+            Signer::LocalSigner(signer) => signer.address(),
+            Signer::CloudHsmSigner(signer) => signer.address(),
         }
     }
 
     /// Creates a new Web3 signer with the given URL and address.
     pub fn new_web3_signer(url: Url, address: Address) -> Self {
-        Signer::Web3Signer(url, address, Arc::new(Mutex::new(())))
+        Signer::Web3Signer(url, address)
     }
 
     /// Creates a new local signer from a private key string.
     pub fn new_local_signer(private_key_str: &str) -> Result<Self> {
         let private_key =
             PrivateKeySigner::from_str(private_key_str).context("Failed to parse private key")?;
-        Ok(Signer::LocalSigner(private_key, Arc::new(Mutex::new(()))))
+        Ok(Signer::LocalSigner(private_key))
     }
 
     pub async fn from_env() -> Result<Self> {
@@ -88,7 +73,7 @@ impl Signer {
             .await?;
             let signer = GcpSigner::new(client, key_specifier, None).await?;
 
-            Ok(Signer::CloudHsmSigner(signer, Arc::new(Mutex::new(()))))
+            Ok(Signer::CloudHsmSigner(signer))
         } else if let (Ok(signer_url_str), Ok(signer_address_str)) =
             (std::env::var("SIGNER_URL"), std::env::var("SIGNER_ADDRESS"))
         {
@@ -109,23 +94,13 @@ impl Signer {
     }
 
     /// Sends a transaction request, signed by the configured `signer`.
-    /// Transactions are serialized via a Mutex to prevent nonce conflicts.
     pub async fn send_transaction_request(
         &self,
         l1_rpc: Url,
         mut transaction_request: TransactionRequest,
     ) -> Result<TransactionReceipt> {
-        // NOTE(fakedev9999): Acquiring lock is to prevent nonce conflicts when sending
-        // transactions.
-        let lock = match self {
-            Signer::Web3Signer(_, _, lock) => lock,
-            Signer::LocalSigner(_, lock) => lock,
-            Signer::CloudHsmSigner(_, lock) => lock,
-        };
-        let _guard = lock.lock().await;
-
         match self {
-            Signer::Web3Signer(signer_url, signer_address, _) => {
+            Signer::Web3Signer(signer_url, signer_address) => {
                 // Set the from address to the signer address.
                 transaction_request.set_from(*signer_address);
 
@@ -157,7 +132,7 @@ impl Signer {
 
                 Ok(receipt)
             }
-            Signer::LocalSigner(private_key, _) => {
+            Signer::LocalSigner(private_key) => {
                 let provider = ProviderBuilder::new()
                     .network::<Ethereum>()
                     .wallet(EthereumWallet::new(private_key.clone()))
@@ -182,7 +157,7 @@ impl Signer {
 
                 Ok(receipt)
             }
-            Signer::CloudHsmSigner(signer, _) => {
+            Signer::CloudHsmSigner(signer) => {
                 // Set the from address to HSM address
                 transaction_request.set_from(signer.address());
                 if transaction_request.to.is_none() {
@@ -212,6 +187,43 @@ impl Signer {
     }
 }
 
+/// Wrapper around Signer that provides thread-safe transaction sending.
+/// Transactions are serialized via a Mutex to prevent nonce conflicts.
+#[derive(Clone, Debug)]
+pub struct SignerLock {
+    inner: Arc<Mutex<Signer>>,
+    cached_address: Address,
+}
+
+impl SignerLock {
+    /// Creates a new SignerLock wrapping the given Signer.
+    pub fn new(signer: Signer) -> Self {
+        let cached_address = signer.address();
+        SignerLock { inner: Arc::new(Mutex::new(signer)), cached_address }
+    }
+
+    /// Creates a SignerLock from environment variables.
+    pub async fn from_env() -> Result<Self> {
+        Ok(SignerLock::new(Signer::from_env().await?))
+    }
+
+    /// Returns the address of the signer without acquiring a lock.
+    pub fn address(&self) -> Address {
+        self.cached_address
+    }
+
+    /// Sends a transaction request, signed by the configured signer.
+    /// Transactions are serialized via a Mutex to prevent nonce conflicts.
+    pub async fn send_transaction_request(
+        &self,
+        l1_rpc: Url,
+        transaction_request: TransactionRequest,
+    ) -> Result<TransactionReceipt> {
+        let signer = self.inner.lock().await;
+        signer.send_transaction_request(l1_rpc, transaction_request).await
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloy_eips::BlockId;
@@ -223,10 +235,10 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_send_transaction_request_web3() {
-        let proposer_signer = Signer::new_web3_signer(
+        let proposer_signer = SignerLock::new(Signer::new_web3_signer(
             "http://localhost:9000".parse().unwrap(),
             "0x9b3F173823E944d183D532ed236Ee3B83Ef15E1d".parse().unwrap(),
-        );
+        ));
 
         let provider = ProviderBuilder::new()
             .network::<Ethereum>()
@@ -261,7 +273,7 @@ mod tests {
         rustls::crypto::aws_lc_rs::default_provider()
             .install_default()
             .expect("Failed to install default crypto provider");
-        let signer = Signer::from_env().await.unwrap();
+        let signer = SignerLock::from_env().await.unwrap();
 
         println!("Signer: {}", signer.address());
 

@@ -13,7 +13,7 @@ use op_succinct_host_utils::{
     host::OPSuccinctHost,
 };
 use op_succinct_proof_utils::initialize_host;
-use op_succinct_signer_utils::Signer;
+use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::network::FulfillmentStrategy;
 use tracing::Instrument;
 
@@ -24,7 +24,7 @@ pub async fn init_proposer(
     game_type: u32,
 ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
     // Create signer directly from private key
-    let signer = Signer::new_local_signer(private_key)?;
+    let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
 
     // Create proposer config with test-specific settings
     let config = fault_proof::config::ProposerConfig {
@@ -83,7 +83,7 @@ pub async fn init_challenger(
     game_type: u32,
     malicious_percentage: Option<f64>,
 ) -> Result<OPSuccinctChallenger<fault_proof::L1Provider>> {
-    let signer = Signer::new_local_signer(private_key)?;
+    let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
 
     let config = ChallengerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
