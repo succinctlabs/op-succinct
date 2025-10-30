@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use alloy_consensus::TxEnvelope;
 use alloy_eips::Decodable2718;
