@@ -1,15 +1,18 @@
+use std::{env, fs};
+
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
-use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin};
+use op_succinct_host_utils::{
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, network::parse_fulfillment_strategy,
+};
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
     utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
-use std::fs;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -72,7 +75,7 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let prover = ProverClient::from_env();
+    let prover = ProverClient::builder().network().build();
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let (_, vkey) = prover.setup(get_range_elf_embedded());
@@ -92,7 +95,13 @@ async fn main() -> Result<()> {
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
-        prover.prove(&agg_pk, &stdin).groth16().run().expect("proving failed");
+        // TODO(fakedev9999): default to plonk
+        prover
+            .prove(&agg_pk, &stdin)
+            .groth16()
+            .strategy(parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?))
+            .run()
+            .expect("proving failed");
     } else {
         let (_, report) = prover
             .execute(AGGREGATION_ELF, &stdin)
