@@ -896,28 +896,12 @@ where
     }
 
     /// Handles the creation of a new game if conditions are met.
-    /// Returns the address of the created game, if one was created.
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
-    pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
-        let (latest_proposed_block_number, parent_game_index) = {
-            let state = self.state.lock().await;
-
-            let Some(latest_proposed_block_number) = state.canonical_head_l2_block else {
-                tracing::info!("No canonical head; skipping game creation");
-                return Ok(None);
-            };
-
-            let parent_game_index =
-                state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
-
-            (latest_proposed_block_number, parent_game_index)
-        };
-
-        // Choose the next L2 block number for proposal.
-        // If there already exists a game at the next L2 block number for proposal, increment the L2
-        // block number by 1
-        let mut next_l2_block_number_for_proposal =
-            latest_proposed_block_number + U256::from(self.config.proposal_interval_in_blocks);
+    pub async fn handle_game_creation(
+        &self,
+        mut next_l2_block_number_for_proposal: U256,
+        parent_game_index: u32,
+    ) -> Result<()> {
         let mut output_root = self
             .l2_provider
             .compute_output_root_at_block(next_l2_block_number_for_proposal)
@@ -930,6 +914,9 @@ where
             .call()
             .await?
             .proxy;
+
+        // If there already exists a game at the next L2 block number for proposal, increment the L2
+        // block number by 1
         while maybe_existing_game != Address::ZERO {
             next_l2_block_number_for_proposal += U256::from(1);
             output_root = self
@@ -945,35 +932,16 @@ where
                 .proxy;
         }
 
-        let finalized_l2_head_block_number = self
-            .host
-            .get_finalized_l2_block_number(&self.fetcher, latest_proposed_block_number.to::<u64>())
-            .await?;
+        tracing::info!(
+            l2_block_number = %next_l2_block_number_for_proposal,
+            parent_game_index = %parent_game_index,
+            output_root = ?output_root,
+            "Creating game"
+        );
 
-        // There's always a new game to propose, as the chain is always moving forward from the
-        // genesis block set for the game type. Only create a new game if the finalized L2
-        // head block number is at least the next L2 block number for proposal.
-        if let Some(finalized_block) = finalized_l2_head_block_number {
-            if U256::from(finalized_block) >= next_l2_block_number_for_proposal {
-                tracing::info!(
-                    l2_block_number = %next_l2_block_number_for_proposal,
-                    parent_game_index = %parent_game_index,
-                    output_root = ?output_root,
-                    "Creating game"
-                );
+        self.create_game(output_root, extra_data).await?;
 
-                let game_address = self.create_game(output_root, extra_data).await?;
-
-                Ok(Some(game_address))
-            } else {
-                tracing::info!("No new game to propose since proposal interval has not elapsed");
-
-                Ok(None)
-            }
-        } else {
-            tracing::info!("No new finalized block number found since last proposed block");
-            Ok(None)
-        }
+        Ok(())
     }
 
     /// Fetch the proposer metrics.
@@ -1191,23 +1159,26 @@ where
     /// - Err: Actual error occurred during task spawning
     async fn spawn_game_creation_task(&self) -> Result<bool> {
         // First check if we should create a game
-        let (should_create, next_l2_block_number_for_proposal) = self.should_create_game().await?;
+        let (should_create, next_l2_block_number_for_proposal, parent_game_index) =
+            self.should_create_game().await?;
         if !should_create {
-            return Ok(false); // No work needed - normal case
+            return Ok(false);
         }
 
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            match proposer.handle_game_creation().await {
-                Ok(Some(_game_address)) => {
-                    ProposerGauge::GamesCreated.increment(1.0);
-                    Ok(())
-                }
-                Ok(None) => Ok(()),
-                Err(e) => Err(anyhow::anyhow!("error in game creation: {:?}", e)),
+            if let Err(e) = proposer
+                .handle_game_creation(next_l2_block_number_for_proposal, parent_game_index)
+                .await
+            {
+                tracing::warn!("Failed to handle game creation: {:?}", e);
+                return Err(e);
             }
+
+            ProposerGauge::GamesCreated.increment(1.0);
+            Ok(())
         });
 
         let task_info = TaskInfo::GameCreation { block_number: next_l2_block_number_for_proposal };
@@ -1229,7 +1200,12 @@ where
     /// Then compares the next L2 block number for proposal with the finalized L2 block number.
     /// If the finalized L2 block number is greater than or equal to the next L2 block number for
     /// proposal, we should create a game.
-    async fn should_create_game(&self) -> Result<(bool, U256)> {
+    ///
+    /// Returns boolean indicating if a game should be created, the next L2 block number for
+    /// proposal, and the parent game index.
+    /// If a game should not be created, dummy values are returned for the next L2 block number for
+    /// proposal and parent game index.
+    async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
@@ -1336,13 +1312,22 @@ where
                     active_proving,
                     self.config.fast_finality_proving_limit
                 );
-                return Ok((false, U256::ZERO));
+                return Ok((false, U256::ZERO, u32::MAX));
             }
         }
 
-        let Some(canonical_head_l2_block) = self.state.lock().await.canonical_head_l2_block else {
-            tracing::info!("No canonical head; skipping game creation");
-            return Ok((false, U256::ZERO));
+        let (canonical_head_l2_block, parent_game_index) = {
+            let state = self.state.lock().await;
+
+            let Some(canonical_head_l2_block) = state.canonical_head_l2_block else {
+                tracing::info!("No canonical head; skipping game creation");
+                return Ok((false, U256::ZERO, u32::MAX));
+            };
+
+            let parent_game_index =
+                state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
+
+            (canonical_head_l2_block, parent_game_index)
         };
 
         let next_l2_block_number_for_proposal =
@@ -1360,6 +1345,7 @@ where
                 })
                 .unwrap_or(false),
             next_l2_block_number_for_proposal,
+            parent_game_index,
         ))
     }
 
