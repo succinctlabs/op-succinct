@@ -15,6 +15,9 @@ use revm::{
 };
 use revm_precompile::{bn254, kzg_point_evaluation, secp256k1, secp256r1};
 
+mod custom;
+pub use custom::CustomCrypto;
+
 mod factory;
 pub use factory::ZkvmOpEvmFactory;
 
