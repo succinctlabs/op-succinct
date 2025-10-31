@@ -4822,7 +4822,11 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
+=======
+source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+>>>>>>> origin/main
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -4840,7 +4844,11 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
+=======
+source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+>>>>>>> origin/main
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4853,7 +4861,11 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
+=======
+source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+>>>>>>> origin/main
 dependencies = [
  "alloy-consensus",
  "alloy-evm 0.22.6",
@@ -4880,7 +4892,11 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
+=======
+source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+>>>>>>> origin/main
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -4911,7 +4927,11 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
+=======
+source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+>>>>>>> origin/main
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4928,7 +4948,11 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
+<<<<<<< HEAD
 source = "git+https://github.com/celestiaorg/hana?tag=v1.3.0-mocha#3e875de71d633edceb39d2f28cae8a779b470117"
+=======
+source = "git+https://github.com/celestiaorg/hana?rev=a027840b4c17462385816209a15ef206e1cd11c6#a027840b4c17462385816209a15ef206e1cd11c6"
+>>>>>>> origin/main
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -8703,6 +8727,7 @@ dependencies = [
  "op-succinct-bindings",
  "op-succinct-client-utils",
  "op-succinct-elfs",
+ "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
  "op-succinct-proof-utils",
  "op-succinct-signer-utils",
