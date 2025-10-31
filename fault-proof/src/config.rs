@@ -128,8 +128,8 @@ impl ProposerConfig {
             ),
             agg_proof_mode: if env::var("AGG_PROOF_MODE")
                 .unwrap_or("plonk".to_string())
-                .to_lowercase()
-                == "groth16"
+                .to_lowercase() ==
+                "groth16"
             {
                 SP1ProofMode::Groth16
             } else {
