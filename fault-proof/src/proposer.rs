@@ -630,7 +630,7 @@ where
             self.prover
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
-                .groth16()
+                .plonk()
                 .strategy(self.config.agg_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
                 .min_auction_period(self.config.min_auction_period)
