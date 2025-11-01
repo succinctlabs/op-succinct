@@ -355,7 +355,7 @@ remove-config config_name env_file=".env":
         --rpc-url $L1_RPC \
         --private-key $PRIVATE_KEY \
         --broadcast
-
+    
 # Run all unit and integration tests except for the specified ones.
 tests:
    cargo t --release \
@@ -367,3 +367,16 @@ tests:
 e2e-tests:
    cd fault-proof && \
    cargo t --release --features e2e -- --test-threads=1 --nocapture
+   
+# Build the elf binaries
+build-elfs:
+    #!/usr/bin/env bash
+    cd programs/range/ethereum
+    cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.2 --output-directory ../../../elf
+    cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    cd ../celestia
+    cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    cd ../eigenda
+    cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    cd ../../aggregation
+    cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
