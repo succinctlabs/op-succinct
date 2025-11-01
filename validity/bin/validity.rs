@@ -7,7 +7,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_validity::{
-    read_proposer_env, DriverDBClient, Proposer, RequesterConfig, ValidityGauge,
+    init_db, read_proposer_env, DriverDBClient, Proposer, RequesterConfig, ValidityGauge,
 };
 use std::sync::Arc;
 use tikv_jemallocator::Jemalloc;
@@ -44,7 +44,8 @@ async fn main() -> Result<()> {
     // Read the environment variables.
     let env_config = read_proposer_env().await?;
 
-    let db_client = Arc::new(DriverDBClient::new(&env_config.db_url).await?);
+    let pool = init_db(&env_config.db_url).await?;
+    let db_client = Arc::new(DriverDBClient::new(pool));
 
     let op_succinct_config_name_hash =
         alloy_primitives::keccak256(env_config.op_succinct_config_name.as_bytes());
