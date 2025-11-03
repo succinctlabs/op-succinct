@@ -33,19 +33,49 @@ test-e2e-sysgo BINARY DEVNET="simple" FILTER="" : unzip-contract-artifacts
 
 unzip-contract-artifacts DEST_DIR="":
     #!/bin/bash
+    set -euo pipefail
 
-    export DEST_DIR="{{DEST_DIR}}"
-    if [ -z "{{DEST_DIR}}" ]; then
-        export DEST_DIR="{{SOURCE}}/artifacts/src"
+    DEST_DIR="{{DEST_DIR}}"
+    if [ -z "$DEST_DIR" ]; then
+        DEST_DIR="{{SOURCE}}/artifacts/src"
     fi
 
-    mkdir -p $DEST_DIR
+    ARCHIVE="{{SOURCE}}/artifacts/compressed/artifacts.tzst"
+    if [ ! -f "$ARCHIVE" ]; then
+        echo "Missing artifact at $ARCHIVE. Run 'just update-packages' first." >&2
+        exit 1
+    fi
 
-    zstd -d -c {{SOURCE}}/artifacts/compressed/artifacts.tzst | tar -x -C $DEST_DIR
-    cp -r {{ROOT}}/contracts/out/DeployMockVerifier.s.sol $DEST_DIR/forge-artifacts/DeployMockVerifier.s.sol
-    cp -r {{ROOT}}/contracts/out/*OPSuccinct* $DEST_DIR/forge-artifacts/
+    mkdir -p "$DEST_DIR"
+    zstd -d -c "$ARCHIVE" | tar -x -C "$DEST_DIR"
 
-update-packages: 
+update-packages:
     #!/bin/bash
-    cd {{SOURCE}}/optimism/op-deployer && just build-contracts copy-contract-artifacts
-    cp {{SOURCE}}/optimism/op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst {{SOURCE}}/artifacts/compressed/artifacts.tzst
+    set -euo pipefail
+
+    SRC="{{SOURCE}}"; ROOT="{{ROOT}}"; OP="$SRC/optimism/op-deployer"
+    ART="$SRC/artifacts"; MERGED="$ART/src"
+    ARCHIVE="$ART/compressed/artifacts.tzst"
+
+    TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+    mkdir -p "$TMP/forge-artifacts" "$MERGED"
+    rm -rf "$MERGED"
+
+    just --justfile "$ROOT/justfile" forge-build
+    echo "Built local artifacts."
+    cp -a "$ROOT/contracts/out/." "$TMP/forge-artifacts/"
+
+    (cd "$OP" && just build-contracts copy-contract-artifacts >/dev/null)
+    echo "Built op-deployer artifacts."
+
+    zstd -qd -c "$OP/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst" \
+      | tar -x -C "$TMP"
+    echo "Unpacked op-deployer artifacts."
+
+    mv "$TMP/forge-artifacts" "$MERGED"
+    echo "Merged artifacts -> $MERGED"
+
+    rm -f "$ARCHIVE"
+    mkdir -p "$ART/compressed"
+    tar -C "$ART" -cf - src | zstd -19 -q -o "$ARCHIVE"
+    echo "Compressed -> $ARCHIVE"
