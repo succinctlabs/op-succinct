@@ -11,7 +11,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 CONTRACT="$1"
-ARTIFACT_DIR="contracts/out/${CONTRACT}.s.sol"
+ARTIFACT_DIR="contracts/out/${CONTRACT}.sol"
 ARTIFACT_PATH="${ARTIFACT_DIR}/${CONTRACT}.json"
 
 if [[ ! -f "${ARTIFACT_PATH}" ]]; then

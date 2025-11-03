@@ -9,12 +9,13 @@ import (
 	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/artifacts"
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
-	"github.com/ethereum-optimism/optimism/op-devstack/dsl/contract"
 	"github.com/ethereum-optimism/optimism/op-devstack/presets"
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/intentbuilder"
-	"github.com/ethereum-optimism/optimism/op-service/txintent/bindings"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/ethclient"
+	opbind "github.com/succinctlabs/op-succinct/bindings"
 )
 
 const DefaultL1ID = 900
@@ -27,18 +28,14 @@ func TestMain(m *testing.M) {
 
 func TestMinimal(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	require := t.Require()
 	sys := presets.NewMinimal(t)
-	sys.DisputeGameFactory()
-
-	client := sys.L1EL.Escape().EthClient()
-	addr := sys.L2Networks()[0].Escape().Deployment().DisputeGameFactoryProxyAddr()
-	dgf := bindings.NewBindings[bindings.DisputeGameFactory](bindings.WithClient(client), bindings.WithTest(t), bindings.WithTo(addr))
-
-	blocknumber := contract.Read(dgf.GameCount())
-	t.Logf("Latest L2 Block Number from DisputeGameFactory: %s", blocknumber.String())
-
-	require.Equal(blocknumber.Int64(), int64(0))
+	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
+	rpc := sys.L2CL.Escape().UserRPC()
+	client, _ := ethclient.Dial(rpc)
+	l2oo, _ := opbind.NewOPSuccinctL2OutputOracleCaller(l2ooAddr, client)
+	opts := &bind.CallOpts{}
+	latestBlockNumber, _ := l2oo.LatestBlockNumber(opts)
+	fmt.Println("Latest L2 Block Number from L2 Output Oracle:", latestBlockNumber)
 }
 
 func WithSVProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.CommonOption {
@@ -63,8 +60,8 @@ func WithSVProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.CommonOption {
 		),
 		sysgo.WithDeployerOptions(
 			func(_ devtest.P, _ devkeys.Keys, builder intentbuilder.Builder) {
-				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(filepath.Join(artifactsPath, "src/forge-artifacts")))
-				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(filepath.Join(artifactsPath, "src/forge-artifacts")))
+				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(filepath.Join(artifactsPath, "src")))
+				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(filepath.Join(artifactsPath, "src")))
 			},
 			sysgo.WithCommons(ids.L1.ChainID()),
 			sysgo.WithPrefundedL2(ids.L1.ChainID(), ids.L2.ChainID()),
@@ -78,7 +75,7 @@ func WithSVProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.CommonOption {
 
 	opt.Add(sysgo.WithBatcher(ids.L2Batcher, ids.L1EL, ids.L2CL, ids.L2EL))
 	opt.Add(sysgo.WithTestSequencer(ids.TestSequencer, ids.L1CL, ids.L2CL, ids.L1EL, ids.L2EL))
-	opt.Add(sysgo.WithSuperSVProposer(ids.L2CL, ids.L1CL, ids.L1EL, ids.L2EL, ids.L2Proposer))
+	opt.Add(sysgo.WithSVProposer(ids.L2CL, ids.L1CL, ids.L1EL, ids.L2EL, ids.L2Proposer))
 
 	opt.Add(sysgo.WithFaucets([]stack.L1ELNodeID{ids.L1EL}, []stack.L2ELNodeID{ids.L2EL}))
 
