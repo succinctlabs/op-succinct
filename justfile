@@ -407,3 +407,24 @@ e2e-tests target="":
    cd fault-proof
 
    cargo t $test_target --release --features e2e -- --test-threads=1 --nocapture
+
+forge-build *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    cd contracts
+
+    forge build {{ARGS}}
+
+    # Forge build compiles only the src/ graph; the scripts/ graph is compiled by `forge script`.
+    # On the first invocation, `forge script` may compile a small set of dependencies.
+    # To avoid paying this cost in every CI test, we pre‑warm the script cache once here.
+    #
+    # Notes:
+    # - A single `forge script <any script> --skip-simulation` is sufficient to compile the script
+    #   dependency graph into the cache.
+    forge script "script/validity/DeployMockVerifier.s.sol" \
+    --skip "/**/test/**" \
+    --sig "idonotexist()" \
+    --skip-simulation \
+    2>/dev/null || true
