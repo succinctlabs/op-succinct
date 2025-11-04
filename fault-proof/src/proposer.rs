@@ -88,13 +88,11 @@ struct Game {
 /// Central cache of the proposer's view of dispute games.
 ///
 /// Tracks:
-/// - `anchor_game`: the latest anchor fetched from the registry
 /// - `canonical_head_index`/`canonical_head_l2_block`: the best known game for scheduling work
 /// - `cursor`: the last index of factory's dispute game list processed during incremental syncs
 /// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
 struct ProposerState {
-    anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
     cursor: Option<U256>,
@@ -246,16 +244,12 @@ where
     ///
     /// Steps run in order:
     /// 1. `sync_games` pulls newly created games and refreshes cached metadata.
-    /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
-    /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
+    /// 2. `compute_canonical_head` recomputes the head game used for proposal selection.
     async fn sync_state(&self) -> Result<()> {
         // Pull new games and synchronize cached game statuses.
         self.sync_games().await?;
 
-        // Align anchor information after the cached game statuses have been synchronized.
-        self.sync_anchor_game().await?;
-
-        // With the cached game statuses and anchor synchronized, recompute the canonical head.
+        // With the cached game statuses synchronized, recompute the canonical head.
         self.compute_canonical_head().await;
 
         Ok(())
@@ -432,45 +426,13 @@ where
         Ok(())
     }
 
-    /// Synchronizes the anchor game from the factory.
-    async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
-        let anchor_address = anchor_game.address();
-
-        if *anchor_address != Address::ZERO {
-            let mut state = self.state.lock().await;
-
-            // Fetch the anchor game from the cache.
-            if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == *anchor_address)
-            {
-                state.anchor_game = Some(anchor_game.clone());
-            } else {
-                tracing::debug!(?anchor_address, "Anchor game not in cache yet");
-            }
-        }
-
-        Ok(())
-    }
-
     /// Computes the canonical head by scanning all cached games.
     ///
-    /// Canonical head is the game with the highest L2 block number. When an anchor game is present,
-    /// only its descendants are eligible for canonical head.
+    /// Canonical head is the game with the highest L2 block number.
     async fn compute_canonical_head(&self) {
         let mut state = self.state.lock().await;
 
-        let canonical_head = if let Some(anchor_game) = state.anchor_game.as_ref() {
-            let reachable = state.descendants_of(anchor_game.index);
-            state
-                .games
-                .values()
-                .filter(|game| reachable.contains(&game.index))
-                .max_by_key(|game| game.l2_block)
-                .cloned()
-        } else {
-            state.games.values().max_by_key(|game| game.l2_block).cloned()
-        };
+        let canonical_head = state.games.values().max_by_key(|game| game.l2_block).cloned();
 
         if let Some(canonical_head) = canonical_head {
             state.canonical_head_index = Some(canonical_head.index);
@@ -828,13 +790,17 @@ where
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
         let game_type = game.gameType;
+
+        let mut state = self.state.lock().await;
         if game_type != self.config.game_type {
             tracing::debug!(game_index = %index, ?game_address, game_type,
                 expected_game_type = self.config.game_type,
                 "Dropping game due to invalid game type"
             );
+            state.cursor = Some(index);
             return Ok(());
         }
+
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
         let l2_block = contract.l2BlockNumber().call().await?;
@@ -844,7 +810,7 @@ where
             Ok(data) => (data.parentIndex, data.status, U256::from(data.deadline).to::<u64>()),
             Err(error) => {
                 tracing::debug!(game_index = %index, ?game_address, ?error,
-                    "Falling back to legacy game with dummy claim data");
+                  "Falling back to legacy game with dummy claim data");
                 (u32::MAX, ProposalStatus::Unchallenged, 0)
             }
         };
@@ -852,11 +818,9 @@ where
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
         let status = contract.status().call().await?;
 
-        let mut state = self.state.lock().await;
-
         if !was_respected || output_root != claim {
             tracing::debug!(game_index = %index, ?game_address,
-                "Dropping game due to invalid game type or output root");
+              "Dropping game due to invalid game type or output root");
             state.cursor = Some(index);
             return Ok(());
         }
@@ -875,7 +839,7 @@ where
                     );
                 } else {
                     tracing::debug!(game_index = %index, ?game_address,
-                      parent_index = %parent_idx, "Dropping game due to missing parent");
+                    parent_index = %parent_idx, "Dropping game due to missing parent");
                     state.cursor = Some(index);
                     return Ok(());
                 }
@@ -950,9 +914,9 @@ where
 
     /// Fetch the proposer metrics.
     async fn fetch_proposer_metrics(&self) -> Result<()> {
-        let (canonical_head_l2_block, anchor_game) = {
+        let canonical_head_l2_block = {
             let state = self.state.lock().await;
-            (state.canonical_head_l2_block, state.anchor_game.clone())
+            state.canonical_head_l2_block
         };
 
         if let Some(canonical_head_l2_block) = canonical_head_l2_block {
@@ -964,12 +928,6 @@ where
                 .await?
             {
                 ProposerGauge::FinalizedL2BlockNumber.set(finalized_l2_block_number as f64);
-            }
-
-            if let Some(anchor_game) = anchor_game {
-                ProposerGauge::AnchorGameL2BlockNumber.set(anchor_game.l2_block.to::<u64>() as f64);
-            } else {
-                ProposerGauge::AnchorGameL2BlockNumber.set(0.0);
             }
         } else {
             tracing::warn!("canonical_head_l2_block is None; skipping metrics update");
