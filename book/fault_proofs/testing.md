@@ -36,6 +36,14 @@ Before running the tests, ensure you have:
 
 ## Available Tests
 
+### Integration Tests (`fault-proof/tests/integration_test.rs`)
+
+These tests run the real proposer service to verify its internal state stays consistent.
+
+- `proposer_retains_anchor_after_bond_claim()`: Drives the proposer through game
+  creation, resolution, and bond claims, then asserts that the cached anchor game remains
+  in the cache after the bond claim.
+
 ### End-to-End Tests (`fault-proof/tests/e2e.rs`)
 
 The asynchronous end-to-end suite spins up real proposer and challenger services, interacts with
@@ -81,6 +89,12 @@ These tests focus on anchor selection, parent validation, and handling of invali
 ## Running the Tests
 
 ### Basic Test Execution
+```bash
+# Run fault-proof integration tests
+just fp-integration-tests
+```
+
+
 ```bash
 # Run all end-to-end tests with single thread and no capture
 just e2e-tests
