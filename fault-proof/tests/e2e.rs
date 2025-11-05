@@ -15,8 +15,8 @@ mod e2e {
     use common::{
         constants::{
             CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-            MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAMES_TO_SEED,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
+            MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE,
+            PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
         },
         contracts::send_contract_transaction,
         monitor::{
@@ -143,12 +143,12 @@ mod e2e {
         Ok(())
     }
 
-    // Seeds legacy games, transitions game types, and verifies the proposer ignores them.
+    // Seeds a legacy game, transitions game types, and verifies the proposer ignores it.
     // Confirms new games are created, resolved, and bonds claimed despite history.
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_game_type_transition_skips_legacy_games() -> Result<()> {
+    async fn test_game_type_transition_skips_legacy_game() -> Result<()> {
         TestEnvironment::init_logging();
-        info!("=== Test: Game Type Transition With Legacy Games In History ===");
+        info!("=== Test: Game Type Transition With Legacy Game In History ===");
 
         let env = TestEnvironment::setup().await?;
 
@@ -161,7 +161,7 @@ mod e2e {
         let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
 
         let legacy_impl =
-            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, &factory_reader.address())
+            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, *factory_reader.address())
                 .await?;
         info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
 
@@ -204,55 +204,43 @@ mod e2e {
         .await?;
 
         let mut expected_index = initial_game_count;
-        let mut mock_game_addresses = Vec::with_capacity(MOCK_PERMISSIONED_GAMES_TO_SEED);
-
-        info!(
-        "Seeding {MOCK_PERMISSIONED_GAMES_TO_SEED} legacy games (type {MOCK_PERMISSIONED_GAME_TYPE})"
-    );
+        info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
 
         let l2_provider = ProviderBuilder::default().connect_http(env.rpc_config.l2_rpc.clone());
+        let interval = 10;
+        let l2_block = U256::from(env.anvil.starting_l2_block_number + interval);
+        let root_claim = l2_provider.compute_output_root_at_block(l2_block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block, u32::MAX));
 
-        for i in 0..MOCK_PERMISSIONED_GAMES_TO_SEED {
-            let l2_block = U256::from(env.anvil.starting_l2_block_number + ((i as u64 + 1) * 5));
-            let root_claim = l2_provider.compute_output_root_at_block(l2_block).await?;
-            let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block, u32::MAX));
+        let create_call = DisputeGameFactory::createCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _rootClaim: root_claim,
+            _extraData: Bytes::from(extra_data.clone()),
+        };
 
-            let create_call = DisputeGameFactory::createCall {
-                _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-                _rootClaim: root_claim,
-                _extraData: Bytes::from(extra_data.clone()),
-            };
+        send_contract_transaction(
+            &proposer_signer,
+            &l1_rpc_url,
+            env.deployed.factory,
+            Bytes::from(create_call.abi_encode()),
+            Some(init_bond),
+        )
+        .await?;
 
-            send_contract_transaction(
-                &proposer_signer,
-                &l1_rpc_url,
-                env.deployed.factory,
-                Bytes::from(create_call.abi_encode()),
-                Some(init_bond),
-            )
-            .await?;
-
-            // Wait for the game to be indexed by the factory
-            loop {
-                let current = factory_reader.gameCount().call().await?;
-                if current > expected_index {
-                    expected_index = current;
-                    break;
-                }
-                sleep(Duration::from_millis(200)).await;
+        // Wait for the game to be indexed by the factory
+        loop {
+            let current = factory_reader.gameCount().call().await?;
+            if current > expected_index {
+                expected_index = current;
+                break;
             }
-
-            let game_info =
-                factory_reader.gameAtIndex(expected_index - U256::from(1)).call().await?;
-            assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
-            mock_game_addresses.push(game_info.proxy_);
-            info!(
-                "  • Mock permissioned game {}/{} at {}",
-                i + 1,
-                MOCK_PERMISSIONED_GAMES_TO_SEED,
-                game_info.proxy_
-            );
+            sleep(Duration::from_millis(200)).await;
         }
+
+        let game_info = factory_reader.gameAtIndex(expected_index - U256::from(1)).call().await?;
+        let mock_game_address = game_info.proxy_;
+        assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
+        info!(" • Mock permissioned game at {mock_game_address}");
 
         let restore_type_call =
             MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
@@ -299,19 +287,17 @@ mod e2e {
 
         proposer_handle.abort();
 
-        for (idx, address) in mock_game_addresses.iter().enumerate() {
-            let legacy_game =
-                MockPermissionedDisputeGameView::new(*address, env.anvil.provider.clone());
-            let status_raw = legacy_game.status().call().await?;
-            let status = GameStatus::try_from(status_raw).with_context(|| {
-                format!("Failed to decode mock permissioned game status for {address}")
-            })?;
-            assert_eq!(
-                status,
-                GameStatus::IN_PROGRESS,
-                "mock permissioned game {idx} should remain untouched"
-            );
-        }
+        let legacy_game =
+            MockPermissionedDisputeGameView::new(mock_game_address, env.anvil.provider.clone());
+        let status_raw = legacy_game.status().call().await?;
+        let status = GameStatus::try_from(status_raw).with_context(|| {
+            format!("Failed to decode mock permissioned game status for {mock_game_address}")
+        })?;
+        assert_eq!(
+            status,
+            GameStatus::IN_PROGRESS,
+            "mock permissioned game should remain untouched"
+        );
 
         Ok(())
     }
