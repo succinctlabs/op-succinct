@@ -395,6 +395,17 @@ where
                 }
             }
 
+            let anchor_game_address = if actions.iter().any(|action| matches!(action, GameSyncAction::Remove(_))) {
+                let anchor_game = self
+                    .factory
+                    .get_anchor_game(self.config.game_type)
+                    .await
+                    .context("Failed to fetch anchor game for removal check")?;
+                Some(*anchor_game.address())
+            } else {
+                None
+            };
+
             let mut state = self.state.lock().await;
             for action in actions {
                 match action {
@@ -432,13 +443,8 @@ where
                             tracing::debug!(game_index = %index, "Retaining game: canonical head");
                             true
                         } else {
-                            // Check if it's the anchor game.
-                            let anchor_game = self
-                                .factory
-                                .get_anchor_game(self.config.game_type)
-                                .await
-                                .context("Failed to fetch anchor game for removal check")?;
-                            let is_anchor_game = game.address == *anchor_game.address();
+                            let is_anchor_game = anchor_game_address
+                                .map_or(false, |anchor_address| game.address == anchor_address);
 
                             if is_anchor_game {
                                 tracing::debug!(game_index = %index, "Retaining game: anchor game");
