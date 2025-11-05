@@ -835,14 +835,29 @@ where
 
     /// Fetch game from the factory.
     ///
-    /// Drop game if the game type is invalid or the output root is not valid.
-    /// Drop game if the parent game does not exist.
+    /// Drop game if:
+    /// - The game type is not supported.
+    /// - The game type deos not respect the expected type when created.
+    /// - The output root claim is invalid.
+    /// - The parent game does not exist in cache if it should have one.
     async fn fetch_game(&self, index: U256) -> Result<()> {
         let mut state = self.state.lock().await;
 
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
         let game_type = game.gameType;
+
+        // Drop unsupported game types.
+        if game_type != self.config.game_type {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game: unsupported game type"
+            );
+            return Ok(());
+        }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
@@ -851,18 +866,13 @@ where
         let claim = contract.rootClaim().call().await?;
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
         let status = contract.status().call().await?;
+        let claim_data = contract.claimData().call().await?;
 
-        let (parent_index, proposal_status, deadline) = match contract.claimData().call().await {
-            Ok(data) => (data.parentIndex, data.status, U256::from(data.deadline).to::<u64>()),
-            Err(error) => {
-                tracing::debug!(
-                    game_index = %index,
-                    ?game_address,
-                    ?error,
-                    "Falling back to legacy game with dummy claim data");
-                (u32::MAX, ProposalStatus::Unchallenged, 0)
-            }
-        };
+        let (parent_index, proposal_status, deadline) = (
+            claim_data.parentIndex,
+            claim_data.status,
+            U256::from(claim_data.deadline).to::<u64>(),
+        );
 
         // Drop games whose type does not respect the expected type.
         if !was_respected {
@@ -870,7 +880,7 @@ where
                 game_index = %index,
                 ?game_address, game_type,
                 expected_game_type = self.config.game_type,
-                "Dropping game due to invalid game type"
+                "Dropping game: game type mismatch during creation"
             );
             state.cursor = Some(index);
             return Ok(());
@@ -883,12 +893,13 @@ where
                 ?game_address,
                 ?claim,
                 expected_output_root = ?output_root,
-                "Dropping game due to invalid claim"
+                "Dropping game: invalid output root claim"
             );
             state.cursor = Some(index);
             return Ok(());
         }
 
+        // Ensure parent exists in cache if applicable.
         if parent_index != u32::MAX {
             let parent_idx = U256::from(parent_index);
             if !state.games.contains_key(&parent_idx) {
@@ -896,7 +907,7 @@ where
                     game_index = %index,
                     ?game_address,
                     parent_index = %parent_idx,
-                    "Dropping game due to missing parent"
+                    "Dropping game: parent not found in cache"
                 );
                 state.cursor = Some(index);
                 return Ok(());
