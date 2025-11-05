@@ -302,6 +302,166 @@ mod e2e {
         Ok(())
     }
 
+    // Ensures the proposer can handle a game type transition while running.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_game_type_transition_while_proposer_running() -> Result<()> {
+        TestEnvironment::init_logging();
+        info!("=== Test: Game Type Transition While Proposer Running ===");
+
+        let env = TestEnvironment::setup().await?;
+
+        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
+
+        let l1_rpc_url = env.rpc_config.l1_rpc.clone();
+
+        let factory_reader =
+            DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
+        let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
+
+        let initial_game_count = factory_reader.gameCount().call().await?;
+
+        let legacy_impl =
+            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, *factory_reader.address())
+                .await?;
+        info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _initBond: init_bond,
+        };
+        send_contract_transaction(
+            &proposer_signer,
+            &l1_rpc_url,
+            env.deployed.factory,
+            Bytes::from(set_init_call.abi_encode()),
+            None,
+        )
+        .await?;
+
+        let set_impl_call = DisputeGameFactory::setImplementationCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _impl: legacy_impl,
+        };
+        send_contract_transaction(
+            &proposer_signer,
+            &l1_rpc_url,
+            env.deployed.factory,
+            Bytes::from(set_impl_call.abi_encode()),
+            None,
+        )
+        .await?;
+
+        let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+        };
+        send_contract_transaction(
+            &proposer_signer,
+            &l1_rpc_url,
+            env.deployed.portal,
+            Bytes::from(legacy_game_type_call.abi_encode()),
+            None,
+        )
+        .await?;
+
+        let mut expected_index = initial_game_count;
+        info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
+
+        let proposer_handle = start_proposer(
+            &env.rpc_config,
+            PROPOSER_PRIVATE_KEY,
+            &env.deployed.factory,
+            TEST_GAME_TYPE,
+        )
+        .await?;
+        info!("✓ Proposer started after legacy games seeded");
+
+        let l2_provider = ProviderBuilder::default().connect_http(env.rpc_config.l2_rpc.clone());
+        let interval = 10;
+        let l2_block = U256::from(env.anvil.starting_l2_block_number + interval);
+        let root_claim = l2_provider.compute_output_root_at_block(l2_block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block, u32::MAX));
+
+        let create_call = DisputeGameFactory::createCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _rootClaim: root_claim,
+            _extraData: Bytes::from(extra_data.clone()),
+        };
+
+        send_contract_transaction(
+            &proposer_signer,
+            &l1_rpc_url,
+            env.deployed.factory,
+            Bytes::from(create_call.abi_encode()),
+            Some(init_bond),
+        )
+        .await?;
+
+        // Wait for the game to be indexed by the factory
+        loop {
+            let current = factory_reader.gameCount().call().await?;
+            if current > expected_index {
+                expected_index = current;
+                break;
+            }
+            sleep(Duration::from_millis(200)).await;
+        }
+
+        let game_info = factory_reader.gameAtIndex(expected_index - U256::from(1)).call().await?;
+        let mock_game_address = game_info.proxy_;
+        assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
+        info!(" • Mock permissioned game at {mock_game_address}");
+
+        let restore_type_call =
+            MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
+        send_contract_transaction(
+            &proposer_signer,
+            &l1_rpc_url,
+            env.deployed.portal,
+            Bytes::from(restore_type_call.abi_encode()),
+            None,
+        )
+        .await?;
+        info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
+
+        let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
+        let tracked_games =
+            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
+        assert_eq!(tracked_games.len(), 3);
+        info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
+
+        warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
+        let resolutions =
+            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
+                .await?;
+        verify_all_resolved_correctly(&resolutions)?;
+
+        warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
+            .await?;
+        wait_for_bond_claims(
+            &env.anvil.provider,
+            &tracked_games,
+            PROPOSER_ADDRESS,
+            Duration::from_secs(120),
+        )
+        .await?;
+
+        proposer_handle.abort();
+
+        let legacy_game =
+            MockPermissionedDisputeGameView::new(mock_game_address, env.anvil.provider.clone());
+        let status_raw = legacy_game.status().call().await?;
+        let status = GameStatus::try_from(status_raw).with_context(|| {
+            format!("Failed to decode mock permissioned game status for {mock_game_address}")
+        })?;
+        assert_eq!(
+            status,
+            GameStatus::IN_PROGRESS,
+            "mock permissioned game should remain untouched"
+        );
+
+        Ok(())
+    }
+
     // Creates invalid output root games and runs the challenger to win and claim bonds.
     // Validates the challenger lifecycle handles creation, challenge, resolution, and payouts.
     #[tokio::test(flavor = "multi_thread")]
