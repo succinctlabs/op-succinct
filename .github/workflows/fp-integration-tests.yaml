@@ -1,0 +1,58 @@
+name: Fault-Proof Integration Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'fault-proof/**'
+      - 'justfile'
+      - '.github/workflows/fp-integration-tests.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'fault-proof/**'
+      - 'bindings/**'
+      - '.github/workflows/fp-integration-tests.yaml'
+  workflow_dispatch:
+
+jobs:
+  fp-integration:
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install stable --profile minimal
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install SP1 toolchain
+        run: |
+          curl -L https://sp1.succinct.xyz | bash
+          ~/.sp1/bin/sp1up
+          ~/.sp1/bin/cargo-prove prove --version
+          source ~/.bashrc
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Run fault-proof integration tests
+        run: just fp-integration-tests
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
