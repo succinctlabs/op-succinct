@@ -462,8 +462,7 @@ where
                             tracing::debug!(game_index = %index, "Retaining game: canonical head");
                             true
                         } else {
-                            let is_anchor_game = anchor_game_address
-                                .map_or(false, |anchor_address| game.address == anchor_address);
+                            let is_anchor_game = anchor_game_address == Some(game.address);
 
                             if is_anchor_game {
                                 tracing::debug!(game_index = %index, "Retaining game: anchor game");
