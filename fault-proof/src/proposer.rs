@@ -138,6 +138,14 @@ impl ProposerState {
     }
 }
 
+/// Snapshot of the proposer's cached state for testing and monitoring.
+#[derive(Clone, Debug)]
+pub struct ProposerStateSnapshot {
+    pub anchor_index: Option<U256>,
+    pub canonical_head_index: Option<U256>,
+    pub games: Vec<(U256, Address)>,
+}
+
 #[derive(Clone)]
 pub struct OPSuccinctProposer<P, H: OPSuccinctHost>
 where
@@ -213,6 +221,16 @@ where
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(Mutex::new(initial_state)),
         })
+    }
+
+    /// Returns a lightweight snapshot of the proposer's cached state.
+    pub async fn state_snapshot(&self) -> ProposerStateSnapshot {
+        let state = self.state.lock().await;
+        ProposerStateSnapshot {
+            anchor_index: state.anchor_game.as_ref().map(|game| game.index),
+            canonical_head_index: state.canonical_head_index,
+            games: state.games.values().map(|game| (game.index, game.address)).collect(),
+        }
     }
 
     /// Runs the proposer indefinitely.
@@ -395,16 +413,17 @@ where
                 }
             }
 
-            let anchor_game_address = if actions.iter().any(|action| matches!(action, GameSyncAction::Remove(_))) {
-                let anchor_game = self
-                    .factory
-                    .get_anchor_game(self.config.game_type)
-                    .await
-                    .context("Failed to fetch anchor game for removal check")?;
-                Some(*anchor_game.address())
-            } else {
-                None
-            };
+            let anchor_game_address =
+                if actions.iter().any(|action| matches!(action, GameSyncAction::Remove(_))) {
+                    let anchor_game = self
+                        .factory
+                        .get_anchor_game(self.config.game_type)
+                        .await
+                        .context("Failed to fetch anchor game for removal check")?;
+                    Some(*anchor_game.address())
+                } else {
+                    None
+                };
 
             let mut state = self.state.lock().await;
             for action in actions {
