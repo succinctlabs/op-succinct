@@ -18,7 +18,7 @@ mod e2e {
             MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAMES_TO_SEED,
             MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
         },
-        contracts::{deploy_mock_permissioned_game, send_contract_transaction},
+        contracts::send_contract_transaction,
         monitor::{
             verify_all_resolved_correctly, wait_and_track_games, wait_and_verify_game_resolutions,
             wait_for_bond_claims, wait_for_challenges, wait_for_resolutions, TrackedGame,
@@ -39,7 +39,10 @@ mod e2e {
     use tokio::time::{sleep, Duration};
     use tracing::info;
 
-    use crate::common::{init_challenger, init_proposer, start_challenger, start_proposer};
+    use crate::common::{
+        contracts::deploy_mock_permissioned_game, init_challenger, init_proposer, start_challenger,
+        start_proposer,
+    };
 
     alloy_sol_types::sol! {
         #[sol(rpc)]
@@ -148,7 +151,6 @@ mod e2e {
         info!("=== Test: Game Type Transition With Legacy Games In History ===");
 
         let env = TestEnvironment::setup().await?;
-        let mut rng = rand::rng();
 
         let l1_rpc_url = env.rpc_config.l1_rpc.clone();
         let factory_reader =
@@ -158,7 +160,9 @@ mod e2e {
 
         let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
 
-        let legacy_impl = deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url).await?;
+        let legacy_impl =
+            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, &factory_reader.address())
+                .await?;
         info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
 
         let set_init_call = DisputeGameFactory::setInitBondCall {
@@ -205,11 +209,12 @@ mod e2e {
         info!(
         "Seeding {MOCK_PERMISSIONED_GAMES_TO_SEED} legacy games (type {MOCK_PERMISSIONED_GAME_TYPE})"
     );
+
+        let l2_provider = ProviderBuilder::default().connect_http(env.rpc_config.l2_rpc.clone());
+
         for i in 0..MOCK_PERMISSIONED_GAMES_TO_SEED {
-            let mut root_bytes = [0u8; 32];
-            rng.fill(&mut root_bytes);
-            let root_claim = FixedBytes::<32>::from(root_bytes);
             let l2_block = U256::from(env.anvil.starting_l2_block_number + ((i as u64 + 1) * 5));
+            let root_claim = l2_provider.compute_output_root_at_block(l2_block).await?;
             let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block, u32::MAX));
 
             let create_call = DisputeGameFactory::createCall {
@@ -259,6 +264,7 @@ mod e2e {
             None,
         )
         .await?;
+        info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
         let proposer_handle = start_proposer(
             &env.rpc_config,
