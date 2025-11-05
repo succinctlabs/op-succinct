@@ -79,16 +79,9 @@ deploy-fdg-contracts env_file=".env" *features='':
     just _deploy-fdg-contracts {{env_file}}
 
 # Deploy contracts without fetching config
-_deploy-fdg-contracts env_file=".env" custom_config_file="" *features='':
+_deploy-fdg-contracts env_file=".env" custom_config_file="":
     #!/usr/bin/env bash
     set -euo pipefail
-
-    if [ -z "{{features}}" ]; then
-        RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release -- --env-file {{env_file}}
-    else
-        echo "Fetching fault dispute game config with features: {{features}}"
-        RUST_LOG=info cargo run --bin fetch-fault-dispute-game-config --release --features {{features}} -- --env-file {{env_file}}
-    fi
     
     # Load environment variables from project root
     source {{env_file}}
