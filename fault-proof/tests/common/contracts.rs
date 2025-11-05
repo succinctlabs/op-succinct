@@ -1,7 +1,7 @@
 //! Contract deployment utilities for E2E tests.
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_rpc_types_eth::{transaction::request::TransactionInput, TransactionRequest};
-use alloy_sol_types::{SolCall, SolConstructor, SolValue};
+use alloy_sol_types::SolConstructor;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{anyhow, Context, Result};
 use op_succinct_bindings::mock_permissioned_dispute_game::MockPermissionedDisputeGame;
