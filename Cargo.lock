@@ -2646,7 +2646,7 @@ dependencies = [
 [[package]]
 name = "canoe-bindings"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-sol-types",
  "serde",
@@ -2655,7 +2655,7 @@ dependencies = [
 [[package]]
 name = "canoe-provider"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -2669,7 +2669,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-host"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "alloy-rpc-types",
@@ -2692,7 +2692,7 @@ dependencies = [
 [[package]]
 name = "canoe-sp1-cc-verifier"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
@@ -2711,7 +2711,7 @@ dependencies = [
 [[package]]
 name = "canoe-verifier"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-genesis",
  "alloy-primitives",
@@ -2727,7 +2727,7 @@ dependencies = [
 [[package]]
 name = "canoe-verifier-address-fetcher"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "eigenda-cert",
@@ -3925,7 +3925,7 @@ dependencies = [
 [[package]]
 name = "eigenda-cert"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -4814,7 +4814,7 @@ dependencies = [
 [[package]]
 name = "hana-blobstream"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e#6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e"
+source = "git+https://github.com/celestiaorg/hana?rev=1d272dd83263dbcc2ad97daaac84b2e578a0b288#1d272dd83263dbcc2ad97daaac84b2e578a0b288"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -4832,7 +4832,7 @@ dependencies = [
 [[package]]
 name = "hana-celestia"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e#6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e"
+source = "git+https://github.com/celestiaorg/hana?rev=1d272dd83263dbcc2ad97daaac84b2e578a0b288#1d272dd83263dbcc2ad97daaac84b2e578a0b288"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4845,7 +4845,7 @@ dependencies = [
 [[package]]
 name = "hana-client"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e#6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e"
+source = "git+https://github.com/celestiaorg/hana?rev=1d272dd83263dbcc2ad97daaac84b2e578a0b288#1d272dd83263dbcc2ad97daaac84b2e578a0b288"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -4872,7 +4872,7 @@ dependencies = [
 [[package]]
 name = "hana-host"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e#6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e"
+source = "git+https://github.com/celestiaorg/hana?rev=1d272dd83263dbcc2ad97daaac84b2e578a0b288#1d272dd83263dbcc2ad97daaac84b2e578a0b288"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -4903,7 +4903,7 @@ dependencies = [
 [[package]]
 name = "hana-oracle"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e#6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e"
+source = "git+https://github.com/celestiaorg/hana?rev=1d272dd83263dbcc2ad97daaac84b2e578a0b288#1d272dd83263dbcc2ad97daaac84b2e578a0b288"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -4920,7 +4920,7 @@ dependencies = [
 [[package]]
 name = "hana-proofs"
 version = "0.1.0"
-source = "git+https://github.com/celestiaorg/hana?rev=6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e#6d3b72f986b9fe430e6b2f5c4a79b09fafe66b9e"
+source = "git+https://github.com/celestiaorg/hana?rev=1d272dd83263dbcc2ad97daaac84b2e578a0b288#1d272dd83263dbcc2ad97daaac84b2e578a0b288"
 dependencies = [
  "alloy-primitives",
  "alloy-provider",
@@ -5098,7 +5098,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -5119,7 +5119,7 @@ dependencies = [
 [[package]]
 name = "hokulea-client-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-evm",
  "alloy-op-evm",
@@ -5139,7 +5139,7 @@ dependencies = [
 [[package]]
 name = "hokulea-compute-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "hokulea-proof",
@@ -5153,7 +5153,7 @@ dependencies = [
 [[package]]
 name = "hokulea-eigenda"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "async-trait",
@@ -5168,7 +5168,7 @@ dependencies = [
 [[package]]
 name = "hokulea-host-bin"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "anyhow",
@@ -5195,7 +5195,7 @@ dependencies = [
 [[package]]
 name = "hokulea-proof"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-primitives",
  "ark-bn254",
@@ -5217,7 +5217,7 @@ dependencies = [
 [[package]]
 name = "hokulea-witgen"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "alloy-consensus",
  "alloy-rlp",
@@ -5236,7 +5236,7 @@ dependencies = [
 [[package]]
 name = "hokulea-zkvm-verification"
 version = "0.1.0"
-source = "git+https://github.com/Layr-Labs/hokulea?rev=4f5705cd93c95407d1b4315e282e59b1a39e9712#4f5705cd93c95407d1b4315e282e59b1a39e9712"
+source = "git+https://github.com/Layr-Labs/hokulea?rev=ede4e93969fa3e181093c8807576afb85c60cb0e#ede4e93969fa3e181093c8807576afb85c60cb0e"
 dependencies = [
  "canoe-verifier",
  "canoe-verifier-address-fetcher",
@@ -6212,7 +6212,7 @@ dependencies = [
 [[package]]
 name = "kona-cli"
 version = "0.3.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -6232,7 +6232,7 @@ dependencies = [
 [[package]]
 name = "kona-client"
 version = "1.0.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6271,7 +6271,7 @@ dependencies = [
 [[package]]
 name = "kona-derive"
 version = "0.4.5"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6292,7 +6292,7 @@ dependencies = [
 [[package]]
 name = "kona-disc"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-rlp",
  "backon",
@@ -6311,7 +6311,7 @@ dependencies = [
 [[package]]
 name = "kona-driver"
 version = "0.4.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -6332,7 +6332,7 @@ dependencies = [
 [[package]]
 name = "kona-engine"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6370,7 +6370,7 @@ dependencies = [
 [[package]]
 name = "kona-executor"
 version = "0.4.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6394,7 +6394,7 @@ dependencies = [
 [[package]]
 name = "kona-genesis"
 version = "0.4.5"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -6414,7 +6414,7 @@ dependencies = [
 [[package]]
 name = "kona-gossip"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6447,7 +6447,7 @@ dependencies = [
 [[package]]
 name = "kona-hardforks"
 version = "0.4.5"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -6458,7 +6458,7 @@ dependencies = [
 [[package]]
 name = "kona-host"
 version = "1.0.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6506,7 +6506,7 @@ dependencies = [
 [[package]]
 name = "kona-interop"
 version = "0.4.5"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6528,12 +6528,12 @@ dependencies = [
 [[package]]
 name = "kona-macros"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 
 [[package]]
 name = "kona-mpt"
 version = "0.3.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -6545,7 +6545,7 @@ dependencies = [
 [[package]]
 name = "kona-peers"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -6568,7 +6568,7 @@ dependencies = [
 [[package]]
 name = "kona-preimage"
 version = "0.3.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-primitives",
  "async-channel",
@@ -6582,7 +6582,7 @@ dependencies = [
 [[package]]
 name = "kona-proof"
 version = "0.3.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6619,7 +6619,7 @@ dependencies = [
 [[package]]
 name = "kona-proof-interop"
 version = "0.2.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6651,7 +6651,7 @@ dependencies = [
 [[package]]
 name = "kona-protocol"
 version = "0.4.5"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloc-no-stdlib",
  "alloy-consensus",
@@ -6681,7 +6681,7 @@ dependencies = [
 [[package]]
 name = "kona-providers-alloy"
 version = "0.3.3"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -6712,7 +6712,7 @@ dependencies = [
 [[package]]
 name = "kona-registry"
 version = "0.4.5"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-chains",
  "alloy-eips",
@@ -6731,7 +6731,7 @@ dependencies = [
 [[package]]
 name = "kona-rpc"
 version = "0.3.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -6761,7 +6761,7 @@ dependencies = [
 [[package]]
 name = "kona-sources"
 version = "0.1.2"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -6791,7 +6791,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm"
 version = "0.2.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "async-trait",
  "buddy_system_allocator",
@@ -6803,7 +6803,7 @@ dependencies = [
 [[package]]
 name = "kona-std-fpvm-proc"
 version = "0.2.0"
-source = "git+https://github.com/op-rs/kona?rev=dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3#dc6bf79fe70b782e39f786fc8ea3f2fba9a09fe3"
+source = "git+https://github.com/op-rs/kona?tag=kona-client%2Fv1.1.7#9fa8f5172c65a01491240f62f6ba2d1c892d8091"
 dependencies = [
  "cfg-if",
  "kona-std-fpvm",
@@ -11302,7 +11302,7 @@ dependencies = [
 [[package]]
 name = "rsp-client-executor"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0-rc.1#fcb865684eb28ea0d24fb9fa47714a41dbba3ac1"
+source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0#2c5718029e7c0b24a34b011088fef221489fc714"
 dependencies = [
  "alloy-consensus",
  "alloy-evm",
@@ -11335,7 +11335,7 @@ dependencies = [
 [[package]]
 name = "rsp-mpt"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0-rc.1#fcb865684eb28ea0d24fb9fa47714a41dbba3ac1"
+source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0#2c5718029e7c0b24a34b011088fef221489fc714"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -11350,13 +11350,11 @@ dependencies = [
 [[package]]
 name = "rsp-primitives"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0-rc.1#fcb865684eb28ea0d24fb9fa47714a41dbba3ac1"
+source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0#2c5718029e7c0b24a34b011088fef221489fc714"
 dependencies = [
  "alloy-eips",
  "alloy-genesis",
- "alloy-primitives",
  "alloy-rpc-types",
- "alloy-serde",
  "reth-chainspec",
  "reth-primitives-traits",
  "reth-trie",
@@ -11369,7 +11367,7 @@ dependencies = [
 [[package]]
 name = "rsp-rpc-db"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0-rc.1#fcb865684eb28ea0d24fb9fa47714a41dbba3ac1"
+source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0#2c5718029e7c0b24a34b011088fef221489fc714"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -11393,7 +11391,7 @@ dependencies = [
 [[package]]
 name = "rsp-witness-db"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0-rc.1#fcb865684eb28ea0d24fb9fa47714a41dbba3ac1"
+source = "git+https://github.com/succinctlabs/rsp?tag=reth-1.9.0#2c5718029e7c0b24a34b011088fef221489fc714"
 dependencies = [
  "alloy-primitives",
  "reth-storage-errors",
@@ -12450,7 +12448,7 @@ dependencies = [
 [[package]]
 name = "sp1-cc-client-executor"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1-contract-call.git?tag=reth-1.9.0-rc.1#bfd71a79c0ee63f81586c5773c226cb12f322c2c"
+source = "git+https://github.com/succinctlabs/sp1-contract-call.git?tag=reth-1.9.0#a811a012a056b0505e85fbb2c120d3852c9bd409"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12484,7 +12482,7 @@ dependencies = [
 [[package]]
 name = "sp1-cc-host-executor"
 version = "0.1.0"
-source = "git+https://github.com/succinctlabs/sp1-contract-call.git?tag=reth-1.9.0-rc.1#bfd71a79c0ee63f81586c5773c226cb12f322c2c"
+source = "git+https://github.com/succinctlabs/sp1-contract-call.git?tag=reth-1.9.0#a811a012a056b0505e85fbb2c120d3852c9bd409"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
