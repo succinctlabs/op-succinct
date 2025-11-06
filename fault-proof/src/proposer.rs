@@ -856,6 +856,7 @@ where
                 expected_game_type = self.config.game_type,
                 "Dropping game: unsupported game type"
             );
+            state.cursor = Some(index);
             return Ok(());
         }
 
