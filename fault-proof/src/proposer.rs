@@ -528,11 +528,12 @@ where
         let l1_head_hash = game.l1Head().call().await?.0;
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
         let l2_block_number = game.l2BlockNumber().call().await?;
+        let starting_l2_block_number = game.startingBlockNumber().call().await?;
 
         let host_args = self
             .host
             .fetch(
-                l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks,
+                l2_block_number.to::<u64>() - starting_l2_block_number.to::<u64>(), // Not supposed to underflow ever!
                 l2_block_number.to::<u64>(),
                 Some(l1_head_hash.into()),
                 self.config.safe_db_fallback,
