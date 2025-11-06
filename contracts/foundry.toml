@@ -24,6 +24,13 @@ remappings = [
     "@lib-keccak/=lib/lib-keccak/contracts/lib",
 ]
 
+# To allow for deterministic contract deployments
+solc_version = "0.8.15"
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "none"
+cbor_metadata = false
+
 # [lint]
 # severity = ["high", "med", "low", "gas"] # Drop all "info" notes
 

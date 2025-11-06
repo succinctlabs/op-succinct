@@ -96,6 +96,8 @@ contract ConfigureDeploymentSafe is Script, Utils {
 
         // Build tx
         bytes memory calls = buildSafeTx(config);
+        console.log("Transaction calldata for Safe: ");
+        console.logBytes(calls);
 
         // Build tx hash
         GnosisSafe safe = GnosisSafe(payable(config.safe));
