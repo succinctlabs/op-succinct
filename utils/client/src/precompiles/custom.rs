@@ -25,8 +25,8 @@ impl Crypto for CustomCrypto {
     ) -> Result<(), PrecompileError> {
         let z = Bytes32::from_slice(z).map_err(|_| PrecompileError::BlobVerifyKzgProofFailed)?;
         let y = Bytes32::from_slice(y).map_err(|_| PrecompileError::BlobVerifyKzgProofFailed)?;
-        let commitment =
-            Bytes48::from_slice(commitment).map_err(|_| PrecompileError::BlobVerifyKzgProofFailed)?;
+        let commitment = Bytes48::from_slice(commitment)
+            .map_err(|_| PrecompileError::BlobVerifyKzgProofFailed)?;
         let proof =
             Bytes48::from_slice(proof).map_err(|_| PrecompileError::BlobVerifyKzgProofFailed)?;
 
