@@ -1265,15 +1265,13 @@ mod e2e {
 
         warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
 
-        let resolutions = wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
-            .await?;
+        let resolutions =
+            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
+                .await?;
         verify_all_resolved_correctly(&resolutions)?;
 
-        warp_time(
-            &env.anvil.provider,
-            Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS),
-        )
-        .await?;
+        warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
+            .await?;
 
         wait_for_bond_claims(
             &env.anvil.provider,
