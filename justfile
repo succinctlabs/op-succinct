@@ -363,10 +363,6 @@ tests:
     --skip test_cycle_count_diff \
     --skip test_post_to_github
 
-# Run fault-proof integration tests.
-fp-integration-tests:
-   cargo t --release -p op-succinct-fp --test integration_test -- --test-threads=1 --nocapture
-
 # Run end-to-end tests.
 e2e-tests:
    cd fault-proof && \
