@@ -358,7 +358,7 @@ remove-config config_name env_file=".env":
 
 # Run all unit and integration tests except for the specified ones.
 tests:
-   cargo t --release --workspace --exclude op-succinct-fp \
+   cargo t --release \
     -- \
     --skip test_cycle_count_diff \
     --skip test_post_to_github
