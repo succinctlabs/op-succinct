@@ -394,7 +394,50 @@ where
                         let credit = contract.credit(signer_address).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
-                            actions.push(GameSyncAction::Remove(index));
+                            // Game removal policy:
+                            // - Canonical head games are retained even with zero credit to maintain
+                            //   chain consistency.
+                            // - Anchor games are retained as they serve as the root of the dispute
+                            //   game tree.
+                            // - All other games with bonds already claimed are removed to free
+                            //   cache memory.
+
+                            let canonical_head_index = {
+                                let state = self.state.lock().await;
+                                state.canonical_head_index
+                            };
+
+                            let should_remove = if canonical_head_index == Some(index) {
+                                tracing::debug!(game_index = %index, "Retaining game: canonical head");
+                                false
+                            } else {
+                                let anchor_game = self
+                                    .factory
+                                    .get_anchor_game(self.config.game_type)
+                                    .await
+                                    .context("Failed to fetch anchor game for removal check")?;
+                                let anchor_game_address = *anchor_game.address();
+
+                                if anchor_game_address == game_address {
+                                    tracing::debug!(game_index = %index, "Retaining game: anchor game");
+                                    false
+                                } else {
+                                    true
+                                }
+                            };
+
+                            if should_remove {
+                                actions.push(GameSyncAction::Remove(index));
+                            } else {
+                                actions.push(GameSyncAction::Update {
+                                    index,
+                                    status,
+                                    proposal_status: claim_data.status,
+                                    deadline,
+                                    should_attempt_to_resolve: false,
+                                    should_attempt_to_claim_bond: false,
+                                });
+                            }
                         } else {
                             actions.push(GameSyncAction::Update {
                                 index,
@@ -412,18 +455,6 @@ where
                     _ => unreachable!("Unexpected game status: {:?}", status),
                 }
             }
-
-            let anchor_game_address =
-                if actions.iter().any(|action| matches!(action, GameSyncAction::Remove(_))) {
-                    let anchor_game = self
-                        .factory
-                        .get_anchor_game(self.config.game_type)
-                        .await
-                        .context("Failed to fetch anchor game for removal check")?;
-                    Some(*anchor_game.address())
-                } else {
-                    None
-                };
 
             let mut state = self.state.lock().await;
             for action in actions {
@@ -444,39 +475,9 @@ where
                             game.should_attempt_to_claim_bond = should_attempt_to_claim_bond;
                         }
                     }
-                    // Game removal policy:
-                    // - Canonical head games are retained even with zero credit to maintain chain
-                    //   consistency.
-                    // - Anchor games are retained as they serve as the root of the dispute game
-                    //   tree.
-                    // - All other games with bonds already claimed are removed to free cache
-                    //   memory.
                     GameSyncAction::Remove(index) => {
-                        let Some(game) = state.games.get(&index) else {
-                            tracing::debug!(game_index = %index, "Game not found in cache; skipping removal");
-                            continue;
-                        };
-
-                        // Determine if this game should be retained.
-                        let should_retain = if state.canonical_head_index == Some(index) {
-                            tracing::debug!(game_index = %index, "Retaining game: canonical head");
-                            true
-                        } else {
-                            let is_anchor_game = anchor_game_address == Some(game.address);
-
-                            if is_anchor_game {
-                                tracing::debug!(game_index = %index, "Retaining game: anchor game");
-                                true
-                            } else {
-                                false
-                            }
-                        };
-
-                        // Remove the game if it shouldn't be retained.
-                        if !should_retain {
-                            state.games.remove(&index);
-                            tracing::debug!(game_index = %index, "Removed game from cache");
-                        }
+                        state.games.remove(&index);
+                        tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
