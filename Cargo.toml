@@ -97,11 +97,11 @@ kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.1.
 
 # TODO: replace commit hash with tag when available
 # celo-kona
-celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed" }
-celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed" }
-celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed" }
-celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
-celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
+celo-driver = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56" }
+celo-proof = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56" }
+celo-host = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56" }
+celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
+celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
 
 # hana
 hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "v1.2.2-mocha" }
@@ -188,10 +188,10 @@ op-alloy-rpc-types-engine = { version = "0.20.0", default-features = false }
 op-alloy-network = { version = "0.20.0", default-features = false }
 
 # Celo Alloy
-celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
-celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
-celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
-celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
+celo-alloy-consensus = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
+celo-alloy-rpc-types = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
+celo-alloy-rpc-types-engine = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
+celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
 
 # Execution
 alloy-evm = { version = "0.21.0", default-features = false }
@@ -205,7 +205,7 @@ revm-precompile = { version = "27.0.0", default-features = false }
 op-revm = { version = "10.1.0", default-features = false }
 
 # Celo Execution
-alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "c719aed", default-features = false }
+alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "f466c56", default-features = false }
 
 # SP1
 sp1-sdk = { version = "=5.2.2", default-features = false, features = [
