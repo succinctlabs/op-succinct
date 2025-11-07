@@ -19,38 +19,42 @@ Create a `.env` file with the following variables:
 ### Contract Configuration
 ```bash
 # Address of the DisputeGameFactory contract on L1
-FACTORY_ADDRESS=0x...
+FACTORY_ADDRESS=
 
 # Game type identifier for OPSuccinctFaultDisputeGames
 # This must match the game type registered in the factory
 GAME_TYPE=42
-
-# L1 block number where setImplementation was called for this game type
-# Must be a finalized L1 block
-SET_IMPL_BLOCK=12345678
 ```
 
 ### Network Configuration
 ```bash
 # L1 RPC endpoint (used for Anvil fork during validation)
-L1_RPC=https://ethereum-sepolia-rpc.publicnode.com
+L1_RPC=<YOUR_L1_RPC>
 
 # L1 beacon chain RPC endpoint
-L1_BEACON_RPC=https://ethereum-sepolia-beacon-api.publicnode.com
+L1_BEACON_RPC=<YOUR_L1_BEACON_RPC>
 
 # L2 RPC endpoint
-L2_RPC=https://rpc-your-rollup.example.com
+L2_RPC=<YOUR_L2_RPC>
 
 # L2 node RPC endpoint (often same as L2_RPC)
-L2_NODE_RPC=https://rpc-your-rollup.example.com
+L2_NODE_RPC=<YOUR_L2_NODE_RPC>
 ```
 
 ### Prover Configuration
 ```bash
 # Range proof fulfillment strategy
+# Options: "reserved", "hosted", "auction"
+# - reserved: Use SP1 Network Reserved mode (requires reserved capacity)
+# - hosted: Use SP1 Network Hosted mode (managed by SP1)
+# - auction: Use SP1 Network Auction mode (open competitive bidding)
 RANGE_PROOF_STRATEGY=auction
 
 # Aggregation proof fulfillment strategy
+# Options: "reserved", "hosted", "auction"
+# Compatibility rules:
+# - If RANGE_PROOF_STRATEGY is "auction", this must also be "auction"
+# - If RANGE_PROOF_STRATEGY is "reserved" or "hosted", this can be either "reserved" or "hosted"
 AGG_PROOF_STRATEGY=auction
 
 # Set to 'true' to use AWS KMS for key management (requires KMS configuration).
@@ -65,12 +69,10 @@ NETWORK_PRIVATE_KEY=0x...
 
 ## Running Pre-Flight Validation
 
-### Basic Usage
-
 Run the preflight script from the repository root:
 
 ```bash
-cargo run --release --bin preflight
+RUST_LOG=info cargo run --release --bin preflight
 ```
 
 The script will:
@@ -82,16 +84,6 @@ The script will:
 6. Prove the game with the aggregation proof
 7. Verify the game has been validated with the aggregation proof
 
-### Using Pre-Generated Proofs
-
-To save time during iterative validation, you can reuse previously generated proofs:
-
-```bash
-cargo run --release --bin preflight -- \
-  --range-proof "12345-12355" \
-  --agg-proof "agg"
-```
-
-This skips proof generation and uses existing proofs from:
-- `data/{CHAIN_ID}/proofs/range/12345-12355.bin`
+Generated proofs are saved to:
+- `data/{CHAIN_ID}/proofs/range/{L2_START_BLOCK}-{L2_END_BLOCK}.bin`
 - `data/{CHAIN_ID}/proofs/agg/agg.bin`

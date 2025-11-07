@@ -8,7 +8,7 @@ use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use fault_proof::{
     contract::{DisputeGameFactory, OPSuccinctFaultDisputeGame, ProposalStatus},
@@ -24,7 +24,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use sp1_sdk::{utils, Prover, ProverClient, SP1ProofWithPublicValues};
+use sp1_sdk::{utils, Prover, ProverClient};
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -33,14 +33,72 @@ struct Args {
     /// The environment file path.
     #[arg(long, default_value = ".env")]
     env_file: PathBuf,
+}
 
-    /// The range proof.
-    #[arg(long)]
-    range_proof: Option<String>,
+/// Fetches the block number when the game implementation was set for the given game type.
+/// Queries the ImplementationSet event from the DisputeGameFactory contract.
+/// Uses chunked queries to avoid exceeding RPC provider's max block range limits.
+async fn get_implementation_set_block(
+    factory_address: Address,
+    provider: Arc<impl Provider + 'static>,
+    game_type: u32,
+) -> Result<u64> {
+    let factory = DisputeGameFactory::new(factory_address, provider.clone());
 
-    /// The aggregation proof.
-    #[arg(long)]
-    agg_proof: Option<String>,
+    // Get the latest block number
+    let latest_block = provider.get_block_number().await?;
+
+    // Query in chunks to avoid exceeding max block range (100,000 blocks)
+    const CHUNK_SIZE: u64 = 100_000;
+    let mut end_block = latest_block;
+
+    info!(
+        "Searching for ImplementationSet event for game type {} (latest block: {})",
+        game_type, latest_block
+    );
+
+    loop {
+        // Calculate start block for this chunk, ensuring we don't go below 0
+        let start_block = end_block.saturating_sub(CHUNK_SIZE);
+
+        // Query ImplementationSet events filtered by game type for this chunk
+        // Note: gameType is the second indexed parameter, so it's topic2
+        let filter = factory
+            .ImplementationSet_filter()
+            .topic2(U256::from(game_type))
+            .from_block(start_block)
+            .to_block(end_block);
+
+        let logs = filter.query().await?;
+
+        // If we found any events, return the most recent one
+        if !logs.is_empty() {
+            let (_event, log) = logs.last().ok_or_else(|| {
+                anyhow!("No ImplementationSet event found for game type {}", game_type)
+            })?;
+
+            let block_number = log
+                .block_number
+                .ok_or_else(|| anyhow!("Block number not found in ImplementationSet event"))?;
+
+            info!(
+                "Found ImplementationSet event for game type {} at block {}",
+                game_type, block_number
+            );
+            return Ok(block_number);
+        }
+
+        // If we've reached block 0 and haven't found anything, error out
+        if start_block == 0 {
+            return Err(anyhow!(
+                "No ImplementationSet event found for game type {} in entire chain history",
+                game_type
+            ));
+        }
+
+        // Move to the next chunk (going backwards in time)
+        end_block = start_block.saturating_sub(1);
+    }
 }
 
 /// Preflight check for the OP Succinct Fault Dispute Game.
@@ -62,11 +120,9 @@ async fn main() -> Result<()> {
     );
     info!("Factory at address: {}", factory.address());
 
-    let anchor_l2_block_number = factory
-        .get_anchor_l2_block_number(
-            env::var("GAME_TYPE")?.parse::<u32>().expect("GAME_TYPE must be set"),
-        )
-        .await?;
+    let game_type = env::var("GAME_TYPE")?.parse::<u32>().expect("GAME_TYPE must be set");
+
+    let anchor_l2_block_number = factory.get_anchor_l2_block_number(game_type).await?;
     info!("Anchor L2 block number: {}", anchor_l2_block_number);
 
     let l2_start_block = anchor_l2_block_number.to::<u64>();
@@ -86,8 +142,15 @@ async fn main() -> Result<()> {
             .context("failed to fetch finalized L1 header")?;
         info!("Finalized L1 block number: {}", finalized_l1_header.number);
 
-        let set_impl_block_number =
-            env::var("SET_IMPL_BLOCK")?.parse::<u64>().expect("SET_IMPL_BLOCK must be set");
+        // Fetch the block number when the implementation was set for this game type
+        // by querying the ImplementationSet event from the DisputeGameFactory contract.
+        let set_impl_block_number = get_implementation_set_block(
+            *factory.address(),
+            data_fetcher.l1_provider.clone(),
+            game_type,
+        )
+        .await?;
+
         let l1_header_after_set_impl = data_fetcher
             .get_l1_header(BlockId::Number(BlockNumberOrTag::Number(set_impl_block_number + 1)))
             .await?;
@@ -104,125 +167,88 @@ async fn main() -> Result<()> {
     info!("L1 head hash: {:?}", l1_head_hash);
 
     // 2. Generate the range proof.
-    let mut range_proof = if let Some(range_proof_name) = args.range_proof {
-        let range_proof_path = format!(
-            "data/{}/proofs/range/{}.bin",
-            data_fetcher.get_l2_chain_id().await.unwrap(),
-            range_proof_name
-        );
-        if !std::path::Path::new(&range_proof_path).exists() {
-            panic!("Range proof file not found at path: {}", range_proof_path);
-        }
+    let host = initialize_host(Arc::new(data_fetcher.clone()));
+    let host_args = host.fetch(l2_start_block, l2_end_block, Some(l1_head_hash), false).await?;
 
-        let range_proof = SP1ProofWithPublicValues::load(&range_proof_path)?;
-        info!("Range proof loaded from path: {}", range_proof_path);
+    info!("Generating range proof witness data...");
+    let witness_data = host.run(&host_args).await?;
+    info!("Range proof witness data generated successfully");
 
-        range_proof
-    } else {
-        let host = initialize_host(Arc::new(data_fetcher.clone()));
-        let host_args = host.fetch(l2_start_block, l2_end_block, Some(l1_head_hash), false).await?;
+    info!("Getting range proof stdin...");
+    let range_proof_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
+    info!("Range proof stdin generated successfully");
 
-        info!("Generating range proof witness data...");
-        let witness_data = host.run(&host_args).await?;
-        info!("Range proof witness data generated successfully");
+    // Initialize the network prover.
+    let network_signer = get_network_signer(
+        env::var("USE_KMS_REQUESTER")?.parse::<bool>().expect("USE_KMS_REQUESTER must be set"),
+    )
+    .await?;
+    let network_mode = determine_network_mode(
+        parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
+        parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
+    )
+    .context("failed to determine network mode from range and agg fulfillment strategies")?;
+    let network_prover =
+        ProverClient::builder().network_for(network_mode).signer(network_signer).build();
+    info!("Initialized network prover successfully");
 
-        info!("Getting range proof stdin...");
-        let range_proof_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
-        info!("Range proof stdin generated successfully");
+    let (range_pk, _range_vk) = network_prover.setup(get_range_elf_embedded());
+    let mut range_proof =
+        network_prover.prove(&range_pk, &range_proof_stdin).compressed().run().unwrap();
 
-        // Initialize the network prover.
-        let network_signer = get_network_signer(
-            env::var("USE_KMS_REQUESTER")?.parse::<bool>().expect("USE_KMS_REQUESTER must be set"),
-        )
-        .await?;
-        let network_mode = determine_network_mode(
-            parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
-            parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
-        )
-        .context("failed to determine network mode from range and agg fulfillment strategies")?;
-        let network_prover =
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build();
-        info!("Initialized network prover successfully");
-
-        let (range_pk, _range_vk) = network_prover.setup(get_range_elf_embedded());
-        let range_proof =
-            network_prover.prove(&range_pk, &range_proof_stdin).compressed().run().unwrap();
-
-        // Save the proof to the proof directory corresponding to the chain ID.
-        let range_proof_dir =
-            format!("data/{}/proofs/range", data_fetcher.get_l2_chain_id().await.unwrap());
-        if !std::path::Path::new(&range_proof_dir).exists() {
-            fs::create_dir_all(&range_proof_dir).unwrap();
-        }
-        range_proof
-            .save(format!("{range_proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
-            .expect("saving proof failed");
-        info!("Range proof saved to {range_proof_dir}/{l2_start_block}-{l2_end_block}.bin");
-
-        range_proof
-    };
+    // Save the proof to the proof directory corresponding to the chain ID.
+    let range_proof_dir =
+        format!("data/{}/proofs/range", data_fetcher.get_l2_chain_id().await.unwrap());
+    if !std::path::Path::new(&range_proof_dir).exists() {
+        fs::create_dir_all(&range_proof_dir).unwrap();
+    }
+    range_proof
+        .save(format!("{range_proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
+        .expect("saving proof failed");
+    info!("Range proof saved to {range_proof_dir}/{l2_start_block}-{l2_end_block}.bin");
 
     // 3. Generate the aggregation proof.
     let boot_info: BootInfoStruct = range_proof.public_values.read();
+    assert_eq!(boot_info.l1Head, l1_head_hash, "L1 head hash mismatch");
 
-    let agg_proof = if let Some(agg_proof_name) = args.agg_proof {
-        let agg_proof_path = format!(
-            "data/{}/proofs/agg/{}.bin",
-            data_fetcher.get_l2_chain_id().await.unwrap(),
-            agg_proof_name
-        );
-        if !std::path::Path::new(&agg_proof_path).exists() {
-            panic!("Aggregation proof file not found at path: {}", agg_proof_path);
-        }
+    // Initialize the network prover.
+    let network_signer = get_network_signer(
+        env::var("USE_KMS_REQUESTER")?.parse::<bool>().expect("USE_KMS_REQUESTER must be set"),
+    )
+    .await?;
+    let network_mode = determine_network_mode(
+        parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
+        parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
+    )
+    .context("failed to determine network mode from range and agg fulfillment strategies")?;
+    let network_prover =
+        ProverClient::builder().network_for(network_mode).signer(network_signer).build();
+    info!("Initialized network prover successfully");
 
-        let agg_proof = SP1ProofWithPublicValues::load(agg_proof_path.clone())?;
-        info!("Aggregation proof loaded from path: {}", agg_proof_path);
+    let (_, range_vk) = network_prover.setup(get_range_elf_embedded());
 
-        agg_proof
-    } else {
-        assert_eq!(boot_info.l1Head, l1_head_hash, "L1 head hash mismatch");
+    let agg_proof_stdin = get_agg_proof_stdin(
+        vec![range_proof.proof],
+        vec![boot_info.clone()],
+        vec![l1_head.clone()],
+        &range_vk,
+        boot_info.l1Head,
+        address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"), /* prover_address: anvil
+                                                                 * account 0 */
+    )
+    .expect("failed to get agg proof stdin");
 
-        // Initialize the network prover.
-        let network_signer = get_network_signer(
-            env::var("USE_KMS_REQUESTER")?.parse::<bool>().expect("USE_KMS_REQUESTER must be set"),
-        )
-        .await?;
-        let network_mode = determine_network_mode(
-            parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
-            parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
-        )
-        .context("failed to determine network mode from range and agg fulfillment strategies")?;
-        let network_prover =
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build();
-        info!("Initialized network prover successfully");
+    let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+    let agg_proof = network_prover.prove(&agg_pk, &agg_proof_stdin).plonk().run().unwrap();
 
-        let (_, range_vk) = network_prover.setup(get_range_elf_embedded());
+    let agg_proof_dir =
+        format!("data/{}/proofs/agg", data_fetcher.get_l2_chain_id().await.unwrap());
+    if !std::path::Path::new(&agg_proof_dir).exists() {
+        fs::create_dir_all(&agg_proof_dir).unwrap();
+    }
 
-        let agg_proof_stdin = get_agg_proof_stdin(
-            vec![range_proof.proof],
-            vec![boot_info.clone()],
-            vec![l1_head.clone()],
-            &range_vk,
-            boot_info.l1Head,
-            address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"), /* prover_address: anvil
-                                                                     * account 0 */
-        )
-        .expect("failed to get agg proof stdin");
-
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
-        let agg_proof = network_prover.prove(&agg_pk, &agg_proof_stdin).plonk().run().unwrap();
-
-        let agg_proof_dir =
-            format!("data/{}/proofs/agg", data_fetcher.get_l2_chain_id().await.unwrap());
-        if !std::path::Path::new(&agg_proof_dir).exists() {
-            fs::create_dir_all(&agg_proof_dir).unwrap();
-        }
-
-        agg_proof.save(format!("{agg_proof_dir}/agg.bin")).expect("saving proof failed");
-        info!("Agg proof saved to {agg_proof_dir}/agg.bin");
-
-        agg_proof
-    };
+    agg_proof.save(format!("{agg_proof_dir}/agg.bin")).expect("saving proof failed");
+    info!("Agg proof saved to {agg_proof_dir}/agg.bin");
 
     // 4. Spin up anvil.
     let l1_head_number =
@@ -273,6 +299,20 @@ async fn main() -> Result<()> {
     info!("Game address: {}", game_address);
 
     let game = OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone());
+
+    // Debug: Check what the game expects
+    let game_l1_head = game.l1Head().call().await?;
+    info!("Game's L1 head: {:?}", game_l1_head);
+    info!("Proof's L1 head (boot_info.l1Head): {:?}", boot_info.l1Head);
+
+    if game_l1_head != boot_info.l1Head {
+        return Err(anyhow!(
+            "L1 head mismatch! Game expects {:?} but proof contains {:?}",
+            game_l1_head,
+            boot_info.l1Head
+        ));
+    }
+
     let tx = game.prove(agg_proof.bytes().into()).send().await?;
 
     let _: String = client.request("evm_mine", Vec::<serde_json::Value>::new()).await?;
