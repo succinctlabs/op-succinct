@@ -1418,8 +1418,7 @@ where
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
         let starting_l2_block_number = game.startingBlockNumber().call().await?;
         let l2_block_number = game.l2BlockNumber().call().await?;
-        let start_block =
-            l2_block_number.to::<u64>().saturating_sub(starting_l2_block_number.to::<u64>());
+        let start_block = starting_l2_block_number.to::<u64>();
         let end_block = l2_block_number.to::<u64>();
 
         tracing::info!(
