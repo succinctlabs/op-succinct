@@ -138,6 +138,14 @@ impl ProposerState {
     }
 }
 
+/// Snapshot of the proposer's cached state for testing and monitoring.
+#[derive(Clone, Debug)]
+pub struct ProposerStateSnapshot {
+    pub anchor_index: Option<U256>,
+    pub canonical_head_index: Option<U256>,
+    pub games: Vec<(U256, Address)>,
+}
+
 #[derive(Clone)]
 pub struct OPSuccinctProposer<P, H: OPSuccinctHost>
 where
@@ -213,6 +221,16 @@ where
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(Mutex::new(initial_state)),
         })
+    }
+
+    /// Returns a lightweight snapshot of the proposer's cached state.
+    pub async fn state_snapshot(&self) -> ProposerStateSnapshot {
+        let state = self.state.lock().await;
+        ProposerStateSnapshot {
+            anchor_index: state.anchor_game.as_ref().map(|game| game.index),
+            canonical_head_index: state.canonical_head_index,
+            games: state.games.values().map(|game| (game.index, game.address)).collect(),
+        }
     }
 
     /// Runs the proposer indefinitely.
@@ -376,7 +394,50 @@ where
                         let credit = contract.credit(signer_address).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
-                            actions.push(GameSyncAction::Remove(index));
+                            // Game removal policy:
+                            // - Canonical head games are retained even with zero credit to maintain
+                            //   chain consistency.
+                            // - Anchor games are retained as they serve as the root of the dispute
+                            //   game tree.
+                            // - All other games with bonds already claimed are removed to free
+                            //   cache memory.
+
+                            let canonical_head_index = {
+                                let state = self.state.lock().await;
+                                state.canonical_head_index
+                            };
+
+                            let should_remove = if canonical_head_index == Some(index) {
+                                tracing::debug!(game_index = %index, "Retaining game: canonical head");
+                                false
+                            } else {
+                                let anchor_game = self
+                                    .factory
+                                    .get_anchor_game(self.config.game_type)
+                                    .await
+                                    .context("Failed to fetch anchor game for removal check")?;
+                                let anchor_game_address = *anchor_game.address();
+
+                                if anchor_game_address == game_address {
+                                    tracing::debug!(game_index = %index, "Retaining game: anchor game");
+                                    false
+                                } else {
+                                    true
+                                }
+                            };
+
+                            if should_remove {
+                                actions.push(GameSyncAction::Remove(index));
+                            } else {
+                                actions.push(GameSyncAction::Update {
+                                    index,
+                                    status,
+                                    proposal_status: claim_data.status,
+                                    deadline,
+                                    should_attempt_to_resolve: false,
+                                    should_attempt_to_claim_bond: false,
+                                });
+                            }
                         } else {
                             actions.push(GameSyncAction::Update {
                                 index,
@@ -415,16 +476,8 @@ where
                         }
                     }
                     GameSyncAction::Remove(index) => {
-                        let is_canonical_head = state.canonical_head_index == Some(index);
-
-                        if is_canonical_head {
-                            tracing::debug!(
-                                game_index = %index,
-                                "Retaining canonical head game in cache despite zero credit"
-                            );
-                        } else {
-                            state.games.remove(&index);
-                        }
+                        state.games.remove(&index);
+                        tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
@@ -835,48 +888,98 @@ where
 
     /// Fetch game from the factory.
     ///
-    /// Drop game if the game type is invalid or the output root is not valid.
-    /// Drop game if the parent game does not exist.
+    /// Drop game if:
+    /// - The game type is not supported.
+    /// - The game type does not respect the expected type when created.
+    /// - The output root claim is invalid.
+    /// - The parent game does not exist in cache if it should have one.
     async fn fetch_game(&self, index: U256) -> Result<()> {
+        let mut state = self.state.lock().await;
+
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
+        let game_type = game.gameType;
+
+        // Drop unsupported game types.
+        if game_type != self.config.game_type {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game: unsupported game type"
+            );
+            state.cursor = Some(index);
+            return Ok(());
+        }
+
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
-        let (parent_index, proposal_status, deadline) = match contract.claimData().call().await {
-            Ok(data) => (data.parentIndex, data.status, U256::from(data.deadline).to::<u64>()),
-            Err(error) => {
-                tracing::debug!(game_index = %index, ?game_address, ?error,
-                    "Falling back to legacy game with dummy claim data");
-                (u32::MAX, ProposalStatus::Unchallenged, 0)
-            }
-        };
-
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
         let status = contract.status().call().await?;
+        let claim_data = contract.claimData().call().await?;
 
-        let mut state = self.state.lock().await;
+        let (parent_index, proposal_status, deadline) = (
+            claim_data.parentIndex,
+            claim_data.status,
+            U256::from(claim_data.deadline).to::<u64>(),
+        );
 
-        if !was_respected || output_root != claim {
-            tracing::debug!(game_index = %index, ?game_address,
-                "Dropping game due to invalid game type or output root");
+        // Drop games whose type does not respect the expected type.
+        if !was_respected {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address, game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game: game type mismatch during creation"
+            );
             state.cursor = Some(index);
             return Ok(());
         }
 
+        // Validate output root. If invalid, drop the game, setting the cursor to this index.
+        if output_root != claim {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                ?claim,
+                expected_output_root = ?output_root,
+                "Dropping game: invalid output root claim"
+            );
+            state.cursor = Some(index);
+            return Ok(());
+        }
+
+        // Ensure parent exists in cache if applicable.
         if parent_index != u32::MAX {
             let parent_idx = U256::from(parent_index);
             if !state.games.contains_key(&parent_idx) {
-                tracing::debug!(game_index = %index, ?game_address,
-                    parent_index = %parent_idx, "Dropping game due to missing parent");
+                tracing::debug!(
+                    game_index = %index,
+                    ?game_address,
+                    parent_index = %parent_idx,
+                    "Dropping game: parent not found in cache"
+                );
                 state.cursor = Some(index);
                 return Ok(());
             }
         }
 
-        tracing::info!(game_index = %index, ?game_address, parent_index = %parent_index, l2_block = %l2_block, ?status, ?proposal_status, deadline = %deadline, "Adding game to cache");
+        tracing::info!(
+            game_index = %index,
+            ?game_type,
+            ?game_address,
+            parent_index = %parent_index,
+            l2_block = %l2_block,
+            ?status,
+            ?proposal_status,
+            deadline = %deadline,
+            "Adding game to cache"
+        );
+
         state.games.insert(
             index,
             Game {
