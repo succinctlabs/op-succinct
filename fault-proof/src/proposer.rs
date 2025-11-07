@@ -837,7 +837,7 @@ where
     ///
     /// Drop game if:
     /// - The game type is not supported.
-    /// - The game type deos not respect the expected type when created.
+    /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
     /// - The parent game does not exist in cache if it should have one.
     async fn fetch_game(&self, index: U256) -> Result<()> {

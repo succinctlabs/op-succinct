@@ -423,9 +423,9 @@ mod e2e {
         .await?;
         info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
-        let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
         let tracked_games =
-            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
+            wait_and_track_games(&factory_reader, TEST_GAME_TYPE, 3, Duration::from_secs(120))
+                .await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
 
