@@ -256,6 +256,7 @@ where
             // 1. Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync proposer state: {:?}", e);
+                continue
             }
 
             // 2. Handle completed tasks.
