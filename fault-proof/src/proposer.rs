@@ -325,22 +325,27 @@ where
         let mut anchor_deadline: Option<u64> = None;
 
         loop {
-            let (game_deadline, game_address) = self.fetch_game(index).await?;
+            let fetch_result = self.fetch_game(index).await?;
 
-            // First time we hit the anchor, record its deadline or stop if missing.
-            if anchor_deadline.is_none() && anchor_address == &game_address {
-                match game_deadline {
-                    Some(d) => anchor_deadline = Some(d),
-                    None => break, // anchor without deadline is legacy -> terminate
+            match fetch_result {
+                GameFetchResult::Dropped { game_address } => {
+                    // Stop fetching once we find the anchor on an unsupported game.
+                    if &game_address == anchor_address {
+                        break
+                    }
                 }
-            }
+                GameFetchResult::Added { game_address, deadline } => {
+                    // First time we hit the anchor, record its deadline
+                    if &game_address == anchor_address {
+                        anchor_deadline = Some(deadline);
+                    }
 
-            // Once we know the anchor deadline, enforce the lag constraint.
-            if let Some(anchor_d) = anchor_deadline {
-                match game_deadline {
-                    Some(d) if anchor_d.abs_diff(d) > MAX_GAME_DEADLINE_LAG => break,
-                    None => break,
-                    _ => {}
+                    // Once we know the anchor deadline, enforce the lag constraint.
+                    if let Some(anchor_d) = anchor_deadline {
+                        if anchor_d.abs_diff(deadline) > MAX_GAME_DEADLINE_LAG {
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -348,7 +353,7 @@ where
                 break;
             }
 
-            index -= U256::from(1);
+            index = index.saturating_sub(U256::from(1));
         }
 
         {
@@ -948,7 +953,7 @@ where
     /// - The game type is not supported.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
-    async fn fetch_game(&self, index: U256) -> Result<(Option<u64>, Address)> {
+    async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
         let mut state = self.state.lock().await;
 
         let game = self.factory.gameAtIndex(index).call().await?;
@@ -964,7 +969,7 @@ where
                 expected_game_type = self.config.game_type,
                 "Dropping game: unsupported game type"
             );
-            return Ok((None, game_address));
+            return Ok(GameFetchResult::Dropped { game_address });
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -990,7 +995,7 @@ where
                 expected_game_type = self.config.game_type,
                 "Dropping game: game type mismatch during creation"
             );
-            return Ok((Some(deadline), game_address));
+            return Ok(GameFetchResult::Dropped { game_address });
         }
 
         // Validate output root. If invalid, drop the game, setting the cursor to this index.
@@ -1002,7 +1007,7 @@ where
                 expected_output_root = ?output_root,
                 "Dropping game: invalid output root claim"
             );
-            return Ok((Some(deadline), game_address));
+            return Ok(GameFetchResult::Dropped { game_address });
         }
 
         tracing::info!(
@@ -1032,7 +1037,7 @@ where
             },
         );
 
-        Ok((Some(deadline), game_address))
+        Ok(GameFetchResult::Added { game_address, deadline })
     }
 
     /// Handles the creation of a new game if conditions are met.
@@ -1651,4 +1656,14 @@ where
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(())
     }
+}
+
+/// Result of fetching a game from the factory.
+///
+/// Games can either be added to the cache or dropped based on validation criteria.
+enum GameFetchResult {
+    /// Game was dropped and not added to cache (e.g., unsupported type, invalid output root)
+    Dropped { game_address: Address },
+    /// Game was successfully validated and added to cache
+    Added { game_address: Address, deadline: u64 },
 }
