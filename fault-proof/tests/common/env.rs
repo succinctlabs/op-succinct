@@ -1,19 +1,36 @@
 //! Common test environment setup utilities.
-use std::sync::OnceLock;
+use std::{
+    str::FromStr,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
-use alloy_primitives::Address;
+use alloy_network::EthereumWallet;
+use alloy_primitives::{Address, FixedBytes, Uint, U256};
+use alloy_provider::ProviderBuilder;
+use alloy_rpc_types_eth::TransactionReceipt;
+use alloy_signer_local::PrivateKeySigner;
+use alloy_sol_types::SolValue;
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
+use op_succinct_bindings::{
+    anchor_state_registry::AnchorStateRegistry::{self, AnchorStateRegistryInstance},
+    dispute_game_factory::DisputeGameFactory::{self, DisputeGameFactoryInstance},
+    op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::{
+        self, OPSuccinctFaultDisputeGameInstance,
+    },
+};
 use op_succinct_host_utils::{
-    fetcher::{get_rpcs_from_env, RPCConfig},
+    fetcher::{get_rpcs_from_env, OPSuccinctDataFetcher, RPCConfig},
     OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
+use tokio::task::JoinHandle;
 use tracing::{info, Level};
 
-use fault_proof::config::FaultDisputeGameConfig;
+use fault_proof::{config::FaultDisputeGameConfig, L2ProviderTrait};
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
-use crate::common::{constants::*, ANVIL};
+use crate::common::{constants::*, start_proposer, warp_time, ANVIL};
 
 use super::{
     anvil::{setup_anvil_chain, AnvilFork},
@@ -24,6 +41,8 @@ use super::{
 pub struct TestEnvironment {
     /// RPC configuration
     pub rpc_config: RPCConfig,
+    /// Data fetcher
+    pub fetcher: OPSuccinctDataFetcher,
     /// Anvil fork
     pub anvil: AnvilFork,
     /// Deployed contracts
@@ -72,6 +91,8 @@ impl TestEnvironment {
         // Get environment variables
         let mut rpc_config = get_rpcs_from_env();
 
+        let fetcher = OPSuccinctDataFetcher::new();
+
         // Setup fresh Anvil chain
         let anvil = setup_anvil_chain().await?;
 
@@ -88,7 +109,121 @@ impl TestEnvironment {
         info!("=== Deploying Contracts ===");
         let deployed = deploy_test_contracts(&anvil.endpoint, DEPLOYER_PRIVATE_KEY).await?;
 
-        Ok(Self { rpc_config, anvil, deployed })
+        Ok(Self { rpc_config, fetcher, anvil, deployed })
+    }
+
+    pub async fn start_proposer(&self) -> Result<JoinHandle<Result<()>>> {
+        let handle = start_proposer(
+            &self.rpc_config,
+            PROPOSER_PRIVATE_KEY,
+            &self.deployed.factory,
+            TEST_GAME_TYPE,
+        )
+        .await?;
+        Ok(handle)
+    }
+
+    pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
+        let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
+        let provider_with_signer = ProviderBuilder::new()
+            .wallet(EthereumWallet::from(wallet))
+            .connect_http(self.anvil.endpoint.parse::<Url>()?);
+
+        Ok(Arc::new(provider_with_signer))
+    }
+
+    pub async fn compute_output_root_at_block(&self, block: u64) -> Result<FixedBytes<32>> {
+        self.fetcher.l2_provider.compute_output_root_at_block(U256::from(block)).await
+    }
+
+    pub fn factory(
+        &self,
+    ) -> Result<DisputeGameFactoryInstance<impl alloy_provider::Provider + Clone>> {
+        let provider_with_signer = self.provider_with_signer()?;
+        let factory = DisputeGameFactory::new(self.deployed.factory, provider_with_signer.clone());
+        Ok(factory)
+    }
+
+    pub async fn anchor_registry_address(&self, game_address: Address) -> Result<Address> {
+        let provider_with_signer = self.provider_with_signer()?;
+        let anchor_registry_addr =
+            OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone())
+                .anchorStateRegistry()
+                .call()
+                .await?;
+        Ok(anchor_registry_addr)
+    }
+
+    pub async fn anchor_registry(
+        &self,
+        game_address: Address,
+    ) -> Result<AnchorStateRegistryInstance<impl alloy_provider::Provider + Clone>> {
+        let provider_with_signer = self.provider_with_signer()?;
+        let anchor_registry_addr = self.anchor_registry_address(game_address).await?;
+        let anchor_registry =
+            AnchorStateRegistry::new(anchor_registry_addr, provider_with_signer.clone());
+        Ok(anchor_registry)
+    }
+
+    pub async fn fault_dispute_game(
+        &self,
+        game_address: Address,
+    ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
+        let provider_with_signer = self.provider_with_signer()?;
+        let fault_dispute_game =
+            OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone());
+        Ok(fault_dispute_game)
+    }
+
+    pub async fn create_game(
+        &self,
+        root_claim: FixedBytes<32>,
+        block: u64,
+        parent_id: u32,
+        init_bond: Uint<256, 4>,
+    ) -> Result<TransactionReceipt> {
+        let factory = self.factory()?;
+        let extra_data = (U256::from(block), parent_id).abi_encode_packed();
+        let receipt = factory
+            .create(TEST_GAME_TYPE, root_claim, extra_data.into())
+            .value(init_bond)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+        Ok(receipt)
+    }
+
+    pub async fn resolve_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(address).await?;
+        let receipt =
+            game.resolve().send().await?.with_required_confirmations(1).get_receipt().await?;
+        Ok(receipt)
+    }
+
+    pub async fn set_anchor_state(&self, game_address: Address) -> Result<TransactionReceipt> {
+        let anchor_registry = self.anchor_registry(game_address).await?;
+        let receipt = anchor_registry
+            .setAnchorState(game_address)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+        Ok(receipt)
+    }
+
+    pub async fn warp_time(&self, secs: u64) -> Result<()> {
+        warp_time(&self.anvil.provider, Duration::from_secs(secs)).await
+    }
+
+    pub async fn latest_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
+        let factory = self.factory()?;
+        let game_count = factory.gameCount().call().await?;
+        let index = game_count.saturating_sub(U256::from(1));
+        let game_info = factory.gameAtIndex(index).call().await?;
+        Ok((index, game_info.proxy_))
     }
 }
 
