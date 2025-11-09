@@ -65,33 +65,9 @@ pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> Faul
 }
 
 impl TestEnvironment {
-    /// Initialize logging for tests
-    pub fn init_logging() {
-        static INIT: OnceLock<()> = OnceLock::new();
-
-        INIT.get_or_init(|| {
-            let level = std::env::var("RUST_LOG")
-                .unwrap_or("info".to_string())
-                .parse()
-                .unwrap_or(Level::INFO);
-
-            let filter = Targets::new().with_targets([
-                ("fault_proof", level),
-                ("op_succinct_fp", level),
-                ("op-succinct-client-utils", level),
-                ("op_succinct_ethereum_host_utils", level),
-                ("op_succinct_host_utils", level),
-                ("op_succinct_proof_utils", level),
-                ("op_succinct_signer_utils", level),
-            ]);
-
-            tracing_subscriber::registry().with(fmt::layer().compact()).with(filter).init()
-        });
-    }
-
     /// Create a new test environment with common setup
     pub async fn setup() -> Result<Self> {
-        Self::init_logging();
+        init_logging();
 
         // Get environment variables
         let mut rpc_config = get_rpcs_from_env();
@@ -114,4 +90,26 @@ impl TestEnvironment {
 
         Ok(Self { rpc_config, anvil, deployed })
     }
+}
+
+/// Initialize logging for tests
+pub fn init_logging() {
+    static INIT: OnceLock<()> = OnceLock::new();
+
+    INIT.get_or_init(|| {
+        let level =
+            std::env::var("RUST_LOG").unwrap_or("info".to_string()).parse().unwrap_or(Level::INFO);
+
+        let filter = Targets::new().with_targets([
+            ("fault_proof", level),
+            ("op_succinct_fp", level),
+            ("op-succinct-client-utils", level),
+            ("op_succinct_ethereum_host_utils", level),
+            ("op_succinct_host_utils", level),
+            ("op_succinct_proof_utils", level),
+            ("op_succinct_signer_utils", level),
+        ]);
+
+        tracing_subscriber::registry().with(fmt::layer().compact()).with(filter).init()
+    });
 }
