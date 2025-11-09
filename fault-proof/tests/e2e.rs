@@ -998,7 +998,6 @@ mod e2e {
     // Verifies new games follow the updated anchor branch after reset events.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_game_chain_validation_anchor_reset() -> Result<()> {
-        TestEnvironment::init_logging();
         info!("=== Test: Game Chain Validation - Anchor Reset ===");
 
         // Setup common test environment
@@ -1226,7 +1225,6 @@ mod e2e {
     // game.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_recovery_after_canonical_head_invalidation() -> Result<()> {
-        TestEnvironment::init_logging();
         info!("=== Test: Proposer Recovery After Runtime Canonical Head Invalidation ===");
 
         // Setup common test environment
@@ -1386,7 +1384,6 @@ mod e2e {
     // the anchor game in its cache even after claiming bonds for finalized games.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_retains_anchor_after_bond_claim() -> Result<()> {
-        TestEnvironment::init_logging();
         let env = TestEnvironment::setup().await?;
 
         let proposer = Arc::new(
