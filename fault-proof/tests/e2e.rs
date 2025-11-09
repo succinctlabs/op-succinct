@@ -1000,142 +1000,69 @@ mod e2e {
     async fn test_game_chain_validation_anchor_reset() -> Result<()> {
         info!("=== Test: Game Chain Validation - Anchor Reset ===");
 
-        // Setup common test environment
         let env = TestEnvironment::setup().await?;
 
-        // Create a signer for creating games
-        let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
-        let provider_with_signer = ProviderBuilder::new()
-            .wallet(EthereumWallet::from(wallet))
-            .connect_http(env.anvil.endpoint.parse::<Url>()?);
+        let factory = env.factory()?;
 
-        let factory = DisputeGameFactory::new(env.deployed.factory, provider_with_signer.clone());
         let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
 
         // Prevent games from being retired immediately after deployment
         info!("Advancing time to ensure games won't be retired...");
-        warp_time(&env.anvil.provider, Duration::from_secs(10)).await?;
+        env.warp_time(10).await?;
 
         // === PHASE 1: Create initial canonical chain (A0 -> A1) ===
         info!("=== Phase 1: Creating Initial Canonical Chain ===");
-        let fetcher = op_succinct_host_utils::fetcher::OPSuccinctDataFetcher::new();
 
         let a0_block = env.anvil.starting_l2_block_number + 1;
-        let a0_root =
-            fetcher.l2_provider.compute_output_root_at_block(U256::from(a0_block)).await?;
-        let a0_extra = (U256::from(a0_block), u32::MAX).abi_encode_packed();
-
-        let tx = factory
-            .create(TEST_GAME_TYPE, a0_root, a0_extra.into())
-            .value(init_bond)
-            .send()
-            .await?;
-        let receipt = tx.with_required_confirmations(3).get_receipt().await?;
+        let a0_root = env.compute_output_root_at_block(a0_block).await?;
+        let receipt = env.create_game(a0_root, a0_block, u32::MAX, init_bond).await?;
         info!("Game A0 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let game_count = factory.gameCount().call().await?;
-        let a0_index = game_count - U256::from(1);
-        let a0_info = factory.gameAtIndex(a0_index).call().await?;
-        let a0_address = a0_info.proxy_;
+        let (a0_index, a0_address) = env.latest_game_info().await?;
         info!("✓ Created game A0 at index {} (address: {})", a0_index, a0_address);
 
         let a1_block = a0_block + 10;
-        let a1_root =
-            fetcher.l2_provider.compute_output_root_at_block(U256::from(a1_block)).await?;
-        let a1_extra = (U256::from(a1_block), a0_index.to::<u32>()).abi_encode_packed();
-
-        let tx = factory
-            .create(TEST_GAME_TYPE, a1_root, a1_extra.into())
-            .value(init_bond)
-            .send()
-            .await?;
-        let receipt = tx.with_required_confirmations(3).get_receipt().await?;
+        let a1_root = env.compute_output_root_at_block(a1_block).await?;
+        let receipt = env.create_game(a1_root, a1_block, u32::MAX, init_bond).await?;
         info!("Game A1 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let game_count = factory.gameCount().call().await?;
-        let a1_index = game_count - U256::from(1);
-        let a1_info = factory.gameAtIndex(a1_index).call().await?;
-        let a1_address = a1_info.proxy_;
+        let (a1_index, a1_address) = env.latest_game_info().await?;
         info!("✓ Created game A1 at index {} (address: {})", a1_index, a1_address);
 
         // Record current anchor game
-        let anchor_registry_addr =
-            op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
-                a0_address,
-                provider_with_signer.clone(),
-            )
-            .anchorStateRegistry()
-            .call()
-            .await?;
-        let anchor_registry = op_succinct_bindings::anchor_state_registry::AnchorStateRegistry::new(
-            anchor_registry_addr,
-            provider_with_signer.clone(),
-        );
+        let anchor_registry = env.anchor_registry(a0_address).await?;
         let initial_anchor = anchor_registry.anchorGame().call().await?;
         info!("Initial anchor game: {}", initial_anchor);
 
         // === PHASE 2: Create new anchor chain (B0 -> B1) ===
         info!("=== Phase 2: Creating Alternate Anchor Chain ===");
-        let b0_block = a1_block + 10;
-        let b0_root =
-            fetcher.l2_provider.compute_output_root_at_block(U256::from(b0_block)).await?;
-        let b0_extra = (U256::from(b0_block), u32::MAX).abi_encode_packed();
 
-        let tx = factory
-            .create(TEST_GAME_TYPE, b0_root, b0_extra.into())
-            .value(init_bond)
-            .send()
-            .await?;
-        let receipt = tx.with_required_confirmations(3).get_receipt().await?;
+        let b0_block = a1_block + 10;
+        let b0_root = env.compute_output_root_at_block(b0_block).await?;
+        let receipt = env.create_game(b0_root, b0_block, u32::MAX, init_bond).await?;
         info!("Game B0 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let game_count = factory.gameCount().call().await?;
-        let b0_index = game_count - U256::from(1);
-        let b0_info = factory.gameAtIndex(b0_index).call().await?;
-        let b0_address = b0_info.proxy_;
+        let (b0_index, b0_address) = env.latest_game_info().await?;
         info!("✓ Created game B0 at index {} (address: {})", b0_index, b0_address);
 
         let b1_block = b0_block + 10;
-        let b1_root =
-            fetcher.l2_provider.compute_output_root_at_block(U256::from(b1_block)).await?;
-        let b1_extra = (U256::from(b1_block), b0_index.to::<u32>()).abi_encode_packed();
-
-        let tx = factory
-            .create(TEST_GAME_TYPE, b1_root, b1_extra.into())
-            .value(init_bond)
-            .send()
-            .await?;
-        let receipt = tx.with_required_confirmations(3).get_receipt().await?;
+        let b1_root = env.compute_output_root_at_block(b1_block).await?;
+        let receipt = env.create_game(b1_root, b1_block, b0_index.to::<u32>(), init_bond).await?;
         info!("Game B1 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let game_count = factory.gameCount().call().await?;
-        let b1_index = game_count - U256::from(1);
-        let b1_info = factory.gameAtIndex(b1_index).call().await?;
-        let b1_address = b1_info.proxy_;
+        let (b1_index, b1_address) = env.latest_game_info().await?;
         info!("✓ Created game B1 at index {} (address: {})", b1_index, b1_address);
 
         // Resolve the new chain so it becomes eligible as the anchor
         let finality_wait =
             DISPUTE_GAME_FINALITY_DELAY_SECONDS + MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 60;
         info!("Warping time by {} seconds to finalize new chain", finality_wait);
-        warp_time(&env.anvil.provider, Duration::from_secs(finality_wait)).await?;
+        env.warp_time(finality_wait).await?;
 
-        let b0_game =
-            op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
-                b0_address,
-                provider_with_signer.clone(),
-            );
-        let tx = b0_game.resolve().send().await?;
-        let receipt = tx.with_required_confirmations(1).get_receipt().await?;
+        let receipt = env.resolve_game(b0_address).await?;
         info!("Game B0 resolved in tx {:?}", receipt.transaction_hash);
 
-        let b1_game =
-            op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
-                b1_address,
-                provider_with_signer.clone(),
-            );
-        let tx = b1_game.resolve().send().await?;
-        let receipt = tx.with_required_confirmations(1).get_receipt().await?;
+        let receipt = env.resolve_game(b1_address).await?;
         info!("Game B1 resolved in tx {:?}", receipt.transaction_hash);
 
         // Advance beyond finality delay so the new chain is finalized
@@ -1143,21 +1070,11 @@ mod e2e {
             "Warping time by {} seconds to finalize resolved games",
             DISPUTE_GAME_FINALITY_DELAY_SECONDS + 60
         );
-        warp_time(
-            &env.anvil.provider,
-            Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 60),
-        )
-        .await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 60).await?;
 
         // Force anchor to update to the new chain rooted at B0
-        let tx = anchor_registry
-            .setAnchorState(b0_address)
-            .send()
-            .await?
-            .with_required_confirmations(1)
-            .get_receipt()
-            .await?;
-        info!("Anchor reset tx confirmed in block {:?}", tx.block_number);
+        let receipt = env.set_anchor_state(b0_address).await?;
+        info!("Anchor reset tx confirmed in block {:?}", receipt.block_number);
 
         // Ensure anchor switched to new chain
         let updated_anchor = anchor_registry.anchorGame().call().await?;
@@ -1169,29 +1086,19 @@ mod e2e {
 
         // === PHASE 3: Start proposer and verify it follows new anchor chain ===
         info!("=== Phase 3: Starting Proposer to Observe Anchor Reset ===");
-        let proposer_handle = start_proposer(
-            &env.rpc_config,
-            PROPOSER_PRIVATE_KEY,
-            &env.deployed.factory,
-            TEST_GAME_TYPE,
-        )
-        .await?;
+
+        let proposer_handle = env.start_proposer().await?;
         info!("✓ Proposer service started");
 
-        let initial_game_count = game_count;
         let mut new_game_parent_verified = false;
-
         for _ in 0..30 {
             tokio::time::sleep(Duration::from_secs(2)).await;
             let current_count = factory.gameCount().call().await?;
 
-            if current_count > initial_game_count {
+            if current_count > b1_index + U256::from(1) {
                 let new_game_index = current_count - U256::from(1);
                 let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
-                let new_game = op_succinct_bindings::op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::new(
-                new_game_info.proxy_,
-                env.anvil.provider.clone(),
-            );
+                let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
                 let claim_data = new_game.claimData().call().await?;
 
                 assert_eq!(
