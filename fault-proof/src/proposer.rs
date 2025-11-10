@@ -100,14 +100,18 @@ pub struct Game {
 /// Tracks:
 /// - `anchor_game`: the latest anchor fetched from the registry
 /// - `canonical_head_index`/`canonical_head_l2_block`: the best known game for scheduling work
-/// - `cursor`: the last index of factory's dispute game list processed during incremental syncs
+/// - `start_cursor`: the index in the factory's dispute-game list to start from during incremental
+///   reverse-chronological syncs
+/// - `end_cursor`: the last index in the factory's dispute-game list processed during incremental
+///   backward syncs
 /// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
 struct ProposerState {
     anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
-    cursor: U256,
+    start_cursor: Option<U256>,
+    end_cursor: U256,
     games: HashMap<U256, Game>,
 }
 
@@ -317,13 +321,30 @@ where
         let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
         let anchor_address = anchor_game.address();
 
-        let cursor = {
+        // Determines the starting cursor used when fetching new games backwards.
+        //
+        // If some games were fetched in previous rounds but syncing stopped mid-way, we avoid
+        // refetching those already cached. This preserves partial progress and reduces redundant
+        // RPC calls.
+        let start_cursor = {
             let state = self.state.lock().await;
-            let current_cursor = state.cursor;
+            if let Some(start_cursor) = state.start_cursor {
+                start_cursor
+            } else {
+                latest_index
+            }
+        };
+
+        // Determines the end cursor (inclusive) when fetching new games backwards.
+        //
+        // If the factory appears to have been reset (latest_index < end_cursor),
+        // reset the cursor to zero to avoid skipping any historical games.
+        let end_cursor = {
+            let state = self.state.lock().await;
+            let current_cursor = state.end_cursor;
 
             // This should never/rarely happen but in a case where the factory is redeployed/reset
-            // while the proposer keeps running, the cursor is reset to zero to avoid skipping
-            // any games.
+            // while the proposer keeps running.
             if latest_index < current_cursor {
                 U256::from(0)
             } else {
@@ -331,7 +352,7 @@ where
             }
         };
 
-        let mut index = latest_index;
+        let mut index = start_cursor;
         let mut anchor_deadline: Option<u64> = None;
 
         loop {
@@ -359,16 +380,19 @@ where
                 }
             }
 
-            if index == cursor {
+            if index == end_cursor {
                 break;
             }
 
             index = index.saturating_sub(U256::from(1));
+            let mut state = self.state.lock().await;
+            state.start_cursor = Some(index);
         }
 
         {
             let mut state = self.state.lock().await;
-            state.cursor = latest_index;
+            state.start_cursor = None;
+            state.end_cursor = latest_index;
         }
 
         // 2. Synchronize the status of all cached games.
