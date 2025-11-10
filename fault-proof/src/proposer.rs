@@ -319,7 +319,16 @@ where
 
         let cursor = {
             let state = self.state.lock().await;
-            state.cursor
+            let current_cursor = state.cursor;
+
+            // This should never/rarely happen but in a case where the factory is redeployed/reset
+            // while the proposer keeps running, the cursor is reset to zero to avoid skipping
+            // any games.
+            if latest_index < current_cursor {
+                U256::from(0)
+            } else {
+                current_cursor
+            }
         };
 
         let mut index = latest_index;
