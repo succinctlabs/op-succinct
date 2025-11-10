@@ -340,7 +340,7 @@ mod e2e {
             let _receipt =
                 env.create_game(invalid_root, l2_block_number, u32::MAX, init_bond).await?;
 
-            let (_, game_address) = env.latest_game_info().await?;
+            let (_, game_address) = env.last_game_info().await?;
 
             invalid_games.push(game_address);
         }
@@ -373,7 +373,7 @@ mod e2e {
             &invalid_games,
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            60,
+            30,
         )
         .await?;
 
@@ -440,7 +440,7 @@ mod e2e {
 
         env.create_game(anchor_root, anchor_block, u32::MAX, init_bond).await?;
 
-        let (anchor_game_index, anchor_game_address) = env.latest_game_info().await?;
+        let (anchor_game_index, anchor_game_address) = env.last_game_info().await?;
 
         info!(
             "✓ Created valid anchor game at index {} (address: {})",
@@ -457,7 +457,7 @@ mod e2e {
         env.create_game(invalid_root, middle_block, anchor_game_index.to::<u32>(), init_bond)
             .await?;
 
-        let (middle_game_index, middle_game_address) = env.latest_game_info().await?;
+        let (middle_game_index, middle_game_address) = env.last_game_info().await?;
         info!(
             "✓ Created invalid middle game at index {} (address: {})",
             middle_game_index, middle_game_address
@@ -468,7 +468,7 @@ mod e2e {
         let child_root = env.compute_output_root_at_block(child_block).await?;
         env.create_game(child_root, child_block, middle_game_index.to::<u32>(), init_bond).await?;
 
-        let (child_game_index, child_game_address) = env.latest_game_info().await?;
+        let (child_game_index, child_game_address) = env.last_game_info().await?;
         info!(
             "✓ Created valid child game at index {} (address: {})",
             child_game_index, child_game_address
@@ -551,7 +551,7 @@ mod e2e {
         let receipt = env.create_game(parent_root, parent_block, u32::MAX, init_bond).await?;
         info!("Parent game creation tx confirmed in block {:?}", receipt.block_number);
 
-        let (parent_game_index, parent_game_address) = env.latest_game_info().await?;
+        let (parent_game_index, parent_game_address) = env.last_game_info().await?;
         info!(
             "✓ Created valid parent game at index {} (address: {})",
             parent_game_index, parent_game_address
@@ -610,7 +610,7 @@ mod e2e {
             .await?;
         info!("Child game creation tx confirmed in block {:?}", receipt.block_number);
 
-        let (child_game_index, child_game_address) = env.latest_game_info().await?;
+        let (child_game_index, child_game_address) = env.last_game_info().await?;
         info!(
             "✓ Created child game at index {} (address: {})",
             child_game_index, child_game_address
@@ -709,7 +709,7 @@ mod e2e {
         let receipt = env.create_game(a0_root, a0_block, u32::MAX, init_bond).await?;
         info!("Game A0 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let (a0_index, a0_address) = env.latest_game_info().await?;
+        let (a0_index, a0_address) = env.last_game_info().await?;
         info!("✓ Created game A0 at index {} (address: {})", a0_index, a0_address);
 
         let a1_block = a0_block + 10;
@@ -717,7 +717,7 @@ mod e2e {
         let receipt = env.create_game(a1_root, a1_block, u32::MAX, init_bond).await?;
         info!("Game A1 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let (a1_index, a1_address) = env.latest_game_info().await?;
+        let (a1_index, a1_address) = env.last_game_info().await?;
         info!("✓ Created game A1 at index {} (address: {})", a1_index, a1_address);
 
         // Record current anchor game
@@ -733,7 +733,7 @@ mod e2e {
         let receipt = env.create_game(b0_root, b0_block, u32::MAX, init_bond).await?;
         info!("Game B0 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let (b0_index, b0_address) = env.latest_game_info().await?;
+        let (b0_index, b0_address) = env.last_game_info().await?;
         info!("✓ Created game B0 at index {} (address: {})", b0_index, b0_address);
 
         let b1_block = b0_block + 10;
@@ -741,7 +741,7 @@ mod e2e {
         let receipt = env.create_game(b1_root, b1_block, b0_index.to::<u32>(), init_bond).await?;
         info!("Game B1 creation tx confirmed in block {:?}", receipt.block_number);
 
-        let (b1_index, b1_address) = env.latest_game_info().await?;
+        let (b1_index, b1_address) = env.last_game_info().await?;
         info!("✓ Created game B1 at index {} (address: {})", b1_index, b1_address);
 
         // Resolve the new chain so it becomes eligible as the anchor

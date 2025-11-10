@@ -292,7 +292,7 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
-    pub async fn latest_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
+    pub async fn last_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
         let factory = self.factory()?;
         let game_count = factory.gameCount().call().await?;
         let index = game_count.saturating_sub(U256::from(1));
