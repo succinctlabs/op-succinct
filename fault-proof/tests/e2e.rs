@@ -15,10 +15,7 @@ mod e2e {
             MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE,
             PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
         },
-        monitor::{
-            verify_all_resolved_correctly, wait_and_track_games, wait_and_verify_game_resolutions,
-            wait_for_bond_claims, wait_for_challenges, wait_for_resolutions, TrackedGame,
-        },
+        monitor::{verify_all_resolved_correctly, TrackedGame},
         TestEnvironment,
     };
     use fault_proof::{
@@ -56,12 +53,9 @@ mod e2e {
 
         // Wait for proposer to create games
         info!("=== Waiting for Game Creation ===");
-        let factory = env.factory()?;
 
         // Track first 3 games (L2 finalized head won't advance far enough for 3)
-        let tracked_games =
-            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
-
+        let tracked_games = env.wait_and_track_games(3, 120).await?;
         info!("✓ Proposer created {} games:", tracked_games.len());
         for (i, game) in tracked_games.iter().enumerate() {
             info!("  Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
@@ -73,7 +67,6 @@ mod e2e {
 
         // === PHASE 2: Challenge Period ===
         info!("=== Phase 2: Challenge Period ===");
-        info!("Warping time to near end of max challenge duration...");
 
         // Warp by max challenge duration
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
@@ -87,9 +80,7 @@ mod e2e {
         info!("=== Phase 3: Resolution ===");
 
         // Wait for games to be resolved
-        let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
-                .await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
 
         // Verify all games resolved correctly (proposer wins)
         verify_all_resolved_correctly(&resolutions)?;
@@ -106,13 +97,7 @@ mod e2e {
         info!("=== Phase 4: Bond Claims ===");
 
         // Wait for proposer to claim bonds
-        wait_for_bond_claims(
-            &env.anvil.provider,
-            &tracked_games,
-            PROPOSER_ADDRESS,
-            Duration::from_secs(120),
-        )
-        .await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -199,26 +184,19 @@ mod e2e {
         let proposer_handle = env.start_proposer().await?;
         info!("✓ Proposer started after legacy games seeded");
 
-        let tracked_games =
-            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
+        let tracked_games = env.wait_and_track_games(3, 120).await?;
         assert_eq!(tracked_games.len(), 3);
-        info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
+        info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
-        let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
-                .await?;
+
+        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
+
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        wait_for_bond_claims(
-            &env.anvil.provider,
-            &tracked_games,
-            PROPOSER_ADDRESS,
-            Duration::from_secs(120),
-        )
-        .await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -314,27 +292,19 @@ mod e2e {
         env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
         info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
-        let tracked_games =
-            wait_and_track_games(&factory_reader, TEST_GAME_TYPE, 3, Duration::from_secs(120))
-                .await?;
+        let tracked_games = env.wait_and_track_games(3, 120).await?;
         assert_eq!(tracked_games.len(), 3);
-        info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
+        info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
-        let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
-                .await?;
+
+        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
+
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        wait_for_bond_claims(
-            &env.anvil.provider,
-            &tracked_games,
-            PROPOSER_ADDRESS,
-            Duration::from_secs(120),
-        )
-        .await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -404,7 +374,7 @@ mod e2e {
 
         // === PHASE 2: Challenge Period ===
         info!("=== Phase 2: Challenge Period ===");
-        wait_for_challenges(&env.anvil.provider, &invalid_games, Duration::from_secs(60)).await?;
+        env.wait_for_challenges(&invalid_games, 60).await?;
         info!("✓ All games challenged successfully");
 
         // === PHASE 3: Resolution ===
@@ -417,12 +387,11 @@ mod e2e {
         );
 
         // Wait for and verify challenger wins
-        wait_and_verify_game_resolutions(
-            &env.anvil.provider,
+        env.wait_and_verify_game_resolutions(
             &invalid_games,
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            Duration::from_secs(30),
+            60,
         )
         .await?;
 
@@ -451,13 +420,7 @@ mod e2e {
             })
             .collect();
 
-        wait_for_bond_claims(
-            &env.anvil.provider,
-            &tracked_games,
-            CHALLENGER_ADDRESS,
-            Duration::from_secs(60),
-        )
-        .await?;
+        env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, 60).await?;
 
         // Stop challenger
         info!("=== Stopping Challenger ===");
@@ -678,20 +641,18 @@ mod e2e {
         let challenger_handle = env.start_challenger(Some(100.0)).await?;
 
         // Wait for challenge
-        wait_for_challenges(&env.anvil.provider, &[parent_game_address], Duration::from_secs(30))
-            .await?;
+        env.wait_for_challenges(&[parent_game_address], 30).await?;
         info!("✓ Parent game challenged");
 
         // Warp time to resolve as CHALLENGER_WINS (no proof submitted)
         env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION).await?;
 
         // Wait for resolution
-        wait_and_verify_game_resolutions(
-            &env.anvil.provider,
+        env.wait_and_verify_game_resolutions(
             &[parent_game_address],
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            Duration::from_secs(30),
+            30,
         )
         .await?;
         info!("✓ Parent game resolved as CHALLENGER_WINS");
@@ -891,8 +852,8 @@ mod e2e {
 
         // Wait for proposer to create 3 games
         let factory = env.factory()?;
-        let tracked_games =
-            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(150)).await?;
+
+        let tracked_games = env.wait_and_track_games(3, 150).await?;
         info!("✓ Proposer created {} games:", tracked_games.len());
 
         assert!(!proposer_handle.is_finished(), "Proposer should be running");
@@ -956,9 +917,8 @@ mod e2e {
             };
             proposer.submit_resolution_transaction(&game).await?;
         }
-        let resolutions =
-            wait_for_resolutions(&env.anvil.provider, first_two_games, Duration::from_secs(60))
-                .await?;
+
+        let resolutions = env.wait_for_resolutions(first_two_games, 60).await?;
         verify_all_resolved_correctly(&resolutions)?;
         info!("✓ First 2 games resolved as DEFENDER_WINS");
 
@@ -1044,27 +1004,16 @@ mod e2e {
             tokio::spawn(async move { proposer_clone.run().await })
         };
 
-        let factory = env.factory()?;
-
-        let tracked_games =
-            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
+        let tracked_games = env.wait_and_track_games(3, 120).await?;
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
-                .await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        wait_for_bond_claims(
-            &env.anvil.provider,
-            &tracked_games,
-            PROPOSER_ADDRESS,
-            Duration::from_secs(120),
-        )
-        .await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
 
         // Allow the proposer loop to observe the finalized games and update its cache.
         let settle_delay = Duration::from_secs(proposer.config.fetch_interval + 5);
