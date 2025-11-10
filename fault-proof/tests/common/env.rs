@@ -16,6 +16,7 @@ use anyhow::Result;
 use op_succinct_bindings::{
     anchor_state_registry::AnchorStateRegistry::{self, AnchorStateRegistryInstance},
     dispute_game_factory::DisputeGameFactory::{self, DisputeGameFactoryInstance},
+    mock_optimism_portal2::MockOptimismPortal2::{self, MockOptimismPortal2Instance},
     op_succinct_fault_dispute_game::OPSuccinctFaultDisputeGame::{
         self, OPSuccinctFaultDisputeGameInstance,
     },
@@ -32,7 +33,8 @@ use fault_proof::{config::FaultDisputeGameConfig, L2ProviderTrait};
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
 use crate::common::{
-    constants::*, contracts::send_contract_transaction, start_proposer, warp_time, ANVIL,
+    constants::*, contracts::send_contract_transaction, start_challenger, start_proposer,
+    warp_time, ANVIL,
 };
 
 use super::{
@@ -127,16 +129,50 @@ impl TestEnvironment {
         Ok(handle)
     }
 
-    pub async fn send_contract_transaction(
+    pub fn stop_proposer(&self, handle: JoinHandle<Result<()>>) {
+        handle.abort();
+        info!("✓ Proposer service stopped");
+    }
+
+    pub async fn start_challenger(
         &self,
-        call: Vec<u8>,
-        value: Option<Uint<256, 4>>,
-    ) -> Result<()> {
+        malicious_percentage: Option<f64>,
+    ) -> Result<JoinHandle<Result<()>>> {
+        let handle = start_challenger(
+            &self.rpc_config,
+            CHALLENGER_PRIVATE_KEY,
+            &self.deployed.factory,
+            TEST_GAME_TYPE,
+            malicious_percentage,
+        )
+        .await?;
+        info!("✓ Challenger service started with malicious percentage: {malicious_percentage:?}");
+        Ok(handle)
+    }
+
+    pub fn stop_challenger(&self, handle: JoinHandle<Result<()>>) {
+        handle.abort();
+        info!("✓ Challenger service stopped");
+    }
+
+    pub async fn send_factory_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {
         let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
         send_contract_transaction(
             &proposer_signer,
             &self.rpc_config.l1_rpc,
             self.deployed.factory,
+            Bytes::from(call),
+            value,
+        )
+        .await
+    }
+
+    pub async fn send_portal_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {
+        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
+        send_contract_transaction(
+            &proposer_signer,
+            &self.rpc_config.l1_rpc,
+            self.deployed.portal,
             Bytes::from(call),
             value,
         )
@@ -184,6 +220,16 @@ impl TestEnvironment {
         Ok(anchor_registry)
     }
 
+    pub async fn mock_optimism_portal2(
+        &self,
+        anchor_registry: AnchorStateRegistryInstance<impl alloy_provider::Provider + Clone>,
+    ) -> Result<MockOptimismPortal2Instance<impl alloy_provider::Provider + Clone>> {
+        let provider_with_signer = self.provider_with_signer()?;
+        let portal_addr = anchor_registry.portal().call().await?;
+        let portal = MockOptimismPortal2::new(portal_addr, provider_with_signer.clone());
+        Ok(portal)
+    }
+
     pub async fn fault_dispute_game(
         &self,
         game_address: Address,
@@ -221,6 +267,14 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    pub async fn latest_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
+        let factory = self.factory()?;
+        let game_count = factory.gameCount().call().await?;
+        let index = game_count.saturating_sub(U256::from(1));
+        let game_info = factory.gameAtIndex(index).call().await?;
+        Ok((index, game_info.proxy_))
+    }
+
     pub async fn set_anchor_state(&self, game_address: Address) -> Result<TransactionReceipt> {
         let anchor_registry = self.anchor_registry(game_address).await?;
         let receipt = anchor_registry
@@ -235,14 +289,6 @@ impl TestEnvironment {
 
     pub async fn warp_time(&self, secs: u64) -> Result<()> {
         warp_time(&self.anvil.provider, Duration::from_secs(secs)).await
-    }
-
-    pub async fn latest_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
-        let factory = self.factory()?;
-        let game_count = factory.gameCount().call().await?;
-        let index = game_count.saturating_sub(U256::from(1));
-        let game_info = factory.gameAtIndex(index).call().await?;
-        Ok((index, game_info.proxy_))
     }
 }
 
