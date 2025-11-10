@@ -33,8 +33,9 @@ use fault_proof::{config::FaultDisputeGameConfig, L2ProviderTrait};
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
 use crate::common::{
-    constants::*, contracts::send_contract_transaction, start_challenger, start_proposer,
-    warp_time, ANVIL,
+    constants::*,
+    contracts::{deploy_mock_permissioned_game, send_contract_transaction},
+    start_challenger, start_proposer, warp_time, ANVIL,
 };
 
 use super::{
@@ -161,6 +162,20 @@ impl TestEnvironment {
     pub fn stop_challenger(&self, handle: JoinHandle<Result<()>>) {
         handle.abort();
         info!("✓ Challenger service stopped");
+    }
+
+    pub async fn deploy_mock_permissioned_game(&self) -> Result<Address> {
+        let proposer_signer =
+            SignerLock::new(Signer::new_local_signer(self.private_keys.proposer)?);
+        let factory = self.factory()?;
+        let address = deploy_mock_permissioned_game(
+            &proposer_signer,
+            &self.rpc_config.l1_rpc,
+            *factory.address(),
+        )
+        .await?;
+        info!("✓ Deployed mock permissioned implementation at {address}");
+        Ok(address)
     }
 
     pub async fn send_factory_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {

@@ -6,7 +6,6 @@ mod e2e {
     use std::sync::Arc;
 
     use alloy_primitives::{Bytes, FixedBytes, U256};
-    use alloy_provider::ProviderBuilder;
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use common::{
@@ -22,17 +21,15 @@ mod e2e {
         challenger::Game,
         contract::{GameStatus, ProposalStatus},
         proposer::Game as ProposerGame,
-        L2ProviderTrait,
     };
     use op_succinct_bindings::{
         dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
     };
-    use op_succinct_signer_utils::{Signer, SignerLock};
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
 
-    use crate::common::{contracts::deploy_mock_permissioned_game, init_challenger, init_proposer};
+    use crate::common::{init_challenger, init_proposer};
 
     alloy_sol_types::sol! {
         #[sol(rpc)]
@@ -115,16 +112,10 @@ mod e2e {
 
         let env = TestEnvironment::setup().await?;
 
-        let l1_rpc_url = env.rpc_config.l1_rpc.clone();
         let factory = env.factory()?;
         let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
 
-        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
-
-        let legacy_impl =
-            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, *factory.address())
-                .await?;
-        info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
+        let legacy_impl = env.deploy_mock_permissioned_game().await?;
 
         let set_init_call = DisputeGameFactory::setInitBondCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
@@ -148,11 +139,10 @@ mod e2e {
         let mut expected_index = initial_game_count;
         info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
 
-        let l2_provider = ProviderBuilder::default().connect_http(env.rpc_config.l2_rpc.clone());
         let interval = 10;
-        let l2_block = U256::from(env.anvil.starting_l2_block_number + interval);
-        let root_claim = l2_provider.compute_output_root_at_block(l2_block).await?;
-        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block, u32::MAX));
+        let l2_block = env.anvil.starting_l2_block_number + interval;
+        let root_claim = env.compute_output_root_at_block(l2_block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(l2_block), u32::MAX));
 
         let create_call = DisputeGameFactory::createCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
@@ -222,20 +212,13 @@ mod e2e {
 
         let env = TestEnvironment::setup().await?;
 
-        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
-
-        let l1_rpc_url = env.rpc_config.l1_rpc.clone();
-
         let factory_reader = env.factory()?;
 
         let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
 
         let initial_game_count = factory_reader.gameCount().call().await?;
 
-        let legacy_impl =
-            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, *factory_reader.address())
-                .await?;
-        info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
+        let legacy_impl = env.deploy_mock_permissioned_game().await?;
 
         let set_init_call = DisputeGameFactory::setInitBondCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
@@ -259,11 +242,10 @@ mod e2e {
 
         let proposer_handle = env.start_proposer().await?;
 
-        let l2_provider = ProviderBuilder::default().connect_http(env.rpc_config.l2_rpc.clone());
         let interval = 10;
-        let l2_block = U256::from(env.anvil.starting_l2_block_number + interval);
-        let root_claim = l2_provider.compute_output_root_at_block(l2_block).await?;
-        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block, u32::MAX));
+        let l2_block = env.anvil.starting_l2_block_number + interval;
+        let root_claim = env.compute_output_root_at_block(l2_block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(l2_block), u32::MAX));
 
         let create_call = DisputeGameFactory::createCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
