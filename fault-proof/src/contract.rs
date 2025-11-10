@@ -26,6 +26,12 @@ sol! {
         ///         at the given index. Each created dispute game increments the underlying index.
         function gameAtIndex(uint256 _index) external view returns (GameType gameType, Timestamp timestamp, IDisputeGame proxy);
 
+        /// @notice Returns the dispute game metadata for a given UUID.
+        function games(GameType gameType, Claim rootClaim, bytes extraData) external view returns (IDisputeGame proxy, Timestamp timestamp);
+
+        /// @notice Returns the UUID for a given dispute game configuration.
+        function getGameUUID(GameType gameType, Claim rootClaim, bytes extraData) external pure returns (Hash uuid);
+
         /// @notice Creates a new DisputeGame proxy contract.
         function create(GameType gameType, Claim rootClaim, bytes extraData) external;
     }
@@ -52,6 +58,9 @@ sol! {
 
         /// @notice The L2 block number for which this game is proposing an output root.
         function l2BlockNumber() public pure returns (uint256 l2BlockNumber_);
+
+        /// @notice Only the starting block number of the game.
+        function startingBlockNumber() external view returns (uint256 startingBlockNumber_);
 
         /// @notice Getter for the root claim.
         function rootClaim() public pure returns (Claim rootClaim_);

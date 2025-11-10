@@ -8,7 +8,7 @@ use std::{
 };
 
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, TxHash, U256};
+use alloy_primitives::{Address, FixedBytes, TxHash, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{Context, Result};
@@ -23,7 +23,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
-use op_succinct_signer_utils::Signer;
+use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
     NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
     SP1VerifyingKey, SP1_CIRCUIT_VERSION,
@@ -65,6 +65,7 @@ struct SP1Prover {
     range_pk: Arc<SP1ProvingKey>,
     range_vk: Arc<SP1VerifyingKey>,
     agg_pk: Arc<SP1ProvingKey>,
+    agg_mode: SP1ProofMode,
 }
 
 /// Represents a dispute game in the on-chain game DAG.
@@ -73,16 +74,16 @@ struct SP1Prover {
 /// chain with a new proposed output root. The proposer tracks these games to determine when to
 /// propose new games, defend existing ones, resolve completed games and claim bonds.
 #[derive(Clone)]
-struct Game {
-    index: U256,
-    address: Address,
-    parent_index: u32,
-    l2_block: U256,
-    status: GameStatus,
-    proposal_status: ProposalStatus,
-    deadline: u64,
-    should_attempt_to_resolve: bool,
-    should_attempt_to_claim_bond: bool,
+pub struct Game {
+    pub index: U256,
+    pub address: Address,
+    pub parent_index: u32,
+    pub l2_block: U256,
+    pub status: GameStatus,
+    pub proposal_status: ProposalStatus,
+    pub deadline: u64,
+    pub should_attempt_to_resolve: bool,
+    pub should_attempt_to_claim_bond: bool,
 }
 
 /// Central cache of the proposer's view of dispute games.
@@ -129,10 +130,20 @@ impl ProposerState {
     /// Used when a game is invalidated (i.e., `CHALLENGER_WINS`) and its entire subtree must be
     /// dropped.
     fn remove_subtree(&mut self, root_index: U256) {
+        tracing::info!(?root_index, "Removing subtree from cache");
         for index in self.descendants_of(root_index) {
+            tracing::info!(?index, "Removing game from cache");
             self.games.remove(&index);
         }
     }
+}
+
+/// Snapshot of the proposer's cached state for testing and monitoring.
+#[derive(Clone, Debug)]
+pub struct ProposerStateSnapshot {
+    pub anchor_index: Option<U256>,
+    pub canonical_head_index: Option<U256>,
+    pub games: Vec<(U256, Address)>,
 }
 
 #[derive(Clone)]
@@ -142,7 +153,7 @@ where
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
     pub config: ProposerConfig,
-    pub signer: Signer,
+    pub signer: SignerLock,
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
@@ -165,7 +176,7 @@ where
     /// contract instance.
     pub async fn new(
         config: ProposerConfig,
-        signer: Signer,
+        signer: SignerLock,
         factory: DisputeGameFactoryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
@@ -202,6 +213,7 @@ where
                 range_pk: Arc::new(range_pk),
                 range_vk: Arc::new(range_vk),
                 agg_pk: Arc::new(agg_pk),
+                agg_mode: config.agg_proof_mode,
             },
             fetcher: fetcher.clone(),
             host,
@@ -209,6 +221,16 @@ where
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(Mutex::new(initial_state)),
         })
+    }
+
+    /// Returns a lightweight snapshot of the proposer's cached state.
+    pub async fn state_snapshot(&self) -> ProposerStateSnapshot {
+        let state = self.state.lock().await;
+        ProposerStateSnapshot {
+            anchor_index: state.anchor_game.as_ref().map(|game| game.index),
+            canonical_head_index: state.canonical_head_index,
+            games: state.games.values().map(|game| (game.index, game.address)).collect(),
+        }
     }
 
     /// Runs the proposer indefinitely.
@@ -372,7 +394,50 @@ where
                         let credit = contract.credit(signer_address).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
-                            actions.push(GameSyncAction::Remove(index));
+                            // Game removal policy:
+                            // - Canonical head games are retained even with zero credit to maintain
+                            //   chain consistency.
+                            // - Anchor games are retained as they serve as the root of the dispute
+                            //   game tree.
+                            // - All other games with bonds already claimed are removed to free
+                            //   cache memory.
+
+                            let canonical_head_index = {
+                                let state = self.state.lock().await;
+                                state.canonical_head_index
+                            };
+
+                            let should_remove = if canonical_head_index == Some(index) {
+                                tracing::debug!(game_index = %index, "Retaining game: canonical head");
+                                false
+                            } else {
+                                let anchor_game = self
+                                    .factory
+                                    .get_anchor_game(self.config.game_type)
+                                    .await
+                                    .context("Failed to fetch anchor game for removal check")?;
+                                let anchor_game_address = *anchor_game.address();
+
+                                if anchor_game_address == game_address {
+                                    tracing::debug!(game_index = %index, "Retaining game: anchor game");
+                                    false
+                                } else {
+                                    true
+                                }
+                            };
+
+                            if should_remove {
+                                actions.push(GameSyncAction::Remove(index));
+                            } else {
+                                actions.push(GameSyncAction::Update {
+                                    index,
+                                    status,
+                                    proposal_status: claim_data.status,
+                                    deadline,
+                                    should_attempt_to_resolve: false,
+                                    should_attempt_to_claim_bond: false,
+                                });
+                            }
                         } else {
                             actions.push(GameSyncAction::Update {
                                 index,
@@ -411,16 +476,8 @@ where
                         }
                     }
                     GameSyncAction::Remove(index) => {
-                        let is_canonical_head = state.canonical_head_index == Some(index);
-
-                        if is_canonical_head {
-                            tracing::debug!(
-                                game_index = %index,
-                                "Retaining canonical head game in cache despite zero credit"
-                            );
-                        } else {
-                            state.games.remove(&index);
-                        }
+                        state.games.remove(&index);
+                        tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
@@ -472,9 +529,32 @@ where
             state.games.values().max_by_key(|game| game.l2_block).cloned()
         };
 
+        let previous_canonical_index = state.canonical_head_index;
+
         if let Some(canonical_head) = canonical_head {
             state.canonical_head_index = Some(canonical_head.index);
             state.canonical_head_l2_block = Some(canonical_head.l2_block);
+
+            if previous_canonical_index != state.canonical_head_index {
+                tracing::info!(
+                    previous_canonical_index = ?previous_canonical_index,
+                    new_canonical_index = %canonical_head.index,
+                    l2_block = %canonical_head.l2_block,
+                    total_games = state.games.len(),
+                    "Canonical head updated"
+                );
+            }
+        } else {
+            // Clear stale canonical head index when no valid games exist.
+            state.canonical_head_index = None;
+
+            if previous_canonical_index.is_some() {
+                tracing::info!(
+                    previous_canonical_index = ?previous_canonical_index,
+                    total_games = state.games.len(),
+                    "Canonical head cleared: no valid games in cache"
+                );
+            }
         }
     }
 
@@ -486,7 +566,12 @@ where
     /// - `u64`: Total instruction cycles used in the proof generation
     /// - `u64`: Total SP1 gas consumed in the proof generation
     #[tracing::instrument(name = "[[Proving]]", skip(self), fields(game_address = ?game_address))]
-    pub async fn prove_game(&self, game_address: Address) -> Result<(TxHash, u64, u64)> {
+    pub async fn prove_game(
+        &self,
+        game_address: Address,
+        start_block: u64,
+        end_block: u64,
+    ) -> Result<(TxHash, u64, u64)> {
         tracing::info!("Attempting to prove game {:?}", game_address);
 
         let fetcher = match OPSuccinctDataFetcher::new_with_rollup_config().await {
@@ -500,16 +585,10 @@ where
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
         let l1_head_hash = game.l1Head().call().await?.0;
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
-        let l2_block_number = game.l2BlockNumber().call().await?;
 
         let host_args = self
             .host
-            .fetch(
-                l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks,
-                l2_block_number.to::<u64>(),
-                Some(l1_head_hash.into()),
-                self.config.safe_db_fallback,
-            )
+            .fetch(start_block, end_block, Some(l1_head_hash.into()), self.config.safe_db_fallback)
             .await
             .context("Failed to get host CLI args")?;
 
@@ -623,14 +702,14 @@ where
             SP1ProofWithPublicValues::create_mock_proof(
                 &self.prover.agg_pk,
                 public_values,
-                SP1ProofMode::Groth16,
+                self.prover.agg_mode,
                 SP1_CIRCUIT_VERSION,
             )
         } else {
             self.prover
                 .network_prover
                 .prove(&self.prover.agg_pk, &sp1_stdin)
-                .groth16()
+                .mode(self.prover.agg_mode)
                 .strategy(self.config.agg_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
                 .min_auction_period(self.config.min_auction_period)
@@ -654,28 +733,16 @@ where
 
     /// Creates a new game with the given parameters.
     ///
-    /// `l2_block_number`: the L2 block number we are proposing the output root for.
-    /// `parent_game_index`: the index of the parent game.
+    /// `output_root`: the output root we are proposing.
+    /// `extra_data`: the extra data of the game; the l2 block number and the parent game index.
     pub async fn create_game(
         &self,
-        l2_block_number: U256,
-        parent_game_index: u32,
+        output_root: FixedBytes<32>,
+        extra_data: Vec<u8>,
     ) -> Result<Address> {
-        tracing::info!(
-            "Creating game at L2 block number: {:?}, with parent game index: {:?}",
-            l2_block_number,
-            parent_game_index
-        );
-
-        let extra_data = <(U256, u32)>::abi_encode_packed(&(l2_block_number, parent_game_index));
-
         let transaction_request = self
             .factory
-            .create(
-                self.config.game_type,
-                self.l2_provider.compute_output_root_at_block(l2_block_number).await?,
-                extra_data.into(),
-            )
+            .create(self.config.game_type, output_root, extra_data.into())
             .value(self.init_bond)
             .into_transaction_request();
 
@@ -700,8 +767,6 @@ where
         tracing::info!(
             game_index = %game_index,
             game_address = ?game_address,
-            l2_block_end = %l2_block_number,
-            parent_index = parent_game_index,
             tx_hash = ?receipt.transaction_hash,
             "Game created successfully"
         );
@@ -779,7 +844,7 @@ where
         Ok(())
     }
 
-    async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
         let receipt = self
@@ -800,7 +865,7 @@ where
 
     /// Submit the on-chain transaction to claim the proposer's bond for a given game.
     #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
-    async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
             contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();
@@ -822,46 +887,97 @@ where
 
     /// Fetch game from the factory.
     ///
-    /// Drop game if the game type is invalid or the output root is not valid.
-    /// Drop game if the parent game does not exist.
+    /// Drop game if:
+    /// - The game type is not supported.
+    /// - The game type does not respect the expected type when created.
+    /// - The output root claim is invalid.
+    /// - The parent game does not exist in cache if it should have one.
     async fn fetch_game(&self, index: U256) -> Result<()> {
+        let mut state = self.state.lock().await;
+
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
+        let game_type = game.gameType;
+
+        // Drop unsupported game types.
+        if game_type != self.config.game_type {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game: unsupported game type"
+            );
+            state.cursor = Some(index);
+            return Ok(());
+        }
+
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
 
         let l2_block = contract.l2BlockNumber().call().await?;
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
-        let (parent_index, proposal_status, deadline) = match contract.claimData().call().await {
-            Ok(data) => (data.parentIndex, data.status, U256::from(data.deadline).to::<u64>()),
-            Err(error) => {
-                tracing::debug!(game_index = %index, ?game_address, ?error,
-                    "Falling back to legacy game with dummy claim data");
-                (u32::MAX, ProposalStatus::Unchallenged, 0)
-            }
-        };
-
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
         let status = contract.status().call().await?;
+        let claim_data = contract.claimData().call().await?;
 
-        let mut state = self.state.lock().await;
+        let (parent_index, proposal_status, deadline) = (
+            claim_data.parentIndex,
+            claim_data.status,
+            U256::from(claim_data.deadline).to::<u64>(),
+        );
 
-        if !was_respected || output_root != claim {
-            tracing::debug!(game_index = %index, ?game_address,
-                "Dropping game due to invalid game type or output root");
+        // Drop games whose type does not respect the expected type.
+        if !was_respected {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address, game_type,
+                expected_game_type = self.config.game_type,
+                "Dropping game: game type mismatch during creation"
+            );
             state.cursor = Some(index);
             return Ok(());
         }
 
+        // Validate output root. If invalid, drop the game, setting the cursor to this index.
+        if output_root != claim {
+            tracing::warn!(
+                game_index = %index,
+                ?game_address,
+                ?claim,
+                expected_output_root = ?output_root,
+                "Dropping game: invalid output root claim"
+            );
+            state.cursor = Some(index);
+            return Ok(());
+        }
+
+        // Ensure parent exists in cache if applicable.
         if parent_index != u32::MAX {
             let parent_idx = U256::from(parent_index);
             if !state.games.contains_key(&parent_idx) {
-                tracing::debug!(game_index = %index, ?game_address,
-                    parent_index = %parent_idx, "Dropping game due to missing parent");
+                tracing::debug!(
+                    game_index = %index,
+                    ?game_address,
+                    parent_index = %parent_idx,
+                    "Dropping game: parent not found in cache"
+                );
                 state.cursor = Some(index);
                 return Ok(());
             }
         }
+
+        tracing::info!(
+            game_index = %index,
+            ?game_type,
+            ?game_address,
+            parent_index = %parent_index,
+            l2_block = %l2_block,
+            ?status,
+            ?proposal_status,
+            deadline = %deadline,
+            "Adding game to cache"
+        );
 
         state.games.insert(
             index,
@@ -884,49 +1000,52 @@ where
     }
 
     /// Handles the creation of a new game if conditions are met.
-    /// Returns the address of the created game, if one was created.
     #[tracing::instrument(name = "[[Proposing]]", skip(self))]
-    pub async fn handle_game_creation(&self) -> Result<Option<Address>> {
-        let (latest_proposed_block_number, parent_game_index) = {
-            let state = self.state.lock().await;
-
-            let Some(latest_proposed_block_number) = state.canonical_head_l2_block else {
-                tracing::info!("No canonical head; skipping game creation");
-                return Ok(None);
-            };
-
-            let parent_game_index =
-                state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
-
-            (latest_proposed_block_number, parent_game_index)
-        };
-
-        let next_l2_block_number_for_proposal =
-            latest_proposed_block_number + U256::from(self.config.proposal_interval_in_blocks);
-
-        let finalized_l2_head_block_number = self
-            .host
-            .get_finalized_l2_block_number(&self.fetcher, latest_proposed_block_number.to::<u64>())
+    pub async fn handle_game_creation(
+        &self,
+        mut next_l2_block_number_for_proposal: U256,
+        parent_game_index: u32,
+    ) -> Result<()> {
+        let mut output_root = self
+            .l2_provider
+            .compute_output_root_at_block(next_l2_block_number_for_proposal)
             .await?;
+        let mut extra_data =
+            (next_l2_block_number_for_proposal, parent_game_index).abi_encode_packed();
+        let mut maybe_existing_game = self
+            .factory
+            .games(self.config.game_type, output_root, extra_data.clone().into())
+            .call()
+            .await?
+            .proxy;
 
-        // There's always a new game to propose, as the chain is always moving forward from the
-        // genesis block set for the game type. Only create a new game if the finalized L2
-        // head block number is at least the next L2 block number for proposal.
-        if let Some(finalized_block) = finalized_l2_head_block_number {
-            if U256::from(finalized_block) >= next_l2_block_number_for_proposal {
-                let game_address =
-                    self.create_game(next_l2_block_number_for_proposal, parent_game_index).await?;
-
-                Ok(Some(game_address))
-            } else {
-                tracing::info!("No new game to propose since proposal interval has not elapsed");
-
-                Ok(None)
-            }
-        } else {
-            tracing::info!("No new finalized block number found since last proposed block");
-            Ok(None)
+        // If there already exists a game at the next L2 block number for proposal, increment the L2
+        // block number by 1
+        while maybe_existing_game != Address::ZERO {
+            next_l2_block_number_for_proposal += U256::from(1);
+            output_root = self
+                .l2_provider
+                .compute_output_root_at_block(next_l2_block_number_for_proposal)
+                .await?;
+            extra_data = (next_l2_block_number_for_proposal, parent_game_index).abi_encode_packed();
+            maybe_existing_game = self
+                .factory
+                .games(self.config.game_type, output_root, extra_data.clone().into())
+                .call()
+                .await?
+                .proxy;
         }
+
+        tracing::info!(
+            l2_block_number = %next_l2_block_number_for_proposal,
+            parent_game_index = %parent_game_index,
+            output_root = ?output_root,
+            "Creating game"
+        );
+
+        self.create_game(output_root, extra_data).await?;
+
+        Ok(())
     }
 
     /// Fetch the proposer metrics.
@@ -1144,23 +1263,26 @@ where
     /// - Err: Actual error occurred during task spawning
     async fn spawn_game_creation_task(&self) -> Result<bool> {
         // First check if we should create a game
-        let (should_create, next_l2_block_number_for_proposal) = self.should_create_game().await?;
+        let (should_create, next_l2_block_number_for_proposal, parent_game_index) =
+            self.should_create_game().await?;
         if !should_create {
-            return Ok(false); // No work needed - normal case
+            return Ok(false);
         }
 
         let proposer = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
         let handle = tokio::spawn(async move {
-            match proposer.handle_game_creation().await {
-                Ok(Some(_game_address)) => {
-                    ProposerGauge::GamesCreated.increment(1.0);
-                    Ok(())
-                }
-                Ok(None) => Ok(()),
-                Err(e) => Err(anyhow::anyhow!("error in game creation: {:?}", e)),
+            if let Err(e) = proposer
+                .handle_game_creation(next_l2_block_number_for_proposal, parent_game_index)
+                .await
+            {
+                tracing::warn!("Failed to handle game creation: {:?}", e);
+                return Err(e);
             }
+
+            ProposerGauge::GamesCreated.increment(1.0);
+            Ok(())
         });
 
         let task_info = TaskInfo::GameCreation { block_number: next_l2_block_number_for_proposal };
@@ -1182,7 +1304,12 @@ where
     /// Then compares the next L2 block number for proposal with the finalized L2 block number.
     /// If the finalized L2 block number is greater than or equal to the next L2 block number for
     /// proposal, we should create a game.
-    async fn should_create_game(&self) -> Result<(bool, U256)> {
+    ///
+    /// Returns boolean indicating if a game should be created, the next L2 block number for
+    /// proposal, and the parent game index.
+    /// If a game should not be created, dummy values are returned for the next L2 block number for
+    /// proposal and parent game index.
+    async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
@@ -1289,13 +1416,22 @@ where
                     active_proving,
                     self.config.fast_finality_proving_limit
                 );
-                return Ok((false, U256::ZERO));
+                return Ok((false, U256::ZERO, u32::MAX));
             }
         }
 
-        let Some(canonical_head_l2_block) = self.state.lock().await.canonical_head_l2_block else {
-            tracing::info!("No canonical head; skipping game creation");
-            return Ok((false, U256::ZERO));
+        let (canonical_head_l2_block, parent_game_index) = {
+            let state = self.state.lock().await;
+
+            let Some(canonical_head_l2_block) = state.canonical_head_l2_block else {
+                tracing::info!("No canonical head; skipping game creation");
+                return Ok((false, U256::ZERO, u32::MAX));
+            };
+
+            let parent_game_index =
+                state.canonical_head_index.map(|index| index.to::<u32>()).unwrap_or(u32::MAX);
+
+            (canonical_head_l2_block, parent_game_index)
         };
 
         let next_l2_block_number_for_proposal =
@@ -1313,6 +1449,7 @@ where
                 })
                 .unwrap_or(false),
             next_l2_block_number_for_proposal,
+            parent_game_index,
         ))
     }
 
@@ -1382,8 +1519,9 @@ where
 
         // Get the game block number to include in logs
         let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+        let starting_l2_block_number = game.startingBlockNumber().call().await?;
         let l2_block_number = game.l2BlockNumber().call().await?;
-        let start_block = l2_block_number.to::<u64>() - self.config.proposal_interval_in_blocks;
+        let start_block = starting_l2_block_number.to::<u64>();
         let end_block = l2_block_number.to::<u64>();
 
         tracing::info!(
@@ -1403,7 +1541,7 @@ where
                 rt.block_on(async move {
                     let start_time = std::time::Instant::now();
                     let (tx_hash, total_instruction_cycles, total_sp1_gas) =
-                        proposer.prove_game(game_address).await?;
+                        proposer.prove_game(game_address, start_block, end_block).await?;
 
                     // Record successful proving
                     ProposerGauge::GamesProven.increment(1.0);
@@ -1426,7 +1564,7 @@ where
             tokio::spawn(async move {
                 let start_time = std::time::Instant::now();
                 let (tx_hash, total_instruction_cycles, total_sp1_gas) =
-                    proposer.prove_game(game_address).await?;
+                    proposer.prove_game(game_address, start_block, end_block).await?;
 
                 // Record successful proving
                 ProposerGauge::GamesProven.increment(1.0);
