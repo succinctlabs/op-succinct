@@ -73,16 +73,16 @@ struct SP1Prover {
 /// chain with a new proposed output root. The proposer tracks these games to determine when to
 /// propose new games, defend existing ones, resolve completed games and claim bonds.
 #[derive(Clone)]
-struct Game {
-    index: U256,
-    address: Address,
-    parent_index: u32,
-    l2_block: U256,
-    status: GameStatus,
-    proposal_status: ProposalStatus,
-    deadline: u64,
-    should_attempt_to_resolve: bool,
-    should_attempt_to_claim_bond: bool,
+pub struct Game {
+    pub index: U256,
+    pub address: Address,
+    pub parent_index: u32,
+    pub l2_block: U256,
+    pub status: GameStatus,
+    pub proposal_status: ProposalStatus,
+    pub deadline: u64,
+    pub should_attempt_to_resolve: bool,
+    pub should_attempt_to_claim_bond: bool,
 }
 
 /// Central cache of the proposer's view of dispute games.
@@ -741,7 +741,7 @@ where
         Ok(())
     }
 
-    async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_resolution_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request = contract.resolve().into_transaction_request();
         let receipt = self
@@ -762,7 +762,7 @@ where
 
     /// Submit the on-chain transaction to claim the proposer's bond for a given game.
     #[tracing::instrument(name = "[[Claiming Proposer Bonds]]", skip(self, game))]
-    async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
+    pub async fn submit_bond_claim_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
         let transaction_request =
             contract.claimCredit(self.signer.address()).gas(200_000).into_transaction_request();

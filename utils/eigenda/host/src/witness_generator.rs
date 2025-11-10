@@ -6,9 +6,9 @@ use std::{
 use anyhow::Result;
 use async_trait::async_trait;
 use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
-use hokulea_compute_proof::create_kzg_proofs_for_eigenda_preimage;
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloToOpProviderAdapter;
+use hokulea_compute_proof::create_kzg_proofs_for_eigenda_preimage;
 use hokulea_proof::{
     eigenda_provider::OracleEigenDAPreimageProvider,
     eigenda_witness::{EigenDAPreimage, EigenDAWitness},
