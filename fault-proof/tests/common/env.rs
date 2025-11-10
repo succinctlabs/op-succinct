@@ -44,6 +44,8 @@ use super::{
 
 /// Common test environment setup
 pub struct TestEnvironment {
+    /// Game type
+    pub game_type: u32,
     /// Private keys
     pub private_keys: TestPrivateKeys,
     /// RPC configuration
@@ -112,13 +114,15 @@ impl TestEnvironment {
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
 
+        let game_type = TEST_GAME_TYPE;
+
         let private_keys = TestPrivateKeys::default();
 
         // Deploy contracts
         info!("=== Deploying Contracts ===");
         let deployed = deploy_test_contracts(&anvil.endpoint, private_keys.deployer).await?;
 
-        Ok(Self { private_keys, rpc_config, fetcher, anvil, deployed })
+        Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
     }
 
     pub async fn start_proposer(&self) -> Result<JoinHandle<Result<()>>> {
@@ -126,7 +130,7 @@ impl TestEnvironment {
             &self.rpc_config,
             self.private_keys.proposer,
             &self.deployed.factory,
-            TEST_GAME_TYPE,
+            self.game_type,
         )
         .await?;
         info!("✓ Proposer service started");
@@ -146,7 +150,7 @@ impl TestEnvironment {
             &self.rpc_config,
             self.private_keys.challenger,
             &self.deployed.factory,
-            TEST_GAME_TYPE,
+            self.game_type,
             malicious_percentage,
         )
         .await?;
@@ -186,7 +190,7 @@ impl TestEnvironment {
     }
 
     pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
-        let wallet = PrivateKeySigner::from_str(PROPOSER_PRIVATE_KEY)?;
+        let wallet = PrivateKeySigner::from_str(self.private_keys.proposer)?;
         let provider_with_signer = ProviderBuilder::new()
             .wallet(EthereumWallet::from(wallet))
             .connect_http(self.anvil.endpoint.parse::<Url>()?);
@@ -256,7 +260,7 @@ impl TestEnvironment {
         let factory = self.factory()?;
         let extra_data = (U256::from(block), parent_id).abi_encode_packed();
         let receipt = factory
-            .create(TEST_GAME_TYPE, root_claim, extra_data.into())
+            .create(self.game_type, root_claim, extra_data.into())
             .value(init_bond)
             .send()
             .await?
@@ -298,6 +302,22 @@ impl TestEnvironment {
     }
 }
 
+pub struct TestPrivateKeys {
+    pub deployer: &'static str,
+    pub proposer: &'static str,
+    pub challenger: &'static str,
+}
+
+impl Default for TestPrivateKeys {
+    fn default() -> Self {
+        Self {
+            deployer: DEPLOYER_PRIVATE_KEY,
+            proposer: PROPOSER_PRIVATE_KEY,
+            challenger: CHALLENGER_PRIVATE_KEY,
+        }
+    }
+}
+
 /// Initialize logging for tests
 pub fn init_logging() {
     static INIT: OnceLock<()> = OnceLock::new();
@@ -319,20 +339,4 @@ pub fn init_logging() {
 
         tracing_subscriber::registry().with(fmt::layer().compact()).with(filter).init()
     });
-}
-
-pub struct TestPrivateKeys {
-    pub deployer: &'static str,
-    pub proposer: &'static str,
-    pub challenger: &'static str,
-}
-
-impl Default for TestPrivateKeys {
-    fn default() -> Self {
-        Self {
-            deployer: DEPLOYER_PRIVATE_KEY,
-            proposer: PROPOSER_PRIVATE_KEY,
-            challenger: CHALLENGER_PRIVATE_KEY,
-        }
-    }
 }
