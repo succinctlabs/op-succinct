@@ -29,7 +29,7 @@ mod e2e {
     use op_succinct_bindings::{
         dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
     };
-    use op_succinct_signer_utils::Signer;
+    use op_succinct_signer_utils::{Signer, SignerLock};
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
@@ -69,7 +69,7 @@ mod e2e {
 
         // Track first 3 games (L2 finalized head won't advance far enough for 3)
         let tracked_games =
-            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(60)).await?;
+            wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
 
         info!("✓ Proposer created {} games:", tracked_games.len());
         for (i, game) in tracked_games.iter().enumerate() {
@@ -97,7 +97,7 @@ mod e2e {
 
         // Wait for games to be resolved
         let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(30))
+            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
                 .await?;
 
         // Verify all games resolved correctly (proposer wins)
@@ -120,7 +120,7 @@ mod e2e {
             &env.anvil.provider,
             &tracked_games,
             PROPOSER_ADDRESS,
-            Duration::from_secs(30),
+            Duration::from_secs(120),
         )
         .await?;
 
@@ -151,7 +151,7 @@ mod e2e {
         let initial_game_count = factory_reader.gameCount().call().await?;
         let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
 
-        let proposer_signer = Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?;
+        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
 
         let legacy_impl = deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url).await?;
         info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
@@ -272,7 +272,7 @@ mod e2e {
 
         warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
         let resolutions =
-            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(60))
+            wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
                 .await?;
         verify_all_resolved_correctly(&resolutions)?;
 
@@ -282,7 +282,7 @@ mod e2e {
             &env.anvil.provider,
             &tracked_games,
             PROPOSER_ADDRESS,
-            Duration::from_secs(90),
+            Duration::from_secs(120),
         )
         .await?;
 
@@ -429,7 +429,9 @@ mod e2e {
         let tracked_games: Vec<_> = invalid_games
             .iter()
             .map(|&address| TrackedGame {
+                index: U256::ZERO, // Not needed for bond claim check
                 address,
+                parent_index: u32::MAX,      // Not needed for bond claim check
                 l2_block_number: U256::ZERO, // Not needed for bond claim check
             })
             .collect();

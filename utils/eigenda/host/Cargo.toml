@@ -25,6 +25,7 @@ celo-genesis.workspace = true
 celo-protocol.workspace = true
 
 # hokulea
+hokulea-compute-proof.workspace = true
 hokulea-eigenda.workspace = true
 hokulea-host-bin.workspace = true
 hokulea-proof.workspace = true
