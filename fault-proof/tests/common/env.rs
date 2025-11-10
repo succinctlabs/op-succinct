@@ -6,7 +6,7 @@ use std::{
 };
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address, FixedBytes, Uint, U256};
+use alloy_primitives::{Address, Bytes, FixedBytes, Uint, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_eth::TransactionReceipt;
 use alloy_signer_local::PrivateKeySigner;
@@ -24,13 +24,16 @@ use op_succinct_host_utils::{
     fetcher::{get_rpcs_from_env, OPSuccinctDataFetcher, RPCConfig},
     OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
+use op_succinct_signer_utils::{Signer, SignerLock};
 use tokio::task::JoinHandle;
 use tracing::{info, Level};
 
 use fault_proof::{config::FaultDisputeGameConfig, L2ProviderTrait};
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
-use crate::common::{constants::*, start_proposer, warp_time, ANVIL};
+use crate::common::{
+    constants::*, contracts::send_contract_transaction, start_proposer, warp_time, ANVIL,
+};
 
 use super::{
     anvil::{setup_anvil_chain, AnvilFork},
@@ -120,7 +123,24 @@ impl TestEnvironment {
             TEST_GAME_TYPE,
         )
         .await?;
+        info!("✓ Proposer service started");
         Ok(handle)
+    }
+
+    pub async fn send_contract_transaction(
+        &self,
+        call: Vec<u8>,
+        value: Option<Uint<256, 4>>,
+    ) -> Result<()> {
+        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
+        send_contract_transaction(
+            &proposer_signer,
+            &self.rpc_config.l1_rpc,
+            self.deployed.factory,
+            Bytes::from(call),
+            value,
+        )
+        .await
     }
 
     pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
@@ -128,7 +148,6 @@ impl TestEnvironment {
         let provider_with_signer = ProviderBuilder::new()
             .wallet(EthereumWallet::from(wallet))
             .connect_http(self.anvil.endpoint.parse::<Url>()?);
-
         Ok(Arc::new(provider_with_signer))
     }
 

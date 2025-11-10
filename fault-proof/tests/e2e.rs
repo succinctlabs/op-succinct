@@ -18,7 +18,6 @@ mod e2e {
             MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE,
             PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
         },
-        contracts::send_contract_transaction,
         monitor::{
             verify_all_resolved_correctly, wait_and_track_games, wait_and_verify_game_resolutions,
             wait_for_bond_claims, wait_for_challenges, wait_for_resolutions, TrackedGame,
@@ -60,19 +59,11 @@ mod e2e {
         // Setup common test environment
         let env = TestEnvironment::setup().await?;
 
-        // Start proposer
-        let proposer_handle = start_proposer(
-            &env.rpc_config,
-            PROPOSER_PRIVATE_KEY,
-            &env.deployed.factory,
-            TEST_GAME_TYPE,
-        )
-        .await?;
-        info!("✓ Proposer service started");
+        let proposer_handle = env.start_proposer().await?;
 
         // Wait for proposer to create games
         info!("=== Waiting for Game Creation ===");
-        let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
+        let factory = env.factory()?;
 
         // Track first 3 games (L2 finalized head won't advance far enough for 3)
         let tracked_games =
@@ -92,7 +83,7 @@ mod e2e {
         info!("Warping time to near end of max challenge duration...");
 
         // Warp by max challenge duration
-        warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION).await?;
         info!("✓ Warped time by max challenge duration ({MAX_CHALLENGE_DURATION} seconds) to trigger resolution");
 
         // Verify proposer is still running
@@ -111,8 +102,7 @@ mod e2e {
         verify_all_resolved_correctly(&resolutions)?;
 
         // Warp past DISPUTE_GAME_FINALITY_DELAY_SECONDS
-        warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
-            .await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
         info!("✓ Warped time by DISPUTE_GAME_FINALITY_DELAY_SECONDS ({DISPUTE_GAME_FINALITY_DELAY_SECONDS} seconds) to trigger bond claims");
 
         // Verify proposer is still running
@@ -151,15 +141,14 @@ mod e2e {
         let env = TestEnvironment::setup().await?;
 
         let l1_rpc_url = env.rpc_config.l1_rpc.clone();
-        let factory_reader =
-            DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
-        let initial_game_count = factory_reader.gameCount().call().await?;
-        let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
+        let factory = env.factory()?;
+        let initial_game_count = factory.gameCount().call().await?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
 
         let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
 
         let legacy_impl =
-            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, *factory_reader.address())
+            deploy_mock_permissioned_game(&proposer_signer, &l1_rpc_url, *factory.address())
                 .await?;
         info!("✓ Deployed mock permissioned implementation at {legacy_impl}");
 
@@ -167,39 +156,18 @@ mod e2e {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
             _initBond: init_bond,
         };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.factory,
-            Bytes::from(set_init_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(set_init_call.abi_encode(), None).await?;
 
         let set_impl_call = DisputeGameFactory::setImplementationCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
             _impl: legacy_impl,
         };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.factory,
-            Bytes::from(set_impl_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(set_impl_call.abi_encode(), None).await?;
 
         let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
         };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.portal,
-            Bytes::from(legacy_game_type_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(legacy_game_type_call.abi_encode(), None).await?;
 
         let mut expected_index = initial_game_count;
         info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
@@ -215,19 +183,11 @@ mod e2e {
             _rootClaim: root_claim,
             _extraData: Bytes::from(extra_data.clone()),
         };
-
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.factory,
-            Bytes::from(create_call.abi_encode()),
-            Some(init_bond),
-        )
-        .await?;
+        env.send_contract_transaction(create_call.abi_encode(), Some(init_bond)).await?;
 
         // Wait for the game to be indexed by the factory
         loop {
-            let current = factory_reader.gameCount().call().await?;
+            let current = factory.gameCount().call().await?;
             if current > expected_index {
                 expected_index = current;
                 break;
@@ -235,46 +195,32 @@ mod e2e {
             sleep(Duration::from_millis(200)).await;
         }
 
-        let game_info = factory_reader.gameAtIndex(expected_index - U256::from(1)).call().await?;
+        let game_info = factory.gameAtIndex(expected_index - U256::from(1)).call().await?;
         let mock_game_address = game_info.proxy_;
         assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
         info!(" • Mock permissioned game at {mock_game_address}");
 
         let restore_type_call =
             MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.portal,
-            Bytes::from(restore_type_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(restore_type_call.abi_encode(), None).await?;
         info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
-        let proposer_handle = start_proposer(
-            &env.rpc_config,
-            PROPOSER_PRIVATE_KEY,
-            &env.deployed.factory,
-            TEST_GAME_TYPE,
-        )
-        .await?;
+        let proposer_handle = env.start_proposer().await?;
         info!("✓ Proposer started after legacy games seeded");
 
-        let factory = DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
         let tracked_games =
             wait_and_track_games(&factory, TEST_GAME_TYPE, 3, Duration::from_secs(120)).await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
 
-        warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION).await?;
         let resolutions =
             wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
                 .await?;
         verify_all_resolved_correctly(&resolutions)?;
 
-        warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
-            .await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
+
         wait_for_bond_claims(
             &env.anvil.provider,
             &tracked_games,
@@ -311,8 +257,8 @@ mod e2e {
 
         let l1_rpc_url = env.rpc_config.l1_rpc.clone();
 
-        let factory_reader =
-            DisputeGameFactory::new(env.deployed.factory, env.anvil.provider.clone());
+        let factory_reader = env.factory()?;
+
         let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
 
         let initial_game_count = factory_reader.gameCount().call().await?;
@@ -326,50 +272,23 @@ mod e2e {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
             _initBond: init_bond,
         };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.factory,
-            Bytes::from(set_init_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(set_init_call.abi_encode(), None).await?;
 
         let set_impl_call = DisputeGameFactory::setImplementationCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
             _impl: legacy_impl,
         };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.factory,
-            Bytes::from(set_impl_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(set_impl_call.abi_encode(), None).await?;
 
         let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
             _gameType: MOCK_PERMISSIONED_GAME_TYPE,
         };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.portal,
-            Bytes::from(legacy_game_type_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(legacy_game_type_call.abi_encode(), None).await?;
 
         let mut expected_index = initial_game_count;
         info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
 
-        let proposer_handle = start_proposer(
-            &env.rpc_config,
-            PROPOSER_PRIVATE_KEY,
-            &env.deployed.factory,
-            TEST_GAME_TYPE,
-        )
-        .await?;
+        let proposer_handle = env.start_proposer().await?;
         info!("✓ Proposer started after legacy games seeded");
 
         let l2_provider = ProviderBuilder::default().connect_http(env.rpc_config.l2_rpc.clone());
@@ -383,15 +302,7 @@ mod e2e {
             _rootClaim: root_claim,
             _extraData: Bytes::from(extra_data.clone()),
         };
-
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.factory,
-            Bytes::from(create_call.abi_encode()),
-            Some(init_bond),
-        )
-        .await?;
+        env.send_contract_transaction(create_call.abi_encode(), Some(init_bond)).await?;
 
         // Wait for the game to be indexed by the factory
         loop {
@@ -410,14 +321,7 @@ mod e2e {
 
         let restore_type_call =
             MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
-        send_contract_transaction(
-            &proposer_signer,
-            &l1_rpc_url,
-            env.deployed.portal,
-            Bytes::from(restore_type_call.abi_encode()),
-            None,
-        )
-        .await?;
+        env.send_contract_transaction(restore_type_call.abi_encode(), None).await?;
         info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
         let tracked_games =
@@ -426,14 +330,14 @@ mod e2e {
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", TEST_GAME_TYPE);
 
-        warp_time(&env.anvil.provider, Duration::from_secs(MAX_CHALLENGE_DURATION)).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION).await?;
         let resolutions =
             wait_for_resolutions(&env.anvil.provider, &tracked_games, Duration::from_secs(120))
                 .await?;
         verify_all_resolved_correctly(&resolutions)?;
 
-        warp_time(&env.anvil.provider, Duration::from_secs(DISPUTE_GAME_FINALITY_DELAY_SECONDS))
-            .await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
+
         wait_for_bond_claims(
             &env.anvil.provider,
             &tracked_games,
