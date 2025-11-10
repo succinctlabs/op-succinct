@@ -44,6 +44,8 @@ use super::{
 
 /// Common test environment setup
 pub struct TestEnvironment {
+    /// Private keys
+    pub private_keys: TestPrivateKeys,
     /// RPC configuration
     pub rpc_config: RPCConfig,
     /// Data fetcher
@@ -110,17 +112,19 @@ impl TestEnvironment {
         // Update RPC config with Anvil endpoint
         rpc_config.l1_rpc = Url::parse(&anvil.endpoint.clone())?;
 
+        let private_keys = TestPrivateKeys::default();
+
         // Deploy contracts
         info!("=== Deploying Contracts ===");
-        let deployed = deploy_test_contracts(&anvil.endpoint, DEPLOYER_PRIVATE_KEY).await?;
+        let deployed = deploy_test_contracts(&anvil.endpoint, private_keys.deployer).await?;
 
-        Ok(Self { rpc_config, fetcher, anvil, deployed })
+        Ok(Self { private_keys, rpc_config, fetcher, anvil, deployed })
     }
 
     pub async fn start_proposer(&self) -> Result<JoinHandle<Result<()>>> {
         let handle = start_proposer(
             &self.rpc_config,
-            PROPOSER_PRIVATE_KEY,
+            self.private_keys.proposer,
             &self.deployed.factory,
             TEST_GAME_TYPE,
         )
@@ -140,7 +144,7 @@ impl TestEnvironment {
     ) -> Result<JoinHandle<Result<()>>> {
         let handle = start_challenger(
             &self.rpc_config,
-            CHALLENGER_PRIVATE_KEY,
+            self.private_keys.challenger,
             &self.deployed.factory,
             TEST_GAME_TYPE,
             malicious_percentage,
@@ -156,7 +160,8 @@ impl TestEnvironment {
     }
 
     pub async fn send_factory_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {
-        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
+        let proposer_signer =
+            SignerLock::new(Signer::new_local_signer(self.private_keys.proposer)?);
         send_contract_transaction(
             &proposer_signer,
             &self.rpc_config.l1_rpc,
@@ -168,7 +173,8 @@ impl TestEnvironment {
     }
 
     pub async fn send_portal_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {
-        let proposer_signer = SignerLock::new(Signer::new_local_signer(PROPOSER_PRIVATE_KEY)?);
+        let proposer_signer =
+            SignerLock::new(Signer::new_local_signer(self.private_keys.proposer)?);
         send_contract_transaction(
             &proposer_signer,
             &self.rpc_config.l1_rpc,
@@ -313,4 +319,20 @@ pub fn init_logging() {
 
         tracing_subscriber::registry().with(fmt::layer().compact()).with(filter).init()
     });
+}
+
+pub struct TestPrivateKeys {
+    pub deployer: &'static str,
+    pub proposer: &'static str,
+    pub challenger: &'static str,
+}
+
+impl Default for TestPrivateKeys {
+    fn default() -> Self {
+        Self {
+            deployer: DEPLOYER_PRIVATE_KEY,
+            proposer: PROPOSER_PRIVATE_KEY,
+            challenger: CHALLENGER_PRIVATE_KEY,
+        }
+    }
 }
