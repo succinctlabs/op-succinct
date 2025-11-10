@@ -104,7 +104,7 @@ pub fn init_logging() {
             ("e2e", level),
             ("fault_proof", level),
             ("op_succinct_fp", level),
-            ("op-succinct-client-utils", level),
+            ("op_succinct_client_utils", level),
             ("op_succinct_ethereum_host_utils", level),
             ("op_succinct_host_utils", level),
             ("op_succinct_proof_utils", level),
