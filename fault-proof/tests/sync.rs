@@ -61,7 +61,7 @@ async fn test_sync_state_happy_paths(
     );
     assert_eq!(
         U256::from(expected_canonical_head_l2_block),
-        snapshot.canonical_head_l2_block.unwrap() - U256::from(env.anvil.starting_l2_block_number),
+        snapshot.canonical_head_l2_block - U256::from(env.anvil.starting_l2_block_number),
         "Canonical head L2 block should match"
     );
 
@@ -109,4 +109,3 @@ async fn test_sync_state_with_invalid_claim() -> Result<()> {
 
     Ok(())
 }
-

@@ -82,7 +82,7 @@ struct SP1Prover {
 /// Games form a directed acyclic graph where each game builds upon a parent game, extending the
 /// chain with a new proposed output root. The proposer tracks these games to determine when to
 /// propose new games, defend existing ones, resolve completed games and claim bonds.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Game {
     pub index: U256,
     pub address: Address,
@@ -152,6 +152,7 @@ impl ProposerState {
 pub struct ProposerStateSnapshot {
     pub anchor_index: Option<U256>,
     pub canonical_head_index: Option<U256>,
+    pub canonical_head_l2_block: U256,
     pub games: Vec<(U256, Address)>,
 }
 
@@ -238,6 +239,7 @@ where
         ProposerStateSnapshot {
             anchor_index: state.anchor_game.as_ref().map(|game| game.index),
             canonical_head_index: state.canonical_head_index,
+            canonical_head_l2_block: state.canonical_head_l2_block.unwrap_or(U256::ZERO),
             games: state.games.values().map(|game| (game.index, game.address)).collect(),
         }
     }
@@ -280,7 +282,7 @@ where
     /// 1. `sync_games` pulls newly created games and refreshes cached metadata.
     /// 2. `sync_anchor_game` aligns the cached anchor pointer with the registry contract.
     /// 3. `compute_canonical_head` recomputes the head game used for proposal selection.
-    async fn sync_state(&self) -> Result<()> {
+    pub async fn sync_state(&self) -> Result<()> {
         // Pull new games and synchronize cached game statuses.
         self.sync_games().await?;
 
@@ -308,7 +310,7 @@ where
     /// 3. Evict games from the cache.
     ///    - Games that are finalized but there is no credit left to claim.
     ///    - The entire subtree of a CHALLENGER_WINS game.
-    async fn sync_games(&self) -> Result<()> {
+    pub async fn sync_games(&self) -> Result<()> {
         // 1. Load new games.
         let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
             return Ok(());
@@ -969,7 +971,7 @@ where
     /// - The game type is not supported.
     /// - The game type does not respect the expected type when created.
     /// - The output root claim is invalid.
-    async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
+    pub async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
         let mut state = self.state.lock().await;
 
         if state.games.contains_key(&index) {
@@ -1681,7 +1683,7 @@ where
 /// Result of fetching a game from the factory.
 ///
 /// Games can either be added to the cache or dropped based on validation criteria.
-enum GameFetchResult {
+pub enum GameFetchResult {
     /// Game was successfully validated and added to cache
     Added { game_address: Address, deadline: u64 },
     /// Game was dropped and not added to cache (e.g., unsupported type, invalid output root)
