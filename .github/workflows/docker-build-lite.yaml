@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     paths-ignore:
-      - 'audits/**'
-      - 'book/**'
+      - '**/*.pdf'
+      - '**/*.md'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

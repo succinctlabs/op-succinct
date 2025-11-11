@@ -2,6 +2,8 @@ name: Cargo Tests
 
 on:
   pull_request:
+    branches:
+      - main
     paths:
       - '.github/workflows/ci.yml'
       - 'Cargo.toml'
@@ -10,16 +12,21 @@ on:
       - 'fault-proof/**'
       - 'bindings/**'
       - 'configs/**'
-      - 'elfs/**'
+      - 'elf/**'
       - 'programs/**'
       - 'scripts/**'
       - 'utils/**'
       - 'validity/**'
-    tags:
-      - v[0-9]+.*
+
+  push:
     branches:
-      - "release/*"
       - main
+      - "release/*"
+    tags:
+      - "v[0-9]+.*"
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.pdf"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

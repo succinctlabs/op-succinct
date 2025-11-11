@@ -7,8 +7,8 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'audits/**'
-      - 'book/**'
+      - '**/*.pdf'
+      - '**/*.md'
   push:
     tags:
       - v[0-9]+.*
