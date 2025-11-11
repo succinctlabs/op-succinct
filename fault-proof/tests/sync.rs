@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::common::{constants::TEST_GAME_TYPE, TestEnvironment};
 use alloy_primitives::{FixedBytes, Uint, U256};
 use anyhow::Result;
@@ -24,15 +26,20 @@ const M: u32 = u32::MAX;
 
 #[rstest]
 #[case::zero_games(0, &[M], &[], None, 0)]
-#[case::single_game_default_interval(1, &[M], &[], Some(0), 1)]
-#[case::single_game_large_interval(1, &[M], &[10], Some(0), 10)]
-#[case::two_games_same_parent(2, &[M, M], &[], Some(1), 2)]
-#[case::two_games_same_branch(2, &[M, 0], &[], Some(1), 2)]
-#[case::three_games_same_branch(3, &[M, 0, 1], &[], Some(2), 3)]
-#[case::three_games_same_parent_varying_intervals(3, &[M, M, M], &[1, 3, 2], Some(2), 3)]
-#[case::three_games_same_branch_varying_intervals(3, &[M, 0, 1], &[1, 2, 3], Some(2), 6)]
+#[case::single_game_default_interval(1, &[M], &[], Some(0), 1)] // Branch: M->0, Blocks: 0->1
+#[case::single_game_large_interval(1, &[M], &[10], Some(0), 10)] // Branch: M->0, Blocks: 0->10
+#[case::two_games_same_branch(2, &[M, 0], &[], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->2
+#[case::two_games_same_parent_diff_intervals(2, &[M, M], &[1, 2], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->3
+#[case::three_games_same_branch(3, &[M, 0, 1], &[], Some(2), 3)] // Branch: M->0->1->2, Blocks: 0->1->2->3
+#[case::three_games_same_parent_diff_intervals_1(3, &[M, M, M], &[1, 2, 3], Some(2), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->2, 0->3
+#[case::three_games_same_parent_diff_intervals_2(3, &[M, M, M], &[1, 3, 2], Some(1), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->3, 0->2
+#[case::three_games_same_branch_diff_intervals_1(3, &[M, 0, 1], &[1, 2, 3], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->3->6
+#[case::three_games_same_branch_diff_intervals_2(3, &[M, 0, 1], &[1, 3, 2], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->4->6
+#[case::three_games_two_branches_diff_intervals(3, &[M, 0, M], &[1, 3, 2], Some(1), 4)] // Branches: M->0->1, M->2, Blocks: 0->1->4 and 0->2
+#[case::five_games_two_branches(5, &[M, 0, 1, 0, 3], &[1, 1, 1, 2, 2], Some(4), 5)] // Branches: M->0->1->2, 0->3->4, Blocks: 0->1->2->3 and 1->3->5
+#[case::five_games_three_branches(5, &[M, 0, 1, 0, 0], &[1, 1, 1, 4, 3], Some(3), 5)] // Branches: M->0->1->2, 0->3, 0->4, Blocks: 0->1->2->3, 1->5, 1->4
 #[tokio::test]
-async fn test_sync_state_happy_paths(
+async fn test_sync_state_in_progress_games_happy_paths(
     #[case] num_games: usize,
     #[case] parent_ids: &[u32],
     #[case] intervals: &[u64],
@@ -41,11 +48,28 @@ async fn test_sync_state_happy_paths(
 ) -> Result<()> {
     let (env, proposer, init_bond) = setup().await?;
 
-    let mut block = env.anvil.starting_l2_block_number + intervals.first().unwrap_or(&1);
+    let mut starting_blocks: HashMap<u32, u64> = HashMap::new();
+
+    let mut block = env.anvil.starting_l2_block_number;
     for (i, _) in parent_ids.iter().take(num_games).enumerate() {
-        let root_claim = env.compute_output_root_at_block(block).await?;
-        env.create_game(root_claim, block, parent_ids[i], init_bond).await?;
-        block += intervals.get(i).unwrap_or(&1);
+        let cur_parent_id = parent_ids[i];
+        starting_blocks.insert(cur_parent_id, block);
+
+        let end_block = block + intervals.get(i).unwrap_or(&1);
+        let root_claim = env.compute_output_root_at_block(end_block).await?;
+        env.create_game(root_claim, end_block, cur_parent_id, init_bond).await?;
+
+        // Determine the starting block for the next game
+        //
+        // If the next game's parent is the current game, the next game's starting block
+        // is the end block of the current game.
+        // Otherwise, look up the starting block from the map.
+        let next_parent_id = parent_ids.get(i + 1).copied().unwrap_or(M);
+        if cur_parent_id.wrapping_add(1) == next_parent_id {
+            block = end_block;
+        } else {
+            block = *starting_blocks.get(&next_parent_id).unwrap_or(&end_block);
+        }
     }
 
     proposer.sync_state().await?;
@@ -54,6 +78,7 @@ async fn test_sync_state_happy_paths(
 
     let expected_canonical_head_index = expected_canonical_head_index.map(|idx| U256::from(idx));
 
+    assert_eq!(snapshot.anchor_index, None, "Anchor index should be None");
     assert_eq!(snapshot.games.len(), num_games, "Number of synced games should match");
     assert_eq!(
         snapshot.canonical_head_index, expected_canonical_head_index,
