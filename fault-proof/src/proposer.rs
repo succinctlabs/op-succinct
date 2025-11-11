@@ -329,6 +329,11 @@ where
         let start_cursor = {
             let state = self.state.lock().await;
             if let Some(start_cursor) = state.start_cursor {
+                tracing::debug!(
+                    latest_index = %latest_index,
+                    start_cursor = %start_cursor,
+                    "Resuming game fetch from saved cursor"
+                );
                 start_cursor
             } else {
                 latest_index
@@ -346,6 +351,11 @@ where
             // This should never/rarely happen but in a case where the factory is redeployed/reset
             // while the proposer keeps running.
             if latest_index < current_cursor {
+                tracing::warn!(
+                    latest_index = %latest_index,
+                    current_cursor = %current_cursor,
+                    "Factory reset suspected; resetting cursor to 0"
+                );
                 U256::from(0)
             } else {
                 current_cursor
