@@ -356,7 +356,7 @@ pub fn init_logging() {
         let level =
             std::env::var("RUST_LOG").unwrap_or("info".to_string()).parse().unwrap_or(Level::INFO);
 
-        let filter = Targets::new().with_default(level).with_targets([
+        let filter = Targets::new().with_targets([
             ("e2e", level),
             ("sync", level),
             ("fault_proof", level),

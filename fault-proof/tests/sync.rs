@@ -1,6 +1,12 @@
 use std::collections::HashMap;
 
-use crate::common::{constants::TEST_GAME_TYPE, TestEnvironment};
+use crate::common::{
+    constants::{
+        DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
+        TEST_GAME_TYPE,
+    },
+    TestEnvironment,
+};
 use alloy_primitives::{FixedBytes, Uint, U256};
 use anyhow::Result;
 use fault_proof::proposer::{GameFetchResult, OPSuccinctProposer};
@@ -24,23 +30,29 @@ async fn setup() -> Result<(
 
 const M: u32 = u32::MAX;
 
+// Naming guide used in case names:
+// - "*_noanch_*": anchored game absent.
+// - "*_anch_*": anchored game present.
+
 #[rstest]
-#[case::zero_games(0, &[M], &[], None, 0)]
-#[case::single_game_default_interval(1, &[M], &[], Some(0), 1)] // Branch: M->0, Blocks: 0->1
-#[case::single_game_large_interval(1, &[M], &[10], Some(0), 10)] // Branch: M->0, Blocks: 0->10
-#[case::two_games_same_branch(2, &[M, 0], &[], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->2
-#[case::two_games_same_parent_diff_intervals(2, &[M, M], &[1, 2], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->3
-#[case::three_games_same_branch(3, &[M, 0, 1], &[], Some(2), 3)] // Branch: M->0->1->2, Blocks: 0->1->2->3
-#[case::three_games_same_parent_diff_intervals_1(3, &[M, M, M], &[1, 2, 3], Some(2), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->2, 0->3
-#[case::three_games_same_parent_diff_intervals_2(3, &[M, M, M], &[1, 3, 2], Some(1), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->3, 0->2
-#[case::three_games_same_branch_diff_intervals_1(3, &[M, 0, 1], &[1, 2, 3], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->3->6
-#[case::three_games_same_branch_diff_intervals_2(3, &[M, 0, 1], &[1, 3, 2], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->4->6
-#[case::three_games_two_branches_diff_intervals(3, &[M, 0, M], &[1, 3, 2], Some(1), 4)] // Branches: M->0->1, M->2, Blocks: 0->1->4 and 0->2
-#[case::five_games_two_branches(5, &[M, 0, 1, 0, 3], &[1, 1, 1, 2, 2], Some(4), 5)] // Branches: M->0->1->2, 0->3->4, Blocks: 0->1->2->3 and 1->3->5
-#[case::five_games_three_branches(5, &[M, 0, 1, 0, 0], &[1, 1, 1, 4, 3], Some(3), 5)] // Branches: M->0->1->2, 0->3, 0->4, Blocks: 0->1->2->3, 1->5, 1->4
+#[case::zero_games(0, &[], &[M], &[], None, 0)]
+#[case::noanch_single_game_default_interval(1, &[], &[M], &[], Some(0), 1)] // Branch: M->0, Blocks: 0->1
+#[case::noanch_single_game_large_interval(1, &[], &[M], &[10], Some(0), 10)] // Branch: M->0, Blocks: 0->10
+#[case::noanch_two_games_same_branch(2, &[], &[M, 0], &[], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->2
+#[case::noanch_two_games_same_parent_diff_intervals(2, &[], &[M, M], &[1, 2], Some(1), 2)] // Branch: M->0->1, Blocks: 0->1->3
+#[case::noanch_three_games_same_branch(3,&[], &[M, 0, 1], &[], Some(2), 3)] // Branch: M->0->1->2, Blocks: 0->1->2->3
+#[case::noanch_three_games_same_parent_diff_intervals_1(3,&[], &[M, M, M], &[1, 2, 3], Some(2), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->2, 0->3
+#[case::noanch_three_games_same_parent_diff_intervals_2(3,&[], &[M, M, M], &[1, 3, 2], Some(1), 3)] // Branches: M->0, M->1, M->2, Blocks: 0->1, 0->3, 0->2
+#[case::noanch_three_games_same_branch_diff_intervals_1(3,&[], &[M, 0, 1], &[1, 2, 3], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->3->6
+#[case::noanch_three_games_same_branch_diff_intervals_2(3, &[], &[M, 0, 1], &[1, 3, 2], Some(2), 6)] // Branch: M->0->1->2, Blocks: 0->1->4->6
+#[case::noanch_three_games_two_branches_diff_intervals(3,&[], &[M, 0, M], &[1, 3, 2], Some(1), 4)] // Branches: M->0->1, M->2, Blocks: 0->1->4 and 0->2
+#[case::noanch_five_games_two_branches(5, &[], &[M, 0, 1, 0, 3], &[1, 1, 1, 2, 2], Some(4), 5)] // Branches: M->0->1->2, 0->3->4, Blocks: 0->1->2->3 and 1->3->5
+#[case::noanch_five_games_three_branches(5, &[], &[M, 0, 1, 0, 0], &[1, 1, 1, 4, 3], Some(3), 5)] // Branches: M->0->1->2, 0->3, 0->4, Blocks: 0->1->2->3, 1->5, 1->4
+#[case::anch_single_game_default_interval(1, &[0], &[M], &[], Some(0), 1)]
 #[tokio::test]
-async fn test_sync_state_in_progress_games_happy_paths(
+async fn test_sync_state_happy_paths(
     #[case] num_games: usize,
+    #[case] finalized_ids: &[usize],
     #[case] parent_ids: &[u32],
     #[case] intervals: &[u64],
     #[case] expected_canonical_head_index: Option<u64>,
@@ -59,6 +71,20 @@ async fn test_sync_state_in_progress_games_happy_paths(
         let root_claim = env.compute_output_root_at_block(end_block).await?;
         env.create_game(root_claim, end_block, cur_parent_id, init_bond).await?;
 
+        let (index, address) = env.last_game_info().await?;
+        tracing::info!("Created game {index} with parent {cur_parent_id}");
+
+        if finalized_ids.contains(&i) {
+            let finality_wait = DISPUTE_GAME_FINALITY_DELAY_SECONDS +
+                MAX_CHALLENGE_DURATION +
+                MAX_PROVE_DURATION +
+                60;
+            env.warp_time(finality_wait).await?;
+            env.resolve_game(address).await?;
+            env.set_anchor_state(address).await?;
+            tracing::info!("Warped time by {finality_wait} seconds and finalized game {i}");
+        }
+
         // Determine the starting block for the next game
         //
         // If the next game's parent is the current game, the next game's starting block
@@ -75,10 +101,14 @@ async fn test_sync_state_in_progress_games_happy_paths(
     proposer.sync_state().await?;
 
     let snapshot = proposer.state_snapshot().await;
-
     let expected_canonical_head_index = expected_canonical_head_index.map(|idx| U256::from(idx));
+    let expected_anchor_index = if finalized_ids.is_empty() {
+        None
+    } else {
+        Some(U256::from(*finalized_ids.iter().max().unwrap()))
+    };
 
-    assert_eq!(snapshot.anchor_index, None, "Anchor index should be None");
+    assert_eq!(snapshot.anchor_index, expected_anchor_index, "Anchor index should match");
     assert_eq!(snapshot.games.len(), num_games, "Number of synced games should match");
     assert_eq!(
         snapshot.canonical_head_index, expected_canonical_head_index,
