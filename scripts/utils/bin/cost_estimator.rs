@@ -25,7 +25,8 @@ use std::{
 };
 
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
-/// each block range to a CSV file after each execution completes (not guaranteed to be in order).
+/// each block range to a CSV file after each execution completes (not guaranteed to be in order),
+/// unless log_only is true, in which case stats are only logged.
 async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
     host: Arc<H>,
     host_args: &[H::Args],
@@ -33,6 +34,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
     l2_chain_id: u64,
     start: u64,
     end: u64,
+    log_only: bool,
 ) -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
@@ -49,20 +51,24 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
         .collect::<Vec<_>>()
         .await;
 
-    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
-    let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let report_path =
-        root_dir.join(format!("execution-reports/{l2_chain_id}/{start}-{end}-report.csv"));
-    // Create the parent directory if it doesn't exist
-    if let Some(parent) = report_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).unwrap();
+    let report_path = if !log_only {
+        let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
+        let root_dir = PathBuf::from(cargo_metadata.workspace_root);
+        let report_path =
+            root_dir.join(format!("execution-reports/{l2_chain_id}/{start}-{end}-report.csv"));
+        // Create the parent directory if it doesn't exist
+        if let Some(parent) = report_path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent).unwrap();
+            }
         }
-    }
 
-    // Create an empty file since canonicalize requires the path to exist
-    fs::File::create(&report_path).unwrap();
-    let report_path = report_path.canonicalize().unwrap();
+        // Create an empty file since canonicalize requires the path to exist
+        fs::File::create(&report_path).unwrap();
+        Some(report_path.canonicalize().unwrap())
+    } else {
+        None
+    };
 
     let prover = ProverClient::builder().cpu().build();
 
@@ -102,23 +108,34 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
         let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
 
-        let mut file = OpenOptions::new()
-            .read(true)
-            .append(true)
-            .open(&report_path)
-            .unwrap();
+        if let Some(ref report_path) = report_path {
+            // Write to CSV file
+            let mut file = OpenOptions::new()
+                .read(true)
+                .append(true)
+                .open(report_path)
+                .unwrap();
 
-        // Writes the headers only if the file is empty.
-        let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+            // Writes the headers only if the file is empty.
+            let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
 
-        let mut csv_writer = csv::WriterBuilder::new()
-            .has_headers(needs_header)
-            .from_writer(file);
+            let mut csv_writer = csv::WriterBuilder::new()
+                .has_headers(needs_header)
+                .from_writer(file);
 
-        csv_writer
-            .serialize(execution_stats.clone())
-            .expect("Failed to write execution stats to CSV.");
-        csv_writer.flush().expect("Failed to flush CSV writer.");
+            csv_writer
+                .serialize(execution_stats.clone())
+                .expect("Failed to write execution stats to CSV.");
+            csv_writer.flush().expect("Failed to flush CSV writer.");
+        } else {
+            // Log only mode - print stats to console
+            log::info!(
+                "Execution stats for blocks {} to {}:\n{}",
+                range.start,
+                range.end,
+                execution_stats
+            );
+        }
     });
 
     info!("Execution is complete.");
@@ -241,32 +258,37 @@ async fn main() -> Result<()> {
         l2_chain_id,
         l2_start_block,
         l2_end_block,
+        args.log_only,
     )
     .await?;
 
-    // Get the path to the execution report CSV file.
-    let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
-    let root_dir = PathBuf::from(cargo_metadata.workspace_root);
-    let report_path = root_dir.join(format!(
-        "execution-reports/{l2_chain_id}/{l2_start_block}-{l2_end_block}-report.csv"
-    ));
+    if !args.log_only {
+        // Get the path to the execution report CSV file.
+        let cargo_metadata = cargo_metadata::MetadataCommand::new().exec().unwrap();
+        let root_dir = PathBuf::from(cargo_metadata.workspace_root);
+        let report_path = root_dir.join(format!(
+            "execution-reports/{l2_chain_id}/{l2_start_block}-{l2_end_block}-report.csv"
+        ));
 
-    // Read the execution stats from the CSV file and aggregate them to output to the user.
-    let mut final_execution_stats = Vec::new();
-    let mut csv_reader = csv::Reader::from_path(&report_path)?;
-    for result in csv_reader.deserialize() {
-        let stats: ExecutionStats = result?;
-        final_execution_stats.push(stats);
+        // Read the execution stats from the CSV file and aggregate them to output to the user.
+        let mut final_execution_stats = Vec::new();
+        let mut csv_reader = csv::Reader::from_path(&report_path)?;
+        for result in csv_reader.deserialize() {
+            let stats: ExecutionStats = result?;
+            final_execution_stats.push(stats);
+        }
+
+        println!("Wrote execution stats to {}", report_path.display());
+
+        // Aggregate the execution stats and print them to the user.
+        println!(
+            "Aggregate Execution Stats for Chain {}: \n {}",
+            l2_chain_id,
+            aggregate_execution_stats(&final_execution_stats, 0, 0)
+        );
+    } else {
+        info!("Log-only mode: CSV file was not generated. Stats were logged during execution.");
     }
-
-    println!("Wrote execution stats to {}", report_path.display());
-
-    // Aggregate the execution stats and print them to the user.
-    println!(
-        "Aggregate Execution Stats for Chain {}: \n {}",
-        l2_chain_id,
-        aggregate_execution_stats(&final_execution_stats, 0, 0)
-    );
 
     Ok(())
 }

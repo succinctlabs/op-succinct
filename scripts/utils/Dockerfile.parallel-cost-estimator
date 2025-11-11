@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1.4
+
+# Build stage with full development environment
+FROM ubuntu:24.04 AS builder
+
+WORKDIR /workspace
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    clang \
+    build-essential \
+    git \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH=/root/.cargo/bin:$PATH
+
+# Copy rust-toolchain from workspace root
+COPY rust-toolchain.toml ./
+RUN rustup show && \
+    rm -rf ~/.rustup/toolchains/stable-*
+
+# Install SP1
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    ~/.sp1/bin/sp1up && \
+    ~/.sp1/bin/cargo-prove prove --version
+ENV PATH=/root/.sp1/bin:$PATH
+
+# Copy entire workspace
+COPY . .
+
+# Build both binaries
+RUN cargo build --release --bin cost-estimator --features eigenda && \
+    cargo build --release --bin parallel-cost-estimator --features eigenda
+
+# Runtime stage - minimal image
+FROM ubuntu:24.04
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy resources directory
+COPY --from=builder /workspace/resources/ ./resources/
+
+# Copy only the built binaries
+COPY --from=builder /workspace/target/release/cost-estimator /usr/local/bin/cost-estimator
+COPY --from=builder /workspace/target/release/parallel-cost-estimator /usr/local/bin/parallel-cost-estimator
+
+# Set environment variable to use the built cost-estimator binary
+ENV COST_ESTIMATOR_BIN=/usr/local/bin/cost-estimator
+
+# Default command
+CMD ["parallel-cost-estimator"]
+

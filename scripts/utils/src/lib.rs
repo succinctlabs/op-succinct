@@ -34,6 +34,9 @@ pub struct HostExecutorArgs {
     /// activated for op-node.
     #[clap(long)]
     pub safe_db_fallback: bool,
+    /// Skip writing CSV files and only log execution statistics.
+    #[arg(long)]
+    pub log_only: bool,
 }
 
 #[derive(Debug, Clone, Parser)]

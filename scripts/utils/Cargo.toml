@@ -39,6 +39,10 @@ path = "bin/fetch_fault_dispute_game_config.rs"
 name = "gen-sp1-test-artifacts"
 path = "bin/gen_sp1_test_artifacts.rs"
 
+[[bin]]
+name = "parallel-cost-estimator"
+path = "bin/parallel_cost_estimator.rs"
+
 [dependencies]
 
 # workspace
@@ -58,6 +62,7 @@ serde.workspace = true
 futures.workspace = true
 rayon = "1.10.0"
 serde_json.workspace = true
+env_logger = "0.11"
 
 # local
 op-succinct-host-utils.workspace = true

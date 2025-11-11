@@ -1,0 +1,21 @@
+name: Push container images for development non-essentials
+
+on:
+  pull_request:
+    branches:
+      - develop
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  push_container_parallel-cost-estimator_dev:
+    name: Build and push parallel-cost-estimator development image
+    uses: ./.github/workflows/push-container.yaml
+    with:
+      file: scripts/utils/Dockerfile.parallel-cost-estimator
+      artifact-registry: us-west1-docker.pkg.dev/devopsre/dev-images/${{ github.event.repository.name }}-parallel-cost-estimator
+      service-account: op-succinct-gh-dev@devopsre.iam.gserviceaccount.com
+      workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos
+      concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-parallel-cost-estimator-dev
