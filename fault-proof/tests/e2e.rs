@@ -10,9 +10,8 @@ mod e2e {
     use anyhow::{Context, Result};
     use common::{
         constants::{
-            CHALLENGER_ADDRESS, CHALLENGER_PRIVATE_KEY, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-            MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE,
-            PROPOSER_ADDRESS, PROPOSER_PRIVATE_KEY, TEST_GAME_TYPE,
+            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
+            MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
         },
         monitor::{verify_all_resolved_correctly, TrackedGame},
         TestEnvironment,
@@ -844,9 +843,9 @@ mod e2e {
         info!("=== Phase 2: Challenge Game 3 ===");
         let challenger = init_challenger(
             &env.rpc_config,
-            CHALLENGER_PRIVATE_KEY,
+            env.private_keys.challenger,
             &env.deployed.factory,
-            TEST_GAME_TYPE,
+            env.game_type,
             Some(100.0),
         )
         .await?;
@@ -878,9 +877,9 @@ mod e2e {
         // Resolve first 2 games as DEFENDER_WINS
         let proposer = init_proposer(
             &env.rpc_config,
-            PROPOSER_PRIVATE_KEY,
+            env.private_keys.proposer,
             &env.deployed.factory,
-            TEST_GAME_TYPE,
+            env.game_type,
         )
         .await?;
 
@@ -974,9 +973,9 @@ mod e2e {
         let proposer = Arc::new(
             init_proposer(
                 &env.rpc_config,
-                PROPOSER_PRIVATE_KEY,
+                env.private_keys.proposer,
                 &env.deployed.factory,
-                TEST_GAME_TYPE,
+                env.game_type,
             )
             .await?,
         );
