@@ -100,18 +100,14 @@ pub struct Game {
 /// Tracks:
 /// - `anchor_game`: the latest anchor fetched from the registry
 /// - `canonical_head_index`/`canonical_head_l2_block`: the best known game for scheduling work
-/// - `start_cursor`: the index in the factory's dispute-game list to start from during incremental
-///   reverse-chronological syncs
-/// - `end_cursor`: the last index in the factory's dispute-game list processed during incremental
-///   backward syncs
+/// - `cursor`: the last index of factory's dispute game list processed during incremental syncs
 /// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
 struct ProposerState {
     anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
-    start_cursor: Option<U256>,
-    end_cursor: U256,
+    cursor: U256,
     games: HashMap<U256, Game>,
 }
 
@@ -321,35 +317,13 @@ where
         let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
         let anchor_address = anchor_game.address();
 
-        // Determines the starting cursor used when fetching new games backwards.
-        //
-        // If some games were fetched in previous rounds but syncing stopped mid-way, we avoid
-        // refetching those already cached. This preserves partial progress and reduces redundant
-        // RPC calls.
-        let start_cursor = {
+        let cursor = {
             let state = self.state.lock().await;
-            if let Some(start_cursor) = state.start_cursor {
-                tracing::debug!(
-                    latest_index = %latest_index,
-                    start_cursor = %start_cursor,
-                    "Resuming game fetch from saved cursor"
-                );
-                start_cursor
-            } else {
-                latest_index
-            }
-        };
-
-        // Determines the end cursor (inclusive) when fetching new games backwards.
-        //
-        // If the factory appears to have been reset (latest_index < end_cursor),
-        // reset the cursor to zero to avoid skipping any historical games.
-        let end_cursor = {
-            let state = self.state.lock().await;
-            let current_cursor = state.end_cursor;
+            let current_cursor = state.cursor;
 
             // This should never/rarely happen but in a case where the factory is redeployed/reset
-            // while the proposer keeps running.
+            // while the proposer keeps running, the cursor is reset to zero to avoid skipping
+            // any games.
             if latest_index < current_cursor {
                 tracing::warn!(
                     latest_index = %latest_index,
@@ -362,19 +336,13 @@ where
             }
         };
 
-        let mut index = start_cursor;
+        let mut index = latest_index;
         let mut anchor_deadline: Option<u64> = None;
 
         loop {
             let fetch_result = self.fetch_game(index).await?;
 
             match fetch_result {
-                GameFetchResult::Dropped { game_address } => {
-                    // Stop fetching once we find the anchor on an unsupported game.
-                    if &game_address == anchor_address {
-                        break
-                    }
-                }
                 GameFetchResult::Added { game_address, deadline } => {
                     // First time we hit the anchor, record its deadline
                     if &game_address == anchor_address {
@@ -388,21 +356,25 @@ where
                         }
                     }
                 }
+                GameFetchResult::Dropped { game_address } => {
+                    // Stop fetching once we find the anchor on an unsupported game.
+                    if &game_address == anchor_address {
+                        break
+                    }
+                }
+                GameFetchResult::AlreadyExists => {}
             }
 
-            if index == end_cursor {
+            if index == cursor {
                 break;
             }
 
             index = index.saturating_sub(U256::from(1));
-            let mut state = self.state.lock().await;
-            state.start_cursor = Some(index);
         }
 
         {
             let mut state = self.state.lock().await;
-            state.start_cursor = None;
-            state.end_cursor = latest_index;
+            state.cursor = latest_index;
         }
 
         // 2. Synchronize the status of all cached games.
@@ -999,6 +971,10 @@ where
     /// - The output root claim is invalid.
     async fn fetch_game(&self, index: U256) -> Result<GameFetchResult> {
         let mut state = self.state.lock().await;
+
+        if state.games.contains_key(&index) {
+            return Ok(GameFetchResult::AlreadyExists);
+        }
 
         let game = self.factory.gameAtIndex(index).call().await?;
         let game_address = game.proxy;
@@ -1706,8 +1682,10 @@ where
 ///
 /// Games can either be added to the cache or dropped based on validation criteria.
 enum GameFetchResult {
-    /// Game was dropped and not added to cache (e.g., unsupported type, invalid output root)
-    Dropped { game_address: Address },
     /// Game was successfully validated and added to cache
     Added { game_address: Address, deadline: u64 },
+    /// Game was dropped and not added to cache (e.g., unsupported type, invalid output root)
+    Dropped { game_address: Address },
+    /// Game was already present in the cache
+    AlreadyExists,
 }
