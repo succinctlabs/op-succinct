@@ -75,10 +75,13 @@ mod sync {
         }
     }
 
-    // Naming guide used in case names:
-    // - "*_noanch_*": anchored game absent.
-    // - "*_anch_*": anchored game present.
-
+    /// Verifies proposer state sync across multiple happy-path scenarios with only valid games.
+    /// Exercises different branching structures, parent-child relationships, and per-game L2 block
+    /// intervals.
+    ///
+    /// Case naming guide:
+    /// - "noanch_*": anchored game absent.
+    /// - "anch_*": anchored game present.
     #[rstest]
     #[case::zero_games(0, &[], &[M], &[], None, 0)]
     #[case::noanch_single_game_default_interval(1, &[], &[M], &[], Some(0), 1)] // Branch: M->0, Blocks: 0->1
@@ -184,7 +187,7 @@ mod sync {
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(10);
         snapshot.assert_anchor_index(None);
-        snapshot.assert_canonical_head(Some(9), 10, env.anvil.starting_l2_block_number);
+        snapshot.assert_canonical_head(Some(9), 10, starting_l2_block);
 
         Ok(())
     }
@@ -193,7 +196,8 @@ mod sync {
     async fn test_sync_state_drops_invalid_claim() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
-        let block = env.anvil.starting_l2_block_number + 1;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
         let mut rng = rand::rng();
         let mut invalid_root_bytes = [0u8; 32];
         rng.fill(&mut invalid_root_bytes);
@@ -204,6 +208,11 @@ mod sync {
 
         let fetch_result = proposer.fetch_game(U256::from(0)).await?;
         assert!(matches!(fetch_result, GameFetchResult::Dropped { .. }));
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(0);
+        snapshot.assert_anchor_index(None);
+        snapshot.assert_canonical_head(None, 0, starting_l2_block);
 
         Ok(())
     }
