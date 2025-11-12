@@ -100,14 +100,19 @@ pub struct Game {
 /// Tracks:
 /// - `anchor_game`: the latest anchor fetched from the registry
 /// - `canonical_head_index`/`canonical_head_l2_block`: the best known game for scheduling work
-/// - `cursor`: the last index of factory's dispute game list processed during incremental syncs
+/// - `start_cursor`: Lowest cached game index (inclusive). Moves downward as we backfill older
+///   games and forward past evictions, always pointing to the earliest retained entry.
+/// - `end_cursor`: Highest factory index processed in the prior sync. Each incremental sync walks
+///   backward from the latest index to this value, then sets it to the new latest index.
+/// - `games`: cached metadata for every tracked game keyed by index
 /// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
 struct ProposerState {
     anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
-    cursor: U256,
+    start_cursor: U256,
+    end_cursor: U256,
     games: HashMap<U256, Game>,
 }
 
@@ -319,9 +324,9 @@ where
         let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
         let anchor_address = anchor_game.address();
 
-        let cursor = {
+        let end_cursor = {
             let state = self.state.lock().await;
-            let current_cursor = state.cursor;
+            let current_cursor = state.end_cursor;
 
             // This should never/rarely happen but in a case where the factory is redeployed/reset
             // while the proposer keeps running, the cursor is reset to zero to avoid skipping
@@ -354,6 +359,13 @@ where
                     // Once we know the anchor deadline, enforce the lag constraint.
                     if let Some(anchor_d) = anchor_deadline {
                         if anchor_d.abs_diff(deadline) > MAX_GAME_DEADLINE_LAG {
+                            tracing::debug!(
+                                game_index = %index,
+                                game_address = ?game_address,
+                                game_deadline = %deadline,
+                                anchor_deadline = %anchor_d,
+                                "Game deadline exceeds max lag from anchor: stopping incremental fetch"
+                            );
                             break;
                         }
                     }
@@ -367,16 +379,20 @@ where
                 GameFetchResult::AlreadyExists => {}
             }
 
-            if index == cursor {
+            if index == end_cursor {
                 break;
             }
 
             index = index.saturating_sub(U256::from(1));
+            let mut state = self.state.lock().await;
+            if state.start_cursor > index {
+                state.start_cursor = index;
+            }
         }
 
         {
             let mut state = self.state.lock().await;
-            state.cursor = latest_index;
+            state.end_cursor = latest_index;
         }
 
         // 2. Synchronize the status of all cached games.
@@ -418,9 +434,11 @@ where
                 let deadline = U256::from(claim_data.deadline).to::<u64>();
                 let parent_index = claim_data.parentIndex;
 
-                if parent_index != u32::MAX {
+                let state = self.state.lock().await;
+                let start_cursor = state.start_cursor;
+
+                if parent_index != u32::MAX && index != start_cursor {
                     let parent_idx = U256::from(parent_index);
-                    let state = self.state.lock().await;
                     if !state.games.contains_key(&parent_idx) {
                         tracing::info!(
                             game_index = %index,
@@ -557,10 +575,16 @@ where
                     }
                     GameSyncAction::Remove(index) => {
                         state.games.remove(&index);
+                        while !state.games.contains_key(&state.start_cursor) {
+                            state.start_cursor = state.start_cursor.saturating_add(U256::from(1));
+                        }
                         tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
+                        while !state.games.contains_key(&state.start_cursor) {
+                            state.start_cursor = state.start_cursor.saturating_add(U256::from(1));
+                        }
                     }
                 }
             }
