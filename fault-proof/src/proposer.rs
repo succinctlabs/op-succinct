@@ -150,6 +150,20 @@ impl ProposerState {
             self.games.remove(&index);
         }
     }
+
+    /// Advance `start_cursor` to the next existing cached game.
+    ///
+    /// Skips evicted indices so `start_cursor` always targets the earliest retained game
+    /// within the `[start_cursor, end_cursor]` window, preserving the cache invariant.
+    fn advance_start_cursor(&mut self) {
+        while !self.games.contains_key(&self.start_cursor) && self.start_cursor <= self.end_cursor {
+            tracing::debug!(
+                current_start_cursor = %self.start_cursor,
+                "Advancing start cursor past removed game"
+            );
+            self.start_cursor = self.start_cursor.saturating_add(U256::from(1));
+        }
+    }
 }
 
 /// Snapshot of the proposer's cached state for testing and monitoring.
@@ -384,14 +398,11 @@ where
             }
 
             index = index.saturating_sub(U256::from(1));
-            let mut state = self.state.lock().await;
-            if state.start_cursor > index {
-                state.start_cursor = index;
-            }
         }
 
         {
             let mut state = self.state.lock().await;
+            state.start_cursor = index;
             state.end_cursor = latest_index;
         }
 
@@ -438,6 +449,11 @@ where
                 let start_cursor = state.start_cursor;
 
                 if parent_index != u32::MAX && index != start_cursor {
+                    tracing::debug!(
+                        game_index = %index,
+                        parent_index = %parent_index,
+                        "Verifying parent game presence in cache"
+                    );
                     let parent_idx = U256::from(parent_index);
                     if !state.games.contains_key(&parent_idx) {
                         tracing::info!(
@@ -575,16 +591,12 @@ where
                     }
                     GameSyncAction::Remove(index) => {
                         state.games.remove(&index);
-                        while !state.games.contains_key(&state.start_cursor) {
-                            state.start_cursor = state.start_cursor.saturating_add(U256::from(1));
-                        }
+                        state.advance_start_cursor();
                         tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
-                        while !state.games.contains_key(&state.start_cursor) {
-                            state.start_cursor = state.start_cursor.saturating_add(U256::from(1));
-                        }
+                        state.advance_start_cursor();
                     }
                 }
             }
