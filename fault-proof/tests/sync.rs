@@ -1,19 +1,16 @@
-mod common;
+pub mod common;
 
 #[cfg(feature = "e2e")]
 mod sync {
-    use std::{collections::HashMap, time::Duration};
+    use std::collections::HashMap;
 
     use crate::common::{
-        constants::{
-            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            TEST_GAME_TYPE,
-        },
+        constants::{DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, TEST_GAME_TYPE},
         TestEnvironment,
     };
     use alloy_primitives::{FixedBytes, Uint, U256};
     use anyhow::Result;
-    use fault_proof::proposer::{GameFetchResult, OPSuccinctProposer};
+    use fault_proof::proposer::{GameFetchResult, OPSuccinctProposer, MAX_GAME_DEADLINE_LAG};
     use op_succinct_host_utils::host::OPSuccinctHost;
     use rand::Rng;
     use rstest::rstest;
@@ -164,6 +161,48 @@ mod sync {
 
         let fetch_result = proposer.fetch_game(U256::from(0)).await?;
         assert!(matches!(fetch_result, GameFetchResult::Dropped { .. }));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_sync_state_max_game_deadline_gap() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let mut parent_id = M;
+        let mut block = env.anvil.starting_l2_block_number + 1;
+        for i in 0..3 {
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (index, address) = env.last_game_info().await?;
+            tracing::info!("Created game {index} with parent {parent_id}");
+
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(address).await?;
+
+            if i == 0 {
+                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            } else {
+                env.warp_time(MAX_GAME_DEADLINE_LAG + 1).await?;
+            }
+            env.set_anchor_state(address).await?;
+            tracing::info!("Anchor game set to index {index}");
+
+            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+            block += 1;
+        }
+
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+
+        assert_eq!(snapshot.anchor_index, Some(U256::from(2)), "Anchor index should match");
+        assert_eq!(snapshot.games.len(), 2, "Number of synced games should match");
+        assert_eq!(
+            snapshot.canonical_head_index,
+            Some(U256::from(2)),
+            "Canonical head index should match"
+        );
 
         Ok(())
     }
