@@ -186,7 +186,7 @@ mod sync {
     }
 
     #[tokio::test]
-    async fn test_sync_state_with_invalid_claim() -> Result<()> {
+    async fn test_sync_state_drops_invalid_claim() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
         let block = env.anvil.starting_l2_block_number + 1;
@@ -200,6 +200,39 @@ mod sync {
 
         let fetch_result = proposer.fetch_game(U256::from(0)).await?;
         assert!(matches!(fetch_result, GameFetchResult::Dropped { .. }));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_sync_state_with_invalid_game_removes_subtree() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let mut parent_id = M;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
+        for i in 0..10 {
+            block += 1;
+
+            // Make the 5th game invalid
+            let root_claim = if i == 4 {
+                let mut rng = rand::rng();
+                let mut invalid_root_bytes = [0u8; 32];
+                rng.fill(&mut invalid_root_bytes);
+                FixedBytes::<32>::from(invalid_root_bytes)
+            } else {
+                env.compute_output_root_at_block(block).await?
+            };
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+        }
+
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(4);
+        snapshot.assert_anchor_index(None);
+        snapshot.assert_canonical_head(Some(3), 4, starting_l2_block);
 
         Ok(())
     }
