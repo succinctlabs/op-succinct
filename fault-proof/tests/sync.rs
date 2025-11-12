@@ -33,10 +33,10 @@ mod sync {
 
     trait Assertion {
         fn assert_game_len(&self, expected_len: usize);
-        fn assert_anchor_index(&self, expected_index: Option<U256>);
+        fn assert_anchor_index(&self, expected_index: Option<usize>);
         fn assert_canonical_head(
             &self,
-            expected_index: Option<u64>,
+            expected_canonical_head_index: Option<u64>,
             expected_processed_l2_block: u64,
             starting_l2_block: u64,
         );
@@ -47,17 +47,21 @@ mod sync {
             assert_eq!(self.games.len(), expected_len, "Number of synced games should match");
         }
 
-        fn assert_anchor_index(&self, expected_index: Option<U256>) {
-            assert_eq!(self.anchor_index, expected_index, "Anchor index should match");
+        fn assert_anchor_index(&self, expected_index: Option<usize>) {
+            assert_eq!(
+                self.anchor_index,
+                expected_index.map(U256::from),
+                "Anchor index should match"
+            );
         }
 
         fn assert_canonical_head(
             &self,
-            expected_index: Option<u64>,
+            expected_canonical_head_index: Option<u64>,
             expected_processed_l2_block: u64,
             starting_l2_block: u64,
         ) {
-            let expected_index_u256 = expected_index.map(U256::from);
+            let expected_index_u256 = expected_canonical_head_index.map(U256::from);
             assert_eq!(
                 self.canonical_head_index, expected_index_u256,
                 "Canonical head index should match"
@@ -143,7 +147,7 @@ mod sync {
 
         let snapshot = proposer.state_snapshot().await;
 
-        let expected_anchor_index = anchor_ids.iter().max().copied().map(U256::from);
+        let expected_anchor_index = anchor_ids.iter().max().copied();
 
         snapshot.assert_game_len(num_games);
         snapshot.assert_anchor_index(expected_anchor_index);
@@ -204,18 +208,42 @@ mod sync {
         Ok(())
     }
 
+    /// Verifies sync prunes invalid game branches while preserving the valid subtree, and sets the
+    /// correct game count, anchor index, and canonical head.
+    ///
+    /// The test creates 10 games with the following parent-child relationships:
+    /// - Branch 1: M -> 0 -> 1 -> 2 -> 3 -> 4 -> 5
+    /// - Branch 2: 3 -> 6 -> 7 -> 8 -> 9
+    #[rstest]
+    #[case::anchor_none_invalid_4_5(None, &[4, 5], 8, Some(9), 10)]
+    #[case::anchor_0_invalid_4_5(Some(0), &[4, 5], 8, Some(9), 10)]
+    #[case::anchor_3_invalid_4_5(Some(3), &[4, 5], 8, Some(9), 10)]
+    #[case::anchor_9_invalid_4_5(Some(9), &[4, 5], 8, Some(9), 10)]
+    #[case::anchor_0_invalid_6(Some(0), &[6], 6, Some(5), 6)]
+    #[case::anchor_5_invalid_6(Some(5), &[6], 6, Some(5), 6)]
+    #[case::anchor_none_invalid_3(None, &[3], 3, Some(2), 3)]
+    #[case::anchor_0_invalid_3(Some(0), &[3], 3, Some(2), 3)]
     #[tokio::test]
-    async fn test_sync_state_with_invalid_game_removes_subtree() -> Result<()> {
+    async fn test_sync_state_with_invalid_games_removes_subtree(
+        #[case] anchor_index: Option<usize>,
+        #[case] invalid_game_ids: &[usize],
+        #[case] expected_games_len: usize,
+        #[case] expected_canonical_head_index: Option<u64>,
+        #[case] expected_processed_l2_block: u64,
+    ) -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
-        let mut parent_id = M;
+        let parent_ids = [M, 0, 1, 2, 3, 4, 3, 6, 7, 8];
+        let mut game_addrs = Vec::with_capacity(10);
+
         let starting_l2_block = env.anvil.starting_l2_block_number;
         let mut block = starting_l2_block;
-        for i in 0..10 {
+
+        // Game creation step
+        for (i, parent_id) in parent_ids.into_iter().enumerate() {
             block += 1;
 
-            // Make the 5th game invalid
-            let root_claim = if i == 4 {
+            let root_claim = if invalid_game_ids.contains(&i) {
                 let mut rng = rand::rng();
                 let mut invalid_root_bytes = [0u8; 32];
                 rng.fill(&mut invalid_root_bytes);
@@ -223,16 +251,35 @@ mod sync {
             } else {
                 env.compute_output_root_at_block(block).await?
             };
+
             env.create_game(root_claim, block, parent_id, init_bond).await?;
-            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+            let (index, address) = env.last_game_info().await?;
+            game_addrs.push(address);
+            tracing::info!("✓ Created game {index} with parent {parent_id}");
         }
 
+        // Anchor setting step
+        for (i, address) in
+            game_addrs.into_iter().take(anchor_index.map_or(0, |idx| idx + 1)).enumerate()
+        {
+            if !invalid_game_ids.contains(&i) {
+                env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+                env.resolve_game(address).await?;
+                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+                env.set_anchor_state(address).await?;
+                tracing::info!("Anchor game set to index {i}");
+            }
+        }
         proposer.sync_state().await?;
 
         let snapshot = proposer.state_snapshot().await;
-        snapshot.assert_game_len(4);
-        snapshot.assert_anchor_index(None);
-        snapshot.assert_canonical_head(Some(3), 4, starting_l2_block);
+        snapshot.assert_game_len(expected_games_len);
+        snapshot.assert_anchor_index(anchor_index);
+        snapshot.assert_canonical_head(
+            expected_canonical_head_index,
+            expected_processed_l2_block,
+            starting_l2_block,
+        );
 
         Ok(())
     }
@@ -269,7 +316,7 @@ mod sync {
 
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(2);
-        snapshot.assert_anchor_index(Some(U256::from(2)));
+        snapshot.assert_anchor_index(Some(2));
         snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
 
         Ok(())
