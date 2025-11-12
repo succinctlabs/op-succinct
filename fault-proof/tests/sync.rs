@@ -10,7 +10,9 @@ mod sync {
     };
     use alloy_primitives::{FixedBytes, Uint, U256};
     use anyhow::Result;
-    use fault_proof::proposer::{GameFetchResult, OPSuccinctProposer, MAX_GAME_DEADLINE_LAG};
+    use fault_proof::proposer::{
+        GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
+    };
     use op_succinct_host_utils::host::OPSuccinctHost;
     use rand::Rng;
     use rstest::rstest;
@@ -27,6 +29,46 @@ mod sync {
         let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
         let proposer = env.init_proposer().await?;
         Ok((env, proposer, init_bond))
+    }
+
+    trait Assertion {
+        fn assert_game_len(&self, expected_len: usize);
+        fn assert_anchor_index(&self, expected_index: Option<U256>);
+        fn assert_canonical_head(
+            &self,
+            expected_index: Option<u64>,
+            expected_processed_l2_block: u64,
+            starting_l2_block: u64,
+        );
+    }
+
+    impl Assertion for ProposerStateSnapshot {
+        fn assert_game_len(&self, expected_len: usize) {
+            assert_eq!(self.games.len(), expected_len, "Number of synced games should match");
+        }
+
+        fn assert_anchor_index(&self, expected_index: Option<U256>) {
+            assert_eq!(self.anchor_index, expected_index, "Anchor index should match");
+        }
+
+        fn assert_canonical_head(
+            &self,
+            expected_index: Option<u64>,
+            expected_processed_l2_block: u64,
+            starting_l2_block: u64,
+        ) {
+            let expected_index_u256 = expected_index.map(U256::from);
+            assert_eq!(
+                self.canonical_head_index, expected_index_u256,
+                "Canonical head index should match"
+            );
+            let expected_l2_block = expected_processed_l2_block + starting_l2_block;
+            assert_eq!(
+                self.canonical_head_l2_block,
+                U256::from(expected_l2_block),
+                "Canonical head L2 block should match"
+            );
+        }
     }
 
     // Naming guide used in case names:
@@ -58,13 +100,14 @@ mod sync {
         #[case] parent_ids: &[u32],
         #[case] intervals: &[u64],
         #[case] expected_canonical_head_index: Option<u64>,
-        #[case] expected_canonical_head_l2_block: u64,
+        #[case] expected_processed_l2_block: u64,
     ) -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
         let mut starting_blocks: HashMap<u32, u64> = HashMap::new();
 
-        let mut block = env.anvil.starting_l2_block_number;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
         for (i, _) in parent_ids.iter().take(num_games).enumerate() {
             let cur_parent_id = parent_ids[i];
             starting_blocks.insert(cur_parent_id, block);
@@ -72,14 +115,13 @@ mod sync {
             let end_block = block + intervals.get(i).unwrap_or(&1);
             let root_claim = env.compute_output_root_at_block(end_block).await?;
             env.create_game(root_claim, end_block, cur_parent_id, init_bond).await?;
-
             let (index, address) = env.last_game_info().await?;
-            tracing::info!("Created game {index} with parent {cur_parent_id}");
+            tracing::info!("✓ Created game {index} with parent {cur_parent_id}");
 
             if anchor_ids.contains(&i) {
-                env.warp_time(MAX_CHALLENGE_DURATION + 60).await?;
+                env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
                 env.resolve_game(address).await?;
-                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 60).await?;
+                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
                 env.set_anchor_state(address).await?;
                 tracing::info!("Anchor game set to index {index}");
             }
@@ -100,24 +142,15 @@ mod sync {
         proposer.sync_state().await?;
 
         let snapshot = proposer.state_snapshot().await;
-        let expected_canonical_head_index =
-            expected_canonical_head_index.map(|idx| U256::from(idx));
-        let expected_anchor_index = if anchor_ids.is_empty() {
-            None
-        } else {
-            Some(U256::from(*anchor_ids.iter().max().unwrap()))
-        };
 
-        assert_eq!(snapshot.anchor_index, expected_anchor_index, "Anchor index should match");
-        assert_eq!(snapshot.games.len(), num_games, "Number of synced games should match");
-        assert_eq!(
-            snapshot.canonical_head_index, expected_canonical_head_index,
-            "Canonical head index should match"
-        );
-        assert_eq!(
-            U256::from(expected_canonical_head_l2_block),
-            snapshot.canonical_head_l2_block - U256::from(env.anvil.starting_l2_block_number),
-            "Canonical head L2 block should match"
+        let expected_anchor_index = anchor_ids.iter().max().copied().map(U256::from);
+
+        snapshot.assert_game_len(num_games);
+        snapshot.assert_anchor_index(expected_anchor_index);
+        snapshot.assert_canonical_head(
+            expected_canonical_head_index,
+            expected_processed_l2_block,
+            starting_l2_block,
         );
 
         Ok(())
@@ -128,12 +161,13 @@ mod sync {
         let (env, proposer, init_bond) = setup().await?;
 
         let mut parent_id = M;
-        let mut block = env.anvil.starting_l2_block_number + 1;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
         for _ in 0..10 {
+            block += 1;
             let root_claim = env.compute_output_root_at_block(block).await?;
             env.create_game(root_claim, block, parent_id, init_bond).await?;
             parent_id = if parent_id == M { 0 } else { parent_id + 1 };
-            block += 1;
         }
 
         proposer.sync_state().await?;
@@ -142,6 +176,11 @@ mod sync {
             let fetch_result = proposer.fetch_game(U256::from(i)).await?;
             assert!(matches!(fetch_result, GameFetchResult::AlreadyExists));
         }
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(10);
+        snapshot.assert_anchor_index(None);
+        snapshot.assert_canonical_head(Some(9), 10, env.anvil.starting_l2_block_number);
 
         Ok(())
     }
@@ -166,16 +205,18 @@ mod sync {
     }
 
     #[tokio::test]
-    async fn test_sync_state_max_game_deadline_gap() -> Result<()> {
+    async fn test_sync_state_with_max_game_deadline_gap() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
         let mut parent_id = M;
-        let mut block = env.anvil.starting_l2_block_number + 1;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
         for i in 0..3 {
+            block += 1;
             let root_claim = env.compute_output_root_at_block(block).await?;
             env.create_game(root_claim, block, parent_id, init_bond).await?;
             let (index, address) = env.last_game_info().await?;
-            tracing::info!("Created game {index} with parent {parent_id}");
+            tracing::info!("✓ Created game {index} with parent {M}");
 
             env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
             env.resolve_game(address).await?;
@@ -189,20 +230,14 @@ mod sync {
             tracing::info!("Anchor game set to index {index}");
 
             parent_id = if parent_id == M { 0 } else { parent_id + 1 };
-            block += 1;
         }
 
         proposer.sync_state().await?;
 
         let snapshot = proposer.state_snapshot().await;
-
-        assert_eq!(snapshot.anchor_index, Some(U256::from(2)), "Anchor index should match");
-        assert_eq!(snapshot.games.len(), 2, "Number of synced games should match");
-        assert_eq!(
-            snapshot.canonical_head_index,
-            Some(U256::from(2)),
-            "Canonical head index should match"
-        );
+        snapshot.assert_game_len(2);
+        snapshot.assert_anchor_index(Some(U256::from(2)));
+        snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
 
         Ok(())
     }
