@@ -23,7 +23,7 @@ jobs:
       - runs-on
       - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     
     steps:
     - name: Checkout code
