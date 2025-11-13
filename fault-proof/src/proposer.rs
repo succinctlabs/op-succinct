@@ -110,8 +110,8 @@ struct ProposerState {
     anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
-    start_cursor: U256,
-    end_cursor: U256,
+    start_cursor: Cursor,
+    end_cursor: Cursor,
     games: HashMap<U256, Game>,
 }
 
@@ -155,12 +155,14 @@ impl ProposerState {
     /// Skips evicted indices so `start_cursor` always targets the earliest retained game
     /// within the `[start_cursor, end_cursor]` window, preserving the cache invariant.
     fn advance_start_cursor(&mut self) {
-        while !self.games.contains_key(&self.start_cursor) && self.start_cursor <= self.end_cursor {
+        while self.start_cursor.index().is_some_and(|i| !self.games.contains_key(&i)) &&
+            self.start_cursor <= self.end_cursor
+        {
             tracing::debug!(
                 current_start_cursor = %self.start_cursor,
                 "Advancing start cursor past removed game"
             );
-            self.start_cursor = self.start_cursor.saturating_add(U256::from(1));
+            self.start_cursor.step_forward()
         }
     }
 }
@@ -330,7 +332,9 @@ where
     ///    - The entire subtree of a CHALLENGER_WINS game.
     pub async fn sync_games(&self) -> Result<()> {
         // 1. Load new games.
-        let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
+        let latest_index = if let Some(index) = self.factory.fetch_latest_game_index().await? {
+            Cursor::from(index)
+        } else {
             return Ok(());
         };
 
@@ -339,7 +343,7 @@ where
 
         let end_cursor = {
             let state = self.state.lock().await;
-            let current_cursor = state.end_cursor;
+            let current_cursor = state.end_cursor.clone();
 
             // This should never/rarely happen but in a case where the factory is redeployed/reset
             // while the proposer keeps running, the cursor is reset to zero to avoid skipping
@@ -350,17 +354,22 @@ where
                     current_cursor = %current_cursor,
                     "Factory reset suspected; resetting cursor to 0"
                 );
-                U256::from(0)
+                Cursor::none()
             } else {
                 current_cursor
             }
         };
 
-        let mut index = latest_index;
+        let mut index = latest_index.clone();
         let mut anchor_deadline: Option<u64> = None;
 
         loop {
-            let fetch_result = self.fetch_game(index).await?;
+            if index == end_cursor {
+                break;
+            }
+
+            let i = index.index().expect("must have an index here");
+            let fetch_result = self.fetch_game(i).await?;
 
             match fetch_result {
                 GameFetchResult::Added { game_address, deadline } => {
@@ -392,11 +401,7 @@ where
                 GameFetchResult::AlreadyExists => {}
             }
 
-            if index == end_cursor {
-                break;
-            }
-
-            index = index.saturating_sub(U256::from(1));
+            index.step_back();
         }
 
         {
@@ -445,9 +450,9 @@ where
                 let parent_index = claim_data.parentIndex;
 
                 let state = self.state.lock().await;
-                let start_cursor = state.start_cursor;
+                let start_cursor = state.start_cursor.clone();
 
-                if parent_index != u32::MAX && index != start_cursor {
+                if parent_index != u32::MAX && Cursor::from(index) != start_cursor {
                     tracing::debug!(
                         game_index = %index,
                         parent_index = %parent_index,
@@ -1725,4 +1730,67 @@ pub enum GameFetchResult {
     Dropped { game_address: Address },
     /// Game was already present in the cache
     AlreadyExists,
+}
+
+/// Cursor that tracks dispute-game indices, representing the current position in the ordered
+/// factory sequence.
+///
+/// Wraps `Option<U256>`:
+/// - `Some(i)`: concrete position within the factory's ordered game sequence.
+/// - `None`: sentinel meaning "no position" (before first game / past zero / uninitialized).
+#[derive(Default, Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Cursor {
+    index: Option<U256>,
+}
+
+impl Cursor {
+    /// Create a cursor with a specific index.
+    pub fn some(index: U256) -> Self {
+        Cursor { index: Some(index) }
+    }
+
+    /// Create a cursor with no index.
+    pub fn none() -> Self {
+        Cursor { index: None }
+    }
+
+    /// Get the current index of the cursor.
+    pub fn index(&self) -> Option<U256> {
+        self.index
+    }
+
+    /// Step the cursor forward by one. If the cursor is `None`, it becomes zero.
+    pub fn step_forward(&mut self) {
+        if let Some(idx) = self.index {
+            self.index = Some(idx.saturating_add(U256::ONE));
+        } else {
+            self.index = Some(U256::ZERO);
+        }
+    }
+
+    /// Step the cursor back by one. If the cursor is at zero, it becomes `None`.
+    pub fn step_back(&mut self) {
+        if let Some(idx) = self.index {
+            if idx > U256::ZERO {
+                self.index = Some(idx.saturating_sub(U256::ONE));
+            } else {
+                self.index = None;
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for Cursor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.index {
+            Some(idx) => write!(f, "{idx}"),
+            None => write!(f, "None"),
+        }
+    }
+}
+
+impl From<U256> for Cursor {
+    fn from(idx: U256) -> Self {
+        Self { index: Some(idx) }
+    }
 }
