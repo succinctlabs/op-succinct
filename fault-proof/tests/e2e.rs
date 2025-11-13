@@ -1,6 +1,5 @@
 pub mod common;
 
-#[cfg(feature = "e2e")]
 mod e2e {
     use super::*;
     use std::sync::Arc;
@@ -51,7 +50,7 @@ mod e2e {
         info!("=== Waiting for Game Creation ===");
 
         // Track first 3 games (L2 finalized head won't advance far enough for 3)
-        let tracked_games = env.wait_and_track_games(3, 120).await?;
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
         info!("✓ Proposer created {} games:", tracked_games.len());
         for (i, game) in tracked_games.iter().enumerate() {
             info!("  Game {}: {} at L2 block {}", i + 1, game.address, game.l2_block_number);
@@ -76,7 +75,7 @@ mod e2e {
         info!("=== Phase 3: Resolution ===");
 
         // Wait for games to be resolved
-        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
 
         // Verify all games resolved correctly (proposer wins)
         verify_all_resolved_correctly(&resolutions)?;
@@ -93,7 +92,7 @@ mod e2e {
         info!("=== Phase 4: Bond Claims ===");
 
         // Wait for proposer to claim bonds
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -173,19 +172,19 @@ mod e2e {
         let proposer_handle = env.start_proposer().await?;
         info!("✓ Proposer started after legacy games seeded");
 
-        let tracked_games = env.wait_and_track_games(3, 120).await?;
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
 
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -273,19 +272,19 @@ mod e2e {
         env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
         info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
-        let tracked_games = env.wait_and_track_games(3, 120).await?;
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
 
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
 
         env.stop_proposer(proposer_handle);
 
@@ -355,7 +354,7 @@ mod e2e {
 
         // === PHASE 2: Challenge Period ===
         info!("=== Phase 2: Challenge Period ===");
-        env.wait_for_challenges(&invalid_games, 60).await?;
+        env.wait_for_challenges(&invalid_games, 30).await?;
         info!("✓ All games challenged successfully");
 
         // === PHASE 3: Resolution ===
@@ -401,7 +400,7 @@ mod e2e {
             })
             .collect();
 
-        env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, 60).await?;
+        env.wait_for_bond_claims(&tracked_games, CHALLENGER_ADDRESS, 30).await?;
 
         // Stop challenger
         info!("=== Stopping Challenger ===");
@@ -893,7 +892,7 @@ mod e2e {
             proposer.submit_resolution_transaction(&game).await?;
         }
 
-        let resolutions = env.wait_for_resolutions(first_two_games, 60).await?;
+        let resolutions = env.wait_for_resolutions(first_two_games, 30).await?;
         verify_all_resolved_correctly(&resolutions)?;
         info!("✓ First 2 games resolved as DEFENDER_WINS");
 
@@ -971,16 +970,16 @@ mod e2e {
             tokio::spawn(async move { proposer_clone.run().await })
         };
 
-        let tracked_games = env.wait_and_track_games(3, 120).await?;
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 120).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 120).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
 
         // Allow the proposer loop to observe the finalized games and update its cache.
         let settle_delay = Duration::from_secs(proposer.config.fetch_interval + 5);
@@ -999,8 +998,7 @@ mod e2e {
             .find(|(index, _)| *index == expected_anchor_index)
             .expect("anchor game not found in snapshot");
 
-        proposer_handle.abort();
-        let _ = proposer_handle.await;
+        env.stop_proposer(proposer_handle);
 
         Ok(())
     }
