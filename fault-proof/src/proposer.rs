@@ -1707,17 +1707,12 @@ pub enum GameFetchResult {
 /// Wraps `Option<U256>`:
 /// - `Some(i)`: concrete position within the factory's ordered game sequence.
 /// - `None`: sentinel meaning "no position" (before first game / past zero / uninitialized).
-#[derive(Default, Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Cursor {
     index: Option<U256>,
 }
 
 impl Cursor {
-    /// Create a cursor with a specific index.
-    pub fn some(index: U256) -> Self {
-        Cursor { index: Some(index) }
-    }
-
     /// Create a cursor with no index.
     pub fn none() -> Self {
         Cursor { index: None }
@@ -1726,15 +1721,6 @@ impl Cursor {
     /// Get the current index of the cursor.
     pub fn index(&self) -> Option<U256> {
         self.index
-    }
-
-    /// Step the cursor forward by one. If the cursor is `None`, it becomes zero.
-    pub fn step_forward(&mut self) {
-        if let Some(idx) = self.index {
-            self.index = Some(idx.saturating_add(U256::ONE));
-        } else {
-            self.index = Some(U256::ZERO);
-        }
     }
 
     /// Step the cursor back by one. If the cursor is at zero, it becomes `None`.
