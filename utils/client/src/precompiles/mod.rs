@@ -9,20 +9,19 @@ use op_revm::{
 use revm::{
     context::{Cfg, ContextTr},
     handler::{EthPrecompiles, PrecompileProvider},
-    interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
+    interpreter::{CallInput, CallInputs, Gas, InstructionResult, InterpreterResult},
     precompile::{Precompile as PrecompileWithAddress, PrecompileError, Precompiles},
     primitives::hardfork::SpecId,
 };
 use revm_precompile::{bn254, kzg_point_evaluation, secp256k1, secp256r1};
 
+mod custom;
+pub use custom::CustomCrypto;
+
 mod factory;
 pub use factory::ZkvmOpEvmFactory;
 
 /// Get the ZKVM-accelerated precompiles.
-///
-/// Note: Cycle tracking has been removed for now due to Precompile::new() requiring
-/// function pointers rather than closures. Cycle tracking can be added back with
-/// a different approach if needed.
 fn get_precompiles() -> Vec<PrecompileWithAddress> {
     vec![
         bn254::add::ISTANBUL,
@@ -32,6 +31,29 @@ fn get_precompiles() -> Vec<PrecompileWithAddress> {
         secp256r1::P256VERIFY,
         kzg_point_evaluation::POINT_EVALUATION,
     ]
+}
+
+/// Get the cycle tracker name for a precompile address.
+/// Returns None if the address is not a tracked precompile.
+#[cfg(target_os = "zkvm")]
+#[inline]
+fn get_precompile_tracker_name(address: &Address) -> Option<&'static str> {
+    // Compare against actual precompile constants
+    if *address == *bn254::add::ISTANBUL.address() {
+        Some("bn-add")
+    } else if *address == *bn254::mul::ISTANBUL.address() {
+        Some("bn-mul")
+    } else if *address == *bn254::pair::ISTANBUL.address() {
+        Some("bn-pair")
+    } else if *address == *secp256k1::ECRECOVER.address() {
+        Some("ec-recover")
+    } else if *address == *secp256r1::P256VERIFY.address() {
+        Some("p256-verify")
+    } else if *address == *kzg_point_evaluation::POINT_EVALUATION.address() {
+        Some("kzg-eval")
+    } else {
+        None
+    }
 }
 
 /// The ZKVM-cycle-tracking precompiles.
@@ -54,7 +76,9 @@ impl OpZkvmPrecompiles {
             OpSpecId::ECOTONE) => Precompiles::new(spec.into_eth_spec().into()).clone(),
             OpSpecId::FJORD => fjord().clone(),
             OpSpecId::GRANITE | OpSpecId::HOLOCENE => granite().clone(),
-            OpSpecId::ISTHMUS | OpSpecId::INTEROP | OpSpecId::OSAKA => isthmus().clone(),
+            OpSpecId::ISTHMUS | OpSpecId::INTEROP | OpSpecId::OSAKA | OpSpecId::JOVIAN => {
+                isthmus().clone()
+            }
         };
         let mut precompiles_owned = precompiles.clone();
         precompiles_owned.extend(get_precompiles());
@@ -83,14 +107,11 @@ where
     fn run(
         &mut self,
         context: &mut CTX,
-        address: &Address,
-        inputs: &InputsImpl,
-        _is_static: bool,
-        gas_limit: u64,
+        inputs: &CallInputs,
     ) -> Result<Option<Self::Output>, String> {
         let mut result = InterpreterResult {
             result: InstructionResult::Return,
-            gas: Gas::new(gas_limit),
+            gas: Gas::new(inputs.gas_limit),
             output: Bytes::new(),
         };
 
@@ -110,8 +131,24 @@ where
         // 1. If the precompile has an accelerated version, use that.
         // 2. If the precompile is not accelerated, use the default version.
         // 3. If the precompile is not found, return None.
-        let output = if let Some(precompile) = self.inner.precompiles.get(address) {
-            precompile.execute(input_bytes, gas_limit)
+        let output = if let Some(precompile) = self.inner.precompiles.get(&inputs.target_address) {
+            // Track cycles for accelerated precompiles
+            #[cfg(target_os = "zkvm")]
+            let tracker_name = get_precompile_tracker_name(&inputs.target_address);
+
+            #[cfg(target_os = "zkvm")]
+            if let Some(name) = tracker_name {
+                println!("cycle-tracker-report-start: precompile-{}", name);
+            }
+
+            let result = precompile.execute(input_bytes, inputs.gas_limit);
+
+            #[cfg(target_os = "zkvm")]
+            if let Some(name) = tracker_name {
+                println!("cycle-tracker-report-end: precompile-{}", name);
+            }
+
+            result
         } else {
             return Ok(None);
         };
