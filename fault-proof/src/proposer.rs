@@ -105,7 +105,6 @@ pub struct Game {
 /// - `end_cursor`: Highest factory index processed in the prior sync. Each incremental sync walks
 ///   backward from the latest index to this value, then sets it to the new latest index.
 /// - `games`: cached metadata for every tracked game keyed by index
-/// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
 struct ProposerState {
     anchor_game: Option<Game>,
