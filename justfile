@@ -374,7 +374,7 @@ e2e-tests target="":
 
    test_target=""
    if [ -n "{{target}}" ]; then
-       test_flag="--test {{target}}"
+       test_target="--test {{target}}"
    fi
 
    cd fault-proof
