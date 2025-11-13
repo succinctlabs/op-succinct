@@ -100,9 +100,7 @@ pub struct Game {
 /// Tracks:
 /// - `anchor_game`: the latest anchor fetched from the registry
 /// - `canonical_head_index`/`canonical_head_l2_block`: the best known game for scheduling work
-/// - `start_cursor`: Lowest cached game index (inclusive). Moves downward as we backfill older
-///   games and forward past evictions, always pointing to the earliest retained entry.
-/// - `end_cursor`: Highest factory index processed in the prior sync. Each incremental sync walks
+/// - `cursor`: Highest factory index processed in the prior sync. Each incremental sync walks
 ///   backward from the latest index to this value, then sets it to the new latest index.
 /// - `games`: cached metadata for every tracked game keyed by index
 #[derive(Default)]
@@ -110,8 +108,7 @@ struct ProposerState {
     anchor_game: Option<Game>,
     canonical_head_index: Option<U256>,
     canonical_head_l2_block: Option<U256>,
-    start_cursor: Cursor,
-    end_cursor: Cursor,
+    cursor: Cursor,
     games: HashMap<U256, Game>,
 }
 
@@ -147,22 +144,6 @@ impl ProposerState {
         for index in self.descendants_of(root_index) {
             tracing::info!(?index, "Removing game from cache");
             self.games.remove(&index);
-        }
-    }
-
-    /// Advance `start_cursor` to the next existing cached game.
-    ///
-    /// Skips evicted indices so `start_cursor` always targets the earliest retained game
-    /// within the `[start_cursor, end_cursor]` window, preserving the cache invariant.
-    fn advance_start_cursor(&mut self) {
-        while self.start_cursor.index().is_some_and(|i| !self.games.contains_key(&i)) &&
-            self.start_cursor <= self.end_cursor
-        {
-            tracing::debug!(
-                current_start_cursor = %self.start_cursor,
-                "Advancing start cursor past removed game"
-            );
-            self.start_cursor.step_forward()
         }
     }
 }
@@ -341,9 +322,9 @@ where
         let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
         let anchor_address = anchor_game.address();
 
-        let end_cursor = {
+        let cursor = {
             let state = self.state.lock().await;
-            let current_cursor = state.end_cursor.clone();
+            let current_cursor = state.cursor.clone();
 
             // This should never/rarely happen but in a case where the factory is redeployed/reset
             // while the proposer keeps running, the cursor is reset to zero to avoid skipping
@@ -362,9 +343,10 @@ where
 
         let mut index = latest_index.clone();
         let mut anchor_deadline: Option<u64> = None;
+        let mut invalid_game_ids = Vec::new();
 
         loop {
-            if index == end_cursor {
+            if index == cursor {
                 break;
             }
 
@@ -372,7 +354,7 @@ where
             let fetch_result = self.fetch_game(i).await?;
 
             match fetch_result {
-                GameFetchResult::Added { game_address, deadline } => {
+                GameFetchResult::ValidGame { game_address, deadline } => {
                     // First time we hit the anchor, record its deadline
                     if &game_address == anchor_address {
                         anchor_deadline = Some(deadline);
@@ -392,11 +374,14 @@ where
                         }
                     }
                 }
-                GameFetchResult::Dropped { game_address } => {
+                GameFetchResult::UnsupportedType { game_address } => {
                     // Stop fetching once we find the anchor on an unsupported game.
                     if &game_address == anchor_address {
                         break
                     }
+                }
+                GameFetchResult::InvalidGame { index } => {
+                    invalid_game_ids.push(index);
                 }
                 GameFetchResult::AlreadyExists => {}
             }
@@ -406,8 +391,13 @@ where
 
         {
             let mut state = self.state.lock().await;
-            state.start_cursor = index;
-            state.end_cursor = latest_index;
+            state.cursor = latest_index;
+        }
+
+        for idx in invalid_game_ids {
+            tracing::warn!(game_index = %idx, "Removing invalid game and its subtree from cache");
+            let mut state = self.state.lock().await;
+            state.remove_subtree(idx);
         }
 
         // 2. Synchronize the status of all cached games.
@@ -448,27 +438,6 @@ where
                 let status = contract.status().call().await?;
                 let deadline = U256::from(claim_data.deadline).to::<u64>();
                 let parent_index = claim_data.parentIndex;
-
-                let state = self.state.lock().await;
-                let start_cursor = state.start_cursor.clone();
-
-                if parent_index != u32::MAX && Cursor::from(index) != start_cursor {
-                    tracing::debug!(
-                        game_index = %index,
-                        parent_index = %parent_index,
-                        "Verifying parent game presence in cache"
-                    );
-                    let parent_idx = U256::from(parent_index);
-                    if !state.games.contains_key(&parent_idx) {
-                        tracing::info!(
-                            game_index = %index,
-                            parent_index = %parent_index,
-                            "Parent game not in cache: removing game and subtree"
-                        );
-                        actions.push(GameSyncAction::RemoveSubtree(index));
-                        continue;
-                    }
-                }
 
                 let is_finalized =
                     self.factory.is_game_finalized(self.config.game_type, game_address).await?;
@@ -595,12 +564,10 @@ where
                     }
                     GameSyncAction::Remove(index) => {
                         state.games.remove(&index);
-                        state.advance_start_cursor();
                         tracing::debug!(game_index = %index, "Removed game from cache");
                     }
                     GameSyncAction::RemoveSubtree(index) => {
                         state.remove_subtree(index);
-                        state.advance_start_cursor();
                     }
                 }
             }
@@ -1029,9 +996,9 @@ where
                 ?game_address,
                 game_type,
                 expected_game_type = self.config.game_type,
-                "Dropping game: unsupported game type"
+                "Unsupported game type"
             );
-            return Ok(GameFetchResult::Dropped { game_address });
+            return Ok(GameFetchResult::UnsupportedType { game_address });
         }
 
         let contract = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
@@ -1055,9 +1022,9 @@ where
                 game_index = %index,
                 ?game_address, game_type,
                 expected_game_type = self.config.game_type,
-                "Dropping game: game type mismatch during creation"
+                "Invalid game: game type was not respected when created"
             );
-            return Ok(GameFetchResult::Dropped { game_address });
+            return Ok(GameFetchResult::InvalidGame { index });
         }
 
         // Validate output root. If invalid, drop the game, setting the cursor to this index.
@@ -1067,9 +1034,9 @@ where
                 ?game_address,
                 ?claim,
                 expected_output_root = ?output_root,
-                "Dropping game: invalid output root claim"
+                "Invalid game: root claim does not match computed output root"
             );
-            return Ok(GameFetchResult::Dropped { game_address });
+            return Ok(GameFetchResult::InvalidGame { index });
         }
 
         tracing::info!(
@@ -1081,7 +1048,7 @@ where
             ?status,
             ?proposal_status,
             deadline = %deadline,
-            "Adding game to cache"
+            "Valid game: adding to cache"
         );
 
         state.games.insert(
@@ -1099,7 +1066,7 @@ where
             },
         );
 
-        Ok(GameFetchResult::Added { game_address, deadline })
+        Ok(GameFetchResult::ValidGame { game_address, deadline })
     }
 
     /// Handles the creation of a new game if conditions are met.
@@ -1725,9 +1692,11 @@ where
 /// Games can either be added to the cache or dropped based on validation criteria.
 pub enum GameFetchResult {
     /// Game was successfully validated and added to cache
-    Added { game_address: Address, deadline: u64 },
-    /// Game was dropped and not added to cache (e.g., unsupported type, invalid output root)
-    Dropped { game_address: Address },
+    ValidGame { game_address: Address, deadline: u64 },
+    /// Game type is unsupported
+    UnsupportedType { game_address: Address },
+    /// Game is invalid
+    InvalidGame { index: U256 },
     /// Game was already present in the cache
     AlreadyExists,
 }

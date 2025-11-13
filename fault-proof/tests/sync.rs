@@ -1,6 +1,6 @@
 pub mod common;
 
-#[cfg(feature = "e2e")]
+// #[cfg(feature = "e2e")]
 mod sync {
     use std::collections::HashMap;
 
@@ -207,7 +207,7 @@ mod sync {
         proposer.sync_state().await?;
 
         let fetch_result = proposer.fetch_game(U256::from(0)).await?;
-        assert!(matches!(fetch_result, GameFetchResult::Dropped { .. }));
+        assert!(matches!(fetch_result, GameFetchResult::InvalidGame { .. }));
 
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(0);
