@@ -869,7 +869,7 @@ mod e2e {
         info!("This should clear game 3 from the proposer's cache");
 
         // Warp time to allow first 2 unchallenged games to be resolved
-        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION).await?;
         info!("✓ Warped time by MAX_CHALLENGE_DURATION to enable resolution for first 2 games");
 
         let first_two_games = &tracked_games[0..2];
