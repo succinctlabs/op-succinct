@@ -503,4 +503,77 @@ mod sync {
 
         Ok(())
     }
+
+    /// Verifies that sync_state filters games whose type was not respected when created.
+    ///
+    /// This test creates a game with a non-respected game type, then verifies that:
+    /// - sync_state only caches games created with respected type
+    /// - fetch_game returns InvalidGame for games with wasRespectedGameTypeWhenCreated = false
+    #[tokio::test]
+    async fn test_sync_state_filters_non_respected_game_type() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        // Setup legacy game type infrastructure
+        let legacy_impl = env.deploy_mock_permissioned_game().await?;
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _initBond: init_bond,
+        };
+        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let set_impl_call = DisputeGameFactory::setImplementationCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _impl: legacy_impl,
+        };
+        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+
+        let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+        };
+        env.send_portal_tx(legacy_game_type_call.abi_encode(), None).await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create a valid game with TEST_GAME_TYPE (not respected on creation)
+        let valid_block = starting_l2_block + 1;
+        let valid_root = env.compute_output_root_at_block(valid_block).await?;
+        env.create_game(valid_root, valid_block, M, init_bond).await?;
+
+        // Switch to TEST_GAME_TYPE
+        let restore_type_call =
+            MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
+        env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
+
+        // Create another valid game with TEST_GAME_TYPE (respected on creation)
+        let valid_block_2 = starting_l2_block + 3;
+        let valid_root_2 = env.compute_output_root_at_block(valid_block_2).await?;
+        env.create_game(valid_root_2, valid_block_2, M, init_bond).await?;
+
+        // Sync state
+        proposer.sync_state().await?;
+
+        // Verify: only the latest valid game should be cached (index 1)
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(1);
+
+        // Verify: canonical head should be index 1 (latest valid game)
+        snapshot.assert_canonical_head(Some(1), 3, starting_l2_block);
+
+        // Verify: fetch_game on non-respected game returns InvalidGame
+        let non_respected_fetch_result = proposer.fetch_game(U256::from(0)).await?;
+        assert!(
+            matches!(non_respected_fetch_result, GameFetchResult::InvalidGame { .. }),
+            "Game created with non-respected type should be filtered as InvalidGame"
+        );
+
+        // Verify: fetch_game on the latest valid game returns AlreadyExists
+        let valid_fetch_result = proposer.fetch_game(U256::from(1)).await?;
+        assert!(
+            matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
+            "Valid game at index 1 should be cached"
+        );
+
+        Ok(())
+    }
 }
