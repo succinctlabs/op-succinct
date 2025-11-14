@@ -416,4 +416,91 @@ mod sync {
 
         Ok(())
     }
+
+    /// Verifies that sync_state correctly filters multiple legacy games scattered in history.
+    ///
+    /// This test creates a mixed sequence of legacy and valid games, then verifies that:
+    /// - sync_state only caches valid games
+    /// - canonical head is the latest valid game
+    /// - fetch_game returns UnsupportedType for all legacy games
+    #[tokio::test]
+    async fn test_sync_state_filters_multiple_legacy_games() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        // Setup legacy game type infrastructure
+        let legacy_impl = env.deploy_mock_permissioned_game().await?;
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _initBond: init_bond,
+        };
+        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let set_impl_call = DisputeGameFactory::setImplementationCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _impl: legacy_impl,
+        };
+        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
+
+        // Create mixed sequence: legacy, valid, legacy, valid, valid, legacy
+        // This simulates legacy proposer keep creating games after a game type transition
+        let game_sequence = [
+            (MOCK_PERMISSIONED_GAME_TYPE, false), // index 0: legacy
+            (TEST_GAME_TYPE, true),               // index 1: valid
+            (MOCK_PERMISSIONED_GAME_TYPE, false), // index 2: legacy
+            (TEST_GAME_TYPE, true),               // index 3: valid
+            (TEST_GAME_TYPE, true),               // index 4: valid
+            (MOCK_PERMISSIONED_GAME_TYPE, false), // index 5: legacy
+        ];
+
+        for (game_type, _) in &game_sequence {
+            block += 1;
+            let root = env.compute_output_root_at_block(block).await?;
+            let extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(block), M));
+
+            if *game_type == MOCK_PERMISSIONED_GAME_TYPE {
+                // Create legacy game via factory call
+                let create_call = DisputeGameFactory::createCall {
+                    _gameType: *game_type,
+                    _rootClaim: root,
+                    _extraData: Bytes::from(extra_data),
+                };
+                env.send_factory_tx(create_call.abi_encode(), Some(init_bond)).await?;
+            } else {
+                // Create valid game via helper
+                env.create_game(root, block, M, init_bond).await?;
+            }
+        }
+
+        // Sync state
+        proposer.sync_state().await?;
+
+        // Verify: only 3 valid games should be cached (indices 1, 3, 4)
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(3);
+
+        // Verify: canonical head should be index 4 (latest valid game)
+        snapshot.assert_canonical_head(Some(4), 5, starting_l2_block);
+
+        // Verify: fetch_game on legacy games returns UnsupportedType
+        for (index, (_, is_valid)) in game_sequence.iter().enumerate() {
+            let fetch_result = proposer.fetch_game(U256::from(index)).await?;
+            if *is_valid {
+                assert!(
+                    matches!(fetch_result, GameFetchResult::AlreadyExists),
+                    "Valid game at index {index} should be cached"
+                );
+            } else {
+                assert!(
+                    matches!(fetch_result, GameFetchResult::UnsupportedType { .. }),
+                    "Legacy game at index {index} should be filtered as UnsupportedType"
+                );
+            }
+        }
+
+        Ok(())
+    }
 }
