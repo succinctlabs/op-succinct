@@ -31,10 +31,12 @@ jobs:
         with:
           images: ${{ inputs.artifact-registry }}
           tags: |
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},match=celo/v(.*)
             type=edge
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
+            # pull request event
+            type=ref,event=pr
   build_push_container:
     needs: infer_image_metadata
     permissions:
@@ -49,7 +51,7 @@ jobs:
         && inputs.concurrency-group
         || format('{0}-{1}', github.workflow, (github.head_ref != '' && github.head_ref || github.ref)) }}
       cancel-in-progress: true
-    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@v3.1.0-rc.1
+    uses: celo-org/reusable-workflows/.github/workflows/docker-build.yaml@v3.1.0-rc.3
     with:
       runs-on: '["self-hosted", "org", "8-cpu"]'
       workload-id-provider: ${{ inputs.workload-id-provider }}
@@ -60,5 +62,4 @@ jobs:
       context: .
       file: ${{ inputs.file }}
       tags: ${{ needs.infer_image_metadata.outputs.tags }}
-      #TODO: re-enable, once multiple image scans per workflow are possible via groups
-      trivy-enabled: false
+      trivy-enabled: true
