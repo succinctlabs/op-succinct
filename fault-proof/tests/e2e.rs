@@ -1,5 +1,6 @@
 pub mod common;
 
+#[cfg(feature = "e2e")]
 mod e2e {
     use super::*;
     use std::sync::Arc;
@@ -908,7 +909,7 @@ mod e2e {
             current_game_count = factory.gameCount().call().await?;
         }
 
-        // Check newly created games to find one that builds on the last valid game
+        /// Check newly created games to find one that builds on the last valid game
         let mut found = false;
         while i < current_game_count {
             // Verify the new game is built on the last valid game at index 1
