@@ -1,5 +1,6 @@
 pub mod common;
 
+#[cfg(feature = "e2e")]
 mod e2e {
     use super::*;
     use std::sync::Arc;
