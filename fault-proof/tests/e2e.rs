@@ -18,7 +18,6 @@ mod e2e {
     use fault_proof::{
         challenger::Game,
         contract::{GameStatus, ProposalStatus},
-        proposer::Game as ProposerGame,
     };
     use op_succinct_bindings::{
         dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
@@ -833,7 +832,7 @@ mod e2e {
         // Wait for proposer to create 3 games
         let factory = env.factory()?;
 
-        let tracked_games = env.wait_and_track_games(3, 150).await?;
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
         info!("✓ Proposer created {} games:", tracked_games.len());
 
         assert!(!proposer_handle.is_finished(), "Proposer should be running");
@@ -870,27 +869,10 @@ mod e2e {
         info!("This should clear game 3 from the proposer's cache");
 
         // Warp time to allow first 2 unchallenged games to be resolved
-        env.warp_time(MAX_CHALLENGE_DURATION).await?;
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
         info!("✓ Warped time by MAX_CHALLENGE_DURATION to enable resolution for first 2 games");
 
-        // Resolve first 2 games as DEFENDER_WINS
-        let proposer = env.init_proposer().await?;
-
         let first_two_games = &tracked_games[0..2];
-        for game in first_two_games {
-            let game = ProposerGame {
-                index: game.index,
-                address: game.address,
-                parent_index: game.parent_index,
-                l2_block: game.l2_block_number,
-                status: GameStatus::IN_PROGRESS,
-                proposal_status: ProposalStatus::Unchallenged,
-                deadline: 0,
-                should_attempt_to_resolve: true,
-                should_attempt_to_claim_bond: false,
-            };
-            proposer.submit_resolution_transaction(&game).await?;
-        }
 
         let resolutions = env.wait_for_resolutions(first_two_games, 30).await?;
         verify_all_resolved_correctly(&resolutions)?;
@@ -906,20 +888,7 @@ mod e2e {
         // Warp time to allow the proposer to finalize the first 2 games
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        for game in first_two_games {
-            let game = ProposerGame {
-                index: game.index,
-                address: game.address,
-                parent_index: game.parent_index,
-                l2_block: game.l2_block_number,
-                status: GameStatus::DEFENDER_WINS,
-                proposal_status: ProposalStatus::Resolved,
-                deadline: 0,
-                should_attempt_to_resolve: false,
-                should_attempt_to_claim_bond: true,
-            };
-            proposer.submit_bond_claim_transaction(&game).await?;
-        }
+        env.wait_for_bond_claims(first_two_games, PROPOSER_ADDRESS, 30).await?;
         info!("✓ Proposer finalized the first 2 games");
 
         // === PHASE 4: Verify Proposer recovers automatically ===
@@ -930,13 +899,13 @@ mod e2e {
         info!("Current game count: {}", current_game_count);
 
         while current_game_count <= U256::from(3) {
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
             current_game_count = factory.gameCount().call().await?;
         }
 
         // Verify the new game is built on the last valid game at index 1
-        let new_game_index = U256::from(3);
-        let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
+        let new_game_info =
+            factory.gameAtIndex(current_game_count.saturating_sub(U256::ONE)).call().await?;
 
         let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
         let claim_data = new_game.claimData().call().await?;
