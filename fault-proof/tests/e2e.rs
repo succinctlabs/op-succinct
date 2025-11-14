@@ -1,6 +1,5 @@
 pub mod common;
 
-#[cfg(feature = "e2e")]
 mod e2e {
     use super::*;
     use std::sync::Arc;
@@ -899,22 +898,30 @@ mod e2e {
         let mut current_game_count = factory.gameCount().call().await?;
         info!("Current game count: {}", current_game_count);
 
-        while current_game_count <= U256::from(3) {
+        const FIRST_NEW_GAME_INDEX: u64 = 3;
+        const EXPECTED_PARENT_INDEX: u32 = 1;
+
+        // Wait for proposer to create a new game beyond the invalidated canonical head
+        let mut i = U256::from(FIRST_NEW_GAME_INDEX);
+        while current_game_count <= i {
             tokio::time::sleep(Duration::from_secs(1)).await;
             current_game_count = factory.gameCount().call().await?;
         }
 
-        // Verify the new game is built on the last valid game at index 1
-        let new_game_info =
-            factory.gameAtIndex(current_game_count.saturating_sub(U256::ONE)).call().await?;
-
-        let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
-        let claim_data = new_game.claimData().call().await?;
-
-        assert_eq!(
-            claim_data.parentIndex, 1u32,
-            "Proposer should create a new game from the last valid game"
-        );
+        // Check newly created games to find one that builds on the last valid game
+        let mut found = false;
+        while i < current_game_count {
+            // Verify the new game is built on the last valid game at index 1
+            let new_game_info = factory.gameAtIndex(i).call().await?;
+            let new_game = env.fault_dispute_game(new_game_info.proxy_).await?;
+            let claim_data = new_game.claimData().call().await?;
+            if claim_data.parentIndex == EXPECTED_PARENT_INDEX {
+                found = true;
+                break;
+            }
+            i += U256::from(1);
+        }
+        assert!(found, "Proposer should create a new game from the last valid game");
 
         // Verify proposer continues to operate normally
         assert!(!proposer_handle.is_finished(), "Proposer should continue running after recovery");
