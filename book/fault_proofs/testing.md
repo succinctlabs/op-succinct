@@ -60,13 +60,6 @@ the dispute game factory, and warps Anvil time to exercise full lifecycles. Each
   Drives the proposer through game creation, resolution, and bond claims, then asserts that the
   cached anchor game remains in the cache after the bond claim.
 
-#### Game Type Transition
-
-- `test_game_type_transition_while_proposer_running()`: Starts the proposer service with the current
-  game type set to legacy. It seeds a legacy game, then updates the respected game type to `TEST_GAME_TYPE`
-  while the proposer remains active. Verifies that the proposer correctly ignores the existing legacy game
-  and begins producing new games of type `TEST_GAME_TYPE`.
-
 #### Game Chain Validation Scenarios
 
 These tests focus on anchor selection, parent validation, and handling of invalid chains:
