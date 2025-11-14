@@ -397,10 +397,15 @@ where
             state.cursor = latest_index;
         }
 
-        for idx in invalid_game_ids {
-            tracing::warn!(game_index = %idx, "Removing invalid game and its subtree from cache");
+        if !invalid_game_ids.is_empty() {
             let mut state = self.state.write().await;
-            state.remove_subtree(idx);
+            for idx in invalid_game_ids {
+                tracing::warn!(
+                    game_index = %idx,
+                    "Removing invalid game and its subtree from cache"
+                );
+                state.remove_subtree(idx);
+            }
         }
 
         // 2. Synchronize the status of all cached games.
