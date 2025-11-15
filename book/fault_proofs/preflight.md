@@ -14,7 +14,9 @@ Catches configuration issues before production by testing the complete proof gen
 
 ## Required Environment Variables
 
-Create a `.env` file with the following variables:
+Create a `.env.preflight` file in the **repository root** with the following variables.
+
+> **Note:** Using `.env.preflight` avoids conflicts with existing `.env` files from deployments or other operations. You can specify a different file with `--env-file` if needed.
 
 ### Contract Configuration
 ```bash
@@ -69,10 +71,16 @@ NETWORK_PRIVATE_KEY=0x...
 
 ## Running Pre-Flight Validation
 
-Run the preflight script from the repository root:
+Run the preflight script from the **repository root**:
 
 ```bash
 RUST_LOG=info cargo run --release --bin preflight
+```
+
+By default, this uses `.env.preflight`. To use a different environment file:
+
+```bash
+RUST_LOG=info cargo run --release --bin preflight -- --env-file .env.custom
 ```
 
 The script will:

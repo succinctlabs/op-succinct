@@ -31,7 +31,7 @@ use tracing::info;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// The environment file path.
-    #[arg(long, default_value = ".env")]
+    #[arg(long, default_value = ".env.preflight")]
     env_file: PathBuf,
 }
 
