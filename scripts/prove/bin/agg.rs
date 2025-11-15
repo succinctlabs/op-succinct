@@ -103,15 +103,14 @@ async fn main() -> Result<()> {
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
-        let agg_proof_mode = if env::var("AGG_PROOF_MODE")
-            .unwrap_or_else(|_| "plonk".to_string())
-            .to_lowercase()
-            == "groth16"
-        {
-            SP1ProofMode::Groth16
-        } else {
-            SP1ProofMode::Plonk
-        };
+        let agg_proof_mode =
+            if env::var("AGG_PROOF_MODE").unwrap_or_else(|_| "plonk".to_string()).to_lowercase() ==
+                "groth16"
+            {
+                SP1ProofMode::Groth16
+            } else {
+                SP1ProofMode::Plonk
+            };
 
         prover
             .prove(&agg_pk, &stdin)
