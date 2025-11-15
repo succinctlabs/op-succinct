@@ -67,7 +67,14 @@ fn load_aggregation_proof_data(
     (proofs, boot_infos)
 }
 
-// Execute the OP Succinct program for a single block.
+/// Aggregates multiple range proofs into a single proof.
+///
+/// This binary takes multiple compressed range proofs and aggregates them into a single
+/// aggregation proof. This is useful for:
+/// - Reducing on-chain verification costs by combining multiple proofs into one
+/// - Proving larger block ranges by aggregating individual range proofs
+///
+/// Note: All input range proofs must be in compressed format for aggregation to work.
 #[tokio::main]
 async fn main() -> Result<()> {
     utils::setup_logger();

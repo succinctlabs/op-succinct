@@ -13,7 +13,13 @@ use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, Prover, ProverClient};
 use tracing::debug;
 
-/// Execute the OP Succinct program for multiple blocks.
+/// Generates a compressed range proof for a block range.
+///
+/// This binary generates a compressed SP1 proof that verifies the state transition
+/// for a range of L2 blocks. The compressed proof format is required for aggregation.
+///
+/// The proof verifies that the rollup's state transition function was correctly executed
+/// for all blocks in the specified range.
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = HostExecutorArgs::parse();
@@ -54,7 +60,8 @@ async fn main() -> Result<()> {
 
         let (pk, _) = prover.setup(get_range_elf_embedded());
 
-        // Generate a range proof in compressed mode for aggregation verification.
+        // Generate a compressed range proof. Note that the compressed proof type is required
+        // for aggregation.
         let proof = prover
             .prove(&pk, &sp1_stdin)
             .compressed()
