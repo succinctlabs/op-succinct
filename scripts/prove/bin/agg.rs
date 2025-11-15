@@ -11,7 +11,8 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
-    utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues, SP1VerifyingKey,
+    utils, HashableKey, Prover, ProverClient, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues,
+    SP1VerifyingKey,
 };
 
 #[derive(Parser, Debug)]
@@ -95,10 +96,19 @@ async fn main() -> Result<()> {
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.vk.bytes32());
 
     if args.prove {
-        // TODO(fakedev9999): default to plonk
+        let agg_proof_mode = if env::var("AGG_PROOF_MODE")
+            .unwrap_or_else(|_| "plonk".to_string())
+            .to_lowercase()
+            == "groth16"
+        {
+            SP1ProofMode::Groth16
+        } else {
+            SP1ProofMode::Plonk
+        };
+
         prover
             .prove(&agg_pk, &stdin)
-            .groth16()
+            .mode(agg_proof_mode)
             .strategy(parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?))
             .run()
             .expect("proving failed");

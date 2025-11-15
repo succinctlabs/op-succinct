@@ -50,12 +50,12 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let network_prover = ProverClient::builder().network().build();
+        let prover = ProverClient::builder().network().build();
 
-        let (pk, _) = network_prover.setup(get_range_elf_embedded());
+        let (pk, _) = prover.setup(get_range_elf_embedded());
 
         // Generate a range proof in compressed mode for aggregation verification.
-        let proof = network_prover
+        let proof = prover
             .prove(&pk, &sp1_stdin)
             .compressed()
             .strategy(parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?))
