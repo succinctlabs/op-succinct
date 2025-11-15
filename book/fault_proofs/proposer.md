@@ -134,9 +134,13 @@ PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
 ## Running
 
 To run the proposer, from the fault-proof directory:
-   ```bash
-   cargo run --bin proposer
-   ```
+```bash
+# Uses .env.proposer by default
+cargo run --bin proposer
+
+# Or specify a custom environment file
+cargo run --bin proposer -- --env-file custom.env
+```
 
 The proposer will run indefinitely, creating new games and optionally resolving them based on the configuration.
 
