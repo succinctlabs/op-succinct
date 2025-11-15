@@ -2,28 +2,39 @@ name: E2E Tests
 
 on:
   pull_request:
-    branches:
-      - main
     paths:
+      - '.github/workflows/e2e-tests.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'justfile'
       - 'fault-proof/**'
       - 'bindings/**'
-      - '.github/workflows/e2e-tests.yml'
   push:
+    tags:
+      - v[0-9]+.*
     branches:
+      - "release/*"
       - main
-    paths:
-      - 'fault-proof/**'
-      - 'bindings/**'
-      - '.github/workflows/e2e-tests.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
   e2e-tests:
-    name: Run E2E Tests
+    name: Run E2E Tests (${{ matrix.target }})
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
       - run-id=${{ github.run_id }}
-    timeout-minutes: 30
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - e2e
+          - sync
     
     steps:
     - name: Checkout code
@@ -52,7 +63,7 @@ jobs:
       uses: extractions/setup-just@v3
         
     - name: Run E2E tests
-      run: just e2e-tests
+      run: just e2e-tests ${{ matrix.target }}
       env:
         # TODO(fakedev9999): Remove L1 RPCs since we are using fresh Anvil chain
         L1_RPC: ${{ secrets.L1_RPC }}
@@ -64,7 +75,7 @@ jobs:
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: e2e-test-logs
+        name: e2e-tests-${{ matrix.target }}-logs
         path: |
           **/*.log
           target/debug/deps/*.log
