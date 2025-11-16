@@ -361,6 +361,25 @@ remove-config config_name env_file=".env":
         --private-key $PRIVATE_KEY \
         --broadcast
 
+# Build and update ELF files for various programs.
+update-elf:
+    #!/usr/bin/env bash
+
+    cd programs/range/ethereum
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.2 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+
+    cd ../celestia
+    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+
+    cd ../eigenda
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+
+    cd ../../aggregation
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
+    cd ../../
+
+
 # Run all unit and integration tests except for the specified ones.
 tests:
    cargo t --release \
