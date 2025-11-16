@@ -378,12 +378,19 @@ build-range-elfs:
     cd ../eigenda
     ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
 
+<<<<<<< HEAD
 # Build ELF file for aggregation program.
 build-agg-elf:
     #!/usr/bin/env bash
 
     cd programs/aggregation
     ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
+=======
+    cd ../../aggregation
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
+    cd ../../
+
+>>>>>>> a62af26f (feat: add just update-elf)
 
 # Run all unit and integration tests except for the specified ones.
 tests:
