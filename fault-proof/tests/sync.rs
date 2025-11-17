@@ -338,93 +338,16 @@ mod sync {
         Ok(())
     }
 
-    /// Verifies that the proposer correctly filters out games with unsupported game types.
+    /// Verifies that sync_state correctly filters legacy games with unsupported game types.
     ///
-    /// This test creates both a legacy game (with MOCK_PERMISSIONED_GAME_TYPE) and a valid game
-    /// (with TEST_GAME_TYPE), then verifies that:
-    /// - sync_state only caches the valid game
-    /// - fetch_game returns GameFetchResult::UnsupportedType for the legacy game
-    #[tokio::test]
-    async fn test_invalid_game_type_handling() -> Result<()> {
-        let (env, proposer, init_bond) = setup().await?;
-
-        // Setup legacy game type infrastructure
-        let legacy_impl = env.deploy_mock_permissioned_game().await?;
-
-        let set_init_call = DisputeGameFactory::setInitBondCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _initBond: init_bond,
-        };
-        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
-
-        let set_impl_call = DisputeGameFactory::setImplementationCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _impl: legacy_impl,
-        };
-        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
-
-        let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-        };
-        env.send_portal_tx(legacy_game_type_call.abi_encode(), None).await?;
-
-        let starting_l2_block = env.anvil.starting_l2_block_number;
-
-        // Create legacy game with MOCK_PERMISSIONED_GAME_TYPE
-        let legacy_block = starting_l2_block + 1;
-        let legacy_root = env.compute_output_root_at_block(legacy_block).await?;
-        let legacy_extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(legacy_block), M));
-
-        let create_legacy_call = DisputeGameFactory::createCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _rootClaim: legacy_root,
-            _extraData: Bytes::from(legacy_extra_data),
-        };
-        env.send_factory_tx(create_legacy_call.abi_encode(), Some(init_bond)).await?;
-
-        // Switch to TEST_GAME_TYPE
-        let restore_type_call =
-            MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
-        env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
-
-        // Create valid game with TEST_GAME_TYPE
-        let valid_block = starting_l2_block + 2;
-        let valid_root = env.compute_output_root_at_block(valid_block).await?;
-        env.create_game(valid_root, valid_block, M, init_bond).await?;
-
-        // Sync state
-        proposer.sync_state().await?;
-
-        // Verify: only the valid game should be cached
-        let snapshot = proposer.state_snapshot().await;
-        snapshot.assert_game_len(1);
-        snapshot.assert_canonical_head(Some(1), 2, starting_l2_block);
-
-        // Verify: fetch_game on legacy game returns UnsupportedType
-        let legacy_fetch_result = proposer.fetch_game(U256::from(0)).await?;
-        assert!(
-            matches!(legacy_fetch_result, GameFetchResult::UnsupportedType { .. }),
-            "Legacy game should be filtered as UnsupportedType"
-        );
-
-        // Verify: fetch_game on valid game returns AlreadyExists (since it's already cached)
-        let valid_fetch_result = proposer.fetch_game(U256::from(1)).await?;
-        assert!(
-            matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
-            "Valid game should already be cached"
-        );
-
-        Ok(())
-    }
-
-    /// Verifies that sync_state correctly filters multiple legacy games scattered in history.
-    ///
-    /// This test creates a mixed sequence of legacy and valid games, then verifies that:
-    /// - sync_state only caches valid games
+    /// This comprehensive test covers both simple (single legacy game) and complex (multiple
+    /// scattered legacy games) scenarios. It creates a mixed sequence of legacy and valid games,
+    /// then verifies that:
+    /// - sync_state only caches valid games (filters all legacy games)
     /// - canonical head is the latest valid game
     /// - fetch_game returns UnsupportedType for all legacy games
     #[tokio::test]
-    async fn test_sync_state_filters_multiple_legacy_games() -> Result<()> {
+    async fn test_sync_state_filters_legacy_games() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
         // Setup legacy game type infrastructure
