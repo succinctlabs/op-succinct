@@ -346,6 +346,10 @@ mod sync {
     /// - sync_state only caches valid games (filters all legacy games)
     /// - canonical head is the latest valid game
     /// - fetch_game returns UnsupportedType for all legacy games
+    ///
+    /// **When this could happen**:
+    /// During a game type transition, a legacy proposer wasn't shut down and keeps creating
+    /// legacy-type games
     #[tokio::test]
     async fn test_sync_state_filters_legacy_games() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
@@ -369,7 +373,9 @@ mod sync {
         let mut block = starting_l2_block;
 
         // Create mixed sequence: legacy, valid, legacy, valid, valid, legacy
-        // This simulates legacy proposer keep creating games after a game type transition
+        // EDGE CASE: Simulates a legacy proposer continuing to create games after game type
+        // transition. This should NOT happen in practice but tests defensive filtering
+        // behavior.
         let game_sequence = [
             (MOCK_PERMISSIONED_GAME_TYPE, false), // index 0: legacy
             (TEST_GAME_TYPE, true),               // index 1: valid
