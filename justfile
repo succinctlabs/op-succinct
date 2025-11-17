@@ -361,8 +361,11 @@ remove-config config_name env_file=".env":
         --private-key $PRIVATE_KEY \
         --broadcast
 
-# Build and update ELF files for various programs.
-update-elf:
+# Build all ELF files.
+build-elfs: build-range-elfs build-agg-elf
+
+# Build ELF files for range programs.
+build-range-elfs:
     #!/usr/bin/env bash
 
     cd programs/range/ethereum
@@ -375,9 +378,12 @@ update-elf:
     cd ../eigenda
     ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
 
-    cd ../../aggregation
+# Build ELF file for aggregation program.
+build-agg-elf:
+    #!/usr/bin/env bash
+
+    cd programs/aggregation
     ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
-    cd ../../
 
 # Run all unit and integration tests except for the specified ones.
 tests:

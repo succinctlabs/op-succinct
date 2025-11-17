@@ -48,7 +48,7 @@ jobs:
 
       - name: Build and verify ELF files
         run: |
-          just update-elf
+          just build-elfs
 
           # Check for any changes in the elf directory
           if [ -n "$(git status --porcelain elf/)" ]; then
