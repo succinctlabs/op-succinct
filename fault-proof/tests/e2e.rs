@@ -5,12 +5,13 @@ mod e2e {
     use super::*;
     use std::sync::Arc;
 
-    use alloy_primitives::{FixedBytes, U256};
-    use anyhow::Result;
+    use alloy_primitives::{Bytes, FixedBytes, U256};
+    use alloy_sol_types::{SolCall, SolValue};
+    use anyhow::{Context, Result};
     use common::{
         constants::{
             CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
-            MAX_PROVE_DURATION, PROPOSER_ADDRESS, TEST_GAME_TYPE,
+            MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
         },
         monitor::{verify_all_resolved_correctly, TrackedGame},
         TestEnvironment,
@@ -19,11 +20,21 @@ mod e2e {
         challenger::Game,
         contract::{GameStatus, ProposalStatus},
     };
+    use op_succinct_bindings::{
+        dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
+    };
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
 
     use crate::common::init_challenger;
+
+    alloy_sol_types::sol! {
+        #[sol(rpc)]
+        contract MockPermissionedDisputeGameView {
+            function status() external view returns (uint8);
+        }
+    }
 
     // Covers the proposer happy path from creation through resolution to bond claim.
     // Ensures the proposer keeps running and completes every stage cleanly.
@@ -87,6 +98,207 @@ mod e2e {
 
         info!("=== Full Lifecycle Test Complete ===");
         info!("✓ Games created, resolved, and bonds claimed successfully");
+
+        Ok(())
+    }
+
+    // Seeds a legacy game, transitions game types, and verifies the proposer ignores it.
+    // Confirms new games are created, resolved, and bonds claimed despite history.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_game_type_transition_skips_legacy_game() -> Result<()> {
+        info!("=== Test: Game Type Transition With Legacy Game In History ===");
+
+        let env = TestEnvironment::setup().await?;
+
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+
+        let legacy_impl = env.deploy_mock_permissioned_game().await?;
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _initBond: init_bond,
+        };
+        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let set_impl_call = DisputeGameFactory::setImplementationCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _impl: legacy_impl,
+        };
+        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+
+        let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+        };
+        env.send_portal_tx(legacy_game_type_call.abi_encode(), None).await?;
+        info!("✓ Set respected game type to {MOCK_PERMISSIONED_GAME_TYPE}");
+
+        let initial_game_count = factory.gameCount().call().await?;
+        let mut expected_index = initial_game_count;
+        info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
+
+        let interval = 10;
+        let l2_block = env.anvil.starting_l2_block_number + interval;
+        let root_claim = env.compute_output_root_at_block(l2_block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(l2_block), u32::MAX));
+
+        let create_call = DisputeGameFactory::createCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _rootClaim: root_claim,
+            _extraData: Bytes::from(extra_data.clone()),
+        };
+        env.send_factory_tx(create_call.abi_encode(), Some(init_bond)).await?;
+
+        // Wait for the game to be indexed by the factory
+        loop {
+            let current = factory.gameCount().call().await?;
+            if current > expected_index {
+                expected_index = current;
+                break;
+            }
+            sleep(Duration::from_millis(200)).await;
+        }
+
+        let game_info = factory.gameAtIndex(expected_index - U256::from(1)).call().await?;
+        let mock_game_address = game_info.proxy_;
+        assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
+        info!(" • Mock permissioned game at {mock_game_address}");
+
+        let restore_type_call =
+            MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
+        env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
+        info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
+
+        let proposer_handle = env.start_proposer().await?;
+        info!("✓ Proposer started after legacy games seeded");
+
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        assert_eq!(tracked_games.len(), 3);
+        info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
+
+        env.warp_time(MAX_CHALLENGE_DURATION).await?;
+
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
+
+        verify_all_resolved_correctly(&resolutions)?;
+
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
+
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
+
+        env.stop_proposer(proposer_handle);
+
+        let legacy_game =
+            MockPermissionedDisputeGameView::new(mock_game_address, env.anvil.provider.clone());
+        let status_raw = legacy_game.status().call().await?;
+        let status = GameStatus::try_from(status_raw).with_context(|| {
+            format!("Failed to decode mock permissioned game status for {mock_game_address}")
+        })?;
+        assert_eq!(
+            status,
+            GameStatus::IN_PROGRESS,
+            "mock permissioned game should remain untouched"
+        );
+
+        Ok(())
+    }
+
+    // Ensures the proposer can handle a game type transition while running.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_game_type_transition_while_proposer_running() -> Result<()> {
+        info!("=== Test: Game Type Transition While Proposer Running ===");
+
+        let env = TestEnvironment::setup().await?;
+
+        let factory_reader = env.factory()?;
+
+        let init_bond = factory_reader.initBonds(TEST_GAME_TYPE).call().await?;
+
+        let initial_game_count = factory_reader.gameCount().call().await?;
+
+        let legacy_impl = env.deploy_mock_permissioned_game().await?;
+
+        let set_init_call = DisputeGameFactory::setInitBondCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _initBond: init_bond,
+        };
+        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let set_impl_call = DisputeGameFactory::setImplementationCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _impl: legacy_impl,
+        };
+        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+
+        let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+        };
+        env.send_portal_tx(legacy_game_type_call.abi_encode(), None).await?;
+
+        let mut expected_index = initial_game_count;
+        info!("Seeding legacy game (type {MOCK_PERMISSIONED_GAME_TYPE})");
+
+        let proposer_handle = env.start_proposer().await?;
+
+        let interval = 10;
+        let l2_block = env.anvil.starting_l2_block_number + interval;
+        let root_claim = env.compute_output_root_at_block(l2_block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(l2_block), u32::MAX));
+
+        let create_call = DisputeGameFactory::createCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _rootClaim: root_claim,
+            _extraData: Bytes::from(extra_data.clone()),
+        };
+        env.send_factory_tx(create_call.abi_encode(), Some(init_bond)).await?;
+
+        // Wait for the game to be indexed by the factory
+        loop {
+            let current = factory_reader.gameCount().call().await?;
+            if current > expected_index {
+                expected_index = current;
+                break;
+            }
+            sleep(Duration::from_millis(200)).await;
+        }
+
+        let game_info = factory_reader.gameAtIndex(expected_index - U256::from(1)).call().await?;
+        let mock_game_address = game_info.proxy_;
+        assert_eq!(game_info.gameType_, MOCK_PERMISSIONED_GAME_TYPE);
+        info!(" • Mock permissioned game at {mock_game_address}");
+
+        let restore_type_call =
+            MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
+        env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
+        info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
+
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
+        assert_eq!(tracked_games.len(), 3);
+        info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
+
+        env.warp_time(MAX_CHALLENGE_DURATION).await?;
+
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
+
+        verify_all_resolved_correctly(&resolutions)?;
+
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
+
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
+
+        env.stop_proposer(proposer_handle);
+
+        let legacy_game =
+            MockPermissionedDisputeGameView::new(mock_game_address, env.anvil.provider.clone());
+        let status_raw = legacy_game.status().call().await?;
+        let status = GameStatus::try_from(status_raw).with_context(|| {
+            format!("Failed to decode mock permissioned game status for {mock_game_address}")
+        })?;
+        assert_eq!(
+            status,
+            GameStatus::IN_PROGRESS,
+            "mock permissioned game should remain untouched"
+        );
 
         Ok(())
     }
