@@ -355,19 +355,7 @@ mod sync {
         let (env, proposer, init_bond) = setup().await?;
 
         // Setup legacy game type infrastructure
-        let legacy_impl = env.deploy_mock_permissioned_game().await?;
-
-        let set_init_call = DisputeGameFactory::setInitBondCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _initBond: init_bond,
-        };
-        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
-
-        let set_impl_call = DisputeGameFactory::setImplementationCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _impl: legacy_impl,
-        };
-        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+        env.setup_legacy_game_type(MOCK_PERMISSIONED_GAME_TYPE, init_bond).await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
         let mut block = starting_l2_block;
@@ -442,25 +430,9 @@ mod sync {
     async fn test_sync_state_filters_non_respected_game_type() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
 
-        // Setup legacy game type infrastructure
-        let legacy_impl = env.deploy_mock_permissioned_game().await?;
-
-        let set_init_call = DisputeGameFactory::setInitBondCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _initBond: init_bond,
-        };
-        env.send_factory_tx(set_init_call.abi_encode(), None).await?;
-
-        let set_impl_call = DisputeGameFactory::setImplementationCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-            _impl: legacy_impl,
-        };
-        env.send_factory_tx(set_impl_call.abi_encode(), None).await?;
-
-        let legacy_game_type_call = MockOptimismPortal2::setRespectedGameTypeCall {
-            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
-        };
-        env.send_portal_tx(legacy_game_type_call.abi_encode(), None).await?;
+        // Setup legacy game type infrastructure and set it as respected
+        env.setup_legacy_game_type(MOCK_PERMISSIONED_GAME_TYPE, init_bond).await?;
+        env.set_respected_game_type(MOCK_PERMISSIONED_GAME_TYPE).await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
@@ -470,9 +442,7 @@ mod sync {
         env.create_game(valid_root, valid_block, M, init_bond).await?;
 
         // Switch to TEST_GAME_TYPE
-        let restore_type_call =
-            MockOptimismPortal2::setRespectedGameTypeCall { _gameType: TEST_GAME_TYPE };
-        env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
+        env.set_respected_game_type(TEST_GAME_TYPE).await?;
 
         // Create another valid game with TEST_GAME_TYPE (respected on creation)
         let valid_block_2 = starting_l2_block + 3;
