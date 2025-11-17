@@ -37,7 +37,7 @@ To build the binaries, run:
 
 ```bash
 # Build the range elfs
-just build-range-elf
+just build-range-elfs
 
 # Build the aggregation elf
 just build-agg-elf
