@@ -1,7 +1,10 @@
 package e2e
 
 import (
+	"context"
+	"math/big"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
@@ -12,8 +15,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/intentbuilder"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
 	opbind "github.com/succinctlabs/op-succinct/bindings"
 )
 
@@ -21,23 +26,44 @@ const DefaultL1ID = 900
 const DefaultL2ID = 901
 
 func TestMain(m *testing.M) {
-	stack := WithSVProposer(&sysgo.DefaultMinimalSystemIDs{})
+	stack := WithSuccinctValidityProposer(&sysgo.DefaultMinimalSystemIDs{})
 	presets.DoMain(m, stack)
 }
 
-func TestMinimal(gt *testing.T) {
+func TestValidityProposer_L2OODeployedAndUp(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	sys := presets.NewMinimal(t)
+
 	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
-	rpc := sys.L2CL.Escape().UserRPC()
-	client, _ := ethclient.Dial(rpc)
-	l2oo, _ := opbind.NewOPSuccinctL2OutputOracleCaller(l2ooAddr, client)
-	opts := &bind.CallOpts{}
-	latestBlockNumber, _ := l2oo.LatestBlockNumber(opts)
-	t.Logger().Info("Latest L2 Block Number from L2 Output Oracle:", "blockNumber", latestBlockNumber.Uint64())
+	t.Logger().Info("L2 Output Oracle Address:", "address", l2ooAddr.Hex())
+
+	ctx := context.Background()
+	ethClient := sys.L1EL.EthClient()
+
+	parsedABI, err := abi.JSON(strings.NewReader(opbind.OPSuccinctL2OutputOracleMetaData.ABI))
+	require.NoError(t, err, "failed to parse OPSuccinctL2OutputOracle ABI")
+
+	data, err := parsedABI.Pack("latestBlockNumber")
+	require.NoError(t, err, "failed to pack latestBlockNumber call")
+
+	callMsg := ethereum.CallMsg{
+		To:   &l2ooAddr,
+		Data: data,
+	}
+
+	raw, err := ethClient.Call(ctx, callMsg, rpc.LatestBlockNumber)
+	require.NoError(t, err, "eth_call to L2OO failed")
+
+	outs, err := parsedABI.Unpack("latestBlockNumber", raw)
+	require.NoError(t, err, "failed to unpack latestBlockNumber result")
+	require.Len(t, outs, 1)
+
+	latestBlock := outs[0].(*big.Int)
+	t.Logger().Info("Latest L2 block number from L2OO", "block", latestBlock.Uint64())
+	require.Equal(t, uint64(0), latestBlock.Uint64(), "expected latest L2 block number to be 0")
 }
 
-func WithSVProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.CommonOption {
+func WithSuccinctValidityProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.CommonOption {
 	ids := sysgo.NewDefaultMinimalSystemIDs(eth.ChainIDFromUInt64(DefaultL1ID), eth.ChainIDFromUInt64(DefaultL2ID))
 
 	opt := stack.Combine[*sysgo.Orchestrator]()
