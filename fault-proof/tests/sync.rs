@@ -7,7 +7,7 @@ mod sync {
     use crate::common::{
         constants::{
             DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, TEST_GAME_TYPE,
+            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
         },
         TestEnvironment,
     };
@@ -469,6 +469,129 @@ mod sync {
         assert!(
             matches!(valid_fetch_result, GameFetchResult::AlreadyExists),
             "Valid game at index 1 should be cached"
+        );
+
+        Ok(())
+    }
+
+    /// Verifies that games are correctly evicted from cache after bond claims are processed.
+    ///
+    /// This test covers the eviction logic for games with status DEFENDER_WINS that are:
+    /// - Finalized (past DISPUTE_GAME_FINALITY_DELAY_SECONDS)
+    /// - Have zero credit (bonds successfully claimed)
+    /// - Are NOT protected (anchor game or canonical head)
+    ///
+    /// Protection rules tested:
+    /// - Anchor games are always retained after bond claims
+    /// - Canonical head games are always retained after bond claims
+    /// - Games that are both anchor and canonical head are retained
+    /// - Non-protected games with zero credit are evicted
+    ///
+    /// This test uses a simple 5-game linear chain (M → 0 → 1 → 2 → 3 → 4) and exercises the
+    /// eviction behavior after all games have been resolved as DEFENDER_WINS and all bonds have
+    /// been claimed. In this configuration, game 4 becomes both the canonical head and the
+    /// on-chain anchor game, so it is the only game retained after eviction.
+    #[tokio::test]
+    async fn test_bond_claim_cache_eviction() -> Result<()> {
+        let anchor_idx: Option<usize> = None;
+        let expected_retained: Vec<usize> = vec![4];
+        let expected_evicted: Vec<usize> = vec![0, 1, 2, 3];
+
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Step 1: Create 5 games in linear chain M → 0 → 1 → 2 → 3 → 4
+        let mut game_addresses = Vec::new();
+        let parent_ids = [M, 0, 1, 2, 3];
+
+        for (i, parent_id) in parent_ids.iter().enumerate() {
+            let block = starting_l2_block + (i as u64) + 1;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, *parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at {address}");
+        }
+
+        // Step 2: Set anchor if specified in test case
+        if let Some(idx) = anchor_idx {
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(game_addresses[idx]).await?;
+            tracing::info!("✓ Resolved game {idx} as DEFENDER_WINS");
+
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            env.set_anchor_state(game_addresses[idx]).await?;
+            tracing::info!("✓ Set game {idx} as anchor");
+        }
+
+        // Step 3: Initial sync - all 5 games should be cached
+        proposer.sync_state().await?;
+        let initial_snapshot = proposer.state_snapshot().await;
+        initial_snapshot.assert_game_len(5);
+        tracing::info!("✓ All 5 games synced to cache");
+
+        // Step 4: Resolve all games as DEFENDER_WINS
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        for (i, address) in
+            game_addresses.iter().enumerate().filter(|(i, _)| anchor_idx != Some(*i))
+        {
+            env.resolve_game(*address).await?;
+            tracing::info!("✓ Resolved game {i} as DEFENDER_WINS");
+        }
+
+        // Step 5: Sync after finalization - games should still be retained (have credit)
+        proposer.sync_state().await?;
+        let pre_claim_snapshot = proposer.state_snapshot().await;
+        pre_claim_snapshot.assert_game_len(5);
+        tracing::info!("✓ All 5 games still cached after finalization (bonds not yet claimed)");
+
+        // Step 6: Claim bonds for all games (set credit to zero)
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        for (i, address) in game_addresses.iter().enumerate() {
+            env.claim_bond(*address, PROPOSER_ADDRESS).await?;
+            tracing::info!("✓ Claimed bond for game {i}");
+        }
+
+        // Step 7: Sync after claims - eviction should now occur
+        proposer.sync_state().await?;
+
+        // Step 8: Verify eviction results
+        let final_snapshot = proposer.state_snapshot().await;
+
+        let game_indices: std::collections::HashSet<U256> =
+            final_snapshot.games.iter().map(|(idx, _)| *idx).collect();
+
+        // Verify retained games are present
+        for idx in &expected_retained {
+            assert!(
+                game_indices.contains(&U256::from(*idx)),
+                "Game {} should be retained (anchor or canonical head)",
+                idx
+            );
+        }
+
+        // Verify evicted games are absent
+        for idx in &expected_evicted {
+            assert!(
+                !game_indices.contains(&U256::from(*idx)),
+                "Game {} should be evicted (not anchor, not canonical head, zero credit)",
+                idx
+            );
+        }
+
+        // Verify total count matches expected
+        assert_eq!(
+            final_snapshot.games.len(),
+            expected_retained.len(),
+            "Cache should contain exactly {} games after eviction",
+            expected_retained.len()
+        );
+
+        tracing::info!(
+            "✓ Eviction complete: {} games retained, {} games evicted",
+            expected_retained.len(),
+            expected_evicted.len()
         );
 
         Ok(())
