@@ -350,6 +350,15 @@ impl OPSuccinctDataFetcher {
                 rollup_config.l1_chain_id,
                 l1_config_path.display()
             );
+
+            let file = fs::File::open(&l1_config_path)?;
+            let l1_config: Value = serde_json::from_reader(file)?;
+            tracing::debug!(
+                "Loaded L1 config for chain ID {} from file: {:?}",
+                rollup_config.l1_chain_id,
+                l1_config
+            );
+
             return Ok(l1_config_path);
         }
 
