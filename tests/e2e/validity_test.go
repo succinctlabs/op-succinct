@@ -101,12 +101,10 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.Com
 	opt.Add(sysgo.WithTestSequencer(ids.TestSequencer, ids.L1CL, ids.L2CL, ids.L1EL, ids.L2EL))
 
 	opt.Add(sysgo.WithFaucets([]stack.L1ELNodeID{ids.L1EL}, []stack.L2ELNodeID{ids.L2EL}))
-
 	opt.Add(sysgo.WithL2MetricsDashboard())
 
 	opt.Add(sysgo.WithDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
-
-	opt.Add(sysgo.WithSVProposer(ids.L2Proposer, ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
+	opt.Add(sysgo.WithSuccinctValidityProposer(ids.L2Proposer, ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
 
 	opt.Add(stack.Finally(func(orch *sysgo.Orchestrator) {
 		*dest = ids
