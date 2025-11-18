@@ -1,6 +1,7 @@
 [book]
 authors = ["Uma Roy", "ratankaliani"]
 language = "en"
+multilingual = false
 src = "book"
 title = "The OP Succinct Book"
 description = "A book on all things OP Succinct"
