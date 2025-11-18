@@ -316,12 +316,12 @@ impl OPSuccinctDataFetcher {
             Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
 
         // Create configs directory if it doesn't exist
-        let rollup_config_dir = PathBuf::from("configs/L2");
-        fs::create_dir_all(&rollup_config_dir)?;
+        let default_dir = PathBuf::from("configs/L2");
+        let l2_config_dir = env::var("L2_CONFIG_DIR").map(PathBuf::from).unwrap_or(default_dir);
+        fs::create_dir_all(&l2_config_dir)?;
 
         // Save rollup config to a file named by chain ID
-        let rollup_config_path =
-            rollup_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
+        let rollup_config_path = l2_config_dir.join(format!("{}.json", rollup_config.l2_chain_id));
 
         // Write the rollup config to the file
         let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
@@ -333,8 +333,10 @@ impl OPSuccinctDataFetcher {
 
     /// Fetch and save the L1 config based on the rollup config's L1 chain ID.
     async fn fetch_and_save_l1_config(rollup_config: &RollupConfig) -> Result<PathBuf> {
+        let default_dir = PathBuf::from("configs/L1");
+        let l1_config_dir = env::var("L1_CONFIG_DIR").map(PathBuf::from).unwrap_or(default_dir);
+
         // Check if the L1 config file exists. If it does, return the path to the file.
-        let l1_config_dir = PathBuf::from("configs/L1");
         let l1_config_path = l1_config_dir.join(format!("{}.json", rollup_config.l1_chain_id));
         if l1_config_path.exists() {
             return Ok(l1_config_path);
