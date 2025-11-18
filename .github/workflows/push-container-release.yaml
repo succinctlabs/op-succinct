@@ -10,7 +10,7 @@ jobs:
     uses: ./.github/workflows/push-container.yaml
     with:
       file: fault-proof/Dockerfile.proposer.celo
-      artifact-registry: us-west1-docker.pkg.dev/devopsre/${{ github.event.repository.name }}-proposer
+      artifact-registry: us-west1-docker.pkg.dev/devopsre/celo-blockchain-public/op-succinct-proposer
       service-account: op-succinct-gh@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-release/providers/github-by-repos
       concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-proposer-release
@@ -20,7 +20,7 @@ jobs:
     uses: ./.github/workflows/push-container.yaml
     with:
       file: fault-proof/Dockerfile.challenger.celo
-      artifact-registry: us-west1-docker.pkg.dev/devopsre/${{ github.event.repository.name }}-challenger
+      artifact-registry: us-west1-docker.pkg.dev/devopsre/celo-blockchain-public/op-succinct-challenger
       service-account: op-succinct-gh@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-release/providers/github-by-repos
       concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-challenger-release
