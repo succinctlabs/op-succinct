@@ -148,7 +148,7 @@ impl OPSuccinctDataFetcher {
         // Add warning if the chain is pre-Holocene, as derivation is significantly slower.
         let unix_timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         if !rollup_config.is_holocene_active(unix_timestamp) {
-            tracing::warn!("WARNING: Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
+            tracing::warn!("Chain is not using Holocene hard fork. This will cause significant performance degradation compared to chains that have activated Holocene.");
         }
 
         // Fetch and save L1 config based on the rollup config's L1 chain ID
@@ -327,6 +327,12 @@ impl OPSuccinctDataFetcher {
         let rollup_config_str = serde_json::to_string_pretty(&rollup_config)?;
         fs::write(&rollup_config_path, rollup_config_str)?;
 
+        tracing::info!(
+            "Saved L2 config for chain ID {} to {}",
+            rollup_config.l2_chain_id,
+            rollup_config_path.display()
+        );
+
         // Return both the rollup config and the path to the temporary file
         Ok((rollup_config, rollup_config_path))
     }
@@ -339,18 +345,31 @@ impl OPSuccinctDataFetcher {
         // Check if the L1 config file exists. If it does, return the path to the file.
         let l1_config_path = l1_config_dir.join(format!("{}.json", rollup_config.l1_chain_id));
         if l1_config_path.exists() {
+            tracing::info!(
+                "L1 config for chain ID {} already exists at {}",
+                rollup_config.l1_chain_id,
+                l1_config_path.display()
+            );
             return Ok(l1_config_path);
         }
 
         // Lookup the L1 config from the registry.
         let l1_config = L1_CONFIGS.get(&rollup_config.l1_chain_id).ok_or_else(|| {
             anyhow::anyhow!(
-                "L1 chain config {} not found in registry. For unknown L1 chains (e.g., Kurtosis), \
-                 provide a file at {}.",
+                "No built-in L1 config exists for chain ID {}.\n\
+                 To proceed, either:\n\
+                 • Create a config file at: {}\n\
+                 • Or set L1_CONFIG_DIR to the directory containing <chain_id>.json",
                 rollup_config.l1_chain_id,
                 l1_config_path.display()
             )
         })?;
+
+        tracing::debug!(
+            "Fetched L1 config for chain ID {} from registry: {:?}",
+            rollup_config.l1_chain_id,
+            l1_config
+        );
 
         // Create the L1 config directory if it doesn't exist.
         fs::create_dir_all(&l1_config_dir)
@@ -359,6 +378,12 @@ impl OPSuccinctDataFetcher {
         // Write the L1 config to the file
         let l1_config_str = serde_json::to_string_pretty(l1_config)?;
         fs::write(&l1_config_path, l1_config_str)?;
+
+        tracing::info!(
+            "Saved L1 config for chain ID {} to {}",
+            rollup_config.l1_chain_id,
+            l1_config_path.display()
+        );
 
         Ok(l1_config_path)
     }
