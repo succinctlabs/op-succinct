@@ -1,3 +1,5 @@
+use std::{fmt::Debug, sync::Arc};
+
 use alloy_celo_evm::CeloEvmFactory;
 use alloy_primitives::Sealed;
 use anyhow::{anyhow, Result};
@@ -21,10 +23,12 @@ use kona_proof::{
     BootInfo, FlushableCache,
 };
 use spin::RwLock;
-use std::{fmt::Debug, sync::Arc};
 use tracing::info;
 
-use crate::client::{advance_to_target, fetch_safe_head_hash};
+use crate::{
+    client::{advance_to_target, fetch_safe_head_hash},
+    precompiles::CustomCrypto,
+};
 
 // Gets the inputs for constructing the derivation pipeline.
 pub async fn get_inputs_for_pipeline<O>(
@@ -124,6 +128,9 @@ pub trait WitnessExecutor {
         DP: DriverPipeline<P> + Send + Sync + Debug,
         P: Pipeline + SignalReceiver + Send + Sync + Debug,
     {
+        // Install custom crypto provider for KZG point evaluation precompile
+        revm::precompile::install_crypto(CustomCrypto::default());
+
         let boot_clone = boot.clone();
 
         // Wrap RollupConfig with CeloRollupConfig
