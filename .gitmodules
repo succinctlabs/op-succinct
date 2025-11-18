@@ -21,4 +21,4 @@
 	url = https://github.com/ethereum-optimism/lib-keccak
 [submodule "tests/optimism"]
 	path = tests/optimism
-	url = https://github.com/Farhad-Shabani/optimism
+	url = https://github.com/succinctlabs/optimism

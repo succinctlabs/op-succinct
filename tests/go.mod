@@ -3,7 +3,7 @@ module github.com/succinctlabs/op-succinct
 go 1.23.8
 
 // We're using the "develop" branch of the Optimism repo to include the latest changes to the `devstack` package.
-require github.com/ethereum-optimism/optimism v1.13.8-0.20250924162823-d10392338bb9
+require github.com/ethereum-optimism/optimism v1.16.2
 
 require (
 	github.com/ethereum/go-ethereum v1.16.3
