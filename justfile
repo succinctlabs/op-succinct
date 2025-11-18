@@ -384,9 +384,6 @@ build-agg-elf:
 
     cd programs/aggregation
     ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
-    cd ../../aggregation
-    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
-    cd ../../
 
 # Run all unit and integration tests except for the specified ones.
 tests:

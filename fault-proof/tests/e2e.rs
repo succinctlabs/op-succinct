@@ -272,19 +272,19 @@ mod e2e {
         env.send_portal_tx(restore_type_call.abi_encode(), None).await?;
         info!("✓ Respected game type restored to {TEST_GAME_TYPE}");
 
-        let tracked_games = env.wait_and_track_games(3, 60).await?;
+        let tracked_games = env.wait_and_track_games(3, 30).await?;
         assert_eq!(tracked_games.len(), 3);
         info!("✓ Proposer created 3 type {} games despite legacy history", env.game_type);
 
         env.warp_time(MAX_CHALLENGE_DURATION).await?;
 
-        let resolutions = env.wait_for_resolutions(&tracked_games, 60).await?;
+        let resolutions = env.wait_for_resolutions(&tracked_games, 30).await?;
 
         verify_all_resolved_correctly(&resolutions)?;
 
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS).await?;
 
-        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 60).await?;
+        env.wait_for_bond_claims(&tracked_games, PROPOSER_ADDRESS, 30).await?;
 
         env.stop_proposer(proposer_handle);
 
