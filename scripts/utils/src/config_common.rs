@@ -112,7 +112,7 @@ pub fn write_config_file<T: serde::Serialize>(
     // Write the config to the file.
     fs::write(file_path, serde_json::to_string_pretty(config)?)?;
 
-    log::info!("{} configuration written to: {}", description, file_path.display());
+    log::info!("Wrote {} configuration to: {}", description, file_path.display());
 
     Ok(())
 }
