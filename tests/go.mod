@@ -8,14 +8,8 @@ require github.com/ethereum-optimism/optimism v1.13.8-0.20250924162823-d10392338
 require github.com/ethereum/go-ethereum v1.16.3
 
 require (
-	github.com/BurntSushi/toml v1.5.0
-	github.com/bmatcuk/doublestar/v4 v4.8.1
-	github.com/stretchr/testify v1.10.0
-	golang.org/x/sync v0.14.0
-)
-
-require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -106,7 +100,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/raft v1.7.3 // indirect
 	github.com/hashicorp/raft-boltdb/v2 v2.3.1 // indirect
-	github.com/holiman/billy v0.0.0-20240216141850-2abb0c79d3c4 // indirect
+	github.com/holiman/billy v0.0.0-20250707135307-f2f9b9aae7db // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/honeycombio/otel-config-go v1.17.0 // indirect
@@ -228,6 +222,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/supranational/blst v0.3.15 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
@@ -265,6 +260,7 @@ require (
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
@@ -280,6 +276,6 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101603.2-0.20251016091451-5c6d276814f2
+replace github.com/ethereum/go-ethereum => github.com/ethereum-optimism/op-geth v1.101603.3-rc.3
 
 replace github.com/ethereum-optimism/optimism => ./optimism

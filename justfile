@@ -155,7 +155,7 @@ deploy-mock-verifier env_file=".env":
 # Deploy the OPSuccinct L2 Output Oracle
 deploy-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -aeo pipefail
     
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
@@ -179,7 +179,7 @@ deploy-oracle env_file=".env" *features='':
     ENV_VARS=""
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
-    
+
     # Run the forge deployment script
     $ENV_VARS forge script script/validity/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
         --rpc-url $L1_RPC \
