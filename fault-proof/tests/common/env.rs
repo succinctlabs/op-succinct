@@ -44,6 +44,14 @@ use super::{
     contracts::{deploy_test_contracts, DeployedContracts},
 };
 
+/// Role for selecting which private key to use when creating providers
+#[derive(Debug, Clone, Copy)]
+pub enum Role {
+    Proposer,
+    Challenger,
+    Deployer,
+}
+
 /// Common test environment setup
 pub struct TestEnvironment {
     /// Game type
@@ -248,12 +256,26 @@ impl TestEnvironment {
         .await
     }
 
-    pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
-        let wallet = PrivateKeySigner::from_str(self.private_keys.proposer)?;
-        let provider_with_signer = ProviderBuilder::new()
+    /// Create a provider with a signer for the specified role
+    pub fn provider_with_role(
+        &self,
+        role: Role,
+    ) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
+        let key = match role {
+            Role::Proposer => self.private_keys.proposer,
+            Role::Challenger => self.private_keys.challenger,
+            Role::Deployer => self.private_keys.deployer,
+        };
+
+        let wallet = PrivateKeySigner::from_str(key)?;
+        let provider = ProviderBuilder::new()
             .wallet(EthereumWallet::from(wallet))
             .connect_http(self.anvil.endpoint.parse::<Url>()?);
-        Ok(Arc::new(provider_with_signer))
+        Ok(Arc::new(provider))
+    }
+
+    pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
+        self.provider_with_role(Role::Proposer)
     }
 
     pub async fn compute_output_root_at_block(&self, block: u64) -> Result<FixedBytes<32>> {
@@ -299,14 +321,22 @@ impl TestEnvironment {
         Ok(portal)
     }
 
+    /// Create a fault dispute game instance with a provider for the specified role
+    pub async fn fault_dispute_game_with_role(
+        &self,
+        game_address: Address,
+        role: Role,
+    ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
+        let provider = self.provider_with_role(role)?;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
+        Ok(game)
+    }
+
     pub async fn fault_dispute_game(
         &self,
         game_address: Address,
     ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
-        let fault_dispute_game =
-            OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone());
-        Ok(fault_dispute_game)
+        self.fault_dispute_game_with_role(game_address, Role::Proposer).await
     }
 
     pub async fn create_game(
@@ -374,6 +404,21 @@ impl TestEnvironment {
 
     pub async fn warp_time(&self, secs: u64) -> Result<()> {
         warp_time(&self.anvil.provider, Duration::from_secs(secs)).await
+    }
+
+    pub async fn challenge_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(address, Role::Challenger).await?;
+        let challenger_bond = game.challengerBond().call().await?;
+        let receipt = game
+            .challenge()
+            .value(challenger_bond)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
     }
 }
 

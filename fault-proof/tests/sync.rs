@@ -6,7 +6,7 @@ mod sync {
 
     use crate::common::{
         constants::{
-            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
+            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
             MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
         },
         TestEnvironment,
@@ -592,6 +592,88 @@ mod sync {
             "✓ Eviction complete: {} games retained, {} games evicted",
             expected_retained.len(),
             expected_evicted.len()
+        );
+
+        Ok(())
+    }
+
+    /// Tests CHALLENGER_WINS cascade removal at various tree positions.
+    #[rstest]
+    #[case::at_root(
+        &[M, 0, 1],  // parent_ids: M -> 0 -> 1 -> 2
+        &[0],  // games_to_challenge: challenge game 0
+        0,  // expected_retained_count (all removed - root is CHALLENGER_wins_WINS)
+        None,
+        0
+    )]
+    #[case::mid_chain(
+        &[M, 0, 1, 2],  // M -> 0 -> 1 -> 2 -> 3
+        &[1],  // challenge game 1
+        1,  // Only game 0 retained (games 1, 2, 3 removed)
+        Some(0),
+        1
+    )]
+    #[case::two_children(
+        &[M, 0, 0],  // M -> 0, 0 -> 1, 0 -> 2
+        &[1],  // challenge game 1
+        2,  // Games 0, 2 retained; game 1 removed
+        Some(2),
+        3
+    )]
+    #[case::multiple_challenger_wins(
+        &[M, 0, 1],  // M -> 0 -> 1 -> 2
+        &[0, 1],  // challenge games 0 and 1
+        0,  // All removed
+        None,
+        0
+    )]
+    #[tokio::test]
+    async fn test_challenger_wins_cascade_removal(
+        #[case] parent_ids: &[u32],
+        #[case] games_to_challenge: &[usize],
+        #[case] expected_retained_count: usize,
+        #[case] expected_canonical_head_index: Option<u64>,
+        #[case] expected_processed_l2_block: u64,
+    ) -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
+        let mut game_addresses = Vec::new();
+
+        // Step 1: Create all games with valid roots (all initially valid)
+        for (i, &parent_id) in parent_ids.iter().enumerate() {
+            block += 1;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} (parent: {parent_id})");
+        }
+
+        // Step 2: Challenge and resolve specific games as CHALLENGER_WINS
+        for &idx in games_to_challenge {
+            env.challenge_game(game_addresses[idx]).await?;
+            tracing::info!("✓ Game {idx} challenged and resolved as CHALLENGER_WINS");
+        }
+
+        // Step 3: Resolve games
+        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        for game_address in game_addresses {
+            env.resolve_game(game_address).await?;
+            tracing::info!("✓ Resolved game {game_address} as DEFENDER_WINS");
+        }
+
+        // Step 4: Sync state
+        proposer.sync_state().await?;
+
+        // Verify results
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(expected_retained_count);
+        snapshot.assert_canonical_head(
+            expected_canonical_head_index,
+            expected_processed_l2_block,
+            starting_l2_block,
         );
 
         Ok(())
