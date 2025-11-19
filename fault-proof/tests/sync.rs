@@ -17,9 +17,7 @@ mod sync {
     use fault_proof::proposer::{
         GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
     };
-    use op_succinct_bindings::{
-        dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
-    };
+    use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use op_succinct_host_utils::host::OPSuccinctHost;
     use rand::Rng;
     use rstest::rstest;

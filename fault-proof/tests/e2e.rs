@@ -20,9 +20,7 @@ mod e2e {
         challenger::Game,
         contract::{GameStatus, ProposalStatus},
     };
-    use op_succinct_bindings::{
-        dispute_game_factory::DisputeGameFactory, mock_optimism_portal2::MockOptimismPortal2,
-    };
+    use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use rand::Rng;
     use tokio::time::{sleep, Duration};
     use tracing::info;
