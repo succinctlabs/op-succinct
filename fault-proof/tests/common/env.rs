@@ -274,10 +274,6 @@ impl TestEnvironment {
         Ok(Arc::new(provider))
     }
 
-    pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
-        self.provider_with_role(Role::Proposer)
-    }
-
     pub async fn compute_output_root_at_block(&self, block: u64) -> Result<FixedBytes<32>> {
         self.fetcher.l2_provider.compute_output_root_at_block(U256::from(block)).await
     }
@@ -285,15 +281,15 @@ impl TestEnvironment {
     pub fn factory(
         &self,
     ) -> Result<DisputeGameFactoryInstance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
-        let factory = DisputeGameFactory::new(self.deployed.factory, provider_with_signer.clone());
+        let provider = self.provider_with_role(Role::Proposer)?;
+        let factory = DisputeGameFactory::new(self.deployed.factory, provider);
         Ok(factory)
     }
 
     pub async fn anchor_registry_address(&self, game_address: Address) -> Result<Address> {
-        let provider_with_signer = self.provider_with_signer()?;
+        let provider = self.provider_with_role(Role::Proposer)?;
         let anchor_registry_addr =
-            OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone())
+            OPSuccinctFaultDisputeGame::new(game_address, provider)
                 .anchorStateRegistry()
                 .call()
                 .await?;
@@ -304,10 +300,9 @@ impl TestEnvironment {
         &self,
         game_address: Address,
     ) -> Result<AnchorStateRegistryInstance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
+        let provider = self.provider_with_role(Role::Proposer)?;
         let anchor_registry_addr = self.anchor_registry_address(game_address).await?;
-        let anchor_registry =
-            AnchorStateRegistry::new(anchor_registry_addr, provider_with_signer.clone());
+        let anchor_registry = AnchorStateRegistry::new(anchor_registry_addr, provider);
         Ok(anchor_registry)
     }
 
@@ -315,9 +310,9 @@ impl TestEnvironment {
         &self,
         anchor_registry: AnchorStateRegistryInstance<impl alloy_provider::Provider + Clone>,
     ) -> Result<MockOptimismPortal2Instance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
+        let provider = self.provider_with_role(Role::Proposer)?;
         let portal_addr = anchor_registry.portal().call().await?;
-        let portal = MockOptimismPortal2::new(portal_addr, provider_with_signer.clone());
+        let portal = MockOptimismPortal2::new(portal_addr, provider);
         Ok(portal)
     }
 
@@ -330,13 +325,6 @@ impl TestEnvironment {
         let provider = self.provider_with_role(role)?;
         let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
         Ok(game)
-    }
-
-    pub async fn fault_dispute_game(
-        &self,
-        game_address: Address,
-    ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
-        self.fault_dispute_game_with_role(game_address, Role::Proposer).await
     }
 
     pub async fn create_game(
@@ -360,7 +348,7 @@ impl TestEnvironment {
     }
 
     pub async fn resolve_game(&self, address: Address) -> Result<TransactionReceipt> {
-        let game = self.fault_dispute_game(address).await?;
+        let game = self.fault_dispute_game_with_role(address, Role::Proposer).await?;
         let receipt =
             game.resolve().send().await?.with_required_confirmations(1).get_receipt().await?;
         Ok(receipt)
@@ -371,7 +359,7 @@ impl TestEnvironment {
         game_address: Address,
         recipient: Address,
     ) -> Result<TransactionReceipt> {
-        let game = self.fault_dispute_game(game_address).await?;
+        let game = self.fault_dispute_game_with_role(game_address, Role::Proposer).await?;
         let receipt = game
             .claimCredit(recipient)
             .send()
