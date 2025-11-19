@@ -453,7 +453,9 @@ mod e2e {
                 let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
 
                 // Check that the new game doesn't build on the invalid chain
-                let new_game = env.fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer).await?;
+                let new_game = env
+                    .fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer)
+                    .await?;
 
                 let claim_data = new_game.claimData().call().await?;
 
@@ -520,7 +522,9 @@ mod e2e {
         info!("=== Phase 2: Creating Child Game with Valid Parent ===");
 
         // Double-check parent game status right before creating child
-        let parent_game = env.fault_dispute_game_with_role(parent_game_address, common::env::Role::Proposer).await?;
+        let parent_game = env
+            .fault_dispute_game_with_role(parent_game_address, common::env::Role::Proposer)
+            .await?;
 
         let parent_status = parent_game.status().call().await?;
         info!("Parent game status right before child creation: {:?}", parent_status);
@@ -619,7 +623,9 @@ mod e2e {
                 let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
 
                 // Check that the new game doesn't build on the challenged parent chain
-                let new_game = env.fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer).await?;
+                let new_game = env
+                    .fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer)
+                    .await?;
                 let claim_data = new_game.claimData().call().await?;
 
                 // The new game should be a new anchor game (parentIndex = u32::MAX)
@@ -748,7 +754,9 @@ mod e2e {
             if current_count > b1_index + U256::from(1) {
                 let new_game_index = current_count - U256::from(1);
                 let new_game_info = factory.gameAtIndex(new_game_index).call().await?;
-                let new_game = env.fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer).await?;
+                let new_game = env
+                    .fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer)
+                    .await?;
                 let claim_data = new_game.claimData().call().await?;
 
                 assert_eq!(
@@ -875,7 +883,9 @@ mod e2e {
         while i < current_game_count {
             // Verify the new game is built on the last valid game at index 1
             let new_game_info = factory.gameAtIndex(i).call().await?;
-            let new_game = env.fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer).await?;
+            let new_game = env
+                .fault_dispute_game_with_role(new_game_info.proxy_, common::env::Role::Proposer)
+                .await?;
             let claim_data = new_game.claimData().call().await?;
             if claim_data.parentIndex == EXPECTED_PARENT_INDEX {
                 found = true;

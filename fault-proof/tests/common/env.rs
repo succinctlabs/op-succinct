@@ -288,11 +288,10 @@ impl TestEnvironment {
 
     pub async fn anchor_registry_address(&self, game_address: Address) -> Result<Address> {
         let provider = self.provider_with_role(Role::Proposer)?;
-        let anchor_registry_addr =
-            OPSuccinctFaultDisputeGame::new(game_address, provider)
-                .anchorStateRegistry()
-                .call()
-                .await?;
+        let anchor_registry_addr = OPSuccinctFaultDisputeGame::new(game_address, provider)
+            .anchorStateRegistry()
+            .call()
+            .await?;
         Ok(anchor_registry_addr)
     }
 
