@@ -906,4 +906,65 @@ mod sync {
 
         Ok(())
     }
+
+    /// Tests the `should_attempt_to_claim_bond` flag logic for finalized games.
+    ///
+    /// Verifies that the flag is correctly set based on:
+    /// - Finality (finalized vs not finalized)
+    /// - Credit availability (credit > 0 vs credit = 0)
+    #[tokio::test]
+    async fn test_bond_claim_marking() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, init_bond).await?;
+        let (_, address) = env.last_game_info().await?;
+        tracing::info!("✓ Created game 0 at block {block}");
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(address).await?;
+        tracing::info!("✓ Resolved game 0 as DEFENDER_WINS");
+
+        // Sync state
+        proposer.sync_state().await?;
+
+        // === Case 1: DEFENDER_WINS + not finalized ===
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false (not finalized)"
+        );
+        tracing::info!(
+            "✓ Case 1: DEFENDER_WINS + not finalized → should_attempt_to_claim_bond = false"
+        );
+
+        // Warp time to finalize games
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        proposer.sync_state().await?;
+
+        // === Case 2: DEFENDER_WINS + finalized + credit > 0 ===
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        assert!(
+            game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be true (finalized + credit > 0)"
+        );
+        tracing::info!("✓ Case 2: DEFENDER_WINS + finalized + credit > 0 → should_attempt_to_claim_bond = true");
+
+        // Claim bond for game 0 to set credit = 0
+        env.claim_bond(address, PROPOSER_ADDRESS).await?;
+        proposer.sync_state().await?;
+
+        // === Case 3: DEFENDER_WINS + finalized + credit = 0 ===
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
+        );
+        tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
+
+        Ok(())
+    }
 }
