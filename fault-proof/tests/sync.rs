@@ -801,4 +801,109 @@ mod sync {
 
         Ok(())
     }
+
+    /// Tests the `should_attempt_to_resolve` flag logic for IN_PROGRESS games.
+    ///
+    /// Verifies that the flag is correctly set based on:
+    /// - Game status (IN_PROGRESS vs resolved)
+    /// - Deadline status (passed vs not passed)
+    /// - Parent resolution status (resolved vs IN_PROGRESS)
+    /// - Ownership (own game vs not own game)
+    #[tokio::test]
+    async fn test_in_progress_games_resolution_marking() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create a simple chain: M -> 0 -> 1 -> 2
+        // Add 100-second gaps between creations to control deadline spacing
+        let mut game_addresses = Vec::new();
+        let time_gap = 100u64;
+
+        for i in 0..3 {
+            let block = starting_l2_block + 1 + i;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            let parent_id = if i == 0 { M } else { (i - 1) as u32 };
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+
+            // Add time gap before next game (except after last game)
+            if i < 2 {
+                env.warp_time(time_gap).await?;
+            }
+        }
+
+        // Sync state to cache games
+        proposer.sync_state().await?;
+
+        // === Case 1: IN_PROGRESS game with deadline NOT passed ===
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        assert_eq!(
+            game_0.should_attempt_to_resolve, false,
+            "Game 0: should_attempt_to_resolve should be false (deadline not passed)"
+        );
+        tracing::info!("✓ Case 1: IN_PROGRESS + deadline not passed → should_attempt = false");
+
+        // === Case 2: DEFENDER_WINS (resolved game) ===
+        // Warp to just past game 0's deadline but before game 1's deadline
+        // Game 0 deadline is at T0 + MAX_CHALLENGE_DURATION
+        // Game 1 deadline is at T0 + 100 + MAX_CHALLENGE_DURATION
+        // Currently at T0 + 200 (after creating all 3 games with 100-second gaps)
+        // So we need to warp: MAX_CHALLENGE_DURATION - 200 + 1
+        env.warp_time(MAX_CHALLENGE_DURATION - 2 * time_gap + 1).await?;
+
+        proposer.sync_state().await?;
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        assert_eq!(
+            game_0.should_attempt_to_resolve, true,
+            "Game 0: should_attempt_to_resolve should be true since deadline has passed"
+        );
+
+        env.resolve_game(game_addresses[0]).await?;
+        proposer.sync_state().await?;
+
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        assert_eq!(
+            game_0.should_attempt_to_resolve, false,
+            "Game 0: should_attempt_to_resolve should be false (already resolved)"
+        );
+        tracing::info!("✓ Case 2: DEFENDER_WINS → should_attempt = false");
+
+        // === Case 3: IN_PROGRESS + parent resolved + deadline NOT passed ===
+        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
+        assert_eq!(
+            game_1.should_attempt_to_resolve, false,
+            "Game 1: should_attempt_to_resolve should be false (deadline not passed despite parent resolved)"
+        );
+        tracing::info!(
+            "✓ Case 3: IN_PROGRESS + parent resolved + deadline not passed → should_attempt = false"
+        );
+
+        // === Case 4: IN_PROGRESS + parent resolved + deadline passed + own game ===
+        env.warp_time(time_gap).await?;
+        proposer.sync_state().await?;
+
+        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
+        assert_eq!(
+            game_1.should_attempt_to_resolve, true,
+            "Game 1: should_attempt_to_resolve should be true (all conditions met)"
+        );
+        tracing::info!(
+            "✓ Case 4: IN_PROGRESS + parent resolved + deadline passed + own game → should_attempt = true"
+        );
+
+        // === Case 5: IN_PROGRESS + parent NOT resolved + deadline passed ===
+        let game_2 = proposer.get_game(U256::from(2)).await.unwrap();
+        assert_eq!(
+            game_2.should_attempt_to_resolve, false,
+            "Game 2: should_attempt_to_resolve should be false (parent not resolved)"
+        );
+        tracing::info!(
+            "✓ Case 5: IN_PROGRESS + parent NOT resolved + deadline passed → should_attempt = false"
+        );
+
+        Ok(())
+    }
 }
