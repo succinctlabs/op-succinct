@@ -16,7 +16,9 @@ const DefaultL1ID = 900
 const DefaultL2ID = 901
 
 func WithSuccinctValidityProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.CommonOption {
-	ids := sysgo.NewDefaultMinimalSystemIDs(eth.ChainIDFromUInt64(DefaultL1ID), eth.ChainIDFromUInt64(DefaultL2ID))
+	l1ChainID := eth.ChainIDFromUInt64(DefaultL1ID)
+	l2ChainID := eth.ChainIDFromUInt64(DefaultL2ID)
+	ids := sysgo.NewDefaultMinimalSystemIDs(l1ChainID, l2ChainID)
 
 	opt := stack.Combine[*sysgo.Orchestrator]()
 	opt.Add(stack.BeforeDeploy(func(o *sysgo.Orchestrator) {
@@ -55,12 +57,12 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.Com
 	opt.Add(sysgo.WithBatcher(ids.L2Batcher, ids.L1EL, ids.L2CL, ids.L2EL))
 	opt.Add(sysgo.WithTestSequencer(ids.TestSequencer, ids.L1CL, ids.L2CL, ids.L1EL, ids.L2EL))
 
-	opt.Add(sysgo.WithFaucets([]stack.L1ELNodeID{ids.L1EL}, []stack.L2ELNodeID{ids.L2EL}))
-	opt.Add(sysgo.WithL2MetricsDashboard())
-
+	opt.Add(sysgo.WithDeploySP1MockVerifier(ids.L1EL, l2ChainID)) 
 	opt.Add(sysgo.WithDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
 	opt.Add(sysgo.WithSuccinctValidityProposer(ids.L2Proposer, ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
 
+	opt.Add(sysgo.WithFaucets([]stack.L1ELNodeID{ids.L1EL}, []stack.L2ELNodeID{ids.L2EL}))
+	opt.Add(sysgo.WithL2MetricsDashboard())
 	opt.Add(stack.Finally(func(orch *sysgo.Orchestrator) {
 		*dest = ids
 	}))
