@@ -62,6 +62,7 @@ jobs:
             tests/optimism/go.sum
 
       - name: Run Sysgo E2E Tests
+        working-directory: tests
         run: |
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.mode }}"
