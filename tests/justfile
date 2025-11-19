@@ -8,7 +8,7 @@ test-e2e-sysgo BINARY FILTER="" : unzip-contract-artifacts
         export FILTER="-run {{FILTER}}"
     fi
 
-    export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src"
+    export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
     export DISABLE_OP_E2E_LEGACY=true
 
     if [ "{{BINARY}}" = "validity" ]; then
@@ -44,31 +44,5 @@ unzip-contract-artifacts DEST_DIR="":
 
 update-packages:
     #!/bin/bash
-    set -euo pipefail
-
-    SRC="{{SOURCE}}"; ROOT="{{ROOT}}"; OP="$SRC/optimism/op-deployer"
-    ART="$SRC/artifacts"; MERGED="$ART/src"
-    ARCHIVE="$ART/compressed/artifacts.tzst"
-
-    TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
-    mkdir -p "$TMP/forge-artifacts" "$MERGED"
-    rm -rf "$MERGED"
-
-    just --justfile "$ROOT/justfile" forge-build
-    echo "Built local artifacts."
-    cp -a "$ROOT/contracts/out/." "$TMP/forge-artifacts/"
-
-    (cd "$OP" && just build-contracts copy-contract-artifacts >/dev/null)
-    echo "Built op-deployer artifacts."
-
-    zstd -qd -c "$OP/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst" \
-      | tar -x -C "$TMP"
-    echo "Unpacked op-deployer artifacts."
-
-    mv "$TMP/forge-artifacts" "$MERGED"
-    echo "Merged artifacts -> $MERGED"
-
-    rm -f "$ARCHIVE"
-    mkdir -p "$ART/compressed"
-    tar -C "$ART" -cf - src | zstd -19 -q -o "$ARCHIVE"
-    echo "Compressed -> $ARCHIVE"
+    cd {{SOURCE}}/optimism/op-deployer && just build-contracts copy-contract-artifacts
+    cp {{SOURCE}}/optimism/op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst {{SOURCE}}/artifacts/compressed/artifacts.tzst
