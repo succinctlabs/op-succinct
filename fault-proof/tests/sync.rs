@@ -651,17 +651,17 @@ mod sync {
             tracing::info!("✓ Created game {i} at block {block} (parent: {parent_id})");
         }
 
-        // Step 2: Challenge and resolve specific games as CHALLENGER_WINS
+        // Step 2: Challenge specific games
         for &idx in games_to_challenge {
             env.challenge_game(game_addresses[idx]).await?;
-            tracing::info!("✓ Game {idx} challenged and resolved as CHALLENGER_WINS");
+            tracing::info!("✓ Game {idx} challenged");
         }
 
         // Step 3: Resolve games
         env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
         for game_address in game_addresses {
             env.resolve_game(game_address).await?;
-            tracing::info!("✓ Resolved game {game_address} as DEFENDER_WINS");
+            tracing::info!("✓ Resolved game {game_address}");
         }
 
         // Step 4: Sync state
