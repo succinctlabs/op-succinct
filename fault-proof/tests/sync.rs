@@ -602,13 +602,15 @@ mod sync {
     #[case::at_root(
         &[M, 0, 1],  // parent_ids: M -> 0 -> 1 -> 2
         &[0],  // games_to_challenge: challenge game 0
-        0,  // expected_retained_count (all removed - root is CHALLENGER_wins_WINS)
+        None,  // anchor_id: no anchor
+        0,  // expected_retained_count (all removed - root is CHALLENGER_WINS)
         None,
         0
     )]
     #[case::mid_chain(
         &[M, 0, 1, 2],  // M -> 0 -> 1 -> 2 -> 3
         &[1],  // challenge game 1
+        None,  // anchor_id: no anchor
         1,  // Only game 0 retained (games 1, 2, 3 removed)
         Some(0),
         1
@@ -616,6 +618,7 @@ mod sync {
     #[case::two_children(
         &[M, 0, 0],  // M -> 0, 0 -> 1, 0 -> 2
         &[1],  // challenge game 1
+        None,  // anchor_id: no anchor
         2,  // Games 0, 2 retained; game 1 removed
         Some(2),
         3
@@ -623,14 +626,32 @@ mod sync {
     #[case::multiple_challenger_wins(
         &[M, 0, 1],  // M -> 0 -> 1 -> 2
         &[0, 1],  // challenge games 0 and 1
+        None,  // anchor_id: no anchor
         0,  // All removed
         None,
         0
+    )]
+    #[case::anchor_descendant_challenger_wins(
+        &[M, 0, 1],  // M -> 0 (anchor) -> 1 -> 2
+        &[1],  // challenge game 1 (descendant of anchor)
+        Some(0),  // anchor_id: game 0
+        1,  // Only game 0 retained (games 1, 2 removed despite anchor)
+        Some(0),  // Canonical head = anchor
+        1
+    )]
+    #[case::parallel_branch_challenger_wins(
+        &[M, 0, M],  // M -> 0 (anchor) -> 1; M -> 2
+        &[2],  // challenge game 2 (parallel branch)
+        Some(0),  // anchor_id: game 0
+        2,  // Games 0, 1 retained; game 2 removed
+        Some(1),  // Canonical head = game 1
+        2
     )]
     #[tokio::test]
     async fn test_challenger_wins_cascade_removal(
         #[case] parent_ids: &[u32],
         #[case] games_to_challenge: &[usize],
+        #[case] anchor_id: Option<usize>,
         #[case] expected_retained_count: usize,
         #[case] expected_canonical_head_index: Option<u64>,
         #[case] expected_processed_l2_block: u64,
@@ -651,25 +672,42 @@ mod sync {
             tracing::info!("✓ Created game {i} at block {block} (parent: {parent_id})");
         }
 
-        // Step 2: Challenge specific games
+        // Step 2: Set anchor if specified (before challenging)
+        if let Some(anchor_idx) = anchor_id {
+            // Resolve anchor game as DEFENDER_WINS first
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(game_addresses[anchor_idx]).await?;
+            tracing::info!("✓ Resolved game {anchor_idx} as DEFENDER_WINS for anchor");
+
+            // Set as anchor (requires finality delay)
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            env.set_anchor_state(game_addresses[anchor_idx]).await?;
+            tracing::info!("✓ Set game {anchor_idx} as anchor");
+        }
+
+        // Step 3: Challenge specific games
         for &idx in games_to_challenge {
             env.challenge_game(game_addresses[idx]).await?;
             tracing::info!("✓ Game {idx} challenged");
         }
 
-        // Step 3: Resolve games
+        // Step 4: Resolve games (skip anchor if already resolved)
         env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
-        for game_address in game_addresses {
-            env.resolve_game(game_address).await?;
-            tracing::info!("✓ Resolved game {game_address}");
+        for (i, game_address) in game_addresses.iter().enumerate() {
+            // Skip if already resolved for anchor
+            if anchor_id != Some(i) {
+                env.resolve_game(*game_address).await?;
+                tracing::info!("✓ Resolved game {game_address}");
+            }
         }
 
-        // Step 4: Sync state
+        // Step 5: Sync state
         proposer.sync_state().await?;
 
         // Verify results
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(expected_retained_count);
+        snapshot.assert_anchor_index(anchor_id);
         snapshot.assert_canonical_head(
             expected_canonical_head_index,
             expected_processed_l2_block,
