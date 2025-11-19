@@ -672,7 +672,13 @@ mod sync {
             tracing::info!("✓ Created game {i} at block {block} (parent: {parent_id})");
         }
 
-        // Step 2: Set anchor if specified (before challenging)
+        // Step 2: Challenge specific games
+        for &idx in games_to_challenge {
+            env.challenge_game(game_addresses[idx]).await?;
+            tracing::info!("✓ Game {idx} challenged");
+        }
+
+        // Step 3: Set anchor if specified
         if let Some(anchor_idx) = anchor_id {
             // Resolve anchor game as DEFENDER_WINS first
             env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
@@ -683,12 +689,6 @@ mod sync {
             env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
             env.set_anchor_state(game_addresses[anchor_idx]).await?;
             tracing::info!("✓ Set game {anchor_idx} as anchor");
-        }
-
-        // Step 3: Challenge specific games
-        for &idx in games_to_challenge {
-            env.challenge_game(game_addresses[idx]).await?;
-            tracing::info!("✓ Game {idx} challenged");
         }
 
         // Step 4: Resolve games (skip anchor if already resolved)
