@@ -57,7 +57,7 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.Com
 	opt.Add(sysgo.WithBatcher(ids.L2Batcher, ids.L1EL, ids.L2CL, ids.L2EL))
 	opt.Add(sysgo.WithTestSequencer(ids.TestSequencer, ids.L1CL, ids.L2CL, ids.L1EL, ids.L2EL))
 
-	opt.Add(sysgo.WithDeploySP1MockVerifier(ids.L1EL, l2ChainID)) 
+	opt.Add(sysgo.WithDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 	opt.Add(sysgo.WithDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
 	opt.Add(sysgo.WithSuccinctValidityProposer(ids.L2Proposer, ids.L1CL, ids.L1EL, ids.L2CL, ids.L2EL))
 
