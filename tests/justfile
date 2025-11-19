@@ -1,7 +1,7 @@
 SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
-test-e2e-sysgo BINARY DEVNET="simple" FILTER="" : unzip-contract-artifacts
+test-e2e-sysgo BINARY FILTER="" : unzip-contract-artifacts
     #!/bin/bash
 
     if ! [ -z "{{FILTER}}" ]; then
@@ -11,15 +11,8 @@ test-e2e-sysgo BINARY DEVNET="simple" FILTER="" : unzip-contract-artifacts
     export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src"
     export DISABLE_OP_E2E_LEGACY=true
 
-    if [ "{{DEVNET}}" = "simple" ]; then
-        export OP_SEQUENCER_WITH_RETH=1
-        export OP_VALIDATOR_WITH_RETH=1
-        export OP_SEQUENCER_WITH_GETH=1
-        export OP_VALIDATOR_WITH_GETH=1
-    fi
-    
     if [ "{{BINARY}}" = "validity" ]; then
-        export SV_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/validity"
+        export VALIDITY_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/validity"
         export DEVSTACK_ORCHESTRATOR=sysgo
         echo "Building validity proposer..."
         cd .. && cargo build --bin validity --release

@@ -26,8 +26,10 @@ const DefaultL1ID = 900
 const DefaultL2ID = 901
 
 func TestMain(m *testing.M) {
-	stack := WithSuccinctValidityProposer(&sysgo.DefaultMinimalSystemIDs{})
-	presets.DoMain(m, stack)
+	presets.DoMain(m, 
+		presets.WithTimeTravel(),
+		WithSuccinctValidityProposer(&sysgo.DefaultMinimalSystemIDs{}),
+		)
 }
 
 func TestValidityProposer_L2OODeployedAndUp(gt *testing.T) {
@@ -84,9 +86,12 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultMinimalSystemIDs) stack.Com
 		),
 		sysgo.WithDeployerOptions(
 			func(_ devtest.P, _ devkeys.Keys, builder intentbuilder.Builder) {
+				builder.WithGlobalOverride("l2BlockTime", uint64(2))
 				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 			},
+			sysgo.WithSequencingWindow(10),
+			sysgo.WithFinalizationPeriodSeconds(10),
 			sysgo.WithCommons(ids.L1.ChainID()),
 			sysgo.WithPrefundedL2(ids.L1.ChainID(), ids.L2.ChainID()),
 		),
