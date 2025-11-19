@@ -840,8 +840,8 @@ mod sync {
 
         // === Case 1: IN_PROGRESS game with deadline NOT passed ===
         let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
-        assert_eq!(
-            game_0.should_attempt_to_resolve, false,
+        assert!(
+            !game_0.should_attempt_to_resolve,
             "Game 0: should_attempt_to_resolve should be false (deadline not passed)"
         );
         tracing::info!("✓ Case 1: IN_PROGRESS + deadline not passed → should_attempt = false");
@@ -856,8 +856,8 @@ mod sync {
 
         proposer.sync_state().await?;
         let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
-        assert_eq!(
-            game_0.should_attempt_to_resolve, true,
+        assert!(
+            game_0.should_attempt_to_resolve,
             "Game 0: should_attempt_to_resolve should be true since deadline has passed"
         );
 
@@ -865,16 +865,16 @@ mod sync {
         proposer.sync_state().await?;
 
         let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
-        assert_eq!(
-            game_0.should_attempt_to_resolve, false,
+        assert!(
+            !game_0.should_attempt_to_resolve,
             "Game 0: should_attempt_to_resolve should be false (already resolved)"
         );
         tracing::info!("✓ Case 2: DEFENDER_WINS → should_attempt = false");
 
         // === Case 3: IN_PROGRESS + parent resolved + deadline NOT passed ===
         let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
-        assert_eq!(
-            game_1.should_attempt_to_resolve, false,
+        assert!(
+            !game_1.should_attempt_to_resolve,
             "Game 1: should_attempt_to_resolve should be false (deadline not passed despite parent resolved)"
         );
         tracing::info!(
@@ -886,8 +886,8 @@ mod sync {
         proposer.sync_state().await?;
 
         let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
-        assert_eq!(
-            game_1.should_attempt_to_resolve, true,
+        assert!(
+            game_1.should_attempt_to_resolve,
             "Game 1: should_attempt_to_resolve should be true (all conditions met)"
         );
         tracing::info!(
@@ -896,8 +896,8 @@ mod sync {
 
         // === Case 5: IN_PROGRESS + parent NOT resolved + deadline passed ===
         let game_2 = proposer.get_game(U256::from(2)).await.unwrap();
-        assert_eq!(
-            game_2.should_attempt_to_resolve, false,
+        assert!(
+            !game_2.should_attempt_to_resolve,
             "Game 2: should_attempt_to_resolve should be false (parent not resolved)"
         );
         tracing::info!(
