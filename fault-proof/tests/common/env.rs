@@ -202,16 +202,12 @@ impl TestEnvironment {
     ) -> Result<Address> {
         let legacy_impl = self.deploy_mock_permissioned_game().await?;
 
-        let set_init_call = DisputeGameFactory::setInitBondCall {
-            _gameType: game_type,
-            _initBond: init_bond,
-        };
+        let set_init_call =
+            DisputeGameFactory::setInitBondCall { _gameType: game_type, _initBond: init_bond };
         self.send_factory_tx(set_init_call.abi_encode(), None).await?;
 
-        let set_impl_call = DisputeGameFactory::setImplementationCall {
-            _gameType: game_type,
-            _impl: legacy_impl,
-        };
+        let set_impl_call =
+            DisputeGameFactory::setImplementationCall { _gameType: game_type, _impl: legacy_impl };
         self.send_factory_tx(set_impl_call.abi_encode(), None).await?;
 
         info!("✓ Setup legacy game type {game_type} with implementation at {legacy_impl}");
