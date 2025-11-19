@@ -678,4 +678,89 @@ mod sync {
 
         Ok(())
     }
+
+    /// Tests mixed states across multiple branches.
+    ///
+    /// Topology:
+    ///   M → 0 (DEFENDER_WINS) → 1 (DEFENDER_WINS) → 2 (DEFENDER_WINS)
+    ///     → 0 → 3 (IN_PROGESS, Challenged) → 4 (IN_PROGRESS)
+    ///     → 1 → 5 (IN_PROGRESS)
+    ///
+    /// Expected:
+    /// - Games 0, 1, 2, 5 retained (valid chain)
+    /// - Games 3, 4 removed (CHALLENGER_WINS cascade)
+    /// - Canonical head: Game 5 (highest L2 block among valid games)
+    #[tokio::test]
+    async fn test_mixed_states_multiple_branches() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Step 1: Create all 6 games with valid roots and proper parent relationships
+        let mut game_addresses = Vec::new();
+        let parent_ids = [M, 0, 1, 0, 3, 1]; // parents for games 0-5
+
+        for (i, &parent_id) in parent_ids.iter().enumerate() {
+            let block = starting_l2_block + 1 + i as u64;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+        }
+
+        // Step 2: Challenge game 3 to make it CHALLENGER_WINS
+        env.challenge_game(game_addresses[3]).await?;
+        tracing::info!("✓ Game 3 challenged");
+
+        // Step 3: Resolve games 0, 1 and 2 as DEFENDER_WINS
+        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        for game_address in game_addresses.iter().take(3) {
+            env.resolve_game(*game_address).await?;
+            tracing::info!("✓ Game {game_address} resolved");
+        }
+
+        // Step 4: Sync state
+        proposer.sync_state().await?;
+
+        // Verify: All games are cached
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(6);
+
+        // Verify: Canonical head is game 5 (highest L2 block among valid games)
+        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
+
+        // Step 5: Resolve game 3, 4 and 5
+        for game_address in game_addresses.iter().skip(3) {
+            env.resolve_game(*game_address).await?;
+            tracing::info!("✓ Game {game_address} resolved");
+        }
+
+        // Step 6: Sync state
+        proposer.sync_state().await?;
+
+        // Verify: Games 0, 1, 2, 5 retained; games 3, 4 removed
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(4); // 0, 1, 2, 5
+
+        // Canonical head should be game 5 (highest block among reachable games)
+        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
+
+        // Verify specific games are present
+        let game_indices: Vec<U256> = snapshot.games.iter().map(|(idx, _)| *idx).collect();
+        assert!(game_indices.contains(&U256::from(0)), "Game 0 should be retained");
+        assert!(game_indices.contains(&U256::from(1)), "Game 1 should be retained");
+        assert!(game_indices.contains(&U256::from(2)), "Game 2 should be retained");
+        assert!(game_indices.contains(&U256::from(5)), "Game 5 should be retained");
+        assert!(
+            !game_indices.contains(&U256::from(3)),
+            "Game 3 should be removed (CHALLENGER_WINS)"
+        );
+        assert!(
+            !game_indices.contains(&U256::from(4)),
+            "Game 4 should be removed (child of CHALLENGER_WINS)"
+        );
+
+        Ok(())
+    }
 }
