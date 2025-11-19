@@ -142,7 +142,7 @@ deploy-mock-verifier env_file=".env":
     cd contracts
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
@@ -172,7 +172,7 @@ deploy-oracle env_file=".env" *features='':
     cd contracts
 
     VERIFY=""
-    if [ "$ETHERSCAN_API_KEY" != "" ]; then
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
