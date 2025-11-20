@@ -14,8 +14,11 @@ mod sync {
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::Result;
-    use fault_proof::proposer::{
-        GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
+    use fault_proof::{
+        contract::ProposalStatus,
+        proposer::{
+            GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
+        },
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use op_succinct_host_utils::host::OPSuccinctHost;
@@ -815,12 +818,15 @@ mod sync {
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
-        // Create a simple chain: M -> 0 -> 1 -> 2
+        // Create a simple chain: M -> 0 -> 1 -> 2 -> 3 -> 4
         // Add 100-second gaps between creations to control deadline spacing
         let mut game_addresses = Vec::new();
         let time_gap = 100u64;
 
-        for i in 0..3 {
+        let total_games = 5;
+        let num_time_gaps = total_games - 1;
+
+        for i in 0..total_games {
             let block = starting_l2_block + 1 + i;
             let root_claim = env.compute_output_root_at_block(block).await?;
             let parent_id = if i == 0 { M } else { (i - 1) as u32 };
@@ -830,7 +836,7 @@ mod sync {
             tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
 
             // Add time gap before next game (except after last game)
-            if i < 2 {
+            if i < num_time_gaps {
                 env.warp_time(time_gap).await?;
             }
         }
@@ -850,9 +856,10 @@ mod sync {
         // Warp to just past game 0's deadline but before game 1's deadline
         // Game 0 deadline is at T0 + MAX_CHALLENGE_DURATION
         // Game 1 deadline is at T0 + 100 + MAX_CHALLENGE_DURATION
-        // Currently at T0 + 200 (after creating all 3 games with 100-second gaps)
-        // So we need to warp: MAX_CHALLENGE_DURATION - 200 + 1
-        env.warp_time(MAX_CHALLENGE_DURATION - 2 * time_gap + 1).await?;
+        // Currently at T0 + 400 (after creating all `total_games` games with `time_gap`-second
+        // gaps)
+        // So we need to warp: MAX_CHALLENGE_DURATION - `num_time_gaps` * `time_gap` + 1
+        env.warp_time(MAX_CHALLENGE_DURATION - num_time_gaps * time_gap + 1).await?;
 
         proposer.sync_state().await?;
         let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
@@ -895,6 +902,7 @@ mod sync {
         );
 
         // === Case 5: IN_PROGRESS + parent NOT resolved + deadline passed ===
+        env.warp_time(time_gap).await?;
         let game_2 = proposer.get_game(U256::from(2)).await.unwrap();
         assert!(
             !game_2.should_attempt_to_resolve,
@@ -902,6 +910,46 @@ mod sync {
         );
         tracing::info!(
             "✓ Case 5: IN_PROGRESS + parent NOT resolved + deadline passed → should_attempt = false"
+        );
+
+        env.resolve_game(game_addresses[1]).await?;
+        env.resolve_game(game_addresses[2]).await?;
+        proposer.sync_state().await?;
+
+        // === Case 6: IN_PROGRESS + UnchallengedAndValidProofProvided ===
+        env.prove_game(game_addresses[3]).await?;
+        proposer.sync_state().await?;
+
+        let game_3 = proposer.get_game(U256::from(3)).await.unwrap();
+        assert_eq!(game_3.proposal_status, ProposalStatus::UnchallengedAndValidProofProvided);
+        assert!(
+            game_3.should_attempt_to_resolve,
+            "Game 3: should_attempt_to_resolve should be true (proof provided)"
+        );
+        tracing::info!(
+            "✓ Case 6: IN_PROGRESS + UnchallengedAndValidProofProvided → should_attempt = true"
+        );
+
+        env.resolve_game(game_addresses[3]).await?;
+        proposer.sync_state().await?;
+        // === Case 7: IN_PROGRESS + ChallengedAndValidProofProvided ===
+        env.challenge_game(game_addresses[4]).await?;
+        proposer.sync_state().await?;
+
+        let game_4 = proposer.get_game(U256::from(4)).await.unwrap();
+        assert_eq!(game_4.proposal_status, ProposalStatus::Challenged);
+        assert!(
+            !game_4.should_attempt_to_resolve,
+            "Game 4: should_attempt_to_resolve should be false (challenged)"
+        );
+
+        env.prove_game(game_addresses[4]).await?;
+        proposer.sync_state().await?;
+        let game_4 = proposer.get_game(U256::from(4)).await.unwrap();
+        assert_eq!(game_4.proposal_status, ProposalStatus::ChallengedAndValidProofProvided);
+        assert!(
+            game_4.should_attempt_to_resolve,
+            "Game 4: should_attempt_to_resolve should be true (proof provided)"
         );
 
         Ok(())

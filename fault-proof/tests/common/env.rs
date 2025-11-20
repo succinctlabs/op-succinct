@@ -407,6 +407,19 @@ impl TestEnvironment {
 
         Ok(receipt)
     }
+
+    pub async fn prove_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(address, Role::Proposer).await?;
+        let receipt = game
+            .prove(Bytes::new())
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
 }
 
 pub struct TestPrivateKeys {
