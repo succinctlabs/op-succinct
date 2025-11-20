@@ -647,6 +647,14 @@ mod sync {
         Some(1),  // Canonical head = game 1
         2
     )]
+    #[case::multiple_challenger_wins_different_branches(
+        &[M, 0, 1, 0, 3],  // M -> 0 -> 1 -> 2; 0 -> 3 -> 4
+        &[1, 3],  // challenge games 1 and 3 (different branches)
+        None,  // anchor_id: no anchor
+        1,  // Only game 0 retained (both branches pruned)
+        Some(0),
+        1
+    )]
     #[tokio::test]
     async fn test_challenger_wins_cascade_removal(
         #[case] parent_ids: &[u32],
