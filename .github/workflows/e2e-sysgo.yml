@@ -16,23 +16,23 @@ concurrency:
 
 jobs:
   e2e-sysgo-tests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
     name: Run sysgo E2E Tests (${{ matrix.mode }})
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+    timeout-minutes: 60
+
     strategy:
       fail-fast: false
       matrix:
         mode: ["validity"]
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v5
         with:
           submodules: true
-
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          large-packages: false
 
       - name: Setup Rust
         run: |
