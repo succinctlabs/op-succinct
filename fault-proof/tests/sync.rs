@@ -655,6 +655,14 @@ mod sync {
         Some(0),
         1
     )]
+    #[case::anchor_parallel_challenger_wins_with_child(
+        &[M, 0, M, 2],  // M -> 0 (anchor) -> 1; M -> 2 (challenged) -> 3
+        &[2],  // challenge game 2 (newer parallel branch with child)
+        Some(0),  // anchor_id: game 0
+        2,  // Games 0, 1 retained; games 2, 3 removed
+        Some(1),  // Canonical head stays on anchor branch
+        2
+    )]
     #[tokio::test]
     async fn test_challenger_wins_cascade_removal(
         #[case] parent_ids: &[u32],
