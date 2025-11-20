@@ -198,6 +198,9 @@ pub struct ChallengerConfig {
     /// Set to 0.0 (default) for production use (honest challenging only).
     /// Set to >0.0 for testing defense mechanisms.
     pub malicious_challenge_percentage: f64,
+
+    /// Disables monitor-only mode so the challenger can send challenge transactions.
+    pub disable_monitor_only: bool,
 }
 
 impl ChallengerConfig {
@@ -213,6 +216,9 @@ impl ChallengerConfig {
                 .parse()?,
             malicious_challenge_percentage: env::var("MALICIOUS_CHALLENGE_PERCENTAGE")
                 .unwrap_or("0.0".to_string())
+                .parse()?,
+            disable_monitor_only: env::var("DISABLE_MONITOR_ONLY")
+                .unwrap_or("false".to_string())
                 .parse()?,
         })
     }
