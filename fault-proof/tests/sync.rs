@@ -722,6 +722,13 @@ mod sync {
             starting_l2_block,
         );
 
+        for &idx in games_to_challenge {
+            assert!(
+                !snapshot.games.iter().any(|(key, _)| *key == U256::from(idx)),
+                "Game {idx} should be removed (challenged)"
+            );
+        }
+
         Ok(())
     }
 
