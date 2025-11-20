@@ -35,7 +35,7 @@ func TestValidityProposer_L2OODeployedAndUp(gt *testing.T) {
 	require.Equal(t, uint64(0), latestBlockNumber, "expected latest L2 block number to be 0")
 }
 
-func TestValidityProposer_ProvingSingleRange(gt *testing.T) {
+func TestValidityProposer_ProveSingleRange(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	sys := presets.NewMinimal(t)
 
@@ -52,6 +52,9 @@ func TestValidityProposer_ProvingSingleRange(gt *testing.T) {
 		if latestBlockNumber >= 1 {
 			break
 		}
-		time.Sleep(6 * time.Second)
+
+		nextBlockNumber, err := l2oo.NextBlockNumber(t.Ctx())
+		t.Logger().Info("Waiting for Validity Proposer to submit output...", "latestBlockNumber", latestBlockNumber, "nextBlockNumber", nextBlockNumber)
+		time.Sleep(1 * time.Second)
 	}
 }
