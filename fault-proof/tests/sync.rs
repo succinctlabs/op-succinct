@@ -1074,6 +1074,55 @@ mod sync {
         Ok(())
     }
 
+    /// Topology: M -> 0 (DEFENDER_WINS), 0 -> 1 (Challenged), 0 -> 2
+    /// (UnchallengedAndValidProofProvided). Verifies proposal status flags across branches in a
+    /// single sync pass.
+    #[tokio::test]
+    async fn test_in_progress_proposal_status_multi_branch() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create root (0) and two children (1, 2) with increasing blocks.
+        let mut game_addresses = Vec::new();
+        let parent_ids = [M, 0, 0];
+
+        for (i, &parent_id) in parent_ids.iter().enumerate() {
+            let block = starting_l2_block + 1 + i as u64;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+        }
+
+        // Branch 1: mark as Challenged.
+        env.challenge_game(game_addresses[1]).await?;
+
+        // Branch 2: provide proof (UnchallengedAndValidProofProvided) without challenge.
+        env.prove_game(game_addresses[2]).await?;
+
+        // Resolve root as DEFENDER_WINS.
+        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[0]).await?;
+
+        // Sync and inspect per-branch flags.
+        proposer.sync_state().await?;
+
+        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
+        assert_eq!(game_1.proposal_status, ProposalStatus::Challenged);
+        assert!(!game_1.should_attempt_to_resolve, "Challenged game should not auto-resolve");
+
+        let game_2 = proposer.get_game(U256::from(2)).await.unwrap();
+        assert_eq!(game_2.proposal_status, ProposalStatus::UnchallengedAndValidProofProvided);
+        assert!(game_2.should_attempt_to_resolve, "Proof-provided game should attempt to resolve");
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
+
+        Ok(())
+    }
+
     /// Tests the `should_attempt_to_claim_bond` flag logic for finalized games.
     ///
     /// Verifies that the flag is correctly set based on:
