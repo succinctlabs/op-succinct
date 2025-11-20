@@ -600,6 +600,57 @@ mod sync {
         Ok(())
     }
 
+    /// Topology: M -> 0 (anchor, DEFENDER_WINS, credit > 0); 0 -> 1 (DEFENDER_WINS, credit → 0);
+    /// 0 -> 2 (IN_PROGRESS). Ensures the zero-credit branch is evicted while the anchor and the
+    /// live sibling are retained and canonical head sits on the in-progress child.
+    #[tokio::test]
+    async fn test_anchor_with_zero_credit_sibling_and_in_progress_branch() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut game_addresses = Vec::new();
+
+        // Create anchor root (0) and two children (1 - zero-credit, 2 - in-progress)
+        for i in 0..3 {
+            let block = starting_l2_block + 1 + i as u64;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            let parent_id = if i == 0 { M } else { 0 };
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+        }
+
+        // Anchor game 0
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[0]).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.set_anchor_state(game_addresses[0]).await?;
+
+        // Resolve game 1 and claim its bond to set credit = 0
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[1]).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(game_addresses[1], PROPOSER_ADDRESS).await?;
+
+        // Game 2 left IN_PROGRESS
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(2);
+        snapshot.assert_anchor_index(Some(0));
+        snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
+
+        let game_indices: std::collections::HashSet<U256> =
+            snapshot.games.iter().map(|(idx, _)| *idx).collect();
+
+        assert!(game_indices.contains(&U256::from(0)), "Anchor game should be retained");
+        assert!(game_indices.contains(&U256::from(2)), "In-progress game should be retained");
+        assert!(!game_indices.contains(&U256::from(1)), "Zero-credit game should be evicted");
+
+        Ok(())
+    }
+
     /// Tests CHALLENGER_WINS cascade removal at various tree positions.
     #[rstest]
     #[case::at_root(
@@ -715,6 +766,74 @@ mod sync {
             expected_canonical_head_index,
             expected_processed_l2_block,
             starting_l2_block,
+        );
+
+        Ok(())
+    }
+
+    /// Topology: M -> 0 (CHALLENGER_WINS) -> 1, M -> 2 (DEFENDER_WINS, credit → 0), M -> 3
+    /// (anchor). Combines pruning of the challenged branch (0,1) with eviction of the
+    /// zero-credit branch (2) while retaining the anchor branch (3). Canonical head should stay
+    /// on the anchor.
+    #[tokio::test]
+    async fn test_anchor_with_challenger_pruning_and_zero_credit_eviction() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let parent_ids = [M, 0, M, M]; // 0: challenged root, 1: its child, 2: zero-credit branch, 3: anchor
+
+        let mut game_addresses = Vec::new();
+        let mut block = starting_l2_block;
+
+        // Create four games with increasing L2 blocks
+        for (i, parent_id) in parent_ids.iter().enumerate() {
+            block += 1;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, *parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+        }
+
+        // Challenge the parallel branch (game 0)
+        env.challenge_game(game_addresses[0]).await?;
+
+        // Resolve and anchor game 3
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[3]).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.set_anchor_state(game_addresses[3]).await?;
+
+        // Resolve challenged branch root and the zero-credit branch
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[0]).await?; // becomes CHALLENGER_WINS
+        env.resolve_game(game_addresses[2]).await?; // DEFENDER_WINS
+
+        // Finalize and claim bond for game 2 to drive credit to zero
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(game_addresses[2], PROPOSER_ADDRESS).await?;
+
+        // Sync and assert outcomes: challenged branch pruned, zero-credit branch evicted, anchor
+        // retained
+        proposer.sync_state().await?;
+        let snapshot = proposer.state_snapshot().await;
+
+        snapshot.assert_game_len(1);
+        snapshot.assert_anchor_index(Some(3));
+        snapshot.assert_canonical_head(Some(3), 4, starting_l2_block);
+
+        let game_indices: std::collections::HashSet<U256> =
+            snapshot.games.iter().map(|(idx, _)| *idx).collect();
+
+        assert!(game_indices.contains(&U256::from(3)), "Anchor game should be retained");
+        assert!(!game_indices.contains(&U256::from(0)), "Challenged branch should be pruned");
+        assert!(
+            !game_indices.contains(&U256::from(1)),
+            "Child of challenged branch should be pruned"
+        );
+        assert!(
+            !game_indices.contains(&U256::from(2)),
+            "Zero-credit DEFENDER_WINS branch should be evicted"
         );
 
         Ok(())
