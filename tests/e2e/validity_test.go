@@ -32,7 +32,7 @@ func TestValidityProposer_L2OODeployedAndUp(gt *testing.T) {
 	latestBlockNumber, err := l2oo.LatestBlockNumber(t.Ctx())
 	require.NoError(t, err, "failed to get latest block number from L2OO")
 	t.Logger().Info("Latest L2 block number from L2OO", "block", latestBlockNumber)
-	require.Equal(t, uint64(0), latestBlockNumber, "expected latest L2 block number to be 0")
+	require.Equal(t, uint64(1), latestBlockNumber, "expected latest L2 block number to be 1")
 }
 
 func TestValidityProposer_ProveSingleRange(gt *testing.T) {
