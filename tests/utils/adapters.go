@@ -19,7 +19,7 @@ import (
 type L2OOClient struct {
 	client   apis.EthClient
 	l2ooAddr common.Address
-	abi abi.ABI
+	abi      abi.ABI
 }
 
 // NewL2OOClient creates a new L2OOClient.
