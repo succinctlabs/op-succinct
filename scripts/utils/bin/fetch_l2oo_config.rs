@@ -99,11 +99,6 @@ async fn update_l2oo_config() -> Result<()> {
                 };
 
             if finalized_l2_block_number <= num_blocks_for_finality {
-                log::error!(
-                    "finalized L2 block ({}) too low for finality window ({} blocks)",
-                    finalized_l2_block_number,
-                    num_blocks_for_finality,
-                );
                 bail!(
                     "finalized L2 block ({}) too low for finality window ({} blocks)",
                     finalized_l2_block_number,
