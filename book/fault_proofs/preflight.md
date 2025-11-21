@@ -63,6 +63,11 @@ RANGE_PROOF_STRATEGY=auction
 # - If RANGE_PROOF_STRATEGY is "reserved" or "hosted", this can be either "reserved" or "hosted"
 AGG_PROOF_STRATEGY=auction
 
+# Optional: aggregation proof mode ("plonk" default or "groth16")
+# Note: Changing the proof mode requires the corresponding SP1 verifier contract
+# address to be set in your deployment.
+# AGG_PROOF_MODE=plonk
+
 # Set to 'true' to use AWS KMS for key management (requires KMS configuration).
 # Set to 'false' to use a local private key (requires NETWORK_PRIVATE_KEY below).
 # Default: false

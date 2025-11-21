@@ -24,7 +24,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use sp1_sdk::{utils, Prover, ProverClient};
+use sp1_sdk::{utils, Prover, ProverClient, SP1ProofMode};
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -251,8 +251,25 @@ async fn main() -> Result<()> {
     )
     .expect("failed to get agg proof stdin");
 
+    let agg_proof_mode_env = env::var("AGG_PROOF_MODE")
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "plonk".to_string());
+    let agg_proof_mode = match agg_proof_mode_env.to_lowercase().as_str() {
+        "groth16" => SP1ProofMode::Groth16,
+        "plonk" => SP1ProofMode::Plonk,
+        other => {
+            return Err(anyhow!(
+                "Invalid AGG_PROOF_MODE '{}'. Expected one of: plonk, groth16",
+                other
+            ))
+        }
+    };
+    info!("Aggregation proof mode: {:?}", agg_proof_mode);
+
     let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
-    let agg_proof = network_prover.prove(&agg_pk, &agg_proof_stdin).plonk().run().unwrap();
+    let agg_proof =
+        network_prover.prove(&agg_pk, &agg_proof_stdin).mode(agg_proof_mode).run().unwrap();
 
     let agg_proof_dir =
         format!("data/{}/proofs/agg", data_fetcher.get_l2_chain_id().await.unwrap());
