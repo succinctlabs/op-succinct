@@ -77,6 +77,12 @@ Run the preflight script from the **repository root**:
 RUST_LOG=info cargo run --release --bin preflight
 ```
 
+```admonish note
+For rollups using alternative DA layers, compile with the matching feature flag:
+`--features celestia` or `--features eigenda` (for example,
+`RUST_LOG=info cargo run --release --features eigenda --bin preflight`).
+```
+
 By default, this uses `.env.preflight`. To use a different environment file:
 
 ```bash
