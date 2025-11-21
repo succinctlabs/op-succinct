@@ -651,6 +651,70 @@ mod sync {
         Ok(())
     }
 
+    /// Topology: three root siblings with distinct states.
+    /// M -> 0 (DEFENDER_WINS, credit → 0), M -> 1 (CHALLENGER_WINS), M -> 2 (DEFENDER_WINS, credit
+    /// → 0).
+    /// Game 2 is finalized and becomes anchor, so Game 0 is evicted.
+    #[tokio::test]
+    async fn test_three_sibling_states_eviction_and_pruning() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut game_addresses = Vec::new();
+
+        // Create three root games with increasing blocks.
+        for i in 0..3 {
+            let block = starting_l2_block + 1 + i as u64;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, M, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block}");
+        }
+
+        // Challenge game 1
+        env.challenge_game(game_addresses[1]).await?;
+
+        // Game 2: resolve as DEFENDER_WINS, finalize, then claim to set credit = 0
+        // Game 2 becomes anchor and will evict game 0 on next sync
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[2]).await?;
+
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(game_addresses[2], PROPOSER_ADDRESS).await?;
+
+        // Game 0: resolve as DEFENDER_WINS, finalize, then claim to set credit = 0
+        env.resolve_game(game_addresses[0]).await?;
+
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(game_addresses[0], PROPOSER_ADDRESS).await?;
+
+        // Game 1: make CHALLENGER_WINS
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[1]).await?;
+
+        proposer.sync_state().await?;
+
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(1);
+        snapshot.assert_anchor_index(Some(2));
+        snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
+
+        let game_indices: std::collections::HashSet<U256> =
+            snapshot.games.iter().map(|(idx, _)| *idx).collect();
+        assert!(
+            game_indices.contains(&U256::from(2)),
+            "Anchor game should be retained even if it is finalized and has zero credit"
+        );
+        assert!(
+            !game_indices.contains(&U256::from(0)),
+            "Zero-credit DEFENDER_WINS should be evicted if not anchor or canonical head"
+        );
+        assert!(!game_indices.contains(&U256::from(1)), "CHALLENGER_WINS branch should be pruned");
+
+        Ok(())
+    }
+
     /// Tests CHALLENGER_WINS cascade removal at various tree positions.
     #[rstest]
     #[case::at_root(
