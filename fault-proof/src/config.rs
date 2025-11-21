@@ -2,7 +2,7 @@ use std::{env, str::FromStr};
 
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use op_succinct_host_utils::network::parse_fulfillment_strategy;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
@@ -79,6 +79,9 @@ pub struct ProposerConfig {
 
     /// The gas limit to use for range proofs.
     pub range_gas_limit: u64,
+
+    /// The number of segments to split the range into.
+    pub range_segments: RangeSegments,
 
     /// The cycle limit to use for aggregation proofs.
     pub agg_cycle_limit: u64,
@@ -168,6 +171,7 @@ impl ProposerConfig {
             range_gas_limit: env::var("RANGE_GAS_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
+            range_segments: env::var("RANGE_SEGMENTS").unwrap_or("1".to_string()).parse()?,
             agg_cycle_limit: env::var("AGG_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
@@ -241,4 +245,40 @@ pub struct FaultDisputeGameConfig {
     pub starting_root: String,
     pub use_sp1_mock_verifier: bool,
     pub verifier_address: String,
+}
+
+/// The number of segments to split the range proof into.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum RangeSegments {
+    One,
+    Two,
+    Four,
+    Eight,
+}
+
+impl RangeSegments {
+    pub fn to_usize(&self) -> usize {
+        match self {
+            RangeSegments::One => 1,
+            RangeSegments::Two => 2,
+            RangeSegments::Four => 4,
+            RangeSegments::Eight => 8,
+        }
+    }
+}
+
+impl FromStr for RangeSegments {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "1" => Ok(RangeSegments::One),
+            "2" => Ok(RangeSegments::Two),
+            "4" => Ok(RangeSegments::Four),
+            "8" => Ok(RangeSegments::Eight),
+            _ => {
+                bail!("Invalid range segments: {s}. Valid options are 1, 2, 4, 8.")
+            }
+        }
+    }
 }
