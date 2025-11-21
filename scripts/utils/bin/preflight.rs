@@ -112,6 +112,11 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file)
         .context(format!("Environment file not found: {}", args.env_file.display()))?;
 
+    let use_kms_requester = env::var("USE_KMS_REQUESTER")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .context("USE_KMS_REQUESTER must be true or false")?;
+
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let factory = DisputeGameFactory::new(
@@ -192,10 +197,7 @@ async fn main() -> Result<()> {
     info!("Range proof stdin generated successfully");
 
     // Initialize the network prover.
-    let network_signer = get_network_signer(
-        env::var("USE_KMS_REQUESTER")?.parse::<bool>().expect("USE_KMS_REQUESTER must be set"),
-    )
-    .await?;
+    let network_signer = get_network_signer(use_kms_requester).await?;
     let network_mode = determine_network_mode(
         parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
         parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
@@ -225,10 +227,7 @@ async fn main() -> Result<()> {
     assert_eq!(boot_info.l1Head, l1_head_hash, "L1 head hash mismatch");
 
     // Initialize the network prover.
-    let network_signer = get_network_signer(
-        env::var("USE_KMS_REQUESTER")?.parse::<bool>().expect("USE_KMS_REQUESTER must be set"),
-    )
-    .await?;
+    let network_signer = get_network_signer(use_kms_requester).await?;
     let network_mode = determine_network_mode(
         parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
         parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),

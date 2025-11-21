@@ -70,8 +70,8 @@ AGG_PROOF_STRATEGY=auction
 
 # Set to 'true' to use AWS KMS for key management (requires KMS configuration).
 # Set to 'false' to use a local private key (requires NETWORK_PRIVATE_KEY below).
-# Default: false
-USE_KMS_REQUESTER=false
+# Optional; defaults to 'false' if omitted.
+# USE_KMS_REQUESTER=false
 
 # SP1 network prover private key (required when USE_KMS_REQUESTER=false)
 # When USE_KMS_REQUESTER=true, this should be an AWS KMS key ARN instead
