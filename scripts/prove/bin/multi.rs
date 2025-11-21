@@ -1,14 +1,16 @@
+use std::{env, fs, sync::Arc, time::Instant};
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost,
-    stats::ExecutionStats, witness_generation::WitnessGenerator,
+    network::parse_fulfillment_strategy, stats::ExecutionStats,
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, ProverClient};
-use std::{fs, sync::Arc, time::Instant};
+use sp1_sdk::{utils, Prover, ProverClient};
 use tracing::debug;
 
 /// Execute the OP Succinct program for multiple blocks.
@@ -48,13 +50,19 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
 
-    let prover = ProverClient::from_env();
-
     if args.prove {
         // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(get_range_elf_embedded());
-        // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+        let network_prover = ProverClient::builder().network().build();
+
+        let (pk, _) = network_prover.setup(get_range_elf_embedded());
+
+        // Generate a range proof in compressed mode for aggregation verification.
+        let proof = network_prover
+            .prove(&pk, &sp1_stdin)
+            .compressed()
+            .strategy(parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?))
+            .run()
+            .unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", data_fetcher.get_l2_chain_id().await.unwrap());
