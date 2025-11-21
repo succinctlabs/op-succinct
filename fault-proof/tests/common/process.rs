@@ -5,7 +5,9 @@ use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
 use anyhow::Result;
 use fault_proof::{
-    challenger::OPSuccinctChallenger, config::ChallengerConfig, contract::DisputeGameFactory,
+    challenger::OPSuccinctChallenger,
+    config::{ChallengerConfig, RangeSegments},
+    contract::DisputeGameFactory,
     proposer::OPSuccinctProposer,
 };
 use op_succinct_host_utils::{
@@ -49,6 +51,7 @@ pub async fn init_proposer(
         timeout: 14400, // 4 hours
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
+        range_segments: RangeSegments::One,
         agg_cycle_limit: 1_000_000_000_000,
         agg_gas_limit: 1_000_000_000_000,
         whitelist: None,
