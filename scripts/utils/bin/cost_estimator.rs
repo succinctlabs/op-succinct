@@ -92,16 +92,21 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     // Execute the program for each block range in parallel.
     execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
+        let stdin_bytes = bincode::serialize(&sp1_stdin).unwrap();
+        let stdin_len = stdin_bytes.len();
+        info!("Generated SP1 stdin for blocks {:?} to {:?}, number: {:?}, size: {stdin_len} bytes", range.start, range.end, range.end - range.start);
+
         let result = prover.execute(get_range_elf_embedded(), sp1_stdin).deferred_proof_verification(false).run();
 
         if let Some(err) = result.as_ref().err() {
-            log::warn!(
+            log::error!(
                 "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
                 range.start,
                 range.end,
                 err
             );
-            return;
+
+            panic!("Execution failed for blocks {:?} - {:?}: {:?}", range.start, range.end, err);   
         }
 
         let (_, report) = result.unwrap();

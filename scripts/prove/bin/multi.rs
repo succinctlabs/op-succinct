@@ -11,7 +11,7 @@ use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, Prover, ProverClient};
-use tracing::debug;
+use tracing::{debug, info};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -49,6 +49,9 @@ async fn main() -> Result<()> {
 
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
+    let stdin_bytes = bincode::serialize(&sp1_stdin).unwrap();
+    let stdin_len = stdin_bytes.len();
+    info!("Generated SP1 stdin for blocks {l2_start_block} to {l2_end_block}, number: {:?}, size: {stdin_len} bytes", l2_end_block - l2_start_block);
 
     if args.prove {
         // If the prove flag is set, generate a proof.

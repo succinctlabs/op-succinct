@@ -9147,6 +9147,7 @@ version = "3.3.3-b"
 dependencies = [
  "alloy-primitives",
  "anyhow",
+ "bincode",
  "cargo_metadata",
  "cfg-if",
  "clap",

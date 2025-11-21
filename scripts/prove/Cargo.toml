@@ -41,6 +41,7 @@ alloy-primitives.workspace = true
 sp1-sdk.workspace = true
 
 rustls = { version = "0.23.23", features = ["ring"] }
+bincode.workspace = true
 
 [dev-dependencies]
 reqwest = { version = "0.12.4", features = ["json"] }
