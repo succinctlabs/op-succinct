@@ -8778,9 +8778,13 @@ name = "op-succinct-scripts"
 version = "3.4.0-rc.1"
 dependencies = [
  "alloy-eips",
+ "alloy-network",
+ "alloy-node-bindings",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-signer-local",
  "alloy-sol-types",
+ "alloy-transport-http",
  "anyhow",
  "bincode",
  "cargo_metadata",
@@ -8800,6 +8804,7 @@ dependencies = [
  "serde_json",
  "sp1-sdk",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

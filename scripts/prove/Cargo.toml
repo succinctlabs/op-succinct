@@ -15,10 +15,6 @@ path = "bin/multi.rs"
 name = "agg"
 path = "bin/agg.rs"
 
-[[bin]]
-name = "preflight"
-path = "bin/preflight.rs"
-
 [dependencies]
 
 # workspace
