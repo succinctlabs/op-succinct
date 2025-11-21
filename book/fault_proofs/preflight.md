@@ -26,6 +26,10 @@ FACTORY_ADDRESS=
 # Game type identifier for OPSuccinctFaultDisputeGames
 # This must match the game type registered in the factory
 GAME_TYPE=42
+
+# Optional: block number where DisputeGameFactory.setImplementation was called.
+# Set when you want to bypass on-chain log discovery (e.g., restrictive RPC rate limits).
+# SET_IMPL_BLOCK=<L1_BLOCK_NUMBER>
 ```
 
 ### Network Configuration
@@ -40,7 +44,7 @@ L2_RPC=<YOUR_L2_RPC>
 L2_NODE_RPC=<YOUR_L2_NODE_RPC>
 
 # Optional: L1 beacon chain RPC endpoint (needed when validating blocks with blob/EIP-4844 data)
-L1_BEACON_RPC=<YOUR_L1_BEACON_RPC>
+# L1_BEACON_RPC=<YOUR_L1_BEACON_RPC>
 ```
 
 ### Prover Configuration

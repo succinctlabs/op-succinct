@@ -144,12 +144,25 @@ async fn main() -> Result<()> {
 
         // Fetch the block number when the implementation was set for this game type
         // by querying the ImplementationSet event from the DisputeGameFactory contract.
-        let set_impl_block_number = get_implementation_set_block(
-            *factory.address(),
-            data_fetcher.l1_provider.clone(),
-            game_type,
-        )
-        .await?;
+        let set_impl_block_number =
+            match env::var("SET_IMPL_BLOCK").ok().filter(|s| !s.trim().is_empty()) {
+                Some(val) => {
+                    let parsed = val
+                        .parse::<u64>()
+                        .context("SET_IMPL_BLOCK must be a positive integer block number")?;
+                    info!("Using SET_IMPL_BLOCK from env (skipping log search): {}", parsed);
+                    parsed
+                }
+                None => {
+                    info!("SET_IMPL_BLOCK not provided; searching for ImplementationSet event");
+                    get_implementation_set_block(
+                        *factory.address(),
+                        data_fetcher.l1_provider.clone(),
+                        game_type,
+                    )
+                    .await?
+                }
+            };
 
         let l1_header_after_set_impl = data_fetcher
             .get_l1_header(BlockId::Number(BlockNumberOrTag::Number(set_impl_block_number + 1)))
