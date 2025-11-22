@@ -42,7 +42,10 @@ unzip-contract-artifacts DEST_DIR="":
     mkdir -p "$DEST_DIR"
     zstd -d -c "$ARCHIVE" | tar -x -C "$DEST_DIR"
 
-update-packages:
+update-packages: submodule
     #!/bin/bash
     cd {{SOURCE}}/optimism/op-deployer && just build-contracts copy-contract-artifacts
     cp {{SOURCE}}/optimism/op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst {{SOURCE}}/artifacts/compressed/artifacts.tzst
+
+submodule:
+    git submodule update --init --recursive
