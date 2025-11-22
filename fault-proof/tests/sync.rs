@@ -493,7 +493,6 @@ mod sync {
     /// on-chain anchor game, so it is the only game retained after eviction.
     #[tokio::test]
     async fn test_bond_claim_cache_eviction() -> Result<()> {
-        let anchor_idx: Option<usize> = None;
         let expected_retained: Vec<usize> = vec![4];
         let expected_evicted: Vec<usize> = vec![0, 1, 2, 3];
 
@@ -514,49 +513,36 @@ mod sync {
             tracing::info!("✓ Created game {i} at {address}");
         }
 
-        // Step 2: Set anchor if specified in test case
-        if let Some(idx) = anchor_idx {
-            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-            env.resolve_game(game_addresses[idx]).await?;
-            tracing::info!("✓ Resolved game {idx} as DEFENDER_WINS");
-
-            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-            env.set_anchor_state(game_addresses[idx]).await?;
-            tracing::info!("✓ Set game {idx} as anchor");
-        }
-
-        // Step 3: Initial sync - all 5 games should be cached
+        // Step 2: Initial sync - all 5 games should be cached
         proposer.sync_state().await?;
         let initial_snapshot = proposer.state_snapshot().await;
         initial_snapshot.assert_game_len(5);
         tracing::info!("✓ All 5 games synced to cache");
 
-        // Step 4: Resolve all games as DEFENDER_WINS
+        // Step 3: Resolve all games as DEFENDER_WINS
         env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-        for (i, address) in
-            game_addresses.iter().enumerate().filter(|(i, _)| anchor_idx != Some(*i))
-        {
+        for (i, address) in game_addresses.iter().enumerate() {
             env.resolve_game(*address).await?;
             tracing::info!("✓ Resolved game {i} as DEFENDER_WINS");
         }
 
-        // Step 5: Sync after finalization - games should still be retained (have credit)
+        // Step 4: Sync after finalization - games should still be retained (have credit)
         proposer.sync_state().await?;
         let pre_claim_snapshot = proposer.state_snapshot().await;
         pre_claim_snapshot.assert_game_len(5);
         tracing::info!("✓ All 5 games still cached after finalization (bonds not yet claimed)");
 
-        // Step 6: Claim bonds for all games (set credit to zero)
+        // Step 5: Claim bonds for all games (set credit to zero)
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         for (i, address) in game_addresses.iter().enumerate() {
             env.claim_bond(*address, PROPOSER_ADDRESS).await?;
             tracing::info!("✓ Claimed bond for game {i}");
         }
 
-        // Step 7: Sync after claims - eviction should now occur
+        // Step 6: Sync after claims - eviction should now occur
         proposer.sync_state().await?;
 
-        // Step 8: Verify eviction results
+        // Step 7: Verify eviction results
         let final_snapshot = proposer.state_snapshot().await;
 
         let game_indices: std::collections::HashSet<U256> =
