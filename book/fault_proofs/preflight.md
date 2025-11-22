@@ -37,14 +37,14 @@ GAME_TYPE=42
 # L1 RPC endpoint (used for Anvil fork during validation)
 L1_RPC=<YOUR_L1_RPC>
 
+# L1 beacon chain RPC endpoint (needed when validating blocks with blob/EIP-4844 data)
+L1_BEACON_RPC=<YOUR_L1_BEACON_RPC>
+
 # L2 RPC endpoint
 L2_RPC=<YOUR_L2_RPC>
 
 # L2 node RPC endpoint (often same as L2_RPC)
 L2_NODE_RPC=<YOUR_L2_NODE_RPC>
-
-# Optional: L1 beacon chain RPC endpoint (needed when validating blocks with blob/EIP-4844 data)
-# L1_BEACON_RPC=<YOUR_L1_BEACON_RPC>
 ```
 
 ### Prover Configuration
