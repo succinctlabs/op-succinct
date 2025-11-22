@@ -941,4 +941,27 @@ mod e2e {
 
         Ok(())
     }
+
+    // Tests that the proposer fails fast when the contract's starting L2 block number is
+    // misconfigured to a future value (e.g., 1M blocks ahead of actual finalized L2 block).
+    // This prevents the proposer from running indefinitely without creating games.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_proposer_rejects_future_starting_block() -> Result<()> {
+        let env = TestEnvironment::setup_with_starting_block_offset(1_000_000).await?;
+
+        let result = env.init_proposer().await;
+
+        assert!(result.is_err(), "Proposer should have failed due to future block configuration");
+
+        let error = result.err().expect("Proposer initialization should have failed");
+
+        let err_msg = error.to_string().to_lowercase();
+        assert!(
+            err_msg.contains("misconfiguration") || err_msg.contains("ahead of"),
+            "Unexpected error message. Got: '{}'. Expected reference to block gap.",
+            err_msg
+        );
+
+        Ok(())
+    }
 }
