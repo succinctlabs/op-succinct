@@ -43,6 +43,7 @@
 
 - [Advanced](./advanced/intro.md)
   - [Cost Estimator](./advanced/cost-estimator.md)
+  - [Prove Scripts](./advanced/prove-scripts.md)
   - [Reproduce Binaries](./advanced/verify-binaries.md)
   - [Node Setup](./advanced/node-setup.md)
   - [Kurtosis](./advanced/kurtosis.md)
