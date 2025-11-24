@@ -48,8 +48,19 @@ async fn get_implementation_set_block(
     // Get the latest block number
     let latest_block = provider.get_block_number().await?;
 
-    // Query in chunks to avoid exceeding max block range (100,000 blocks)
-    const CHUNK_SIZE: u64 = 100_000;
+    // Query in chunks to avoid exceeding max block range (default 100,000 blocks)
+    let chunk_size = env::var("CHUNK_SIZE")
+        .ok()
+        .map(|val| val.trim().parse::<u64>().context("CHUNK_SIZE must be a valid u64"))
+        .transpose()?
+        .unwrap_or(100_000);
+
+    if chunk_size == 0 {
+        return Err(anyhow!("CHUNK_SIZE must be greater than 0"));
+    }
+
+    info!("Using chunk size of {} blocks when searching for ImplementationSet event", chunk_size);
+
     let mut end_block = latest_block;
 
     info!(
@@ -59,7 +70,7 @@ async fn get_implementation_set_block(
 
     loop {
         // Calculate start block for this chunk, ensuring we don't go below 0
-        let start_block = end_block.saturating_sub(CHUNK_SIZE);
+        let start_block = end_block.saturating_sub(chunk_size);
 
         // Query ImplementationSet events filtered by game type for this chunk
         // Note: gameType is the second indexed parameter, so it's topic2
