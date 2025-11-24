@@ -209,18 +209,26 @@ async fn main() -> Result<()> {
 
     // Initialize the network prover.
     let network_signer = get_network_signer(use_kms_requester).await?;
-    let network_mode = determine_network_mode(
-        parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
-        parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
-    )
-    .context("failed to determine network mode from range and agg fulfillment strategies")?;
+
+    let range_proof_strategy = parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?);
+    info!("Range proof strategy: {:?}", range_proof_strategy);
+
+    let agg_proof_strategy = parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?);
+    info!("Aggregation proof strategy: {:?}", agg_proof_strategy);
+
+    let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
+        .context("failed to determine network mode from range and agg fulfillment strategies")?;
     let network_prover =
         ProverClient::builder().network_for(network_mode).signer(network_signer).build();
     info!("Initialized network prover successfully");
 
     let (range_pk, _range_vk) = network_prover.setup(get_range_elf_embedded());
-    let mut range_proof =
-        network_prover.prove(&range_pk, &range_proof_stdin).compressed().run().unwrap();
+    let mut range_proof = network_prover
+        .prove(&range_pk, &range_proof_stdin)
+        .compressed()
+        .strategy(range_proof_strategy)
+        .run()
+        .unwrap();
 
     // Save the proof to the proof directory corresponding to the chain ID.
     let range_proof_dir =
@@ -238,12 +246,6 @@ async fn main() -> Result<()> {
     assert_eq!(boot_info.l1Head, l1_head_hash, "L1 head hash mismatch");
 
     // Initialize the network prover.
-    let network_signer = get_network_signer(use_kms_requester).await?;
-    let network_mode = determine_network_mode(
-        parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY")?),
-        parse_fulfillment_strategy(env::var("AGG_PROOF_STRATEGY")?),
-    )
-    .context("failed to determine network mode from range and agg fulfillment strategies")?;
     let network_prover =
         ProverClient::builder().network_for(network_mode).signer(network_signer).build();
     info!("Initialized network prover successfully");
@@ -278,8 +280,12 @@ async fn main() -> Result<()> {
     info!("Aggregation proof mode: {:?}", agg_proof_mode);
 
     let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
-    let agg_proof =
-        network_prover.prove(&agg_pk, &agg_proof_stdin).mode(agg_proof_mode).run().unwrap();
+    let agg_proof = network_prover
+        .prove(&agg_pk, &agg_proof_stdin)
+        .mode(agg_proof_mode)
+        .strategy(agg_proof_strategy)
+        .run()
+        .unwrap();
 
     let agg_proof_dir =
         format!("data/{}/proofs/agg", data_fetcher.get_l2_chain_id().await.unwrap());
