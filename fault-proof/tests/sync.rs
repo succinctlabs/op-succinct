@@ -582,4 +582,109 @@ mod sync {
 
         Ok(())
     }
+
+    /// Verifies that games on different branches are evaluated independently for eviction.
+    ///
+    /// This test addresses the scenario where:
+    /// - Branch A has game i (lower index) that's still in progress
+    /// - Branch B has game j (higher index) that's finalized and claimed
+    ///
+    /// The test ensures that eviction of game j does NOT cause premature eviction of game i.
+    ///
+    /// Game structure:
+    /// - Branch A: M → 0
+    /// - Branch B: M → 1
+    /// - Branch C: M → 2
+    ///
+    /// Timeline:
+    /// 1. All games created
+    /// 2. Branch C game is resolved and bonds claimed → zero credit but not evicted since it
+    ///    becomes the anchor game and canonical head.
+    /// 3. Branch B game is resolved and bonds claimed → zero credit and evicted.
+    /// 4. Branch A game stays in progress and is not evicted.
+    #[tokio::test]
+    async fn test_bond_claim_eviction_multi_branch() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        let mut game_addresses = Vec::new();
+
+        for i in 0..3 {
+            let block = starting_l2_block + (i as u64) + 1;
+            let root = env.compute_output_root_at_block(block).await?;
+            env.create_game(root, block, M, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at {address}");
+        }
+
+        // Initial sync - all 3 games should be cached
+        proposer.sync_state().await?;
+        let initial_snapshot = proposer.state_snapshot().await;
+        initial_snapshot.assert_game_len(3);
+        tracing::info!("✓ All 3 games synced to cache");
+
+        // Resolve for Branch B and C games
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[1]).await?;
+        tracing::info!("✓ Resolved game 1");
+
+        env.resolve_game(game_addresses[2]).await?;
+        tracing::info!("✓ Resolved game 2");
+
+        // Claim bonds for Branch C game
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(game_addresses[2], PROPOSER_ADDRESS).await?;
+        tracing::info!("✓ Claimed bond for game 2");
+
+        // Sync after claim for Branch C game
+        proposer.sync_state().await?;
+        let pre_claim_snapshot = proposer.state_snapshot().await;
+        pre_claim_snapshot.assert_game_len(3);
+        tracing::info!("✓ All 3 games still cached after claim for Branch C game");
+
+        // Claim bonds for Branch B game
+        env.claim_bond(game_addresses[1], PROPOSER_ADDRESS).await?;
+        tracing::info!("✓ Claimed bond for game 1");
+
+        // Sync after claim for Branch B game
+        proposer.sync_state().await?;
+        let pre_claim_snapshot = proposer.state_snapshot().await;
+        pre_claim_snapshot.assert_game_len(2);
+        tracing::info!("✓ Branch B game should be evicted but Branch A game should be retained");
+
+        // Verify eviction results
+        let final_snapshot = proposer.state_snapshot().await;
+
+        let game_indices: std::collections::HashSet<U256> =
+            final_snapshot.games.iter().map(|(idx, _)| *idx).collect();
+
+        // Game 1 should be evicted: not anchor, not canonical head, zero credit
+        assert!(
+            !game_indices.contains(&U256::from(1)),
+            "Game 1 should be evicted (branch B, zero credit, not protected)"
+        );
+
+        // Game 0 should be retained: on branch A, still in progress
+        assert!(
+            game_indices.contains(&U256::from(0)),
+            "Game 0 should be retained (branch A, still in progress)"
+        );
+
+        // Game 2 should be retained: anchor game (highest block)
+        assert!(
+            game_indices.contains(&U256::from(2)),
+            "Game 2 should be retained (anchor game and canonical head on branch C)"
+        );
+
+        // Verify canonical head is game 2 (highest block)
+        final_snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
+
+        tracing::info!(
+            "✓ Multi-branch eviction verified: game 1 (index 1) evicted, game 0 (index 0) retained"
+        );
+
+        Ok(())
+    }
 }
