@@ -60,6 +60,7 @@ func TestFaultProofProposer_DetectsFirstGameCreated(gt *testing.T) {
 		select {
 		case <-ctx.Done():
 			t.Errorf("timeout waiting for dispute game to be created")
+			t.FailNow()
 		case <-time.After(time.Second):
 		}
 	}
