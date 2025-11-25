@@ -58,7 +58,7 @@ type DgfClient struct {
 }
 
 // NewDgfClient creates a new DgfClient.
-func NewDgfClient(client apis.EthClient, DfgAddr common.Address) (*DgfClient, error) {
+func NewDgfClient(client apis.EthClient, dfgAddr common.Address) (*DgfClient, error) {
 	parsedABI, err := abi.JSON(strings.NewReader(opsbind.DisputeGameFactoryMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("parse Dispute Game Factory ABI: %w", err)
@@ -67,7 +67,7 @@ func NewDgfClient(client apis.EthClient, DfgAddr common.Address) (*DgfClient, er
 	return &DgfClient{
 		contractClient: contractClient{
 			client: client,
-			addr:   DfgAddr,
+			addr:   dfgAddr,
 			abi:    parsedABI,
 		},
 	}, nil
