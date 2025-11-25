@@ -835,7 +835,7 @@ mod sync {
     ///
     /// Topology:
     ///   M → 0 (DEFENDER_WINS) → 1 (DEFENDER_WINS) → 2 (DEFENDER_WINS)
-    ///     → 0 → 3 (IN_PROGESS, Challenged) → 4 (IN_PROGRESS)
+    ///     → 0 → 3 (IN_PROGRESS, Challenged) → 4 (IN_PROGRESS)
     ///     → 1 → 5 (IN_PROGRESS)
     ///
     /// Expected:
