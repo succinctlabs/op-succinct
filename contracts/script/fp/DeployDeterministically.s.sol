@@ -4,9 +4,7 @@ pragma solidity ^0.8.15;
 // Libraries
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
-import {
-    Duration
-} from "src/dispute/lib/Types.sol";
+import {Duration} from "src/dispute/lib/Types.sol";
 
 // Interfaces
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
@@ -26,6 +24,7 @@ contract DeployDeterministically is Script {
         address accessManager;
         address disputeGame;
     }
+
     struct AccessManagerParams {
         uint256 fallbackTimeout;
         address factory;
@@ -34,6 +33,7 @@ contract DeployDeterministically is Script {
         address[] challengerAddresses;
         bytes32 salt;
     }
+
     struct DisputeGameParams {
         uint64 maxChallengeDuration;
         uint64 maxProveDuration;
@@ -108,34 +108,22 @@ contract DeployDeterministically is Script {
             salt: vm.envOr("DISPUTE_GAME_SALT", bytes32(hex"ce10"))
         });
         emit DisputeGameParamsSet(gameParams_);
-        
+
         // Deterministically deploy contracts & optionally verify their addresses
         vm.startBroadcast();
         newCreate3Deployer(create3Salt_);
-        if (
-            expected_.create3Deployer != address(0) && 
-            address(create3Deployer) != expected_.create3Deployer
-        ) {
+        if (expected_.create3Deployer != address(0) && address(create3Deployer) != expected_.create3Deployer) {
             revert AddressNotExpected(expected_.create3Deployer, address(create3Deployer));
         }
         (address amFactory_, AccessManager accessManager_) = newAccessManager(managerParams_);
-        if (
-            expected_.accessManagerFactory != address(0) && 
-            amFactory_ != expected_.accessManagerFactory
-        ) {
+        if (expected_.accessManagerFactory != address(0) && amFactory_ != expected_.accessManagerFactory) {
             revert AddressNotExpected(expected_.accessManagerFactory, amFactory_);
         }
-        if (
-            expected_.accessManager != address(0) && 
-            address(accessManager_) != expected_.accessManager
-        ) {
+        if (expected_.accessManager != address(0) && address(accessManager_) != expected_.accessManager) {
             revert AddressNotExpected(expected_.accessManager, address(accessManager_));
         }
         address game_ = newOpSuccinctDisputeGame(gameParams_, accessManager_);
-        if (
-            expected_.disputeGame != address(0) && 
-            game_ != expected_.disputeGame
-        ) {
+        if (expected_.disputeGame != address(0) && game_ != expected_.disputeGame) {
             revert AddressNotExpected(expected_.disputeGame, game_);
         }
         vm.stopBroadcast();
@@ -145,14 +133,8 @@ contract DeployDeterministically is Script {
 
     function newCreate3Deployer(bytes32 _salt) internal {
         // Compute the deterministic address
-        address address_ = vm.computeCreate2Address(
-            _salt,
-            keccak256(
-                abi.encodePacked(
-                    type(Create3Deployer).creationCode
-                )
-            )
-        );
+        address address_ =
+            vm.computeCreate2Address(_salt, keccak256(abi.encodePacked(type(Create3Deployer).creationCode)));
         console.log("Predicted Create3Deployer address:", address_);
 
         // Check if address is already taken
@@ -166,17 +148,13 @@ contract DeployDeterministically is Script {
         }
     }
 
-    function newAccessManager(
-        AccessManagerParams memory _params
-    ) internal returns (address amFactory_, AccessManager accessManager_) {
+    function newAccessManager(AccessManagerParams memory _params)
+        internal
+        returns (address amFactory_, AccessManager accessManager_)
+    {
         // Compute the deterministic address of the AccessManagerFactory
         address amFactoryAddress_ = vm.computeCreate2Address(
-            _params.salt,
-            keccak256(
-                abi.encodePacked(
-                    type(AccessManagerFactory).creationCode
-                )
-            )
+            _params.salt, keccak256(abi.encodePacked(type(AccessManagerFactory).creationCode))
         );
         console.log("Predicted AccessManagerFactory address:", amFactoryAddress_);
 
@@ -194,10 +172,7 @@ contract DeployDeterministically is Script {
             keccak256(
                 abi.encodePacked(
                     type(AccessManager).creationCode,
-                    abi.encode(
-                        _params.fallbackTimeout, 
-                        IDisputeGameFactory(_params.factory)
-                    )
+                    abi.encode(_params.fallbackTimeout, IDisputeGameFactory(_params.factory))
                 )
             ),
             amFactoryAddress_
@@ -208,12 +183,10 @@ contract DeployDeterministically is Script {
         if (address_.code.length > 0) revert AddressTaken(address_);
 
         // Deterministically deploy the access manager
-        accessManager_ = AccessManagerFactory(amFactory_).createAccessManager(
-            _params.fallbackTimeout, 
-            IDisputeGameFactory(_params.factory),
-            msg.sender,
-            _params.salt
-        );
+        accessManager_ = AccessManagerFactory(amFactory_)
+            .createAccessManager(
+                _params.fallbackTimeout, IDisputeGameFactory(_params.factory), msg.sender, _params.salt
+            );
         if (address(accessManager_) != address_) revert AddressMismatch(address_, address(accessManager_));
         console.log("Access manager:", address(accessManager_));
 
@@ -248,10 +221,10 @@ contract DeployDeterministically is Script {
         }
     }
 
-    function newOpSuccinctDisputeGame(
-        DisputeGameParams memory _params, 
-        AccessManager _accessManager
-    ) internal returns (address game_) {
+    function newOpSuccinctDisputeGame(DisputeGameParams memory _params, AccessManager _accessManager)
+        internal
+        returns (address game_)
+    {
         // Compute the deterministic address
         address address_ = create3Deployer.addressOf(_params.salt);
         console.log("Predicted dispute game address:", address_);

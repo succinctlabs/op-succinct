@@ -3,7 +3,6 @@ name: E2E Tests
 on:
   pull_request:
     branches:
-      - main
       - develop
     paths:
       - 'fault-proof/**'
@@ -11,7 +10,7 @@ on:
       - '.github/workflows/e2e-tests.yml'
   push:
     branches:
-      - main
+      - develop
     paths:
       - 'fault-proof/**'
       - 'bindings/**'

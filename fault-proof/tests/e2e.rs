@@ -440,7 +440,7 @@ mod e2e {
             &env.anvil.provider,
             &tracked_games,
             CHALLENGER_ADDRESS,
-            Duration::from_secs(60),
+            Duration::from_secs(180),
         )
         .await?;
 

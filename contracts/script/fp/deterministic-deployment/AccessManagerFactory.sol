@@ -8,12 +8,10 @@ import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 import {AccessManager} from "src/fp/AccessManager.sol";
 
 contract AccessManagerFactory {
-    function createAccessManager(
-        uint256 _fallbackTimeout,
-        IDisputeGameFactory _factory,
-        address _owner,
-        bytes32 _salt
-    ) external returns (AccessManager accessManager_) {
+    function createAccessManager(uint256 _fallbackTimeout, IDisputeGameFactory _factory, address _owner, bytes32 _salt)
+        external
+        returns (AccessManager accessManager_)
+    {
         accessManager_ = new AccessManager{salt: _salt}(_fallbackTimeout, _factory);
         accessManager_.transferOwnership(_owner);
     }

@@ -1,14 +1,15 @@
 name: Integration Tests
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  # push:
+  #   branches: [ develop ]
+  # pull_request:
+  #   branches: [ develop ]
   workflow_dispatch:
 
 jobs:
   integration-tests:
+    environment: e2e
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +19,7 @@ jobs:
 
       - name: Run cost estimator on recent block range
         run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling
+          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --rolling
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}

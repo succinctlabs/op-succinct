@@ -1,12 +1,12 @@
 name: Foundry Test
 
 on:
-  # pull_request:
-  #   branches:
-  #     - "**"
-  # push:
-  #   branches:
-  #     - main
+  pull_request:
+    branches:
+      - develop
+  push:
+    branches:
+      - develop
   workflow_dispatch:
 
 env:
@@ -14,6 +14,7 @@ env:
 
 jobs:
   check:
+    environment: e2e
     strategy:
       fail-fast: true
 

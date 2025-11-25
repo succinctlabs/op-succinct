@@ -5,11 +5,9 @@ name: ELF
 on:
   pull_request:
     branches:
-      - main
       - develop
   push:
     branches:
-      - main
       - develop
   workflow_dispatch:
 

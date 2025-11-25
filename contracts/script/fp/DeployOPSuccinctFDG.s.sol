@@ -126,25 +126,25 @@ contract DeployOPSuccinctFDG is Script, Utils {
         return deployedContracts;
     }
 
-    /// @dev msg.sender should have owner role of factory
+    /// @custom:dev msg.sender should have owner role of factory
 
     function configure(DeployedContracts memory contracts, FDGConfig memory config) internal {
         GameType gameType = GameType.wrap(config.gameType);
         DisputeGameFactory factory = DisputeGameFactory(contracts.factoryProxy);
 
         // Set initial bond and implementation in factory
-        /// @dev: Requires factory owner role
+        /// @custom:dev: Requires factory owner role
         factory.setInitBond(gameType, config.initialBondWei);
         factory.setImplementation(gameType, IDisputeGame(contracts.gameImplementation));
     }
 
-    /// @dev msg.sender should have guardian role of optimism portal
+    /// @custom:dev msg.sender should have guardian role of optimism portal
 
     function activate(DeployedContracts memory contracts, FDGConfig memory config) internal {
         GameType gameType = GameType.wrap(config.gameType);
 
         // Set respected game type
-        /// @dev: Requires portal guardian role
+        /// @custom:dev: Requires portal guardian role
         IOptimismPortal2(payable(contracts.optimismPortal2)).setRespectedGameType(gameType);
     }
 

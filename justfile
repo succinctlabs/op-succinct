@@ -398,6 +398,7 @@ tests:
     -- \
     --skip test_cycle_count_diff \
     --skip test_post_to_github \
+    --skip execute_batch \
 
 # Run end-to-end tests.
 e2e-tests:

@@ -10,8 +10,7 @@ contract Create3Deployer {
      * @param _creationCode Creation code of contract to deploy
      * @return The address of the deployed contract
      */
-    function create3(bytes32 _salt, bytes memory _creationCode) external payable
-returns (address) {
+    function create3(bytes32 _salt, bytes memory _creationCode) external payable returns (address) {
         return Create3.create3(_salt, _creationCode, msg.value);
     }
 
