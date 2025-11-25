@@ -3,7 +3,7 @@ use std::{env, fs, path::PathBuf, str::FromStr, sync::Arc};
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_network::EthereumWallet;
 use alloy_node_bindings::Anvil;
-use alloy_primitives::{address, Address, U256};
+use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::SolValue;
@@ -24,7 +24,6 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use op_succinct_signer_utils::Signer;
 use sp1_sdk::{utils, Prover, ProverClient, SP1ProofMode};
 use tracing::info;
 

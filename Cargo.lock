@@ -8799,7 +8799,6 @@ dependencies = [
  "op-succinct-fp",
  "op-succinct-host-utils",
  "op-succinct-proof-utils",
- "op-succinct-signer-utils",
  "rayon",
  "serde",
  "serde_json",
