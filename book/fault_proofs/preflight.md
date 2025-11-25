@@ -32,6 +32,13 @@ GAME_TYPE=42
 # SET_IMPL_BLOCK=<L1_BLOCK_NUMBER>
 ```
 
+### Signing Configuration
+```bash
+# L1 private key used to create and prove the dispute game on the forked Anvil chain
+# This must be a whitelisted address in the OPSuccinctFaultDisputeGame contract
+PRIVATE_KEY=0x...
+```
+
 ### Network Configuration
 ```bash
 # L1 RPC endpoint (used for Anvil fork during validation)
