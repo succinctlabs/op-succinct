@@ -98,7 +98,7 @@ async fn update_l2oo_config() -> Result<()> {
                     None => search_start,
                 };
 
-            // NOTE: Starting from block 0 (genesis) is intentionally disallowed because with
+            // NOTE: Starting from block 0 (genesis) is intentionally disallowed because in
             // op-stack chains genesis state is provided as part of the `RollupConfig`, which is
             // NOT part of the chain state.
             if finalized_l2_block_number <= num_blocks_for_finality {
