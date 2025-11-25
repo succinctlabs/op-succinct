@@ -24,6 +24,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
+use op_succinct_signer_utils::Signer;
 use sp1_sdk::{utils, Prover, ProverClient, SP1ProofMode};
 use tracing::info;
 
@@ -123,6 +124,9 @@ async fn main() -> Result<()> {
     dotenv::from_path(&args.env_file)
         .context(format!("Environment file not found: {}", args.env_file.display()))?;
 
+    let wallet = PrivateKeySigner::from_str(env::var("PRIVATE_KEY")?.as_str())
+        .context("failed to parse private key")?;
+
     let use_kms_requester = env::var("USE_KMS_REQUESTER")
         .unwrap_or_else(|_| "false".to_string())
         .parse::<bool>()
@@ -219,7 +223,7 @@ async fn main() -> Result<()> {
     let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
         .context("failed to determine network mode from range and agg fulfillment strategies")?;
     let network_prover =
-        ProverClient::builder().network_for(network_mode).signer(network_signer).build();
+        ProverClient::builder().network_for(network_mode).signer(network_signer.clone()).build();
     info!("Initialized network prover successfully");
 
     let (range_pk, _range_vk) = network_prover.setup(get_range_elf_embedded());
@@ -258,10 +262,9 @@ async fn main() -> Result<()> {
         vec![l1_head.clone()],
         &range_vk,
         boot_info.l1Head,
-        address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"), /* prover_address: anvil
-                                                                 * account 0 */
+        wallet.address(),
     )
-    .expect("failed to get agg proof stdin");
+    .context("failed to get agg proof stdin")?;
 
     let agg_proof_mode_env = env::var("AGG_PROOF_MODE")
         .ok()
@@ -309,9 +312,6 @@ async fn main() -> Result<()> {
     info!("Anvil chain started forked from L1 block number: {} at: {}", l1_head_number, endpoint);
 
     // 5. Run the preflight check.
-    let wallet = PrivateKeySigner::from_str(
-        "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", /* private key of anvil account 0 */
-    )?;
     let provider_with_signer = ProviderBuilder::new()
         .wallet(EthereumWallet::from(wallet))
         .connect_http(Url::parse(&endpoint)?);
