@@ -417,7 +417,7 @@ impl TestEnvironment {
     }
 
     pub async fn prove_game(&self, address: Address) -> Result<TransactionReceipt> {
-        let game = self.fault_dispute_game_with_role(address, Role::Proposer).await?;
+        let game = self.fault_dispute_game(address).await?;
         let receipt = game
             .prove(Bytes::new())
             .send()
