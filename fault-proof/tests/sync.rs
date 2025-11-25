@@ -648,6 +648,10 @@ mod sync {
         assert!(game_indices.contains(&U256::from(2)), "In-progress game should be retained");
         assert!(!game_indices.contains(&U256::from(1)), "Zero-credit game should be evicted");
 
+        // Verify anchor's credit is non-zero (bond was not claimed)
+        let anchor_credit = env.get_credit(game_addresses[0], PROPOSER_ADDRESS).await?;
+        assert!(anchor_credit > U256::ZERO, "Anchor game should have non-zero credit");
+
         Ok(())
     }
 
