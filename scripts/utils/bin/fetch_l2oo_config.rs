@@ -98,6 +98,9 @@ async fn update_l2oo_config() -> Result<()> {
                     None => search_start,
                 };
 
+            // NOTE: Starting from block 0 (genesis) is intentionally disallowed because with
+            // op-stack chains genesis state is provided as part of the `RollupConfig`, which is
+            // NOT part of the chain state.
             if finalized_l2_block_number <= num_blocks_for_finality {
                 bail!(
                     "finalized L2 block ({}) too low for finality window ({} blocks)",
