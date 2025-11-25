@@ -13,11 +13,11 @@ mod sync {
     };
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
-    use anyhow::Result;
+    use anyhow::{Context, Result};
     use fault_proof::{
         contract::ProposalStatus,
         proposer::{
-            GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
+            Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
         },
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
@@ -37,6 +37,16 @@ mod sync {
         let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
         let proposer = env.init_proposer().await?;
         Ok((env, proposer, init_bond))
+    }
+
+    async fn cached_game<H: OPSuccinctHost + Clone>(
+        proposer: &OPSuccinctProposer<fault_proof::L1Provider, H>,
+        index: u64,
+    ) -> Result<Game> {
+        proposer
+            .get_game(U256::from(index))
+            .await
+            .with_context(|| format!("game {index} missing from cache"))
     }
 
     trait Assertion {
@@ -845,7 +855,7 @@ mod sync {
         proposer.sync_state().await?;
 
         // === Case 1: IN_PROGRESS game with deadline NOT passed ===
-        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_0 = cached_game(&proposer, 0).await?;
         assert!(
             !game_0.should_attempt_to_resolve,
             "Game 0: should_attempt_to_resolve should be false (deadline not passed)"
@@ -862,7 +872,7 @@ mod sync {
         env.warp_time(MAX_CHALLENGE_DURATION - num_time_gaps * time_gap + 1).await?;
 
         proposer.sync_state().await?;
-        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_0 = cached_game(&proposer, 0).await?;
         assert!(
             game_0.should_attempt_to_resolve,
             "Game 0: should_attempt_to_resolve should be true since deadline has passed"
@@ -871,7 +881,7 @@ mod sync {
         env.resolve_game(game_addresses[0]).await?;
         proposer.sync_state().await?;
 
-        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_0 = cached_game(&proposer, 0).await?;
         assert!(
             !game_0.should_attempt_to_resolve,
             "Game 0: should_attempt_to_resolve should be false (already resolved)"
@@ -879,7 +889,7 @@ mod sync {
         tracing::info!("✓ Case 2: DEFENDER_WINS → should_attempt = false");
 
         // === Case 3: IN_PROGRESS + parent resolved + deadline NOT passed ===
-        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
+        let game_1 = cached_game(&proposer, 1).await?;
         assert!(
             !game_1.should_attempt_to_resolve,
             "Game 1: should_attempt_to_resolve should be false (deadline not passed despite parent resolved)"
@@ -892,7 +902,7 @@ mod sync {
         env.warp_time(time_gap).await?;
         proposer.sync_state().await?;
 
-        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
+        let game_1 = cached_game(&proposer, 1).await?;
         assert!(
             game_1.should_attempt_to_resolve,
             "Game 1: should_attempt_to_resolve should be true (all conditions met)"
@@ -903,7 +913,7 @@ mod sync {
 
         // === Case 5: IN_PROGRESS + parent NOT resolved + deadline passed ===
         env.warp_time(time_gap).await?;
-        let game_2 = proposer.get_game(U256::from(2)).await.unwrap();
+        let game_2 = cached_game(&proposer, 2).await?;
         assert!(
             !game_2.should_attempt_to_resolve,
             "Game 2: should_attempt_to_resolve should be false (parent not resolved)"
@@ -920,7 +930,7 @@ mod sync {
         env.prove_game(game_addresses[3]).await?;
         proposer.sync_state().await?;
 
-        let game_3 = proposer.get_game(U256::from(3)).await.unwrap();
+        let game_3 = cached_game(&proposer, 3).await?;
         assert_eq!(game_3.proposal_status, ProposalStatus::UnchallengedAndValidProofProvided);
         assert!(
             game_3.should_attempt_to_resolve,
@@ -936,7 +946,7 @@ mod sync {
         env.challenge_game(game_addresses[4]).await?;
         proposer.sync_state().await?;
 
-        let game_4 = proposer.get_game(U256::from(4)).await.unwrap();
+        let game_4 = cached_game(&proposer, 4).await?;
         assert_eq!(game_4.proposal_status, ProposalStatus::Challenged);
         assert!(
             !game_4.should_attempt_to_resolve,
@@ -945,7 +955,7 @@ mod sync {
 
         env.prove_game(game_addresses[4]).await?;
         proposer.sync_state().await?;
-        let game_4 = proposer.get_game(U256::from(4)).await.unwrap();
+        let game_4 = cached_game(&proposer, 4).await?;
         assert_eq!(game_4.proposal_status, ProposalStatus::ChallengedAndValidProofProvided);
         assert!(
             game_4.should_attempt_to_resolve,
@@ -980,7 +990,7 @@ mod sync {
         proposer.sync_state().await?;
 
         // === Case 1: DEFENDER_WINS + not finalized ===
-        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_0 = cached_game(&proposer, 0).await?;
         assert!(
             !game_0.should_attempt_to_claim_bond,
             "Game 0: should_attempt_to_claim_bond should be false (not finalized)"
@@ -994,7 +1004,7 @@ mod sync {
         proposer.sync_state().await?;
 
         // === Case 2: DEFENDER_WINS + finalized + credit > 0 ===
-        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_0 = cached_game(&proposer, 0).await?;
         assert!(
             game_0.should_attempt_to_claim_bond,
             "Game 0: should_attempt_to_claim_bond should be true (finalized + credit > 0)"
@@ -1006,7 +1016,7 @@ mod sync {
         proposer.sync_state().await?;
 
         // === Case 3: DEFENDER_WINS + finalized + credit = 0 ===
-        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_0 = cached_game(&proposer, 0).await?;
         assert!(
             !game_0.should_attempt_to_claim_bond,
             "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
