@@ -821,7 +821,6 @@ mod sync {
     /// - Game status (IN_PROGRESS vs resolved)
     /// - Deadline status (passed vs not passed)
     /// - Parent resolution status (resolved vs IN_PROGRESS)
-    /// - Ownership (own game vs not own game)
     #[tokio::test]
     async fn test_in_progress_games_resolution_marking() -> Result<()> {
         let (env, proposer, init_bond) = setup().await?;
