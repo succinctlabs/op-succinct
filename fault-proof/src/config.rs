@@ -285,6 +285,7 @@ impl RangeSplits {
         }
 
         let splits = self.to_usize();
+
         // Never split into more parts than there are blocks.
         let segments = splits.min(total as usize);
         let mut ranges = Vec::with_capacity(segments);
@@ -293,7 +294,10 @@ impl RangeSplits {
 
         let mut cur = start;
         for _ in 0..segments {
-            let next = (cur + step).min(end);
+            if cur >= end {
+                break;
+            }
+            let next = cur.saturating_add(step).min(end);
             ranges.push((cur, next));
             cur = next;
         }
@@ -315,5 +319,70 @@ impl FromStr for RangeSplits {
                 bail!("Invalid range segments: {s}. Valid options are 1, 2, 4, 12, 15.");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod split_range_tests {
+    use crate::config::RangeSplits;
+    use rstest::rstest;
+
+    /// Assert that ranges are non-empty, contiguous, and exactly cover [start, end).
+    fn assert_contiguous_cover(ranges: &[(u64, u64)], start: u64, end: u64) {
+        assert!(!ranges.is_empty(), "expected at least one range");
+        assert_eq!(ranges.first().unwrap().0, start, "first range should start at {start}");
+        assert_eq!(ranges.last().unwrap().1, end, "last range should end at {end}");
+        for window in ranges.windows(2) {
+            let (a_start, a_end) = window[0];
+            let (b_start, b_end) = window[1];
+            assert!(a_start < a_end, "range must be non-empty: {a_start}-{a_end}");
+            assert_eq!(a_end, b_start, "ranges must be contiguous: {a_end} != {b_start}");
+            assert!(b_start < b_end, "range must be non-empty: {b_start}-{b_end}");
+        }
+    }
+
+    #[rstest]
+    #[case::single_split(RangeSplits::One, 10, 20, vec![(10, 20)])]
+    #[case::single_block(RangeSplits::Two, 0, 1, vec![(0, 1)])]
+    #[case::no_empty_tail(RangeSplits::Four, 0, 5, vec![(0, 2), (2, 4), (4, 5)])]
+    #[case::offset_uneven(RangeSplits::Four, 5, 14, vec![(5, 8), (8, 11), (11, 14)])]
+    #[case::even_split(RangeSplits::Four, 0, 10, vec![(0, 3), (3, 6), (6, 9), (9, 10)])]
+    #[case::caps_to_total(RangeSplits::Twelve, 5, 8, vec![(5, 6), (6, 7), (7, 8)])]
+    #[case::large_splits_small_range(RangeSplits::Fifteen, 0, 1, vec![(0, 1)])]
+    #[case::stop_when_done(
+        RangeSplits::Fifteen,
+        0,
+        16,
+        vec![(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
+    )]
+    fn test_splits_expected_paths(
+        #[case] splits: RangeSplits,
+        #[case] start: u64,
+        #[case] end: u64,
+        #[case] expected: Vec<(u64, u64)>,
+    ) {
+        let ranges = splits.split(start, end).expect("split should succeed");
+        assert_eq!(ranges, expected);
+        assert_contiguous_cover(&ranges, start, end);
+    }
+
+    #[test]
+    fn test_splits_extreme() {
+        let start = u64::MAX - 100;
+        let end = u64::MAX;
+        let ranges = RangeSplits::Fifteen.split(start, end).expect("split should succeed");
+        assert_contiguous_cover(&ranges, start, end);
+    }
+
+    #[test]
+    fn test_errors_on_reversed_bounds() {
+        let err = RangeSplits::Two.split(8, 3).unwrap_err();
+        assert!(err.to_string().contains("greater than end block"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn test_errors_on_empty_range() {
+        let err = RangeSplits::Two.split(5, 5).unwrap_err();
+        assert!(err.to_string().contains("equals end block"), "unexpected error: {err}");
     }
 }
