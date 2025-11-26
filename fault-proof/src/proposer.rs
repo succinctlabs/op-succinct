@@ -11,7 +11,7 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_sol_types::{SolEvent, SolValue};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
@@ -749,8 +749,6 @@ where
                     let (range_proof, inst_cycles, sp1_gas) =
                         this.prove_range_game(&sp1_stdin).await?;
 
-                    tracing::info!("Preparing Stdin for Agg Proof");
-
                     let proof = range_proof.proof.clone();
                     let mut public_values = range_proof.public_values.clone();
                     let boot_info: BootInfoStruct = public_values.read();
@@ -775,19 +773,31 @@ where
             boot_infos[idx] = Some(boot_info);
         }
 
-        let proofs: Vec<_> =
-            proofs.into_iter().map(|p| p.expect("missing proof for range")).collect();
+        tracing::info!("Preparing Stdin for Agg Proof");
 
-        let boot_infos: Vec<_> =
-            boot_infos.into_iter().map(|b| b.expect("missing boot info for range")).collect();
+        let proofs = proofs
+            .into_iter()
+            .enumerate()
+            .map(|(idx, proof)| {
+                proof.ok_or_else(|| anyhow::anyhow!("missing proof for range index {idx}"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        let boot_infos = boot_infos
+            .into_iter()
+            .enumerate()
+            .map(|(idx, boot)| {
+                boot.ok_or_else(|| anyhow::anyhow!("missing boot info for range index {idx}"))
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         let latest_l1_head = boot_infos.last().context("No boot infos generated")?.l1Head;
 
         let headers = match fetcher.get_header_preimages(&boot_infos, latest_l1_head).await {
             Ok(headers) => headers,
             Err(e) => {
-                tracing::error!("Failed to get header preimages: {}", e);
-                return Err(anyhow::anyhow!("Failed to get header preimages: {}", e));
+                tracing::error!("Failed to get header preimages: {e}");
+                bail!("Failed to get header preimages: {e}");
             }
         };
 
@@ -801,8 +811,8 @@ where
         ) {
             Ok(s) => s,
             Err(e) => {
-                tracing::error!("Failed to get agg proof stdin: {}", e);
-                return Err(anyhow::anyhow!("Failed to get agg proof stdin: {}", e));
+                tracing::error!("Failed to get agg proof stdin: {e}");
+                bail!("Failed to get agg proof stdin: {e}");
             }
         };
 
