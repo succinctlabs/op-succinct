@@ -248,6 +248,13 @@ where
         }
     }
 
+    /// Returns a copy of a game's full internal state for testing.
+    #[cfg(feature = "e2e")]
+    pub async fn get_game(&self, index: U256) -> Option<Game> {
+        let state = self.state.read().await;
+        state.games.get(&index).cloned()
+    }
+
     /// Runs the proposer indefinitely.
     pub async fn run(self: Arc<Self>) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
@@ -597,6 +604,7 @@ where
                 state.games.iter().find(|(_, game)| game.address == *anchor_address)
             {
                 state.anchor_game = Some(anchor_game.clone());
+                tracing::debug!(?anchor_address, "Anchor game updated in cache");
             } else {
                 tracing::debug!(?anchor_address, "Anchor game not in cache yet");
             }
