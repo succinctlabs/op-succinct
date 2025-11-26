@@ -1,7 +1,6 @@
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result};
-use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
@@ -10,7 +9,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
     network::{proto::types::ExecutionStatus, FulfillmentStrategy},
-    NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
+    NetworkProver, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{
     sync::Arc,
