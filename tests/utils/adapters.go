@@ -38,7 +38,7 @@ func NewL2OOClient(client apis.EthClient, addr common.Address) (*L2OOClient, err
 
 // LatestBlockNumber fetches the latest L2 block number from the contract.
 func (l2oo *L2OOClient) LatestBlockNumber(ctx context.Context) (uint64, error) {
-	latestBlockNumber, err := l2oo.caller.LatestBlockNumber(&bind.CallOpts{Context: ctx})
+	latestBlockNumber, err := l2oo.caller.LatestBlockNumber(opts(ctx))
 	if err != nil {
 		return 0, fmt.Errorf("call latestBlockNumber: %w", err)
 	}
@@ -47,7 +47,7 @@ func (l2oo *L2OOClient) LatestBlockNumber(ctx context.Context) (uint64, error) {
 
 // NextBlockNumber fetches the next L2 block number to be submitted by the proposer.
 func (l2oo *L2OOClient) NextBlockNumber(ctx context.Context) (uint64, error) {
-	nextBlockNumber, err := l2oo.caller.NextBlockNumber(&bind.CallOpts{Context: ctx})
+	nextBlockNumber, err := l2oo.caller.NextBlockNumber(opts(ctx))
 	if err != nil {
 		return 0, fmt.Errorf("call nextBlockNumber: %w", err)
 	}
@@ -80,7 +80,7 @@ func NewDgfClient(client apis.EthClient, addr common.Address) (*DgfClient, error
 }
 
 func (dfg *DgfClient) GameAtIndex(ctx context.Context, index uint64) (GameAtIndexResult, error) {
-	out, err := dfg.caller.GameAtIndex(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(index))
+	out, err := dfg.caller.GameAtIndex(opts(ctx), new(big.Int).SetUint64(index))
 	if err != nil {
 		return GameAtIndexResult{}, fmt.Errorf("call gameAtIndex: %w", err)
 	}
@@ -89,7 +89,7 @@ func (dfg *DgfClient) GameAtIndex(ctx context.Context, index uint64) (GameAtInde
 
 // GameCount fetches the number of dispute games created.
 func (dfg *DgfClient) GameCount(ctx context.Context) (uint64, error) {
-	count, err := dfg.caller.GameCount(&bind.CallOpts{Context: ctx})
+	count, err := dfg.caller.GameCount(opts(ctx))
 	if err != nil {
 		return 0, fmt.Errorf("call gameCount: %w", err)
 	}
@@ -116,7 +116,7 @@ func NewFdgClient(client apis.EthClient, addr common.Address) (*FdgClient, error
 
 // RootClaim fetches the root claim for the fault dispute game.
 func (fdg *FdgClient) RootClaim(ctx context.Context) (eth.Bytes32, error) {
-	rootClaim, err := fdg.caller.RootClaim(&bind.CallOpts{Context: ctx})
+	rootClaim, err := fdg.caller.RootClaim(opts(ctx))
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("call rootClaim: %w", err)
 	}
@@ -125,7 +125,7 @@ func (fdg *FdgClient) RootClaim(ctx context.Context) (eth.Bytes32, error) {
 
 // L2BlockNumber fetches the L2 block number the fault dispute game targets.
 func (fdg *FdgClient) L2BlockNumber(ctx context.Context) (uint64, error) {
-	l2BlockNumber, err := fdg.caller.L2BlockNumber(&bind.CallOpts{Context: ctx})
+	l2BlockNumber, err := fdg.caller.L2BlockNumber(opts(ctx))
 	if err != nil {
 		return 0, fmt.Errorf("call l2BlockNumber: %w", err)
 	}
@@ -134,7 +134,7 @@ func (fdg *FdgClient) L2BlockNumber(ctx context.Context) (uint64, error) {
 
 // ParentIndex fetches the parent index from the fault dispute game.
 func (fdg *FdgClient) ParentIndex(ctx context.Context) (uint32, error) {
-	parentIndex, err := fdg.caller.ParentIndex(&bind.CallOpts{Context: ctx})
+	parentIndex, err := fdg.caller.ParentIndex(opts(ctx))
 	if err != nil {
 		return 0, fmt.Errorf("call parentIndex: %w", err)
 	}
@@ -194,4 +194,8 @@ func WaitForGameCount(ctx context.Context, t devtest.T, dgf *DgfClient, min uint
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+func opts(ctx context.Context) *bind.CallOpts {
+	return &bind.CallOpts{Context: ctx}
 }
