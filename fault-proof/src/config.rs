@@ -254,6 +254,7 @@ pub struct RangeSplitCount(NonZeroU8);
 impl RangeSplitCount {
     pub const MAX: u8 = 16;
 
+    /// Create a new `RangeSplitCount`.
     pub fn new(count: u8) -> Result<Self> {
         if count == 0 || count > Self::MAX {
             bail!("range splits must be between 1 and 16, got {count}");
@@ -265,14 +266,24 @@ impl RangeSplitCount {
         Ok(Self(count))
     }
 
+    /// Returns a `RangeSplitCount` of one.
     pub fn one() -> Self {
         Self(NonZeroU8::new(1).expect("1 is non-zero"))
     }
 
+    /// Convert to `usize`.
     pub fn to_usize(self) -> usize {
         self.0.get() as usize
     }
 
+    /// Split `[start, end)` into up to `count` contiguous, non-empty subranges.
+    ///
+    /// Behavior:
+    /// - Errors if `start > end` or the range is empty.
+    /// - Caps the number of produced segments to the number of blocks in the range.
+    /// - Uses ceil division to keep segments as even as possible; the final segment takes any
+    ///   remainder.
+    /// - Always returns ranges that exactly cover `[start, end)` with no gaps or overlaps.
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
             anyhow::anyhow!("start block {start} is greater than end block {end}")
@@ -422,18 +433,12 @@ mod split_range_tests {
     #[test]
     fn test_rejects_zero() {
         let err = RangeSplitCount::new(0).unwrap_err();
-        assert!(
-            err.to_string().contains("between 1 and 16"),
-            "unexpected error: {err}"
-        );
+        assert!(err.to_string().contains("between 1 and 16"), "unexpected error: {err}");
     }
 
     #[test]
     fn test_rejects_above_max_from_str() {
         let err = "17".parse::<RangeSplitCount>().unwrap_err();
-        assert!(
-            err.to_string().contains("between 1 and 16"),
-            "unexpected error: {err}"
-        );
+        assert!(err.to_string().contains("between 1 and 16"), "unexpected error: {err}");
     }
 }
