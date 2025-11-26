@@ -4,116 +4,152 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/apis"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	opsbind "github.com/succinctlabs/op-succinct/bindings"
 )
 
-// contractClient is a generic Ethereum contract client.
-type contractClient struct {
-	client apis.EthClient
-	addr   common.Address
-	abi    abi.ABI
-}
-
 // L2OOClient is a client for interacting with the SuccinctL2OutputOracle contract.
 type L2OOClient struct {
-	contractClient
+	caller *opsbind.OPSuccinctL2OutputOracleCaller
 }
 
 // NewL2OOClient creates a new L2OOClient.
-func NewL2OOClient(client apis.EthClient, l2ooAddr common.Address) (*L2OOClient, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(opsbind.OPSuccinctL2OutputOracleMetaData.ABI))
+func NewL2OOClient(client apis.EthClient, addr common.Address) (*L2OOClient, error) {
+	caller := ethCaller{c: client}
+	l2ooCaller, err := opsbind.NewOPSuccinctL2OutputOracleCaller(addr, caller)
 	if err != nil {
-		return nil, fmt.Errorf("parse L2OO ABI: %w", err)
+		return nil, fmt.Errorf("bind L2OO: %w", err)
 	}
 
 	return &L2OOClient{
-		contractClient: contractClient{
-			client: client,
-			addr:   l2ooAddr,
-			abi:    parsedABI,
-		},
+		caller: l2ooCaller,
 	}, nil
 }
 
 // LatestBlockNumber fetches the latest L2 block number from the contract.
 func (l2oo *L2OOClient) LatestBlockNumber(ctx context.Context) (uint64, error) {
-	return call(ctx, l2oo.contractClient, "latestBlockNumber", asUint64)
+	latestBlockNumber, err := l2oo.caller.LatestBlockNumber(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, fmt.Errorf("call latestBlockNumber: %w", err)
+	}
+	return latestBlockNumber.Uint64(), nil
 }
 
 // NextBlockNumber fetches the next L2 block number to be submitted by the proposer.
 func (l2oo *L2OOClient) NextBlockNumber(ctx context.Context) (uint64, error) {
-	return call(ctx, l2oo.contractClient, "nextBlockNumber", asUint64)
+	nextBlockNumber, err := l2oo.caller.NextBlockNumber(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, fmt.Errorf("call nextBlockNumber: %w", err)
+	}
+	return nextBlockNumber.Uint64(), nil
 }
 
 // DgfClient is a client for interacting with the DisputeGameFactory contract.
 type DgfClient struct {
-	contractClient
+	caller *opsbind.DisputeGameFactoryCaller
+}
+
+// GameAtIndexResult contains info about a created dispute game.
+type GameAtIndexResult struct {
+	GameType  uint32
+	Timestamp uint64
+	Proxy     common.Address
 }
 
 // NewDgfClient creates a new DgfClient.
-func NewDgfClient(client apis.EthClient, dfgAddr common.Address) (*DgfClient, error) {
-	parsedABI, err := abi.JSON(strings.NewReader(opsbind.DisputeGameFactoryMetaData.ABI))
+func NewDgfClient(client apis.EthClient, addr common.Address) (*DgfClient, error) {
+	caller := ethCaller{c: client}
+	dgfCaller, err := opsbind.NewDisputeGameFactoryCaller(addr, caller)
 	if err != nil {
-		return nil, fmt.Errorf("parse Dispute Game Factory ABI: %w", err)
+		return nil, fmt.Errorf("bind DGF: %w", err)
 	}
 
 	return &DgfClient{
-		contractClient: contractClient{
-			client: client,
-			addr:   dfgAddr,
-			abi:    parsedABI,
-		},
+		caller: dgfCaller,
 	}, nil
+}
+
+func (dfg *DgfClient) GameAtIndex(ctx context.Context, index uint64) (GameAtIndexResult, error) {
+	out, err := dfg.caller.GameAtIndex(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(index))
+	if err != nil {
+		return GameAtIndexResult{}, fmt.Errorf("call gameAtIndex: %w", err)
+	}
+	return GameAtIndexResult{GameType: out.GameType, Timestamp: out.Timestamp, Proxy: out.Proxy}, nil
 }
 
 // GameCount fetches the number of dispute games created.
 func (dfg *DgfClient) GameCount(ctx context.Context) (uint64, error) {
-	return call(ctx, dfg.contractClient, "gameCount", asUint64)
+	count, err := dfg.caller.GameCount(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, fmt.Errorf("call gameCount: %w", err)
+	}
+	return count.Uint64(), nil
 }
 
-// call is a generic function to call a contract method and convert the output.
-func call[R any](ctx context.Context, c contractClient, method string, convert func(string, []any) (R, error)) (R, error) {
-	var zero R
-
-	data, err := c.abi.Pack(method)
-	if err != nil {
-		return zero, fmt.Errorf("pack %s call: %w", method, err)
-	}
-
-	callMsg := ethereum.CallMsg{
-		To:   &c.addr,
-		Data: data,
-	}
-
-	raw, err := c.client.Call(ctx, callMsg, rpc.LatestBlockNumber)
-	if err != nil {
-		return zero, fmt.Errorf("call %s: %w", method, err)
-	}
-
-	outs, err := c.abi.Unpack(method, raw)
-	if err != nil {
-		return zero, fmt.Errorf("unpack %s: %w", method, err)
-	}
-
-	return convert(method, outs)
+// FdgClient is a client for interacting with the OPSuccinctFaultDisputeGame contract.
+type FdgClient struct {
+	caller *opsbind.OPSuccinctFaultDisputeGameCaller
 }
 
-// asUint64 converts the output of a contract call to uint64.
-func asUint64(method string, outputs []any) (uint64, error) {
-	if len(outputs) != 1 {
-		return 0, fmt.Errorf("unexpected number of outputs from %s", method)
+// NewFdgClient creates a new FdgClient.
+func NewFdgClient(client apis.EthClient, addr common.Address) (*FdgClient, error) {
+	caller := ethCaller{c: client}
+	fdgCaller, err := opsbind.NewOPSuccinctFaultDisputeGameCaller(addr, caller)
+	if err != nil {
+		return nil, fmt.Errorf("bind FDG: %w", err)
 	}
 
-	value, ok := outputs[0].(*big.Int)
-	if !ok {
-		return 0, fmt.Errorf("unexpected output type from %s: %T", method, outputs[0])
+	return &FdgClient{
+		caller: fdgCaller,
+	}, nil
+}
+
+// ParentIndex fetches the parent index from the fault dispute game.
+func (fdg *FdgClient) ParentIndex(ctx context.Context) (uint32, error) {
+	parentIndex, err := fdg.caller.ParentIndex(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, fmt.Errorf("call parentIndex: %w", err)
 	}
-	return value.Uint64(), nil
+	return uint32(parentIndex), nil
+}
+
+var _ bind.ContractCaller = ethCaller{}
+
+// implements bind/v2.ContractCaller using apis.EthClient
+type ethCaller struct{ c apis.EthClient }
+
+func (w ethCaller) toRPCBlockNumber(blockNumber *big.Int) (rpc.BlockNumber, error) {
+	if blockNumber == nil {
+		return rpc.LatestBlockNumber, nil
+	}
+	if !blockNumber.IsInt64() {
+		return 0, fmt.Errorf("block number overflow: %s", blockNumber)
+	}
+	return rpc.BlockNumber(blockNumber.Int64()), nil
+}
+
+func (w ethCaller) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	bn, err := w.toRPCBlockNumber(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	return w.c.Call(ctx, call, bn)
+}
+
+func (w ethCaller) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	bn, err := w.toRPCBlockNumber(blockNumber)
+	if err != nil {
+		return nil, err
+	}
+	var code hexutil.Bytes
+	if err := w.c.RPC().CallContext(ctx, &code, "eth_getCode", contract, bn); err != nil {
+		return nil, err
+	}
+	return code, nil
 }
