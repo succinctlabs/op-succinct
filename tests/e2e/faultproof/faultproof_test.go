@@ -36,7 +36,7 @@ func TestFaultProofProposer_L2DgfDeployedAndUp(gt *testing.T) {
 	gameCount, err := dgf.GameCount(t.Ctx())
 	require.NoError(err, "failed to get game count from DGF")
 	logger.Info("Dispute Game Count:", "count", gameCount)
-	require.Equal(t, uint64(0), gameCount, "expected zero dispute games initially")
+	require.Equal(uint64(0), gameCount, "expected zero dispute games initially")
 }
 
 func TestFaultProofProposer_DetectsFirstGameCreated(gt *testing.T) {
