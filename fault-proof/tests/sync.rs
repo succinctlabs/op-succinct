@@ -6,16 +6,19 @@ mod sync {
 
     use crate::common::{
         constants::{
-            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
+            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
             MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
         },
         TestEnvironment,
     };
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
-    use anyhow::Result;
-    use fault_proof::proposer::{
-        GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
+    use anyhow::{Context, Result};
+    use fault_proof::{
+        contract::ProposalStatus,
+        proposer::{
+            Game, GameFetchResult, OPSuccinctProposer, ProposerStateSnapshot, MAX_GAME_DEADLINE_LAG,
+        },
     };
     use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
     use op_succinct_host_utils::host::OPSuccinctHost;
@@ -34,6 +37,16 @@ mod sync {
         let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
         let proposer = env.init_proposer().await?;
         Ok((env, proposer, init_bond))
+    }
+
+    async fn cached_game<H: OPSuccinctHost + Clone>(
+        proposer: &OPSuccinctProposer<fault_proof::L1Provider, H>,
+        index: u64,
+    ) -> Result<Game> {
+        proposer
+            .get_game(U256::from(index))
+            .await
+            .with_context(|| format!("game {index} missing from cache"))
     }
 
     trait Assertion {
@@ -684,6 +697,442 @@ mod sync {
         tracing::info!(
             "✓ Multi-branch eviction verified: game 1 (index 1) evicted, game 0 (index 0) retained"
         );
+
+        Ok(())
+    }
+    /// Tests CHALLENGER_WINS cascade removal at various tree positions.
+    #[rstest]
+    #[case::at_root(
+        &[M, 0, 1],  // parent_ids: M -> 0 -> 1 -> 2
+        &[0],  // games_to_challenge: challenge game 0
+        None,  // anchor_id: no anchor
+        0,  // expected_retained_count (all removed - root is CHALLENGER_WINS)
+        None,
+        0
+    )]
+    #[case::mid_chain(
+        &[M, 0, 1, 2],  // M -> 0 -> 1 -> 2 -> 3
+        &[1],  // challenge game 1
+        None,  // anchor_id: no anchor
+        1,  // Only game 0 retained (games 1, 2, 3 removed)
+        Some(0),
+        1
+    )]
+    #[case::two_children(
+        &[M, 0, 0],  // M -> 0, 0 -> 1, 0 -> 2
+        &[1],  // challenge game 1
+        None,  // anchor_id: no anchor
+        2,  // Games 0, 2 retained; game 1 removed
+        Some(2),
+        3
+    )]
+    #[case::multiple_challenger_wins(
+        &[M, 0, 1],  // M -> 0 -> 1 -> 2
+        &[0, 1],  // challenge games 0 and 1
+        None,  // anchor_id: no anchor
+        0,  // All removed
+        None,
+        0
+    )]
+    #[case::anchor_descendant_challenger_wins(
+        &[M, 0, 1],  // M -> 0 (anchor) -> 1 -> 2
+        &[1],  // challenge game 1 (descendant of anchor)
+        Some(0),  // anchor_id: game 0
+        1,  // Only game 0 retained (games 1, 2 removed despite anchor)
+        Some(0),  // Canonical head = anchor
+        1
+    )]
+    #[case::parallel_branch_challenger_wins(
+        &[M, 0, M],  // M -> 0 (anchor) -> 1; M -> 2
+        &[2],  // challenge game 2 (parallel branch)
+        Some(0),  // anchor_id: game 0
+        2,  // Games 0, 1 retained; game 2 removed
+        Some(1),  // Canonical head = game 1
+        2
+    )]
+    #[case::multiple_challenger_wins_different_branches(
+        &[M, 0, 1, 0, 3],  // M -> 0 -> 1 -> 2; 0 -> 3 -> 4
+        &[1, 3],  // challenge games 1 and 3 (different branches)
+        None,  // anchor_id: no anchor
+        1,  // Only game 0 retained (both branches pruned)
+        Some(0),
+        1
+    )]
+    #[case::anchor_parallel_challenger_wins_with_child(
+        &[M, 0, M, 2],  // M -> 0 (anchor) -> 1; M -> 2 (challenged) -> 3
+        &[2],  // challenge game 2 (newer parallel branch with child)
+        Some(0),  // anchor_id: game 0
+        2,  // Games 0, 1 retained; games 2, 3 removed
+        Some(1),  // Canonical head stays on anchor branch
+        2
+    )]
+    #[tokio::test]
+    async fn test_challenger_wins_cascade_removal(
+        #[case] parent_ids: &[u32],
+        #[case] games_to_challenge: &[usize],
+        #[case] anchor_id: Option<usize>,
+        #[case] expected_retained_count: usize,
+        #[case] expected_canonical_head_index: Option<u64>,
+        #[case] expected_processed_l2_block: u64,
+    ) -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut block = starting_l2_block;
+        let mut game_addresses = Vec::new();
+
+        // Step 1: Create all games with valid roots (all initially valid)
+        for (i, &parent_id) in parent_ids.iter().enumerate() {
+            block += 1;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} (parent: {parent_id})");
+        }
+
+        // Step 2: Challenge specific games
+        for &idx in games_to_challenge {
+            env.challenge_game(game_addresses[idx]).await?;
+            tracing::info!("✓ Game {idx} challenged");
+        }
+
+        // Step 3: Set anchor if specified
+        if let Some(anchor_idx) = anchor_id {
+            // Resolve anchor game as DEFENDER_WINS first
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(game_addresses[anchor_idx]).await?;
+            tracing::info!("✓ Resolved game {anchor_idx} as DEFENDER_WINS for anchor");
+
+            // Set as anchor (requires finality delay)
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            env.set_anchor_state(game_addresses[anchor_idx]).await?;
+            tracing::info!("✓ Set game {anchor_idx} as anchor");
+        }
+
+        // Step 4: Resolve games (skip anchor if already resolved)
+        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        for (i, game_address) in game_addresses.iter().enumerate() {
+            // Skip if already resolved for anchor
+            if anchor_id != Some(i) {
+                env.resolve_game(*game_address).await?;
+                tracing::info!("✓ Resolved game {game_address}");
+            }
+        }
+
+        // Step 5: Sync state
+        proposer.sync_state().await?;
+
+        // Verify results
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(expected_retained_count);
+        snapshot.assert_anchor_index(anchor_id);
+        snapshot.assert_canonical_head(
+            expected_canonical_head_index,
+            expected_processed_l2_block,
+            starting_l2_block,
+        );
+
+        for &idx in games_to_challenge {
+            assert!(
+                !snapshot.games.iter().any(|(key, _)| *key == U256::from(idx)),
+                "Game {idx} should be removed (challenged)"
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Tests mixed states across multiple branches.
+    ///
+    /// Topology:
+    ///   M → 0 (DEFENDER_WINS) → 1 (DEFENDER_WINS) → 2 (DEFENDER_WINS)
+    ///     → 0 → 3 (IN_PROGRESS, Challenged) → 4 (IN_PROGRESS)
+    ///     → 1 → 5 (IN_PROGRESS)
+    ///
+    /// Expected:
+    /// - Games 0, 1, 2, 5 retained (valid chain)
+    /// - Games 3, 4 removed (CHALLENGER_WINS cascade)
+    /// - Canonical head: Game 5 (highest L2 block among valid games)
+    #[tokio::test]
+    async fn test_mixed_states_multiple_branches() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Step 1: Create all 6 games with valid roots and proper parent relationships
+        let mut game_addresses = Vec::new();
+        let parent_ids = [M, 0, 1, 0, 3, 1]; // parents for games 0-5
+
+        for (i, &parent_id) in parent_ids.iter().enumerate() {
+            let block = starting_l2_block + 1 + i as u64;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+        }
+
+        // Step 2: Challenge game 3 to make it CHALLENGER_WINS
+        env.challenge_game(game_addresses[3]).await?;
+        tracing::info!("✓ Game 3 challenged");
+
+        // Step 3: Resolve games 0, 1 and 2 as DEFENDER_WINS
+        env.warp_time(MAX_CHALLENGE_DURATION + MAX_PROVE_DURATION + 1).await?;
+        for game_address in game_addresses.iter().take(3) {
+            env.resolve_game(*game_address).await?;
+            tracing::info!("✓ Game {game_address} resolved");
+        }
+
+        // Step 4: Sync state
+        proposer.sync_state().await?;
+
+        // Verify: All games are cached
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(6);
+
+        // Verify: Canonical head is game 5 (highest L2 block among valid games)
+        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
+
+        // Step 5: Resolve game 3, 4 and 5
+        for game_address in game_addresses.iter().skip(3) {
+            env.resolve_game(*game_address).await?;
+            tracing::info!("✓ Game {game_address} resolved");
+        }
+
+        // Step 6: Sync state
+        proposer.sync_state().await?;
+
+        // Verify: Games 0, 1, 2, 5 retained; games 3, 4 removed
+        let snapshot = proposer.state_snapshot().await;
+        snapshot.assert_game_len(4); // 0, 1, 2, 5
+
+        // Canonical head should be game 5 (highest block among reachable games)
+        snapshot.assert_canonical_head(Some(5), 6, starting_l2_block);
+
+        // Verify specific games are present
+        let game_indices: Vec<U256> = snapshot.games.iter().map(|(idx, _)| *idx).collect();
+        assert!(game_indices.contains(&U256::from(0)), "Game 0 should be retained");
+        assert!(game_indices.contains(&U256::from(1)), "Game 1 should be retained");
+        assert!(game_indices.contains(&U256::from(2)), "Game 2 should be retained");
+        assert!(game_indices.contains(&U256::from(5)), "Game 5 should be retained");
+        assert!(
+            !game_indices.contains(&U256::from(3)),
+            "Game 3 should be removed (CHALLENGER_WINS)"
+        );
+        assert!(
+            !game_indices.contains(&U256::from(4)),
+            "Game 4 should be removed (child of CHALLENGER_WINS)"
+        );
+
+        Ok(())
+    }
+    /// Tests the `should_attempt_to_resolve` flag logic for IN_PROGRESS games.
+    ///
+    /// Verifies that the flag is correctly set based on:
+    /// - Game status (IN_PROGRESS vs resolved)
+    /// - Deadline status (passed vs not passed)
+    /// - Parent resolution status (resolved vs IN_PROGRESS)
+    #[tokio::test]
+    async fn test_in_progress_games_resolution_marking() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create a simple chain: M -> 0 -> 1 -> 2 -> 3 -> 4
+        // Add 100-second gaps between creations to control deadline spacing
+        let mut game_addresses = Vec::new();
+        let time_gap = 100u64;
+
+        let total_games = 5;
+        let num_time_gaps = total_games - 1;
+
+        for i in 0..total_games {
+            let block = starting_l2_block + 1 + i;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            let parent_id = if i == 0 { M } else { (i - 1) as u32 };
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block} with parent {parent_id}");
+
+            // Add time gap before next game (except after last game)
+            if i < num_time_gaps {
+                env.warp_time(time_gap).await?;
+            }
+        }
+
+        // Sync state to cache games
+        proposer.sync_state().await?;
+
+        // === Case 1: IN_PROGRESS game with deadline NOT passed ===
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert!(
+            !game_0.should_attempt_to_resolve,
+            "Game 0: should_attempt_to_resolve should be false (deadline not passed)"
+        );
+        tracing::info!("✓ Case 1: IN_PROGRESS + deadline not passed → should_attempt = false");
+
+        // === Case 2: DEFENDER_WINS (resolved game) ===
+        // Warp to just past game 0's deadline but before game 1's deadline
+        // Game 0 deadline is at T0 + MAX_CHALLENGE_DURATION
+        // Game 1 deadline is at T0 + 100 + MAX_CHALLENGE_DURATION
+        // Currently at T0 + 400 (after creating all `total_games` games with `time_gap`-second
+        // gaps)
+        // So we need to warp: MAX_CHALLENGE_DURATION - `num_time_gaps` * `time_gap` + 1
+        env.warp_time(MAX_CHALLENGE_DURATION - num_time_gaps * time_gap + 1).await?;
+
+        proposer.sync_state().await?;
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert!(
+            game_0.should_attempt_to_resolve,
+            "Game 0: should_attempt_to_resolve should be true since deadline has passed"
+        );
+
+        env.resolve_game(game_addresses[0]).await?;
+        proposer.sync_state().await?;
+
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert!(
+            !game_0.should_attempt_to_resolve,
+            "Game 0: should_attempt_to_resolve should be false (already resolved)"
+        );
+        tracing::info!("✓ Case 2: DEFENDER_WINS → should_attempt = false");
+
+        // === Case 3: IN_PROGRESS + parent resolved + deadline NOT passed ===
+        let game_1 = cached_game(&proposer, 1).await?;
+        assert!(
+            !game_1.should_attempt_to_resolve,
+            "Game 1: should_attempt_to_resolve should be false (deadline not passed despite parent resolved)"
+        );
+        tracing::info!(
+            "✓ Case 3: IN_PROGRESS + parent resolved + deadline not passed → should_attempt = false"
+        );
+
+        // === Case 4: IN_PROGRESS + parent resolved + deadline passed + own game ===
+        env.warp_time(time_gap).await?;
+        proposer.sync_state().await?;
+
+        let game_1 = cached_game(&proposer, 1).await?;
+        assert!(
+            game_1.should_attempt_to_resolve,
+            "Game 1: should_attempt_to_resolve should be true (all conditions met)"
+        );
+        tracing::info!(
+            "✓ Case 4: IN_PROGRESS + parent resolved + deadline passed + own game → should_attempt = true"
+        );
+
+        // === Case 5: IN_PROGRESS + parent NOT resolved + deadline passed ===
+        env.warp_time(time_gap).await?;
+        let game_2 = cached_game(&proposer, 2).await?;
+        assert!(
+            !game_2.should_attempt_to_resolve,
+            "Game 2: should_attempt_to_resolve should be false (parent not resolved)"
+        );
+        tracing::info!(
+            "✓ Case 5: IN_PROGRESS + parent NOT resolved + deadline passed → should_attempt = false"
+        );
+
+        env.resolve_game(game_addresses[1]).await?;
+        env.resolve_game(game_addresses[2]).await?;
+        proposer.sync_state().await?;
+
+        // === Case 6: IN_PROGRESS + UnchallengedAndValidProofProvided ===
+        env.prove_game(game_addresses[3]).await?;
+        proposer.sync_state().await?;
+
+        let game_3 = cached_game(&proposer, 3).await?;
+        assert_eq!(game_3.proposal_status, ProposalStatus::UnchallengedAndValidProofProvided);
+        assert!(
+            game_3.should_attempt_to_resolve,
+            "Game 3: should_attempt_to_resolve should be true (proof provided)"
+        );
+        tracing::info!(
+            "✓ Case 6: IN_PROGRESS + UnchallengedAndValidProofProvided → should_attempt = true"
+        );
+
+        env.resolve_game(game_addresses[3]).await?;
+        proposer.sync_state().await?;
+        // === Case 7: IN_PROGRESS + ChallengedAndValidProofProvided ===
+        env.challenge_game(game_addresses[4]).await?;
+        proposer.sync_state().await?;
+
+        let game_4 = cached_game(&proposer, 4).await?;
+        assert_eq!(game_4.proposal_status, ProposalStatus::Challenged);
+        assert!(
+            !game_4.should_attempt_to_resolve,
+            "Game 4: should_attempt_to_resolve should be false (challenged)"
+        );
+
+        env.prove_game(game_addresses[4]).await?;
+        proposer.sync_state().await?;
+        let game_4 = cached_game(&proposer, 4).await?;
+        assert_eq!(game_4.proposal_status, ProposalStatus::ChallengedAndValidProofProvided);
+        assert!(
+            game_4.should_attempt_to_resolve,
+            "Game 4: should_attempt_to_resolve should be true (proof provided)"
+        );
+
+        Ok(())
+    }
+
+    /// Tests the `should_attempt_to_claim_bond` flag logic for finalized games.
+    ///
+    /// Verifies that the flag is correctly set based on:
+    /// - Finality (finalized vs not finalized)
+    /// - Credit availability (credit > 0 vs credit = 0)
+    #[tokio::test]
+    async fn test_bond_claim_marking() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, init_bond).await?;
+        let (_, address) = env.last_game_info().await?;
+        tracing::info!("✓ Created game 0 at block {block}");
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(address).await?;
+        tracing::info!("✓ Resolved game 0 as DEFENDER_WINS");
+
+        // Sync state
+        proposer.sync_state().await?;
+
+        // === Case 1: DEFENDER_WINS + not finalized ===
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false (not finalized)"
+        );
+        tracing::info!(
+            "✓ Case 1: DEFENDER_WINS + not finalized → should_attempt_to_claim_bond = false"
+        );
+
+        // Warp time to finalize games
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        proposer.sync_state().await?;
+
+        // === Case 2: DEFENDER_WINS + finalized + credit > 0 ===
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert!(
+            game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be true (finalized + credit > 0)"
+        );
+        tracing::info!("✓ Case 2: DEFENDER_WINS + finalized + credit > 0 → should_attempt_to_claim_bond = true");
+
+        // Claim bond for game 0 to set credit = 0
+        env.claim_bond(address, PROPOSER_ADDRESS).await?;
+        proposer.sync_state().await?;
+
+        // === Case 3: DEFENDER_WINS + finalized + credit = 0 ===
+        let game_0 = cached_game(&proposer, 0).await?;
+        assert!(
+            !game_0.should_attempt_to_claim_bond,
+            "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
+        );
+        tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
 
         Ok(())
     }
