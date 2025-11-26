@@ -111,7 +111,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         }
 
         let witness = self.host.run(&host_args).await?;
-        let sp1_stdin = self.host.witness_generator().get_sp1_stdin(witness).unwrap();
+        let sp1_stdin = self.host.witness_generator().get_sp1_stdin(witness)?;
 
         Ok(sp1_stdin)
     }
@@ -139,15 +139,30 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .await?;
 
         // Deserialize the proofs and extract the boot infos and proofs.
-        let (boot_infos, proofs): (Vec<BootInfoStruct>, Vec<SP1Proof>) = range_proofs
-            .iter()
-            .map(|proof| {
-                let mut proof_with_pv: SP1ProofWithPublicValues =
-                    bincode::deserialize(proof.proof.as_ref().unwrap())
-                        .expect("Deserialization failure for range proof");
-                (proof_with_pv.public_values.read(), proof_with_pv.proof.clone())
-            })
-            .unzip();
+        let mut boot_infos = Vec::with_capacity(range_proofs.len());
+        let mut proofs = Vec::with_capacity(range_proofs.len());
+
+        for proof in range_proofs.iter() {
+            let proof_bytes = proof.proof.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Range proof for blocks {}-{} is missing proof data.",
+                    proof.start_block,
+                    proof.end_block,
+                )
+            })?;
+
+            let mut proof_with_pv: SP1ProofWithPublicValues = bincode::deserialize(proof_bytes)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to deserialize range proof for blocks {}-{}: {e:?}",
+                        proof.start_block,
+                        proof.end_block,
+                    )
+                })?;
+
+            boot_infos.push(proof_with_pv.public_values.read());
+            proofs.push(proof_with_pv.proof.clone());
+        }
 
         // This can fail for a few reasons:
         // 1. The L1 RPC is down (e.g. error code 32001). Double-check the L1 RPC is running
@@ -508,7 +523,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             RequestType::Range => {
                 if self.mock {
                     let proof = self.generate_mock_range_proof(&request, stdin).await?;
-                    let proof_bytes = bincode::serialize(&proof).unwrap();
+                    let proof_bytes = bincode::serialize(&proof)?;
                     self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
