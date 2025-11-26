@@ -55,7 +55,6 @@ where
     P: CommsClient + FlushableCache + Send + Sync + Clone,
 {
     pub fn save(&self, key: PreimageKey, value: &[u8]) -> PreimageOracleResult<()> {
-        self.preimage_witness_store.lock().unwrap().save_preimage(key, value.to_vec())?;
-        Ok(())
+        self.preimage_witness_store.lock().unwrap().save_preimage(key, value.to_vec())
     }
 }
