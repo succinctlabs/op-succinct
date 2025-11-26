@@ -81,7 +81,7 @@ pub struct ProposerConfig {
     pub range_gas_limit: u64,
 
     /// The number of segments to split the range into.
-    pub range_segments: RangeSegments,
+    pub range_splits: RangeSplits,
 
     /// The cycle limit to use for aggregation proofs.
     pub agg_cycle_limit: u64,
@@ -171,7 +171,7 @@ impl ProposerConfig {
             range_gas_limit: env::var("RANGE_GAS_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
-            range_segments: env::var("RANGE_SEGMENTS").unwrap_or("1".to_string()).parse()?,
+            range_splits: env::var("RANGE_SEGMENTS").unwrap_or("1".to_string()).parse()?,
             agg_cycle_limit: env::var("AGG_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
@@ -247,37 +247,40 @@ pub struct FaultDisputeGameConfig {
     pub verifier_address: String,
 }
 
-/// The number of segments to split the range proof into.
+/// How many chunks the range proof input is partitioned into.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum RangeSegments {
+pub enum RangeSplits {
     One,
     Two,
     Four,
-    Eight,
+    Twelve,
+    Fifteen,
 }
 
-impl RangeSegments {
+impl RangeSplits {
     pub fn to_usize(&self) -> usize {
         match self {
-            RangeSegments::One => 1,
-            RangeSegments::Two => 2,
-            RangeSegments::Four => 4,
-            RangeSegments::Eight => 8,
+            RangeSplits::One => 1,
+            RangeSplits::Two => 2,
+            RangeSplits::Four => 4,
+            RangeSplits::Twelve => 12,
+            RangeSplits::Fifteen => 15,
         }
     }
 }
 
-impl FromStr for RangeSegments {
+impl FromStr for RangeSplits {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self> {
         match s {
-            "1" => Ok(RangeSegments::One),
-            "2" => Ok(RangeSegments::Two),
-            "4" => Ok(RangeSegments::Four),
-            "8" => Ok(RangeSegments::Eight),
+            "1" => Ok(RangeSplits::One),
+            "2" => Ok(RangeSplits::Two),
+            "4" => Ok(RangeSplits::Four),
+            "12" => Ok(RangeSplits::Twelve),
+            "15" => Ok(RangeSplits::Fifteen),
             _ => {
-                bail!("Invalid range segments: {s}. Valid options are 1, 2, 4, 8.")
+                bail!("Invalid range segments: {s}. Valid options are 1, 2, 4, 12, 15.");
             }
         }
     }

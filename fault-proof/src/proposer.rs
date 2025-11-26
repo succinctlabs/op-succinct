@@ -731,7 +731,6 @@ where
         let ranges = self.split_range(start_block, end_block);
         let num_ranges = ranges.len();
 
-        // Pre-allocate and initialize so index writes are safe.
         let mut proofs = vec![None; num_ranges];
         let mut boot_infos = vec![None; num_ranges];
 
@@ -745,7 +744,6 @@ where
             .map(|(idx, (start, end))| {
                 let this = self.clone();
                 async move {
-                    // Propagate errors instead of unwrap().
                     let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
 
                     let (range_proof, inst_cycles, sp1_gas) =
@@ -1818,17 +1816,17 @@ where
     }
 
     fn split_range(&self, start: u64, end: u64) -> Vec<(u64, u64)> {
-        let segments = self.config.range_segments.to_usize();
+        let splits = self.config.range_splits.to_usize();
         let total = end.saturating_sub(start);
-        if segments == 0 || total == 0 {
+        if splits == 0 || total == 0 {
             return vec![(start, end)];
         }
 
-        let mut ranges = Vec::with_capacity(segments);
-        let step = total.div_ceil(segments as u64);
+        let mut ranges = Vec::with_capacity(splits);
+        let step = total.div_ceil(splits as u64);
 
         let mut cur = start;
-        for _ in 0..segments {
+        for _ in 0..splits {
             if cur >= end {
                 break;
             }
