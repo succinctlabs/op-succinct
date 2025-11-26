@@ -951,9 +951,10 @@ mod e2e {
 
         let result = env.init_proposer().await;
 
-        assert!(result.is_err(), "Proposer should have failed due to future block configuration");
-
-        let error = result.unwrap_err();
+        let error = match result {
+            Err(e) => e,
+            Ok(_) => panic!("Proposer should have failed due to future block configuration"),
+        };
 
         let err_msg = error.to_string().to_lowercase();
         assert!(
