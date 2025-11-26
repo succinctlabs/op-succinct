@@ -315,6 +315,14 @@ impl TestEnvironment {
         Ok(portal)
     }
 
+    /// Create a fault dispute game instance as the proposer by default
+    pub async fn fault_dispute_game(
+        &self,
+        game_address: Address,
+    ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
+        self.fault_dispute_game_with_role(game_address, Role::Proposer).await
+    }
+
     /// Create a fault dispute game instance with a provider for the specified role
     pub async fn fault_dispute_game_with_role(
         &self,
@@ -358,7 +366,7 @@ impl TestEnvironment {
         game_address: Address,
         recipient: Address,
     ) -> Result<TransactionReceipt> {
-        let game = self.fault_dispute_game_with_role(game_address, Role::Proposer).await?;
+        let game = self.fault_dispute_game(game_address).await?;
         let receipt = game
             .claimCredit(recipient)
             .send()
@@ -417,7 +425,7 @@ impl TestEnvironment {
     }
 
     pub async fn prove_game(&self, address: Address) -> Result<TransactionReceipt> {
-        let game = self.fault_dispute_game_with_role(address, Role::Proposer).await?;
+        let game = self.fault_dispute_game(address).await?;
         let receipt = game
             .prove(Bytes::new())
             .send()
