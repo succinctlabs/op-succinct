@@ -24,11 +24,12 @@ impl PreimageStore {
         Ok(())
     }
 
-    pub fn save_preimage(&mut self, key: PreimageKey, value: Vec<u8>) {
-        check_preimage(&key, &value).expect("Invalid preimage");
+    pub fn save_preimage(&mut self, key: PreimageKey, value: Vec<u8>) -> PreimageOracleResult<()> {
+        check_preimage(&key, &value)?;
         if let Some(old) = self.preimage_map.insert(key, value.clone()) {
             assert_eq!(old, value, "Cannot overwrite key");
         }
+        Ok(())
     }
 }
 
