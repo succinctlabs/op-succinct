@@ -729,7 +729,9 @@ where
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
 
         let ranges = self
-            .split_range(start_block, end_block)
+            .config
+            .range_splits
+            .split(start_block, end_block)
             .context("failed to split range for proving")?;
         let num_ranges = ranges.len();
 
@@ -1825,33 +1827,6 @@ where
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         tracing::info!("Spawned bond claim task {}", task_id);
         Ok(())
-    }
-
-    fn split_range(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
-        let splits = self.config.range_splits.to_usize();
-        let total = end.checked_sub(start).ok_or_else(|| {
-            anyhow::anyhow!("start block {start} is greater than end block {end}")
-        })?;
-        if total == 0 {
-            bail!("start block equals end block ({start}); nothing to prove");
-        }
-        if splits == 1 {
-            return Ok(vec![(start, end)]);
-        }
-
-        // Never split into more parts than there are blocks.
-        let segments = splits.min(total as usize);
-        let mut ranges = Vec::with_capacity(segments);
-
-        let step = total.div_ceil(segments as u64);
-
-        let mut cur = start;
-        for _ in 0..segments {
-            let next = (cur + step).min(end);
-            ranges.push((cur, next));
-            cur = next;
-        }
-        Ok(ranges)
     }
 }
 

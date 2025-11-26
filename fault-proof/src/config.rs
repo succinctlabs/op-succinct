@@ -267,6 +267,38 @@ impl RangeSplits {
             RangeSplits::Fifteen => 15,
         }
     }
+
+    pub fn is_one(&self) -> bool {
+        matches!(self, RangeSplits::One)
+    }
+
+    pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
+        let total = end.checked_sub(start).ok_or_else(|| {
+            anyhow::anyhow!("start block {start} is greater than end block {end}")
+        })?;
+        if total == 0 {
+            bail!("start block equals end block ({start}); nothing to prove");
+        }
+
+        if self.is_one() {
+            return Ok(vec![(start, end)]);
+        }
+
+        let splits = self.to_usize();
+        // Never split into more parts than there are blocks.
+        let segments = splits.min(total as usize);
+        let mut ranges = Vec::with_capacity(segments);
+
+        let step = total.div_ceil(segments as u64);
+
+        let mut cur = start;
+        for _ in 0..segments {
+            let next = (cur + step).min(end);
+            ranges.push((cur, next));
+            cur = next;
+        }
+        Ok(ranges)
+    }
 }
 
 impl FromStr for RangeSplits {
