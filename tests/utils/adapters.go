@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
+	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/apis"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
 	opsbind "github.com/succinctlabs/op-succinct/bindings"
 )
 
@@ -152,4 +155,24 @@ func (w ethCaller) CodeAt(ctx context.Context, contract common.Address, blockNum
 		return nil, err
 	}
 	return code, nil
+}
+
+// WaitForGameCount waits until the dispute game factory has at least min games created.
+func WaitForGameCount(ctx context.Context, t devtest.T, dgf *DgfClient, min uint64) {
+	for {
+		gameCount, err := dgf.GameCount(ctx)
+		require.NoError(t, err, "failed to get game count from factory")
+
+		if gameCount >= min {
+			t.Logger().Info("Dispute game detected", "count", gameCount)
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Errorf("timeout waiting for dispute game to be created")
+			t.FailNow()
+		case <-time.After(time.Second):
+		}
+	}
 }
