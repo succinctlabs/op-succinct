@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/apis"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/v2"
 	"github.com/ethereum/go-ethereum/common"
@@ -111,6 +112,24 @@ func NewFdgClient(client apis.EthClient, addr common.Address) (*FdgClient, error
 	return &FdgClient{
 		caller: fdgCaller,
 	}, nil
+}
+
+// RootClaim fetches the root claim for the fault dispute game.
+func (fdg *FdgClient) RootClaim(ctx context.Context) (eth.Bytes32, error) {
+	rootClaim, err := fdg.caller.RootClaim(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("call rootClaim: %w", err)
+	}
+	return eth.Bytes32(rootClaim), nil
+}
+
+// L2BlockNumber fetches the L2 block number the fault dispute game targets.
+func (fdg *FdgClient) L2BlockNumber(ctx context.Context) (uint64, error) {
+	l2BlockNumber, err := fdg.caller.L2BlockNumber(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return 0, fmt.Errorf("call l2BlockNumber: %w", err)
+	}
+	return l2BlockNumber.Uint64(), nil
 }
 
 // ParentIndex fetches the parent index from the fault dispute game.
