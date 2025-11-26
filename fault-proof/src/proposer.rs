@@ -728,7 +728,9 @@ where
         let l1_head_hash = game.l1Head().call().await?.0;
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
 
-        let ranges = self.split_range(start_block, end_block);
+        let ranges = self
+            .split_range(start_block, end_block)
+            .context("failed to split range for proving")?;
         let num_ranges = ranges.len();
 
         let mut proofs = vec![None; num_ranges];
@@ -1825,26 +1827,31 @@ where
         Ok(())
     }
 
-    fn split_range(&self, start: u64, end: u64) -> Vec<(u64, u64)> {
+    fn split_range(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let splits = self.config.range_splits.to_usize();
-        let total = end.saturating_sub(start);
-        if splits == 0 || total == 0 {
-            return vec![(start, end)];
+        let total = end.checked_sub(start).ok_or_else(|| {
+            anyhow::anyhow!("start block {start} is greater than end block {end}")
+        })?;
+        if total == 0 {
+            bail!("start block equals end block ({start}); nothing to prove");
+        }
+        if splits == 1 {
+            return Ok(vec![(start, end)]);
         }
 
-        let mut ranges = Vec::with_capacity(splits);
-        let step = total.div_ceil(splits as u64);
+        // Never split into more parts than there are blocks.
+        let segments = splits.min(total as usize);
+        let mut ranges = Vec::with_capacity(segments);
+
+        let step = total.div_ceil(segments as u64);
 
         let mut cur = start;
-        for _ in 0..splits {
-            if cur >= end {
-                break;
-            }
+        for _ in 0..segments {
             let next = (cur + step).min(end);
             ranges.push((cur, next));
             cur = next;
         }
-        ranges
+        Ok(ranges)
     }
 }
 
