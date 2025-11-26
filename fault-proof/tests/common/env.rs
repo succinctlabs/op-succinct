@@ -355,7 +355,7 @@ impl TestEnvironment {
     }
 
     pub async fn resolve_game(&self, address: Address) -> Result<TransactionReceipt> {
-        let game = self.fault_dispute_game_with_role(address, Role::Proposer).await?;
+        let game = self.fault_dispute_game(address).await?;
         let receipt =
             game.resolve().send().await?.with_required_confirmations(1).get_receipt().await?;
         Ok(receipt)
