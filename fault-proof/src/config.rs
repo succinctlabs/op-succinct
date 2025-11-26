@@ -342,27 +342,27 @@ mod split_range_tests {
     }
 
     #[rstest]
-    #[case::single_split(RangeSplits::One, 10, 20, vec![(10, 20)])]
-    #[case::single_block(RangeSplits::Two, 0, 1, vec![(0, 1)])]
-    #[case::no_empty_tail(RangeSplits::Four, 0, 5, vec![(0, 2), (2, 4), (4, 5)])]
-    #[case::offset_uneven(RangeSplits::Four, 5, 14, vec![(5, 8), (8, 11), (11, 14)])]
-    #[case::even_split(RangeSplits::Four, 0, 10, vec![(0, 3), (3, 6), (6, 9), (9, 10)])]
-    #[case::caps_to_total(RangeSplits::Twelve, 5, 8, vec![(5, 6), (6, 7), (7, 8)])]
-    #[case::large_splits_small_range(RangeSplits::Fifteen, 0, 1, vec![(0, 1)])]
+    #[case::single_split(RangeSplits::One, 10, 20, &[(10, 20)])]
+    #[case::single_block(RangeSplits::Two, 0, 1, &[(0, 1)])]
+    #[case::no_empty_tail(RangeSplits::Four, 0, 5, &[(0, 2), (2, 4), (4, 5)])]
+    #[case::offset_uneven(RangeSplits::Four, 5, 14, &[(5, 8), (8, 11), (11, 14)])]
+    #[case::even_split(RangeSplits::Four, 0, 10, &[(0, 3), (3, 6), (6, 9), (9, 10)])]
+    #[case::caps_to_total(RangeSplits::Twelve, 5, 8, &[(5, 6), (6, 7), (7, 8)])]
+    #[case::large_splits_small_range(RangeSplits::Fifteen, 0, 1, &[(0, 1)])]
     #[case::stop_when_done(
         RangeSplits::Fifteen,
         0,
         16,
-        vec![(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
+        &[(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
     )]
     fn test_splits_expected_paths(
         #[case] splits: RangeSplits,
         #[case] start: u64,
         #[case] end: u64,
-        #[case] expected: Vec<(u64, u64)>,
+        #[case] expected: &[(u64, u64)],
     ) {
         let ranges = splits.split(start, end).expect("split should succeed");
-        assert_eq!(ranges, expected);
+        assert_eq!(&ranges, expected);
         assert_contiguous_cover(&ranges, start, end);
     }
 
