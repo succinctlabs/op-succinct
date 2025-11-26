@@ -130,9 +130,9 @@ impl TestEnvironment {
     /// Setup test environment with starting L2 block offset from actual finalized block
     ///
     /// # Arguments
-    /// * `offset` - Positive offset creates future block (for testing misconfiguration) Negative
-    ///   offset creates past block (for testing valid scenarios) Zero offset is equivalent to
-    ///   normal setup()
+    /// * `offset` - Positive offset creates future block (for testing misconfiguration). Negative
+    ///   offset creates past block (for testing valid scenarios). Zero offset is equivalent to
+    ///   normal setup().
     ///
     /// # Examples
     /// * `setup_with_starting_block_offset(1_000_000)` - 1M blocks ahead (misconfigured)
