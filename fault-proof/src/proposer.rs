@@ -730,7 +730,7 @@ where
 
         let ranges = self
             .config
-            .range_splits
+            .range_split_count
             .split(start_block, end_block)
             .context("failed to split range for proving")?;
         let num_ranges = ranges.len();

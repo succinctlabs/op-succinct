@@ -6,7 +6,7 @@ use alloy_provider::ProviderBuilder;
 use anyhow::Result;
 use fault_proof::{
     challenger::OPSuccinctChallenger,
-    config::{ChallengerConfig, RangeSplits},
+    config::{ChallengerConfig, RangeSplitCount},
     contract::DisputeGameFactory,
     proposer::OPSuccinctProposer,
 };
@@ -51,7 +51,7 @@ pub async fn init_proposer(
         timeout: 14400, // 4 hours
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
-        range_splits: RangeSplits::One,
+        range_split_count: RangeSplitCount::one(),
         agg_cycle_limit: 1_000_000_000_000,
         agg_gas_limit: 1_000_000_000_000,
         whitelist: None,
