@@ -610,8 +610,9 @@ mod sync {
         let starting_l2_block = env.anvil.starting_l2_block_number;
         let mut game_addresses = Vec::new();
 
-        // Create anchor root (0) and two children (1 - zero-credit, 2 - in-progress)
-        for i in 0..3 {
+        // Create anchor root (0) and three children (1 - zero-credit, 2 - zero-credit, 3 -
+        // in-progress)
+        for i in 0..4 {
             let block = starting_l2_block + 1 + i as u64;
             let root_claim = env.compute_output_root_at_block(block).await?;
             let parent_id = if i == 0 { M } else { 0 };
@@ -625,32 +626,43 @@ mod sync {
         env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
         env.resolve_game(game_addresses[0]).await?;
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-        env.set_anchor_state(game_addresses[0]).await?;
+        env.claim_bond(game_addresses[0], PROPOSER_ADDRESS).await?;
 
-        // Resolve game 1 and claim its bond to set credit = 0
+        // Resolve game 2 and claim its bond to set credit = 0
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_addresses[2]).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(game_addresses[2], PROPOSER_ADDRESS).await?;
+
+        // Resolve game 1 and claim its bond to set credit = 0 (expected to be evicted; it's not
+        // the anchor or canonical head)
         env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
         env.resolve_game(game_addresses[1]).await?;
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
         env.claim_bond(game_addresses[1], PROPOSER_ADDRESS).await?;
 
-        // Game 2 left IN_PROGRESS
+        // Game 3 is left IN_PROGRESS
         proposer.sync_state().await?;
 
         let snapshot = proposer.state_snapshot().await;
         snapshot.assert_game_len(2);
-        snapshot.assert_anchor_index(Some(0));
+        snapshot.assert_anchor_index(Some(2));
         snapshot.assert_canonical_head(Some(2), 3, starting_l2_block);
 
         let game_indices: std::collections::HashSet<U256> =
             snapshot.games.iter().map(|(idx, _)| *idx).collect();
 
-        assert!(game_indices.contains(&U256::from(0)), "Anchor game should be retained");
-        assert!(game_indices.contains(&U256::from(2)), "In-progress game should be retained");
+        assert!(!game_indices.contains(&U256::from(0)), "Old anchor game should be evicted");
         assert!(!game_indices.contains(&U256::from(1)), "Zero-credit game should be evicted");
+        assert!(game_indices.contains(&U256::from(2)), "Anchor game should be retained");
+        assert!(game_indices.contains(&U256::from(3)), "In-progress game should be retained");
 
-        // Verify anchor's credit is non-zero (bond was not claimed)
-        let anchor_credit = env.get_credit(game_addresses[0], PROPOSER_ADDRESS).await?;
-        assert!(anchor_credit > U256::ZERO, "Anchor game should have non-zero credit");
+        // Verify credit balances
+        let anchor_credit = env.get_credit(game_addresses[2], PROPOSER_ADDRESS).await?;
+        assert_eq!(anchor_credit, U256::ZERO, "Anchor game should have zero credit");
+
+        let game_3_credit = env.get_credit(game_addresses[3], PROPOSER_ADDRESS).await?;
+        assert_ne!(game_3_credit, U256::ZERO, "Game 3 should have non-zero credit");
 
         Ok(())
     }
