@@ -734,6 +734,7 @@ where
             .split(start_block, end_block)
             .context("failed to split range for proving")?;
         let num_ranges = ranges.len();
+        tracing::info!("Proving over {num_ranges} ranges");
 
         let mut proofs = vec![None; num_ranges];
         let mut boot_infos = vec![None; num_ranges];
@@ -748,6 +749,7 @@ where
             .map(|(idx, (start, end))| {
                 let this = self.clone();
                 async move {
+                    tracing::info!("Generating Range Proof for blocks {start} to {end}");
                     let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
 
                     let (range_proof, inst_cycles, sp1_gas) =
@@ -854,7 +856,6 @@ where
         &self,
         sp1_stdin: &SP1Stdin,
     ) -> Result<(SP1ProofWithPublicValues, u64, u64)> {
-        tracing::info!("Generating Range Proof");
         if self.config.mock_mode {
             tracing::info!("Using mock mode for range proof generation");
             let (public_values, report) = self
