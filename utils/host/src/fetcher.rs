@@ -56,6 +56,9 @@ pub struct RPCConfig {
     pub l2_rpc: Url,
     // TODO(fakedev9999): Make optional if possible.
     pub l2_node_rpc: Url,
+    /// Maximum number of concurrent RPC requests. Default: 5.
+    /// Configure via RPC_CONCURRENCY environment variable.
+    pub concurrency: usize,
 }
 
 /// The mode corresponding to the chain we are fetching data for.
@@ -67,12 +70,26 @@ pub enum RPCMode {
     L2Node,
 }
 
+/// Default RPC concurrency limit.
+/// Set RPC_CONCURRENCY env var to a lower value (e.g., 3-5) if hitting 429 rate limits.
+pub const DEFAULT_RPC_CONCURRENCY: usize = 10;
+
+/// Gets the RPC concurrency from the RPC_CONCURRENCY environment variable.
+/// Returns DEFAULT_RPC_CONCURRENCY (10) if not set or invalid.
+pub fn get_rpc_concurrency_from_env() -> usize {
+    env::var("RPC_CONCURRENCY")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(DEFAULT_RPC_CONCURRENCY)
+}
+
 /// Gets the RPC URLs from environment variables.
 ///
 /// L1_RPC: The L1 RPC URL.
 /// L1_BEACON_RPC: The L1 beacon RPC URL.
 /// L2_RPC: The L2 RPC URL.
 /// L2_NODE_RPC: The L2 node RPC URL.
+/// RPC_CONCURRENCY: Maximum concurrent RPC requests (default: 5).
 pub fn get_rpcs_from_env() -> RPCConfig {
     let l1_rpc = env::var("L1_RPC").expect("L1_RPC must be set");
     let maybe_l1_beacon_rpc = env::var("L1_BEACON_RPC").ok();
@@ -92,6 +109,7 @@ pub fn get_rpcs_from_env() -> RPCConfig {
         l1_beacon_rpc,
         l2_rpc: Url::parse(&l2_rpc).expect("L2_RPC must be a valid URL"),
         l2_node_rpc: Url::parse(&l2_node_rpc).expect("L2_NODE_RPC must be a valid URL"),
+        concurrency: get_rpc_concurrency_from_env(),
     }
 }
 
@@ -214,7 +232,7 @@ impl OPSuccinctDataFetcher {
                     total_tx_fees,
                 })
             })
-            .buffered(10)
+            .buffered(self.rpc_config.concurrency)
             .collect::<Vec<Result<BlockInfo>>>()
             .await;
 
@@ -470,7 +488,7 @@ impl OPSuccinctDataFetcher {
         // Process blocks in batches of 10, but maintain original order
         let results = stream::iter(block_numbers)
             .map(|block_number| self.get_l1_header(block_number.into()))
-            .buffered(10)
+            .buffered(self.rpc_config.concurrency)
             .collect::<Vec<_>>()
             .await;
 
