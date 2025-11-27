@@ -1,4 +1,4 @@
-package e2e
+package fpbootstrap
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 func TestMain(m *testing.M) {
 	presets.DoMain(m,
-		opspresets.WithSuccinctFaultProofProposer(&sysgo.DefaultSingleChainInteropSystemIDs{}),
+		opspresets.WithDefaultSuccinctFPProposer(&sysgo.DefaultSingleChainInteropSystemIDs{}),
 		presets.WithSafeDBEnabled(),
 	)
 }
