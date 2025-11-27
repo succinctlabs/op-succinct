@@ -855,8 +855,8 @@ where
         let witness_data = match self.host.run(&host_args).await {
             Ok(witness) => witness,
             Err(e) => {
-                tracing::error!("Witness generation failed: {}", e);
-                return Err(anyhow::anyhow!("Witness generation failed: {}", e));
+                tracing::error!("Failed to generate witness: {}", e);
+                return Err(anyhow::anyhow!("Failed to generate witness: {}", e));
             }
         };
 
