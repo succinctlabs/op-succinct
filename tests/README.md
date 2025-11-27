@@ -6,7 +6,7 @@ run the suite with the expected environment.
 
 ## Layout
 
-- `e2e/`: Go e2e tests (currently covers the Succinct validity proposer flow).
+- `e2e/`: Go e2e tests (validity and faultproof proposers).
 - `artifacts/`: Contract artifacts; a compressed tarball lives at
 `artifacts/compressed/artifacts.tzst` and is unpacked into `artifacts/src`
 before tests.
@@ -41,16 +41,28 @@ the tests.
 
 ## Running the e2e suite
 
-- Recommended (builds the validity proposer, unpacks artifacts):
+- Run everything (builds both binaries, unpacks artifacts):
 
   ```just
-  just test-e2e-sysgo validity
+  just test-e2e-sysgo
+  ```
+
+- Validity proposer only:
+
+  ```just
+  just test-e2e-sysgo ./e2e/validity
+  ```
+
+- Faultproof proposer only:
+
+  ```just
+  just test-e2e-sysgo ./e2e/faultproof/...
   ```
 
 - Run a single test with a filter:
 
   ```just
-  just test-e2e-sysgo validity TestValidityProposer_ProveSingleRange
+  just test-e2e-sysgo ./e2e/validity TestValidityProposer_ProveSingleRange
   ```
 
 ## Maintenance
