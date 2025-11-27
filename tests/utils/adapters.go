@@ -114,6 +114,14 @@ func NewFdgClient(client apis.EthClient, addr common.Address) (*FdgClient, error
 	}, nil
 }
 
+func (dfg *FdgClient) Status (ctx context.Context) (uint8, error) {
+	status, err := dfg.caller.Status(opts(ctx))
+	if err != nil {
+		return 0, fmt.Errorf("call status: %w", err)
+	}
+	return uint8(status), nil
+}
+
 // RootClaim fetches the root claim for the fault dispute game.
 func (fdg *FdgClient) RootClaim(ctx context.Context) (eth.Bytes32, error) {
 	rootClaim, err := fdg.caller.RootClaim(opts(ctx))
@@ -190,6 +198,24 @@ func WaitForGameCount(ctx context.Context, t devtest.T, dgf *DgfClient, min uint
 		select {
 		case <-ctx.Done():
 			t.Errorf("timeout waiting for dispute game to be created")
+			t.FailNow()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func WaitForDefenderWins(ctx context.Context, t devtest.T, dgf *FdgClient) {
+	for {
+		status, err := dgf.Status(ctx)
+		require.NoError(t, err, "failed to get game count from factory")
+
+		if status == 2 {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Errorf("timeout waiting for dispute game to be resolved")
 			t.FailNow()
 		case <-time.After(time.Second):
 		}
