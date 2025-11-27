@@ -1,4 +1,4 @@
-package faultproof
+package fpfastfinality
 
 import (
 	"context"
