@@ -48,3 +48,38 @@ let l1_head_number = l1_head_number + 100;
 The error occurs in the derivation pipeline when attempting to validate L2 blocks. The L1 head must be sufficiently ahead of the batch posting block to ensure all required data is available and the safe head state is consistent. The buffer of 20 blocks is added empirically to handle most cases where RPCs may have an incorrect view of the safe head state and have minimum overhead for the derivation process.
 
 Reference: [Fetcher Implementation](https://github.com/succinctlabs/op-succinct/blob/5dfc43928c75cef0ebf881d10bd8b3dcbe273419/utils/host/src/fetcher.rs#L773)
+
+### RPC Rate Limit Errors (429)
+
+**Error Message:**
+
+```text
+error code 429: Too Many Requests
+```
+
+or
+
+```text
+rate limit exceeded
+```
+
+**Cause:**
+This error occurs when your RPC provider is rate-limiting requests due to too many concurrent calls. OP Succinct makes concurrent RPC requests to fetch block data efficiently, which can exceed the limits of free or low-tier RPC plans.
+
+**Solution:**
+Set the `RPC_CONCURRENCY` environment variable to a lower value:
+
+```bash
+# For low-tier RPC plans, try 3-5 concurrent requests
+export RPC_CONCURRENCY=5
+
+# For very restrictive plans
+export RPC_CONCURRENCY=3
+```
+
+The default is `10` concurrent requests. Reducing this value will make operations slower but more reliable for rate-limited RPC endpoints.
+
+**Recommendations:**
+- Free RPC tiers: Set `RPC_CONCURRENCY=3`
+- Basic paid tiers: Set `RPC_CONCURRENCY=5`
+- Professional tiers: Default `10` should work, or increase for faster performance
