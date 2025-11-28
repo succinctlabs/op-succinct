@@ -32,6 +32,7 @@ jobs:
           images: ${{ inputs.artifact-registry }}
           tags: |
             type=semver,pattern={{version}},match=celo/v(.*)
+            type=semver,pattern=v{{major}},match=celo/v(\d+\.\d+\.\d+)$
             type=edge
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha
