@@ -83,6 +83,9 @@ pub struct ProposerConfig {
     /// The number of segments to split the range into (1-16).
     pub range_split_count: RangeSplitCount,
 
+    /// The maximum number of concurrent range proof tasks. (default: 1)
+    pub max_concurrent_range_proofs: usize,
+
     /// The cycle limit to use for aggregation proofs.
     pub agg_cycle_limit: u64,
 
@@ -172,6 +175,9 @@ impl ProposerConfig {
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
             range_split_count: env::var("RANGE_SPLIT_COUNT").unwrap_or("1".to_string()).parse()?,
+            max_concurrent_range_proofs: env::var("MAX_CONCURRENT_RANGE_PROOFS")
+                .unwrap_or("1".to_string())
+                .parse()?,
             agg_cycle_limit: env::var("AGG_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
