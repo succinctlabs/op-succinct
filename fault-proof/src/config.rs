@@ -84,6 +84,9 @@ pub struct ProposerConfig {
     pub range_split_count: RangeSplitCount,
 
     /// The maximum number of concurrent range proof tasks. (default: 1)
+    ///
+    /// Increasing this feeds more work into the prover and host in parallel; tune carefully based
+    /// on observed latency, and system resources before deviating from default.
     pub max_concurrent_range_proofs: usize,
 
     /// The cycle limit to use for aggregation proofs.
