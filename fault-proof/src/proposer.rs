@@ -12,6 +12,7 @@ use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder, RootProvider};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{bail, Context, Result};
+use futures::stream::{self, StreamExt, TryStreamExt};
 use op_succinct_client_utils::boot::BootInfoStruct;
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
@@ -736,50 +737,40 @@ where
         let num_ranges = ranges.len();
         tracing::info!("Proving over {num_ranges} ranges");
 
+        let tasks = ranges.into_iter().enumerate().map(|(idx, (start, end))| {
+            let this = self.clone();
+            async move {
+                tracing::info!("Generating Range Proof for blocks {start} to {end}");
+                let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
+                let (range_proof, inst_cycles, sp1_gas) = this.prove_range_game(&sp1_stdin).await?;
+                Ok::<_, anyhow::Error>((idx, range_proof, inst_cycles, sp1_gas))
+            }
+        });
+
+        let max_concurrent = self.config.max_concurrent_range_proofs.min(num_ranges);
+        let prove_stream = stream::iter(tasks);
+        let results: Vec<(usize, SP1ProofWithPublicValues, u64, u64)> =
+            prove_stream.buffer_unordered(max_concurrent).try_collect().await?;
+
         let mut proofs = vec![None; num_ranges];
         let mut boot_infos = vec![None; num_ranges];
-
         let mut total_instruction_cycles: u64 = 0;
         let mut total_sp1_gas: u64 = 0;
 
-        use futures::stream::{FuturesUnordered, StreamExt};
-        let mut tasks: FuturesUnordered<_> = ranges
-            .into_iter()
-            .enumerate()
-            .map(|(idx, (start, end))| {
-                let this = self.clone();
-                async move {
-                    tracing::info!("Generating Range Proof for blocks {start} to {end}");
-                    let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
-
-                    let (range_proof, inst_cycles, sp1_gas) =
-                        this.prove_range_game(&sp1_stdin).await?;
-
-                    let proof = range_proof.proof.clone();
-                    let mut public_values = range_proof.public_values.clone();
-                    let boot_info: BootInfoStruct = public_values.read();
-
-                    Ok::<_, anyhow::Error>((idx, proof, boot_info, inst_cycles, sp1_gas))
-                }
-            })
-            .collect();
-
-        while let Some(result) = tasks.next().await {
-            let (idx, proof, boot_info, inst_cycles, sp1_gas) = result?;
-
-            total_instruction_cycles = total_instruction_cycles
-                .checked_add(inst_cycles)
-                .ok_or_else(|| anyhow::anyhow!("Instruction cycles overflow"))?;
-
-            total_sp1_gas = total_sp1_gas
-                .checked_add(sp1_gas)
-                .ok_or_else(|| anyhow::anyhow!("SP1 gas overflow"))?;
+        for (idx, range_proof, inst_cycles, sp1_gas) in results {
+            let proof = range_proof.proof.clone();
+            let mut public_values = range_proof.public_values.clone();
+            let boot_info: BootInfoStruct = public_values.read();
 
             proofs[idx] = Some(proof);
             boot_infos[idx] = Some(boot_info);
+            total_instruction_cycles = total_instruction_cycles
+                .checked_add(inst_cycles)
+                .ok_or_else(|| anyhow::anyhow!("Instruction cycles overflow"))?;
+            total_sp1_gas = total_sp1_gas
+                .checked_add(sp1_gas)
+                .ok_or_else(|| anyhow::anyhow!("SP1 gas overflow"))?;
         }
-
-        tracing::info!("Preparing Stdin for Agg Proof");
 
         let proofs = proofs
             .into_iter()
@@ -807,6 +798,7 @@ where
             }
         };
 
+        tracing::info!("Preparing Stdin for Agg Proof");
         let sp1_stdin = match get_agg_proof_stdin(
             proofs,
             boot_infos,
