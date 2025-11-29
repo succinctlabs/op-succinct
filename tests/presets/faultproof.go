@@ -21,10 +21,11 @@ func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSys
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, sysgo.WithFdgL2StartingBlockNumber(1)))
 		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
-			sysgo.WithFPProposalIntervalInBlocks(10),
-			sysgo.WithFPFastFinalityProvingLimit(4),
-			sysgo.WithFPRangeSplitCount(4),
+			sysgo.WithFPProposalIntervalInBlocks(20),
 			sysgo.WithFPFetchInterval(1),
-			sysgo.WithFPFastFinalityMode(true)))
+			sysgo.WithFPRangeSplitCount(16),
+			sysgo.WithFPMaxConcurrentRangeProofs(16),
+			sysgo.WithFPFastFinalityMode(true),
+			sysgo.WithFPFastFinalityProvingLimit(4)))
 	})
 }

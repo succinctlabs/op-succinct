@@ -114,7 +114,7 @@ func NewFdgClient(client apis.EthClient, addr common.Address) (*FdgClient, error
 	}, nil
 }
 
-func (dfg *FdgClient) Status (ctx context.Context) (uint8, error) {
+func (dfg *FdgClient) Status(ctx context.Context) (uint8, error) {
 	status, err := dfg.caller.Status(opts(ctx))
 	if err != nil {
 		return 0, fmt.Errorf("call status: %w", err)
