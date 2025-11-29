@@ -742,7 +742,8 @@ where
             async move {
                 tracing::info!("Generating Range Proof for blocks {start} to {end}");
                 let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
-                let (range_proof, inst_cycles, sp1_gas) = this.prove_range_game(&sp1_stdin).await?;
+                let (range_proof, inst_cycles, sp1_gas) =
+                    this.range_proof_request(&sp1_stdin).await?;
                 Ok::<_, anyhow::Error>((idx, range_proof, inst_cycles, sp1_gas))
             }
         });
@@ -814,7 +815,7 @@ where
             }
         };
 
-        let tx_hash = self.aggregate_and_submit(&game, &sp1_stdin).await?;
+        let tx_hash = self.agg_proof_request(&game, &sp1_stdin).await?;
 
         Ok((tx_hash, total_instruction_cycles, total_sp1_gas))
     }
@@ -844,7 +845,7 @@ where
         Ok(sp1_stdin)
     }
 
-    async fn prove_range_game(
+    async fn range_proof_request(
         &self,
         sp1_stdin: &SP1Stdin,
     ) -> Result<(SP1ProofWithPublicValues, u64, u64)> {
@@ -903,7 +904,7 @@ where
         }
     }
 
-    async fn aggregate_and_submit(
+    async fn agg_proof_request(
         &self,
         game: &OPSuccinctFaultDisputeGameInstance<RootProvider>,
         sp1_stdin: &SP1Stdin,
