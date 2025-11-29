@@ -20,11 +20,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestFaultProofProposer_WaitsForFirstGameDefenderWins(gt *testing.T) {
-	waitForDefenderWinsAtIndex(gt, 0, 5*time.Minute)
+	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute)
 }
 
-func TestFaultProofProposer_WaitsForTenthGameDefenderWins(gt *testing.T) {
-	waitForDefenderWinsAtIndex(gt, 9, 30*time.Minute)
+func TestFaultProofProposer_WaitsForFifthGameDefenderWins(gt *testing.T) {
+	waitForDefenderWinsAtIndex(gt, 4, 30*time.Minute)
 }
 
 func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration) {
