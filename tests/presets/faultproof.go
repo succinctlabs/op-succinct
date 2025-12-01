@@ -26,6 +26,7 @@ func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSys
 			sysgo.WithFPRangeSplitCount(16),
 			sysgo.WithFPMaxConcurrentRangeProofs(16),
 			sysgo.WithFPFastFinalityMode(true),
-			sysgo.WithFPFastFinalityProvingLimit(4)))
+			// Set to 8 to allow more game creation tasks while proving is still in progress, enabling faster test completion.
+			sysgo.WithFPFastFinalityProvingLimit(8)))
 	})
 }
