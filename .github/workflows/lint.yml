@@ -9,7 +9,7 @@ on:
       - main
   pull_request:
     paths:
-      - ".github/workflows/lint.yaml"
+      - ".github/workflows/lint.yml"
       - "Cargo.toml"
       - "Cargo.lock"
       - "justfile"
