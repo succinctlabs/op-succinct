@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   e2e-sysgo-tests:
-    name: ${{ matrix.target }}
+    name: (${{ matrix.target }})
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64

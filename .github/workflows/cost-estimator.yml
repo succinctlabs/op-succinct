@@ -8,11 +8,22 @@ on:
       - "release/*"
       - main
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
       - '**/*.pdf'
       - '**/*.md'
+  schedule:
+    - cron: '0 0 * * *' # Run daily job at midnight UTC
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Cost estimator mode'
+        required: true
+        default: 'rolling'
+        type: choice
+        options:
+          - rolling
+          - daily
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -20,21 +31,22 @@ concurrency:
 
 jobs:
   cost-estimator:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'rolling')
     runs-on:
       - runs-on
       - cpu=16
       - ram=64
       - family=m7a+m7i-flex
       - image=ubuntu22-full-x64
-      - run-id=${{ github.run_id }} 
-      - spot=false 
+      - run-id=${{ github.run_id }}
+      - spot=false
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup CI
         uses: ./.github/actions/setup
 
-      - name: Run cost estimator on recent block range
+      - name: Run cost estimator
         run: |
           RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling
         env:
@@ -42,3 +54,34 @@ jobs:
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
+
+  cost-estimator-daily:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily')
+    runs-on:
+      - runs-on
+      - cpu=32
+      - ram=128
+      - family=m7a+m7i-flex
+      - image=ubuntu22-full-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Run daily cost estimator
+        run: |
+          RUST_LOG=info cargo run --bin cost-estimator --release -- --batch-size 30 --default-range 1000
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+
+      - name: Upload execution reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: execution-reports
+          path: execution-reports/
