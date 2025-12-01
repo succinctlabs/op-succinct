@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: ["validity", "faultproof"]
+        mode: ["./e2e/validity/...", "./e2e/faultproof/..."]
 
     steps:
       - name: Checkout sources
