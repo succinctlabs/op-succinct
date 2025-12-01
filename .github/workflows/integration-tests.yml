@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   fp-integration-tests:
-    name: Run FP Integration Tests (${{ matrix.target }})
+    name: Fault Proof (${{ matrix.target }})
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
