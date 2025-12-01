@@ -68,7 +68,7 @@ git push origin vX.Y.Z
 2. Click "Draft a new release"
 3. Select the tag `vX.Y.Z`
 4. Click "Generate release notes" for auto-generated changelog
-5. Run `just vkeys` and add the verification key table to the release notes
+5. Run `just vkeys` and copy the markdown table output into the release notes
 6. Review and publish release
 
 ## What Gets Published
