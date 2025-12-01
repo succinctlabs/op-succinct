@@ -46,7 +46,7 @@ just build-elfs
 
 ```bash
 git checkout -b chore/bump-vX.Y.Z
-git add Cargo.toml elf/
+git add Cargo.toml Cargo.lock elf/
 git commit -m "chore: bump to vX.Y.Z"
 git push origin chore/bump-vX.Y.Z
 ```
