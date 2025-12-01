@@ -36,11 +36,6 @@ jobs:
         with:
           submodules: true
 
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          large-packages: false
-
       - name: Setup Rust
         run: |
           rustup toolchain install stable --profile minimal

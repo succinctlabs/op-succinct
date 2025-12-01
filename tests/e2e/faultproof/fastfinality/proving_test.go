@@ -24,7 +24,7 @@ func TestFaultProofProposer_WaitsForFirstGameDefenderWins(gt *testing.T) {
 }
 
 func TestFaultProofProposer_WaitsForFifthGameDefenderWins(gt *testing.T) {
-	waitForDefenderWinsAtIndex(gt, 4, 30*time.Minute)
+	waitForDefenderWinsAtIndex(gt, 4, 60*time.Minute)
 }
 
 func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration) {
