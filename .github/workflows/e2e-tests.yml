@@ -1,4 +1,4 @@
-name: Sysgo E2E Tests
+name: E2E Tests
 
 on:
   push:
