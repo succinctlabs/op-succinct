@@ -45,10 +45,10 @@ just build-elfs
 ### 3. Create Version Bump PR
 
 ```bash
-git checkout -b chore/bump-vX.Y.Z
+git checkout -b release/vX.Y.Z
 git add Cargo.toml Cargo.lock elf/
 git commit -m "chore: bump to vX.Y.Z"
-git push origin chore/bump-vX.Y.Z
+git push origin release/vX.Y.Z
 ```
 
 Merge the PR after review.

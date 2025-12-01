@@ -385,10 +385,10 @@ vkeys:
     echo "## Verification Key Hashes"
     echo ""
     echo "| Program | Verification Key Hash |"
-    echo "|--------|-------------|"
+    echo "|--------|------------------------|"
     echo "| Ethereum DA Range Verification Key | **$ETH_RANGE** |"
     echo "| Celestia DA Range Verification Key | **$CEL_RANGE** |"
-    echo "| Eigen DA Range Verification Key | **$EIGEN_RANGE** |"
+    echo "| EigenDA Range Verification Key | **$EIGEN_RANGE** |"
     echo "| Aggregation Verification Key | **$AGG_KEY** |"
 
 # Build all ELF files.
