@@ -433,7 +433,7 @@ fp-integration-tests target="":
 
    cd fault-proof
 
-   cargo t $test_target --release --features e2e -- --test-threads=1 --nocapture
+   cargo t $test_target --release --features integration -- --test-threads=1 --nocapture
 
 forge-build *ARGS:
     #!/usr/bin/env bash
