@@ -142,7 +142,7 @@ deploy-mock-verifier env_file=".env":
     cd contracts
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
@@ -155,7 +155,7 @@ deploy-mock-verifier env_file=".env":
 # Deploy the OPSuccinct L2 Output Oracle
 deploy-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
-    set -euo pipefail
+    set -aeo pipefail
     
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
@@ -172,14 +172,14 @@ deploy-oracle env_file=".env" *features='':
     cd contracts
 
     VERIFY=""
-    if [ "$ETHERSCAN_API_KEY" != "" ]; then
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
     
     ENV_VARS=""
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
-    
+
     # Run the forge deployment script
     $ENV_VARS forge script script/validity/OPSuccinctDeployer.s.sol:OPSuccinctDeployer \
         --rpc-url $L1_RPC \
@@ -361,15 +361,69 @@ remove-config config_name env_file=".env":
         --private-key $PRIVATE_KEY \
         --broadcast
 
-# Run all unit and integration tests except for the specified ones.
+# Generate verification key hashes for all DA variants.
+vkeys:
+    #!/usr/bin/env bash
+    set -e
+
+    echo "Generating verification key hashes..."
+    echo ""
+
+    # Ethereum DA
+    ETH_OUTPUT=$(RUST_LOG=error cargo run --release --bin config 2>&1)
+    ETH_RANGE=$(echo "$ETH_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+    AGG_KEY=$(echo "$ETH_OUTPUT" | grep "Aggregation Verification Key Hash" | awk '{print $NF}')
+
+    # Celestia DA
+    CEL_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features celestia 2>&1)
+    CEL_RANGE=$(echo "$CEL_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+
+    # EigenDA
+    EIGEN_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features eigenda 2>&1)
+    EIGEN_RANGE=$(echo "$EIGEN_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+
+    echo "## Verification Key Hashes"
+    echo ""
+    echo "| Program | Verification Key Hash |"
+    echo "|--------|------------------------|"
+    echo "| Ethereum DA Range Verification Key | **$ETH_RANGE** |"
+    echo "| Celestia DA Range Verification Key | **$CEL_RANGE** |"
+    echo "| EigenDA Range Verification Key | **$EIGEN_RANGE** |"
+    echo "| Aggregation Verification Key | **$AGG_KEY** |"
+
+# Build all ELF files.
+build-elfs: build-range-elfs build-agg-elf
+
+# Build ELF files for range programs.
+build-range-elfs:
+    #!/usr/bin/env bash
+
+    cd programs/range/ethereum
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.2 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+
+    cd ../celestia
+    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+
+    cd ../eigenda
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+
+# Build ELF file for aggregation program.
+build-agg-elf:
+    #!/usr/bin/env bash
+
+    cd programs/aggregation
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
+
+# Run all unit tests except for the specified ones.
 tests:
    cargo t --release \
     -- \
     --skip test_cycle_count_diff \
     --skip test_post_to_github
 
-# Run end-to-end tests.
-e2e-tests target="":
+# Run fault-proof integration tests.
+fp-integration-tests target="":
   #!/usr/bin/env bash
 
    test_target=""
@@ -379,4 +433,25 @@ e2e-tests target="":
 
    cd fault-proof
 
-   cargo t $test_target --release --features e2e -- --test-threads=1 --nocapture
+   cargo t $test_target --release --features integration -- --test-threads=1 --nocapture
+
+forge-build *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    cd contracts
+
+    forge build {{ARGS}}
+
+    # Forge build compiles only the src/ graph; the scripts/ graph is compiled by `forge script`.
+    # On the first invocation, `forge script` may compile a small set of dependencies.
+    # To avoid paying this cost in every CI test, we pre‑warm the script cache once here.
+    #
+    # Notes:
+    # - A single `forge script <any script> --skip-simulation` is sufficient to compile the script
+    #   dependency graph into the cache.
+    forge script "script/validity/DeployMockVerifier.s.sol" \
+    --skip "/**/test/**" \
+    --sig "idonotexist()" \
+    --skip-simulation \
+    2>/dev/null || true

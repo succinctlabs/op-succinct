@@ -10,7 +10,7 @@ use alloy_primitives::{Address, Bytes, FixedBytes, Uint, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_eth::TransactionReceipt;
 use alloy_signer_local::PrivateKeySigner;
-use alloy_sol_types::SolValue;
+use alloy_sol_types::{SolCall, SolValue};
 use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use op_succinct_bindings::{
@@ -43,6 +43,14 @@ use super::{
     anvil::{setup_anvil_chain, AnvilFork},
     contracts::{deploy_test_contracts, DeployedContracts},
 };
+
+/// Role for selecting which private key to use when creating providers
+#[derive(Debug, Clone, Copy)]
+pub enum Role {
+    Proposer,
+    Challenger,
+    Deployer,
+}
 
 /// Common test environment setup
 pub struct TestEnvironment {
@@ -127,6 +135,60 @@ impl TestEnvironment {
         Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
     }
 
+    /// Setup test environment with starting L2 block offset from actual finalized block
+    ///
+    /// # Arguments
+    /// * `offset` - Positive offset creates future block (for testing misconfiguration). Negative
+    ///   offset creates past block (for testing valid scenarios). Zero offset is equivalent to
+    ///   normal setup().
+    ///
+    /// # Examples
+    /// * `setup_with_starting_block_offset(1_000_000)` - 1M blocks ahead (misconfigured)
+    /// * `setup_with_starting_block_offset(-100)` - 100 blocks behind (valid)
+    /// * `setup_with_starting_block_offset(0)` - same as setup()
+    pub async fn setup_with_starting_block_offset(offset: i64) -> Result<Self> {
+        init_logging();
+
+        let mut rpc_config = get_rpcs_from_env();
+        let fetcher = OPSuccinctDataFetcher::new();
+
+        // Setup anvil chain - gets actual L2 finalized block
+        let anvil = setup_anvil_chain().await?;
+
+        // Apply offset to get custom starting block
+        let custom_starting_block = if offset >= 0 {
+            anvil.starting_l2_block_number.saturating_add(offset as u64)
+        } else {
+            anvil.starting_l2_block_number.saturating_sub(offset.unsigned_abs())
+        };
+
+        // For future blocks, use dummy root (can't compute root for blocks that don't exist)
+        // For past/current blocks, reuse the actual root from anvil setup
+        let starting_root = if offset > 0 {
+            // Dummy root for future blocks
+            "0x0000000000000000000000000000000000000000000000000000000000000000".to_string()
+        } else {
+            anvil.starting_root.clone()
+        };
+
+        // Create config with offset starting block
+        let test_config = test_config(custom_starting_block, starting_root);
+        let json = serde_json::to_string_pretty(&test_config)?;
+        std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
+
+        // Update RPC config with Anvil endpoint
+        rpc_config.l1_rpc = Url::parse(&anvil.endpoint)?;
+
+        let game_type = TEST_GAME_TYPE;
+        let private_keys = TestPrivateKeys::default();
+
+        // Deploy contracts with the offset starting block
+        info!("=== Deploying Contracts with starting block offset: {} ===", offset);
+        let deployed = deploy_test_contracts(&anvil.endpoint, private_keys.deployer).await?;
+
+        Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
+    }
+
     pub async fn init_proposer(
         &self,
     ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
@@ -193,6 +255,35 @@ impl TestEnvironment {
         Ok(address)
     }
 
+    /// Setup a legacy game type with init bond and implementation.
+    /// Returns the deployed implementation address.
+    pub async fn setup_legacy_game_type(
+        &self,
+        game_type: u32,
+        init_bond: Uint<256, 4>,
+    ) -> Result<Address> {
+        let legacy_impl = self.deploy_mock_permissioned_game().await?;
+
+        let set_init_call =
+            DisputeGameFactory::setInitBondCall { _gameType: game_type, _initBond: init_bond };
+        self.send_factory_tx(set_init_call.abi_encode(), None).await?;
+
+        let set_impl_call =
+            DisputeGameFactory::setImplementationCall { _gameType: game_type, _impl: legacy_impl };
+        self.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+
+        info!("✓ Setup legacy game type {game_type} with implementation at {legacy_impl}");
+        Ok(legacy_impl)
+    }
+
+    /// Set the respected game type on the OptimismPortal2.
+    pub async fn set_respected_game_type(&self, game_type: u32) -> Result<()> {
+        let set_type_call = MockOptimismPortal2::setRespectedGameTypeCall { _gameType: game_type };
+        self.send_portal_tx(set_type_call.abi_encode(), None).await?;
+        info!("✓ Set respected game type to {game_type}");
+        Ok(())
+    }
+
     pub async fn send_factory_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {
         let proposer_signer =
             SignerLock::new(Signer::new_local_signer(self.private_keys.proposer)?);
@@ -219,12 +310,22 @@ impl TestEnvironment {
         .await
     }
 
-    pub fn provider_with_signer(&self) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
-        let wallet = PrivateKeySigner::from_str(self.private_keys.proposer)?;
-        let provider_with_signer = ProviderBuilder::new()
+    /// Create a provider with a signer for the specified role
+    pub fn provider_with_role(
+        &self,
+        role: Role,
+    ) -> Result<Arc<impl alloy_provider::Provider + Clone>> {
+        let key = match role {
+            Role::Proposer => self.private_keys.proposer,
+            Role::Challenger => self.private_keys.challenger,
+            Role::Deployer => self.private_keys.deployer,
+        };
+
+        let wallet = PrivateKeySigner::from_str(key)?;
+        let provider = ProviderBuilder::new()
             .wallet(EthereumWallet::from(wallet))
             .connect_http(self.anvil.endpoint.parse::<Url>()?);
-        Ok(Arc::new(provider_with_signer))
+        Ok(Arc::new(provider))
     }
 
     pub async fn compute_output_root_at_block(&self, block: u64) -> Result<FixedBytes<32>> {
@@ -234,18 +335,17 @@ impl TestEnvironment {
     pub fn factory(
         &self,
     ) -> Result<DisputeGameFactoryInstance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
-        let factory = DisputeGameFactory::new(self.deployed.factory, provider_with_signer.clone());
+        let provider = self.provider_with_role(Role::Proposer)?;
+        let factory = DisputeGameFactory::new(self.deployed.factory, provider);
         Ok(factory)
     }
 
     pub async fn anchor_registry_address(&self, game_address: Address) -> Result<Address> {
-        let provider_with_signer = self.provider_with_signer()?;
-        let anchor_registry_addr =
-            OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone())
-                .anchorStateRegistry()
-                .call()
-                .await?;
+        let provider = self.provider_with_role(Role::Proposer)?;
+        let anchor_registry_addr = OPSuccinctFaultDisputeGame::new(game_address, provider)
+            .anchorStateRegistry()
+            .call()
+            .await?;
         Ok(anchor_registry_addr)
     }
 
@@ -253,10 +353,9 @@ impl TestEnvironment {
         &self,
         game_address: Address,
     ) -> Result<AnchorStateRegistryInstance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
+        let provider = self.provider_with_role(Role::Proposer)?;
         let anchor_registry_addr = self.anchor_registry_address(game_address).await?;
-        let anchor_registry =
-            AnchorStateRegistry::new(anchor_registry_addr, provider_with_signer.clone());
+        let anchor_registry = AnchorStateRegistry::new(anchor_registry_addr, provider);
         Ok(anchor_registry)
     }
 
@@ -264,20 +363,29 @@ impl TestEnvironment {
         &self,
         anchor_registry: AnchorStateRegistryInstance<impl alloy_provider::Provider + Clone>,
     ) -> Result<MockOptimismPortal2Instance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
+        let provider = self.provider_with_role(Role::Proposer)?;
         let portal_addr = anchor_registry.portal().call().await?;
-        let portal = MockOptimismPortal2::new(portal_addr, provider_with_signer.clone());
+        let portal = MockOptimismPortal2::new(portal_addr, provider);
         Ok(portal)
     }
 
+    /// Create a fault dispute game instance as the proposer by default
     pub async fn fault_dispute_game(
         &self,
         game_address: Address,
     ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
-        let provider_with_signer = self.provider_with_signer()?;
-        let fault_dispute_game =
-            OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone());
-        Ok(fault_dispute_game)
+        self.fault_dispute_game_with_role(game_address, Role::Proposer).await
+    }
+
+    /// Create a fault dispute game instance with a provider for the specified role
+    pub async fn fault_dispute_game_with_role(
+        &self,
+        game_address: Address,
+        role: Role,
+    ) -> Result<OPSuccinctFaultDisputeGameInstance<impl alloy_provider::Provider + Clone>> {
+        let provider = self.provider_with_role(role)?;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
+        Ok(game)
     }
 
     pub async fn create_game(
@@ -307,6 +415,30 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    pub async fn claim_bond(
+        &self,
+        game_address: Address,
+        recipient: Address,
+    ) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(game_address).await?;
+        let receipt = game
+            .claimCredit(recipient)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+        Ok(receipt)
+    }
+
+    pub async fn get_credit(&self, game_address: Address, recipient: Address) -> Result<U256> {
+        let provider = &self.anvil.provider;
+        let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
+        let normal_credit = game.normalModeCredit(recipient).call().await?;
+        let refund_credit = game.refundModeCredit(recipient).call().await?;
+        Ok(normal_credit + refund_credit)
+    }
+
     pub async fn last_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
         let factory = self.factory()?;
         let game_count = factory.gameCount().call().await?;
@@ -329,6 +461,34 @@ impl TestEnvironment {
 
     pub async fn warp_time(&self, secs: u64) -> Result<()> {
         warp_time(&self.anvil.provider, Duration::from_secs(secs)).await
+    }
+
+    pub async fn challenge_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(address, Role::Challenger).await?;
+        let challenger_bond = game.challengerBond().call().await?;
+        let receipt = game
+            .challenge()
+            .value(challenger_bond)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
+
+    pub async fn prove_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(address).await?;
+        let receipt = game
+            .prove(Bytes::new())
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
     }
 }
 

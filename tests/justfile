@@ -1,0 +1,65 @@
+SOURCE := source_directory()
+ROOT := parent_directory(SOURCE)
+
+test-e2e-sysgo PKG="" FILTER="" : unzip-contract-artifacts
+    #!/bin/bash
+
+    if ! [ -z "{{FILTER}}" ]; then
+        export FILTER="-run {{FILTER}}"
+    fi
+
+    export DEVSTACK_ORCHESTRATOR=sysgo
+    export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
+    export DISABLE_OP_E2E_LEGACY=true
+
+    TEST_PATH="{{PKG}}"
+    BUILD_ARGS=""
+
+    if [ -z "$TEST_PATH" ]; then
+        TEST_PATH="./e2e/..."
+        BUILD_ARGS="--bin validity --bin proposer"
+        export VALIDITY_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/validity"
+        export FAULT_PROOF_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/proposer"
+    elif [[ "$TEST_PATH" == *"validity"* ]]; then
+        BUILD_ARGS="--bin validity"
+        export VALIDITY_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/validity"
+    elif [[ "$TEST_PATH" == *"faultproof"* ]]; then
+        BUILD_ARGS="--bin proposer"
+        export FAULT_PROOF_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/proposer"
+    else
+        echo "PKG must contain 'validity' or 'faultproof' to choose a binary."
+        exit 1
+    fi
+
+    echo "Building binaries: $BUILD_ARGS ..."
+    cd .. && cargo build --release $BUILD_ARGS
+
+    # Run the test with count=1 to avoid caching the test results.
+    echo "Running go test $TEST_PATH $FILTER"
+    cd {{SOURCE}} && go test -p 1 -count=1 -timeout 40m -v "$TEST_PATH" $FILTER
+
+unzip-contract-artifacts DEST_DIR="":
+    #!/bin/bash
+    set -euo pipefail
+
+    DEST_DIR="{{DEST_DIR}}"
+    if [ -z "$DEST_DIR" ]; then
+        DEST_DIR="{{SOURCE}}/artifacts/src"
+    fi
+
+    ARCHIVE="{{SOURCE}}/artifacts/compressed/artifacts.tzst"
+    if [ ! -f "$ARCHIVE" ]; then
+        echo "Missing artifact at $ARCHIVE. Run 'just update-packages' first." >&2
+        exit 1
+    fi
+
+    mkdir -p "$DEST_DIR"
+    zstd -d -c "$ARCHIVE" | tar -x -C "$DEST_DIR"
+
+update-packages: submodule
+    #!/bin/bash
+    cd {{SOURCE}}/optimism/op-deployer && just build-contracts copy-contract-artifacts
+    cp {{SOURCE}}/optimism/op-deployer/pkg/deployer/artifacts/forge-artifacts/artifacts.tzst {{SOURCE}}/artifacts/compressed/artifacts.tzst
+
+submodule:
+    git submodule update --init --recursive
