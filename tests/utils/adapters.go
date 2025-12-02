@@ -18,6 +18,15 @@ import (
 	opsbind "github.com/succinctlabs/op-succinct/bindings"
 )
 
+// GameStatus represents the status of a dispute game.
+type GameStatus uint8
+
+const (
+	InProgress     GameStatus = iota // 0
+	ChallengerWins                   // 1
+	DefenderWins                     // 2
+)
+
 // L2OOClient is a client for interacting with the SuccinctL2OutputOracle contract.
 type L2OOClient struct {
 	caller *opsbind.OPSuccinctL2OutputOracleCaller
@@ -209,7 +218,7 @@ func WaitForDefenderWins(ctx context.Context, t devtest.T, dgf *FdgClient) {
 		status, err := dgf.Status(ctx)
 		require.NoError(t, err, "failed to get game count from factory")
 
-		if status == 2 {
+		if GameStatus(status) == DefenderWins {
 			return
 		}
 
