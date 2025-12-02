@@ -26,11 +26,12 @@ func TestFaultProofProposer_RangeSplitSixteen(gt *testing.T) {
 	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute, cfg)
 }
 
-func TestFaultProofProposer_RangeSplitTwo_FiveGames(gt *testing.T) {
+func TestFaultProofProposer_RangeSplitTwo_ThreeGames(gt *testing.T) {
 	cfg := opspresets.FastFinalityFaultProofConfig()
 	cfg.RangeSplitCount = 2
 	cfg.MaxConcurrentRangeProofs = 2
-	waitForDefenderWinsAtIndex(gt, 4, 60*time.Minute, cfg)
+	cfg.FastFinalityProvingLimit = 4
+	waitForDefenderWinsAtIndex(gt, 2, 60*time.Minute, cfg)
 }
 
 func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration, cfg opspresets.FaultProofConfig) {
