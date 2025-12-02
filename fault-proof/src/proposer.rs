@@ -136,6 +136,19 @@ impl ProposerState {
     }
 }
 
+/// Guard that decrements the range proofs in-flight counter on drop.
+/// This ensures the counter is decremented even if the future is cancelled.
+struct RangeProofInFlightGuard {
+    counter: Arc<AtomicUsize>,
+}
+
+impl Drop for RangeProofInFlightGuard {
+    fn drop(&mut self) {
+        let current = self.counter.fetch_sub(1, Ordering::Relaxed) - 1;
+        ProposerGauge::RangeProofsInFlight.set(current as f64);
+    }
+}
+
 #[derive(Clone)]
 pub struct OPSuccinctProposer<P, H: OPSuccinctHost>
 where
@@ -500,51 +513,42 @@ where
             let this = self.clone();
             let game_addr = game_address;
             async move {
-                // Increment global in-flight counter
+                // Increment global in-flight counter and create guard for automatic decrement.
+                // The guard ensures decrement happens even if the future is cancelled.
                 let current = this.range_proofs_in_flight.fetch_add(1, Ordering::Relaxed) + 1;
                 ProposerGauge::RangeProofsInFlight.set(current as f64);
+                let _guard = RangeProofInFlightGuard {
+                    counter: this.range_proofs_in_flight.clone(),
+                };
 
-                // Use a closure to ensure decrement happens on all paths (success or error)
-                let result = async {
-                    tracing::info!(
-                        game = ?game_addr,
-                        range_idx = idx,
-                        start_block = start,
-                        end_block = end,
-                        total_ranges = num_ranges,
-                        "Starting range proof"
-                    );
+                tracing::info!(
+                    game = ?game_addr,
+                    range_idx = idx,
+                    start_block = start,
+                    end_block = end,
+                    total_ranges = num_ranges,
+                    "Starting range proof"
+                );
 
-                    let range_start_time = std::time::Instant::now();
-                    let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
-                    let (range_proof, inst_cycles, sp1_gas) =
-                        this.range_proof_request(&sp1_stdin).await?;
+                let range_start_time = std::time::Instant::now();
+                let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
+                let (range_proof, inst_cycles, sp1_gas) =
+                    this.range_proof_request(&sp1_stdin).await?;
 
-                    tracing::info!(
-                        game = ?game_addr,
-                        range_idx = idx,
-                        start_block = start,
-                        end_block = end,
-                        duration_secs = range_start_time.elapsed().as_secs_f64(),
-                        instruction_cycles = inst_cycles,
-                        sp1_gas = sp1_gas,
-                        "Range proof completed"
-                    );
+                tracing::info!(
+                    game = ?game_addr,
+                    range_idx = idx,
+                    start_block = start,
+                    end_block = end,
+                    duration_secs = range_start_time.elapsed().as_secs_f64(),
+                    instruction_cycles = inst_cycles,
+                    sp1_gas = sp1_gas,
+                    "Range proof completed"
+                );
 
-                    Ok::<_, anyhow::Error>((idx, range_proof, inst_cycles, sp1_gas))
-                }
-                .await;
+                ProposerGauge::RangeProofsCompleted.increment(1.0);
 
-                // Always decrement in-flight counter, regardless of success or failure
-                let current = this.range_proofs_in_flight.fetch_sub(1, Ordering::Relaxed) - 1;
-                ProposerGauge::RangeProofsInFlight.set(current as f64);
-
-                // Only increment completed on success
-                if result.is_ok() {
-                    ProposerGauge::RangeProofsCompleted.increment(1.0);
-                }
-
-                result
+                Ok::<_, anyhow::Error>((idx, range_proof, inst_cycles, sp1_gas))
             }
         });
 
@@ -553,8 +557,8 @@ where
         let results: Vec<(usize, SP1ProofWithPublicValues, u64, u64)> =
             prove_stream.buffer_unordered(max_concurrent).try_collect().await?;
 
-        // Note: in-flight counter is decremented in all paths (success and error)
-        // using an inner async block pattern - supports concurrent prove_game calls
+        // Note: in-flight counter is decremented via RangeProofInFlightGuard's Drop impl,
+        // which handles success, error, and cancellation - supports concurrent prove_game calls
 
         tracing::info!(
             game = ?game_address,
