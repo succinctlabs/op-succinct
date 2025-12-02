@@ -1,5 +1,5 @@
 //! Process management utilities for running proposer and challenger tasks.
-use std::sync::Arc;
+use std::{num::NonZero, sync::Arc};
 
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
@@ -52,7 +52,7 @@ pub async fn init_proposer(
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
         range_split_count: RangeSplitCount::one(),
-        max_concurrent_range_proofs: 1,
+        max_concurrent_range_proofs: NonZero::<usize>::MIN,
         agg_cycle_limit: 1_000_000_000_000,
         agg_gas_limit: 1_000_000_000_000,
         whitelist: None,

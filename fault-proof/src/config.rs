@@ -1,4 +1,8 @@
-use std::{env, num::NonZeroU8, str::FromStr};
+use std::{
+    env,
+    num::{NonZeroU8, NonZeroUsize},
+    str::FromStr,
+};
 
 use alloy_primitives::Address;
 use alloy_transport_http::reqwest::Url;
@@ -87,7 +91,7 @@ pub struct ProposerConfig {
     ///
     /// Increasing this feeds more work into the prover and host in parallel; tune carefully based
     /// on observed latency, and system resources before deviating from default.
-    pub max_concurrent_range_proofs: usize,
+    pub max_concurrent_range_proofs: NonZeroUsize,
 
     /// The cycle limit to use for aggregation proofs.
     pub agg_cycle_limit: u64,

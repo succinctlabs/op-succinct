@@ -748,7 +748,7 @@ where
             }
         });
 
-        let max_concurrent = self.config.max_concurrent_range_proofs.min(num_ranges);
+        let max_concurrent = self.config.max_concurrent_range_proofs.get().min(num_ranges);
         let prove_stream = stream::iter(tasks);
         let results: Vec<(usize, SP1ProofWithPublicValues, u64, u64)> =
             prove_stream.buffer_unordered(max_concurrent).try_collect().await?;
