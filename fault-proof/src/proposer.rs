@@ -1886,3 +1886,73 @@ impl From<U256> for Cursor {
         Self { index: Some(idx) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::config::RangeSplitCount;
+    use anyhow::{bail, Result};
+    use futures::stream::{self, StreamExt, TryStreamExt};
+    use rstest::rstest;
+    use std::time::Duration;
+
+    async fn mock_prove(
+        idx: usize,
+        range: (u64, u64),
+        fail: bool,
+        delay: Duration,
+    ) -> Result<usize> {
+        tokio::time::sleep(delay).await;
+        if fail {
+            bail!("proof failed for range {}-{}", range.0, range.1);
+        }
+        Ok(idx)
+    }
+
+    async fn prove_ranges(
+        ranges: Vec<(u64, u64)>,
+        fail_idx: Option<usize>,
+        concurrency: usize,
+        delay: Duration,
+    ) -> Result<Vec<usize>> {
+        let tasks = ranges.into_iter().enumerate().map(|(idx, range)| {
+            let fail = fail_idx == Some(idx);
+            async move { mock_prove(idx, range, fail, delay).await }
+        });
+        stream::iter(tasks).buffer_unordered(concurrency).try_collect().await
+    }
+
+    #[rstest]
+    #[case::first(0, "0-25")]
+    #[case::middle(1, "25-50")]
+    #[case::last(3, "75-100")]
+    #[tokio::test]
+    async fn test_failure_aborts(#[case] fail_idx: usize, #[case] expected: &str) {
+        let ranges = RangeSplitCount::new(4).unwrap().split(0, 100).unwrap();
+        let err = prove_ranges(ranges, Some(fail_idx), 4, Duration::ZERO).await.unwrap_err();
+        assert!(err.to_string().contains(expected), "got: {err}");
+    }
+
+    #[rstest]
+    #[case::full(16)]
+    #[case::half(8)]
+    #[case::single(1)]
+    #[tokio::test]
+    async fn test_stress_varying_concurrency(#[case] concurrency: usize) {
+        let ranges = RangeSplitCount::new(16).unwrap().split(0, 1600).unwrap();
+        let results =
+            prove_ranges(ranges, None, concurrency, Duration::from_millis(5)).await.unwrap();
+
+        let mut indices: Vec<_> = results.clone();
+        indices.sort();
+        assert_eq!(indices, (0..16).collect::<Vec<_>>());
+    }
+
+    #[tokio::test]
+    async fn test_stress_repeated() {
+        for _ in 0..50 {
+            let ranges = RangeSplitCount::new(8).unwrap().split(0, 800).unwrap();
+            let results = prove_ranges(ranges, None, 4, Duration::from_micros(100)).await.unwrap();
+            assert_eq!(results.len(), 8);
+        }
+    }
+}
