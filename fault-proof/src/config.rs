@@ -437,7 +437,10 @@ mod split_range_tests {
     #[test]
     fn test_errors_on_reversed_bounds() {
         let err = RangeSplitCount::new(2).unwrap().split(8, 3).unwrap_err();
-        assert!(err.to_string().contains("greater than end block"), "unexpected error: {err}");
+        assert!(
+            err.to_string().contains("not greater than start block"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]
