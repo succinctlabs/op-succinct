@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicU64, AtomicUsize, Ordering},
         Arc,
     },
     time::Duration,
@@ -155,6 +155,8 @@ where
     tasks: Arc<Mutex<TaskMap>>,
     next_task_id: Arc<AtomicU64>,
     state: Arc<Mutex<ProposerState>>,
+    /// Global counter for range proofs currently in flight across all concurrent prove_game calls.
+    range_proofs_in_flight: Arc<AtomicUsize>,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -209,6 +211,7 @@ where
             tasks: Arc::new(Mutex::new(HashMap::new())),
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(Mutex::new(initial_state)),
+            range_proofs_in_flight: Arc::new(AtomicUsize::new(0)),
         })
     }
 
@@ -471,21 +474,66 @@ where
         let l1_head_hash = game.l1Head().call().await?.0;
         tracing::debug!("L1 head hash: {:?}", hex::encode(l1_head_hash));
 
+        let range_proofs_start_time = std::time::Instant::now();
+
         let ranges = self
             .config
             .range_split_count
             .split(start_block, end_block)
             .context("failed to split range for proving")?;
         let num_ranges = ranges.len();
-        tracing::info!("Proving over {num_ranges} ranges");
 
+        // Set metrics for range splitting configuration
+        ProposerGauge::RangeSplitCount.set(self.config.range_split_count.to_usize() as f64);
+
+        tracing::info!(
+            game = ?game_address,
+            start_block = start_block,
+            end_block = end_block,
+            total_ranges = num_ranges,
+            max_concurrent = self.config.max_concurrent_range_proofs.get(),
+            "Starting range proof generation"
+        );
+
+        // Use global counter for in-flight range proofs (supports concurrent prove_game calls)
         let tasks = ranges.into_iter().enumerate().map(|(idx, (start, end))| {
             let this = self.clone();
+            let game_addr = game_address;
             async move {
-                tracing::info!("Generating Range Proof for blocks {start} to {end}");
+                // Increment global in-flight counter
+                let current = this.range_proofs_in_flight.fetch_add(1, Ordering::Relaxed) + 1;
+                ProposerGauge::RangeProofsInFlight.set(current as f64);
+
+                tracing::info!(
+                    game = ?game_addr,
+                    range_idx = idx,
+                    start_block = start,
+                    end_block = end,
+                    total_ranges = num_ranges,
+                    "Starting range proof"
+                );
+
+                let range_start_time = std::time::Instant::now();
                 let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
                 let (range_proof, inst_cycles, sp1_gas) =
                     this.range_proof_request(&sp1_stdin).await?;
+
+                // Decrement global in-flight counter and increment completed
+                let current = this.range_proofs_in_flight.fetch_sub(1, Ordering::Relaxed) - 1;
+                ProposerGauge::RangeProofsInFlight.set(current as f64);
+                ProposerGauge::RangeProofsCompleted.increment(1.0);
+
+                tracing::info!(
+                    game = ?game_addr,
+                    range_idx = idx,
+                    start_block = start,
+                    end_block = end,
+                    duration_secs = range_start_time.elapsed().as_secs_f64(),
+                    instruction_cycles = inst_cycles,
+                    sp1_gas = sp1_gas,
+                    "Range proof completed"
+                );
+
                 Ok::<_, anyhow::Error>((idx, range_proof, inst_cycles, sp1_gas))
             }
         });
@@ -494,6 +542,18 @@ where
         let prove_stream = stream::iter(tasks);
         let results: Vec<(usize, SP1ProofWithPublicValues, u64, u64)> =
             prove_stream.buffer_unordered(max_concurrent).try_collect().await?;
+
+        // Note: in-flight counter is self-correcting via increment/decrement
+        // No need to reset - supports concurrent prove_game calls
+
+        tracing::info!(
+            game = ?game_address,
+            start_block = start_block,
+            end_block = end_block,
+            total_ranges = num_ranges,
+            total_duration_secs = range_proofs_start_time.elapsed().as_secs_f64(),
+            "All range proofs completed"
+        );
 
         let mut proofs = vec![None; num_ranges];
         let mut boot_infos = vec![None; num_ranges];
