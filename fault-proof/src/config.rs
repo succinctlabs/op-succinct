@@ -297,6 +297,9 @@ impl RangeSplitCount {
     /// - Uses ceil division to keep segments as even as possible; the final segment takes any
     ///   remainder.
     /// - Always returns ranges that exactly cover `[start, end)` with no gaps or overlaps.
+    ///
+    /// NOTE: Ceiling division may yield fewer segments than requested when step sizes exhaust the
+    /// range early. Example: 9 blocks ÷ 4 → step=3 → 3 segments: [0,3), [3,6), [6,9).
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
             anyhow::anyhow!("end block {end} is not greater than start block {start}")
