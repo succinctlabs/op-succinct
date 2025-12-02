@@ -33,6 +33,17 @@ pub struct ProgramConfig {
     pub commitments: CommitmentConfig,
 }
 
+impl ProgramConfig {
+    pub fn log(&self) {
+        tracing::info!(
+            range_vkey_commitment = %self.commitments.range_vkey_commitment,
+            agg_vkey_hash = %self.commitments.agg_vkey_hash,
+            rollup_config_hash = %self.commitments.rollup_config_hash,
+            "Program configuration loaded"
+        );
+    }
+}
+
 pub struct RequesterConfig {
     pub l1_chain_id: i64,
     pub l2_chain_id: i64,
