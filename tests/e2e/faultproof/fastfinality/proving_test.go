@@ -6,30 +6,28 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
-	"github.com/ethereum-optimism/optimism/op-devstack/presets"
-	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-func TestMain(m *testing.M) {
-	presets.DoMain(m,
-		opspresets.WithSuccinctFPProposerFastFinality(&sysgo.DefaultSingleChainInteropSystemIDs{}),
-		presets.WithSafeDBEnabled(),
-	)
-}
-
 func TestFaultProofProposer_WaitsForFirstGameDefenderWins(gt *testing.T) {
-	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute)
+	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg.ProposalIntervalInBlocks = 40
+	cfg.RangeSplitCount = 16
+	cfg.MaxConcurrentRangeProofs = 16
+	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute, cfg)
 }
 
 func TestFaultProofProposer_WaitsForFifthGameDefenderWins(gt *testing.T) {
-	waitForDefenderWinsAtIndex(gt, 4, 60*time.Minute)
+	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg.RangeSplitCount = 2
+	cfg.MaxConcurrentRangeProofs = 2
+	waitForDefenderWinsAtIndex(gt, 4, 60*time.Minute, cfg)
 }
 
-func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration) {
+func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration, cfg opspresets.FaultProofConfig) {
 	t := devtest.SerialT(gt)
-	sys := presets.NewMinimalWithProposer(t)
+	sys := opspresets.NewFaultProofSystem(t, cfg)
 	require := t.Require()
 	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
