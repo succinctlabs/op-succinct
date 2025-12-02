@@ -299,7 +299,7 @@ impl RangeSplitCount {
     /// - Always returns ranges that exactly cover `[start, end)` with no gaps or overlaps.
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
-            anyhow::anyhow!("start block {start} is greater than end block {end}")
+            anyhow::anyhow!("end block {end} is not greater than start block {start}")
         })?;
         if total == 0 {
             bail!("start block equals end block ({start}); nothing to prove");
