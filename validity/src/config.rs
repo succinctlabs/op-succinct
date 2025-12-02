@@ -107,6 +107,7 @@ impl RequesterConfig {
             range_proof_strategy = ?self.range_proof_strategy,
             agg_proof_strategy = ?self.agg_proof_strategy,
             agg_proof_mode = ?self.agg_proof_mode,
+            op_succinct_config_name_hash = %self.op_succinct_config_name_hash,
             mock = self.mock,
             safe_db_fallback = self.safe_db_fallback,
             use_kms_requester = self.use_kms_requester,
