@@ -10,7 +10,15 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-func TestFaultProofProposer_WaitsForFirstGameDefenderWins(gt *testing.T) {
+func TestFaultProofProposer_RangeSplit1(gt *testing.T) {
+	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg.ProposalIntervalInBlocks = 40
+	cfg.RangeSplitCount = 1
+	cfg.MaxConcurrentRangeProofs = 1
+	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute, cfg)
+}
+
+func TestFaultProofProposer_RangeSplit16(gt *testing.T) {
 	cfg := opspresets.FastFinalityFaultProofConfig()
 	cfg.ProposalIntervalInBlocks = 40
 	cfg.RangeSplitCount = 16
@@ -18,7 +26,7 @@ func TestFaultProofProposer_WaitsForFirstGameDefenderWins(gt *testing.T) {
 	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute, cfg)
 }
 
-func TestFaultProofProposer_WaitsForFifthGameDefenderWins(gt *testing.T) {
+func TestFaultProofProposer_RangeSplit2_FiveGames(gt *testing.T) {
 	cfg := opspresets.FastFinalityFaultProofConfig()
 	cfg.RangeSplitCount = 2
 	cfg.MaxConcurrentRangeProofs = 2
