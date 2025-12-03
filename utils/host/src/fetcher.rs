@@ -28,12 +28,12 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::rpc_retry::with_retry;
 use crate::L2Output;
 
 #[derive(Clone)]
 /// The OPSuccinctDataFetcher struct is used to fetch the L2 output data and L2 claim data for a
 /// given block number. It is used to generate the boot info for the native host program.
-/// FIXME: Add retries for all requests (3 retries).
 pub struct OPSuccinctDataFetcher {
     pub rpc_config: RPCConfig,
     pub l1_provider: Arc<RootProvider>,
@@ -400,6 +400,22 @@ impl OPSuccinctDataFetcher {
     }
 
     async fn fetch_rpc_data<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let url = url.clone();
+        let method = method.to_string();
+
+        with_retry(|| {
+            let url = url.clone();
+            let method = method.clone();
+            let params = params.clone();
+            async move { Self::fetch_rpc_data_inner(&url, &method, params).await }
+        })
+        .await
+    }
+
+    async fn fetch_rpc_data_inner<T>(url: &Url, method: &str, params: Vec<Value>) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
     {
