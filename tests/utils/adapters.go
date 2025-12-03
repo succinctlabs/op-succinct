@@ -18,14 +18,9 @@ import (
 	opsbind "github.com/succinctlabs/op-succinct/bindings"
 )
 
-// GameStatus represents the status of a dispute game.
-type GameStatus uint8
-
-const (
-	InProgress     GameStatus = iota // 0
-	ChallengerWins                   // 1
-	DefenderWins                     // 2
-)
+// -------------------------------------------------------------
+// L2 OP Succinct Output Oracle Client
+// -------------------------------------------------------------
 
 // L2OOClient is a client for interacting with the SuccinctL2OutputOracle contract.
 type L2OOClient struct {
@@ -84,6 +79,32 @@ func (l2oo *L2OOClient) GetL2OutputAfter(ctx context.Context, l2BlockNumber uint
 	}, nil
 }
 
+// WaitForLatestBlockNumber waits until the L2OO has submitted an output for at least the target block number.
+func WaitForLatestBlockNumber(ctx context.Context, t devtest.T, l2oo *L2OOClient, target uint64) {
+	for {
+		latestBlockNumber, err := l2oo.LatestBlockNumber(ctx)
+		require.NoError(t, err, "failed to get latest block number from L2OO")
+
+		if latestBlockNumber >= target {
+			t.Logger().Info("L2OO latest block number reached target", "latest", latestBlockNumber, "target", target)
+			return
+		}
+
+		t.Logger().Info("Waiting for L2OO latest block number...", "current", latestBlockNumber, "target", target)
+
+		select {
+		case <-ctx.Done():
+			t.Errorf("timeout waiting for L2OO latest block number to reach %d (current: %d)", target, latestBlockNumber)
+			t.FailNow()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// -------------------------------------------------------------
+// Dispute Game Factory Client
+// -------------------------------------------------------------
+
 // DgfClient is a client for interacting with the DisputeGameFactory contract.
 type DgfClient struct {
 	caller *opsbind.DisputeGameFactoryCaller
@@ -125,6 +146,39 @@ func (dfg *DgfClient) GameCount(ctx context.Context) (uint64, error) {
 	}
 	return count.Uint64(), nil
 }
+
+// WaitForGameCount waits until the dispute game factory has at least min games created.
+func WaitForGameCount(ctx context.Context, t devtest.T, dgf *DgfClient, min uint64) {
+	for {
+		gameCount, err := dgf.GameCount(ctx)
+		require.NoError(t, err, "failed to get game count from factory")
+
+		if gameCount >= min {
+			t.Logger().Info("Dispute game detected", "count", gameCount)
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			t.Errorf("timeout waiting for dispute game to be created")
+			t.FailNow()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// -------------------------------------------------------------
+// Fault Dispute Game Client
+// -------------------------------------------------------------
+
+// GameStatus represents the status of a dispute game.
+type GameStatus uint8
+
+const (
+	InProgress     GameStatus = iota // 0
+	ChallengerWins                   // 1
+	DefenderWins                     // 2
+)
 
 // FdgClient is a client for interacting with the OPSuccinctFaultDisputeGame contract.
 type FdgClient struct {
@@ -212,48 +266,6 @@ func (w ethCaller) CodeAt(ctx context.Context, contract common.Address, blockNum
 		return nil, err
 	}
 	return code, nil
-}
-
-// WaitForLatestBlockNumber waits until the L2OO has submitted an output for at least the target block number.
-func WaitForLatestBlockNumber(ctx context.Context, t devtest.T, l2oo *L2OOClient, target uint64) {
-	for {
-		latestBlockNumber, err := l2oo.LatestBlockNumber(ctx)
-		require.NoError(t, err, "failed to get latest block number from L2OO")
-
-		if latestBlockNumber >= target {
-			t.Logger().Info("L2OO latest block number reached target", "latest", latestBlockNumber, "target", target)
-			return
-		}
-
-		t.Logger().Info("Waiting for L2OO latest block number...", "current", latestBlockNumber, "target", target)
-
-		select {
-		case <-ctx.Done():
-			t.Errorf("timeout waiting for L2OO latest block number to reach %d (current: %d)", target, latestBlockNumber)
-			t.FailNow()
-		case <-time.After(time.Second):
-		}
-	}
-}
-
-// WaitForGameCount waits until the dispute game factory has at least min games created.
-func WaitForGameCount(ctx context.Context, t devtest.T, dgf *DgfClient, min uint64) {
-	for {
-		gameCount, err := dgf.GameCount(ctx)
-		require.NoError(t, err, "failed to get game count from factory")
-
-		if gameCount >= min {
-			t.Logger().Info("Dispute game detected", "count", gameCount)
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			t.Errorf("timeout waiting for dispute game to be created")
-			t.FailNow()
-		case <-time.After(time.Second):
-		}
-	}
 }
 
 func WaitForDefenderWins(ctx context.Context, t devtest.T, dgf *FdgClient) {
