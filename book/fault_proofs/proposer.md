@@ -78,6 +78,9 @@ Depending on the one you choose, you must provide the corresponding environment 
 
 | Variable | Description | Default Value |
 |----------|-------------|---------------|
+| `RPC_CONCURRENCY` | Maximum number of concurrent RPC requests. Lower this value (e.g., `3`-`5`) if hitting 429 rate limit errors. | `10` |
+| `L1_CONFIG_DIR` | The directory containing the L1 chain configuration files. | `<project-root>/configs/L1` |
+| `L2_CONFIG_DIR` | Directory containing L2 chain configuration files | `<project-root>/configs/L2` |
 | `MOCK_MODE` | Whether to use mock mode | `false` |
 | `FAST_FINALITY_MODE` | Whether to use fast finality mode | `false` |
 | `RANGE_PROOF_STRATEGY` | Proof fulfillment strategy for range proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
@@ -97,6 +100,8 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `TIMEOUT` | The timeout to use for proving (in seconds). | `14,400` (4 hours) |
 | `RANGE_CYCLE_LIMIT` | The cycle limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_GAS_LIMIT` | The gas limit to use for range proofs. | `1,000,000,000,000` |
+| `RANGE_SPLIT_COUNT` | The number of splits to use for range proofs. | `1` |
+| `MAX_CONCURRENT_RANGE_PROOFS` | The maximum number of concurrent range proof tasks. | `1` |
 | `AGG_CYCLE_LIMIT` | The cycle limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |

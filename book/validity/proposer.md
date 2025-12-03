@@ -39,6 +39,7 @@ Before starting the proposer, ensure you have deployed the relevant contracts an
 | Parameter | Description |
 |-----------|-------------|
 | `L1_BEACON_RPC` | L1 Consensus (Beacon) Node. Could be required for integrations that access consensus-layer data. |
+| `RPC_CONCURRENCY` | Default: `10`. Maximum number of concurrent RPC requests. Lower this value (e.g., `3`-`5`) if you're hitting 429 rate limit errors from your RPC provider. |
 | `NETWORK_RPC_URL` | Default: `https://rpc.production.succinct.xyz`. RPC URL for the Succinct Prover Network. |
 | `DATABASE_URL` | Default: `postgres://op-succinct@postgres:5432/op-succinct`. The address of a Postgres database for storing the intermediate proposer state. |
 | `DGF_ADDRESS` | Address of the `DisputeGameFactory` contract. Note: If set, the proposer will create a dispute game with the DisputeGameFactory, rather than the `OPSuccinctL2OutputOracle`. Compatible with `OptimismPortal2`. |

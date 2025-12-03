@@ -87,6 +87,22 @@ pub enum ProposerGauge {
         message = "Total SP1 gas used in last successful game proving"
     )]
     TotalSP1Gas,
+    // Range splitting metrics
+    #[strum(
+        serialize = "op_succinct_fp_range_split_count",
+        message = "Configured number of range splits"
+    )]
+    RangeSplitCount,
+    #[strum(
+        serialize = "op_succinct_fp_range_proofs_in_flight",
+        message = "Number of range proofs currently being generated"
+    )]
+    RangeProofsInFlight,
+    #[strum(
+        serialize = "op_succinct_fp_range_proofs_completed",
+        message = "Total number of range proofs completed"
+    )]
+    RangeProofsCompleted,
 }
 
 impl MetricsGauge for ProposerGauge {}

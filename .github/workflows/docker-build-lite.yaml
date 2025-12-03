@@ -2,7 +2,14 @@ name: Build OP Succinct Lite Docker Images
 
 on:
   workflow_dispatch:
-#  push:
+  push:
+    paths-ignore:
+      - '**/*.pdf'
+      - '**/*.md'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
   build-proposer:
@@ -190,6 +197,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}/lite-proposer-eigenda
           tags: |
+            type=ref,event=tag
             type=sha
             latest
 
