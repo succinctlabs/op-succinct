@@ -14,7 +14,7 @@ import (
 
 func TestMain(m *testing.M) {
 	presets.DoMain(m,
-		opspresets.WithSuccinctValidityProposer(&sysgo.DefaultSingleChainInteropSystemIDs{}),
+		opspresets.WithDefaultSuccinctValidityProposer(&sysgo.DefaultSingleChainInteropSystemIDs{}),
 		presets.WithSafeDBEnabled(),
 	)
 }
