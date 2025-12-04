@@ -35,17 +35,20 @@ func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Dur
 	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
 	require.NoError(err, "failed to create L2OO client")
 
-	// Starting block is 1, submission interval is 10
-	targetBlockNumber := uint64(submissionCount*int(cfg.SubmissionInterval) + 1)
+  // Starting block is 1, submission interval is configurable
+	targetBlockNumber := uint64(submissionCount)*cfg.SubmissionInterval + 1
 	utils.WaitForLatestBlockNumber(ctx, t, l2oo, targetBlockNumber)
 
-	// Verify the output root matches expected L2 state
 	outputProposal, err := l2oo.GetL2OutputAfter(ctx, targetBlockNumber)
 	require.NoError(err, "failed to get output proposal from L2OO")
 
+	// Verify L2 block number aligns with submission interval
+	require.Equal(targetBlockNumber, outputProposal.L2BlockNumber, "L2 block number should match target")
+
+	// Verify output root matches expected L2 state
 	expectedOutput, err := sys.L2EL.Escape().L2EthClient().OutputV0AtBlockNumber(ctx, outputProposal.L2BlockNumber)
 	require.NoError(err, "failed to get expected output from L2")
-
 	require.Equal(eth.OutputRoot(expectedOutput), outputProposal.OutputRoot, "output root mismatch")
+
 	logger.Info("Output verified", "submissions", submissionCount, "l2BlockNumber", outputProposal.L2BlockNumber)
 }
