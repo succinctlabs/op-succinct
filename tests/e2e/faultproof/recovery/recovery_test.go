@@ -13,13 +13,13 @@ import (
 func TestFaultProofProposer_RestartRecovery_Optimistic(gt *testing.T) {
 	cfg := opspresets.DefaultFaultProofConfig()
 	cfg.ProposalIntervalInBlocks = 40
-	runRecoveryTest(gt, cfg, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
 }
 
 func TestFaultProofProposer_RestartRecovery_FastFinalityBasic(gt *testing.T) {
 	cfg := opspresets.FastFinalityFaultProofConfig()
 	cfg.ProposalIntervalInBlocks = 40
-	runRecoveryTest(gt, cfg, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
 }
 
 func TestFaultProofProposer_RestartRecovery_FastFinalityRangeSplit(gt *testing.T) {
@@ -27,49 +27,73 @@ func TestFaultProofProposer_RestartRecovery_FastFinalityRangeSplit(gt *testing.T
 	cfg.ProposalIntervalInBlocks = 40
 	cfg.RangeSplitCount = 4
 	cfg.MaxConcurrentRangeProofs = 4
-	runRecoveryTest(gt, cfg, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
 }
 
-func runRecoveryTest(gt *testing.T, cfg opspresets.FaultProofConfig, timeout time.Duration) {
+func TestFaultProofProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
+	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg.ProposalIntervalInBlocks = 40
+	runRecoveryTest(gt, cfg, 3, 25*time.Minute)
+}
+
+func runRecoveryTest(gt *testing.T, cfg opspresets.FaultProofConfig, restartCount int, timeout time.Duration) {
 	t := devtest.ParallelT(gt)
 	sys := opspresets.NewFaultProofSystem(t, cfg)
-	require := t.Require()
-	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 
-	logger.Info("Running recovery test", "fastFinalityMode", cfg.FastFinalityMode)
+	t.Logger().Info("Running faultproof recovery test",
+		"fastFinalityMode", cfg.FastFinalityMode,
+		"restartCount", restartCount)
 
+	dgf := newDgfClient(t, sys)
+	performRestartCycles(ctx, t, sys, dgf, restartCount)
+	verifyGameResolution(ctx, t, sys, dgf)
+
+	t.Logger().Info("Recovery test completed successfully")
+}
+
+// performRestartCycles stops and restarts the proposer multiple times,
+// waiting for game creation progress between each cycle.
+func performRestartCycles(ctx context.Context, t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, count int) {
+	logger := t.Logger()
+	require := t.Require()
+
+	for i := 1; i <= count; i++ {
+		// Wait for at least i games to be created
+		utils.WaitForGameCount(ctx, t, dgf, uint64(i))
+
+		gameCount, err := dgf.GameCount(ctx)
+		require.NoError(err, "failed to get game count before stop")
+		logger.Info("Stopping proposer", "restart", i, "gameCount", gameCount)
+
+		sys.StopProposer()
+		time.Sleep(2 * time.Second)
+
+		sys.StartProposer()
+		logger.Info("Proposer restarted", "restart", i)
+	}
+}
+
+func newDgfClient(t devtest.T, sys *opspresets.FaultProofSystem) *utils.DgfClient {
 	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
-	logger.Info("Dispute Game Factory Address", "address", dgfAddr.Hex())
 	dgf, err := utils.NewDgfClient(sys.L1EL.EthClient(), dgfAddr)
-	require.NoError(err, "failed to create Dispute Game Factory client")
+	t.Require().NoError(err, "failed to create DGF client")
+	return dgf
+}
 
-	// Wait for at least 1 game to be created (partial progress)
-	logger.Info("Waiting for first game to be created...")
-	utils.WaitForGameCount(ctx, t, dgf, 1)
+// verifyGameResolution waits for the first game to resolve with DefenderWins.
+func verifyGameResolution(ctx context.Context, t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) {
+	logger := t.Logger()
+	require := t.Require()
 
-	// Get game count before stopping
-	gameCountBefore, err := dgf.GameCount(ctx)
-	require.NoError(err, "failed to get game count before stop")
-	logger.Info("Stopping proposer", "gameCount", gameCountBefore)
-
-	// Stop the proposer mid-operation
-	sys.StopProposer()
-	logger.Info("Proposer stopped")
-
-	// Restart the proposer
-	sys.StartProposer()
-	logger.Info("Proposer restarted")
-
-	// Get the first game and wait for it to be resolved
 	game, err := dgf.GameAtIndex(ctx, 0)
 	require.NoError(err, "failed to get game from factory")
 
 	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
-	require.NoError(err, "failed to create Fault Dispute Game client")
+	require.NoError(err, "failed to create FDG client")
 
-	logger.Info("Waiting for game to be resolved after restart...")
+	logger.Info("Waiting for game resolution...")
 	utils.WaitForDefenderWins(ctx, t, fdg)
-	logger.Info("Game resolved after restart - DefenderWins", "fastFinalityMode", cfg.FastFinalityMode)
+	logger.Info("Game resolved - DefenderWins")
 }

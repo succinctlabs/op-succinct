@@ -86,8 +86,10 @@ func newL2OOClient(t devtest.T, sys *opspresets.ValiditySystem) *utils.L2OOClien
 
 // verifySubmission waits for the expected block and verifies the output root.
 func verifySubmission(ctx context.Context, t devtest.T, sys *opspresets.ValiditySystem, l2oo *utils.L2OOClient, expectedBlock uint64) {
+	logger := t.Logger()
 	require := t.Require()
-	t.Logger().Info("Waiting for output", "expectedBlock", expectedBlock)
+
+	logger.Info("Waiting for output", "expectedBlock", expectedBlock)
 	utils.WaitForLatestBlockNumber(ctx, t, l2oo, expectedBlock)
 
 	outputProposal, err := l2oo.GetL2OutputAfter(ctx, expectedBlock)
@@ -98,7 +100,7 @@ func verifySubmission(ctx context.Context, t devtest.T, sys *opspresets.Validity
 	require.NoError(err, "failed to get expected output")
 	require.Equal(eth.OutputRoot(expectedOutput), outputProposal.OutputRoot, "output root mismatch")
 
-	t.Logger().Info("Output verified", "block", outputProposal.L2BlockNumber)
+	logger.Info("Output verified", "block", outputProposal.L2BlockNumber)
 }
 
 // verifyRangeProofs verifies range proofs in the database match the L2OO state.
