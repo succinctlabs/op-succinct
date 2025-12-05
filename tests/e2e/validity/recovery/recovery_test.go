@@ -11,28 +11,29 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// TestValidityProposer_RestartRecovery_Basic tests basic restart recovery with default config.
 func TestValidityProposer_RestartRecovery_Basic(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
-	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 1, 20*time.Minute)
 }
 
-// TestValidityProposer_RestartRecovery_ThreeSubmissions tests that proposer continues working
-// after restart by verifying three submissions complete.
 func TestValidityProposer_RestartRecovery_ThreeSubmissions(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
-	runRecoveryTest(gt, cfg, 3, 30*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 3, 20*time.Minute)
 }
 
-// TestValidityProposer_RestartRecovery_RangeSplit tests restart recovery with multiple range proofs per submission.
 func TestValidityProposer_RestartRecovery_RangeSplit(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
 	cfg.SubmissionInterval = 20
 	cfg.RangeProofInterval = 5
-	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 1, 20*time.Minute)
 }
 
-func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, expectedSubmissions int, timeout time.Duration) {
+func TestValidityProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
+	cfg := opspresets.DefaultValidityConfig()
+	runRecoveryTest(gt, cfg, 3, 1, 20*time.Minute)
+}
+
+func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, restartCount, expectedSubmissions int, timeout time.Duration) {
 	t := devtest.ParallelT(gt)
 	sys := opspresets.NewValiditySystem(t, cfg)
 	require := t.Require()
@@ -41,37 +42,30 @@ func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, expectedSubmi
 	defer cancel()
 
 	logger.Info("Running validity recovery test",
-		"submissionInterval", cfg.SubmissionInterval,
-		"rangeProofInterval", cfg.RangeProofInterval,
+		"restartCount", restartCount,
 		"expectedSubmissions", expectedSubmissions)
 
-	// Wait for at least 1 range proof request to be created (partial progress)
-	logger.Info("Waiting for partial progress before restart...")
-	utils.WaitForRangeProofProgress(ctx, t, sys.DatabaseURL(), 1)
+	// Perform restart cycles
+	// The proposer makes incremental progress between each restart cycle
+	for i := 1; i <= restartCount; i++ {
+		utils.WaitForRangeProofProgress(ctx, t, sys.DatabaseURL(), i)
 
-	// Check how many range proofs exist before stopping
-	countBefore, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
-	require.NoError(err, "failed to count range proofs before stop")
-	logger.Info("Stopping proposer", "rangeProofRequests", countBefore)
+		countBefore, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
+		require.NoError(err, "failed to count range proofs before stop")
+		logger.Info("Stopping proposer", "restart", i, "rangeProofRequests", countBefore)
 
-	// Stop the proposer mid-proving
-	sys.StopProposer()
-	logger.Info("Proposer stopped")
+		sys.StopProposer()
+		time.Sleep(5 * time.Second) // Wait for lock to expire
 
-	// Brief pause to ensure lock expires (LoopInterval + buffer)
-	time.Sleep(5 * time.Second)
+		countAfterStop, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
+		require.NoError(err, "failed to count range proofs after stop")
+		require.Equal(countBefore, countAfterStop, "data should persist after stop")
 
-	// Verify data persisted before restart
-	countAfterStop, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
-	require.NoError(err, "failed to count range proofs after stop")
-	require.Equal(countBefore, countAfterStop, "range proof data should persist after proposer stop")
-	logger.Info("Data persistence verified", "count", countAfterStop)
+		sys.StartProposer()
+		logger.Info("Proposer restarted", "restart", i)
+	}
 
-	// Restart the proposer
-	sys.StartProposer()
-	logger.Info("Proposer restarted")
-
-	// Wait for expected submissions to complete
+	// Wait for submissions to complete
 	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
 	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
 	require.NoError(err, "failed to create L2OO client")
