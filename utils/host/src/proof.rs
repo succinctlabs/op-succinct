@@ -2,14 +2,14 @@ use alloy_consensus::Header;
 use alloy_primitives::{Address, B256};
 use anyhow::Result;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::AggregationInputs};
-use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin};
+use sp1_sdk::{HashableKey, SP1Proof, SP1Stdin, SP1VerifyingKey};
 
 /// Get the stdin for the aggregation proof.
 pub fn get_agg_proof_stdin(
     proofs: Vec<SP1Proof>,
     boot_infos: Vec<BootInfoStruct>,
     headers: Vec<Header>,
-    multi_block_vkey: &sp1_sdk::SP1VerifyingKey,
+    multi_block_vkey: &SP1VerifyingKey,
     latest_checkpoint_head: B256,
     prover_address: Address,
 ) -> Result<SP1Stdin> {

@@ -10,7 +10,8 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
     network::{proto::types::ExecutionStatus, FulfillmentStrategy},
-    NetworkProver, SP1Proof, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
+    Elf, NetworkProver, ProveRequest, Prover, ProvingKey, SP1Proof, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use std::{
     sync::Arc,
@@ -164,7 +165,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             proofs,
             boot_infos,
             headers,
-            &self.program_config.range_vk,
+            self.program_config.range_pk.verifying_key(),
             checkpointed_l1_block_hash,
             prover_address,
         )
@@ -177,7 +178,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     pub async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
         let proof_id = match self
             .network_prover
-            .prove(&self.program_config.range_pk, &stdin)
+            .prove(&self.program_config.range_pk, stdin)
             .compressed()
             .strategy(self.range_strategy)
             .skip_simulation(true)
@@ -187,7 +188,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .cycle_limit(self.range_cycle_limit)
             .gas_limit(self.range_gas_limit)
             .whitelist(self.whitelist.clone())
-            .request_async()
+            .request()
             .await
         {
             Ok(proof_id) => proof_id,
@@ -204,7 +205,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     pub async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
         let proof_id = match self
             .network_prover
-            .prove(&self.program_config.agg_pk, &stdin)
+            .prove(&self.program_config.agg_pk, stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
             .timeout(Duration::from_secs(self.proving_timeout))
@@ -213,7 +214,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .cycle_limit(self.agg_cycle_limit)
             .gas_limit(self.agg_gas_limit)
             .whitelist(self.whitelist.clone())
-            .request_async()
+            .request()
             .await
         {
             Ok(proof_id) => proof_id,
@@ -242,20 +243,15 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         let start_time = Instant::now();
         let network_prover = self.network_prover.clone();
-        // Move the CPU-intensive operation to a dedicated thread.
-        let (pv, report) = match tokio::task::spawn_blocking(move || {
-            network_prover
-                .execute(get_range_elf_embedded(), &stdin)
-                .calculate_gas(true)
-                .deferred_proof_verification(false)
-                .run()
-        })
-        .await?
+        // Execute the mock range proof.
+        let (pv, report) = match network_prover
+            .execute(Elf::Static(get_range_elf_embedded()), stdin)
+            .await
         {
             Ok((pv, report)) => (pv, report),
             Err(e) => {
                 ValidityGauge::ExecutionErrorCount.increment(1.0);
-                return Err(e);
+                return Err(e.into());
             }
         };
 
@@ -282,7 +278,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .await?;
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
-            &self.program_config.range_pk,
+            self.program_config.range_pk.verifying_key(),
             pv.clone(),
             SP1ProofMode::Compressed,
             SP1_CIRCUIT_VERSION,
@@ -297,20 +293,16 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     ) -> Result<SP1ProofWithPublicValues> {
         let start_time = Instant::now();
         let network_prover = self.network_prover.clone();
-        // Move the CPU-intensive operation to a dedicated thread.
-        let (pv, report) = match tokio::task::spawn_blocking(move || {
-            network_prover
-                .execute(AGGREGATION_ELF, &stdin)
-                .calculate_gas(true)
-                .deferred_proof_verification(false)
-                .run()
-        })
-        .await?
+        // Execute the mock aggregation proof.
+        let (pv, report) = match network_prover
+            .execute(Elf::Static(AGGREGATION_ELF), stdin)
+            .deferred_proof_verification(false)
+            .await
         {
             Ok((pv, report)) => (pv, report),
             Err(e) => {
                 ValidityGauge::ExecutionErrorCount.increment(1.0);
-                return Err(e);
+                return Err(e.into());
             }
         };
 
@@ -337,7 +329,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             .await?;
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
-            &self.program_config.agg_pk,
+            self.program_config.agg_pk.verifying_key(),
             pv.clone(),
             self.agg_mode,
             SP1_CIRCUIT_VERSION,
