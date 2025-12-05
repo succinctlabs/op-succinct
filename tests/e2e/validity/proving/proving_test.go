@@ -21,6 +21,24 @@ func TestValidityProposer_ThreeSubmissions(gt *testing.T) {
 	waitForOutputAndVerify(gt, 3, 30*time.Minute, cfg)
 }
 
+func TestValidityProposer_ProofIntervalOne(gt *testing.T) {
+	cfg := opspresets.ValidityConfig{
+		StartingBlock:      1,
+		SubmissionInterval: 5, // Keep low since more range proofs to generate takes longer
+		RangeProofInterval: 1,
+	}
+	waitForOutputAndVerify(gt, 1, 20*time.Minute, cfg)
+}
+
+func TestValidityProposer_ProofIntervalNotDivisible(gt *testing.T) {
+	cfg := opspresets.ValidityConfig{
+		StartingBlock:      1,
+		SubmissionInterval: 10,
+		RangeProofInterval: 7,
+	}
+	waitForOutputAndVerify(gt, 1, 10*time.Minute, cfg)
+}
+
 func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Duration, cfg opspresets.ValidityConfig) {
 	t := devtest.SerialT(gt)
 	sys := opspresets.NewValiditySystem(t, cfg)
@@ -30,25 +48,44 @@ func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Dur
 	defer cancel()
 
 	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
-	logger.Info("L2 Output Oracle Address", "address", l2ooAddr.Hex())
-
 	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
 	require.NoError(err, "failed to create L2OO client")
 
-  // Starting block is 1, submission interval is configurable
-	targetBlockNumber := uint64(submissionCount)*cfg.SubmissionInterval + 1
-	utils.WaitForLatestBlockNumber(ctx, t, l2oo, targetBlockNumber)
+	expectedOutputBlock := cfg.ExpectedOutputBlock(submissionCount)
+	logger.Info("Waiting for output", "expectedBlock", expectedOutputBlock, "submissions", submissionCount)
 
-	outputProposal, err := l2oo.GetL2OutputAfter(ctx, targetBlockNumber)
+	utils.WaitForLatestBlockNumber(ctx, t, l2oo, expectedOutputBlock)
+
+	outputProposal, err := l2oo.GetL2OutputAfter(ctx, expectedOutputBlock)
 	require.NoError(err, "failed to get output proposal from L2OO")
 
-	// Verify L2 block number aligns with submission interval
-	require.Equal(targetBlockNumber, outputProposal.L2BlockNumber, "L2 block number should match target")
+	// Verify L2 block number matches expected
+	require.Equal(expectedOutputBlock, outputProposal.L2BlockNumber, "L2 block number mismatch")
 
 	// Verify output root matches expected L2 state
 	expectedOutput, err := sys.L2EL.Escape().L2EthClient().OutputV0AtBlockNumber(ctx, outputProposal.L2BlockNumber)
 	require.NoError(err, "failed to get expected output from L2")
 	require.Equal(eth.OutputRoot(expectedOutput), outputProposal.OutputRoot, "output root mismatch")
 
-	logger.Info("Output verified", "submissions", submissionCount, "l2BlockNumber", outputProposal.L2BlockNumber)
+	logger.Info("Output verified", "block", outputProposal.L2BlockNumber)
+
+	verifyRangeProofs(ctx, t, sys, cfg, outputProposal.L2BlockNumber)
+}
+
+func verifyRangeProofs(ctx context.Context, t devtest.T, sys *opspresets.ValiditySystem, cfg opspresets.ValidityConfig, outputBlock uint64) {
+	require := t.Require()
+	logger := t.Logger()
+
+	ranges, err := utils.FetchRangeProofs(ctx, sys.DatabaseURL(), cfg.StartingBlock, outputBlock)
+	require.NoError(err, "failed to fetch range proofs")
+
+	for i, r := range ranges {
+		logger.Info("Range proof", "index", i, "start", r.StartBlock, "end", r.EndBlock)
+	}
+
+	expectedCount := cfg.ExpectedRangeCount(outputBlock)
+	err = utils.VerifyRanges(ranges, int64(cfg.StartingBlock), int64(outputBlock), expectedCount)
+	require.NoError(err, "range verification failed")
+
+	logger.Info("Range proofs verified", "count", len(ranges), "expected", expectedCount)
 }
