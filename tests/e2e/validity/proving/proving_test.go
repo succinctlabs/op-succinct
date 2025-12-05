@@ -39,6 +39,15 @@ func TestValidityProposer_ProofIntervalNotDivisible(gt *testing.T) {
 	waitForOutputAndVerify(gt, 1, 10*time.Minute, cfg)
 }
 
+func TestValidityProposer_RangeIntervalLargerThanSubmission(gt *testing.T) {
+	cfg := opspresets.ValidityConfig{
+		StartingBlock:      1,
+		SubmissionInterval: 5,
+		RangeProofInterval: 10, // Larger than submission interval
+	}
+	waitForOutputAndVerify(gt, 1, 10*time.Minute, cfg)
+}
+
 func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Duration, cfg opspresets.ValidityConfig) {
 	t := devtest.SerialT(gt)
 	sys := opspresets.NewValiditySystem(t, cfg)
