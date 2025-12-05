@@ -84,23 +84,6 @@ func waitForOutputAndVerify(t devtest.T, submissionCount int, timeout time.Durat
 
 	logger.Info("Output verified", "block", outputProposal.L2BlockNumber)
 
-	verifyRangeProofs(ctx, t, sys, cfg, outputProposal.L2BlockNumber)
-}
-
-func verifyRangeProofs(ctx context.Context, t devtest.T, sys *opspresets.ValiditySystem, cfg opspresets.ValidityConfig, outputBlock uint64) {
-	require := t.Require()
-	logger := t.Logger()
-
-	ranges, err := utils.FetchRangeProofs(ctx, sys.DatabaseURL(), cfg.StartingBlock, outputBlock)
-	require.NoError(err, "failed to fetch range proofs")
-
-	for i, r := range ranges {
-		logger.Info("Range proof", "index", i, "start", r.StartBlock, "end", r.EndBlock)
-	}
-
-	expectedCount := cfg.ExpectedRangeCount(outputBlock)
-	err = utils.VerifyRanges(ranges, int64(cfg.StartingBlock), int64(outputBlock), expectedCount)
-	require.NoError(err, "range verification failed")
-
-	logger.Info("Range proofs verified", "count", len(ranges), "expected", expectedCount)
+	expectedCount := cfg.ExpectedRangeCount(outputProposal.L2BlockNumber)
+	utils.VerifyRangeProofsWithExpected(ctx, t, sys.DatabaseURL(), cfg.StartingBlock, outputProposal.L2BlockNumber, expectedCount)
 }
