@@ -11,14 +11,39 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-func TestValidityProposer_RestartRecovery(gt *testing.T) {
-	t := devtest.ParallelT(gt)
+// TestValidityProposer_RestartRecovery_Basic tests basic restart recovery with default config.
+func TestValidityProposer_RestartRecovery_Basic(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
+	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
+}
+
+// TestValidityProposer_RestartRecovery_ThreeSubmissions tests that proposer continues working
+// after restart by verifying three submissions complete.
+func TestValidityProposer_RestartRecovery_ThreeSubmissions(gt *testing.T) {
+	cfg := opspresets.DefaultValidityConfig()
+	runRecoveryTest(gt, cfg, 3, 30*time.Minute)
+}
+
+// TestValidityProposer_RestartRecovery_RangeSplit tests restart recovery with multiple range proofs per submission.
+func TestValidityProposer_RestartRecovery_RangeSplit(gt *testing.T) {
+	cfg := opspresets.DefaultValidityConfig()
+	cfg.SubmissionInterval = 20
+	cfg.RangeProofInterval = 5
+	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
+}
+
+func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, expectedSubmissions int, timeout time.Duration) {
+	t := devtest.ParallelT(gt)
 	sys := opspresets.NewValiditySystem(t, cfg)
 	require := t.Require()
 	logger := t.Logger()
-	ctx, cancel := context.WithTimeout(t.Ctx(), 20*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
+
+	logger.Info("Running validity recovery test",
+		"submissionInterval", cfg.SubmissionInterval,
+		"rangeProofInterval", cfg.RangeProofInterval,
+		"expectedSubmissions", expectedSubmissions)
 
 	// Wait for at least 1 range proof request to be created (partial progress)
 	logger.Info("Waiting for partial progress before restart...")
@@ -33,26 +58,26 @@ func TestValidityProposer_RestartRecovery(gt *testing.T) {
 	sys.StopProposer()
 	logger.Info("Proposer stopped")
 
-	// Brief pause to ensure clean shutdown
+	// Brief pause to ensure lock expires (LoopInterval + buffer)
 	time.Sleep(5 * time.Second)
 
-  // Verify data persisted before restart
-  countAfterStop, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
-  require.NoError(err, "failed to count range proofs after stop")
-  require.Equal(countBefore, countAfterStop, "range proof data should persist after proposer stop")
-  logger.Info("Data persistence verified", "count", countAfterStop)
+	// Verify data persisted before restart
+	countAfterStop, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
+	require.NoError(err, "failed to count range proofs after stop")
+	require.Equal(countBefore, countAfterStop, "range proof data should persist after proposer stop")
+	logger.Info("Data persistence verified", "count", countAfterStop)
 
 	// Restart the proposer
 	sys.StartProposer()
 	logger.Info("Proposer restarted")
 
-	// Wait for submission to complete
+	// Wait for expected submissions to complete
 	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
 	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
 	require.NoError(err, "failed to create L2OO client")
 
-	expectedOutputBlock := cfg.ExpectedOutputBlock(1)
-	logger.Info("Waiting for output after restart", "expectedBlock", expectedOutputBlock)
+	expectedOutputBlock := cfg.ExpectedOutputBlock(expectedSubmissions)
+	logger.Info("Waiting for output after restart", "expectedBlock", expectedOutputBlock, "submissions", expectedSubmissions)
 
 	utils.WaitForLatestBlockNumber(ctx, t, l2oo, expectedOutputBlock)
 
@@ -70,4 +95,8 @@ func TestValidityProposer_RestartRecovery(gt *testing.T) {
 	// Verify range proofs
 	expectedCount := cfg.ExpectedRangeCount(outputProposal.L2BlockNumber)
 	utils.VerifyRangeProofsWithExpected(ctx, t, sys.DatabaseURL(), cfg.StartingBlock, outputProposal.L2BlockNumber, expectedCount)
+
+	logger.Info("Recovery test completed successfully",
+		"submissions", expectedSubmissions,
+		"rangeProofs", expectedCount)
 }
