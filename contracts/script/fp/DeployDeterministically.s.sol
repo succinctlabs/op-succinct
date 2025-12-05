@@ -59,11 +59,17 @@ contract DeployDeterministically is Script {
     Create3Deployer internal create3Deployer;
 
     function run() public {
-        // Default proposer and challenger addresses
-        address[] memory defaultProposers_ = new address[](1);
-        defaultProposers_[0] = 0x9D17db7073Ea468AD6B96C34a4D04f1745eC7DdE;
-        address[] memory defaultChallengers_ = new address[](1);
-        defaultChallengers_[0] = 0x5e6450D449A90ECd9D07A01B2c97ADC6C8771A41;
+        // Initial proposer and challenger addresses
+        address[] memory defaultProposers_ = new address[](2);
+        defaultProposers_[0] = 0x0B7de3F505AD7Fc9b38207CD8E2Adc7a604BFe62;
+        defaultProposers_[1] = 0x79D14553D6B3484F5612272B43c219A882415d33;
+        address[] memory defaultChallengers_ = new address[](6);
+        defaultChallengers_[0] = 0x7247204E46B381149d99acF88b318713fE12c32f;
+        defaultChallengers_[1] = 0x53E8EEAAE0731CCc888513695eC1Bd792ec975Ca;
+        defaultChallengers_[2] = 0xe4ce4999b1C4C60C384AC96f370F00796ae9eC78;
+        defaultChallengers_[3] = 0x77E831A0A6a680335BB54937E085fF625dfE3f6F;
+        defaultChallengers_[4] = 0x56966549e0953e8d6E17Fcd3278b003d81f58cA8;
+        defaultChallengers_[5] = 0xc6E6836CaCB6fF0a843050DB7F64bb2ab864C463;
 
         // Load expected addresses from env
         ExpectedAddresses memory expected_ = ExpectedAddresses({
@@ -80,7 +86,7 @@ contract DeployDeterministically is Script {
         // Load access manager params from env
         AccessManagerParams memory managerParams_ = AccessManagerParams({
             fallbackTimeout: vm.envOr("FALLBACK_TIMEOUT", uint256(1209600)),
-            factory: vm.envOr("FACTORY", address(0x57C45d82D1a995F1e135B8D7EDc0a6BB5211cfAA)),
+            factory: vm.envOr("FACTORY", address(0xFbAC162162f4009Bb007C6DeBC36B1dAC10aF683)),
             permissionlessMode: vm.envOr("PERMISSIONLESS_MODE", false),
             proposerAddresses: vm.envOr("PROPOSER_ADDRESSES", ",", defaultProposers_),
             challengerAddresses: vm.envOr("CHALLENGER_ADDRESSES", ",", defaultChallengers_),
@@ -92,19 +98,19 @@ contract DeployDeterministically is Script {
         DisputeGameParams memory gameParams_ = DisputeGameParams({
             maxChallengeDuration: uint64(vm.envOr("MAX_CHALLENGE_DURATION", uint256(302400))),
             maxProveDuration: uint64(vm.envOr("MAX_PROVE_DURATION", uint256(86400))),
-            factory: vm.envOr("FACTORY", address(0x57C45d82D1a995F1e135B8D7EDc0a6BB5211cfAA)),
+            factory: vm.envOr("FACTORY", address(0xFbAC162162f4009Bb007C6DeBC36B1dAC10aF683)),
             verifierAddress: vm.envOr("SP1_VERIFIER", address(0x3B6041173B80E77f038f3F2C0f9744f04837185e)),
             rollupConfigHash: vm.envOr(
-                "ROLLUP_CONFIG_HASH", bytes32(0x0a8ce4334536ad2360bc97a487be5d25cc2f2d82dc7dc5c677dcd2d5bf8a1abc)
+                "ROLLUP_CONFIG_HASH", bytes32(0xa9c7f463d3a5bc60caec02bd0cea84f0d7c303b5cb7385e813224cd2c28aaab9)
             ),
             aggregationVkey: vm.envOr(
-                "AGGREGATION_VKEY", bytes32(0x00b121c37fbdfaf7a60941b02452b64f98e40f8a34a269c110598cf18237f738)
+                "AGGREGATION_VKEY", bytes32(0x0075c7ec424df1386508596dc886e528c733a5f2c7728e7a81ad7676495ff31c)
             ),
             rangeVkeyCommitment: vm.envOr(
-                "RANGE_VKEY", bytes32(0x6ce13b162434b1c614e56b763ba0c7491145a09d6c0c945c47c5e99c7408d44a)
+                "RANGE_VKEY", bytes32(0x223fe2ba07be84da6afb2e3c1ed5c76b182aed383ad45aee40970cd30bcf9a83)
             ),
-            challengerBondWei: vm.envOr("CHALLENGER_BOND_WEI", uint256(1e15)),
-            registry: vm.envOr("REGISTRY", address(0xD73BA8168A61F3E917F0930D5C0401aA47e269D6)),
+            challengerBondWei: vm.envOr("CHALLENGER_BOND_WEI", uint256(1e16)),
+            registry: vm.envOr("REGISTRY", address(0x9F18D91949731E766f294A14027bBFE8F28328CC)),
             salt: vm.envOr("DISPUTE_GAME_SALT", bytes32(hex"ce10"))
         });
         emit DisputeGameParamsSet(gameParams_);
