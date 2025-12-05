@@ -36,18 +36,29 @@ func TestValidityProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
 func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, restartCount, expectedSubmissions int, timeout time.Duration) {
 	t := devtest.ParallelT(gt)
 	sys := opspresets.NewValiditySystem(t, cfg)
-	require := t.Require()
-	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 
-	logger.Info("Running validity recovery test",
+	t.Logger().Info("Running validity recovery test",
 		"restartCount", restartCount,
 		"expectedSubmissions", expectedSubmissions)
 
-	// Perform restart cycles
-	// The proposer makes incremental progress between each restart cycle
-	for i := 1; i <= restartCount; i++ {
+	performRestartCycles(ctx, t, sys, restartCount)
+
+	l2oo := newL2OOClient(t, sys)
+	expectedBlock := cfg.ExpectedOutputBlock(expectedSubmissions)
+	verifySubmission(ctx, t, sys, l2oo, expectedBlock)
+	verifyRangeProofs(ctx, t, sys, l2oo, &cfg)
+
+	t.Logger().Info("Recovery test completed successfully")
+}
+
+// performRestartCycles stops and restarts the proposer multiple times,
+// verifying data persistence after each cycle.
+func performRestartCycles(ctx context.Context, t devtest.T, sys *opspresets.ValiditySystem, count int) {
+	logger := t.Logger()
+	require := t.Require()
+	for i := 1; i <= count; i++ {
 		utils.WaitForRangeProofProgress(ctx, t, sys.DatabaseURL(), i)
 
 		countBefore, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
@@ -64,33 +75,37 @@ func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, restartCount,
 		sys.StartProposer()
 		logger.Info("Proposer restarted", "restart", i)
 	}
+}
 
-	// Wait for submissions to complete
+func newL2OOClient(t devtest.T, sys *opspresets.ValiditySystem) *utils.L2OOClient {
 	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
 	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
-	require.NoError(err, "failed to create L2OO client")
+	t.Require().NoError(err, "failed to create L2OO client")
+	return l2oo
+}
 
-	expectedOutputBlock := cfg.ExpectedOutputBlock(expectedSubmissions)
-	logger.Info("Waiting for output after restart", "expectedBlock", expectedOutputBlock, "submissions", expectedSubmissions)
+// verifySubmission waits for the expected block and verifies the output root.
+func verifySubmission(ctx context.Context, t devtest.T, sys *opspresets.ValiditySystem, l2oo *utils.L2OOClient, expectedBlock uint64) {
+	require := t.Require()
+	t.Logger().Info("Waiting for output", "expectedBlock", expectedBlock)
+	utils.WaitForLatestBlockNumber(ctx, t, l2oo, expectedBlock)
 
-	utils.WaitForLatestBlockNumber(ctx, t, l2oo, expectedOutputBlock)
-
-	// Verify output
-	outputProposal, err := l2oo.GetL2OutputAfter(ctx, expectedOutputBlock)
-	require.NoError(err, "failed to get output proposal from L2OO")
-	require.Equal(expectedOutputBlock, outputProposal.L2BlockNumber, "L2 block number mismatch")
+	outputProposal, err := l2oo.GetL2OutputAfter(ctx, expectedBlock)
+	require.NoError(err, "failed to get output proposal")
+	require.Equal(expectedBlock, outputProposal.L2BlockNumber, "L2 block number mismatch")
 
 	expectedOutput, err := sys.L2EL.Escape().L2EthClient().OutputV0AtBlockNumber(ctx, outputProposal.L2BlockNumber)
-	require.NoError(err, "failed to get expected output from L2")
+	require.NoError(err, "failed to get expected output")
 	require.Equal(eth.OutputRoot(expectedOutput), outputProposal.OutputRoot, "output root mismatch")
 
-	logger.Info("Output verified after restart", "block", outputProposal.L2BlockNumber)
+	t.Logger().Info("Output verified", "block", outputProposal.L2BlockNumber)
+}
 
-	// Verify range proofs
-	expectedCount := cfg.ExpectedRangeCount(outputProposal.L2BlockNumber)
-	utils.VerifyRangeProofsWithExpected(ctx, t, sys.DatabaseURL(), cfg.StartingBlock, outputProposal.L2BlockNumber, expectedCount)
+// verifyRangeProofs verifies range proofs in the database match the L2OO state.
+func verifyRangeProofs(ctx context.Context, t devtest.T, sys *opspresets.ValiditySystem, l2oo *utils.L2OOClient, cfg *opspresets.ValidityConfig) {
+	latestBlock, err := l2oo.LatestBlockNumber(ctx)
+	t.Require().NoError(err, "failed to get latest block number")
 
-	logger.Info("Recovery test completed successfully",
-		"submissions", expectedSubmissions,
-		"rangeProofs", expectedCount)
+	expectedCount := cfg.ExpectedRangeCount(latestBlock)
+	utils.VerifyRangeProofsWithExpected(ctx, t, sys.DatabaseURL(), cfg.StartingBlock, latestBlock, expectedCount)
 }
