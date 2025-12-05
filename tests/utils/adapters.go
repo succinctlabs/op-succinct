@@ -349,7 +349,7 @@ func CountRangeProofRequests(ctx context.Context, dbURL string) (int, error) {
 		if strings.Contains(err.Error(), "does not exist") {
 			return 0, nil
 		}
-		return 0, err 
+		return 0, err
 	}
 	return count, nil
 }

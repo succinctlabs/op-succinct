@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/succinctlabs/op-succinct/utils"
 )
 
 // ValidityConfig holds configuration for validity proposer tests.
@@ -65,6 +66,14 @@ func WithDefaultSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSy
 type ValiditySystem struct {
 	*presets.MinimalWithProposer
 	proposer sysgo.ValidityProposer
+}
+
+// L2OOClient creates an L2OutputOracle client for the validity system.
+func (s *ValiditySystem) L2OOClient(t devtest.T) *utils.L2OOClient {
+	l2ooAddr := s.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
+	l2oo, err := utils.NewL2OOClient(s.L1EL.EthClient(), l2ooAddr)
+	t.Require().NoError(err, "failed to create L2OO client")
+	return l2oo
 }
 
 // DatabaseURL returns the database URL used by the validity proposer.

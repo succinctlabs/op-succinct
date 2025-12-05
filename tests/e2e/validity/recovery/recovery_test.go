@@ -45,7 +45,7 @@ func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, restartCount,
 
 	performRestartCycles(ctx, t, sys, restartCount)
 
-	l2oo := newL2OOClient(t, sys)
+	l2oo := sys.L2OOClient(t)
 	expectedBlock := cfg.ExpectedOutputBlock(expectedSubmissions)
 	verifySubmission(ctx, t, sys, l2oo, expectedBlock)
 	verifyRangeProofs(ctx, t, sys, l2oo, &cfg)
@@ -75,13 +75,6 @@ func performRestartCycles(ctx context.Context, t devtest.T, sys *opspresets.Vali
 		sys.StartProposer()
 		logger.Info("Proposer restarted", "restart", i)
 	}
-}
-
-func newL2OOClient(t devtest.T, sys *opspresets.ValiditySystem) *utils.L2OOClient {
-	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
-	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
-	t.Require().NoError(err, "failed to create L2OO client")
-	return l2oo
 }
 
 // verifySubmission waits for the expected block and verifies the output root.

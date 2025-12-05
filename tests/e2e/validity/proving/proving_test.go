@@ -62,10 +62,7 @@ func waitForOutputAndVerify(t devtest.T, submissionCount int, timeout time.Durat
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 
-	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
-	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
-	require.NoError(err, "failed to create L2OO client")
-
+	l2oo := sys.L2OOClient(t)
 	expectedOutputBlock := cfg.ExpectedOutputBlock(submissionCount)
 	logger.Info("Waiting for output", "expectedBlock", expectedOutputBlock, "submissions", submissionCount)
 

@@ -46,7 +46,7 @@ func runRecoveryTest(gt *testing.T, cfg opspresets.FaultProofConfig, restartCoun
 		"fastFinalityMode", cfg.FastFinalityMode,
 		"restartCount", restartCount)
 
-	dgf := newDgfClient(t, sys)
+	dgf := sys.DgfClient(t)
 	performRestartCycles(ctx, t, sys, dgf, restartCount)
 	verifyGameResolution(ctx, t, sys, dgf)
 
@@ -73,13 +73,6 @@ func performRestartCycles(ctx context.Context, t devtest.T, sys *opspresets.Faul
 		sys.StartProposer()
 		logger.Info("Proposer restarted", "restart", i)
 	}
-}
-
-func newDgfClient(t devtest.T, sys *opspresets.FaultProofSystem) *utils.DgfClient {
-	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
-	dgf, err := utils.NewDgfClient(sys.L1EL.EthClient(), dgfAddr)
-	t.Require().NoError(err, "failed to create DGF client")
-	return dgf
 }
 
 // verifyGameResolution waits for the first game to resolve with DefenderWins.

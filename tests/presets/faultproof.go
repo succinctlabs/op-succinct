@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/succinctlabs/op-succinct/utils"
 )
 
 // FaultProofConfig holds configuration for fault proof proposer tests.
@@ -79,6 +80,14 @@ func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSys
 type FaultProofSystem struct {
 	*presets.MinimalWithProposer
 	proposer sysgo.FaultProofProposer
+}
+
+// DgfClient creates a DisputeGameFactory client for the faultproof system.
+func (s *FaultProofSystem) DgfClient(t devtest.T) *utils.DgfClient {
+	dgfAddr := s.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
+	dgf, err := utils.NewDgfClient(s.L1EL.EthClient(), dgfAddr)
+	t.Require().NoError(err, "failed to create DGF client")
+	return dgf
 }
 
 // StopProposer stops the faultproof proposer (for restart testing).
