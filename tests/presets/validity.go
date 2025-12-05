@@ -13,6 +13,7 @@ type ValidityConfig struct {
 	StartingBlock      uint64
 	SubmissionInterval uint64
 	RangeProofInterval uint64
+	LoopInterval       uint64
 }
 
 // DefaultValidityConfig returns the default configuration.
@@ -21,6 +22,7 @@ func DefaultValidityConfig() ValidityConfig {
 		StartingBlock:      1,
 		SubmissionInterval: 10,
 		RangeProofInterval: 10,
+		LoopInterval:       3, // Low interval for tests (lock expiry)
 	}
 }
 
@@ -48,6 +50,7 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
+			sysgo.WithVPLoopInterval(cfg.LoopInterval),
 			sysgo.WithVPMockMode(true)))
 	})
 }
@@ -67,6 +70,16 @@ type ValiditySystem struct {
 // DatabaseURL returns the database URL used by the validity proposer.
 func (s *ValiditySystem) DatabaseURL() string {
 	return s.proposer.DatabaseURL()
+}
+
+// StopProposer stops the validity proposer (for restart testing).
+func (s *ValiditySystem) StopProposer() {
+	s.proposer.Stop()
+}
+
+// StartProposer starts the validity proposer (for restart testing).
+func (s *ValiditySystem) StartProposer() {
+	s.proposer.Start()
 }
 
 // NewValiditySystem creates a new validity test system with custom configuration.
