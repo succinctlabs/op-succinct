@@ -41,7 +41,10 @@ func (c ValidityConfig) ExpectedRangeCount(outputBlock uint64) int {
 func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
-		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock)))
+		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),
+			sysgo.WithL2OOSubmissionInterval(cfg.SubmissionInterval),
+			sysgo.WithL2OORangeProofInterval(cfg.RangeProofInterval)))
 		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
