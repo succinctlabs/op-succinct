@@ -10,7 +10,7 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-func TestFaultProofProposer_RestartRecovery_Optimistic(gt *testing.T) {
+func TestFaultProofProposer_RestartRecovery_Basic(gt *testing.T) {
 	cfg := opspresets.DefaultFaultProofConfig()
 	cfg.ProposalIntervalInBlocks = 40
 	runRecoveryTest(gt, cfg, 1, 20*time.Minute)
