@@ -12,44 +12,48 @@ import (
 )
 
 func TestValidityProposer_SingleSubmission(gt *testing.T) {
+	t := devtest.ParallelT(gt)
 	cfg := opspresets.DefaultValidityConfig()
-	waitForOutputAndVerify(gt, 1, 10*time.Minute, cfg)
+	waitForOutputAndVerify(t, 1, 10*time.Minute, cfg)
 }
 
 func TestValidityProposer_ThreeSubmissions(gt *testing.T) {
+	t := devtest.ParallelT(gt)
 	cfg := opspresets.DefaultValidityConfig()
-	waitForOutputAndVerify(gt, 3, 30*time.Minute, cfg)
+	waitForOutputAndVerify(t, 3, 30*time.Minute, cfg)
 }
 
 func TestValidityProposer_ProofIntervalOne(gt *testing.T) {
+	t := devtest.ParallelT(gt)
 	cfg := opspresets.ValidityConfig{
 		StartingBlock:      1,
 		SubmissionInterval: 5, // Keep low since more range proofs to generate takes longer
 		RangeProofInterval: 1,
 	}
-	waitForOutputAndVerify(gt, 1, 20*time.Minute, cfg)
+	waitForOutputAndVerify(t, 1, 20*time.Minute, cfg)
 }
 
 func TestValidityProposer_ProofIntervalNotDivisible(gt *testing.T) {
+	t := devtest.ParallelT(gt)
 	cfg := opspresets.ValidityConfig{
 		StartingBlock:      1,
 		SubmissionInterval: 10,
 		RangeProofInterval: 7,
 	}
-	waitForOutputAndVerify(gt, 1, 10*time.Minute, cfg)
+	waitForOutputAndVerify(t, 1, 10*time.Minute, cfg)
 }
 
 func TestValidityProposer_RangeIntervalLargerThanSubmission(gt *testing.T) {
+	t := devtest.ParallelT(gt)
 	cfg := opspresets.ValidityConfig{
 		StartingBlock:      1,
 		SubmissionInterval: 5,
 		RangeProofInterval: 10, // Larger than submission interval
 	}
-	waitForOutputAndVerify(gt, 1, 10*time.Minute, cfg)
+	waitForOutputAndVerify(t, 1, 10*time.Minute, cfg)
 }
 
-func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Duration, cfg opspresets.ValidityConfig) {
-	t := devtest.SerialT(gt)
+func waitForOutputAndVerify(t devtest.T, submissionCount int, timeout time.Duration, cfg opspresets.ValidityConfig) {
 	sys := opspresets.NewValiditySystem(t, cfg)
 	require := t.Require()
 	logger := t.Logger()
