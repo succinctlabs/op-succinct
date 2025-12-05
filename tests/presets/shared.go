@@ -79,6 +79,13 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, configur
 // NewSystem creates a new test system with the given stack option.
 // This is a unified function for creating both validity and fault proof test systems.
 func NewSystem(t devtest.T, opt stack.CommonOption) *presets.MinimalWithProposer {
+	sys, _ := newSystemWithProposer(t, opt, nil)
+	return sys
+}
+
+// newSystemWithProposer creates a new test system and optionally returns the L2Prop backend.
+// If ids is provided, it retrieves the proposer from the orchestrator.
+func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs) (*presets.MinimalWithProposer, sysgo.L2Prop) {
 	p := devtest.NewP(t.Ctx(), t.Logger(), func(now bool) {
 		t.Errorf("test failed")
 		if now {
@@ -102,8 +109,17 @@ func NewSystem(t devtest.T, opt stack.CommonOption) *presets.MinimalWithProposer
 	l2 := system.L2Network(match.Assume(t, match.L2ChainA))
 	proposer := l2.L2Proposer(match.Assume(t, match.FirstL2Proposer))
 
-	return &presets.MinimalWithProposer{
+	sys := &presets.MinimalWithProposer{
 		Minimal:    *minimal,
 		L2Proposer: dsl.NewL2Proposer(proposer),
 	}
+
+	var prop sysgo.L2Prop
+	if ids != nil {
+		var ok bool
+		prop, ok = orch.GetProposer(ids.L2AProposer)
+		t.Require().True(ok, "proposer not found")
+	}
+
+	return sys, prop
 }
