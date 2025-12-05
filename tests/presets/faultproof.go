@@ -10,6 +10,12 @@ import (
 
 // FaultProofConfig holds configuration for fault proof proposer tests.
 type FaultProofConfig struct {
+	// Contract deployment configuration
+	MaxChallengeDuration         uint64
+	MaxProveDuration             uint64
+	DisputeGameFinalityDelaySecs uint64
+
+	// Proposer configuration
 	ProposalIntervalInBlocks uint64
 	FetchInterval            uint64
 	RangeSplitCount          uint64
@@ -21,12 +27,15 @@ type FaultProofConfig struct {
 // DefaultFaultProofConfig returns the default configuration.
 func DefaultFaultProofConfig() FaultProofConfig {
 	return FaultProofConfig{
-		ProposalIntervalInBlocks: 10,
-		FetchInterval:            1,
-		RangeSplitCount:          1,
-		MaxConcurrentRangeProofs: 1,
-		FastFinalityMode:         false,
-		FastFinalityProvingLimit: 1,
+		MaxChallengeDuration:         10, // Low for tests (vs 7 days production)
+		MaxProveDuration:             10, // Low for tests (vs 1 day production)
+		DisputeGameFinalityDelaySecs: 60, // Low for tests (vs 7 days production)
+		ProposalIntervalInBlocks:     10,
+		FetchInterval:                1,
+		RangeSplitCount:              1,
+		MaxConcurrentRangeProofs:     1,
+		FastFinalityMode:             false,
+		FastFinalityProvingLimit:     1,
 	}
 }
 
@@ -41,7 +50,11 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
-		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, sysgo.WithFdgL2StartingBlockNumber(1)))
+		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+			sysgo.WithFdgL2StartingBlockNumber(1),
+			sysgo.WithFdgMaxChallengeDuration(cfg.MaxChallengeDuration),
+			sysgo.WithFdgMaxProveDuration(cfg.MaxProveDuration),
+			sysgo.WithFdgDisputeGameFinalityDelaySecs(cfg.DisputeGameFinalityDelaySecs)))
 		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithFPProposalIntervalInBlocks(cfg.ProposalIntervalInBlocks),
 			sysgo.WithFPFetchInterval(cfg.FetchInterval),
@@ -62,9 +75,32 @@ func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSys
 	return WithSuccinctFPProposer(dest, FastFinalityFaultProofConfig())
 }
 
+// FaultProofSystem wraps MinimalWithProposer and provides access to faultproof-specific features.
+type FaultProofSystem struct {
+	*presets.MinimalWithProposer
+	proposer sysgo.FaultProofProposer
+}
+
+// StopProposer stops the faultproof proposer (for restart testing).
+func (s *FaultProofSystem) StopProposer() {
+	s.proposer.Stop()
+}
+
+// StartProposer starts the faultproof proposer (for restart testing).
+func (s *FaultProofSystem) StartProposer() {
+	s.proposer.Start()
+}
+
 // NewFaultProofSystem creates a new fault proof test system with custom configuration.
-// This allows per-test configuration instead of relying on TestMain.
-func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig) *presets.MinimalWithProposer {
+func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig) *FaultProofSystem {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
-	return NewSystem(t, WithSuccinctFPProposer(&ids, cfg))
+	sys, prop := newSystemWithProposer(t, WithSuccinctFPProposer(&ids, cfg), &ids)
+
+	fp, ok := prop.(sysgo.FaultProofProposer)
+	t.Require().True(ok, "proposer must implement FaultProofProposer")
+
+	return &FaultProofSystem{
+		MinimalWithProposer: sys,
+		proposer:            fp,
+	}
 }
