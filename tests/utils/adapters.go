@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
@@ -16,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	opsbind "github.com/succinctlabs/op-succinct/bindings"
 )
@@ -346,7 +345,8 @@ func CountRangeProofRequests(ctx context.Context, dbURL string) (int, error) {
 	var count int
 	err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM requests WHERE req_type = 0`).Scan(&count)
 	if err != nil {
-		if strings.Contains(err.Error(), "does not exist") {
+		// 42P01 = undefined_table (table doesn't exist yet during proposer init)
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "42P01" {
 			return 0, nil
 		}
 		return 0, err

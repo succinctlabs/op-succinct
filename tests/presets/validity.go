@@ -14,7 +14,10 @@ type ValidityConfig struct {
 	StartingBlock      uint64
 	SubmissionInterval uint64
 	RangeProofInterval uint64
-	LoopInterval       uint64
+	// LoopInterval is the proposer's main loop interval in seconds.
+	// The proposer acquires a database lock that expires after this duration.
+	// Recovery tests must wait longer than this before restarting the proposer.
+	LoopInterval uint64
 }
 
 // DefaultValidityConfig returns the default configuration.
@@ -23,7 +26,7 @@ func DefaultValidityConfig() ValidityConfig {
 		StartingBlock:      1,
 		SubmissionInterval: 10,
 		RangeProofInterval: 10,
-		LoopInterval:       3, // Low interval for tests (lock expiry)
+		LoopInterval:       1, // 1s lock expiry; recovery tests wait 2s before restart
 	}
 }
 

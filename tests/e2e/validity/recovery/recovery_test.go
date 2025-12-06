@@ -11,6 +11,13 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
+const (
+	// proposerStopWait is the time to wait after stopping the proposer before restarting.
+	// Must exceed LoopInterval (default 1s) to ensure the database lock expires,
+	// allowing the restarted proposer to acquire it.
+	proposerStopWait = 2 * time.Second
+)
+
 func TestValidityProposer_RestartRecovery_Basic(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
 	runRecoveryTest(gt, cfg, 1, 1, 20*time.Minute)
@@ -66,7 +73,7 @@ func performRestartCycles(ctx context.Context, t devtest.T, sys *opspresets.Vali
 		logger.Info("Stopping proposer", "restart", i, "rangeProofRequests", countBefore)
 
 		sys.StopProposer()
-		time.Sleep(5 * time.Second) // Wait for lock to expire
+		time.Sleep(proposerStopWait)
 
 		countAfterStop, err := utils.CountRangeProofRequests(ctx, sys.DatabaseURL())
 		require.NoError(err, "failed to count range proofs after stop")
