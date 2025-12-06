@@ -68,8 +68,6 @@ func performRestartCycles(ctx context.Context, t devtest.T, sys *opspresets.Faul
 		logger.Info("Stopping proposer", "restart", i, "gameCount", gameCount)
 
 		sys.StopProposer()
-		time.Sleep(2 * time.Second)
-
 		sys.StartProposer()
 		logger.Info("Proposer restarted", "restart", i)
 	}
