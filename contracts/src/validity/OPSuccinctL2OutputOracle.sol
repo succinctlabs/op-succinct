@@ -403,7 +403,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         l2Outputs.push(
             Types.OutputProposal({
-                outputRoot: _outputRoot, timestamp: uint128(block.timestamp), l2BlockNumber: uint128(_l2BlockNumber)
+                outputRoot: _outputRoot,
+                timestamp: uint128(block.timestamp),
+                l2BlockNumber: uint128(_l2BlockNumber)
             })
         );
     }
@@ -463,7 +465,9 @@ contract OPSuccinctL2OutputOracle is Initializable, ISemver {
 
         l2Outputs.push(
             Types.OutputProposal({
-                outputRoot: _outputRoot, timestamp: uint128(block.timestamp), l2BlockNumber: uint128(_l2BlockNumber)
+                outputRoot: _outputRoot,
+                timestamp: uint128(block.timestamp),
+                l2BlockNumber: uint128(_l2BlockNumber)
             })
         );
     }
