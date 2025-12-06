@@ -912,8 +912,8 @@ where
     }
 
     /// Validates an aggregation proof request by checking that:
-    /// 1. There are no gaps between consecutive range proofs
-    /// 2. There are no duplicate/overlapping range proofs
+    /// 1. There are no duplicate/overlapping range proofs
+    /// 2. There are no gaps between consecutive range proofs
     /// 3. The range proofs cover the entire block range
     pub async fn validate_aggregation_request(
         &self,
