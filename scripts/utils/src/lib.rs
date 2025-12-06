@@ -35,10 +35,3 @@ pub struct HostExecutorArgs {
     #[clap(long)]
     pub safe_db_fallback: bool,
 }
-
-#[derive(Debug, Clone, Parser)]
-pub struct ConfigArgs {
-    /// The environment file to use.
-    #[arg(long)]
-    pub env_file: Option<PathBuf>,
-}
