@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Range, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, env, ops::Range, str::FromStr, sync::Arc, time::Duration};
 
 use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
@@ -11,18 +11,14 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     metrics::MetricsGauge,
-    network::{determine_network_mode, get_network_signer},
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
-    network::{
-        proto::types::{ExecutionStatus, FulfillmentStatus},
-        NetworkMode,
-    },
-    HashableKey, NetworkProver, Prover, ProverClient, SP1Proof, SP1ProofWithPublicValues,
+    network::{proto::types::{ExecutionStatus, FulfillmentStatus}, NetworkMode},
+    Elf, HashableKey, NetworkProver, Prover, ProverClient, ProvingKey, SP1Proof, SP1ProofWithPublicValues,
 };
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
@@ -90,30 +86,31 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        // Set up the network prover.
-        let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
-        let network_mode = determine_network_mode(
-            requester_config.range_proof_strategy,
-            requester_config.agg_proof_strategy,
+        // Set a default network private key to avoid an error in mock mode.
+        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
+            tracing::warn!(
+                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+            );
+            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+        });
+
+        let network_prover =
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build().await);
+
+        let (range_pk, agg_pk) = tokio::try_join!(
+            network_prover.setup(Elf::Static(get_range_elf_embedded())),
+            network_prover.setup(Elf::Static(AGGREGATION_ELF)),
         )?;
-        let network_prover = Arc::new(
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
-        );
 
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-
-        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
-        let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
+        let multi_block_vkey_u8 = u32_to_u8(range_pk.verifying_key().hash_u32());
         let range_vkey_commitment = B256::from(multi_block_vkey_u8);
-        let agg_vkey_hash = B256::from_str(&agg_vk.bytes32()).unwrap();
+        let agg_vkey_hash = B256::from_str(&agg_pk.verifying_key().bytes32()).unwrap();
 
         // Initialize fetcher
         let rollup_config_hash = hash_rollup_config(fetcher.rollup_config.as_ref().unwrap());
 
         let program_config = ProgramConfig {
-            range_vk: Arc::new(range_vk),
             range_pk: Arc::new(range_pk),
-            agg_vk: Arc::new(agg_vk),
             agg_pk: Arc::new(agg_pk),
             commitments: CommitmentConfig {
                 range_vkey_commitment,

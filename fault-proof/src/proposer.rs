@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    env,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -20,14 +21,13 @@ use op_succinct_host_utils::{
     get_agg_proof_stdin,
     host::OPSuccinctHost,
     metrics::MetricsGauge,
-    network::{determine_network_mode, get_network_signer},
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
-    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
-    SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    Elf, NetworkProver, ProveRequest, Prover, ProverClient, ProvingKey, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1_CIRCUIT_VERSION,
 };
 use tokio::{
     sync::{Mutex, RwLock},
@@ -78,7 +78,6 @@ pub enum TaskInfo {
 struct SP1Prover {
     network_prover: Arc<NetworkProver>,
     range_pk: Arc<SP1ProvingKey>,
-    range_vk: Arc<SP1VerifyingKey>,
     agg_pk: Arc<SP1ProvingKey>,
     agg_mode: SP1ProofMode,
 }
@@ -198,15 +197,21 @@ where
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
     ) -> Result<Self> {
-        // Set up the network prover.
-        let network_signer = get_network_signer(config.use_kms_requester).await?;
-        let network_mode =
-            determine_network_mode(config.range_proof_strategy, config.agg_proof_strategy)?;
-        let network_prover = Arc::new(
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
-        );
-        let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+        // Set a default network private key to avoid an error in mock mode.
+        let private_key = env::var("NETWORK_PRIVATE_KEY").unwrap_or_else(|_| {
+            tracing::warn!(
+                "Using default NETWORK_PRIVATE_KEY of 0x01. This is only valid in mock mode."
+            );
+            "0x0000000000000000000000000000000000000000000000000000000000000001".to_string()
+        });
+
+        let network_prover =
+            Arc::new(ProverClient::builder().network().private_key(&private_key).build().await);
+
+        let (range_pk, agg_pk) = tokio::try_join!(
+            network_prover.setup(Elf::Static(get_range_elf_embedded())),
+            network_prover.setup(Elf::Static(AGGREGATION_ELF)),
+        )?;
 
         let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
@@ -232,7 +237,6 @@ where
             prover: SP1Prover {
                 network_prover,
                 range_pk: Arc::new(range_pk),
-                range_vk: Arc::new(range_vk),
                 agg_pk: Arc::new(agg_pk),
                 agg_mode: config.agg_proof_mode,
             },
@@ -804,7 +808,7 @@ where
             proofs,
             boot_infos,
             headers,
-            &self.prover.range_vk,
+            self.prover.range_pk.verifying_key(),
             latest_l1_head,
             self.signer.address(),
         ) {
@@ -854,14 +858,14 @@ where
             let (public_values, report) = self
                 .prover
                 .network_prover
-                .execute(get_range_elf_embedded(), sp1_stdin)
+                .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin.clone())
                 .calculate_gas(true)
                 .deferred_proof_verification(false)
-                .run()?;
+                .await?;
 
             // Record execution stats
             let total_instruction_cycles = report.total_instruction_count();
-            let total_sp1_gas = report.gas.unwrap_or(0);
+            let total_sp1_gas = report.gas().unwrap_or(0);
 
             // Update Prometheus metrics
             ProposerGauge::TotalInstructionCycles.set(total_instruction_cycles as f64);
@@ -875,7 +879,7 @@ where
 
             // Create a mock range proof with the public values.
             let proof = SP1ProofWithPublicValues::create_mock_proof(
-                &self.prover.range_pk,
+                self.prover.range_pk.verifying_key(),
                 public_values,
                 SP1ProofMode::Compressed,
                 SP1_CIRCUIT_VERSION,
@@ -887,7 +891,7 @@ where
             let proof = self
                 .prover
                 .network_prover
-                .prove(&self.prover.range_pk, sp1_stdin)
+                .prove(&self.prover.range_pk, sp1_stdin.clone())
                 .compressed()
                 .skip_simulation(true)
                 .strategy(self.config.range_proof_strategy)
@@ -897,7 +901,6 @@ where
                 .cycle_limit(self.config.range_cycle_limit)
                 .gas_limit(self.config.range_gas_limit)
                 .whitelist(self.config.whitelist.clone())
-                .run_async()
                 .await?;
 
             Ok((proof, 0, 0))
@@ -915,13 +918,13 @@ where
             let (public_values, _) = self
                 .prover
                 .network_prover
-                .execute(AGGREGATION_ELF, sp1_stdin)
+                .execute(Elf::Static(AGGREGATION_ELF), sp1_stdin.clone())
                 .deferred_proof_verification(false)
-                .run()?;
+                .await?;
 
             // Create a mock aggregation proof with the public values.
             SP1ProofWithPublicValues::create_mock_proof(
-                &self.prover.agg_pk,
+                self.prover.agg_pk.verifying_key(),
                 public_values,
                 self.prover.agg_mode,
                 SP1_CIRCUIT_VERSION,
@@ -929,7 +932,7 @@ where
         } else {
             self.prover
                 .network_prover
-                .prove(&self.prover.agg_pk, sp1_stdin)
+                .prove(&self.prover.agg_pk, sp1_stdin.clone())
                 .mode(self.prover.agg_mode)
                 .strategy(self.config.agg_proof_strategy)
                 .timeout(Duration::from_secs(self.config.timeout))
@@ -938,7 +941,6 @@ where
                 .cycle_limit(self.config.agg_cycle_limit)
                 .gas_limit(self.config.agg_gas_limit)
                 .whitelist(self.config.whitelist.clone())
-                .run_async()
                 .await?
         };
 

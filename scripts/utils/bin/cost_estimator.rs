@@ -15,7 +15,10 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{
+    blocking::{Prover, ProverClient},
+    utils, Elf,
+};
 use std::{
     cmp::{max, min},
     fs::{self, OpenOptions},
@@ -64,8 +67,6 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
     fs::File::create(&report_path).unwrap();
     let report_path = report_path.canonicalize().unwrap();
 
-    let prover = ProverClient::builder().cpu().build();
-
     // Run the host tasks in parallel using join_all
     let handles = host_args.iter().map(|host_args| {
         let host_args = host_args.clone();
@@ -82,44 +83,51 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
         .map(|r| r.unwrap())
         .collect::<Vec<_>>();
 
-    let execution_inputs = stdins.iter().zip(block_data.iter()).collect::<Vec<_>>();
+    // Clone data for the spawn_blocking closure which requires 'static lifetime
+    let execution_inputs: Vec<_> = stdins.into_iter().zip(block_data.into_iter()).collect();
 
-    // Execute the program for each block range in parallel.
-    execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(get_range_elf_embedded(), sp1_stdin).deferred_proof_verification(false).run();
+    // Execute the program for each block range in parallel using spawn_blocking
+    // to avoid runtime nesting issues with the blocking prover API.
+    let report_path_clone = report_path.clone();
+    tokio::task::spawn_blocking(move || {
+        let prover = ProverClient::builder().cpu().build();
 
-        if let Some(err) = result.as_ref().err() {
-            log::warn!(
-                "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
-                range.start,
-                range.end,
-                err
-            );
-            return;
-        }
+        execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
+            let result = prover.execute(Elf::Static(get_range_elf_embedded()), (*sp1_stdin).clone()).deferred_proof_verification(false).run();
 
-        let (_, report) = result.unwrap();
+            if let Some(err) = result.as_ref().err() {
+                log::warn!(
+                    "Failed to execute blocks {:?} - {:?} because of {:?}. Reduce your `batch-size` if you're running into OOM issues on SP1.",
+                    range.start,
+                    range.end,
+                    err
+                );
+                return;
+            }
 
-        let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
+            let (_, report) = result.unwrap();
 
-        let mut file = OpenOptions::new()
-            .read(true)
-            .append(true)
-            .open(&report_path)
-            .unwrap();
+            let execution_stats = ExecutionStats::new(0, block_data, &report, 0, 0);
 
-        // Writes the headers only if the file is empty.
-        let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
+            let mut file = OpenOptions::new()
+                .read(true)
+                .append(true)
+                .open(&report_path_clone)
+                .unwrap();
 
-        let mut csv_writer = csv::WriterBuilder::new()
-            .has_headers(needs_header)
-            .from_writer(file);
+            // Writes the headers only if the file is empty.
+            let needs_header = file.seek(std::io::SeekFrom::End(0)).unwrap() == 0;
 
-        csv_writer
-            .serialize(execution_stats.clone())
-            .expect("Failed to write execution stats to CSV.");
-        csv_writer.flush().expect("Failed to flush CSV writer.");
-    });
+            let mut csv_writer = csv::WriterBuilder::new()
+                .has_headers(needs_header)
+                .from_writer(file);
+
+            csv_writer
+                .serialize(execution_stats.clone())
+                .expect("Failed to write execution stats to CSV.");
+            csv_writer.flush().expect("Failed to flush CSV writer.");
+        });
+    }).await?;
 
     info!("Execution is complete.");
 
