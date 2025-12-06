@@ -37,7 +37,7 @@ func TestFaultProofProposer_RangeSplitTwo_ThreeGames(gt *testing.T) {
 }
 
 func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration, cfg opspresets.FaultProofConfig) {
-	t := devtest.SerialT(gt)
+	t := devtest.ParallelT(gt)
 	sys := opspresets.NewFaultProofSystem(t, cfg)
 	require := t.Require()
 	logger := t.Logger()
