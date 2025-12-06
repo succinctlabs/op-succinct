@@ -10,7 +10,7 @@ use kona_rpc::{OutputResponse, SafeHeadResponse};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    fetcher::{OPSuccinctDataFetcher, RPCMode},
+    fetcher::{get_rpc_concurrency_from_env, OPSuccinctDataFetcher, RPCMode},
     host::OPSuccinctHost,
 };
 
@@ -154,7 +154,7 @@ pub async fn split_range_based_on_safe_heads(
                 .expect("Failed to fetch safe head");
             result.safe_head.number
         })
-        .buffered(15)
+        .buffered(get_rpc_concurrency_from_env())
         .collect::<HashSet<_>>()
         .await;
 

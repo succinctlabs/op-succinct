@@ -286,7 +286,7 @@ where
                         self.driver_config.fetcher.clone(),
                     )
                 })
-                .buffered(10) // Do 10 at a time, otherwise it's too slow when fetching the block range data.
+                .buffered(self.driver_config.fetcher.rpc_config.concurrency)
                 .try_collect::<Vec<OPSuccinctRequest>>()
                 .await?;
 
