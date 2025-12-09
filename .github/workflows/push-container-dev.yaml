@@ -28,3 +28,12 @@ jobs:
       service-account: op-succinct-gh-dev@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos
       concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-challenger-dev
+  push_container_game_monitor_dev:
+    name: Build and push game-monitor development image
+    uses: ./.github/workflows/push-container.yaml
+    with:
+      file: scripts/utils/Dockerfile.game-monitor
+      artifact-registry: us-west1-docker.pkg.dev/devopsre/dev-images/${{ github.event.repository.name }}-game-monitor
+      service-account: op-succinct-gh-dev@devopsre.iam.gserviceaccount.com
+      workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos
+      concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-game-monitor-dev

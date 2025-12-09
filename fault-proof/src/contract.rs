@@ -50,6 +50,9 @@ sol! {
 
     #[sol(rpc)]
     contract OPSuccinctFaultDisputeGame {
+        /// @notice Getter for the starting block number.
+        function startingBlockNumber() external view returns (uint256 startingBlockNumber_);
+
         /// @notice Getter for the game type.
         function gameType() public pure returns (GameType gameType_);
 

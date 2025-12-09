@@ -9189,6 +9189,7 @@ version = "3.3.3-b"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
+ "alloy-provider",
  "alloy-signer-local",
  "alloy-sol-types",
  "anyhow",

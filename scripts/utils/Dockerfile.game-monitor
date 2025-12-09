@@ -1,0 +1,70 @@
+# syntax=docker/dockerfile:1.4
+
+# Base stage: Install Rust and dependencies
+FROM ubuntu:24.04 AS rust-base
+
+WORKDIR /app
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    clang \
+    build-essential \
+    git \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup install stable && rustup default stable
+
+# Install SP1
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    ~/.sp1/bin/sp1up -v v5.2.2 && \
+    ~/.sp1/bin/cargo-prove prove --version
+
+# Copy toolchain file
+COPY rust-toolchain.toml .
+# This installs the nightly version from the file
+RUN rustup show
+
+# Build stage
+FROM rust-base AS builder
+
+# Copy the entire workspace
+COPY . .
+
+# Build the cost-estimator
+RUN cargo build --release --bin cost-estimator --features eigenda
+# Build the game-monitor
+RUN cargo build --release --bin game-monitor
+
+# Runtime stage (minimal image)
+FROM ubuntu:24.04
+
+WORKDIR /app
+
+# Install only necessary runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust (needed by calls to cargo_metadata::MetadataCommand)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH=/root/.cargo/bin:$PATH
+RUN rustup install stable && rustup default stable
+
+# Copy toolchain file
+COPY rust-toolchain.toml .
+# This installs the nightly version from the file
+RUN rustup show
+
+# Copy the built binaries
+COPY --from=builder /app/target/release/cost-estimator /usr/local/bin/
+COPY --from=builder /app/target/release/game-monitor /usr/local/bin/
+
+# Copy the entire workspace so we can run cargo_metadata::MetadataCommand to get the workspace root.
+COPY . .
