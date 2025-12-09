@@ -104,7 +104,7 @@ jobs:
           target/debug/deps/*.log
         retention-days: 7
 
-  da-host-tests:
+  da-integration-tests:
     name: DA Host (${{ matrix.da }})
     runs-on:
       - runs-on
