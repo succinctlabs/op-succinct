@@ -68,23 +68,6 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
-    - name: Setup EigenDA SRS
-      if: matrix.da == 'eigenda'
-      uses: actions/cache@v4
-      id: cache-srs
-      with:
-        path: scripts/prove/resources
-        key: eigenda-srs-2.2.1
-
-    - name: Download EigenDA SRS
-      if: matrix.da == 'eigenda' && steps.cache-srs.outputs.cache-hit != 'true'
-      run: |
-        mkdir -p scripts/prove
-        docker pull ghcr.io/layr-labs/eigenda-proxy:2.2.1
-        cid=$(docker create ghcr.io/layr-labs/eigenda-proxy:2.2.1)
-        docker cp "$cid:/app/resources" scripts/prove/
-        docker rm -f "$cid"
-
     - name: Run tests
       run: just fp-integration-tests ${{ matrix.test }} ${{ matrix.da }}
       env:
@@ -138,22 +121,6 @@ jobs:
 
     - name: Install just
       uses: extractions/setup-just@v3
-
-    - name: Setup EigenDA SRS
-      if: matrix.da == 'eigenda'
-      uses: actions/cache@v4
-      id: cache-srs
-      with:
-        path: resources
-        key: eigenda-srs-2.2.1
-
-    - name: Download EigenDA SRS
-      if: matrix.da == 'eigenda' && steps.cache-srs.outputs.cache-hit != 'true'
-      run: |
-        docker pull ghcr.io/layr-labs/eigenda-proxy:2.2.1
-        cid=$(docker create ghcr.io/layr-labs/eigenda-proxy:2.2.1)
-        docker cp "$cid:/app/resources" .
-        docker rm -f "$cid"
 
     - name: Run tests
       run: just da-integration-tests ${{ matrix.da }}
