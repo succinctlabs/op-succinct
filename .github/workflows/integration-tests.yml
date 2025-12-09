@@ -122,22 +122,13 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
-    - name: Verify EigenDA SRS file
+    - name: Setup EigenDA SRS symlinks
       if: matrix.da == 'eigenda'
       run: |
-        echo "Working directory: $(pwd)"
-        echo "Git root: $(git rev-parse --show-toplevel)"
-        echo "Checking resources/g1.point..."
-        ls -la resources/ || { echo "ERROR: resources/ directory not found"; exit 1; }
-        if [ -f resources/g1.point ]; then
-          echo "SRS file exists: $(du -h resources/g1.point | cut -f1)"
-          file resources/g1.point
-        else
-          echo "ERROR: SRS file resources/g1.point is missing!"
-          echo "Listing all files in resources:"
-          ls -la resources/
-          exit 1
-        fi
+        # Create symlink so the SRS file is accessible from package directories.
+        ln -sf ../../../resources utils/eigenda/host/resources
+        echo "Created symlink: utils/eigenda/host/resources -> ../../../resources"
+        ls -la utils/eigenda/host/resources/
 
     - name: Run tests
       run: just da-integration-tests ${{ matrix.da }}
