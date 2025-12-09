@@ -9,6 +9,7 @@ on:
       - 'justfile'
       - 'fault-proof/**'
       - 'bindings/**'
+      - 'utils/**'
   push:
     tags:
       - v[0-9]+.*
@@ -22,7 +23,7 @@ concurrency:
 
 jobs:
   fp-integration-tests:
-    name: Fault Proof (${{ matrix.target }})
+    name: Fault Proof (${{ matrix.test }}${{ matrix.da != 'ethereum' && format(' - {0}', matrix.da) || '' }})
     runs-on:
       - runs-on
       - runner=64cpu-linux-x64
@@ -34,9 +35,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - integration
-          - sync
+        # sync is DA-agnostic (runs once), integration is DA-specific
+        include:
+          - test: sync
+            da: ethereum
+          - test: integration
+            da: ethereum
+          - test: integration
+            da: eigenda
 
     steps:
     - name: Checkout code
@@ -64,20 +70,37 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
-    - name: Run integration tests
-      run: just fp-integration-tests ${{ matrix.target }}
+    - name: Setup EigenDA SRS
+      if: matrix.da == 'eigenda'
+      uses: actions/cache@v4
+      id: cache-srs
+      with:
+        path: scripts/prove/resources
+        key: eigenda-srs-2.2.1
+
+    - name: Download EigenDA SRS
+      if: matrix.da == 'eigenda' && steps.cache-srs.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p scripts/prove
+        docker pull ghcr.io/layr-labs/eigenda-proxy:2.2.1
+        cid=$(docker create ghcr.io/layr-labs/eigenda-proxy:2.2.1)
+        docker cp "$cid:/app/resources" scripts/prove/
+        docker rm -f "$cid"
+
+    - name: Run tests
+      run: just fp-integration-tests ${{ matrix.test }} ${{ matrix.da }}
       env:
-        # TODO(fakedev9999): Remove L1 RPCs since we are using fresh Anvil chain
         L1_RPC: ${{ secrets.L1_RPC }}
         L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-        L2_RPC: ${{ secrets.L2_RPC }}
-        L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+        L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
+        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
 
     - name: Upload test logs on failure
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: fp-integration-tests-${{ matrix.target }}-logs
+        name: fp-${{ matrix.test }}-${{ matrix.da }}-logs
         path: |
           **/*.log
           target/debug/deps/*.log
