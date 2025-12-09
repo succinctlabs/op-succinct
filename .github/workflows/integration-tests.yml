@@ -140,3 +140,4 @@ jobs:
           **/*.log
           target/debug/deps/*.log
         retention-days: 7
+        OP_SUCCINCT_MOCK: 'true'
