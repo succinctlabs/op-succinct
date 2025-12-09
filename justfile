@@ -422,18 +422,16 @@ tests:
     --skip test_cycle_count_diff \
     --skip test_post_to_github
 
-# Run fault-proof integration tests.
-fp-integration-tests target="":
-  #!/usr/bin/env bash
+# Run fault-proof integration tests
+# target: test file (integration, sync, etc.)
+# da: DA feature (ethereum, eigenda, celestia). DA-agnostic tests like sync work with any.
+fp-integration-tests target="integration" da="ethereum":
+  cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
-   test_target=""
-   if [ -n "{{target}}" ]; then
-       test_target="--test {{target}}"
-   fi
-
-   cd fault-proof
-
-   cargo t $test_target --release --features integration -- --test-threads=1 --nocapture
+# Run DA-specific host utility tests
+# da: ethereum, eigenda, celestia
+da-integration-tests da="ethereum":
+  cargo t -p op-succinct-{{da}}-host-utils --features integration --release -- --test-threads=1 --nocapture
 
 forge-build *ARGS:
     #!/usr/bin/env bash
