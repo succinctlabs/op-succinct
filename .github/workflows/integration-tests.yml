@@ -51,9 +51,7 @@ jobs:
         submodules: recursive
 
     - name: Setup Rust
-      run: |
-        rustup toolchain install stable --profile minimal
-        rustup component add rustfmt clippy
+      run: rustup toolchain install stable --profile minimal
 
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
@@ -101,6 +99,77 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: fp-${{ matrix.test }}-${{ matrix.da }}-logs
+        path: |
+          **/*.log
+          target/debug/deps/*.log
+        retention-days: 7
+
+  da-host-tests:
+    name: DA Host (${{ matrix.da }})
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+      - disk=large
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        da: [eigenda]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup Rust
+      run: |
+        rustup toolchain install stable --profile minimal
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          bindings
+
+    - name: Install just
+      uses: extractions/setup-just@v3
+
+    - name: Setup EigenDA SRS
+      if: matrix.da == 'eigenda'
+      uses: actions/cache@v4
+      id: cache-srs
+      with:
+        path: scripts/prove/resources
+        key: eigenda-srs-2.2.1
+
+    - name: Download EigenDA SRS
+      if: matrix.da == 'eigenda' && steps.cache-srs.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p scripts/prove
+        docker pull ghcr.io/layr-labs/eigenda-proxy:2.2.1
+        cid=$(docker create ghcr.io/layr-labs/eigenda-proxy:2.2.1)
+        docker cp "$cid:/app/resources" scripts/prove/
+        docker rm -f "$cid"
+
+    - name: Run tests
+      run: just da-host-tests ${{ matrix.da }}
+      env:
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
+        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: da-host-${{ matrix.da }}-logs
         path: |
           **/*.log
           target/debug/deps/*.log

@@ -428,6 +428,11 @@ tests:
 fp-integration-tests test="integration" da="ethereum":
   cd fault-proof && cargo t --test {{test}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
+# Run DA-specific host utility tests
+# da: ethereum, eigenda, celestia
+da-host-tests da="ethereum":
+  cargo t -p op-succinct-{{da}}-host-utils --features integration --release -- --test-threads=1 --nocapture
+
 forge-build *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
