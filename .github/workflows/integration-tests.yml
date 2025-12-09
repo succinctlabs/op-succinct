@@ -30,6 +30,7 @@ jobs:
       - run-id=${{ github.run_id }}
       - spot=false
       - disk=large
+      - extras=s3-cache
     timeout-minutes: 60
 
     strategy:
@@ -45,6 +46,9 @@ jobs:
             da: eigenda
 
     steps:
+    - name: Configure runs-on cache
+      uses: runs-on/action@v2
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
@@ -95,6 +99,7 @@ jobs:
       - run-id=${{ github.run_id }}
       - spot=false
       - disk=large
+      - extras=s3-cache
     timeout-minutes: 60
 
     strategy:
@@ -103,6 +108,9 @@ jobs:
         da: [eigenda]
 
     steps:
+    - name: Configure runs-on cache
+      uses: runs-on/action@v2
+
     - name: Checkout code
       uses: actions/checkout@v4
       with:
