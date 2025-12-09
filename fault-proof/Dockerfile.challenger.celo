@@ -29,13 +29,13 @@ COPY . .
 RUN cargo build --release --bin challenger --features eigenda
 
 # Runtime stage
-FROM rust:1.89.0-trixie 
+FROM rust:1.89.0-trixie
 
 WORKDIR /app
 COPY resources/ ./resources/
 
 # Copy the built challenger binary
-COPY --from=builder /app/target/release/ /usr/local/bin/
+COPY --from=builder /app/target/release/challenger /usr/local/bin/
 
 # Set the command
 CMD ["challenger"]
