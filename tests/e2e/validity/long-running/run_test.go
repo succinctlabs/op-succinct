@@ -24,24 +24,13 @@ func TestLongRunningValidityProposer(gt *testing.T) {
 
 	t.Log("=== Stack is running ===")
 
-	// Create L2OO client to monitor proposer progress
 	l2ooAddr := sys.L2Chain.Escape().Deployment().OPSuccinctL2OutputOracleAddr()
 	l2oo, err := utils.NewL2OOClient(sys.L1EL.EthClient(), l2ooAddr)
 	t.Require().NoError(err, "failed to create L2OO client")
 
-	// Log progress periodically until interrupted
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-t.Ctx().Done():
-			t.Log("Shutting down")
-			return
-		case <-ticker.C:
-			l2Block := sys.L2EL.BlockRefByLabel(eth.Unsafe)
-			l2ooBlock, _ := l2oo.LatestBlockNumber(t.Ctx())
-			t.Logf("L2 block: %d | L2OO latest: %d", l2Block.Number, l2ooBlock)
-		}
-	}
+	utils.RunUntilShutdown(10*time.Second, func() {
+		l2Block := sys.L2EL.BlockRefByLabel(eth.Unsafe)
+		l2ooBlock, _ := l2oo.LatestBlockNumber(t.Ctx())
+		t.Logf("L2 block: %d | L2OO latest: %d", l2Block.Number, l2ooBlock)
+	})
 }

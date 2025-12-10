@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	"math/big"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
@@ -416,3 +419,24 @@ func VerifyRanges(ranges []RangeProof, expectedStart, expectedEnd int64, expecte
 	}
 	return nil
 }
+
+// RunUntilShutdown runs onTick periodically until SIGINT/SIGTERM is received.
+func RunUntilShutdown(interval time.Duration, onTick func()) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-sigCh:
+			return
+		case <-ticker.C:
+			onTick()
+		}
+	}
+}
+
+
