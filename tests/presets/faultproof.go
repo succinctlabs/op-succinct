@@ -23,6 +23,7 @@ type FaultProofConfig struct {
 	MaxConcurrentRangeProofs uint64
 	FastFinalityMode         bool
 	FastFinalityProvingLimit uint64
+	EnvFilePath              string
 }
 
 // DefaultFaultProofConfig returns the default configuration.
@@ -47,23 +48,30 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 	return cfg
 }
 
-// WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
-func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
+// withSuccinctFPProposer creates a fault proof proposer with custom configuration.
+func withSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
-		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
-			sysgo.WithFdgL2StartingBlockNumber(1),
-			sysgo.WithFdgMaxChallengeDuration(cfg.MaxChallengeDuration),
-			sysgo.WithFdgMaxProveDuration(cfg.MaxProveDuration),
-			sysgo.WithFdgDisputeGameFinalityDelaySecs(cfg.DisputeGameFinalityDelaySecs)))
-		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, sysgo.WithFdgL2StartingBlockNumber(1)))
+
+		proposerOpts := []sysgo.FaultProofProposerOption{
 			sysgo.WithFPProposalIntervalInBlocks(cfg.ProposalIntervalInBlocks),
 			sysgo.WithFPFetchInterval(cfg.FetchInterval),
 			sysgo.WithFPRangeSplitCount(cfg.RangeSplitCount),
 			sysgo.WithFPMaxConcurrentRangeProofs(cfg.MaxConcurrentRangeProofs),
 			sysgo.WithFPFastFinalityMode(cfg.FastFinalityMode),
-			sysgo.WithFPFastFinalityProvingLimit(cfg.FastFinalityProvingLimit)))
+			sysgo.WithFPFastFinalityProvingLimit(cfg.FastFinalityProvingLimit),
+		}
+		if cfg.EnvFilePath != "" {
+			proposerOpts = append(proposerOpts, sysgo.WithFPWriteEnvFile(cfg.EnvFilePath))
+		}
+		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, proposerOpts...))
 	})
+}
+
+// WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
+func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
+	return withSuccinctFPProposer(dest, cfg)
 }
 
 // WithDefaultSuccinctFPProposer creates a fault proof proposer with default configuration.
