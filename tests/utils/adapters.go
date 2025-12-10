@@ -130,9 +130,7 @@ func NewDgfClient(client apis.EthClient, addr common.Address) (*DgfClient, error
 		return nil, fmt.Errorf("bind DGF: %w", err)
 	}
 
-	return &DgfClient{
-		caller: dgfCaller,
-	}, nil
+	return &DgfClient{caller: dgfCaller}, nil
 }
 
 func (dfg *DgfClient) GameAtIndex(ctx context.Context, index uint64) (GameAtIndexResult, error) {
@@ -421,7 +419,9 @@ func VerifyRanges(ranges []RangeProof, expectedStart, expectedEnd int64, expecte
 }
 
 // RunUntilShutdown runs onTick periodically until SIGINT/SIGTERM is received.
-func RunUntilShutdown(interval time.Duration, onTick func()) {
+// If onTick returns an error, the loop terminates and returns that error.
+// Returns nil on graceful shutdown via signal.
+func RunUntilShutdown(interval time.Duration, onTick func() error) error {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
@@ -432,9 +432,11 @@ func RunUntilShutdown(interval time.Duration, onTick func()) {
 	for {
 		select {
 		case <-sigCh:
-			return
+			return nil
 		case <-ticker.C:
-			onTick()
+			if err := onTick(); err != nil {
+				return err
+			}
 		}
 	}
 }
