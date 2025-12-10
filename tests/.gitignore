@@ -5,3 +5,6 @@ actions
 
 artifacts/forge-artifacts
 artifacts/src
+
+# Long-running test environment file
+.env.*
