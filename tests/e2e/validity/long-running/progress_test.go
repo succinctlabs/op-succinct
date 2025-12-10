@@ -14,16 +14,6 @@ import (
 // MaxProposerLag is the maximum allowed lag between L2 finalized block and L2OO latest block.
 const MaxProposerLag uint64 = 100
 
-// TestValidityProposer_LongRunning runs indefinitely, logging progress without failing.
-func TestValidityProposer_LongRunning(gt *testing.T) {
-	t := devtest.SerialT(gt)
-	sys, l2oo := setupValiditySystem(t)
-
-	utils.RunUntilShutdown(10*time.Second, func() error {
-		return checkValidityLag(t, sys, l2oo, false)
-	})
-}
-
 // TestValidityProposer_Progress runs until shutdown and fails if lag exceeds threshold.
 func TestValidityProposer_Progress(gt *testing.T) {
 	t := devtest.SerialT(gt)
@@ -37,6 +27,8 @@ func TestValidityProposer_Progress(gt *testing.T) {
 
 func setupValiditySystem(t devtest.T) (*opspresets.ValiditySystem, *utils.L2OOClient) {
 	cfg := opspresets.DefaultValidityConfig()
+	cfg.SubmissionInterval = 50
+	cfg.RangeProofInterval = 50
 	cfg.EnvFilePath = "../../../.env.validity"
 	sys := opspresets.NewValiditySystem(t, cfg)
 	t.Log("=== Stack is running ===")

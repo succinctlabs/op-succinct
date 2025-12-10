@@ -15,16 +15,6 @@ import (
 // MaxProposerLag is the maximum allowed lag between L2 finalized block and the latest game's L2 block.
 const MaxProposerLag uint64 = 100
 
-// TestFaultProofProposer_LongRunning runs indefinitely, logging progress without failing.
-func TestFaultProofProposer_LongRunning(gt *testing.T) {
-	t := devtest.SerialT(gt)
-	sys, dgf := setupFaultProofSystem(t)
-
-	utils.RunUntilShutdown(10*time.Second, func() error {
-		return checkFaultProofLag(t, sys, dgf, false)
-	})
-}
-
 // TestFaultProofProposer_Progress runs until shutdown and fails if lag exceeds threshold.
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.SerialT(gt)
@@ -38,6 +28,7 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 
 func setupFaultProofSystem(t devtest.T) (*opspresets.FaultProofSystem, *utils.DgfClient) {
 	cfg := opspresets.DefaultFaultProofConfig()
+	cfg.ProposalIntervalInBlocks = 50
 	cfg.EnvFilePath = "../../../.env.faultproof"
 	sys := opspresets.NewFaultProofSystem(t, cfg)
 	t.Log("=== Stack is running ===")
