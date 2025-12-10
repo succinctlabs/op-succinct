@@ -44,8 +44,8 @@ func (c ValidityConfig) ExpectedRangeCount(outputBlock uint64) int {
 	return int((blocksToProve + c.RangeProofInterval - 1) / c.RangeProofInterval)
 }
 
-// withSuccinctValidityProposer creates a validity proposer with custom configuration.
-func withSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig) stack.CommonOption {
+// WithSuccinctValidityProposer creates a validity proposer with custom configuration.
+func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
@@ -64,11 +64,6 @@ func withSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 		}
 		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, proposerOpts...))
 	})
-}
-
-// WithSuccinctValidityProposer creates a validity proposer with custom configuration.
-func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig) stack.CommonOption {
-	return withSuccinctValidityProposer(dest, cfg)
 }
 
 // WithDefaultSuccinctValidityProposer creates a validity proposer with default configuration.
@@ -109,7 +104,7 @@ func (s *ValiditySystem) StartProposer() {
 // NewValiditySystem creates a new validity test system with custom configuration.
 func NewValiditySystem(t devtest.T, cfg ValidityConfig) *ValiditySystem {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
-	sys, prop := newSystemWithProposer(t, withSuccinctValidityProposer(&ids, cfg), &ids)
+	sys, prop := newSystemWithProposer(t, WithSuccinctValidityProposer(&ids, cfg), &ids)
 
 	vp, ok := prop.(sysgo.ValidityProposer)
 	t.Require().True(ok, "proposer must implement ValidityProposer")

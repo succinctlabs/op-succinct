@@ -48,8 +48,8 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 	return cfg
 }
 
-// withSuccinctFPProposer creates a fault proof proposer with custom configuration.
-func withSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
+// WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
+func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, sysgo.WithFdgL2StartingBlockNumber(1)))
@@ -67,11 +67,6 @@ func withSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 		}
 		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, proposerOpts...))
 	})
-}
-
-// WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
-func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
-	return withSuccinctFPProposer(dest, cfg)
 }
 
 // WithDefaultSuccinctFPProposer creates a fault proof proposer with default configuration.
