@@ -31,7 +31,7 @@ func DefaultFaultProofConfig() FaultProofConfig {
 	return FaultProofConfig{
 		MaxChallengeDuration:         10, // Low for tests (vs 7 days production)
 		MaxProveDuration:             10, // Low for tests (vs 1 day production)
-		DisputeGameFinalityDelaySecs: 60, // Low for tests (vs 7 days production)
+		DisputeGameFinalityDelaySecs: 30, // Low for tests (vs 7 days production)
 		ProposalIntervalInBlocks:     10,
 		FetchInterval:                1,
 		RangeSplitCount:              1,
