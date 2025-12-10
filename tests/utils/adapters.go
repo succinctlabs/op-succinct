@@ -438,5 +438,3 @@ func RunUntilShutdown(interval time.Duration, onTick func()) {
 		}
 	}
 }
-
-
