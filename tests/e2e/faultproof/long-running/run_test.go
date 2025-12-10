@@ -24,24 +24,13 @@ func TestLongRunningFaultProofProposer(gt *testing.T) {
 
 	t.Log("=== Stack is running ===")
 
-	// Create DGF client to monitor proposer progress
 	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
 	dgf, err := utils.NewDgfClient(sys.L1EL.EthClient(), dgfAddr)
 	t.Require().NoError(err, "failed to create DGF client")
 
-	// Log progress periodically until interrupted
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-t.Ctx().Done():
-			t.Log("Shutting down")
-			return
-		case <-ticker.C:
-			l2Block := sys.L2EL.BlockRefByLabel(eth.Unsafe)
-			gameCount, _ := dgf.GameCount(t.Ctx())
-			t.Logf("L2 block: %d | Games: %d", l2Block.Number, gameCount)
-		}
-	}
+	utils.RunUntilShutdown(10*time.Second, func() {
+		l2Block := sys.L2EL.BlockRefByLabel(eth.Unsafe)
+		gameCount, _ := dgf.GameCount(t.Ctx())
+		t.Logf("L2 block: %d | Games: %d", l2Block.Number, gameCount)
+	})
 }
