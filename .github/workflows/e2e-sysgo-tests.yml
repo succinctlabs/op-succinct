@@ -32,9 +32,11 @@ jobs:
           - "./e2e/validity/bootstrap/..."
           - "./e2e/validity/proving/..."
           - "./e2e/validity/recovery/..."
+          - "./e2e/validity/long-running/progress_test.go"
           - "./e2e/faultproof/bootstrap/..."
           - "./e2e/faultproof/fastfinality/..."
           - "./e2e/faultproof/recovery/..."
+          - "./e2e/faultproof/long-running/progress_test.go"
 
     steps:
       - name: Checkout sources
