@@ -63,6 +63,13 @@ pub struct GameMonitorArgs {
     // The index of the game to start checking from. If unset the monitor will
     #[arg(long, default_value = None)]
     pub start_index: Option<u64>,
+
+    /// The time in seconds to wait between seeing a game and running the cost estimator for a
+    /// game. This exists to mitigate node-desync issues. Which can occur when we access the L2
+    /// via a proxy with multiple backends. The default value of 10 minutes is a value that
+    /// should be safe given the default values used when running op stack nodes.
+    #[arg(long, default_value = "600")]
+    pub delay: u64,
 }
 
 /// Represents a running cost estimator process for a game.
@@ -144,6 +151,7 @@ fn spawn_cost_estimator(
     start_block: u64,
     end_block: u64,
     batch_size: u64,
+    delay: Duration,
 ) -> Result<Child> {
     let args = [
         "--start",
@@ -185,6 +193,8 @@ fn spawn_cost_estimator(
     let stdout_file = log_file_handle.try_clone()?;
     let stderr_file = log_file_handle.try_clone()?;
 
+    info!("Waiting {:?} before running cost estimator", delay);
+    std::thread::sleep(delay);
     info!("Running cost estimator:: {}", cmd);
     info!("Logging to: {:}", log_file.display());
 
@@ -330,6 +340,7 @@ async fn main() -> Result<()> {
                     start_block,
                     end_block,
                     end_block - start_block,
+                    Duration::from_secs(args.delay),
                 ) {
                     Ok(child) => {
                         info!(
