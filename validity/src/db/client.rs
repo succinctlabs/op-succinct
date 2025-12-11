@@ -1153,4 +1153,47 @@ mod tests {
 
         db.cleanup().await;
     }
+
+    #[tokio::test]
+    async fn test_queries_filter_by_commitment_config() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        fn commit(range_vkey: u8, rollup_config: u8) -> CommitmentConfig {
+            CommitmentConfig {
+                range_vkey_commitment: B256::repeat_byte(range_vkey),
+                agg_vkey_hash: B256::ZERO,
+                rollup_config_hash: B256::repeat_byte(rollup_config),
+            }
+        }
+
+        // Three requests: default, diff range_vkey, diff rollup_config
+        let requests = vec![
+            RequestBuilder::new().range(100, 200).status(RequestStatus::Complete).build(),
+            RequestBuilder::new()
+                .range(200, 300)
+                .status(RequestStatus::Complete)
+                .commitment(B256::repeat_byte(0x01), B256::ZERO)
+                .build(),
+            RequestBuilder::new()
+                .range(300, 400)
+                .status(RequestStatus::Complete)
+                .commitment(B256::ZERO, B256::repeat_byte(0x02))
+                .build(),
+        ];
+        insert_requests(c, &requests).await;
+
+        // Each config finds only its matching request
+        for (comm, expected) in [
+            (commit(0x00, 0x00), vec![(100, 200)]),
+            (commit(0x01, 0x00), vec![(200, 300)]),
+            (commit(0x00, 0x02), vec![(300, 400)]),
+        ] {
+            let result =
+                c.fetch_completed_ranges(&comm, 0, chain_ids::L1, chain_ids::L2).await.unwrap();
+            assert_eq!(result, expected);
+        }
+
+        db.cleanup().await;
+    }
 }
