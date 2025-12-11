@@ -11,7 +11,7 @@ import (
 // TestFaultProofProposer_LongRunning runs indefinitely, logging progress without failing.
 func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	sys, dgf := setupFaultProofSystem(t)
+	sys, dgf := setupFaultProofSystem(t, "../../../.env.faultproof")
 
 	utils.RunUntilShutdown(10*time.Second, func() error {
 		return checkFaultProofLag(t, sys, dgf, false)

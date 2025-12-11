@@ -17,7 +17,7 @@ const MaxProposerLag uint64 = 100
 // TestValidityProposer_Progress runs until shutdown and fails if lag exceeds threshold.
 func TestValidityProposer_Progress(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	sys, l2oo := setupValiditySystem(t)
+	sys, l2oo := setupValiditySystem(t, "")
 
 	err := utils.RunUntilShutdown(10*time.Second, func() error {
 		return checkValidityLag(t, sys, l2oo, true)
@@ -25,9 +25,9 @@ func TestValidityProposer_Progress(gt *testing.T) {
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-func setupValiditySystem(t devtest.T) (*opspresets.ValiditySystem, *utils.L2OOClient) {
+func setupValiditySystem(t devtest.T, envFilePath string) (*opspresets.ValiditySystem, *utils.L2OOClient) {
 	cfg := opspresets.LongRunningValidityConfig()
-	cfg.EnvFilePath = "../../../.env.validity"
+	cfg.EnvFilePath = envFilePath
 	sys := opspresets.NewValiditySystem(t, cfg)
 	t.Log("=== Stack is running ===")
 	return sys, sys.L2OOClient(t)
