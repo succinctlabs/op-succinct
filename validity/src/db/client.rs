@@ -934,90 +934,9 @@ mod tests {
             .build()
     }
 
-    /// Helper to call fetch_completed_ranges with default commitment and chain IDs.
-    async fn fetch(db: &TestDb, start_block: i64) -> Vec<(i64, i64)> {
-        db.client()
-            .fetch_completed_ranges(
-                &default_commitment(),
-                start_block,
-                chain_ids::L1,
-                chain_ids::L2,
-            )
-            .await
-            .expect("fetch_completed_ranges failed")
-    }
-
     // ==================== Tests ====================
 
-    mod fetch_completed_ranges {
-        use super::*;
-
-        #[tokio::test]
-        async fn test_results_ordered_by_start_block_asc() {
-            let db = TestDb::new().await;
-
-            // Insert in non-sorted order to verify DB sorts them
-            let requests = vec![
-                completed_range(100, 110),
-                completed_range(300, 310),
-                completed_range(200, 210),
-            ];
-            insert_requests(db.client(), &requests).await;
-
-            let result = fetch(&db, 0).await;
-
-            assert_eq!(result, vec![(100, 110), (200, 210), (300, 310)]);
-        }
-
-        #[tokio::test]
-        async fn test_filters_by_status_complete_only() {
-            let db = TestDb::new().await;
-
-            let requests = vec![
-                completed_range(100, 110),
-                RequestBuilder::new().range(200, 210).status(RequestStatus::Failed).build(),
-                RequestBuilder::new().range(300, 310).status(RequestStatus::Unrequested).build(),
-            ];
-            insert_requests(db.client(), &requests).await;
-
-            let result = fetch(&db, 0).await;
-
-            assert_eq!(result, vec![(100, 110)]);
-        }
-
-        #[tokio::test]
-        async fn test_filters_by_start_block_threshold() {
-            let db = TestDb::new().await;
-
-            let requests =
-                vec![completed_range(50, 60), completed_range(100, 110), completed_range(200, 210)];
-            insert_requests(db.client(), &requests).await;
-
-            let result = fetch(&db, 100).await;
-
-            assert_eq!(result, vec![(100, 110), (200, 210)]);
-        }
-
-        #[tokio::test]
-        async fn test_filters_by_request_type_range_only() {
-            let db = TestDb::new().await;
-
-            let requests = vec![
-                completed_range(100, 110),
-                RequestBuilder::new()
-                    .range(200, 210)
-                    .status(RequestStatus::Complete)
-                    .req_type(RequestType::Aggregation)
-                    .build(),
-            ];
-            insert_requests(db.client(), &requests).await;
-
-            let result = fetch(&db, 0).await;
-
-            assert_eq!(result, vec![(100, 110)]);
-        }
-    }
-
+    // Tests for chain_locks table
     #[tokio::test]
     async fn test_chain_lock_prevents_concurrent_proposers() {
         let db = TestDb::new().await;
@@ -1033,60 +952,8 @@ mod tests {
         assert!(!c.is_chain_locked(999, chain_ids::L2, interval).await.unwrap());
     }
 
-    #[tokio::test]
-    async fn test_get_consecutive_complete_range_proofs_returns_ordered() {
-        let db = TestDb::new().await;
-        let c = db.client();
-
-        // Insert in non-sorted order
-        let requests =
-            vec![completed_range(200, 300), completed_range(100, 200), completed_range(300, 400)];
-        insert_requests(c, &requests).await;
-
-        let result = c
-            .get_consecutive_complete_range_proofs(
-                100,
-                400,
-                &default_commitment(),
-                chain_ids::L1,
-                chain_ids::L2,
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0].start_block, 100);
-        assert_eq!(result[1].start_block, 200);
-        assert_eq!(result[2].start_block, 300);
-    }
-
-    #[tokio::test]
-    async fn test_fetch_active_agg_proofs_count_excludes_failed_and_cancelled() {
-        let db = TestDb::new().await;
-        let c = db.client();
-
-        let requests = vec![
-            agg_request(100, 200, RequestStatus::Unrequested),
-            agg_request(100, 200, RequestStatus::WitnessGeneration),
-            agg_request(100, 200, RequestStatus::Execution),
-            agg_request(100, 200, RequestStatus::Prove),
-            agg_request(100, 200, RequestStatus::Complete),
-            // These should NOT be counted
-            agg_request(100, 200, RequestStatus::Failed),
-            agg_request(100, 200, RequestStatus::Cancelled),
-            agg_request(100, 200, RequestStatus::Relayed),
-        ];
-        insert_requests(c, &requests).await;
-
-        let count = c
-            .fetch_active_agg_proofs_count(100, &default_commitment(), chain_ids::L1, chain_ids::L2)
-            .await
-            .unwrap();
-
-        assert_eq!(count, 5); // Only active statuses counted
-    }
-
-    // Create >100 requests to test chunking logic (BATCH_SIZE = 100)
+    // Tests for insert_requests
+    /// Tests batch chunking logic (BATCH_SIZE = 100) to avoid PostgreSQL parameter limit.
     #[tokio::test]
     async fn test_insert_requests_handles_large_batches() {
         let db = TestDb::new().await;
@@ -1110,12 +977,174 @@ mod tests {
         assert_eq!(count, 150);
     }
 
+    // Tests for fetch_completed_ranges
+    mod fetch_completed_ranges {
+        use super::*;
+
+        async fn fetch(db: &TestDb, start_block: i64) -> Vec<(i64, i64)> {
+            db.client()
+                .fetch_completed_ranges(&default_commitment(), start_block, chain_ids::L1, chain_ids::L2)
+                .await
+                .expect("fetch_completed_ranges failed")
+        }
+
+        #[tokio::test]
+        async fn test_returns_ordered_by_start_block() {
+            let db = TestDb::new().await;
+
+            let requests = vec![
+                completed_range(100, 110),
+                completed_range(300, 310),
+                completed_range(200, 210),
+            ];
+            insert_requests(db.client(), &requests).await;
+
+            assert_eq!(fetch(&db, 0).await, vec![(100, 110), (200, 210), (300, 310)]);
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_status() {
+            let db = TestDb::new().await;
+
+            let requests = vec![
+                completed_range(100, 110),
+                RequestBuilder::new().range(200, 210).status(RequestStatus::Failed).build(),
+                RequestBuilder::new().range(300, 310).status(RequestStatus::Unrequested).build(),
+            ];
+            insert_requests(db.client(), &requests).await;
+
+            assert_eq!(fetch(&db, 0).await, vec![(100, 110)]);
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_start_block_threshold() {
+            let db = TestDb::new().await;
+
+            let requests =
+                vec![completed_range(50, 60), completed_range(100, 110), completed_range(200, 210)];
+            insert_requests(db.client(), &requests).await;
+
+            assert_eq!(fetch(&db, 100).await, vec![(100, 110), (200, 210)]);
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_request_type() {
+            let db = TestDb::new().await;
+
+            let requests = vec![
+                completed_range(100, 110),
+                RequestBuilder::new()
+                    .range(200, 210)
+                    .status(RequestStatus::Complete)
+                    .req_type(RequestType::Aggregation)
+                    .build(),
+            ];
+            insert_requests(db.client(), &requests).await;
+
+            assert_eq!(fetch(&db, 0).await, vec![(100, 110)]);
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_commitment_config() {
+            let db = TestDb::new().await;
+            let c = db.client();
+
+            fn commit(range_vkey: u8, rollup_config: u8) -> CommitmentConfig {
+                CommitmentConfig {
+                    range_vkey_commitment: B256::repeat_byte(range_vkey),
+                    agg_vkey_hash: B256::ZERO,
+                    rollup_config_hash: B256::repeat_byte(rollup_config),
+                }
+            }
+
+            let requests = vec![
+                RequestBuilder::new().range(100, 200).status(RequestStatus::Complete).build(),
+                RequestBuilder::new()
+                    .range(200, 300)
+                    .status(RequestStatus::Complete)
+                    .commitment(B256::repeat_byte(0x01), B256::ZERO)
+                    .build(),
+                RequestBuilder::new()
+                    .range(300, 400)
+                    .status(RequestStatus::Complete)
+                    .commitment(B256::ZERO, B256::repeat_byte(0x02))
+                    .build(),
+            ];
+            insert_requests(c, &requests).await;
+
+            for (comm, expected) in [
+                (commit(0x00, 0x00), vec![(100, 200)]),
+                (commit(0x01, 0x00), vec![(200, 300)]),
+                (commit(0x00, 0x02), vec![(300, 400)]),
+            ] {
+                let result =
+                    c.fetch_completed_ranges(&comm, 0, chain_ids::L1, chain_ids::L2).await.unwrap();
+                assert_eq!(result, expected);
+            }
+        }
+    }
+
+    // Tests for get_consecutive_complete_range_proofs
+    #[tokio::test]
+    async fn test_get_consecutive_complete_range_proofs_returns_ordered() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        let requests =
+            vec![completed_range(200, 300), completed_range(100, 200), completed_range(300, 400)];
+        insert_requests(c, &requests).await;
+
+        let result = c
+            .get_consecutive_complete_range_proofs(
+                100,
+                400,
+                &default_commitment(),
+                chain_ids::L1,
+                chain_ids::L2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].start_block, 100);
+        assert_eq!(result[1].start_block, 200);
+        assert_eq!(result[2].start_block, 300);
+    }
+
+    // Tests for fetch_active_agg_proofs_count
+    #[tokio::test]
+    async fn test_fetch_active_agg_proofs_count_excludes_inactive_statuses() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        let requests = vec![
+            // Active statuses (should be counted)
+            agg_request(100, 200, RequestStatus::Unrequested),
+            agg_request(100, 200, RequestStatus::WitnessGeneration),
+            agg_request(100, 200, RequestStatus::Execution),
+            agg_request(100, 200, RequestStatus::Prove),
+            agg_request(100, 200, RequestStatus::Complete),
+            // Inactive statuses (should NOT be counted)
+            agg_request(100, 200, RequestStatus::Failed),
+            agg_request(100, 200, RequestStatus::Cancelled),
+            agg_request(100, 200, RequestStatus::Relayed),
+        ];
+        insert_requests(c, &requests).await;
+
+        let count = c
+            .fetch_active_agg_proofs_count(100, &default_commitment(), chain_ids::L1, chain_ids::L2)
+            .await
+            .unwrap();
+
+        assert_eq!(count, 5);
+    }
+
+    // Tests for fetch_first_unrequested_range_proof
     #[tokio::test]
     async fn test_fetch_first_unrequested_range_proof_returns_lowest_start_block() {
         let db = TestDb::new().await;
         let c = db.client();
 
-        // Insert in non-sorted order, with a lower start_block that has different status
         let requests = vec![
             RequestBuilder::new().range(300, 400).build(),
             RequestBuilder::new().range(100, 200).build(),
@@ -1136,46 +1165,5 @@ mod tests {
 
         assert!(result.is_some());
         assert_eq!(result.unwrap().start_block, 100); // Skips 50-100 (Complete status)
-    }
-
-    #[tokio::test]
-    async fn test_queries_filter_by_commitment_config() {
-        let db = TestDb::new().await;
-        let c = db.client();
-
-        fn commit(range_vkey: u8, rollup_config: u8) -> CommitmentConfig {
-            CommitmentConfig {
-                range_vkey_commitment: B256::repeat_byte(range_vkey),
-                agg_vkey_hash: B256::ZERO,
-                rollup_config_hash: B256::repeat_byte(rollup_config),
-            }
-        }
-
-        // Three requests: default, diff range_vkey, diff rollup_config
-        let requests = vec![
-            RequestBuilder::new().range(100, 200).status(RequestStatus::Complete).build(),
-            RequestBuilder::new()
-                .range(200, 300)
-                .status(RequestStatus::Complete)
-                .commitment(B256::repeat_byte(0x01), B256::ZERO)
-                .build(),
-            RequestBuilder::new()
-                .range(300, 400)
-                .status(RequestStatus::Complete)
-                .commitment(B256::ZERO, B256::repeat_byte(0x02))
-                .build(),
-        ];
-        insert_requests(c, &requests).await;
-
-        // Each config finds only its matching request
-        for (comm, expected) in [
-            (commit(0x00, 0x00), vec![(100, 200)]),
-            (commit(0x01, 0x00), vec![(200, 300)]),
-            (commit(0x00, 0x02), vec![(300, 400)]),
-        ] {
-            let result =
-                c.fetch_completed_ranges(&comm, 0, chain_ids::L1, chain_ids::L2).await.unwrap();
-            assert_eq!(result, expected);
-        }
     }
 }
