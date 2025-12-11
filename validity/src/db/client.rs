@@ -1123,4 +1123,34 @@ mod tests {
 
         db.cleanup().await;
     }
+
+    #[tokio::test]
+    async fn test_fetch_first_unrequested_range_proof_returns_lowest_start_block() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        // Insert in non-sorted order, with a lower start_block that has different status
+        let requests = vec![
+            RequestBuilder::new().range(300, 400).build(),
+            RequestBuilder::new().range(100, 200).build(),
+            RequestBuilder::new().range(200, 300).build(),
+            RequestBuilder::new().range(50, 100).status(RequestStatus::Complete).build(),
+        ];
+        insert_requests(c, &requests).await;
+
+        let result = c
+            .fetch_first_unrequested_range_proof(
+                0,
+                &default_commitment(),
+                chain_ids::L1,
+                chain_ids::L2,
+            )
+            .await
+            .unwrap();
+
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().start_block, 100); // Skips 50-100 (Complete status)
+
+        db.cleanup().await;
+    }
 }
