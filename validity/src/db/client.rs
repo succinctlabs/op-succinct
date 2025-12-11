@@ -782,10 +782,8 @@ mod tests {
     // ==================== Test Fixtures ====================
 
     /// Default chain IDs used in tests.
-    mod chain_ids {
-        pub const L1: i64 = 1;
-        pub const L2: i64 = 10;
-    }
+    const L1ID: i64 = 1;
+    const L2ID: i64 = 10;
 
     /// Creates a default commitment config for testing.
     fn default_commitment() -> CommitmentConfig {
@@ -821,8 +819,8 @@ mod tests {
                 range_vkey_commitment: B256::ZERO,
                 aggregation_vkey_hash: None,
                 rollup_config_hash: B256::ZERO,
-                l1_chain_id: chain_ids::L1,
-                l2_chain_id: chain_ids::L2,
+                l1_chain_id: L1ID,
+                l2_chain_id: L2ID,
             }
         }
     }
@@ -943,13 +941,13 @@ mod tests {
         let interval = Duration::from_secs(60);
         let c = db.client();
 
-        assert!(!c.is_chain_locked(chain_ids::L1, chain_ids::L2, interval).await.unwrap());
+        assert!(!c.is_chain_locked(L1ID, L2ID, interval).await.unwrap());
 
-        c.add_chain_lock(chain_ids::L1, chain_ids::L2).await.unwrap();
+        c.add_chain_lock(L1ID, L2ID).await.unwrap();
 
-        assert!(c.is_chain_locked(chain_ids::L1, chain_ids::L2, interval).await.unwrap());
-        assert!(!c.is_chain_locked(chain_ids::L1, 999, interval).await.unwrap());
-        assert!(!c.is_chain_locked(999, chain_ids::L2, interval).await.unwrap());
+        assert!(c.is_chain_locked(L1ID, L2ID, interval).await.unwrap());
+        assert!(!c.is_chain_locked(L1ID, 999, interval).await.unwrap());
+        assert!(!c.is_chain_locked(999, L2ID, interval).await.unwrap());
     }
 
     // Tests for insert_requests
@@ -968,8 +966,8 @@ mod tests {
             .fetch_request_count(
                 RequestStatus::Unrequested,
                 &default_commitment(),
-                chain_ids::L1,
-                chain_ids::L2,
+                L1ID,
+                L2ID,
             )
             .await
             .unwrap();
@@ -986,8 +984,8 @@ mod tests {
                 .fetch_completed_ranges(
                     &default_commitment(),
                     start_block,
-                    chain_ids::L1,
-                    chain_ids::L2,
+                    L1ID,
+                    L2ID,
                 )
                 .await
                 .expect("fetch_completed_ranges failed")
@@ -1083,7 +1081,7 @@ mod tests {
                 (commit(0x00, 0x02), vec![(300, 400)]),
             ] {
                 let result =
-                    c.fetch_completed_ranges(&comm, 0, chain_ids::L1, chain_ids::L2).await.unwrap();
+                    c.fetch_completed_ranges(&comm, 0, L1ID, L2ID).await.unwrap();
                 assert_eq!(result, expected);
             }
         }
@@ -1104,8 +1102,8 @@ mod tests {
                 100,
                 400,
                 &default_commitment(),
-                chain_ids::L1,
-                chain_ids::L2,
+                L1ID,
+                L2ID,
             )
             .await
             .unwrap();
@@ -1137,7 +1135,7 @@ mod tests {
         insert_requests(c, &requests).await;
 
         let count = c
-            .fetch_active_agg_proofs_count(100, &default_commitment(), chain_ids::L1, chain_ids::L2)
+            .fetch_active_agg_proofs_count(100, &default_commitment(), L1ID, L2ID)
             .await
             .unwrap();
 
@@ -1162,8 +1160,8 @@ mod tests {
             .fetch_first_unrequested_range_proof(
                 0,
                 &default_commitment(),
-                chain_ids::L1,
-                chain_ids::L2,
+                L1ID,
+                L2ID,
             )
             .await
             .unwrap();
