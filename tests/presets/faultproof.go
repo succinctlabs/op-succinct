@@ -48,6 +48,14 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 	return cfg
 }
 
+// LongRunningFaultProofConfig returns configuration optimized for long-running progress tests.
+// Uses larger proposal interval to keep up with L2 block production.
+func LongRunningFaultProofConfig() FaultProofConfig {
+	cfg := DefaultFaultProofConfig()
+	cfg.ProposalIntervalInBlocks = 50
+	return cfg
+}
+
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
