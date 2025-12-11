@@ -686,11 +686,11 @@ impl DriverDBClient {
             let mut query_builder = sqlx::QueryBuilder::new(
                 "INSERT INTO requests (
                     status, req_type, mode, start_block, end_block, created_at, updated_at,
-                    proof_request_id, proof_request_time, checkpointed_l1_block_number, 
-                    checkpointed_l1_block_hash, execution_statistics, witnessgen_duration, 
+                    proof_request_id, proof_request_time, checkpointed_l1_block_number,
+                    checkpointed_l1_block_hash, execution_statistics, witnessgen_duration,
                     execution_duration, prove_duration, range_vkey_commitment,
-                    aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof, 
-                    total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees, 
+                    aggregation_vkey_hash, rollup_config_hash, relay_tx_hash, proof,
+                    total_nb_transactions, total_eth_gas_used, total_l1_fees, total_tx_fees,
                     l1_chain_id, l2_chain_id, contract_address, prover_address, l1_head_block_number) ",
             );
 
@@ -734,5 +734,279 @@ impl DriverDBClient {
 
         // Create a result with the total rows affected
         Ok(PgQueryResult::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{CommitmentConfig, OPSuccinctRequest, RequestMode, RequestStatus, RequestType};
+    use alloy_primitives::B256;
+    use chrono::Local;
+    use postgresql_embedded::{PostgreSQL, Settings};
+    use sqlx::types::BigDecimal;
+    use std::str::FromStr;
+
+    // ==================== Test Harness ====================
+
+    /// A test database instance that manages an embedded PostgreSQL server.
+    /// Automatically cleans up when dropped.
+    struct TestDb {
+        postgresql: PostgreSQL,
+        client: DriverDBClient,
+    }
+
+    impl TestDb {
+        /// Creates a new test database with migrations applied.
+        async fn new() -> Self {
+            let settings = Settings::default();
+            let mut postgresql = PostgreSQL::new(settings);
+            postgresql.setup().await.expect("Failed to setup PostgreSQL");
+            postgresql.start().await.expect("Failed to start PostgreSQL");
+
+            let database_url = postgresql.settings().url("postgres");
+            let client = DriverDBClient::new(&database_url)
+                .await
+                .expect("Failed to connect to test database");
+
+            Self { postgresql, client }
+        }
+
+        /// Returns a reference to the database client.
+        fn client(&self) -> &DriverDBClient {
+            &self.client
+        }
+
+        /// Stops the embedded PostgreSQL server.
+        #[allow(unused_mut)]
+        async fn cleanup(self) {
+            let mut pg = self.postgresql;
+            pg.stop().await.expect("Failed to stop PostgreSQL");
+        }
+    }
+
+    // ==================== Test Fixtures ====================
+
+    /// Default chain IDs used in tests.
+    mod chain_ids {
+        pub const L1: i64 = 1;
+        pub const L2: i64 = 10;
+    }
+
+    /// Creates a default commitment config for testing.
+    fn default_commitment() -> CommitmentConfig {
+        CommitmentConfig {
+            range_vkey_commitment: B256::ZERO,
+            agg_vkey_hash: B256::ZERO,
+            rollup_config_hash: B256::ZERO,
+        }
+    }
+
+    // ==================== Request Builders ====================
+
+    /// Builder for creating test requests with sensible defaults.
+    struct RequestBuilder {
+        start_block: i64,
+        end_block: i64,
+        status: RequestStatus,
+        req_type: RequestType,
+        mode: RequestMode,
+        range_vkey_commitment: B256,
+        rollup_config_hash: B256,
+        l1_chain_id: i64,
+        l2_chain_id: i64,
+    }
+
+    impl Default for RequestBuilder {
+        fn default() -> Self {
+            Self {
+                start_block: 0,
+                end_block: 10,
+                status: RequestStatus::Unrequested,
+                req_type: RequestType::Range,
+                mode: RequestMode::Real,
+                range_vkey_commitment: B256::ZERO,
+                rollup_config_hash: B256::ZERO,
+                l1_chain_id: chain_ids::L1,
+                l2_chain_id: chain_ids::L2,
+            }
+        }
+    }
+
+    impl RequestBuilder {
+        fn new() -> Self {
+            Self::default()
+        }
+
+        fn range(mut self, start: i64, end: i64) -> Self {
+            self.start_block = start;
+            self.end_block = end;
+            self
+        }
+
+        fn status(mut self, status: RequestStatus) -> Self {
+            self.status = status;
+            self
+        }
+
+        fn req_type(mut self, req_type: RequestType) -> Self {
+            self.req_type = req_type;
+            self
+        }
+
+        #[allow(dead_code)]
+        fn mode(mut self, mode: RequestMode) -> Self {
+            self.mode = mode;
+            self
+        }
+
+        #[allow(dead_code)]
+        fn commitment(mut self, range_vkey: B256, rollup_config: B256) -> Self {
+            self.range_vkey_commitment = range_vkey;
+            self.rollup_config_hash = rollup_config;
+            self
+        }
+
+        #[allow(dead_code)]
+        fn chains(mut self, l1: i64, l2: i64) -> Self {
+            self.l1_chain_id = l1;
+            self.l2_chain_id = l2;
+            self
+        }
+
+        fn build(self) -> OPSuccinctRequest {
+            let now = Local::now().naive_local();
+            OPSuccinctRequest {
+                id: 0,
+                status: self.status,
+                req_type: self.req_type,
+                mode: self.mode,
+                start_block: self.start_block,
+                end_block: self.end_block,
+                created_at: now,
+                updated_at: now,
+                proof_request_id: None,
+                proof_request_time: None,
+                checkpointed_l1_block_number: None,
+                checkpointed_l1_block_hash: None,
+                execution_statistics: serde_json::json!({}),
+                witnessgen_duration: None,
+                execution_duration: None,
+                prove_duration: None,
+                range_vkey_commitment: self.range_vkey_commitment.to_vec(),
+                aggregation_vkey_hash: None,
+                rollup_config_hash: self.rollup_config_hash.to_vec(),
+                relay_tx_hash: None,
+                proof: None,
+                total_nb_transactions: 0,
+                total_eth_gas_used: 0,
+                total_l1_fees: BigDecimal::from_str("0").unwrap(),
+                total_tx_fees: BigDecimal::from_str("0").unwrap(),
+                l1_chain_id: self.l1_chain_id,
+                l2_chain_id: self.l2_chain_id,
+                contract_address: None,
+                prover_address: None,
+                l1_head_block_number: None,
+            }
+        }
+    }
+
+    // ==================== Helper Functions ====================
+
+    /// Inserts multiple requests into the database.
+    async fn insert_requests(client: &DriverDBClient, requests: &[OPSuccinctRequest]) {
+        for req in requests {
+            client.insert_request(req).await.expect("Failed to insert request");
+        }
+    }
+
+    /// A completed Range request - the most common fixture.
+    fn completed_range(start: i64, end: i64) -> OPSuccinctRequest {
+        RequestBuilder::new().range(start, end).status(RequestStatus::Complete).build()
+    }
+
+    /// Helper to call fetch_completed_ranges with default commitment and chain IDs.
+    async fn fetch(db: &TestDb, start_block: i64) -> Vec<(i64, i64)> {
+        db.client()
+            .fetch_completed_ranges(
+                &default_commitment(),
+                start_block,
+                chain_ids::L1,
+                chain_ids::L2,
+            )
+            .await
+            .expect("fetch_completed_ranges failed")
+    }
+
+    // ==================== Tests ====================
+
+    #[tokio::test]
+    async fn test_results_ordered_by_start_block_asc() {
+        let db = TestDb::new().await;
+
+        // Insert in non-sorted order to verify DB sorts them
+        let requests =
+            vec![completed_range(100, 110), completed_range(300, 310), completed_range(200, 210)];
+        insert_requests(db.client(), &requests).await;
+
+        let result = fetch(&db, 0).await;
+
+        assert_eq!(result, vec![(100, 110), (200, 210), (300, 310)]);
+
+        db.cleanup().await;
+    }
+
+    #[tokio::test]
+    async fn test_filters_by_status_complete_only() {
+        let db = TestDb::new().await;
+
+        let requests = vec![
+            completed_range(100, 110),
+            RequestBuilder::new().range(200, 210).status(RequestStatus::Failed).build(),
+            RequestBuilder::new().range(300, 310).status(RequestStatus::Unrequested).build(),
+        ];
+        insert_requests(db.client(), &requests).await;
+
+        let result = fetch(&db, 0).await;
+
+        assert_eq!(result, vec![(100, 110)]);
+
+        db.cleanup().await;
+    }
+
+    #[tokio::test]
+    async fn test_filters_by_start_block_threshold() {
+        let db = TestDb::new().await;
+
+        let requests =
+            vec![completed_range(50, 60), completed_range(100, 110), completed_range(200, 210)];
+        insert_requests(db.client(), &requests).await;
+
+        let result = fetch(&db, 100).await;
+
+        assert_eq!(result, vec![(100, 110), (200, 210)]);
+
+        db.cleanup().await;
+    }
+
+    #[tokio::test]
+    async fn test_filters_by_request_type_range_only() {
+        let db = TestDb::new().await;
+
+        let requests = vec![
+            completed_range(100, 110),
+            RequestBuilder::new()
+                .range(200, 210)
+                .status(RequestStatus::Complete)
+                .req_type(RequestType::Aggregation)
+                .build(),
+        ];
+        insert_requests(db.client(), &requests).await;
+
+        let result = fetch(&db, 0).await;
+
+        assert_eq!(result, vec![(100, 110)]);
+
+        db.cleanup().await;
     }
 }
