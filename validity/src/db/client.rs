@@ -983,7 +983,12 @@ mod tests {
 
         async fn fetch(db: &TestDb, start_block: i64) -> Vec<(i64, i64)> {
             db.client()
-                .fetch_completed_ranges(&default_commitment(), start_block, chain_ids::L1, chain_ids::L2)
+                .fetch_completed_ranges(
+                    &default_commitment(),
+                    start_block,
+                    chain_ids::L1,
+                    chain_ids::L2,
+                )
                 .await
                 .expect("fetch_completed_ranges failed")
         }
