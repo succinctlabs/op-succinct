@@ -600,7 +600,7 @@ where
 
         // Get the completed range proofs with a start block greater than the latest proposed block
         // number. These blocks are sorted.
-        let mut completed_range_proofs = self
+        let completed_range_proofs = self
             .driver_config
             .driver_db_client
             .fetch_completed_ranges(
