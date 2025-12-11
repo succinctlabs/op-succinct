@@ -934,7 +934,6 @@ mod tests {
 
     // ==================== Tests ====================
 
-    // Tests for chain_locks table
     #[tokio::test]
     async fn test_chain_lock_prevents_concurrent_proposers() {
         let db = TestDb::new().await;
@@ -950,7 +949,6 @@ mod tests {
         assert!(!c.is_chain_locked(999, L2ID, interval).await.unwrap());
     }
 
-    // Tests for insert_requests
     /// Tests batch chunking logic (BATCH_SIZE = 100) to avoid PostgreSQL parameter limit.
     #[tokio::test]
     async fn test_insert_requests_handles_large_batches() {
@@ -963,30 +961,19 @@ mod tests {
         c.insert_requests(&requests).await.unwrap();
 
         let count = c
-            .fetch_request_count(
-                RequestStatus::Unrequested,
-                &default_commitment(),
-                L1ID,
-                L2ID,
-            )
+            .fetch_request_count(RequestStatus::Unrequested, &default_commitment(), L1ID, L2ID)
             .await
             .unwrap();
 
         assert_eq!(count, 150);
     }
 
-    // Tests for fetch_completed_ranges
     mod fetch_completed_ranges {
         use super::*;
 
         async fn fetch(db: &TestDb, start_block: i64) -> Vec<(i64, i64)> {
             db.client()
-                .fetch_completed_ranges(
-                    &default_commitment(),
-                    start_block,
-                    L1ID,
-                    L2ID,
-                )
+                .fetch_completed_ranges(&default_commitment(), start_block, L1ID, L2ID)
                 .await
                 .expect("fetch_completed_ranges failed")
         }
@@ -1080,14 +1067,12 @@ mod tests {
                 (commit(0x01, 0x00), vec![(200, 300)]),
                 (commit(0x00, 0x02), vec![(300, 400)]),
             ] {
-                let result =
-                    c.fetch_completed_ranges(&comm, 0, L1ID, L2ID).await.unwrap();
+                let result = c.fetch_completed_ranges(&comm, 0, L1ID, L2ID).await.unwrap();
                 assert_eq!(result, expected);
             }
         }
     }
 
-    // Tests for get_consecutive_complete_range_proofs
     #[tokio::test]
     async fn test_get_consecutive_complete_range_proofs_returns_ordered() {
         let db = TestDb::new().await;
@@ -1098,13 +1083,7 @@ mod tests {
         insert_requests(c, &requests).await;
 
         let result = c
-            .get_consecutive_complete_range_proofs(
-                100,
-                400,
-                &default_commitment(),
-                L1ID,
-                L2ID,
-            )
+            .get_consecutive_complete_range_proofs(100, 400, &default_commitment(), L1ID, L2ID)
             .await
             .unwrap();
 
@@ -1114,7 +1093,6 @@ mod tests {
         assert_eq!(result[2].start_block, 300);
     }
 
-    // Tests for fetch_active_agg_proofs_count
     #[tokio::test]
     async fn test_fetch_active_agg_proofs_count_excludes_inactive_statuses() {
         let db = TestDb::new().await;
@@ -1134,15 +1112,12 @@ mod tests {
         ];
         insert_requests(c, &requests).await;
 
-        let count = c
-            .fetch_active_agg_proofs_count(100, &default_commitment(), L1ID, L2ID)
-            .await
-            .unwrap();
+        let count =
+            c.fetch_active_agg_proofs_count(100, &default_commitment(), L1ID, L2ID).await.unwrap();
 
         assert_eq!(count, 5);
     }
 
-    // Tests for fetch_first_unrequested_range_proof
     #[tokio::test]
     async fn test_fetch_first_unrequested_range_proof_returns_lowest_start_block() {
         let db = TestDb::new().await;
@@ -1157,12 +1132,7 @@ mod tests {
         insert_requests(c, &requests).await;
 
         let result = c
-            .fetch_first_unrequested_range_proof(
-                0,
-                &default_commitment(),
-                L1ID,
-                L2ID,
-            )
+            .fetch_first_unrequested_range_proof(0, &default_commitment(), L1ID, L2ID)
             .await
             .unwrap();
 
