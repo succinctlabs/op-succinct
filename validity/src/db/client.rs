@@ -1097,4 +1097,30 @@ mod tests {
 
         db.cleanup().await;
     }
+
+    // Create >100 requests to test chunking logic (BATCH_SIZE = 100)
+    #[tokio::test]
+    async fn test_insert_requests_handles_large_batches() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        let requests: Vec<_> =
+            (0..150).map(|i| RequestBuilder::new().range(i * 10, (i + 1) * 10).build()).collect();
+
+        c.insert_requests(&requests).await.unwrap();
+
+        let count = c
+            .fetch_request_count(
+                RequestStatus::Unrequested,
+                &default_commitment(),
+                chain_ids::L1,
+                chain_ids::L2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(count, 150);
+
+        db.cleanup().await;
+    }
 }
