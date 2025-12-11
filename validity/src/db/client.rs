@@ -1029,4 +1029,36 @@ mod tests {
 
         db.cleanup().await;
     }
+
+    #[tokio::test]
+    async fn test_get_consecutive_complete_range_proofs_returns_ordered() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        // Insert in non-sorted order
+        let requests = vec![
+            completed_range(200, 300),
+            completed_range(100, 200),
+            completed_range(300, 400),
+        ];
+        insert_requests(c, &requests).await;
+
+        let result = c
+            .get_consecutive_complete_range_proofs(
+                100,
+                400,
+                &default_commitment(),
+                chain_ids::L1,
+                chain_ids::L2,
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].start_block, 100);
+        assert_eq!(result[1].start_block, 200);
+        assert_eq!(result[2].start_block, 300);
+
+        db.cleanup().await;
+    }
 }
