@@ -295,11 +295,14 @@ impl RangeSplitCount {
     /// - Errors if `start > end` or the range is empty.
     /// - Caps the number of produced segments to the number of blocks in the range.
     /// - Uses ceil division to keep segments as even as possible; the final segment takes any
-    ///   remainder.
-    /// - Always returns ranges that exactly cover `[start, end)` with no gaps or overlaps.
+    ///   remainder. This may yield fewer segments than requested when step sizes exhaust the range
+    ///   early (e.g., 9 blocks ÷ 4 → step=3 → 3 segments: (0,3], (3,6], (6,9]).
+    /// - Always returns ranges that exactly cover `(start, end]` with no gaps or overlaps.
     ///
-    /// NOTE: Ceiling division may yield fewer segments than requested when step sizes exhaust the
-    /// range early. Example: 9 blocks ÷ 4 → step=3 → 3 segments: [0,3), [3,6), [6,9).
+    /// NOTE: At runtime, the actual interval may slightly differ from `proposal_interval_in_blocks`
+    /// because if a game already exists at the target L2 block, the proposer increments the block
+    /// number until it finds an unused slot (e.g., 1802 blocks instead of 1800). since we divide
+    /// the actual total by the split count, so drift just slightly adjusts segment sizes.
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
             anyhow::anyhow!("end block {end} is not greater than start block {start}")
@@ -414,6 +417,7 @@ mod split_range_tests {
         16,
         &[(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
     )]
+    #[case::drift_up(range_split_count(4), 0, 1802, &[(0, 451), (451, 902), (902, 1353), (1353, 1802)])]
     fn test_splits_expected_paths(
         #[case] splits: RangeSplitCount,
         #[case] start: u64,
