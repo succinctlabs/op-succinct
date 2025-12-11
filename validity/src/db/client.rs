@@ -808,6 +808,7 @@ mod tests {
         req_type: RequestType,
         mode: RequestMode,
         range_vkey_commitment: B256,
+        aggregation_vkey_hash: Option<B256>,
         rollup_config_hash: B256,
         l1_chain_id: i64,
         l2_chain_id: i64,
@@ -822,6 +823,7 @@ mod tests {
                 req_type: RequestType::Range,
                 mode: RequestMode::Real,
                 range_vkey_commitment: B256::ZERO,
+                aggregation_vkey_hash: None,
                 rollup_config_hash: B256::ZERO,
                 l1_chain_id: chain_ids::L1,
                 l2_chain_id: chain_ids::L2,
@@ -870,6 +872,11 @@ mod tests {
             self
         }
 
+        fn agg_vkey(mut self, agg_vkey: B256) -> Self {
+            self.aggregation_vkey_hash = Some(agg_vkey);
+            self
+        }
+
         fn build(self) -> OPSuccinctRequest {
             let now = Local::now().naive_local();
             OPSuccinctRequest {
@@ -890,7 +897,7 @@ mod tests {
                 execution_duration: None,
                 prove_duration: None,
                 range_vkey_commitment: self.range_vkey_commitment.to_vec(),
-                aggregation_vkey_hash: None,
+                aggregation_vkey_hash: self.aggregation_vkey_hash.map(|h| h.to_vec()),
                 rollup_config_hash: self.rollup_config_hash.to_vec(),
                 relay_tx_hash: None,
                 proof: None,
@@ -919,6 +926,16 @@ mod tests {
     /// A completed Range request - the most common fixture.
     fn completed_range(start: i64, end: i64) -> OPSuccinctRequest {
         RequestBuilder::new().range(start, end).status(RequestStatus::Complete).build()
+    }
+
+    /// An Aggregation request with given status.
+    fn agg_request(start: i64, end: i64, status: RequestStatus) -> OPSuccinctRequest {
+        RequestBuilder::new()
+            .range(start, end)
+            .status(status)
+            .req_type(RequestType::Aggregation)
+            .agg_vkey(B256::ZERO)
+            .build()
     }
 
     /// Helper to call fetch_completed_ranges with default commitment and chain IDs.
@@ -1036,11 +1053,8 @@ mod tests {
         let c = db.client();
 
         // Insert in non-sorted order
-        let requests = vec![
-            completed_range(200, 300),
-            completed_range(100, 200),
-            completed_range(300, 400),
-        ];
+        let requests =
+            vec![completed_range(200, 300), completed_range(100, 200), completed_range(300, 400)];
         insert_requests(c, &requests).await;
 
         let result = c
@@ -1058,6 +1072,28 @@ mod tests {
         assert_eq!(result[0].start_block, 100);
         assert_eq!(result[1].start_block, 200);
         assert_eq!(result[2].start_block, 300);
+
+        db.cleanup().await;
+    }
+
+    #[tokio::test]
+    async fn test_fetch_active_agg_proofs_count_excludes_failed_and_cancelled() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        let requests = vec![
+            agg_request(100, 200, RequestStatus::Prove),
+            agg_request(100, 200, RequestStatus::Failed),
+            agg_request(100, 200, RequestStatus::Cancelled),
+        ];
+        insert_requests(c, &requests).await;
+
+        let count = c
+            .fetch_active_agg_proofs_count(100, &default_commitment(), chain_ids::L1, chain_ids::L2)
+            .await
+            .unwrap();
+
+        assert_eq!(count, 1);
 
         db.cleanup().await;
     }
