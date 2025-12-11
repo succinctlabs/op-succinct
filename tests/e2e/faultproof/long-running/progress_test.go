@@ -18,7 +18,7 @@ const MaxProposerLag uint64 = 100
 // TestFaultProofProposer_Progress runs until shutdown and fails if lag exceeds threshold.
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	sys, dgf := setupFaultProofSystem(t)
+	sys, dgf := setupFaultProofSystem(t, "")
 
 	err := utils.RunUntilShutdown(10*time.Second, func() error {
 		return checkFaultProofLag(t, sys, dgf, true)
@@ -26,10 +26,9 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-func setupFaultProofSystem(t devtest.T) (*opspresets.FaultProofSystem, *utils.DgfClient) {
-	cfg := opspresets.DefaultFaultProofConfig()
-	cfg.ProposalIntervalInBlocks = 50
-	cfg.EnvFilePath = "../../../.env.faultproof"
+func setupFaultProofSystem(t devtest.T, envFilePath string) (*opspresets.FaultProofSystem, *utils.DgfClient) {
+	cfg := opspresets.LongRunningFaultProofConfig()
+	cfg.EnvFilePath = envFilePath
 	sys := opspresets.NewFaultProofSystem(t, cfg)
 	t.Log("=== Stack is running ===")
 	return sys, sys.DgfClient(t)
