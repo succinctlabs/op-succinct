@@ -1082,9 +1082,15 @@ mod tests {
         let c = db.client();
 
         let requests = vec![
+            agg_request(100, 200, RequestStatus::Unrequested),
+            agg_request(100, 200, RequestStatus::WitnessGeneration),
+            agg_request(100, 200, RequestStatus::Execution),
             agg_request(100, 200, RequestStatus::Prove),
+            agg_request(100, 200, RequestStatus::Complete),
+            // These should NOT be counted
             agg_request(100, 200, RequestStatus::Failed),
             agg_request(100, 200, RequestStatus::Cancelled),
+            agg_request(100, 200, RequestStatus::Relayed),
         ];
         insert_requests(c, &requests).await;
 
@@ -1093,7 +1099,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(count, 1);
+        assert_eq!(count, 5); // Only active statuses counted
 
         db.cleanup().await;
     }
