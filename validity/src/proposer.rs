@@ -611,9 +611,6 @@ where
             )
             .await?;
 
-        // Sort the completed range proofs by start block.
-        completed_range_proofs.sort_by_key(|(start_block, _)| *start_block);
-
         // Get the highest block number of the completed range proofs.
         let highest_proven_contiguous_block_number = match self
             .get_highest_proven_contiguous_block(completed_range_proofs)?
