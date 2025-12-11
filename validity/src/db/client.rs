@@ -752,6 +752,7 @@ mod tests {
     /// A test database instance that manages an embedded PostgreSQL server.
     /// Automatically cleans up when dropped.
     struct TestDb {
+        #[allow(dead_code)] // Held to keep embedded PostgreSQL alive
         postgresql: PostgreSQL,
         client: DriverDBClient,
     }
@@ -775,11 +776,6 @@ mod tests {
         /// Returns a reference to the database client.
         fn client(&self) -> &DriverDBClient {
             &self.client
-        }
-
-        /// Stops the embedded PostgreSQL server.
-        async fn cleanup(self) {
-            self.postgresql.stop().await.expect("Failed to stop PostgreSQL");
         }
     }
 
@@ -971,8 +967,6 @@ mod tests {
             let result = fetch(&db, 0).await;
 
             assert_eq!(result, vec![(100, 110), (200, 210), (300, 310)]);
-
-            db.cleanup().await;
         }
 
         #[tokio::test]
@@ -989,8 +983,6 @@ mod tests {
             let result = fetch(&db, 0).await;
 
             assert_eq!(result, vec![(100, 110)]);
-
-            db.cleanup().await;
         }
 
         #[tokio::test]
@@ -1004,8 +996,6 @@ mod tests {
             let result = fetch(&db, 100).await;
 
             assert_eq!(result, vec![(100, 110), (200, 210)]);
-
-            db.cleanup().await;
         }
 
         #[tokio::test]
@@ -1025,8 +1015,6 @@ mod tests {
             let result = fetch(&db, 0).await;
 
             assert_eq!(result, vec![(100, 110)]);
-
-            db.cleanup().await;
         }
     }
 
@@ -1043,8 +1031,6 @@ mod tests {
         assert!(c.is_chain_locked(chain_ids::L1, chain_ids::L2, interval).await.unwrap());
         assert!(!c.is_chain_locked(chain_ids::L1, 999, interval).await.unwrap());
         assert!(!c.is_chain_locked(999, chain_ids::L2, interval).await.unwrap());
-
-        db.cleanup().await;
     }
 
     #[tokio::test]
@@ -1072,8 +1058,6 @@ mod tests {
         assert_eq!(result[0].start_block, 100);
         assert_eq!(result[1].start_block, 200);
         assert_eq!(result[2].start_block, 300);
-
-        db.cleanup().await;
     }
 
     #[tokio::test]
@@ -1100,8 +1084,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(count, 5); // Only active statuses counted
-
-        db.cleanup().await;
     }
 
     // Create >100 requests to test chunking logic (BATCH_SIZE = 100)
@@ -1126,8 +1108,6 @@ mod tests {
             .unwrap();
 
         assert_eq!(count, 150);
-
-        db.cleanup().await;
     }
 
     #[tokio::test]
@@ -1156,8 +1136,6 @@ mod tests {
 
         assert!(result.is_some());
         assert_eq!(result.unwrap().start_block, 100); // Skips 50-100 (Complete status)
-
-        db.cleanup().await;
     }
 
     #[tokio::test]
@@ -1199,7 +1177,5 @@ mod tests {
                 c.fetch_completed_ranges(&comm, 0, chain_ids::L1, chain_ids::L2).await.unwrap();
             assert_eq!(result, expected);
         }
-
-        db.cleanup().await;
     }
 }
