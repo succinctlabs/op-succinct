@@ -778,10 +778,8 @@ mod tests {
         }
 
         /// Stops the embedded PostgreSQL server.
-        #[allow(unused_mut)]
         async fn cleanup(self) {
-            let mut pg = self.postgresql;
-            pg.stop().await.expect("Failed to stop PostgreSQL");
+            self.postgresql.stop().await.expect("Failed to stop PostgreSQL");
         }
     }
 
@@ -801,8 +799,6 @@ mod tests {
             rollup_config_hash: B256::ZERO,
         }
     }
-
-    // ==================== Request Builders ====================
 
     /// Builder for creating test requests with sensible defaults.
     struct RequestBuilder {
@@ -940,72 +936,96 @@ mod tests {
 
     // ==================== Tests ====================
 
-    #[tokio::test]
-    async fn test_results_ordered_by_start_block_asc() {
-        let db = TestDb::new().await;
+    mod fetch_completed_ranges {
+        use super::*;
 
-        // Insert in non-sorted order to verify DB sorts them
-        let requests =
-            vec![completed_range(100, 110), completed_range(300, 310), completed_range(200, 210)];
-        insert_requests(db.client(), &requests).await;
+        #[tokio::test]
+        async fn test_results_ordered_by_start_block_asc() {
+            let db = TestDb::new().await;
 
-        let result = fetch(&db, 0).await;
+            // Insert in non-sorted order to verify DB sorts them
+            let requests = vec![
+                completed_range(100, 110),
+                completed_range(300, 310),
+                completed_range(200, 210),
+            ];
+            insert_requests(db.client(), &requests).await;
 
-        assert_eq!(result, vec![(100, 110), (200, 210), (300, 310)]);
+            let result = fetch(&db, 0).await;
 
-        db.cleanup().await;
+            assert_eq!(result, vec![(100, 110), (200, 210), (300, 310)]);
+
+            db.cleanup().await;
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_status_complete_only() {
+            let db = TestDb::new().await;
+
+            let requests = vec![
+                completed_range(100, 110),
+                RequestBuilder::new().range(200, 210).status(RequestStatus::Failed).build(),
+                RequestBuilder::new().range(300, 310).status(RequestStatus::Unrequested).build(),
+            ];
+            insert_requests(db.client(), &requests).await;
+
+            let result = fetch(&db, 0).await;
+
+            assert_eq!(result, vec![(100, 110)]);
+
+            db.cleanup().await;
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_start_block_threshold() {
+            let db = TestDb::new().await;
+
+            let requests =
+                vec![completed_range(50, 60), completed_range(100, 110), completed_range(200, 210)];
+            insert_requests(db.client(), &requests).await;
+
+            let result = fetch(&db, 100).await;
+
+            assert_eq!(result, vec![(100, 110), (200, 210)]);
+
+            db.cleanup().await;
+        }
+
+        #[tokio::test]
+        async fn test_filters_by_request_type_range_only() {
+            let db = TestDb::new().await;
+
+            let requests = vec![
+                completed_range(100, 110),
+                RequestBuilder::new()
+                    .range(200, 210)
+                    .status(RequestStatus::Complete)
+                    .req_type(RequestType::Aggregation)
+                    .build(),
+            ];
+            insert_requests(db.client(), &requests).await;
+
+            let result = fetch(&db, 0).await;
+
+            assert_eq!(result, vec![(100, 110)]);
+
+            db.cleanup().await;
+        }
     }
 
     #[tokio::test]
-    async fn test_filters_by_status_complete_only() {
+    async fn test_chain_lock_prevents_concurrent_proposers() {
         let db = TestDb::new().await;
+        let interval = Duration::from_secs(60);
+        let c = db.client();
 
-        let requests = vec![
-            completed_range(100, 110),
-            RequestBuilder::new().range(200, 210).status(RequestStatus::Failed).build(),
-            RequestBuilder::new().range(300, 310).status(RequestStatus::Unrequested).build(),
-        ];
-        insert_requests(db.client(), &requests).await;
+        assert!(!c.is_chain_locked(chain_ids::L1, chain_ids::L2, interval).await.unwrap());
 
-        let result = fetch(&db, 0).await;
+        c.add_chain_lock(chain_ids::L1, chain_ids::L2).await.unwrap();
 
-        assert_eq!(result, vec![(100, 110)]);
-
-        db.cleanup().await;
-    }
-
-    #[tokio::test]
-    async fn test_filters_by_start_block_threshold() {
-        let db = TestDb::new().await;
-
-        let requests =
-            vec![completed_range(50, 60), completed_range(100, 110), completed_range(200, 210)];
-        insert_requests(db.client(), &requests).await;
-
-        let result = fetch(&db, 100).await;
-
-        assert_eq!(result, vec![(100, 110), (200, 210)]);
-
-        db.cleanup().await;
-    }
-
-    #[tokio::test]
-    async fn test_filters_by_request_type_range_only() {
-        let db = TestDb::new().await;
-
-        let requests = vec![
-            completed_range(100, 110),
-            RequestBuilder::new()
-                .range(200, 210)
-                .status(RequestStatus::Complete)
-                .req_type(RequestType::Aggregation)
-                .build(),
-        ];
-        insert_requests(db.client(), &requests).await;
-
-        let result = fetch(&db, 0).await;
-
-        assert_eq!(result, vec![(100, 110)]);
+        assert!(c.is_chain_locked(chain_ids::L1, chain_ids::L2, interval).await.unwrap());
+        assert!(!c.is_chain_locked(chain_ids::L1, 999, interval).await.unwrap());
+        assert!(!c.is_chain_locked(999, chain_ids::L2, interval).await.unwrap());
 
         db.cleanup().await;
     }
