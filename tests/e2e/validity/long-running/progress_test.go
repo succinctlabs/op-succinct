@@ -26,9 +26,7 @@ func TestValidityProposer_Progress(gt *testing.T) {
 }
 
 func setupValiditySystem(t devtest.T) (*opspresets.ValiditySystem, *utils.L2OOClient) {
-	cfg := opspresets.DefaultValidityConfig()
-	cfg.SubmissionInterval = 50
-	cfg.RangeProofInterval = 50
+	cfg := opspresets.LongRunningValidityConfig()
 	cfg.EnvFilePath = "../../../.env.validity"
 	sys := opspresets.NewValiditySystem(t, cfg)
 	t.Log("=== Stack is running ===")

@@ -11,9 +11,11 @@ import (
 
 // ValidityConfig holds configuration for validity proposer tests.
 type ValidityConfig struct {
-	StartingBlock      uint64
-	SubmissionInterval uint64
-	RangeProofInterval uint64
+	StartingBlock              uint64
+	SubmissionInterval         uint64
+	RangeProofInterval         uint64
+	MaxConcurrentProofRequests uint64
+	MaxConcurrentWitnessGen    uint64
 	// LoopInterval is the proposer's main loop interval in seconds.
 	// The proposer acquires a database lock that expires after this duration.
 	// Recovery tests must wait longer than this before restarting the proposer.
@@ -26,10 +28,25 @@ type ValidityConfig struct {
 func DefaultValidityConfig() ValidityConfig {
 	loopInterval := uint64(1) // 1s lock expiry; recovery tests wait 2s before restart
 	return ValidityConfig{
-		StartingBlock:      1,
-		SubmissionInterval: 10,
-		RangeProofInterval: 10,
-		LoopInterval:       &loopInterval,
+		StartingBlock:              1,
+		SubmissionInterval:         10,
+		RangeProofInterval:         10,
+		MaxConcurrentProofRequests: 1,
+		MaxConcurrentWitnessGen:    1,
+		LoopInterval:               1, // 1s lock expiry; recovery tests wait 2s before restart
+	}
+}
+
+// LongRunningValidityConfig returns configuration optimized for long-running progress tests.
+// Uses larger intervals and higher concurrency to keep up with L2 block production.
+func LongRunningValidityConfig() ValidityConfig {
+	return ValidityConfig{
+		StartingBlock:              1,
+		SubmissionInterval:         50,
+		RangeProofInterval:         50,
+		MaxConcurrentProofRequests: 2,
+		MaxConcurrentWitnessGen:    2,
+		LoopInterval:               1,
 	}
 }
 
@@ -58,6 +75,8 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 		vpOpts := []sysgo.ValidityProposerOption{
 			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
+			sysgo.WithVPMaxConcurrentProofRequests(cfg.MaxConcurrentProofRequests),
+			sysgo.WithVPMaxConcurrentWitnessGen(cfg.MaxConcurrentWitnessGen),
 			sysgo.WithVPMockMode(true),
 		}
 		if cfg.LoopInterval != nil {
