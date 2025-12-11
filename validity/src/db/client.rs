@@ -846,20 +846,12 @@ mod tests {
             self
         }
 
-        #[allow(dead_code)]
-        fn mode(mut self, mode: RequestMode) -> Self {
-            self.mode = mode;
-            self
-        }
-
-        #[allow(dead_code)]
         fn commitment(mut self, range_vkey: B256, rollup_config: B256) -> Self {
             self.range_vkey_commitment = range_vkey;
             self.rollup_config_hash = rollup_config;
             self
         }
 
-        #[allow(dead_code)]
         fn chains(mut self, l1: i64, l2: i64) -> Self {
             self.l1_chain_id = l1;
             self.l2_chain_id = l2;
@@ -1048,7 +1040,7 @@ mod tests {
             }
 
             let requests = vec![
-                RequestBuilder::new().range(100, 200).status(RequestStatus::Complete).build(),
+                completed_range(100, 200),
                 RequestBuilder::new()
                     .range(200, 300)
                     .status(RequestStatus::Complete)
@@ -1138,5 +1130,48 @@ mod tests {
 
         assert!(result.is_some());
         assert_eq!(result.unwrap().start_block, 100); // Skips 50-100 (Complete status)
+    }
+
+    #[tokio::test]
+    async fn test_queries_isolate_by_chain_id() {
+        let db = TestDb::new().await;
+        let c = db.client();
+
+        // Insert: one for our chain, one for different L2, one for different L1
+        let range_requests = vec![
+            completed_range(100, 200),
+            RequestBuilder::new()
+                .range(100, 200)
+                .status(RequestStatus::Complete)
+                .chains(1, 999)
+                .build(),
+            RequestBuilder::new()
+                .range(100, 200)
+                .status(RequestStatus::Complete)
+                .chains(999, 10)
+                .build(),
+        ];
+        insert_requests(c, &range_requests).await;
+
+        // Only our chain pair is returned
+        let ranges = c.fetch_completed_ranges(&default_commitment(), 0, L1ID, L2ID).await.unwrap();
+        assert_eq!(ranges, vec![(100, 200)]);
+
+        // Aggregation count also isolated
+        let agg_requests = vec![
+            agg_request(100, 200, RequestStatus::Unrequested),
+            RequestBuilder::new()
+                .range(100, 200)
+                .status(RequestStatus::Unrequested)
+                .req_type(RequestType::Aggregation)
+                .agg_vkey(B256::ZERO)
+                .chains(1, 999)
+                .build(),
+        ];
+        insert_requests(c, &agg_requests).await;
+
+        let agg_count =
+            c.fetch_active_agg_proofs_count(100, &default_commitment(), L1ID, L2ID).await.unwrap();
+        assert_eq!(agg_count, 1);
     }
 }
