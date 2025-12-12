@@ -17,7 +17,7 @@ const MaxProposerLag uint64 = 200
 // TestValidityProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
 func TestValidityProposer_Progress(gt *testing.T) {
-	t := devtest.SerialT(gt)
+	t := devtest.ParallelT(gt)
 	sys, l2oo := setupValiditySystem(t, "")
 
 	err := utils.RunProgressTest(func() error {
