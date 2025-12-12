@@ -7,10 +7,17 @@ import (
 	"time"
 )
 
-// RunProgressTest runs onTick every 10 seconds for 15 minutes.
+// RunProgressTest runs onTick every 10 seconds for a configurable duration.
+// Duration is controlled by PROGRESS_TEST_DURATION env var (default: 15m).
 // Returns nil if successful, or the first error encountered.
 func RunProgressTest(onTick func() error) error {
-	return RunForDuration(15*time.Minute, 10*time.Second, onTick)
+	duration := 15 * time.Minute
+	if env := os.Getenv("PROGRESS_TEST_DURATION"); env != "" {
+		if d, err := time.ParseDuration(env); err == nil {
+			duration = d
+		}
+	}
+	return RunForDuration(duration, 10*time.Second, onTick)
 }
 
 // RunForDuration runs onTick periodically for the specified duration.
