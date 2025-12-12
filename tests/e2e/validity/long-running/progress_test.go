@@ -18,7 +18,8 @@ const MaxProposerLag uint64 = 200
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
 func TestValidityProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
-	sys, l2oo := setupValiditySystem(t, "")
+	cfg := opspresets.LongRunningValidityConfig()
+	sys, l2oo := setupValiditySystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
 		return checkValidityLag(t, sys, l2oo)
@@ -26,9 +27,7 @@ func TestValidityProposer_Progress(gt *testing.T) {
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-func setupValiditySystem(t devtest.T, envFilePath string) (*opspresets.ValiditySystem, *utils.L2OOClient) {
-	cfg := opspresets.LongRunningValidityConfig()
-	cfg.EnvFilePath = envFilePath
+func setupValiditySystem(t devtest.T, cfg opspresets.ValidityConfig) (*opspresets.ValiditySystem, *utils.L2OOClient) {
 	sys := opspresets.NewValiditySystem(t, cfg)
 	t.Log("=== Stack is running ===")
 	return sys, sys.L2OOClient(t)
