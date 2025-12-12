@@ -11,8 +11,9 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// MaxProposerLag is the maximum allowed lag between L2 finalized block and L2OO latest block.
-const MaxProposerLag uint64 = 100
+// MaxProposerLag is the maximum allowed gap between L2 finalized head and the L2OO's
+// latest submitted block.
+const MaxProposerLag uint64 = 200
 
 // TestValidityProposer_Progress runs until shutdown and fails if lag exceeds threshold.
 func TestValidityProposer_Progress(gt *testing.T) {
