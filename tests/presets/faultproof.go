@@ -56,7 +56,7 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
 	cfg.ProposalIntervalInBlocks = 100
-	cfg.MaxConcurrentRangeProofs = 2
+	cfg.RangeSplitCount = 2
 	cfg.MaxConcurrentRangeProofs = 2
 	return cfg
 }
