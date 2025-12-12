@@ -12,8 +12,10 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// MaxProposerLag is the maximum allowed lag between L2 finalized block and the latest game's L2 block.
-const MaxProposerLag uint64 = 100
+// MaxProposerLag is the maximum allowed gap between L2 finalized head and the latest game's
+// L2 block. Set to 150 with a 100-block proposal interval, providing 50 blocks of headroom
+// to absorb transient spikes from proposer startup or game resolution/bond claiming.
+const MaxProposerLag uint64 = 150
 
 // TestFaultProofProposer_Progress runs until shutdown and fails if lag exceeds threshold.
 func TestFaultProofProposer_Progress(gt *testing.T) {

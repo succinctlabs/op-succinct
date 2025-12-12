@@ -29,8 +29,8 @@ type FaultProofConfig struct {
 // DefaultFaultProofConfig returns the default configuration.
 func DefaultFaultProofConfig() FaultProofConfig {
 	return FaultProofConfig{
-		MaxChallengeDuration:         10, // Low for tests (vs 7 days production)
-		MaxProveDuration:             10, // Low for tests (vs 1 day production)
+		MaxChallengeDuration:         10, // Low for tests (vs 1 hour production)
+		MaxProveDuration:             10, // Low for tests (vs 12 hours production)
 		DisputeGameFinalityDelaySecs: 30, // Low for tests (vs 7 days production)
 		ProposalIntervalInBlocks:     10,
 		FetchInterval:                1,
@@ -49,10 +49,13 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 }
 
 // LongRunningFaultProofConfig returns configuration optimized for long-running progress tests.
-// Uses larger proposal interval to keep up with L2 block production.
+//
+// ProposalIntervalInBlocks is set to 100 to keep lag bounded. Each game creation incurs
+// overhead from L1 TX confirmation and state sync (RPC calls per cached game). With L2
+// producing 1 block/sec, the 100-block interval prevents lag from accumulating over time.
 func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
-	cfg.ProposalIntervalInBlocks = 50
+	cfg.ProposalIntervalInBlocks = 100
 	return cfg
 }
 
