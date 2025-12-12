@@ -116,7 +116,9 @@ mod sync {
     #[case::noanch_five_games_three_branches(5, &[], &[M, 0, 1, 0, 0], &[1, 1, 1, 4, 3], Some(3), 5)] // Branches: M->0->1->2, 0->3, 0->4, Blocks: 0->1->2->3, 1->5, 1->4
     #[case::anch_single_game_default_interval(1, &[0], &[M], &[], Some(0), 1)]
     #[case::anch_two_games_same_branch(2, &[0, 1], &[M, 0], &[], Some(1), 2)]
-    #[case::anch_two_games_same_parent_diff_intervals(2, &[0], &[M, M], &[1, 2], Some(0), 1)]
+    #[case::anch_two_games_genesis_parent_override(2, &[0], &[M, M], &[1, 2], Some(1), 2)] // M->0(anchor), M->1, game 1 overrides (genesis, higher block)
+    #[case::anch_lower_parent_override(4, &[0, 1], &[M, 0, 1, 0], &[1, 1, 1, 3], Some(3), 4)] // M->0->1(anchor)->2, 0->3, game 3 overrides (lower parent, higher block)
+    #[case::anch_no_override_lower_block(4, &[0, 1], &[M, 0, 1, 0], &[1, 1, 2, 2], Some(2), 4)] // M->0->1(anchor)->2, 0->3, no override (game 3 block < game 2)
     #[case::anch_five_games_two_branches(5, &[0, 1], &[M, 0, 1, 0, 3], &[1, 1, 1, 2, 2], Some(2), 3)]
     #[tokio::test]
     async fn test_sync_state_happy_paths(
@@ -1383,108 +1385,6 @@ mod sync {
             "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
         );
         tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
-
-        Ok(())
-    }
-
-    /// Tests canonical head override logic where a non-descendant game takes precedence.
-    ///
-    /// The override triggers when a non-descendant game has BOTH:
-    /// - Higher L2 block than the best anchor descendant
-    /// - Lower parent_index than the best descendant
-    ///
-    /// Topology for override case:
-    ///   M -> 0 -> 1 (anchor) -> 2 (descendant, anchor_head candidate)
-    ///        0 -> 3 (non-descendant, higher block, lower parent_index)
-    ///
-    /// Game 3 should become canonical head because:
-    /// - It's NOT a descendant of anchor (game 1)
-    /// - l2_block(3) > l2_block(2): higher block
-    /// - parent_index(3) = 0 < parent_index(2) = 1: lower parent index
-    #[rstest]
-    #[case::override_triggers(
-        4,
-        &[0, 1],  // anchor chain: 0 -> 1
-        &[M, 0, 1, 0],  // M->0->1->2, 0->3 (game 3 branches from 0, not descendant of anchor 1)
-        &[1, 1, 1, 3],  // game 3: l2_block=4 > game 2: l2_block=3, parent_index=0 < 1
-        Some(3),  // override: game 3 becomes canonical head
-        4
-    )]
-    #[case::no_override_block_not_higher(
-        4,
-        &[0, 1],  // anchor chain: 0 -> 1
-        &[M, 0, 1, 0],  // same topology
-        &[1, 1, 2, 2],  // game 2: l2_block=4, game 3: l2_block=3 (lower, no override)
-        Some(2),  // no override: block condition fails
-        4
-    )]
-    #[case::override_triggers_genesis(
-        4,
-        &[0, 1],  // anchor chain: 0 -> 1
-        &[M, 0, 1, M],  // M->0->1->2, M->3 (game 3 has genesis parent)
-        &[1, 1, 1, 4],  // game 2: l2_block=3, game 3: l2_block=4 (higher, genesis override)
-        Some(3),  // override: game 3 becomes canonical head
-        4
-    )]
-    #[tokio::test]
-    async fn test_canonical_head_override(
-        #[case] num_games: usize,
-        #[case] anchor_ids: &[usize],
-        #[case] parent_ids: &[u32],
-        #[case] intervals: &[u64],
-        #[case] expected_canonical_head_index: Option<u64>,
-        #[case] expected_processed_l2_block: u64,
-    ) -> Result<()> {
-        let (env, proposer, init_bond) = setup().await?;
-
-        let mut starting_blocks: HashMap<u32, u64> = HashMap::new();
-
-        let starting_l2_block = env.anvil.starting_l2_block_number;
-        let mut block = starting_l2_block;
-        let mut game_addresses = Vec::new();
-
-        for i in 0..num_games {
-            let cur_parent_id = parent_ids[i];
-            starting_blocks.insert(cur_parent_id, block);
-
-            let end_block = block + intervals.get(i).unwrap_or(&1);
-            let root_claim = env.compute_output_root_at_block(end_block).await?;
-            env.create_game(root_claim, end_block, cur_parent_id, init_bond).await?;
-            let (index, address) = env.last_game_info().await?;
-            game_addresses.push(address);
-            tracing::info!(
-                "✓ Created game {index} with parent {cur_parent_id}, l2_block {end_block}"
-            );
-
-            if anchor_ids.contains(&i) {
-                env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
-                env.resolve_game(address).await?;
-                env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
-                env.set_anchor_state(address).await?;
-                tracing::info!("Anchor game set to index {index}");
-            }
-
-            let next_parent_id = parent_ids.get(i + 1).copied().unwrap_or(M);
-            if cur_parent_id.wrapping_add(1) == next_parent_id {
-                block = end_block;
-            } else {
-                block = *starting_blocks.get(&next_parent_id).unwrap_or(&end_block);
-            }
-        }
-
-        proposer.sync_state().await?;
-
-        let snapshot = proposer.state_snapshot().await;
-
-        let expected_anchor_index = anchor_ids.iter().max().copied();
-
-        snapshot.assert_game_len(num_games);
-        snapshot.assert_anchor_index(expected_anchor_index);
-        snapshot.assert_canonical_head(
-            expected_canonical_head_index,
-            expected_processed_l2_block,
-            starting_l2_block,
-        );
 
         Ok(())
     }
