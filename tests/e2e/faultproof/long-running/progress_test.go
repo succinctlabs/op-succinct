@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -17,27 +16,28 @@ import (
 // to absorb transient spikes from proposer startup or game resolution/bond claiming.
 const MaxProposerLag uint64 = 150
 
-// TestFaultProofProposer_Progress runs until shutdown and fails if lag exceeds threshold.
+// TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
+// The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
-	err := utils.RunUntilShutdown(10*time.Second, func() error {
-		return checkFaultProofLag(t, sys, dgf, MaxProposerLag)
+	err := utils.RunProgressTest(func() error {
+		return checkFaultProofLag(t, sys, dgf)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-// TestFaultProofProposer_FastFinality_Progress runs until shutdown with fast finality enabled.
+// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 15 minutes.
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
 	cfg.FastFinalityMode = true
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
-	err := utils.RunUntilShutdown(10*time.Second, func() error {
-		return checkFaultProofLag(t, sys, dgf, MaxProposerLag)
+	err := utils.RunProgressTest(func() error {
+		return checkFaultProofLag(t, sys, dgf)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 }
@@ -48,7 +48,7 @@ func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig) (*opspr
 	return sys, sys.DgfClient(t)
 }
 
-func checkFaultProofLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, maxLag uint64) error {
+func checkFaultProofLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) error {
 	l2Finalized := sys.L2EL.BlockRefByLabel(eth.Finalized)
 
 	gameCount, _ := dgf.GameCount(t.Ctx())
@@ -66,8 +66,8 @@ func checkFaultProofLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *util
 	t.Logf("Games: %d | L2 Finalized: %d | L2 Latest Block: %d | Lag: %d",
 		gameCount, l2Finalized.Number, latestGameL2Block, lag)
 
-	if lag > maxLag {
-		return fmt.Errorf("lag %d exceeds max %d", lag, maxLag)
+	if lag > MaxProposerLag {
+		return fmt.Errorf("lag %d exceeds max %d", lag, MaxProposerLag)
 	}
 	return nil
 }
