@@ -24,8 +24,7 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 // TestFaultProofProposer_FastFinality_LongRunning runs indefinitely in fast finality mode, logging progress without failing.
 func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	cfg := opspresets.LongRunningFaultProofConfig()
-	cfg.FastFinalityMode = true
+	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
 	cfg.EnvFilePath = "../../../.env.faultproof"
 	sys, dgf := setupFaultProofSystem(t, cfg)
 

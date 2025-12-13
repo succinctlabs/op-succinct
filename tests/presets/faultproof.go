@@ -61,6 +61,18 @@ func LongRunningFaultProofConfig() FaultProofConfig {
 	return cfg
 }
 
+// LongRunningFastFinalityFaultProofConfig returns configuration for long-running fast finality tests.
+//
+// MaxChallengeDuration is increased to allow enough time for proof generation
+// (witness + mock proof + tx submission) before the deadline expires.
+func LongRunningFastFinalityFaultProofConfig() FaultProofConfig {
+	cfg := LongRunningFaultProofConfig()
+	cfg.MaxChallengeDuration = 120
+	cfg.FastFinalityMode = true
+	cfg.FastFinalityProvingLimit = 4
+	return cfg
+}
+
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
 	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
