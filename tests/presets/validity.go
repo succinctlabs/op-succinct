@@ -42,10 +42,10 @@ func DefaultValidityConfig() ValidityConfig {
 func LongRunningValidityConfig() ValidityConfig {
 	return ValidityConfig{
 		StartingBlock:              1,
-		SubmissionInterval:         100,
-		RangeProofInterval:         20,
-		MaxConcurrentProofRequests: 8,
-		MaxConcurrentWitnessGen:    8,
+		SubmissionInterval:         80,
+		RangeProofInterval:         80,
+		MaxConcurrentProofRequests: 4,
+		MaxConcurrentWitnessGen:    4,
 		LoopInterval:               1,
 	}
 }

@@ -74,7 +74,7 @@ jobs:
       - name: Run Sysgo E2E Tests
         working-directory: tests
         env:
-          PROGRESS_TEST_DURATION: ${{ github.ref == 'refs/heads/main' && '30m' || '' }}
+          PROGRESS_TEST_DURATION: ${{ github.ref == 'refs/heads/main' && '40m' || '' }}
         run: |
           echo "Running tests..."
           just test-e2e-sysgo "${{ matrix.target }}"
