@@ -16,7 +16,7 @@ import (
 // to absorb transient spikes from proposer startup or game resolution/bond claiming.
 const MaxProposerLag uint64 = 200
 
-// TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
+// TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 20 minutes.
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
@@ -29,7 +29,8 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 15 minutes.
+// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 20 minutes
+// and ensures games are being proven (not just created).
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
@@ -39,6 +40,20 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 		return checkFaultProofLag(t, sys, dgf)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
+
+	// Verify fast finality is proving games
+	ctx := t.Ctx()
+	gameCount, err := dgf.GameCount(ctx)
+	t.Require().NoError(err)
+	t.Require().GreaterOrEqual(gameCount, uint64(1), "expected at least 1 game")
+
+	game, err := dgf.GameAtIndex(ctx, 0)
+	t.Require().NoError(err)
+	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
+	t.Require().NoError(err)
+	proven, err := fdg.IsProven(ctx)
+	t.Require().NoError(err)
+	t.Require().True(proven, "fast finality did not prove first game")
 }
 
 func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig) (*opspresets.FaultProofSystem, *utils.DgfClient) {
