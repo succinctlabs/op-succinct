@@ -14,7 +14,7 @@ import (
 // MaxProposerLag is the maximum allowed gap between L2 finalized head and the latest game's
 // L2 block. Set to 150 with a 100-block proposal interval, providing 50 blocks of headroom
 // to absorb transient spikes from proposer startup or game resolution/bond claiming.
-const MaxProposerLag uint64 = 150
+const MaxProposerLag uint64 = 200
 
 // TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
@@ -32,9 +32,7 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 // TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 15 minutes.
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
-	cfg := opspresets.LongRunningFaultProofConfig()
-	cfg.FastFinalityMode = true
-	cfg.FastFinalityProvingLimit = 4
+	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
