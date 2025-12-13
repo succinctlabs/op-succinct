@@ -11,22 +11,40 @@ import (
 
 // ValidityConfig holds configuration for validity proposer tests.
 type ValidityConfig struct {
-	StartingBlock      uint64
-	SubmissionInterval uint64
-	RangeProofInterval uint64
+	StartingBlock              uint64
+	SubmissionInterval         uint64
+	RangeProofInterval         uint64
+	MaxConcurrentProofRequests uint64
+	MaxConcurrentWitnessGen    uint64
 	// LoopInterval is the proposer's main loop interval in seconds.
 	// The proposer acquires a database lock that expires after this duration.
 	// Recovery tests must wait longer than this before restarting the proposer.
 	LoopInterval uint64
+	EnvFilePath  string
 }
 
 // DefaultValidityConfig returns the default configuration.
 func DefaultValidityConfig() ValidityConfig {
 	return ValidityConfig{
-		StartingBlock:      1,
-		SubmissionInterval: 10,
-		RangeProofInterval: 10,
-		LoopInterval:       1, // 1s lock expiry; recovery tests wait 2s before restart
+		StartingBlock:              1,
+		SubmissionInterval:         10,
+		RangeProofInterval:         10,
+		MaxConcurrentProofRequests: 1,
+		MaxConcurrentWitnessGen:    1,
+		LoopInterval:               1, // 1s lock expiry; recovery tests wait 2s before restart
+	}
+}
+
+// LongRunningValidityConfig returns configuration optimized for long-running progress tests.
+// Uses larger intervals and higher concurrency to keep up with L2 block production.
+func LongRunningValidityConfig() ValidityConfig {
+	return ValidityConfig{
+		StartingBlock:              1,
+		SubmissionInterval:         80,
+		RangeProofInterval:         80,
+		MaxConcurrentProofRequests: 4,
+		MaxConcurrentWitnessGen:    4,
+		LoopInterval:               1,
 	}
 }
 
@@ -51,11 +69,19 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),
 			sysgo.WithL2OOSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithL2OORangeProofInterval(cfg.RangeProofInterval)))
-		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+
+		proposerOpts := []sysgo.ValidityProposerOption{
 			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
+			sysgo.WithVPMaxConcurrentProofRequests(cfg.MaxConcurrentProofRequests),
+			sysgo.WithVPMaxConcurrentWitnessGen(cfg.MaxConcurrentWitnessGen),
 			sysgo.WithVPLoopInterval(cfg.LoopInterval),
-			sysgo.WithVPMockMode(true)))
+			sysgo.WithVPMockMode(true), // Default to mock mode; CI can override via OP_SUCCINCT_MOCK=false
+		}
+		if cfg.EnvFilePath != "" {
+			proposerOpts = append(proposerOpts, sysgo.WithVPWriteEnvFile(cfg.EnvFilePath))
+		}
+		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, proposerOpts...))
 	})
 }
 

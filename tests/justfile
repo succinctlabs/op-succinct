@@ -1,7 +1,7 @@
 SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
-test-e2e-sysgo PKG="" FILTER="" : unzip-contract-artifacts
+test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
     #!/bin/bash
 
     if ! [ -z "{{FILTER}}" ]; then
@@ -11,6 +11,12 @@ test-e2e-sysgo PKG="" FILTER="" : unzip-contract-artifacts
     export DEVSTACK_ORCHESTRATOR=sysgo
     export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
     export DISABLE_OP_E2E_LEGACY=true
+
+    # Metrics off by default. Enable with: SYSGO_METRICS_ENABLED=true just test-e2e-sysgo ...
+    export SYSGO_METRICS_ENABLED="${SYSGO_METRICS_ENABLED:-false}"
+    if [ "$SYSGO_METRICS_ENABLED" = "true" ]; then
+        export SYSGO_GRAFANA_PROVISIONING_DIR="{{SOURCE}}/monitoring"
+    fi
 
     TEST_PATH="{{PKG}}"
     BUILD_ARGS=""
@@ -36,7 +42,24 @@ test-e2e-sysgo PKG="" FILTER="" : unzip-contract-artifacts
 
     # Run the test with count=1 to avoid caching the test results.
     echo "Running go test $TEST_PATH $FILTER"
-    cd {{SOURCE}} && go test -p 1 -count=1 -timeout 90m -v "$TEST_PATH" $FILTER
+    cd {{SOURCE}} && go test -p 1 -count=1 -timeout {{TIMEOUT}} -v "$TEST_PATH" $FILTER
+
+# Long-running tests - keep the stack running for manual debugging (no failure on lag)
+# Usage: just long-running validity OR just long-running faultproof OR just long-running faultproof-ff
+long-running MODE:
+    #!/bin/bash
+    set -euo pipefail
+    MODE="{{MODE}}"
+    if [[ "$MODE" == "validity" ]]; then
+        just test-e2e-sysgo "./e2e/validity/long-running/..." "TestValidityProposer_LongRunning" "0"
+    elif [[ "$MODE" == "faultproof" ]]; then
+        just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_LongRunning" "0"
+    elif [[ "$MODE" == "faultproof-ff" ]]; then
+        just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_FastFinality_LongRunning" "0"
+    else
+        echo "Usage: just long-running <validity|faultproof|faultproof-ff>"
+        exit 1
+    fi
 
 unzip-contract-artifacts DEST_DIR="":
     #!/bin/bash

@@ -127,9 +127,7 @@ func NewDgfClient(client apis.EthClient, addr common.Address) (*DgfClient, error
 		return nil, fmt.Errorf("bind DGF: %w", err)
 	}
 
-	return &DgfClient{
-		caller: dgfCaller,
-	}, nil
+	return &DgfClient{caller: dgfCaller}, nil
 }
 
 func (dfg *DgfClient) GameAtIndex(ctx context.Context, index uint64) (GameAtIndexResult, error) {
@@ -233,6 +231,15 @@ func (fdg *FdgClient) ParentIndex(ctx context.Context) (uint32, error) {
 		return 0, fmt.Errorf("call parentIndex: %w", err)
 	}
 	return uint32(parentIndex), nil
+}
+
+// IsProven returns true if the game has been proven (prover address is set).
+func (fdg *FdgClient) IsProven(ctx context.Context) (bool, error) {
+	claimData, err := fdg.caller.ClaimData(opts(ctx))
+	if err != nil {
+		return false, fmt.Errorf("call claimData: %w", err)
+	}
+	return claimData.Prover != common.Address{}, nil
 }
 
 var _ bind.ContractCaller = ethCaller{}

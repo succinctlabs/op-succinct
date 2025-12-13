@@ -65,6 +65,55 @@ run the suite with the expected environment.
   just test-e2e-sysgo ./e2e/validity/... TestValidityProposer_ProveSingleRange
   ```
 
+## Long-Running Tests
+
+Keep the stack running indefinitely for manual debugging:
+
+```bash
+# Validity proposer
+just long-running validity
+
+# Fault proof proposer
+just long-running faultproof
+```
+
+Press `Ctrl+C` to stop.
+
+### Environment Files
+
+At startup, an env file is written with all variables needed for debugging:
+
+- Validity: `.env.validity`
+- Fault proof: `.env.faultproof`
+
+Source it to use with tools like `cast`:
+
+```bash
+source .env.validity
+cast block-number --rpc-url $L2_RPC
+```
+
+## Monitoring
+
+Metrics are disabled by default. Enable Grafana and Prometheus for debugging by
+setting `SYSGO_METRICS_ENABLED=true`:
+
+```bash
+SYSGO_METRICS_ENABLED=true just long-running validity
+SYSGO_METRICS_ENABLED=true just long-running faultproof
+SYSGO_METRICS_ENABLED=true just long-running faultproof-ff
+```
+
+> **Note**: Run only one test at a time when metrics are enabled. Multiple
+> concurrent tests will cause port conflicts.
+
+| Service    | URL                   | Credentials |
+|------------|-----------------------|-------------|
+| Grafana    | http://localhost:3000 | admin/admin |
+| Prometheus | http://localhost:9999 | -           |
+
+Dashboard configurations are located in `monitoring/`.
+
 ## Maintenance
 
 - `tests/optimism` is a git submodule that pins the
