@@ -45,7 +45,7 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
     cd {{SOURCE}} && go test -p 1 -count=1 -timeout {{TIMEOUT}} -v "$TEST_PATH" $FILTER
 
 # Long-running tests - keep the stack running for manual debugging (no failure on lag)
-# Usage: just long-running validity OR just long-running faultproof
+# Usage: just long-running validity OR just long-running faultproof OR just long-running faultproof-ff
 long-running MODE:
     #!/bin/bash
     set -euo pipefail
@@ -54,8 +54,10 @@ long-running MODE:
         just test-e2e-sysgo "./e2e/validity/long-running/..." "TestValidityProposer_LongRunning" "0"
     elif [[ "$MODE" == "faultproof" ]]; then
         just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_LongRunning" "0"
+    elif [[ "$MODE" == "faultproof-ff" ]]; then
+        just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_FastFinality_LongRunning" "0"
     else
-        echo "Usage: just long-running <validity|faultproof>"
+        echo "Usage: just long-running <validity|faultproof|faultproof-ff>"
         exit 1
     fi
 
