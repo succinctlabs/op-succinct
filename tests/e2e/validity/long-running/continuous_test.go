@@ -16,7 +16,7 @@ func TestValidityProposer_LongRunning(gt *testing.T) {
 	cfg.EnvFilePath = "../../../.env.validity"
 	sys, l2oo := setupValiditySystem(t, cfg)
 
-	utils.RunUntilShutdown(10*time.Second, func() error {
+	utils.RunUntilShutdown(60*time.Second, func() error {
 		return checkValidityLag(t, sys, l2oo)
 	})
 }

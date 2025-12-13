@@ -34,6 +34,7 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
 	cfg.FastFinalityMode = true
+	cfg.FastFinalityProvingLimit = 4
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {

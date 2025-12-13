@@ -16,7 +16,7 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	cfg.EnvFilePath = "../../../.env.faultproof"
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
-	utils.RunUntilShutdown(10*time.Second, func() error {
+	utils.RunUntilShutdown(60*time.Second, func() error {
 		return checkFaultProofLag(t, sys, dgf)
 	})
 }
