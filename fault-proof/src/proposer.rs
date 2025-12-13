@@ -1669,23 +1669,25 @@ where
     #[tracing::instrument(name = "[[Defending]]", skip(self))]
     async fn spawn_game_defense_tasks(&self) -> Result<bool> {
         // Check if there are games needing defense
-        let candidates = {
+        let mut candidates = {
             let state = self.state.read().await;
             state
                 .games
                 .values()
                 .filter(|game| game.status == GameStatus::IN_PROGRESS)
                 .filter(|game| matches!(game.proposal_status, ProposalStatus::Challenged))
-                .map(|game| (game.index, game.address))
+                .map(|game| (game.index, game.address, game.deadline))
                 .collect::<Vec<_>>()
         };
+        // Sort by deadline ascending to prioritize games closest to expiring
+        candidates.sort_unstable_by_key(|(_, _, deadline)| *deadline);
 
         let mut active_defense_tasks_count = self.count_active_defense_tasks().await;
         let max_concurrent = self.config.max_concurrent_defense_tasks;
 
         let mut tasks_spawned = false;
 
-        for (index, game_address) in candidates {
+        for (index, game_address, _) in candidates {
             if active_defense_tasks_count >= max_concurrent {
                 tracing::debug!(
                     "The max concurrent defense tasks count ({}) has been reached",
