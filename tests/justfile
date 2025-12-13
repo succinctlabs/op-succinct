@@ -12,6 +12,12 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
     export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
     export DISABLE_OP_E2E_LEGACY=true
 
+    # Metrics off by default. Enable with: SYSGO_METRICS_ENABLED=true just test-e2e-sysgo ...
+    export SYSGO_METRICS_ENABLED="${SYSGO_METRICS_ENABLED:-false}"
+    if [ "$SYSGO_METRICS_ENABLED" = "true" ]; then
+        export SYSGO_GRAFANA_PROVISIONING_DIR="{{SOURCE}}/monitoring"
+    fi
+
     TEST_PATH="{{PKG}}"
     BUILD_ARGS=""
 

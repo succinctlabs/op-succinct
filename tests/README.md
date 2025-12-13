@@ -93,6 +93,26 @@ source .env.validity
 cast block-number --rpc-url $L2_RPC
 ```
 
+## Monitoring
+
+Metrics are disabled by default. Enable Grafana and Prometheus for debugging by
+setting `SYSGO_METRICS_ENABLED=true`:
+
+```bash
+SYSGO_METRICS_ENABLED=true just long-running validity
+SYSGO_METRICS_ENABLED=true just long-running faultproof
+```
+
+> **Note**: Run only one test at a time when metrics are enabled. Multiple
+> concurrent tests will cause port conflicts.
+
+| Service    | URL                   | Credentials |
+|------------|-----------------------|-------------|
+| Grafana    | http://localhost:3000 | admin/admin |
+| Prometheus | http://localhost:9999 | -           |
+
+Dashboard configurations are located in `monitoring/`.
+
 ## Maintenance
 
 - `tests/optimism` is a git submodule that pins the
