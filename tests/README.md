@@ -101,6 +101,7 @@ setting `SYSGO_METRICS_ENABLED=true`:
 ```bash
 SYSGO_METRICS_ENABLED=true just long-running validity
 SYSGO_METRICS_ENABLED=true just long-running faultproof
+SYSGO_METRICS_ENABLED=true just long-running faultproof-ff
 ```
 
 > **Note**: Run only one test at a time when metrics are enabled. Multiple

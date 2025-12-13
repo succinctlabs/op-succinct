@@ -20,3 +20,16 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 		return checkFaultProofLag(t, sys, dgf)
 	})
 }
+
+// TestFaultProofProposer_FastFinality_LongRunning runs indefinitely in fast finality mode, logging progress without failing.
+func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
+	t := devtest.SerialT(gt)
+	cfg := opspresets.LongRunningFaultProofConfig()
+	cfg.FastFinalityMode = true
+	cfg.EnvFilePath = "../../../.env.faultproof"
+	sys, dgf := setupFaultProofSystem(t, cfg)
+
+	utils.RunUntilShutdown(60*time.Second, func() error {
+		return checkFaultProofLag(t, sys, dgf)
+	})
+}
