@@ -1,5 +1,0 @@
-# Dynamically generated at runtime
-datasources/prometheus.yml
-
-# Grafana data directory
-data/

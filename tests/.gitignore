@@ -8,3 +8,12 @@ artifacts/src
 
 # Long-running test environment file
 .env.*
+
+# Dynamically generated at runtime
+monitoring/grafana/datasources/prometheus.yml
+
+# Grafana data directory
+monitoring/grafana/data/
+
+# Long-running test logs
+logs/

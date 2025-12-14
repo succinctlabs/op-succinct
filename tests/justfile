@@ -16,7 +16,6 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
     export SYSGO_METRICS_ENABLED="${SYSGO_METRICS_ENABLED:-false}"
     if [ "$SYSGO_METRICS_ENABLED" = "true" ]; then
         export SYSGO_GRAFANA_PROVISIONING_DIR="{{SOURCE}}/monitoring/grafana"
-        export SYSGO_GRAFANA_DATA_DIR="{{SOURCE}}/monitoring/grafana/data"
     fi
 
     TEST_PATH="{{PKG}}"
@@ -45,22 +44,17 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
     echo "Running go test $TEST_PATH $FILTER"
     cd {{SOURCE}} && go test -p 1 -count=1 -timeout {{TIMEOUT}} -v "$TEST_PATH" $FILTER
 
-# Long-running tests - keep the stack running for manual debugging (no failure on lag)
-# Usage: just long-running validity OR just long-running faultproof OR just long-running faultproof-ff
+# Long-running tests - logs to tests/logs/<mode>-<timestamp>.log
+# Usage: just long-running <validity|faultproof|faultproof-ff>
 long-running MODE:
     #!/bin/bash
     set -euo pipefail
-    MODE="{{MODE}}"
-    if [[ "$MODE" == "validity" ]]; then
-        just test-e2e-sysgo "./e2e/validity/long-running/..." "TestValidityProposer_LongRunning" "0"
-    elif [[ "$MODE" == "faultproof" ]]; then
-        just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_LongRunning" "0"
-    elif [[ "$MODE" == "faultproof-ff" ]]; then
-        just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_FastFinality_LongRunning" "0"
-    else
-        echo "Usage: just long-running <validity|faultproof|faultproof-ff>"
-        exit 1
-    fi
+    case "{{MODE}}" in
+        validity)     just logged {{MODE}} just test-e2e-sysgo "./e2e/validity/long-running/..." "TestValidityProposer_LongRunning" "0" ;;
+        faultproof)   just logged {{MODE}} just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_LongRunning" "0" ;;
+        faultproof-ff) just logged {{MODE}} just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_FastFinality_LongRunning" "0" ;;
+        *) echo "Usage: just long-running <validity|faultproof|faultproof-ff>"; exit 1 ;;
+    esac
 
 unzip-contract-artifacts DEST_DIR="":
     #!/bin/bash
@@ -87,3 +81,15 @@ update-packages: submodule
 
 submodule:
     git submodule update --init --recursive
+
+# Logging wrapper - saves output to tests/logs/<name>-<timestamp>.log
+# Usage: just logged mytest "just some-command arg1 arg2"
+logged NAME +CMD:
+    #!/bin/bash
+    set -euo pipefail
+    TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+    LOG_DIR="{{SOURCE}}/logs"
+    mkdir -p "$LOG_DIR"
+    LOG_FILE="$LOG_DIR/{{NAME}}-${TIMESTAMP}.log"
+    echo "Logging to: $LOG_FILE"
+    { echo "=== {{NAME}} | $(date) | {{CMD}} ==="; {{CMD}}; } 2>&1 | tee "$LOG_FILE"
