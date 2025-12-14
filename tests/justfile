@@ -15,7 +15,8 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
     # Metrics off by default. Enable with: SYSGO_METRICS_ENABLED=true just test-e2e-sysgo ...
     export SYSGO_METRICS_ENABLED="${SYSGO_METRICS_ENABLED:-false}"
     if [ "$SYSGO_METRICS_ENABLED" = "true" ]; then
-        export SYSGO_GRAFANA_PROVISIONING_DIR="{{SOURCE}}/monitoring"
+        export SYSGO_GRAFANA_PROVISIONING_DIR="{{SOURCE}}/monitoring/grafana"
+        export SYSGO_GRAFANA_DATA_DIR="{{SOURCE}}/monitoring/grafana/data"
     fi
 
     TEST_PATH="{{PKG}}"
