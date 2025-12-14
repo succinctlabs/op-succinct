@@ -23,7 +23,7 @@ const (
 
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
 
-func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, configure succinctConfigurator) stack.CommonOption {
+func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, configure succinctConfigurator) stack.CommonOption {
 	l1ChainID := eth.ChainIDFromUInt64(DefaultL1ID)
 	l2ChainID := eth.ChainIDFromUInt64(DefaultL2ID)
 	ids := sysgo.NewDefaultSingleChainInteropSystemIDs(l1ChainID, l2ChainID)
@@ -46,7 +46,7 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, configur
 		),
 		sysgo.WithDeployerOptions(
 			func(_ devtest.P, _ devkeys.Keys, builder intentbuilder.Builder) {
-				builder.WithGlobalOverride("l2BlockTime", uint64(1))
+				builder.WithGlobalOverride("l2BlockTime", l2BlockTime)
 				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 			},

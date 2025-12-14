@@ -11,6 +11,9 @@ import (
 
 // FaultProofConfig holds configuration for fault proof proposer tests.
 type FaultProofConfig struct {
+	// L2BlockTime is the L2 block time in seconds.
+	L2BlockTime uint64
+
 	// Contract deployment configuration
 	MaxChallengeDuration         uint64
 	MaxProveDuration             uint64
@@ -29,6 +32,7 @@ type FaultProofConfig struct {
 // DefaultFaultProofConfig returns the default configuration.
 func DefaultFaultProofConfig() FaultProofConfig {
 	return FaultProofConfig{
+		L2BlockTime:                  1,
 		MaxChallengeDuration:         10, // Low for tests (vs 1 hour production)
 		MaxProveDuration:             10, // Low for tests (vs 12 hours production)
 		DisputeGameFinalityDelaySecs: 30, // Low for tests (vs 7 days production)
@@ -50,14 +54,13 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 
 // LongRunningFaultProofConfig returns configuration optimized for long-running progress tests.
 //
-// ProposalIntervalInBlocks is set to 100 to keep lag bounded. Each game creation incurs
+// ProposalIntervalInBlocks is set to 50 to keep lag bounded. Each game creation incurs
 // overhead from L1 TX confirmation and state sync (RPC calls per cached game). With L2
 // producing 1 block/sec, the 100-block interval prevents lag from accumulating over time.
 func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
-	cfg.ProposalIntervalInBlocks = 100
-	cfg.RangeSplitCount = 4
-	cfg.MaxConcurrentRangeProofs = 4
+	cfg.ProposalIntervalInBlocks = 50
+	cfg.L2BlockTime = 2
 	return cfg
 }
 
@@ -67,15 +70,15 @@ func LongRunningFaultProofConfig() FaultProofConfig {
 // (witness + mock proof + tx submission) before the deadline expires.
 func LongRunningFastFinalityFaultProofConfig() FaultProofConfig {
 	cfg := LongRunningFaultProofConfig()
-	cfg.MaxChallengeDuration = 120
+	cfg.MaxChallengeDuration = 600
 	cfg.FastFinalityMode = true
-	cfg.FastFinalityProvingLimit = 4
+	cfg.FastFinalityProvingLimit = 8
 	return cfg
 }
 
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
-	return withSuccinctPreset(dest, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	return withSuccinctPreset(dest, cfg.L2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithFdgL2StartingBlockNumber(1),
