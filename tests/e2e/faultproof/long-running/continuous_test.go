@@ -17,7 +17,7 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
-		return checkFaultProofLag(t, sys, dgf)
+		return checkProposerLag(t, sys, dgf)
 	})
 }
 
@@ -29,6 +29,9 @@ func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
-		return checkFaultProofLag(t, sys, dgf)
+		if err := checkProposerLag(t, sys, dgf); err != nil {
+			return err
+		}
+		return checkAnchorStateLag(t, sys, dgf, cfg)
 	})
 }

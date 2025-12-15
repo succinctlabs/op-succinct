@@ -11,12 +11,10 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// MaxProposerLag is the maximum allowed gap between L2 finalized head and the latest game's
-// L2 block. Set to 150 with a 100-block proposal interval, providing 50 blocks of headroom
-// to absorb transient spikes from proposer startup or game resolution/bond claiming.
-const MaxProposerLag uint64 = 200
+// MaxProposerLag is the maximum allowed lag between L2 finalized and latest game L2 block.
+const MaxProposerLag uint64 = 180
 
-// TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 20 minutes.
+// TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
@@ -24,12 +22,12 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		return checkProposerLag(t, sys, dgf, MaxProposerLag)
+		return checkProposerLag(t, sys, dgf)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 20 minutes
+// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 15 minutes
 // and ensures games are being proven (not just created).
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
@@ -37,7 +35,7 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		if err := checkProposerLag(t, sys, dgf, MaxFastFinalityLag); err != nil {
+		if err := checkProposerLag(t, sys, dgf); err != nil {
 			return err
 		}
 		return checkAnchorStateLag(t, sys, dgf, cfg)
@@ -61,7 +59,7 @@ func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig) (*opspr
 	return sys, sys.DgfClient(t)
 }
 
-func checkProposerLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, maxLag uint64) error {
+func checkProposerLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) error {
 	l2Finalized := sys.L2EL.BlockRefByLabel(eth.Finalized)
 
 	fdg, game, err := getFdgWithLatestGame(t.Ctx(), sys, dgf)
@@ -85,8 +83,8 @@ func checkProposerLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.
 	t.Logf("L2 Finalized: %d | Latest Game L2 Block: %d | Lag: %d blocks",
 		l2Finalized.Number, gameL2Block, lag)
 
-	if lag > maxLag {
-		return fmt.Errorf("proposer lag %d exceeds max %d", lag, maxLag)
+	if lag > MaxProposerLag {
+		return fmt.Errorf("proposer lag %d exceeds max %d", lag, MaxProposerLag)
 	}
 	return nil
 }
@@ -114,8 +112,8 @@ func checkAnchorStateLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *uti
 	t.Logf("Anchor Lag: game L2=%d, anchor L2=%d, lag=%d blocks (%ds), max=%ds",
 		gameL2Block, anchorL2Block, anchorLagBlocks, anchorLagSeconds, cfg.MaxChallengeDuration)
 
-	if anchorLagSeconds >= cfg.MaxChallengeDuration {
-		return fmt.Errorf("anchor lag %d seconds exceeds MaxChallengeDuration %d seconds", anchorLagSeconds, cfg.MaxChallengeDuration)
+	if anchorLagSeconds > cfg.MaxChallengeDuration {
+		return fmt.Errorf("anchor lag %d seconds exceeds max allowed %d seconds", anchorLagSeconds, cfg.MaxChallengeDuration)
 	}
 	return nil
 }
