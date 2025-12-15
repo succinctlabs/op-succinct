@@ -431,7 +431,20 @@ fp-integration-tests target="integration" da="ethereum":
 # Run DA-specific host utility tests
 # da: ethereum, eigenda, celestia
 da-integration-tests da="ethereum":
-  cargo t -p op-succinct-{{da}}-host-utils --features integration --release -- --test-threads=1 --nocapture
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # EigenDA tests require SRS file - create symlink if needed
+    if [ "{{da}}" = "eigenda" ] && [ ! -e "utils/eigenda/host/resources" ]; then
+        if [ ! -d "resources" ]; then
+            echo "Error: resources/ directory not found. Run from workspace root."
+            exit 1
+        fi
+        ln -sf ../../../resources utils/eigenda/host/resources
+        echo "Created symlink: utils/eigenda/host/resources -> resources/"
+    fi
+
+    cargo t -p op-succinct-{{da}}-host-utils --features integration --release -- --test-threads=1 --nocapture
 
 forge-build *ARGS:
     #!/usr/bin/env bash

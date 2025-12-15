@@ -130,19 +130,6 @@ jobs:
     - name: Install just
       uses: extractions/setup-just@v3
 
-    - name: Setup EigenDA SRS symlinks
-      if: matrix.da == 'eigenda'
-      run: |
-        # Verify resources directory exists before creating symlink
-        if [ ! -d "$GITHUB_WORKSPACE/resources" ]; then
-          echo "Error: resources directory not found at $GITHUB_WORKSPACE/resources"
-          exit 1
-        fi
-        # Create symlink using absolute paths
-        ln -sf "$GITHUB_WORKSPACE/resources" "$GITHUB_WORKSPACE/utils/eigenda/host/resources"
-        echo "Created symlink: $GITHUB_WORKSPACE/utils/eigenda/host/resources -> $GITHUB_WORKSPACE/resources"
-        ls -la "$GITHUB_WORKSPACE/utils/eigenda/host/resources/"
-
     - name: Run tests
       run: just da-integration-tests ${{ matrix.da }}
       env:

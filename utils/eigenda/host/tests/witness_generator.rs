@@ -83,7 +83,7 @@ fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
 }
 
 /// Requires: L1_RPC, L1_BEACON_RPC, L2_RPC, L2_NODE_RPC, EIGENDA_PROXY_ADDRESS
-// #[cfg(feature = "integration")]
+#[cfg(feature = "integration")]
 mod integration {
     use super::*;
     use std::sync::Arc;
