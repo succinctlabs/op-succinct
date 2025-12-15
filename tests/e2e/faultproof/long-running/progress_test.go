@@ -24,7 +24,7 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		return checkFaultProofLag(t, sys, dgf)
+		return checkProposerLag(t, sys, dgf, MaxProposerLag)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 }
@@ -37,19 +37,18 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		return checkFaultProofLag(t, sys, dgf)
+		if err := checkProposerLag(t, sys, dgf, MaxFastFinalityLag); err != nil {
+			return err
+		}
+		return checkAnchorStateLag(t, sys, dgf, cfg)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 
 	// Verify fast finality is proving games
 	ctx := t.Ctx()
-	gameCount, err := dgf.GameCount(ctx)
+	firstGame, err := dgf.GameAtIndex(ctx, 0)
 	t.Require().NoError(err)
-	t.Require().GreaterOrEqual(gameCount, uint64(1), "expected at least 1 game")
-
-	game, err := dgf.GameAtIndex(ctx, 0)
-	t.Require().NoError(err)
-	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
+	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), firstGame.Proxy)
 	t.Require().NoError(err)
 	proven, err := fdg.IsProven(ctx)
 	t.Require().NoError(err)
@@ -62,42 +61,73 @@ func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig) (*opspr
 	return sys, sys.DgfClient(t)
 }
 
-func checkFaultProofLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) error {
+func checkProposerLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, maxLag uint64) error {
 	l2Finalized := sys.L2EL.BlockRefByLabel(eth.Finalized)
 
-	gameCount, _ := dgf.GameCount(t.Ctx())
-	if gameCount == 0 {
+	fdg, game, err := getFdgWithLatestGame(t.Ctx(), sys, dgf)
+	if err != nil {
+		return err
+	}
+	if game == nil {
 		t.Logf("Games: 0 | L2 finalized: %d | waiting...", l2Finalized.Number)
 		return nil
 	}
 
-	latestGameL2Block, _ := getLatestGameL2Block(t.Ctx(), sys, dgf)
+	gameL2Block, err := fdg.L2BlockNumber(t.Ctx())
+	if err != nil {
+		return err
+	}
 
 	var lag uint64
-	if l2Finalized.Number > latestGameL2Block {
-		lag = l2Finalized.Number - latestGameL2Block
+	if l2Finalized.Number > gameL2Block {
+		lag = l2Finalized.Number - gameL2Block
 	}
-	t.Logf("Games: %d | L2 Finalized: %d | L2 Latest Block: %d | Lag: %d",
-		gameCount, l2Finalized.Number, latestGameL2Block, lag)
+	t.Logf("L2 Finalized: %d | Latest Game L2 Block: %d | Lag: %d blocks",
+		l2Finalized.Number, gameL2Block, lag)
 
-	if lag > MaxProposerLag {
-		return fmt.Errorf("lag %d exceeds max %d", lag, MaxProposerLag)
+	if lag > maxLag {
+		return fmt.Errorf("proposer lag %d exceeds max %d", lag, maxLag)
 	}
 	return nil
 }
 
-func getLatestGameL2Block(ctx context.Context, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) (uint64, error) {
-	count, err := dgf.GameCount(ctx)
-	if err != nil || count == 0 {
-		return 0, err
-	}
-	game, err := dgf.GameAtIndex(ctx, count-1)
+func checkAnchorStateLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, cfg opspresets.FaultProofConfig) error {
+	fdg, game, err := getFdgWithLatestGame(t.Ctx(), sys, dgf)
 	if err != nil {
-		return 0, err
+		return err
+	}
+	if game == nil {
+		return nil
+	}
+
+	gameL2Block, err := fdg.L2BlockNumber(t.Ctx())
+	if err != nil {
+		return err
+	}
+	anchorL2Block, err := fdg.AnchorL2BlockNumber(t.Ctx(), sys.L1EL.EthClient(), game.GameType)
+	if err != nil {
+		return err
+	}
+
+	anchorLagBlocks := gameL2Block - anchorL2Block
+	anchorLagSeconds := anchorLagBlocks * cfg.L2BlockTime
+	t.Logf("Anchor Lag: game L2=%d, anchor L2=%d, lag=%d blocks (%ds), max=%ds",
+		gameL2Block, anchorL2Block, anchorLagBlocks, anchorLagSeconds, cfg.MaxChallengeDuration)
+
+	if anchorLagSeconds >= cfg.MaxChallengeDuration {
+		return fmt.Errorf("anchor lag %d seconds exceeds MaxChallengeDuration %d seconds", anchorLagSeconds, cfg.MaxChallengeDuration)
+	}
+	return nil
+}
+
+func getFdgWithLatestGame(ctx context.Context, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) (*utils.FdgClient, *utils.GameAtIndexResult, error) {
+	game, err := dgf.LatestGame(ctx)
+	if err != nil || game == nil {
+		return nil, nil, err
 	}
 	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
 	if err != nil {
-		return 0, err
+		return nil, nil, err
 	}
-	return fdg.L2BlockNumber(ctx)
+	return fdg, game, nil
 }
