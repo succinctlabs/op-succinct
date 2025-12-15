@@ -301,8 +301,8 @@ impl RangeSplitCount {
     ///
     /// NOTE: At runtime, the actual interval may slightly differ from `proposal_interval_in_blocks`
     /// because if a game already exists at the target L2 block, the proposer increments the block
-    /// number until it finds an unused slot (e.g., 1802 blocks instead of 1800). since we divide
-    /// the actual total by the split count, so drift just slightly adjusts range sizes.
+    /// number until it finds an unused slot (e.g., 1802 blocks instead of 1800). Since we divide
+    /// the actual total by the split count, drift just slightly adjusts range sizes.
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
             anyhow::anyhow!("end block {end} is not greater than start block {start}")
