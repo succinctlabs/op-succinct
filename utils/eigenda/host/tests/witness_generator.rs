@@ -83,7 +83,7 @@ fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
 }
 
 /// Requires: L1_RPC, L1_BEACON_RPC, L2_RPC, L2_NODE_RPC, EIGENDA_PROXY_ADDRESS
-#[cfg(feature = "integration")]
+// #[cfg(feature = "integration")]
 mod integration {
     use super::*;
     use std::sync::Arc;
@@ -94,6 +94,8 @@ mod integration {
     use op_succinct_host_utils::{
         fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, setup_logger,
     };
+    use sp1_core_executor::SP1ReduceProof;
+    use sp1_prover::InnerSC;
     use tracing::info;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -116,11 +118,24 @@ mod integration {
         let witness_data = host.run(&host_args).await?;
         assert!(witness_data.eigenda_data.is_some(), "EigenDA data should be present");
 
+        // Verify EigenDAWitness structure and check for canoe proof
+        let eigenda_data = witness_data.eigenda_data.as_ref().unwrap();
+        let eigenda_witness: EigenDAWitness =
+            serde_cbor::from_slice(eigenda_data).expect("EigenDA witness should deserialize");
+
         info!(
-            "Preimages: {}, EigenDA: {} bytes",
+            "Preimages: {}, EigenDA: {} bytes, Canoe proof present: {}",
             witness_data.preimage_store.preimage_map.len(),
-            witness_data.eigenda_data.as_ref().map(|d| d.len()).unwrap_or(0)
+            eigenda_data.len(),
+            eigenda_witness.canoe_proof_bytes.is_some()
         );
+
+        // If canoe proof is present, verify it deserializes correctly
+        if let Some(ref proof_bytes) = eigenda_witness.canoe_proof_bytes {
+            let _proof: SP1ReduceProof<InnerSC> = serde_cbor::from_slice(proof_bytes)
+                .expect("Canoe proof should deserialize to SP1ReduceProof");
+            info!("Canoe proof deserialization verified ({} bytes)", proof_bytes.len());
+        }
 
         let stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
         assert!(!stdin.buffer.is_empty());
