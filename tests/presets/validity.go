@@ -17,16 +17,18 @@ type ValidityConfig struct {
 	// LoopInterval is the proposer's main loop interval in seconds.
 	// The proposer acquires a database lock that expires after this duration.
 	// Recovery tests must wait longer than this before restarting the proposer.
-	LoopInterval uint64
+	// If nil, the default proposer value (60s) is used.
+	LoopInterval *uint64
 }
 
 // DefaultValidityConfig returns the default configuration.
 func DefaultValidityConfig() ValidityConfig {
+	loopInterval := uint64(1) // 1s lock expiry; recovery tests wait 2s before restart
 	return ValidityConfig{
 		StartingBlock:      1,
 		SubmissionInterval: 10,
 		RangeProofInterval: 10,
-		LoopInterval:       1, // 1s lock expiry; recovery tests wait 2s before restart
+		LoopInterval:       &loopInterval,
 	}
 }
 
@@ -51,11 +53,16 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),
 			sysgo.WithL2OOSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithL2OORangeProofInterval(cfg.RangeProofInterval)))
-		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+
+		vpOpts := []sysgo.ValidityProposerOption{
 			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
-			sysgo.WithVPLoopInterval(cfg.LoopInterval),
-			sysgo.WithVPMockMode(true)))
+			sysgo.WithVPMockMode(true),
+		}
+		if cfg.LoopInterval != nil {
+			vpOpts = append(vpOpts, sysgo.WithVPLoopInterval(*cfg.LoopInterval))
+		}
+		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, vpOpts...))
 	})
 }
 
