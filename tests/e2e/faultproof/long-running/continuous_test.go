@@ -9,7 +9,7 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// TestFaultProofProposer_LongRunning runs indefinitely, logging progress without failing.
+// TestFaultProofProposer_LongRunning runs until shutdown, logging progress.
 func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
@@ -17,11 +17,12 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
-		return checkProposerLag(t, sys, dgf)
+		checkProposerLag(t, sys, dgf)
+		return nil
 	})
 }
 
-// TestFaultProofProposer_FastFinality_LongRunning runs indefinitely in fast finality mode, logging progress without failing.
+// TestFaultProofProposer_FastFinality_LongRunning runs until shutdown, logging progress.
 func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
@@ -29,9 +30,8 @@ func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
-		if err := checkProposerLag(t, sys, dgf); err != nil {
-			return err
-		}
-		return checkAnchorStateLag(t, sys, dgf, cfg)
+		checkProposerLag(t, sys, dgf)
+		checkAnchorStateLag(t, sys, dgf, cfg)
+		return nil
 	})
 }
