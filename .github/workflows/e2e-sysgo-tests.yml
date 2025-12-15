@@ -5,7 +5,6 @@ on:
     tags:
       - v[0-9]+.*
     branches:
-      - "release/*"
       - main
   merge_group:
   pull_request:
@@ -15,6 +14,21 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
+  # Detect if ELF files changed (for triggering real prover tests)
+  detect-elf-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      elf_changed: ${{ steps.filter.outputs.elf }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            elf:
+              - 'elf/**'
+
+  # Regular E2E tests (non-long-running)
   e2e-sysgo-tests:
     name: (${{ matrix.target }})
     runs-on:
@@ -23,19 +37,50 @@ jobs:
       - run-id=${{ github.run_id }}
       - spot=false
       - disk=large
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     strategy:
       fail-fast: false
       matrix:
-        target: 
+        target:
           - "./e2e/validity/bootstrap/..."
           - "./e2e/validity/proving/..."
           - "./e2e/validity/recovery/..."
-          - "./e2e/validity/long-running/progress_test.go"
           - "./e2e/faultproof/bootstrap/..."
           - "./e2e/faultproof/fastfinality/..."
           - "./e2e/faultproof/recovery/..."
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup E2E environment
+        uses: ./.github/actions/setup-e2e-sysgo
+
+      - name: Run Sysgo E2E Tests
+        working-directory: tests
+        run: |
+          echo "Running tests..."
+          just test-e2e-sysgo "${{ matrix.target }}"
+
+  # Long-running tests with mock proving (runs on every PR and push)
+  e2e-sysgo-long-running:
+    name: Long Running (${{ matrix.target }})
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+      - disk=large
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - "./e2e/validity/long-running/progress_test.go"
           - "./e2e/faultproof/long-running/progress_test.go"
 
     steps:
@@ -44,37 +89,58 @@ jobs:
         with:
           submodules: true
 
-      - name: Setup Rust
-        run: |
-          rustup toolchain install stable --profile minimal
+      - name: Setup E2E environment
+        uses: ./.github/actions/setup-e2e-sysgo
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly-d592b3e0f142d694c3be539702704a4a73238773
-          
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            .
-            bindings
-
-      - name: Install just
-        uses: extractions/setup-just@v3
-
-      - name: Setup Go 1.23.8
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.8'
-          cache-dependency-path: |
-            tests/go.sum
-            tests/optimism/go.sum
-
-      - name: Run Sysgo E2E Tests
+      - name: Run Long Running E2E Tests (Mock Proving)
         working-directory: tests
         env:
+          # 30m on main, otherwise use default (15m)
           PROGRESS_TEST_DURATION: ${{ github.ref == 'refs/heads/main' && '30m' || '' }}
         run: |
-          echo "Running tests..."
+          echo "Running long-running tests with mock proving..."
+          just test-e2e-sysgo "${{ matrix.target }}"
+
+  # Long-running tests with real proving - on main when:
+  # 1. ELF files changed, OR
+  # 2. A release/* branch was merged (detected via merge commit message)
+  e2e-sysgo-long-running-real-prover:
+    name: Long Running Real Prover (${{ matrix.target }})
+    needs: detect-elf-changes
+    if: |
+      github.ref == 'refs/heads/main' && (
+        needs.detect-elf-changes.outputs.elf_changed == 'true' ||
+        contains(github.event.head_commit.message, 'release/')
+      )
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+      - disk=large
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - "./e2e/validity/long-running/progress_test.go"
+          - "./e2e/faultproof/long-running/progress_test.go"
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup E2E environment
+        uses: ./.github/actions/setup-e2e-sysgo
+
+      - name: Run Long Running E2E Tests (Real Proving)
+        working-directory: tests
+        env:
+          PROGRESS_TEST_DURATION: "30m"
+          NETWORK_PRIVATE_KEY: ${{ secrets.NETWORK_PRIVATE_KEY }}
+        run: |
+          echo "Running long-running tests with real proving..."
           just test-e2e-sysgo "${{ matrix.target }}"
