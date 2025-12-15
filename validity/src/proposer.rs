@@ -912,8 +912,8 @@ where
     }
 
     /// Validates an aggregation proof request by checking that:
-    /// 1. There are no duplicate/overlapping range proofs
-    /// 2. There are no gaps between consecutive range proofs
+    /// 1. There are no gaps between consecutive range proofs
+    /// 2. There are no duplicate/overlapping range proofs
     /// 3. The range proofs cover the entire block range
     pub async fn validate_aggregation_request(
         &self,
@@ -976,10 +976,10 @@ where
             let prev_proof = &range_proofs[i - 1];
             let curr_proof = &range_proofs[i];
 
-            // Check for overlap (duplicate blocks)
-            if prev_proof.end_block > curr_proof.start_block {
+            // Check for gap
+            if prev_proof.end_block < curr_proof.start_block {
                 debug!(
-                    "Overlap detected: proof {} ends at {} but proof {} starts at {}",
+                    "Gap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
                     prev_proof.end_block,
                     i,
@@ -988,10 +988,10 @@ where
                 return false;
             }
 
-            // Check for gap
-            if prev_proof.end_block != curr_proof.start_block {
+            // Check for overlap (duplicate blocks)
+            if prev_proof.end_block > curr_proof.start_block {
                 debug!(
-                    "Gap detected: proof {} ends at {} but proof {} starts at {}",
+                    "Overlap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
                     prev_proof.end_block,
                     i,
