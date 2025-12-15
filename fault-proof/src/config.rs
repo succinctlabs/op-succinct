@@ -289,15 +289,19 @@ impl RangeSplitCount {
         self.0.get() as usize
     }
 
-    /// Split `[start, end)` into up to `count` contiguous, non-empty subranges.
+    /// Split a block range into up to `count` contiguous, non-empty subranges for proving.
     ///
-    /// Behavior:
+    /// # Proving semantics
+    /// Each tuple `(start, end)` represents a proving range where:
+    /// - `start` is the **agreed** block (already-proven checkpoint)
+    /// - `end` is the **claimed** block (included in the proof)
+    ///
+    /// # Behavior
     /// - Errors if `start > end` or the range is empty.
     /// - Caps the number of produced segments to the number of blocks in the range.
-    /// - Uses ceil division to keep segments as even as possible; the final segment takes any
-    ///   remainder. This may yield fewer segments than requested when step sizes exhaust the range
-    ///   early (e.g., 9 blocks ÷ 4 → step=3 → 3 segments: (0,3], (3,6], (6,9]).
-    /// - Always returns ranges that exactly cover `(start, end]` with no gaps or overlaps.
+    /// - Uses ceil division for even segments; may yield fewer than requested
+    ///   (e.g., 9 blocks ÷ 4 → step=3 → 3 segments: (0,3], (3,6], (6,9]).
+    /// - Returns ranges that exactly cover `(start, end]` with no gaps or overlaps.
     ///
     /// NOTE: At runtime, the actual interval may slightly differ from `proposal_interval_in_blocks`
     /// because if a game already exists at the target L2 block, the proposer increments the block
