@@ -273,7 +273,7 @@ func (w ethCaller) CodeAt(ctx context.Context, contract common.Address, blockNum
 func WaitForDefenderWins(ctx context.Context, t devtest.T, dgf *FdgClient) {
 	for {
 		status, err := dgf.Status(ctx)
-		require.NoError(t, err, "failed to get game count from factory")
+		require.NoError(t, err, "failed to get game status")
 
 		if GameStatus(status) == DefenderWins {
 			return
