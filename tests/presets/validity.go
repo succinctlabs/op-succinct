@@ -47,8 +47,8 @@ func LongRunningValidityConfig() ValidityConfig {
 	return ValidityConfig{
 		L2BlockTime:                2,
 		StartingBlock:              1,
-		SubmissionInterval:         60,
-		RangeProofInterval:         60,
+		SubmissionInterval:         120,
+		RangeProofInterval:         120,
 		MaxConcurrentProofRequests: 4,
 		MaxConcurrentWitnessGen:    4,
 		LoopInterval:               1,

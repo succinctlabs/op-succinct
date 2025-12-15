@@ -54,12 +54,12 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 
 // LongRunningFaultProofConfig returns configuration optimized for long-running progress tests.
 //
-// ProposalIntervalInBlocks is set to 60 to keep lag bounded. Each game creation incurs
+// ProposalIntervalInBlocks is set to 120 to keep lag bounded. Each game creation incurs
 // overhead from L1 TX confirmation and state sync (RPC calls per cached game). With L2
-// producing 2 block/sec, the 60-block interval prevents lag from accumulating over time.
+// producing 2 block/sec, the 120-block interval prevents lag from accumulating over time.
 func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
-	cfg.ProposalIntervalInBlocks = 60
+	cfg.ProposalIntervalInBlocks = 120
 	cfg.L2BlockTime = 2
 	return cfg
 }

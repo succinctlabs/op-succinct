@@ -12,7 +12,7 @@ import (
 
 // MaxProposerLag is the maximum allowed gap between L2 finalized head and the L2OO's
 // latest submitted block.
-const MaxProposerLag uint64 = 180
+const MaxProposerLag uint64 = 300
 
 // TestValidityProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.

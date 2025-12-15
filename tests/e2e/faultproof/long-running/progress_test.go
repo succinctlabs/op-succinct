@@ -12,7 +12,7 @@ import (
 )
 
 // MaxProposerLag is the maximum allowed lag between L2 finalized and latest game L2 block.
-const MaxProposerLag uint64 = 180
+const MaxProposerLag uint64 = 300
 
 // TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
 // The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.

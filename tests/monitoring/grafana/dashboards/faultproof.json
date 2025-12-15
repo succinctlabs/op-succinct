@@ -9,7 +9,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "Blocks Behind (max 200)",
+      "title": "Blocks Behind (max 300)",
       "type": "gauge",
       "gridPos": {
         "h": 6,
@@ -20,7 +20,7 @@
       "fieldConfig": {
         "defaults": {
           "min": 0,
-          "max": 250,
+          "max": 360,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -30,11 +30,11 @@
               },
               {
                 "color": "yellow",
-                "value": 150
+                "value": 240
               },
               {
                 "color": "red",
-                "value": 200
+                "value": 300
               }
             ]
           }
@@ -177,11 +177,11 @@
               },
               {
                 "color": "yellow",
-                "value": 150
+                "value": 240
               },
               {
                 "color": "red",
-                "value": 200
+                "value": 300
               }
             ]
           },
