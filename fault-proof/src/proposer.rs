@@ -655,8 +655,10 @@ where
 
     /// Computes the canonical head by scanning all cached games.
     ///
-    /// Canonical head is the game with the highest L2 block number. When an anchor game is present,
-    /// only its descendants are eligible for canonical head.
+    /// Canonical head is the game with the highest L2 block number. When an anchor game exists,
+    /// the canonical head is chosen from its descendants, unless a non-descendant has a higher L2
+    /// block number and an earlier lineage (parent is genesis or has a lower parent index than the
+    /// best descendant).
     async fn compute_canonical_head(&self) {
         let mut state = self.state.write().await;
 
