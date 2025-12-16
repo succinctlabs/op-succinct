@@ -37,22 +37,20 @@ func DefaultValidityConfig() ValidityConfig {
 		RangeProofInterval:         10,
 		MaxConcurrentProofRequests: 1,
 		MaxConcurrentWitnessGen:    1,
-		LoopInterval:               1, // 1s lock expiry; recovery tests wait 2s before restart
+		LoopInterval:               &loopInterval,
 	}
 }
 
 // LongRunningValidityConfig returns configuration optimized for long-running progress tests.
 // Uses larger intervals and higher concurrency to keep up with L2 block production.
 func LongRunningValidityConfig() ValidityConfig {
-	return ValidityConfig{
-		L2BlockTime:                2,
-		StartingBlock:              1,
-		SubmissionInterval:         120,
-		RangeProofInterval:         120,
-		MaxConcurrentProofRequests: 4,
-		MaxConcurrentWitnessGen:    4,
-		LoopInterval:               1,
-	}
+	cfg := DefaultValidityConfig()
+	cfg.L2BlockTime = 2
+	cfg.SubmissionInterval = 120
+	cfg.RangeProofInterval = 120
+	cfg.MaxConcurrentProofRequests = 4
+	cfg.MaxConcurrentWitnessGen = 4
+	return cfg
 }
 
 // ExpectedOutputBlock calculates the expected L2 block for the Nth submission.
