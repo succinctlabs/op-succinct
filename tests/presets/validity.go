@@ -42,14 +42,20 @@ func DefaultValidityConfig() ValidityConfig {
 }
 
 // LongRunningValidityConfig returns configuration optimized for long-running progress tests.
-// Uses larger intervals and higher concurrency to keep up with L2 block production.
+// If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningValidityConfig() ValidityConfig {
 	cfg := DefaultValidityConfig()
 	cfg.L2BlockTime = 2
-	cfg.SubmissionInterval = 120
-	cfg.RangeProofInterval = 120
 	cfg.MaxConcurrentProofRequests = 4
 	cfg.MaxConcurrentWitnessGen = 4
+
+	if useNetworkProver() {
+		cfg.SubmissionInterval = 300 // =10m of L2 time
+		cfg.RangeProofInterval = 300
+	} else {
+		cfg.SubmissionInterval = 120
+		cfg.RangeProofInterval = 120
+	}
 	return cfg
 }
 

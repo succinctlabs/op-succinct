@@ -118,7 +118,7 @@ jobs:
       - run-id=${{ github.run_id }}
       - spot=false
       - disk=large
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     strategy:
       fail-fast: false
@@ -136,11 +136,11 @@ jobs:
       - name: Setup E2E environment
         uses: ./.github/actions/setup-e2e-sysgo
 
-      - name: Run Long Running E2E Tests (Real Proving)
+      - name: Run Long Running E2E Tests (Network Proving)
         working-directory: tests
         env:
-          PROGRESS_TEST_DURATION: "30m"
+          PROGRESS_TEST_DURATION: "60m"
           NETWORK_PRIVATE_KEY: ${{ secrets.NETWORK_PRIVATE_KEY }}
         run: |
-          echo "Running long-running tests with real proving..."
+          echo "Running long-running tests with network proving..."
           just test-e2e-sysgo "${{ matrix.target }}"

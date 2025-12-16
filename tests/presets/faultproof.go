@@ -53,24 +53,24 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 }
 
 // LongRunningFaultProofConfig returns configuration optimized for long-running progress tests.
-//
-// ProposalIntervalInBlocks is set to 120 to keep lag bounded. Each game creation incurs
-// overhead from L1 TX confirmation and state sync (RPC calls per cached game). With L2
-// producing 2 block/sec, the 120-block interval prevents lag from accumulating over time.
+// If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
-	cfg.ProposalIntervalInBlocks = 120
 	cfg.L2BlockTime = 2
+	cfg.MaxChallengeDuration = 1200 // =20m
+
+	if useNetworkProver() {
+		cfg.ProposalIntervalInBlocks = 300 // =10m of L2 time
+	} else {
+		cfg.ProposalIntervalInBlocks = 120
+	}
 	return cfg
 }
 
 // LongRunningFastFinalityFaultProofConfig returns configuration for long-running fast finality tests.
-//
-// MaxChallengeDuration is increased to allow enough time for proof generation
-// (witness + mock proof + tx submission) before the deadline expires.
+// If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningFastFinalityFaultProofConfig() FaultProofConfig {
 	cfg := LongRunningFaultProofConfig()
-	cfg.MaxChallengeDuration = 600
 	cfg.FastFinalityMode = true
 	cfg.FastFinalityProvingLimit = 8
 	return cfg

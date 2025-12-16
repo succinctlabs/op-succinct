@@ -123,3 +123,8 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 
 	return sys, prop
 }
+
+// useNetworkProver returns true if network proving is enabled (NETWORK_PRIVATE_KEY is set).
+func useNetworkProver() bool {
+	return os.Getenv("NETWORK_PRIVATE_KEY") != ""
+}
