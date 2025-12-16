@@ -1475,16 +1475,15 @@ mod tests {
         let db = TestDb::new().await;
         let c = db.client();
 
-        let matching_agg_vkey = B256::ZERO;
         let different_agg_vkey = B256::repeat_byte(0x42);
 
         let requests = vec![
-            // Matching agg_vkey - Unrequested
+            // Matching agg_vkey (B256::ZERO) - Unrequested
             RequestBuilder::new()
                 .range(100, 200)
                 .status(RequestStatus::Unrequested)
                 .req_type(RequestType::Aggregation)
-                .agg_vkey(matching_agg_vkey)
+                .agg_vkey(B256::ZERO)
                 .build(),
             // Different agg_vkey - Complete (for fetch_completed_agg_proof test)
             RequestBuilder::new()
