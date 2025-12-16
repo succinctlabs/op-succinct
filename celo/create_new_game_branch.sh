@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Usage: 
+# ./create_new_game_branch.sh .env.example
+#
+# Description:
+# This script creates a new game branch to recover from CHALLENGER_WINS game chain. It fetches the 
+# parent game information, calculates the target L2 block number based on the proposal interval,
+# retrieves the output root for that block, and creates a new game by calling the dispute factory's
+# create() function.
+#
+# This script is part of the Succinct Dispute Game Recovery runbook:
+# https://www.notion.so/clabsco/Succinct-Dispute-Game-Recovery-Handling-Proving-Failures-2c3ea6297b89801b87a7c47d97ba8a35?source=copy_link
+
 # Optional: load env vars from file passed as first argument
 if (( $# >= 1 )) && [[ -n "${1:-}" ]]; then
   ENV_FILE="$1"
@@ -21,6 +33,7 @@ required_vars=(
   L1_RPC_URL
   L2_NODE_URL
   DISPUTE_FACTORY_ADDRESS
+  CHALLENGED_GAME_INDEX
   PROPOSAL_INTERVAL
 )
 
@@ -36,16 +49,7 @@ init_bond_hex=$(cast call "$DISPUTE_FACTORY_ADDRESS" "initBonds(uint32)" 42 -r "
 init_bond=$(cast --to-dec "$init_bond_hex")
 echo "Init bond: $init_bond"
 
-echo "Fetching game count..."
-game_count_hex=$(cast call "$DISPUTE_FACTORY_ADDRESS" "gameCount()" -r "$L1_RPC_URL")
-game_count=$(cast --to-dec "$game_count_hex")
-
-if (( game_count <= 0 )); then
-  echo "Error: No existing games found (game_count=$game_count). Cannot derive parent index." >&2
-  exit 1
-fi
-
-parent_index=$(( game_count - 1 ))
+parent_index=$(( CHALLENGED_GAME_INDEX - 1 ))
 echo "Parent index: $parent_index"
 
 echo "Fetching parent game tuple (type,timestamp,address)..."
@@ -61,14 +65,7 @@ if [ $cast_exit_code -ne 0 ] || [ -z "$result" ]; then
 fi
 
 # Parse the result - it comes as multiple lines
-game_type=$(echo "$result" | head -n1)
 parent_address=$(echo "$result" | tail -n1)
-
-if [ $game_type -ne 1 ]; then
-    echo "Error: Parent game is not of type 1." >&2
-    exit 1
-fi
-
 echo "Parent game proxy address: $parent_address"
 
 echo "Fetching parent game's L2 block number..."
