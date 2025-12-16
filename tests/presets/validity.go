@@ -12,7 +12,8 @@ import (
 // ValidityConfig holds configuration for validity proposer tests.
 type ValidityConfig struct {
 	// L2BlockTime is the L2 block time in seconds.
-	L2BlockTime uint64
+	// If nil, defaults to 1 second.
+	L2BlockTime *uint64
 
 	StartingBlock              uint64
 	SubmissionInterval         uint64
@@ -31,7 +32,6 @@ type ValidityConfig struct {
 func DefaultValidityConfig() ValidityConfig {
 	loopInterval := uint64(1) // 1s lock expiry; recovery tests wait 2s before restart
 	return ValidityConfig{
-		L2BlockTime:                1,
 		StartingBlock:              1,
 		SubmissionInterval:         10,
 		RangeProofInterval:         10,
@@ -45,7 +45,8 @@ func DefaultValidityConfig() ValidityConfig {
 // If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningValidityConfig() ValidityConfig {
 	cfg := DefaultValidityConfig()
-	cfg.L2BlockTime = 2
+	l2BlockTime := uint64(2)
+	cfg.L2BlockTime = &l2BlockTime
 	cfg.MaxConcurrentProofRequests = 4
 	cfg.MaxConcurrentWitnessGen = 4
 
@@ -74,7 +75,11 @@ func (c ValidityConfig) ExpectedRangeCount(outputBlock uint64) int {
 
 // WithSuccinctValidityProposer creates a validity proposer with custom configuration.
 func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig) stack.CommonOption {
-	return withSuccinctPreset(dest, cfg.L2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	l2BlockTime := uint64(1)
+	if cfg.L2BlockTime != nil {
+		l2BlockTime = *cfg.L2BlockTime
+	}
+	return withSuccinctPreset(dest, l2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),

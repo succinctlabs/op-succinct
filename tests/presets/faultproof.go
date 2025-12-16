@@ -12,7 +12,8 @@ import (
 // FaultProofConfig holds configuration for fault proof proposer tests.
 type FaultProofConfig struct {
 	// L2BlockTime is the L2 block time in seconds.
-	L2BlockTime uint64
+	// If nil, defaults to 1 second.
+	L2BlockTime *uint64
 
 	// Contract deployment configuration
 	MaxChallengeDuration         uint64
@@ -32,7 +33,6 @@ type FaultProofConfig struct {
 // DefaultFaultProofConfig returns the default configuration.
 func DefaultFaultProofConfig() FaultProofConfig {
 	return FaultProofConfig{
-		L2BlockTime:                  1,
 		MaxChallengeDuration:         10, // Low for tests (vs 1 hour production)
 		MaxProveDuration:             10, // Low for tests (vs 12 hours production)
 		DisputeGameFinalityDelaySecs: 30, // Low for tests (vs 7 days production)
@@ -56,7 +56,8 @@ func FastFinalityFaultProofConfig() FaultProofConfig {
 // If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
-	cfg.L2BlockTime = 2
+	l2BlockTime := uint64(2)
+	cfg.L2BlockTime = &l2BlockTime
 	cfg.MaxChallengeDuration = 1200 // =20m
 
 	if useNetworkProver() {
@@ -78,7 +79,11 @@ func LongRunningFastFinalityFaultProofConfig() FaultProofConfig {
 
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig) stack.CommonOption {
-	return withSuccinctPreset(dest, cfg.L2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	l2BlockTime := uint64(1)
+	if cfg.L2BlockTime != nil {
+		l2BlockTime = *cfg.L2BlockTime
+	}
+	return withSuccinctPreset(dest, l2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithFdgL2StartingBlockNumber(1),
