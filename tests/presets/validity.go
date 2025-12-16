@@ -79,7 +79,9 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 	if cfg.L2BlockTime != nil {
 		l2BlockTime = *cfg.L2BlockTime
 	}
-	return withSuccinctPreset(dest, l2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	// Set batcher's MaxBlocksPerSpanBatch to match the submission interval
+	maxBlocksPerSpanBatch := int(cfg.SubmissionInterval)
+	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),
@@ -91,7 +93,6 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
 			sysgo.WithVPMaxConcurrentProofRequests(cfg.MaxConcurrentProofRequests),
 			sysgo.WithVPMaxConcurrentWitnessGen(cfg.MaxConcurrentWitnessGen),
-			sysgo.WithVPMockMode(true),
 		}
 		if cfg.LoopInterval != nil {
 			vpOpts = append(vpOpts, sysgo.WithVPLoopInterval(*cfg.LoopInterval))

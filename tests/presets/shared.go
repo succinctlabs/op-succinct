@@ -3,6 +3,7 @@ package presets
 import (
 	"os"
 
+	bss "github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/artifacts"
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
@@ -23,7 +24,7 @@ const (
 
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
 
-func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, configure succinctConfigurator) stack.CommonOption {
+func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, maxBlocksPerSpanBatch int, configure succinctConfigurator) stack.CommonOption {
 	l1ChainID := eth.ChainIDFromUInt64(DefaultL1ID)
 	l2ChainID := eth.ChainIDFromUInt64(DefaultL2ID)
 	ids := sysgo.NewDefaultSingleChainInteropSystemIDs(l1ChainID, l2ChainID)
@@ -54,6 +55,17 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockT
 			sysgo.WithPrefundedL2(ids.L1.ChainID(), ids.L2A.ChainID()),
 		),
 	)
+	// Configure batcher to accumulate more blocks before submitting.
+	// MaxBlocksPerSpanBatch: max L2 blocks per span batch (matches proposer interval)
+	// MaxChannelDuration: max L1 blocks before forcing submission
+	//   - L1 block time is 6s in test environment (see sysgo/deployer.go)
+	const l1BlockTime = uint64(6)
+	l2TimeSeconds := uint64(maxBlocksPerSpanBatch) * l2BlockTime
+	maxChannelDuration := (l2TimeSeconds + l1BlockTime - 1) / l1BlockTime
+	opt.Add(sysgo.WithBatcherOption(func(id stack.L2BatcherID, cfg *bss.CLIConfig) {
+		cfg.MaxBlocksPerSpanBatch = maxBlocksPerSpanBatch
+		cfg.MaxChannelDuration = maxChannelDuration
+	}))
 
 	opt.Add(sysgo.WithL1Nodes(ids.L1EL, ids.L1CL))
 
@@ -127,4 +139,13 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 // useNetworkProver returns true if network proving is enabled (NETWORK_PRIVATE_KEY is set).
 func useNetworkProver() bool {
 	return os.Getenv("NETWORK_PRIVATE_KEY") != ""
+}
+
+// MaxProposerLag returns the maximum allowed lag between L2 finalized and proposer submissions.
+// Network proving uses larger intervals, so allows more lag.
+func MaxProposerLag() uint64 {
+	if useNetworkProver() {
+		return 600 // ~20m at 2s block time
+	}
+	return 300 // ~10m at 2s block time
 }
