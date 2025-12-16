@@ -909,6 +909,11 @@ mod tests {
         }
     }
 
+    /// Shorthand for fetching request count with default commitment and chain IDs.
+    async fn count(c: &DriverDBClient, status: RequestStatus) -> i64 {
+        c.fetch_request_count(status, &default_commitment(), L1ID, L2ID).await.unwrap()
+    }
+
     /// A completed Range request - the most common fixture.
     fn completed_range(start: i64, end: i64) -> OPSuccinctRequest {
         RequestBuilder::new().range(start, end).status(RequestStatus::Complete).build()
@@ -952,12 +957,7 @@ mod tests {
 
         c.insert_requests(&requests).await.unwrap();
 
-        let count = c
-            .fetch_request_count(RequestStatus::Unrequested, &default_commitment(), L1ID, L2ID)
-            .await
-            .unwrap();
-
-        assert_eq!(count, 150);
+        assert_eq!(count(c, RequestStatus::Unrequested).await, 150);
     }
 
     mod fetch_completed_ranges {
@@ -1200,22 +1200,8 @@ mod tests {
 
             c.update_request_status(id, RequestStatus::WitnessGeneration).await.unwrap();
 
-            let count = c
-                .fetch_request_count(
-                    RequestStatus::WitnessGeneration,
-                    &default_commitment(),
-                    L1ID,
-                    L2ID,
-                )
-                .await
-                .unwrap();
-            assert_eq!(count, 1);
-
-            let unrequested = c
-                .fetch_request_count(RequestStatus::Unrequested, &default_commitment(), L1ID, L2ID)
-                .await
-                .unwrap();
-            assert_eq!(unrequested, 0);
+            assert_eq!(count(c, RequestStatus::WitnessGeneration).await, 1);
+            assert_eq!(count(c, RequestStatus::Unrequested).await, 0);
         }
 
         #[tokio::test]
@@ -1257,36 +1243,11 @@ mod tests {
         ];
         insert_requests(c, &requests).await;
 
-        assert_eq!(
-            c.fetch_request_count(RequestStatus::Unrequested, &default_commitment(), L1ID, L2ID)
-                .await
-                .unwrap(),
-            2
-        );
-        assert_eq!(
-            c.fetch_request_count(RequestStatus::Prove, &default_commitment(), L1ID, L2ID)
-                .await
-                .unwrap(),
-            1
-        );
-        assert_eq!(
-            c.fetch_request_count(RequestStatus::Complete, &default_commitment(), L1ID, L2ID)
-                .await
-                .unwrap(),
-            1
-        );
-        assert_eq!(
-            c.fetch_request_count(RequestStatus::Failed, &default_commitment(), L1ID, L2ID)
-                .await
-                .unwrap(),
-            1
-        );
-        assert_eq!(
-            c.fetch_request_count(RequestStatus::Cancelled, &default_commitment(), L1ID, L2ID)
-                .await
-                .unwrap(),
-            0
-        );
+        assert_eq!(count(c, RequestStatus::Unrequested).await, 2);
+        assert_eq!(count(c, RequestStatus::Prove).await, 1);
+        assert_eq!(count(c, RequestStatus::Complete).await, 1);
+        assert_eq!(count(c, RequestStatus::Failed).await, 1);
+        assert_eq!(count(c, RequestStatus::Cancelled).await, 0);
     }
 
     // ==================== Aggregation Fetch Tests ====================
@@ -1359,24 +1320,9 @@ mod tests {
             let statuses_to_cancel = [RequestStatus::Prove, RequestStatus::WitnessGeneration];
             c.cancel_all_requests_with_statuses(&statuses_to_cancel, L1ID, L2ID).await.unwrap();
 
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Cancelled, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                2
-            );
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Complete, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                1
-            );
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Prove, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                0
-            );
+            assert_eq!(count(c, RequestStatus::Cancelled).await, 2);
+            assert_eq!(count(c, RequestStatus::Complete).await, 1);
+            assert_eq!(count(c, RequestStatus::Prove).await, 0);
         }
 
         #[tokio::test]
@@ -1394,24 +1340,9 @@ mod tests {
             let statuses_to_delete = [RequestStatus::Failed, RequestStatus::Cancelled];
             c.delete_all_requests_with_statuses(&statuses_to_delete, L1ID, L2ID).await.unwrap();
 
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Failed, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                0
-            );
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Cancelled, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                0
-            );
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Complete, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                1
-            );
+            assert_eq!(count(c, RequestStatus::Failed).await, 0);
+            assert_eq!(count(c, RequestStatus::Cancelled).await, 0);
+            assert_eq!(count(c, RequestStatus::Complete).await, 1);
         }
 
         #[tokio::test]
@@ -1440,18 +1371,8 @@ mod tests {
             .await
             .unwrap();
 
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Prove, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                1
-            );
-            assert_eq!(
-                c.fetch_request_count(RequestStatus::Cancelled, &default_commitment(), L1ID, L2ID)
-                    .await
-                    .unwrap(),
-                0
-            );
+            assert_eq!(count(c, RequestStatus::Prove).await, 1);
+            assert_eq!(count(c, RequestStatus::Cancelled).await, 0);
 
             // Check with the different commitment
             let diff_comm = CommitmentConfig {
