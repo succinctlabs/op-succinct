@@ -299,8 +299,8 @@ impl RangeSplitCount {
     /// # Behavior
     /// - Errors if `start > end` or the range is empty.
     /// - Caps the number of produced segments to the number of blocks in the range.
-    /// - Uses ceil division for even segments; may yield fewer than requested
-    ///   (e.g., 9 blocks ÷ 4 → step=3 → 3 segments: (0,3], (3,6], (6,9]).
+    /// - Uses ceil division for even segments; may yield fewer than requested (e.g., 9 blocks ÷ 4 →
+    ///   step=3 → 3 segments: (0,3], (3,6], (6,9]).
     /// - Returns ranges that exactly cover `(start, end]` with no gaps or overlaps.
     ///
     /// NOTE: At runtime, the actual interval may slightly differ from `proposal_interval_in_blocks`
