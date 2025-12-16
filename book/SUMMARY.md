@@ -18,6 +18,7 @@
     - [Proposer Lifecycle](./validity/proposer-lifecycle.md)
     - [Gas Costs]()
     - [Testing Guide]()
+  - [CLI](./validity/cli.md)
   - [Upgrading OP Succinct](./validity/upgrade.md)
   - [Experimental Features](./validity/experimental/experimental.md)
     - [Celestia DA](./validity/experimental/celestia.md)

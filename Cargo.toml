@@ -17,6 +17,7 @@ members = [
     "validity",
     "fault-proof",
     "bindings",
+    "cli",
 ]
 resolver = "2"
 
@@ -74,6 +75,7 @@ metrics-exporter-prometheus = "0.16.2"
 metrics-process = "2.4.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
+sqlx = "0.8.3"
 tempfile = "3.10.1"
 
 # kona

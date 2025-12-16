@@ -4,9 +4,12 @@ use chrono::{Local, NaiveDateTime};
 use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
 use serde_json::Value;
 use sqlx::{types::BigDecimal, FromRow, PgPool};
-use std::{fmt::Debug, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
-#[derive(sqlx::Type, Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(sqlx::Type, clap::ValueEnum, Debug, Copy, Clone, PartialEq, Eq, Default)]
 #[sqlx(type_name = "smallint")]
 #[repr(i16)]
 pub enum RequestStatus {
@@ -214,6 +217,16 @@ impl OPSuccinctRequest {
             prover_address: Some(prover_address.to_vec()),
             l1_head_block_number: None,
             ..Default::default()
+        }
+    }
+}
+
+impl Display for OPSuccinctRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.id == 0 {
+            write!(f, "proof request: {} -> {}", self.start_block, self.end_block)
+        } else {
+            write!(f, "proof request {}: {} -> {}", self.id, self.start_block, self.end_block)
         }
     }
 }
