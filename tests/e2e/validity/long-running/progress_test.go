@@ -35,7 +35,10 @@ func setupValiditySystem(t devtest.T, cfg opspresets.ValidityConfig) (*opspreset
 
 func checkValidityLag(t devtest.T, sys *opspresets.ValiditySystem, l2oo *utils.L2OOClient) error {
 	l2Finalized := sys.L2EL.BlockRefByLabel(eth.Finalized)
-	l2ooBlock, _ := l2oo.LatestBlockNumber(t.Ctx())
+	l2ooBlock, err := l2oo.LatestBlockNumber(t.Ctx())
+	if err != nil {
+		return err
+	}
 
 	var lag uint64
 	if l2Finalized.Number > l2ooBlock {
