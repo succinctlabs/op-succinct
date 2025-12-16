@@ -17,7 +17,7 @@ func TestValidityProposer_LongRunning(gt *testing.T) {
 	sys, l2oo := setupValiditySystem(t, cfg)
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
-		checkValidityLag(t, sys, l2oo)
+		checkLatestSubmission(t, sys, l2oo)
 		return nil
 	})
 }

@@ -365,6 +365,19 @@ func opts(ctx context.Context) *bind.CallOpts {
 	return &bind.CallOpts{Context: ctx}
 }
 
+// VerifyOutputRoot checks that the claimed output root matches the expected output at blockNum.
+func VerifyOutputRoot(ctx context.Context, l2Client apis.OutputRootFetcher, blockNum uint64, claimed eth.Bytes32) error {
+	expected, err := l2Client.OutputV0AtBlockNumber(ctx, blockNum)
+	if err != nil {
+		return fmt.Errorf("get expected output at block %d: %w", blockNum, err)
+	}
+	if eth.OutputRoot(expected) != claimed {
+		return fmt.Errorf("output root mismatch at block %d: expected %s, got %s",
+			blockNum, eth.OutputRoot(expected), claimed)
+	}
+	return nil
+}
+
 // -------------------------------------------------------------
 // Proposer Database Client
 // -------------------------------------------------------------

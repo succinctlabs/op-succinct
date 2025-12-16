@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
 	"github.com/succinctlabs/op-succinct/utils"
 )
@@ -71,9 +70,8 @@ func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Dur
 	require.Equal(expectedOutputBlock, outputProposal.L2BlockNumber, "L2 block number mismatch")
 
 	// Verify output root matches expected L2 state
-	expectedOutput, err := sys.L2EL.Escape().L2EthClient().OutputV0AtBlockNumber(ctx, outputProposal.L2BlockNumber)
-	require.NoError(err, "failed to get expected output from L2")
-	require.Equal(eth.OutputRoot(expectedOutput), outputProposal.OutputRoot, "output root mismatch")
+	err = utils.VerifyOutputRoot(ctx, sys.L2EL.Escape().L2EthClient(), outputProposal.L2BlockNumber, outputProposal.OutputRoot)
+	require.NoError(err, "output root verification failed")
 
 	logger.Info("Output verified", "block", outputProposal.L2BlockNumber)
 

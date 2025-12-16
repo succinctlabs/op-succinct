@@ -1,7 +1,6 @@
 package longrunning
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -14,31 +13,29 @@ import (
 // MaxProposerLag is the maximum allowed lag between L2 finalized and latest game L2 block.
 const MaxProposerLag uint64 = 300
 
-// TestFaultProofProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
-// The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
+// TestFaultProofProposer_Progress verifies the proposer keeps up with L2 finalization
+// and produces correct root claims. Fails if the lag between finalized L2 blocks and
+// the latest game exceeds the allowed threshold, or if any root claim is incorrect.
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		return checkProposerLag(t, sys, dgf)
+		return checkLatestGame(t, sys, dgf, nil)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode maintains acceptable lag for 15 minutes
-// and ensures games are being proven (not just created).
+// TestFaultProofProposer_FastFinality_Progress verifies fast finality mode keeps up with L2 finalization,
+// ensures games are being proven (not just created), and verifies root claims are correct.
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
 	sys, dgf := setupFaultProofSystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		if err := checkProposerLag(t, sys, dgf); err != nil {
-			return err
-		}
-		return checkAnchorStateLag(t, sys, dgf, cfg)
+		return checkLatestGame(t, sys, dgf, &cfg)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 
@@ -59,10 +56,13 @@ func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig) (*opspr
 	return sys, sys.DgfClient(t)
 }
 
-func checkProposerLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) error {
+// checkLatestGame verifies the latest game's lag and root claim correctness.
+// If cfg is provided, also checks anchor state lag (for fast finality mode).
+func checkLatestGame(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, cfg *opspresets.FaultProofConfig) error {
+	ctx := t.Ctx()
 	l2Finalized := sys.L2EL.BlockRefByLabel(eth.Finalized)
 
-	fdg, game, err := getFdgWithLatestGame(t.Ctx(), sys, dgf)
+	game, err := dgf.LatestGame(ctx)
 	if err != nil {
 		return err
 	}
@@ -71,61 +71,46 @@ func checkProposerLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.
 		return nil
 	}
 
-	gameL2Block, err := fdg.L2BlockNumber(t.Ctx())
+	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
 	if err != nil {
 		return err
 	}
 
+	gameL2Block, err := fdg.L2BlockNumber(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Check proposer lag
 	var lag uint64
 	if l2Finalized.Number > gameL2Block {
 		lag = l2Finalized.Number - gameL2Block
 	}
 	t.Logf("L2 Finalized: %d | Latest Game L2 Block: %d | Lag: %d blocks",
 		l2Finalized.Number, gameL2Block, lag)
-
 	if lag > MaxProposerLag {
 		return fmt.Errorf("proposer lag %d exceeds max %d", lag, MaxProposerLag)
 	}
-	return nil
-}
 
-func checkAnchorStateLag(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient, cfg opspresets.FaultProofConfig) error {
-	fdg, game, err := getFdgWithLatestGame(t.Ctx(), sys, dgf)
+	// Check anchor state lag (fast finality only)
+	if cfg != nil {
+		anchorL2Block, err := fdg.AnchorL2BlockNumber(ctx, sys.L1EL.EthClient(), game.GameType)
+		if err != nil {
+			return err
+		}
+		anchorLagBlocks := gameL2Block - anchorL2Block
+		anchorLagSeconds := anchorLagBlocks * cfg.L2BlockTime
+		t.Logf("Anchor Lag: game L2=%d, anchor L2=%d, lag=%d blocks (%ds), max=%ds",
+			gameL2Block, anchorL2Block, anchorLagBlocks, anchorLagSeconds, cfg.MaxChallengeDuration)
+		if anchorLagSeconds > cfg.MaxChallengeDuration {
+			return fmt.Errorf("anchor lag %d seconds exceeds max %d seconds", anchorLagSeconds, cfg.MaxChallengeDuration)
+		}
+	}
+
+	// Check root claim correctness
+	rootClaim, err := fdg.RootClaim(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("get root claim: %w", err)
 	}
-	if game == nil {
-		return nil
-	}
-
-	gameL2Block, err := fdg.L2BlockNumber(t.Ctx())
-	if err != nil {
-		return err
-	}
-	anchorL2Block, err := fdg.AnchorL2BlockNumber(t.Ctx(), sys.L1EL.EthClient(), game.GameType)
-	if err != nil {
-		return err
-	}
-
-	anchorLagBlocks := gameL2Block - anchorL2Block
-	anchorLagSeconds := anchorLagBlocks * cfg.L2BlockTime
-	t.Logf("Anchor Lag: game L2=%d, anchor L2=%d, lag=%d blocks (%ds), max=%ds",
-		gameL2Block, anchorL2Block, anchorLagBlocks, anchorLagSeconds, cfg.MaxChallengeDuration)
-
-	if anchorLagSeconds > cfg.MaxChallengeDuration {
-		return fmt.Errorf("anchor lag %d seconds exceeds max allowed %d seconds", anchorLagSeconds, cfg.MaxChallengeDuration)
-	}
-	return nil
-}
-
-func getFdgWithLatestGame(ctx context.Context, sys *opspresets.FaultProofSystem, dgf *utils.DgfClient) (*utils.FdgClient, *utils.GameAtIndexResult, error) {
-	game, err := dgf.LatestGame(ctx)
-	if err != nil || game == nil {
-		return nil, nil, err
-	}
-	fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
-	if err != nil {
-		return nil, nil, err
-	}
-	return fdg, game, nil
+	return utils.VerifyOutputRoot(ctx, sys.L2EL.Escape().L2EthClient(), gameL2Block, rootClaim)
 }

@@ -14,15 +14,16 @@ import (
 // latest submitted block.
 const MaxProposerLag uint64 = 300
 
-// TestValidityProposer_Progress verifies the proposer maintains acceptable lag for 15 minutes.
-// The test succeeds if lag stays below MaxProposerLag throughout; fails immediately if exceeded.
+// TestValidityProposer_Progress verifies the proposer keeps up with L2 finalization
+// and produces correct output roots. Fails if the lag between finalized L2 blocks and
+// the L2OO's latest submission exceeds the allowed threshold, or if any output root is incorrect.
 func TestValidityProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningValidityConfig()
 	sys, l2oo := setupValiditySystem(t, cfg)
 
 	err := utils.RunProgressTest(func() error {
-		return checkValidityLag(t, sys, l2oo)
+		return checkLatestSubmission(t, sys, l2oo)
 	})
 	t.Require().NoError(err, "proposer progress check failed")
 }
@@ -33,21 +34,34 @@ func setupValiditySystem(t devtest.T, cfg opspresets.ValidityConfig) (*opspreset
 	return sys, sys.L2OOClient(t)
 }
 
-func checkValidityLag(t devtest.T, sys *opspresets.ValiditySystem, l2oo *utils.L2OOClient) error {
+// checkLatestSubmission verifies the latest L2OO submission's lag and output root correctness.
+func checkLatestSubmission(t devtest.T, sys *opspresets.ValiditySystem, l2oo *utils.L2OOClient) error {
+	ctx := t.Ctx()
 	l2Finalized := sys.L2EL.BlockRefByLabel(eth.Finalized)
-	l2ooBlock, err := l2oo.LatestBlockNumber(t.Ctx())
+
+	l2ooBlock, err := l2oo.LatestBlockNumber(ctx)
 	if err != nil {
 		return err
 	}
+	if l2ooBlock == 0 {
+		t.Logf("L2 Finalized: %d | L2OO: no submissions yet | waiting...", l2Finalized.Number)
+		return nil
+	}
 
+	// Check proposer lag
 	var lag uint64
 	if l2Finalized.Number > l2ooBlock {
 		lag = l2Finalized.Number - l2ooBlock
 	}
-	t.Logf("L2 Finalized: %d | L2 Latest Block: %d | Lag: %d", l2Finalized.Number, l2ooBlock, lag)
-
+	t.Logf("L2 Finalized: %d | L2OO Latest Block: %d | Lag: %d", l2Finalized.Number, l2ooBlock, lag)
 	if lag > MaxProposerLag {
 		return fmt.Errorf("lag %d exceeds max %d", lag, MaxProposerLag)
 	}
-	return nil
+
+	// Check output root correctness
+	proposal, err := l2oo.GetL2OutputAfter(ctx, l2ooBlock)
+	if err != nil {
+		return fmt.Errorf("get output proposal: %w", err)
+	}
+	return utils.VerifyOutputRoot(ctx, sys.L2EL.Escape().L2EthClient(), proposal.L2BlockNumber, proposal.OutputRoot)
 }

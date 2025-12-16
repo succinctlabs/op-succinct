@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
 	"github.com/succinctlabs/op-succinct/utils"
 )
@@ -96,9 +95,8 @@ func verifySubmission(ctx context.Context, t devtest.T, sys *opspresets.Validity
 	require.NoError(err, "failed to get output proposal")
 	require.Equal(expectedBlock, outputProposal.L2BlockNumber, "L2 block number mismatch")
 
-	expectedOutput, err := sys.L2EL.Escape().L2EthClient().OutputV0AtBlockNumber(ctx, outputProposal.L2BlockNumber)
-	require.NoError(err, "failed to get expected output")
-	require.Equal(eth.OutputRoot(expectedOutput), outputProposal.OutputRoot, "output root mismatch")
+	err = utils.VerifyOutputRoot(ctx, sys.L2EL.Escape().L2EthClient(), outputProposal.L2BlockNumber, outputProposal.OutputRoot)
+	require.NoError(err, "output root verification failed")
 
 	logger.Info("Output verified", "block", outputProposal.L2BlockNumber)
 }
