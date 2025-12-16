@@ -1261,7 +1261,7 @@ mod tests {
             let c = db.client();
 
             let requests = vec![
-                agg_request(50, 100, RequestStatus::Unrequested), // below threshold
+                agg_request(50, 100, RequestStatus::Unrequested), // Below threshold
                 agg_request(300, 400, RequestStatus::Unrequested),
                 agg_request(100, 200, RequestStatus::Unrequested),
                 agg_request(200, 300, RequestStatus::Unrequested),
@@ -1284,7 +1284,7 @@ mod tests {
 
             let requests = vec![
                 agg_request(100, 200, RequestStatus::Complete),
-                agg_request(100, 200, RequestStatus::Unrequested), // same range, different status
+                agg_request(100, 200, RequestStatus::Unrequested), // Same range, different status
             ];
             insert_requests(c, &requests).await;
 
