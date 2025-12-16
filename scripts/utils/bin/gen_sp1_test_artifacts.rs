@@ -4,7 +4,7 @@ use futures::StreamExt;
 use log::info;
 use op_succinct_host_utils::{
     block_range::{get_validated_block_range, split_range_basic},
-    fetcher::OPSuccinctDataFetcher,
+    fetcher::{get_rpc_concurrency_from_env, OPSuccinctDataFetcher},
     host::OPSuccinctHost,
     witness_generation::WitnessGenerator,
 };
@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
                 .await
                 .expect("Failed to get host CLI args")
         })
-        .buffered(15)
+        .buffered(get_rpc_concurrency_from_env())
         .collect::<Vec<_>>()
         .await;
 
