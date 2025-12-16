@@ -28,11 +28,16 @@ COPY . .
 # Build the binary
 RUN cargo build --release --bin challenger --features eigenda
 
-# Runtime stage
-FROM rust:1.89.0-trixie
+# Runtime stage (minimal image)
+FROM ubuntu:24.04
 
 WORKDIR /app
-COPY resources/ ./resources/
+
+# Install only necessary runtime dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the built challenger binary
 COPY --from=builder /app/target/release/challenger /usr/local/bin/
