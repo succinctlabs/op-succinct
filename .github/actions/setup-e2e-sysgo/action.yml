@@ -4,9 +4,6 @@ description: Common setup steps for E2E sysgo tests (Rust, Foundry, Go, Just)
 runs:
   using: "composite"
   steps:
-    - name: Configure runs-on cache
-      uses: runs-on/cache@v4
-
     - name: Setup Rust
       shell: bash
       run: rustup toolchain install stable --profile minimal
