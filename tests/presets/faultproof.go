@@ -27,7 +27,10 @@ type FaultProofConfig struct {
 	MaxConcurrentRangeProofs uint64
 	FastFinalityMode         bool
 	FastFinalityProvingLimit uint64
-	EnvFilePath              string
+	// Timeout is the proving timeout in seconds.
+	// If nil, the default (4 hours / 14400s) is used.
+	Timeout     *uint64
+	EnvFilePath string
 }
 
 // DefaultFaultProofConfig returns the default configuration.
@@ -59,6 +62,9 @@ func LongRunningFaultProofConfig() FaultProofConfig {
 	l2BlockTime := uint64(2)
 	cfg.L2BlockTime = &l2BlockTime
 	cfg.MaxChallengeDuration = 1800 // =30m
+
+	timeout := uint64(900) // =15m
+	cfg.Timeout = &timeout
 
 	if useNetworkProver() {
 		cfg.ProposalIntervalInBlocks = 200
@@ -100,6 +106,9 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 			sysgo.WithFPMaxConcurrentRangeProofs(cfg.MaxConcurrentRangeProofs),
 			sysgo.WithFPFastFinalityMode(cfg.FastFinalityMode),
 			sysgo.WithFPFastFinalityProvingLimit(cfg.FastFinalityProvingLimit),
+		}
+		if cfg.Timeout != nil {
+			proposerOpts = append(proposerOpts, sysgo.WithFPTimeout(*cfg.Timeout))
 		}
 		if cfg.EnvFilePath != "" {
 			proposerOpts = append(proposerOpts, sysgo.WithFPWriteEnvFile(cfg.EnvFilePath))

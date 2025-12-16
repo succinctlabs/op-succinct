@@ -25,7 +25,10 @@ type ValidityConfig struct {
 	// Recovery tests must wait longer than this before restarting the proposer.
 	// If nil, the default proposer value (60s) is used.
 	LoopInterval *uint64
-	EnvFilePath  string
+	// ProvingTimeout is the proving timeout in seconds.
+	// If nil, the default (4 hours / 14400s) is used.
+	ProvingTimeout *uint64
+	EnvFilePath    string
 }
 
 // DefaultValidityConfig returns the default configuration.
@@ -49,6 +52,9 @@ func LongRunningValidityConfig() ValidityConfig {
 	cfg.L2BlockTime = &l2BlockTime
 	cfg.MaxConcurrentProofRequests = 4
 	cfg.MaxConcurrentWitnessGen = 4
+
+	provingTimeout := uint64(900) // =15m
+	cfg.ProvingTimeout = &provingTimeout
 
 	if useNetworkProver() {
 		cfg.SubmissionInterval = 200
@@ -96,6 +102,9 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 		}
 		if cfg.LoopInterval != nil {
 			vpOpts = append(vpOpts, sysgo.WithVPLoopInterval(*cfg.LoopInterval))
+		}
+		if cfg.ProvingTimeout != nil {
+			vpOpts = append(vpOpts, sysgo.WithVPProvingTimeout(*cfg.ProvingTimeout))
 		}
 		if cfg.EnvFilePath != "" {
 			vpOpts = append(vpOpts, sysgo.WithVPWriteEnvFile(cfg.EnvFilePath))
