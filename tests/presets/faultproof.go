@@ -58,12 +58,12 @@ func LongRunningFaultProofConfig() FaultProofConfig {
 	cfg := DefaultFaultProofConfig()
 	l2BlockTime := uint64(2)
 	cfg.L2BlockTime = &l2BlockTime
-	cfg.MaxChallengeDuration = 1200 // =20m
+	cfg.MaxChallengeDuration = 1800 // =30m
 
 	if useNetworkProver() {
-		cfg.ProposalIntervalInBlocks = 300 // =10m of L2 time
+		cfg.ProposalIntervalInBlocks = 200
 	} else {
-		cfg.ProposalIntervalInBlocks = 120
+		cfg.ProposalIntervalInBlocks = 100
 	}
 	return cfg
 }
@@ -83,7 +83,9 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 	if cfg.L2BlockTime != nil {
 		l2BlockTime = *cfg.L2BlockTime
 	}
-	return withSuccinctPreset(dest, l2BlockTime, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	// Set batcher's MaxBlocksPerSpanBatch to match the proposal interval
+	maxBlocksPerSpanBatch := int(cfg.ProposalIntervalInBlocks)
+	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithFdgL2StartingBlockNumber(1),

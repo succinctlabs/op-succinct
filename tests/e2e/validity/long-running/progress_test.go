@@ -10,10 +10,6 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// MaxProposerLag is the maximum allowed gap between L2 finalized head and the L2OO's
-// latest submitted block.
-const MaxProposerLag uint64 = 300
-
 // TestValidityProposer_Progress verifies the proposer keeps up with L2 finalization
 // and produces correct output roots. Fails if the lag between finalized L2 blocks and
 // the L2OO's latest submission exceeds the allowed threshold, or if any output root is incorrect.
@@ -53,9 +49,10 @@ func checkLatestSubmission(t devtest.T, sys *opspresets.ValiditySystem, l2oo *ut
 	if l2Finalized.Number > l2ooBlock {
 		lag = l2Finalized.Number - l2ooBlock
 	}
-	t.Logf("L2 Finalized: %d | L2OO Latest Block: %d | Lag: %d", l2Finalized.Number, l2ooBlock, lag)
-	if lag > MaxProposerLag {
-		return fmt.Errorf("lag %d exceeds max %d", lag, MaxProposerLag)
+	maxLag := opspresets.MaxProposerLag()
+	t.Logf("L2 Finalized: %d | L2OO Latest Block: %d | Lag: %d (max: %d)", l2Finalized.Number, l2ooBlock, lag, maxLag)
+	if lag > maxLag {
+		return fmt.Errorf("lag %d exceeds max %d", lag, maxLag)
 	}
 
 	// Check output root correctness

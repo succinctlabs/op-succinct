@@ -10,9 +10,6 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// MaxProposerLag is the maximum allowed lag between L2 finalized and latest game L2 block.
-const MaxProposerLag uint64 = 300
-
 // TestFaultProofProposer_Progress verifies the proposer keeps up with L2 finalization
 // and produces correct root claims. Fails if the lag between finalized L2 blocks and
 // the latest game exceeds the allowed threshold, or if any root claim is incorrect.
@@ -86,10 +83,11 @@ func checkLatestGame(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.D
 	if l2Finalized.Number > gameL2Block {
 		lag = l2Finalized.Number - gameL2Block
 	}
-	t.Logf("L2 Finalized: %d | Latest Game L2 Block: %d | Lag: %d blocks",
-		l2Finalized.Number, gameL2Block, lag)
-	if lag > MaxProposerLag {
-		return fmt.Errorf("proposer lag %d exceeds max %d", lag, MaxProposerLag)
+	maxLag := opspresets.MaxProposerLag()
+	t.Logf("L2 Finalized: %d | Latest Game L2 Block: %d | Lag: %d blocks (max: %d)",
+		l2Finalized.Number, gameL2Block, lag, maxLag)
+	if lag > maxLag {
+		return fmt.Errorf("proposer lag %d exceeds max %d", lag, maxLag)
 	}
 
 	// Check anchor state lag (fast finality only)
@@ -99,7 +97,7 @@ func checkLatestGame(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.D
 			return err
 		}
 		anchorLagBlocks := gameL2Block - anchorL2Block
-		anchorLagSeconds := anchorLagBlocks * cfg.L2BlockTime
+		anchorLagSeconds := anchorLagBlocks * *cfg.L2BlockTime
 		t.Logf("Anchor Lag: game L2=%d, anchor L2=%d, lag=%d blocks (%ds), max=%ds",
 			gameL2Block, anchorL2Block, anchorLagBlocks, anchorLagSeconds, cfg.MaxChallengeDuration)
 		if anchorLagSeconds > cfg.MaxChallengeDuration {

@@ -51,11 +51,11 @@ func LongRunningValidityConfig() ValidityConfig {
 	cfg.MaxConcurrentWitnessGen = 4
 
 	if useNetworkProver() {
-		cfg.SubmissionInterval = 300 // =10m of L2 time
-		cfg.RangeProofInterval = 300
+		cfg.SubmissionInterval = 200
+		cfg.RangeProofInterval = 200
 	} else {
-		cfg.SubmissionInterval = 120
-		cfg.RangeProofInterval = 120
+		cfg.SubmissionInterval = 100
+		cfg.RangeProofInterval = 100
 	}
 	return cfg
 }
