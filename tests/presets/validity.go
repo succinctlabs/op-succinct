@@ -15,11 +15,15 @@ type ValidityConfig struct {
 	// If nil, defaults to 1 second.
 	L2BlockTime *uint64
 
-	StartingBlock              uint64
-	SubmissionInterval         uint64
-	RangeProofInterval         uint64
-	MaxConcurrentProofRequests uint64
-	MaxConcurrentWitnessGen    uint64
+	StartingBlock      uint64
+	SubmissionInterval uint64
+	RangeProofInterval uint64
+	// MaxConcurrentProofRequests limits concurrent proof requests.
+	// If nil, the proposer's default is used.
+	MaxConcurrentProofRequests *uint64
+	// MaxConcurrentWitnessGen limits concurrent witness generation.
+	// If nil, the proposer's default is used.
+	MaxConcurrentWitnessGen *uint64
 	// LoopInterval is the proposer's main loop interval in seconds.
 	// The proposer acquires a database lock that expires after this duration.
 	// Recovery tests must wait longer than this before restarting the proposer.
@@ -40,12 +44,10 @@ type ValidityConfig struct {
 func DefaultValidityConfig() ValidityConfig {
 	loopInterval := uint64(1) // 1s lock expiry; recovery tests wait 2s before restart
 	return ValidityConfig{
-		StartingBlock:              1,
-		SubmissionInterval:         10,
-		RangeProofInterval:         10,
-		MaxConcurrentProofRequests: 1,
-		MaxConcurrentWitnessGen:    1,
-		LoopInterval:               &loopInterval,
+		StartingBlock:      1,
+		SubmissionInterval: 10,
+		RangeProofInterval: 10,
+		LoopInterval:       &loopInterval,
 	}
 }
 
@@ -55,8 +57,10 @@ func LongRunningValidityConfig() ValidityConfig {
 	cfg := DefaultValidityConfig()
 	l2BlockTime := uint64(2)
 	cfg.L2BlockTime = &l2BlockTime
-	cfg.MaxConcurrentProofRequests = 4
-	cfg.MaxConcurrentWitnessGen = 4
+	maxConcurrentProofRequests := uint64(4)
+	maxConcurrentWitnessGen := uint64(4)
+	cfg.MaxConcurrentProofRequests = &maxConcurrentProofRequests
+	cfg.MaxConcurrentWitnessGen = &maxConcurrentWitnessGen
 
 	provingTimeout := uint64(900) // =15m
 	cfg.ProvingTimeout = &provingTimeout
@@ -104,8 +108,12 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 		vpOpts := []sysgo.ValidityProposerOption{
 			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
-			sysgo.WithVPMaxConcurrentProofRequests(cfg.MaxConcurrentProofRequests),
-			sysgo.WithVPMaxConcurrentWitnessGen(cfg.MaxConcurrentWitnessGen),
+		}
+		if cfg.MaxConcurrentProofRequests != nil {
+			vpOpts = append(vpOpts, sysgo.WithVPMaxConcurrentProofRequests(*cfg.MaxConcurrentProofRequests))
+		}
+		if cfg.MaxConcurrentWitnessGen != nil {
+			vpOpts = append(vpOpts, sysgo.WithVPMaxConcurrentWitnessGen(*cfg.MaxConcurrentWitnessGen))
 		}
 		if cfg.LoopInterval != nil {
 			vpOpts = append(vpOpts, sysgo.WithVPLoopInterval(*cfg.LoopInterval))
