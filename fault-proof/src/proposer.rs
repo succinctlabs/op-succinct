@@ -295,6 +295,25 @@ where
         state.games.get(&index).cloned()
     }
 
+    /// Spawns game defense tasks for testing. Returns true if any tasks were spawned.
+    #[cfg(feature = "integration")]
+    pub async fn spawn_defense_tasks_for_test(&self) -> Result<bool> {
+        self.spawn_game_defense_tasks().await
+    }
+
+    /// Returns the list of game addresses with active defense proving tasks (for testing).
+    #[cfg(feature = "integration")]
+    pub async fn get_active_defense_game_addresses(&self) -> Vec<Address> {
+        let tasks = self.tasks.lock().await;
+        tasks
+            .iter()
+            .filter_map(|(_, (_, info))| match info {
+                TaskInfo::GameProving { game_address, is_defense: true } => Some(*game_address),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Runs the proposer indefinitely.
     pub async fn run(self: Arc<Self>) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
