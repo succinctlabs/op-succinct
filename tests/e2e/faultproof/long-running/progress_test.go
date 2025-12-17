@@ -92,12 +92,13 @@ func checkLatestGame(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.D
 
 	// Check anchor state lag (fast finality only)
 	if cfg != nil {
+		l2BlockTime := sys.L2Chain.Escape().RollupConfig().BlockTime
 		anchorL2Block, err := fdg.AnchorL2BlockNumber(ctx, sys.L1EL.EthClient(), game.GameType)
 		if err != nil {
 			return err
 		}
 		anchorLagBlocks := gameL2Block - anchorL2Block
-		anchorLagSeconds := anchorLagBlocks * *cfg.L2BlockTime
+		anchorLagSeconds := anchorLagBlocks * l2BlockTime
 		t.Logf("Anchor Lag: game L2=%d, anchor L2=%d, lag=%d blocks (%ds), max=%ds",
 			gameL2Block, anchorL2Block, anchorLagBlocks, anchorLagSeconds, cfg.MaxChallengeDuration)
 		if anchorLagSeconds > cfg.MaxChallengeDuration {
