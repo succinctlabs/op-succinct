@@ -30,3 +30,8 @@ runs:
         cache-dependency-path: |
           tests/go.sum
           tests/optimism/go.sum
+
+    - name: Build contracts
+      shell: bash
+      working-directory: contracts
+      run: forge build
