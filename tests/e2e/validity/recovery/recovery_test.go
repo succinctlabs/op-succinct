@@ -19,24 +19,24 @@ const (
 
 func TestValidityProposer_RestartRecovery_Basic(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
-	runRecoveryTest(gt, cfg, 1, 1, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 1, utils.ShortTimeout())
 }
 
 func TestValidityProposer_RestartRecovery_ThreeSubmissions(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
-	runRecoveryTest(gt, cfg, 1, 3, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 3, utils.LongTimeout())
 }
 
 func TestValidityProposer_RestartRecovery_RangeSplit(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
 	cfg.SubmissionInterval = 20
 	cfg.RangeProofInterval = 5
-	runRecoveryTest(gt, cfg, 1, 1, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 1, 1, utils.ShortTimeout())
 }
 
 func TestValidityProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
 	cfg := opspresets.DefaultValidityConfig()
-	runRecoveryTest(gt, cfg, 3, 1, 20*time.Minute)
+	runRecoveryTest(gt, cfg, 3, 1, utils.ShortTimeout())
 }
 
 func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, restartCount, expectedSubmissions int, timeout time.Duration) {

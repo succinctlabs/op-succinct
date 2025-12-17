@@ -43,7 +43,7 @@ func TestFaultProofProposer_DetectsFirstGameCreated(gt *testing.T) {
 	sys := presets.NewMinimalWithProposer(t)
 	require := t.Require()
 	logger := t.Logger()
-	ctx, cancel := context.WithTimeout(t.Ctx(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
 	defer cancel()
 
 	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()

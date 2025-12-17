@@ -49,7 +49,7 @@ func checkLatestSubmission(t devtest.T, sys *opspresets.ValiditySystem, l2oo *ut
 	if l2Finalized.Number > l2ooBlock {
 		lag = l2Finalized.Number - l2ooBlock
 	}
-	maxLag := opspresets.MaxProposerLag()
+	maxLag := utils.MaxProposerLag()
 	t.Logf("L2 Finalized: %d | L2OO Latest Block: %d | Lag: %d (max: %d)", l2Finalized.Number, l2ooBlock, lag, maxLag)
 	if lag > maxLag {
 		return fmt.Errorf("lag %d exceeds max %d", lag, maxLag)

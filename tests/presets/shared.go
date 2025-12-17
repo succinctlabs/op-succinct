@@ -149,12 +149,3 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 
 	return sys, prop
 }
-
-// MaxProposerLag returns the maximum allowed lag between L2 finalized and proposer submissions.
-// Network proving uses larger intervals, so allows more lag.
-func MaxProposerLag() uint64 {
-	if utils.UseNetworkProver() {
-		return 600 // ~20m at 2s block time
-	}
-	return 300 // ~10m at 2s block time
-}

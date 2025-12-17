@@ -83,7 +83,7 @@ func checkLatestGame(t devtest.T, sys *opspresets.FaultProofSystem, dgf *utils.D
 	if l2Finalized.Number > gameL2Block {
 		lag = l2Finalized.Number - gameL2Block
 	}
-	maxLag := opspresets.MaxProposerLag()
+	maxLag := utils.MaxProposerLag()
 	t.Logf("L2 Finalized: %d | Latest Game L2 Block: %d | Lag: %d blocks (max: %d)",
 		l2Finalized.Number, gameL2Block, lag, maxLag)
 	if lag > maxLag {
