@@ -66,10 +66,10 @@ func LongRunningFaultProofConfig() FaultProofConfig {
 	timeout := uint64(900) // =15m
 	cfg.Timeout = &timeout
 
-	if useNetworkProver() {
-		cfg.ProposalIntervalInBlocks = 200
+	if utils.UseNetworkProver() {
+		cfg.ProposalIntervalInBlocks = 240
 	} else {
-		cfg.ProposalIntervalInBlocks = 100
+		cfg.ProposalIntervalInBlocks = 120
 	}
 	return cfg
 }
@@ -92,7 +92,9 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 	// Set batcher's MaxBlocksPerSpanBatch to match the proposal interval
 	maxBlocksPerSpanBatch := int(cfg.ProposalIntervalInBlocks)
 	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
-		opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
+		if !utils.UseNetworkProver() {
+			opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
+		}
 		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
 			sysgo.WithFdgL2StartingBlockNumber(1),
 			sysgo.WithFdgMaxChallengeDuration(cfg.MaxChallengeDuration),

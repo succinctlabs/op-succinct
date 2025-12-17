@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/intentbuilder"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/succinctlabs/op-succinct/utils"
 )
 
 const (
@@ -25,6 +26,13 @@ const (
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
 
 func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, maxBlocksPerSpanBatch int, configure succinctConfigurator) stack.CommonOption {
+	// Ensure OP Succinct artifact symlinks exist before deployer loads artifacts
+	if root := utils.RepoRoot(); root != "" {
+		if err := utils.SymlinkSuccinctArtifacts(root); err != nil {
+			panic("failed to symlink Succinct artifacts: " + err.Error())
+		}
+	}
+
 	l1ChainID := eth.ChainIDFromUInt64(DefaultL1ID)
 	l2ChainID := eth.ChainIDFromUInt64(DefaultL2ID)
 	ids := sysgo.NewDefaultSingleChainInteropSystemIDs(l1ChainID, l2ChainID)
@@ -51,6 +59,7 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockT
 				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 			},
+			sysgo.WithSP1ProverMode("plonk"),
 			sysgo.WithCommons(ids.L1.ChainID()),
 			sysgo.WithPrefundedL2(ids.L1.ChainID(), ids.L2A.ChainID()),
 		),
@@ -136,15 +145,10 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 	return sys, prop
 }
 
-// useNetworkProver returns true if network proving is enabled (NETWORK_PRIVATE_KEY is set).
-func useNetworkProver() bool {
-	return os.Getenv("NETWORK_PRIVATE_KEY") != ""
-}
-
 // MaxProposerLag returns the maximum allowed lag between L2 finalized and proposer submissions.
 // Network proving uses larger intervals, so allows more lag.
 func MaxProposerLag() uint64 {
-	if useNetworkProver() {
+	if utils.UseNetworkProver() {
 		return 600 // ~20m at 2s block time
 	}
 	return 300 // ~10m at 2s block time

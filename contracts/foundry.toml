@@ -1,7 +1,7 @@
 [profile.default]
 src = "src"
 out = "out"
-libs = ["lib"]
+libs = ["lib", "../tests/sp1-contracts"]
 remappings = [
     # Use openzeppelin-contracts v4.7.3 as the some contracts are not compatible with 0.8.15
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts",
@@ -12,6 +12,7 @@ remappings = [
     # Note: Use zobront/sp1-contracts as the current version for SP1 contracts is not compatible with the hard
     # version for 0.8.15 on some Optimism contracts.
     "@sp1-contracts/=lib/sp1-contracts/contracts/",
+    "@sp1-contracts-v5/=../tests/sp1-contracts/contracts/",
     "@rari-capital/=lib/optimism/packages/contracts-bedrock/lib/",
     # Optimism repo uses absolute imports, so we need to have remappings for the paths we use.
     "src/libraries/=lib/optimism/packages/contracts-bedrock/src/libraries/",
