@@ -55,7 +55,7 @@ func SymlinkSuccinctArtifacts(repoRoot string) error {
 		if err != nil {
 			return fmt.Errorf("failed to compute relative path for %s: %w", name, err)
 		}
-		if err := os.Symlink(source, target); err != nil {
+		if err := os.Symlink(source, target); err != nil && !os.IsExist(err) {
 			return fmt.Errorf("failed to create symlink for %s: %w", name, err)
 		}
 	}
