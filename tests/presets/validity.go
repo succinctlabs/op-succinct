@@ -29,6 +29,11 @@ type ValidityConfig struct {
 	// If nil, the default (4 hours / 14400s) is used.
 	ProvingTimeout *uint64
 	EnvFilePath    string
+
+	// AggProofMode selects the SP1 verifier backend ("plonk" or "groth16").
+	// Only applies for network proving (i.e. when utils.UseNetworkProver() is true).
+	// If nil/empty, defaults to "plonk".
+	AggProofMode *string
 }
 
 // DefaultValidityConfig returns the default configuration.
@@ -87,7 +92,7 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 	}
 	// Set batcher's MaxBlocksPerSpanBatch to match the submission interval
 	maxBlocksPerSpanBatch := int(cfg.SubmissionInterval)
-	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, cfg.AggProofMode, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		if !utils.UseNetworkProver() {
 			opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		}

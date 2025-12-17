@@ -31,6 +31,11 @@ type FaultProofConfig struct {
 	// If nil, the default (4 hours / 14400s) is used.
 	Timeout     *uint64
 	EnvFilePath string
+
+	// AggProofMode selects the SP1 verifier backend ("plonk" or "groth16").
+	// Only applies for network proving (i.e. when utils.UseNetworkProver() is true).
+	// If nil/empty, defaults to "plonk".
+	AggProofMode *string
 }
 
 // DefaultFaultProofConfig returns the default configuration.
@@ -91,7 +96,7 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 	}
 	// Set batcher's MaxBlocksPerSpanBatch to match the proposal interval
 	maxBlocksPerSpanBatch := int(cfg.ProposalIntervalInBlocks)
-	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, cfg.AggProofMode, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		if !utils.UseNetworkProver() {
 			opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		}

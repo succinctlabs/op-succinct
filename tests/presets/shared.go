@@ -25,12 +25,17 @@ const (
 
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
 
-func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, maxBlocksPerSpanBatch int, configure succinctConfigurator) stack.CommonOption {
+func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, maxBlocksPerSpanBatch int, aggProofMode *string, configure succinctConfigurator) stack.CommonOption {
 	// Ensure OP Succinct artifact symlinks exist before deployer loads artifacts
 	if root := utils.RepoRoot(); root != "" {
 		if err := utils.SymlinkSuccinctArtifacts(root); err != nil {
 			panic("failed to symlink Succinct artifacts: " + err.Error())
 		}
+	}
+
+	sp1ProofMode := "plonk"
+	if aggProofMode != nil {
+		sp1ProofMode = *aggProofMode
 	}
 
 	l1ChainID := eth.ChainIDFromUInt64(DefaultL1ID)
@@ -59,7 +64,7 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockT
 				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 			},
-			sysgo.WithSP1ProverMode("plonk"),
+			sysgo.WithSP1ProofMode(sp1ProofMode),
 			sysgo.WithCommons(ids.L1.ChainID()),
 			sysgo.WithPrefundedL2(ids.L1.ChainID(), ids.L2A.ChainID()),
 		),
