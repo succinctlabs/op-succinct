@@ -333,7 +333,7 @@ mod integration {
             &invalid_games,
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            TEST_WAIT_TIMEOUT,
+            WAIT_TIMEOUT,
         )
         .await?;
 
@@ -594,7 +594,7 @@ mod integration {
             &[parent_game_address],
             GameStatus::CHALLENGER_WINS,
             "ChallengerWins",
-            TEST_WAIT_TIMEOUT,
+            WAIT_TIMEOUT,
         )
         .await?;
         info!("✓ Parent game resolved as CHALLENGER_WINS");
