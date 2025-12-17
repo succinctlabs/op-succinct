@@ -10,8 +10,76 @@ on:
   workflow_dispatch:
 
 jobs:
+  detect_changes:
+    name: Detect file changes
+    runs-on: ubuntu-latest
+    # Always run on workflow_dispatch and push to develop, only check paths on pull_request
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
+    outputs:
+      proposer: ${{ steps.filter.outputs.proposer }}
+      challenger: ${{ steps.filter.outputs.challenger }}
+      game_monitor: ${{ steps.filter.outputs.game_monitor }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            proposer:
+              - 'fault-proof/Dockerfile.proposer.celo'
+              - 'fault-proof/bin/proposer.rs'
+              - 'fault-proof/src/**'
+              - 'utils/**'
+              - 'programs/**'
+              - 'scripts/prove/**'
+              - 'validity/src/**'
+              - 'bindings/src/**'
+              - 'elf/**'
+              - 'resources/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - 'rust-toolchain.toml'
+            challenger:
+              - 'fault-proof/Dockerfile.challenger.celo'
+              - 'fault-proof/bin/challenger.rs'
+              - 'fault-proof/src/**'
+              - 'utils/**'
+              - 'programs/**'
+              - 'scripts/prove/**'
+              - 'validity/src/**'
+              - 'bindings/src/**'
+              - 'elf/**'
+              - 'resources/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - 'rust-toolchain.toml'
+            game_monitor:
+              - 'scripts/utils/Dockerfile.game-monitor'
+              - 'scripts/utils/bin/game_monitor.rs'
+              - 'scripts/utils/bin/cost_estimator.rs'
+              - 'scripts/utils/src/**'
+              - 'utils/**'
+              - 'programs/**'
+              - 'fault-proof/src/**'
+              - 'scripts/prove/**'
+              - 'validity/src/**'
+              - 'bindings/src/**'
+              - 'elf/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - 'rust-toolchain.toml'
+
   push_container_proposer_dev:
     name: Build and push proposer development image
+    needs: detect_changes
+    # Run if changes detected OR if triggered manually OR on push to develop
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      needs.detect_changes.outputs.proposer == 'true'
     uses: ./.github/workflows/push-container.yaml
     with:
       file: fault-proof/Dockerfile.proposer.celo
@@ -19,8 +87,15 @@ jobs:
       service-account: op-succinct-gh-dev@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos
       concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-proposer-dev
+
   push_container_challenger_dev:
     name: Build and push challenger development image
+    needs: detect_changes
+    # Run if changes detected OR if triggered manually OR on push to develop
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      needs.detect_changes.outputs.challenger == 'true'
     uses: ./.github/workflows/push-container.yaml
     with:
       file: fault-proof/Dockerfile.challenger.celo
@@ -28,8 +103,15 @@ jobs:
       service-account: op-succinct-gh-dev@devopsre.iam.gserviceaccount.com
       workload-id-provider: projects/1094498259535/locations/global/workloadIdentityPools/gh-op-succinct-dev/providers/github-by-repos
       concurrency-group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}-challenger-dev
+
   push_container_game_monitor_dev:
     name: Build and push game-monitor development image
+    needs: detect_changes
+    # Run if changes detected OR if triggered manually OR on push to develop
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      needs.detect_changes.outputs.game_monitor == 'true'
     uses: ./.github/workflows/push-container.yaml
     with:
       file: scripts/utils/Dockerfile.game-monitor

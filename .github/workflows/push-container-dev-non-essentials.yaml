@@ -10,8 +10,45 @@ on:
   workflow_dispatch:
 
 jobs:
+  detect_changes:
+    name: Detect file changes
+    runs-on: ubuntu-latest
+    # Always run on workflow_dispatch and push to develop, only check paths on pull_request
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
+    outputs:
+      parallel_cost_estimator: ${{ steps.filter.outputs.parallel_cost_estimator }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            parallel_cost_estimator:
+              - 'scripts/utils/Dockerfile.parallel-cost-estimator'
+              - 'scripts/utils/bin/parallel_cost_estimator.rs'
+              - 'scripts/utils/bin/cost_estimator.rs'
+              - 'scripts/utils/src/**'
+              - 'utils/**'
+              - 'programs/**'
+              - 'fault-proof/src/**'
+              - 'scripts/prove/**'
+              - 'validity/src/**'
+              - 'bindings/src/**'
+              - 'elf/**'
+              - 'resources/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '**/Cargo.toml'
+              - 'rust-toolchain.toml'
+
   push_container_parallel-cost-estimator_dev:
     name: Build and push parallel-cost-estimator development image
+    needs: detect_changes
+    # Run if changes detected OR if triggered manually OR on push to develop
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      needs.detect_changes.outputs.parallel_cost_estimator == 'true'
     uses: ./.github/workflows/push-container.yaml
     with:
       file: scripts/utils/Dockerfile.parallel-cost-estimator

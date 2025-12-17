@@ -23,25 +23,121 @@ RUN curl -L https://sp1.succinct.xyz | bash && \
 FROM base AS builder
 
 WORKDIR /app
-COPY . .
 
-# Build the binary
-RUN cargo build --release --bin proposer --features eigenda
+# Copy workspace root Cargo files
+COPY Cargo.toml Cargo.lock ./
 
-# Runtime stage (minimal image)
-FROM ubuntu:24.04
+# Copy all Cargo.toml files from workspace members
+# This allows Cargo to resolve dependencies without source
+COPY fault-proof/Cargo.toml ./fault-proof/
+COPY utils/client/Cargo.toml ./utils/client/
+COPY utils/host/Cargo.toml ./utils/host/
+COPY utils/build/Cargo.toml ./utils/build/
+COPY utils/celestia/client/Cargo.toml ./utils/celestia/client/
+COPY utils/celestia/host/Cargo.toml ./utils/celestia/host/
+COPY utils/eigenda/client/Cargo.toml ./utils/eigenda/client/
+COPY utils/eigenda/host/Cargo.toml ./utils/eigenda/host/
+COPY utils/proof/Cargo.toml ./utils/proof/
+COPY utils/signer/Cargo.toml ./utils/signer/
+COPY utils/ethereum/client/Cargo.toml ./utils/ethereum/client/
+COPY utils/ethereum/host/Cargo.toml ./utils/ethereum/host/
+COPY utils/elfs/Cargo.toml ./utils/elfs/
+COPY programs/range/ethereum/Cargo.toml ./programs/range/ethereum/
+COPY programs/range/celestia/Cargo.toml ./programs/range/celestia/
+COPY programs/range/eigenda/Cargo.toml ./programs/range/eigenda/
+COPY programs/range/utils/Cargo.toml ./programs/range/utils/
+COPY programs/aggregation/Cargo.toml ./programs/aggregation/
+COPY scripts/prove/Cargo.toml ./scripts/prove/
+COPY scripts/utils/Cargo.toml ./scripts/utils/
+COPY validity/Cargo.toml ./validity/
+COPY bindings/Cargo.toml ./bindings/
+
+# Copy elf binaries needed by utils/elfs at compile time (needed before building)
+COPY elf/ ./elf/
+
+# Create dummy source files to satisfy Cargo's dependency resolution
+# This allows us to download and compile dependencies without the actual source
+RUN mkdir -p fault-proof/src fault-proof/bin && \
+    mkdir -p utils/client/src utils/host/src utils/build/src && \
+    mkdir -p utils/celestia/client/src utils/celestia/host/src && \
+    mkdir -p utils/eigenda/client/src utils/eigenda/host/src && \
+    mkdir -p utils/proof/src utils/signer/src && \
+    mkdir -p utils/ethereum/client/src utils/ethereum/host/src && \
+    mkdir -p utils/elfs/src && \
+    mkdir -p programs/range/ethereum/src programs/range/celestia/src && \
+    mkdir -p programs/range/eigenda/src programs/range/utils/src && \
+    mkdir -p programs/aggregation/src && \
+    mkdir -p scripts/prove/src scripts/utils/src && \
+    mkdir -p validity/src bindings/src && \
+    echo "fn main() {}" > fault-proof/bin/proposer.rs && \
+    echo "fn main() {}" > fault-proof/bin/challenger.rs && \
+    echo "" > fault-proof/src/lib.rs && \
+    echo "" > utils/client/src/lib.rs && \
+    echo "" > utils/host/src/lib.rs && \
+    echo "" > utils/build/src/lib.rs && \
+    echo "" > utils/celestia/client/src/lib.rs && \
+    echo "" > utils/celestia/host/src/lib.rs && \
+    echo "" > utils/eigenda/client/src/lib.rs && \
+    echo "" > utils/eigenda/host/src/lib.rs && \
+    echo "" > utils/proof/src/lib.rs && \
+    echo "" > utils/signer/src/lib.rs && \
+    echo "" > utils/ethereum/client/src/lib.rs && \
+    echo "" > utils/ethereum/host/src/lib.rs && \
+    echo "" > utils/elfs/src/lib.rs && \
+    echo "" > programs/range/ethereum/src/lib.rs && \
+    echo "" > programs/range/celestia/src/lib.rs && \
+    echo "" > programs/range/eigenda/src/lib.rs && \
+    echo "" > programs/range/utils/src/lib.rs && \
+    echo "" > programs/aggregation/src/lib.rs && \
+    echo "" > scripts/prove/src/lib.rs && \
+    echo "" > scripts/utils/src/lib.rs && \
+    echo "" > validity/src/lib.rs && \
+    echo "" > bindings/src/lib.rs
+
+# Download and compile dependencies (this layer will be cached if Cargo.toml/Cargo.lock don't change)
+# Use BuildKit cache mounts for faster Cargo operations
+# The || true allows this to fail gracefully since we have dummy source files
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --bin proposer --features eigenda || true
+
+# Now copy the actual source code
+COPY fault-proof/src ./fault-proof/src
+COPY fault-proof/bin ./fault-proof/bin
+COPY utils/ ./utils/
+COPY programs/ ./programs/
+COPY scripts/ ./scripts/
+COPY validity/src ./validity/src
+COPY bindings/src ./bindings/src
+
+# Build the actual binary (only rebuilds if source changed)
+# Use BuildKit cache mounts for faster builds
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --bin proposer --features eigenda
+
+# Copy binary from cache mount to filesystem so it can be copied to runtime stage
+RUN --mount=type=cache,target=/app/target \
+    cp /app/target/release/proposer /app/proposer
+
+# Runtime stage (minimal image - only runtime dependencies)
+FROM debian:trixie-slim
 
 WORKDIR /app
-COPY resources/ ./resources/
 
 # Install only necessary runtime dependencies
+# libssl3 is needed for reqwest-native-tls, ca-certificates for HTTPS
 RUN apt-get update && apt-get install -y \
-    curl \
-    libssl-dev \
+    libssl3 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the built proposer binary
-COPY --from=builder /app/target/release/proposer /usr/local/bin/
+COPY resources/ ./resources/
+
+# Copy the built proposer binary (copied from cache mount to filesystem)
+COPY --from=builder /app/proposer /usr/local/bin/
 
 # Set the command
 CMD ["proposer"]
