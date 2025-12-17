@@ -1,7 +1,7 @@
 SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
-test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": unzip-contract-artifacts
+test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-artifacts
     #!/bin/bash
 
     if ! [ -z "{{FILTER}}" ]; then
@@ -81,6 +81,15 @@ update-packages: submodule
 
 submodule:
     git submodule update --init --recursive
+
+# Build op-succinct contracts and verifier scripts
+build-contracts: submodule
+    #!/bin/bash
+    set -euo pipefail
+    echo "Building contracts..."
+    cd {{ROOT}}/contracts && forge build
+    echo "Building verifier scripts..."
+    cd {{SOURCE}} && forge build
 
 # Logging wrapper - saves output to tests/logs/<name>-<timestamp>.log
 logged NAME +CMD:
