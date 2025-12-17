@@ -95,11 +95,16 @@ deploy-fdg-contracts env_file=".env" *features='':
     
     # Change to contracts directory
     cd contracts
-    
-    # Install dependencies
-    echo "Installing forge dependencies..."
-    forge install
-    
+
+    # Install dependencies only if not already present 
+    # (avoids git lock conflicts in parallel test runs)
+    if [ ! -d "lib/forge-std" ]; then
+        echo "Installing forge dependencies..."
+        forge install
+    else
+        echo "Forge dependencies already installed, skipping..."
+    fi
+
     # Build contracts
     echo "Building contracts..."
     forge build
@@ -399,21 +404,21 @@ build-range-elfs:
     #!/usr/bin/env bash
 
     cd programs/range/ethereum
-    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.2 --output-directory ../../../elf
-    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.4 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
 
     cd ../celestia
-    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
 
     cd ../eigenda
-    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.2 --output-directory ../../../elf --features embedded
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
 
 # Build ELF file for aggregation program.
 build-agg-elf:
     #!/usr/bin/env bash
 
     cd programs/aggregation
-    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.2 --output-directory ../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.4 --output-directory ../../elf
 
 # Run all unit tests except for the specified ones.
 tests:
@@ -422,18 +427,29 @@ tests:
     --skip test_cycle_count_diff \
     --skip test_post_to_github
 
-# Run fault-proof integration tests.
-fp-integration-tests target="":
-  #!/usr/bin/env bash
+# Run fault-proof integration tests
+# target: test file (integration, sync, etc.)
+# da: DA feature (ethereum, eigenda, celestia). DA-agnostic tests like sync work with any.
+fp-integration-tests target="integration" da="ethereum":
+  cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
-   test_target=""
-   if [ -n "{{target}}" ]; then
-       test_target="--test {{target}}"
-   fi
+# Run DA-specific host utility tests
+# da: ethereum, eigenda, celestia
+da-integration-tests da="ethereum":
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-   cd fault-proof
+    # EigenDA tests require SRS file - create symlink if needed
+    if [ "{{da}}" = "eigenda" ] && [ ! -e "utils/eigenda/host/resources" ]; then
+        if [ ! -d "resources" ]; then
+            echo "Error: resources/ directory not found. Run from workspace root."
+            exit 1
+        fi
+        ln -sf ../../../resources utils/eigenda/host/resources
+        echo "Created symlink: utils/eigenda/host/resources -> resources/"
+    fi
 
-   cargo t $test_target --release --features integration -- --test-threads=1 --nocapture
+    cargo t -p op-succinct-{{da}}-host-utils --features integration --release -- --test-threads=1 --nocapture
 
 forge-build *ARGS:
     #!/usr/bin/env bash

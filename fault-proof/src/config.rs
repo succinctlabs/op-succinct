@@ -194,6 +194,39 @@ impl ProposerConfig {
             whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
         })
     }
+
+    /// Log the configuration using structured tracing fields.
+    pub fn log(&self) {
+        tracing::info!(
+            l1_rpc = %self.l1_rpc,
+            l2_rpc = %self.l2_rpc,
+            factory_address = %self.factory_address,
+            mock_mode = self.mock_mode,
+            fast_finality_mode = self.fast_finality_mode,
+            game_type = self.game_type,
+            proposal_interval_in_blocks = self.proposal_interval_in_blocks,
+            fetch_interval = self.fetch_interval,
+            range_proof_strategy = ?self.range_proof_strategy,
+            agg_proof_strategy = ?self.agg_proof_strategy,
+            agg_proof_mode = ?self.agg_proof_mode,
+            max_concurrent_defense_tasks = self.max_concurrent_defense_tasks,
+            safe_db_fallback = self.safe_db_fallback,
+            metrics_port = self.metrics_port,
+            fast_finality_proving_limit = self.fast_finality_proving_limit,
+            use_kms_requester = self.use_kms_requester,
+            max_price_per_pgu = self.max_price_per_pgu,
+            min_auction_period = self.min_auction_period,
+            timeout = self.timeout,
+            range_cycle_limit = self.range_cycle_limit,
+            range_gas_limit = self.range_gas_limit,
+            range_split_count = ?self.range_split_count,
+            max_concurrent_range_proofs = ?self.max_concurrent_range_proofs,
+            agg_cycle_limit = self.agg_cycle_limit,
+            agg_gas_limit = self.agg_gas_limit,
+            whitelist = ?self.whitelist,
+            "Proposer configuration loaded"
+        );
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -232,6 +265,20 @@ impl ChallengerConfig {
                 .unwrap_or("0.0".to_string())
                 .parse()?,
         })
+    }
+
+    /// Log the configuration using structured tracing fields.
+    pub fn log(&self) {
+        tracing::info!(
+            l1_rpc = %self.l1_rpc,
+            l2_rpc = %self.l2_rpc,
+            factory_address = %self.factory_address,
+            game_type = self.game_type,
+            fetch_interval = self.fetch_interval,
+            metrics_port = self.metrics_port,
+            malicious_challenge_percentage = self.malicious_challenge_percentage,
+            "Challenger configuration loaded"
+        );
     }
 }
 
@@ -289,17 +336,24 @@ impl RangeSplitCount {
         self.0.get() as usize
     }
 
-    /// Split `[start, end)` into up to `count` contiguous, non-empty subranges.
+    /// Split a block range into up to `count` contiguous, non-empty subranges for proving.
     ///
-    /// Behavior:
+    /// # Proving semantics
+    /// Each tuple `(start, end)` represents a proving range where:
+    /// - `start` is the **agreed** block (already-proven checkpoint)
+    /// - `end` is the **claimed** block (included in the proof)
+    ///
+    /// # Behavior
     /// - Errors if `start > end` or the range is empty.
     /// - Caps the number of produced segments to the number of blocks in the range.
-    /// - Uses ceil division to keep segments as even as possible; the final segment takes any
-    ///   remainder.
-    /// - Always returns ranges that exactly cover `[start, end)` with no gaps or overlaps.
+    /// - Uses ceil division for even segments; may yield fewer than requested (e.g., 9 blocks ÷ 4 →
+    ///   step=3 → 3 segments: (0,3], (3,6], (6,9]).
+    /// - Returns ranges that exactly cover `(start, end]` with no gaps or overlaps.
     ///
-    /// NOTE: Ceiling division may yield fewer segments than requested when step sizes exhaust the
-    /// range early. Example: 9 blocks ÷ 4 → step=3 → 3 segments: [0,3), [3,6), [6,9).
+    /// NOTE: At runtime, the actual interval may slightly differ from `proposal_interval_in_blocks`
+    /// because if a game already exists at the target L2 block, the proposer increments the block
+    /// number until it finds an unused slot (e.g., 1802 blocks instead of 1800). Since we divide
+    /// the actual total by the split count, drift just slightly adjusts range sizes.
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
             anyhow::anyhow!("end block {end} is not greater than start block {start}")
@@ -414,6 +468,7 @@ mod split_range_tests {
         16,
         &[(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
     )]
+    #[case::drift_up(range_split_count(4), 0, 1802, &[(0, 451), (451, 902), (902, 1353), (1353, 1802)])]
     fn test_splits_expected_paths(
         #[case] splits: RangeSplitCount,
         #[case] start: u64,

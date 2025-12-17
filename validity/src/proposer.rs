@@ -121,6 +121,7 @@ where
                 rollup_config_hash,
             },
         };
+        program_config.log();
 
         // Initialize the proof requester.
         let proof_requester = Arc::new(OPSuccinctProofRequester::new(
@@ -600,7 +601,7 @@ where
 
         // Get the completed range proofs with a start block greater than the latest proposed block
         // number. These blocks are sorted.
-        let mut completed_range_proofs = self
+        let completed_range_proofs = self
             .driver_config
             .driver_db_client
             .fetch_completed_ranges(
@@ -610,9 +611,6 @@ where
                 self.requester_config.l2_chain_id,
             )
             .await?;
-
-        // Sort the completed range proofs by start block.
-        completed_range_proofs.sort_by_key(|(start_block, _)| *start_block);
 
         // Get the highest block number of the completed range proofs.
         let highest_proven_contiguous_block_number = match self
@@ -977,7 +975,7 @@ where
             let curr_proof = &range_proofs[i];
 
             // Check for gap
-            if prev_proof.end_block != curr_proof.start_block {
+            if prev_proof.end_block < curr_proof.start_block {
                 debug!(
                     "Gap detected: proof {} ends at {} but proof {} starts at {}",
                     i - 1,
