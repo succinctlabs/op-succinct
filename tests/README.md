@@ -15,6 +15,7 @@ run the suite with the expected environment.
   Optimism devstack.
 - `bindings/`, `presets/`, `utils/`: Presets, helpers and generated code used by
   the tests.
+- `monitoring/`: Grafana dashboards and Prometheus datasource configs for metrics.
 
 ## Prerequisites
 
@@ -75,6 +76,9 @@ just long-running validity
 
 # Fault proof proposer
 just long-running faultproof
+
+# Fault proof proposer with fast finality
+just long-running faultproof-ff
 ```
 
 Press `Ctrl+C` to stop.
@@ -112,7 +116,7 @@ SYSGO_METRICS_ENABLED=true just long-running faultproof-ff
 | Grafana    | http://localhost:3000 | admin/admin |
 | Prometheus | http://localhost:9999 | -           |
 
-Dashboard configurations are located in `monitoring/`.
+Dashboard configurations are located in `monitoring/grafana/dashboards/`.
 
 ## Maintenance
 
