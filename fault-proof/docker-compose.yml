@@ -8,6 +8,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env.proposer
+    volumes:
+      - ../tests/configs:/app/configs
     command: ["proposer"]
     networks:
       - monitoring
@@ -21,6 +23,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env.challenger
+    volumes:
+      - ../tests/configs:/app/configs
     command: ["challenger"]
     networks:
       - monitoring
