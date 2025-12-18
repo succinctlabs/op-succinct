@@ -4,7 +4,11 @@ ROOT := parent_directory(SOURCE)
 # Run L1/L2 nodes (no proposer) - outputs RPC endpoints to tests/.env
 # Usage: just nodes [mode]
 #   modes: default (1s blocks, 60M gas), base (Base mainnet: 2s, 375M gas), base-load (base + ERC20 load)
+# Logs to tests/logs/nodes-<mode>-<timestamp>.log
 nodes MODE="default": build-contracts unzip-contract-artifacts
+    just logged nodes-{{MODE}} just _nodes-run {{MODE}}
+
+_nodes-run MODE:
     #!/bin/bash
     case "{{MODE}}" in
         default)   TEST="TestNodes_RunOnly" ;;
