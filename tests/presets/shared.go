@@ -32,6 +32,8 @@ const (
 type L2ChainConfig struct {
 	// L2BlockTime is the L2 block time in seconds
 	L2BlockTime uint64
+	// GasLimit is the L2 block gas limit. If 0, uses OP Stack default (60M).
+	GasLimit uint64
 	// EnvFilePath is the path to write RPC endpoints.
 	// Two files are created: <path> (127.0.0.1) and <path>.docker (host.docker.internal).
 	// If relative, it's resolved against the `/tests` directory.
@@ -47,13 +49,29 @@ func DefaultL2ChainConfig() L2ChainConfig {
 }
 
 // LongRunningL2ChainConfig returns the L2 chain config for long-running tests (2s block time).
+// Uses OP Stack standard gas limit (60M).
 func LongRunningL2ChainConfig() L2ChainConfig {
 	return L2ChainConfig{L2BlockTime: 2, L1ConfigDir: "configs/L1"}
+}
+
+// BaseMainnetL2ChainConfig returns L2 chain config matching Base mainnet parameters.
+// - 2s block time
+// - 375M gas limit (vs 60M OP Stack default)
+// - EIP-1559 elasticity 6 (OP Stack default, matches Base)
+func BaseMainnetL2ChainConfig() L2ChainConfig {
+	return L2ChainConfig{
+		L2BlockTime: 2,
+		GasLimit:    375_000_000, // Base mainnet gas limit (Dec 2025)
+		L1ConfigDir: "configs/L1",
+	}
 }
 
 // ApplyOverrides applies chain parameters as deployer global overrides.
 func (c L2ChainConfig) ApplyOverrides(builder intentbuilder.Builder) {
 	builder.WithGlobalOverride("l2BlockTime", c.L2BlockTime)
+	if c.GasLimit > 0 {
+		builder.WithGlobalOverride("l2GenesisBlockGasLimit", hexutil.Uint64(c.GasLimit))
+	}
 }
 
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
