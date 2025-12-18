@@ -82,6 +82,25 @@ func LongRunningFastFinalityFaultProofConfig() FaultProofConfig {
 	return cfg
 }
 
+// ProposerOptions returns the proposer options for this configuration.
+func (c FaultProofConfig) ProposerOptions() []sysgo.FaultProofProposerOption {
+	opts := []sysgo.FaultProofProposerOption{
+		sysgo.WithFPProposalIntervalInBlocks(c.ProposalIntervalInBlocks),
+		sysgo.WithFPFetchInterval(c.FetchInterval),
+		sysgo.WithFPRangeSplitCount(c.RangeSplitCount),
+		sysgo.WithFPMaxConcurrentRangeProofs(c.MaxConcurrentRangeProofs),
+		sysgo.WithFPFastFinalityMode(c.FastFinalityMode),
+		sysgo.WithFPFastFinalityProvingLimit(c.FastFinalityProvingLimit),
+	}
+	if c.Timeout != nil {
+		opts = append(opts, sysgo.WithFPTimeout(*c.Timeout))
+	}
+	if c.EnvFilePath != "" {
+		opts = append(opts, sysgo.WithFPWriteEnvFile(c.EnvFilePath))
+	}
+	return opts
+}
+
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig, chain L2ChainConfig) stack.CommonOption {
 	// Set batcher's MaxBlocksPerSpanBatch to match the proposal interval
@@ -95,22 +114,7 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 			sysgo.WithFdgMaxChallengeDuration(cfg.MaxChallengeDuration),
 			sysgo.WithFdgMaxProveDuration(cfg.MaxProveDuration),
 			sysgo.WithFdgDisputeGameFinalityDelaySecs(cfg.DisputeGameFinalityDelaySecs)))
-
-		proposerOpts := []sysgo.FaultProofProposerOption{
-			sysgo.WithFPProposalIntervalInBlocks(cfg.ProposalIntervalInBlocks),
-			sysgo.WithFPFetchInterval(cfg.FetchInterval),
-			sysgo.WithFPRangeSplitCount(cfg.RangeSplitCount),
-			sysgo.WithFPMaxConcurrentRangeProofs(cfg.MaxConcurrentRangeProofs),
-			sysgo.WithFPFastFinalityMode(cfg.FastFinalityMode),
-			sysgo.WithFPFastFinalityProvingLimit(cfg.FastFinalityProvingLimit),
-		}
-		if cfg.Timeout != nil {
-			proposerOpts = append(proposerOpts, sysgo.WithFPTimeout(*cfg.Timeout))
-		}
-		if cfg.EnvFilePath != "" {
-			proposerOpts = append(proposerOpts, sysgo.WithFPWriteEnvFile(cfg.EnvFilePath))
-		}
-		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, proposerOpts...))
+		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, cfg.ProposerOptions()...))
 	})
 }
 

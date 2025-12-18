@@ -82,6 +82,30 @@ func (c ValidityConfig) ExpectedRangeCount(outputBlock uint64) int {
 	return int((blocksToProve + c.RangeProofInterval - 1) / c.RangeProofInterval)
 }
 
+// ProposerOptions returns the proposer options for this configuration.
+func (c ValidityConfig) ProposerOptions() []sysgo.ValidityProposerOption {
+	opts := []sysgo.ValidityProposerOption{
+		sysgo.WithVPSubmissionInterval(c.SubmissionInterval),
+		sysgo.WithVPRangeProofInterval(c.RangeProofInterval),
+	}
+	if c.MaxConcurrentProofRequests != nil {
+		opts = append(opts, sysgo.WithVPMaxConcurrentProofRequests(*c.MaxConcurrentProofRequests))
+	}
+	if c.MaxConcurrentWitnessGen != nil {
+		opts = append(opts, sysgo.WithVPMaxConcurrentWitnessGen(*c.MaxConcurrentWitnessGen))
+	}
+	if c.LoopInterval != nil {
+		opts = append(opts, sysgo.WithVPLoopInterval(*c.LoopInterval))
+	}
+	if c.ProvingTimeout != nil {
+		opts = append(opts, sysgo.WithVPProvingTimeout(*c.ProvingTimeout))
+	}
+	if c.EnvFilePath != "" {
+		opts = append(opts, sysgo.WithVPWriteEnvFile(c.EnvFilePath))
+	}
+	return opts
+}
+
 // WithSuccinctValidityProposer creates a validity proposer with custom configuration.
 func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig, chain L2ChainConfig) stack.CommonOption {
 	// Set batcher's MaxBlocksPerSpanBatch to match the submission interval
@@ -94,27 +118,7 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),
 			sysgo.WithL2OOSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithL2OORangeProofInterval(cfg.RangeProofInterval)))
-
-		vpOpts := []sysgo.ValidityProposerOption{
-			sysgo.WithVPSubmissionInterval(cfg.SubmissionInterval),
-			sysgo.WithVPRangeProofInterval(cfg.RangeProofInterval),
-		}
-		if cfg.MaxConcurrentProofRequests != nil {
-			vpOpts = append(vpOpts, sysgo.WithVPMaxConcurrentProofRequests(*cfg.MaxConcurrentProofRequests))
-		}
-		if cfg.MaxConcurrentWitnessGen != nil {
-			vpOpts = append(vpOpts, sysgo.WithVPMaxConcurrentWitnessGen(*cfg.MaxConcurrentWitnessGen))
-		}
-		if cfg.LoopInterval != nil {
-			vpOpts = append(vpOpts, sysgo.WithVPLoopInterval(*cfg.LoopInterval))
-		}
-		if cfg.ProvingTimeout != nil {
-			vpOpts = append(vpOpts, sysgo.WithVPProvingTimeout(*cfg.ProvingTimeout))
-		}
-		if cfg.EnvFilePath != "" {
-			vpOpts = append(vpOpts, sysgo.WithVPWriteEnvFile(cfg.EnvFilePath))
-		}
-		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, vpOpts...))
+		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, cfg.ProposerOptions()...))
 	})
 }
 
