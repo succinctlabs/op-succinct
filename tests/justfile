@@ -1,6 +1,14 @@
 SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
+# Run only L1/L2 nodes (no proposer) - outputs RPC endpoints to tests/.env
+nodes: build-contracts unzip-contract-artifacts
+    #!/bin/bash
+    export DEVSTACK_ORCHESTRATOR=sysgo
+    export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
+    export DISABLE_OP_E2E_LEGACY=true
+    cd {{SOURCE}} && go test -p 1 -count=1 -timeout 0 -v "./e2e/nodes/..." -run TestNodes_RunOnly
+
 test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-artifacts
     #!/bin/bash
 
