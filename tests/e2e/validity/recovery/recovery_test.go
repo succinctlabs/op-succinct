@@ -41,7 +41,7 @@ func TestValidityProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
 
 func runRecoveryTest(gt *testing.T, cfg opspresets.ValidityConfig, restartCount, expectedSubmissions int, timeout time.Duration) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewValiditySystem(t, cfg)
+	sys := opspresets.NewValiditySystem(t, cfg, opspresets.DefaultL2ChainConfig())
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 

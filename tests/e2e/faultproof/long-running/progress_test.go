@@ -16,7 +16,7 @@ import (
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
-	sys, dgf := setupFaultProofSystem(t, cfg)
+	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
 	err := utils.RunProgressTest(func() error {
 		return checkLatestGame(t, sys, dgf, nil)
@@ -29,7 +29,7 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
-	sys, dgf := setupFaultProofSystem(t, cfg)
+	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
 	err := utils.RunProgressTest(func() error {
 		return checkLatestGame(t, sys, dgf, &cfg)
@@ -47,8 +47,8 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t.Require().True(proven, "fast finality did not prove first game")
 }
 
-func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig) (*opspresets.FaultProofSystem, *utils.DgfClient) {
-	sys := opspresets.NewFaultProofSystem(t, cfg)
+func setupFaultProofSystem(t devtest.T, cfg opspresets.FaultProofConfig, chain opspresets.L2ChainConfig) (*opspresets.FaultProofSystem, *utils.DgfClient) {
+	sys := opspresets.NewFaultProofSystem(t, cfg, chain)
 	t.Log("=== Stack is running ===")
 	return sys, sys.DgfClient(t)
 }

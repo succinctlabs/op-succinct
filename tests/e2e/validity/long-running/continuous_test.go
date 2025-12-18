@@ -14,7 +14,7 @@ func TestValidityProposer_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	cfg := opspresets.LongRunningValidityConfig()
 	cfg.EnvFilePath = "../../../.env.validity"
-	sys, l2oo := setupValiditySystem(t, cfg)
+	sys, l2oo := setupValiditySystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
 		checkLatestSubmission(t, sys, l2oo)

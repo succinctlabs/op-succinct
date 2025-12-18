@@ -51,7 +51,7 @@ func TestValidityProposer_RangeIntervalLargerThanSubmission(gt *testing.T) {
 
 func waitForOutputAndVerify(gt *testing.T, submissionCount int, timeout time.Duration, cfg opspresets.ValidityConfig) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewValiditySystem(t, cfg)
+	sys := opspresets.NewValiditySystem(t, cfg, opspresets.DefaultL2ChainConfig())
 	require := t.Require()
 	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)

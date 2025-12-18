@@ -38,7 +38,7 @@ func TestFaultProofProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
 
 func runRecoveryTest(gt *testing.T, cfg opspresets.FaultProofConfig, restartCount int, timeout time.Duration) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewFaultProofSystem(t, cfg)
+	sys := opspresets.NewFaultProofSystem(t, cfg, opspresets.DefaultL2ChainConfig())
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 

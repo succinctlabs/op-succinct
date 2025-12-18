@@ -16,7 +16,7 @@ import (
 func TestValidityProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningValidityConfig()
-	sys, l2oo := setupValiditySystem(t, cfg)
+	sys, l2oo := setupValiditySystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
 	err := utils.RunProgressTest(func() error {
 		return checkLatestSubmission(t, sys, l2oo)
@@ -24,8 +24,8 @@ func TestValidityProposer_Progress(gt *testing.T) {
 	t.Require().NoError(err, "proposer progress check failed")
 }
 
-func setupValiditySystem(t devtest.T, cfg opspresets.ValidityConfig) (*opspresets.ValiditySystem, *utils.L2OOClient) {
-	sys := opspresets.NewValiditySystem(t, cfg)
+func setupValiditySystem(t devtest.T, cfg opspresets.ValidityConfig, chain opspresets.L2ChainConfig) (*opspresets.ValiditySystem, *utils.L2OOClient) {
+	sys := opspresets.NewValiditySystem(t, cfg, chain)
 	t.Log("=== Stack is running ===")
 	return sys, sys.L2OOClient(t)
 }

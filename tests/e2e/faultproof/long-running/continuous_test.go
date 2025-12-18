@@ -14,7 +14,7 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	cfg := opspresets.LongRunningFaultProofConfig()
 	cfg.EnvFilePath = "../../../.env.faultproof"
-	sys, dgf := setupFaultProofSystem(t, cfg)
+	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
 		checkLatestGame(t, sys, dgf, nil)
@@ -27,7 +27,7 @@ func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
 	cfg.EnvFilePath = "../../../.env.faultproof"
-	sys, dgf := setupFaultProofSystem(t, cfg)
+	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
 		checkLatestGame(t, sys, dgf, &cfg)

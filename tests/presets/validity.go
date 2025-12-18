@@ -11,10 +11,6 @@ import (
 
 // ValidityConfig holds configuration for validity proposer tests.
 type ValidityConfig struct {
-	// L2BlockTime is the L2 block time in seconds.
-	// If nil, defaults to 1 second.
-	L2BlockTime *uint64
-
 	StartingBlock      uint64
 	SubmissionInterval uint64
 	RangeProofInterval uint64
@@ -40,7 +36,7 @@ type ValidityConfig struct {
 	AggProofMode *string
 }
 
-// DefaultValidityConfig returns the default configuration.
+// DefaultValidityConfig returns the default configuration for fast tests.
 func DefaultValidityConfig() ValidityConfig {
 	loopInterval := uint64(1) // 1s lock expiry; recovery tests wait 2s before restart
 	return ValidityConfig{
@@ -55,8 +51,6 @@ func DefaultValidityConfig() ValidityConfig {
 // If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningValidityConfig() ValidityConfig {
 	cfg := DefaultValidityConfig()
-	l2BlockTime := uint64(2)
-	cfg.L2BlockTime = &l2BlockTime
 	maxConcurrentProofRequests := uint64(4)
 	maxConcurrentWitnessGen := uint64(4)
 	cfg.MaxConcurrentProofRequests = &maxConcurrentProofRequests
@@ -89,14 +83,10 @@ func (c ValidityConfig) ExpectedRangeCount(outputBlock uint64) int {
 }
 
 // WithSuccinctValidityProposer creates a validity proposer with custom configuration.
-func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig) stack.CommonOption {
-	l2BlockTime := uint64(1)
-	if cfg.L2BlockTime != nil {
-		l2BlockTime = *cfg.L2BlockTime
-	}
+func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg ValidityConfig, chain L2ChainConfig) stack.CommonOption {
 	// Set batcher's MaxBlocksPerSpanBatch to match the submission interval
 	maxBlocksPerSpanBatch := int(cfg.SubmissionInterval)
-	return withSuccinctPreset(dest, l2BlockTime, maxBlocksPerSpanBatch, cfg.AggProofMode, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
+	return withSuccinctPreset(dest, chain, maxBlocksPerSpanBatch, cfg.AggProofMode, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
 		if !utils.UseNetworkProver() {
 			opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		}
@@ -129,9 +119,8 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 }
 
 // WithDefaultSuccinctValidityProposer creates a validity proposer with default configuration.
-// This maintains backward compatibility with existing tests.
 func WithDefaultSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctValidityProposer(dest, DefaultValidityConfig())
+	return WithSuccinctValidityProposer(dest, DefaultValidityConfig(), DefaultL2ChainConfig())
 }
 
 // ValiditySystem wraps MinimalWithProposer and provides access to validity-specific features.
@@ -164,9 +153,9 @@ func (s *ValiditySystem) StartProposer() {
 }
 
 // NewValiditySystem creates a new validity test system with custom configuration.
-func NewValiditySystem(t devtest.T, cfg ValidityConfig) *ValiditySystem {
+func NewValiditySystem(t devtest.T, cfg ValidityConfig, chain L2ChainConfig) *ValiditySystem {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
-	sys, prop := newSystemWithProposer(t, WithSuccinctValidityProposer(&ids, cfg), &ids)
+	sys, prop := newSystemWithProposer(t, WithSuccinctValidityProposer(&ids, cfg, chain), &ids)
 
 	vp, ok := prop.(sysgo.ValidityProposer)
 	t.Require().True(ok, "proposer must implement ValidityProposer")

@@ -23,9 +23,30 @@ const (
 	DefaultL2ID = 901
 )
 
+// L2ChainConfig holds L2 chain parameters configured at deploy time.
+type L2ChainConfig struct {
+	// L2BlockTime is the L2 block time in seconds
+	L2BlockTime uint64
+}
+
+// DefaultL2ChainConfig returns the default L2 chain config for tests (1s block time).
+func DefaultL2ChainConfig() L2ChainConfig {
+	return L2ChainConfig{L2BlockTime: 1}
+}
+
+// LongRunningL2ChainConfig returns the L2 chain config for long-running tests (2s block time).
+func LongRunningL2ChainConfig() L2ChainConfig {
+	return L2ChainConfig{L2BlockTime: 2}
+}
+
+// ApplyOverrides applies chain parameters as deployer global overrides.
+func (c L2ChainConfig) ApplyOverrides(builder intentbuilder.Builder) {
+	builder.WithGlobalOverride("l2BlockTime", c.L2BlockTime)
+}
+
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
 
-func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockTime uint64, maxBlocksPerSpanBatch int, aggProofMode *string, configure succinctConfigurator) stack.CommonOption {
+func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, chain L2ChainConfig, maxBlocksPerSpanBatch int, aggProofMode *string, configure succinctConfigurator) stack.CommonOption {
 	// Ensure OP Succinct artifact symlinks exist before deployer loads artifacts
 	if root := utils.RepoRoot(); root != "" {
 		if err := utils.SymlinkSuccinctArtifacts(root); err != nil {
@@ -60,7 +81,7 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockT
 		),
 		sysgo.WithDeployerOptions(
 			func(_ devtest.P, _ devkeys.Keys, builder intentbuilder.Builder) {
-				builder.WithGlobalOverride("l2BlockTime", l2BlockTime)
+				chain.ApplyOverrides(builder)
 				builder.WithL1ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 				builder.WithL2ContractsLocator(artifacts.MustNewFileLocator(artifactsPath))
 			},
@@ -72,9 +93,8 @@ func withSuccinctPreset(dest *sysgo.DefaultSingleChainInteropSystemIDs, l2BlockT
 	// Configure batcher to accumulate more blocks before submitting.
 	// MaxBlocksPerSpanBatch: max L2 blocks per span batch (matches proposer interval)
 	// MaxChannelDuration: max L1 blocks before forcing submission
-	//   - L1 block time is 6s in test environment (see sysgo/deployer.go)
-	const l1BlockTime = uint64(6)
-	l2TimeSeconds := uint64(maxBlocksPerSpanBatch) * l2BlockTime
+	const l1BlockTime = uint64(6) // L1 block time in test environment (see sysgo/deployer.go)
+	l2TimeSeconds := uint64(maxBlocksPerSpanBatch) * chain.L2BlockTime
 	maxChannelDuration := (l2TimeSeconds + l1BlockTime - 1) / l1BlockTime
 	opt.Add(sysgo.WithBatcherOption(func(id stack.L2BatcherID, cfg *bss.CLIConfig) {
 		cfg.MaxBlocksPerSpanBatch = maxBlocksPerSpanBatch
