@@ -130,6 +130,12 @@ sol! {
         function anchorGame() public view returns (IDisputeGame anchorGame_);
     }
 
+    #[sol(rpc)]
+    interface IOptimismPortal2 {
+        /// @notice The game type that the OptimismPortal consults for output proposals.
+        function respectedGameType() external view returns (GameType);
+    }
+
     #[derive(Debug, PartialEq)]
     /// @notice The current status of the dispute game.
     enum GameStatus {
