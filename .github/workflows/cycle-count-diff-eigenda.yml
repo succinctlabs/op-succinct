@@ -2,21 +2,13 @@ name: Cycle Count Diff (EigenDA)
 
 on:
   workflow_dispatch:
-#  pull_request:
-#    paths:
-#      - 'elf/eigenda-range-elf-embedded'
+  pull_request:
+    paths:
+      - 'elf/eigenda-range-elf-embedded'
 
 jobs:
   cycle-count-diff-eigenda:
-    runs-on:
-      - runs-on
-      - cpu=32
-      - ram=128
-      - family=m7a+m7i-flex
-      - image=ubuntu22-full-x64
-      - run-id=${{ github.run_id }}
-      - disk=large
-      - spot=false
+    runs-on: [self-hosted, org, 8-cpu]
 
     steps:
       - name: Checkout Repository (for local actions)
@@ -26,6 +18,12 @@ jobs:
         uses: ./.github/actions/setup
         with:
           submodules: recursive
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev
+          sudo apt-get install -y clang llvm-dev libclang-dev pkg-config
 
       - name: Install SP1 toolchain
         run: |
@@ -82,10 +80,10 @@ jobs:
           RUST_LOG=info NEW_BRANCH=true cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./new_code
         env:
-          L2_NODE_RPC: ${{ secrets.L2_EIGENDA_RPC }}
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_EIGENDA_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
           EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
           OP_SUCCINCT_MOCK: true
 
@@ -99,10 +97,10 @@ jobs:
           RUST_LOG=info NEW_BRANCH=false cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture
         working-directory: ./old_code
         env:
-          L2_NODE_RPC: ${{ secrets.L2_EIGENDA_RPC }}
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_EIGENDA_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
           EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
           OP_SUCCINCT_MOCK: true
 
