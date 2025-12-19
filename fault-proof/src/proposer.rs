@@ -9,7 +9,7 @@ use std::{
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
-use alloy_provider::{Provider, ProviderBuilder, RootProvider};
+use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{bail, Context, Result};
 use futures::stream::{self, StreamExt, TryStreamExt};
@@ -26,8 +26,8 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
-    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
-    SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    network::proto::types::FulfillmentStatus, NetworkProver, Prover, ProverClient, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{
     sync::{Mutex, RwLock},
@@ -40,7 +40,7 @@ use crate::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
         GameStatus,
-        OPSuccinctFaultDisputeGame::{self, OPSuccinctFaultDisputeGameInstance},
+        OPSuccinctFaultDisputeGame,
         ProposalStatus,
     },
     is_parent_resolved,
@@ -56,6 +56,10 @@ use crate::{
 /// The 14-day window is chosen with a 7-day challenge period in mind, plus a 7-day buffer,
 /// ensuring all actionable games are included under normal conditions.
 pub const MAX_GAME_DEADLINE_LAG: u64 = 60 * 60 * 24 * 14; // 14 days
+
+/// Polling interval (in seconds) for checking proof status in `wait_for_proof`.
+/// Matches the SP1 SDK's internal polling interval.
+pub const PROOF_STATUS_POLL_INTERVAL: u64 = 2;
 
 /// Type alias for task ID
 pub type TaskId = u64;
@@ -854,7 +858,7 @@ where
                 tracing::info!("Generating Range Proof for blocks {start} to {end}");
                 let sp1_stdin = this.range_proof_stdin(start, end, l1_head_hash.into()).await?;
                 let (range_proof, inst_cycles, sp1_gas) =
-                    this.range_proof_request(&sp1_stdin).await?;
+                    this.generate_range_proof(&sp1_stdin).await?;
                 Ok::<_, anyhow::Error>((idx, range_proof, inst_cycles, sp1_gas))
             }
         });
@@ -926,9 +930,15 @@ where
             }
         };
 
-        let tx_hash = self.agg_proof_request(&game, &sp1_stdin).await?;
+        let agg_proof = self.generate_agg_proof(&sp1_stdin).await?;
 
-        Ok((tx_hash, total_instruction_cycles, total_sp1_gas))
+        let transaction_request = game.prove(agg_proof.bytes().into()).into_transaction_request();
+        let receipt = self
+            .signer
+            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
+            .await?;
+
+        Ok((receipt.transaction_hash, total_instruction_cycles, total_sp1_gas))
     }
 
     async fn range_proof_stdin(
@@ -962,12 +972,219 @@ where
         Ok(sp1_stdin)
     }
 
-    async fn range_proof_request(
+    /// Submits a range proof request to the network and returns the proof_id immediately.
+    pub async fn request_range_proof(&self, sp1_stdin: &SP1Stdin) -> Result<B256> {
+        let proof_id = self
+            .prover
+            .network_prover
+            .prove(&self.prover.range_pk, sp1_stdin)
+            .compressed()
+            .skip_simulation(true)
+            .strategy(self.config.range_proof_strategy)
+            .timeout(Duration::from_secs(self.config.timeout))
+            .min_auction_period(self.config.min_auction_period)
+            .max_price_per_pgu(self.config.max_price_per_pgu)
+            .cycle_limit(self.config.range_cycle_limit)
+            .gas_limit(self.config.range_gas_limit)
+            .whitelist(self.config.whitelist.clone())
+            .request_async()
+            .await?;
+
+        tracing::info!(proof_id = %proof_id, "Range proof request submitted");
+        Ok(proof_id)
+    }
+
+    /// Submits an aggregation proof request to the network and returns the proof_id immediately.
+    pub async fn request_agg_proof(&self, sp1_stdin: &SP1Stdin) -> Result<B256> {
+        let proof_id = self
+            .prover
+            .network_prover
+            .prove(&self.prover.agg_pk, sp1_stdin)
+            .mode(self.prover.agg_mode)
+            .strategy(self.config.agg_proof_strategy)
+            .timeout(Duration::from_secs(self.config.timeout))
+            .min_auction_period(self.config.min_auction_period)
+            .max_price_per_pgu(self.config.max_price_per_pgu)
+            .cycle_limit(self.config.agg_cycle_limit)
+            .gas_limit(self.config.agg_gas_limit)
+            .whitelist(self.config.whitelist.clone())
+            .request_async()
+            .await?;
+
+        tracing::info!(proof_id = %proof_id, "Aggregation proof request submitted");
+        Ok(proof_id)
+    }
+
+    /// Executes a network call with timeout, logging errors with proof context.
+    async fn network_call_with_timeout<F, T>(
+        &self,
+        future: F,
+        operation: &str,
+        proof_id: B256,
+    ) -> Result<T>
+    where
+        F: std::future::Future<Output = Result<T>>,
+    {
+        let timeout_secs = self.config.network_calls_timeout;
+        match tokio::time::timeout(Duration::from_secs(timeout_secs), future).await {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(e)) => {
+                tracing::warn!(proof_id = %proof_id, operation, error = %e, "Network error");
+                Err(e)
+            }
+            Err(_) => {
+                tracing::warn!(proof_id = %proof_id, operation, timeout_secs, "Network call timed out");
+                bail!("Timeout after {}s for {} (proof_id={})", timeout_secs, operation, proof_id)
+            }
+        }
+    }
+
+    /// Waits for a proof to be fulfilled by polling the network.
+    ///
+    /// Timeout behavior:
+    /// - **Proving timeout** (`config.timeout`): Overall maximum wait time from start.
+    /// - **Network call timeout** (`config.network_calls_timeout`): Per-call timeout; failures retry.
+    /// - **Auction timeout** (`config.auction_timeout`): Cancels if no prover picks up the request.
+    /// - **Server deadline** (`status.deadline()`): Server-side proving deadline.
+    ///
+    /// Returns the proof when fulfilled, or an error on timeout/failure.
+    pub async fn wait_for_proof(&self, proof_id: B256) -> Result<SP1ProofWithPublicValues> {
+        let start_time = std::time::Instant::now();
+        let proving_timeout = Duration::from_secs(self.config.timeout);
+
+        loop {
+            // Proving timeout - ensures we don't wait forever if network calls keep failing.
+            if start_time.elapsed() > proving_timeout {
+                tracing::warn!(
+                    proof_id = %proof_id,
+                    elapsed_secs = start_time.elapsed().as_secs(),
+                    timeout_secs = self.config.timeout,
+                    "proving timeout exceeded"
+                );
+                bail!(
+                    "Proof request {} client timeout after {}s",
+                    proof_id,
+                    start_time.elapsed().as_secs()
+                );
+            }
+
+            // Get proof status - retry on transient failures.
+            let (status, proof) = match self
+                .network_call_with_timeout(
+                    self.prover.network_prover.get_proof_status(proof_id),
+                    "get_proof_status",
+                    proof_id,
+                )
+                .await
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    tracing::warn!(proof_id = %proof_id, error = %e, "get_proof_status failed, retrying...");
+                    tokio::time::sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+                    continue;
+                }
+            };
+
+            // Get proof request details for auction timeout check - retry on transient failures.
+            let request_details = match self
+                .network_call_with_timeout(
+                    self.prover.network_prover.get_proof_request(proof_id),
+                    "get_proof_request",
+                    proof_id,
+                )
+                .await
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    tracing::warn!(proof_id = %proof_id, error = %e, "get_proof_request failed, retrying...");
+                    tokio::time::sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+                    continue;
+                }
+            };
+
+            let current_time =
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+
+            // Check auction timeout: if request is still in "Requested" state past the deadline.
+            if let Some(details) = &request_details {
+                let auction_deadline = details.created_at + self.config.auction_timeout;
+                if details.fulfillment_status == FulfillmentStatus::Requested as i32
+                    && current_time > auction_deadline
+                {
+                    tracing::warn!(
+                        proof_id = %proof_id,
+                        created_at = details.created_at,
+                        auction_deadline,
+                        current_time,
+                        "Auction timeout exceeded, cancelling request"
+                    );
+                    // Cancel the request on the network.
+                    let _ = self
+                        .network_call_with_timeout(
+                            self.prover.network_prover.cancel_request(proof_id),
+                            "cancel_request",
+                            proof_id,
+                        )
+                        .await;
+                    bail!(
+                        "Proof request {} auction timeout (no prover picked up, created_at={}, deadline={})",
+                        proof_id,
+                        details.created_at,
+                        auction_deadline
+                    );
+                }
+            }
+
+            // Check if the proof deadline has passed.
+            if current_time > status.deadline() {
+                tracing::warn!(
+                    proof_id = %proof_id,
+                    deadline = status.deadline(),
+                    current_time,
+                    "Proof request deadline exceeded"
+                );
+                bail!(
+                    "Proof request {} deadline exceeded (deadline={}, current={})",
+                    proof_id,
+                    status.deadline(),
+                    current_time
+                );
+            }
+
+            // Check fulfillment status.
+            match FulfillmentStatus::try_from(status.fulfillment_status()) {
+                Ok(FulfillmentStatus::Fulfilled) => {
+                    tracing::info!(proof_id = %proof_id, "Proof fulfilled");
+                    return proof.ok_or_else(|| {
+                        anyhow::anyhow!("Proof status is fulfilled but proof is None")
+                    });
+                }
+                Ok(FulfillmentStatus::Unfulfillable) => {
+                    bail!(
+                        "Proof request {} is unfulfillable (execution_status: {:?})",
+                        proof_id,
+                        status.execution_status()
+                    );
+                }
+                Ok(FulfillmentStatus::Assigned) => {
+                    tracing::debug!(proof_id = %proof_id, "Proof assigned, proving...");
+                }
+                _ => {
+                    tracing::debug!(proof_id = %proof_id, "Proof pending...");
+                }
+            }
+
+            tokio::time::sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+        }
+    }
+
+    /// Generates a range proof. In mock mode, executes locally. In network mode, submits and waits.
+    async fn generate_range_proof(
         &self,
         sp1_stdin: &SP1Stdin,
     ) -> Result<(SP1ProofWithPublicValues, u64, u64)> {
         if self.config.mock_mode {
-            tracing::info!("Using mock mode for range proof generation");
+            tracing::info!("Generating range proof in mock mode");
             let (public_values, report) = self
                 .prover
                 .network_prover
@@ -976,11 +1193,9 @@ where
                 .deferred_proof_verification(false)
                 .run()?;
 
-            // Record execution stats
             let total_instruction_cycles = report.total_instruction_count();
             let total_sp1_gas = report.gas.unwrap_or(0);
 
-            // Update Prometheus metrics
             ProposerGauge::TotalInstructionCycles.set(total_instruction_cycles as f64);
             ProposerGauge::TotalSP1Gas.set(total_sp1_gas as f64);
 
@@ -990,7 +1205,6 @@ where
                 "Captured execution stats for range proof"
             );
 
-            // Create a mock range proof with the public values.
             let proof = SP1ProofWithPublicValues::create_mock_proof(
                 &self.prover.range_pk,
                 public_values,
@@ -1000,35 +1214,16 @@ where
 
             Ok((proof, total_instruction_cycles, total_sp1_gas))
         } else {
-            // In network mode, we don't have access to execution stats
-            let proof = self
-                .prover
-                .network_prover
-                .prove(&self.prover.range_pk, sp1_stdin)
-                .compressed()
-                .skip_simulation(true)
-                .strategy(self.config.range_proof_strategy)
-                .timeout(Duration::from_secs(self.config.timeout))
-                .min_auction_period(self.config.min_auction_period)
-                .max_price_per_pgu(self.config.max_price_per_pgu)
-                .cycle_limit(self.config.range_cycle_limit)
-                .gas_limit(self.config.range_gas_limit)
-                .whitelist(self.config.whitelist.clone())
-                .run_async()
-                .await?;
-
+            let proof_id = self.request_range_proof(sp1_stdin).await?;
+            let proof = self.wait_for_proof(proof_id).await?;
             Ok((proof, 0, 0))
         }
     }
 
-    async fn agg_proof_request(
-        &self,
-        game: &OPSuccinctFaultDisputeGameInstance<RootProvider>,
-        sp1_stdin: &SP1Stdin,
-    ) -> Result<TxHash> {
-        tracing::info!("Generating Agg Proof");
-        let agg_proof = if self.config.mock_mode {
-            tracing::info!("Using mock mode for aggregation proof generation");
+    /// Generates an aggregation proof. In mock mode, executes locally. In network mode, submits and waits.
+    async fn generate_agg_proof(&self, sp1_stdin: &SP1Stdin) -> Result<SP1ProofWithPublicValues> {
+        if self.config.mock_mode {
+            tracing::info!("Generating aggregation proof in mock mode");
             let (public_values, _) = self
                 .prover
                 .network_prover
@@ -1036,37 +1231,16 @@ where
                 .deferred_proof_verification(false)
                 .run()?;
 
-            // Create a mock aggregation proof with the public values.
-            SP1ProofWithPublicValues::create_mock_proof(
+            Ok(SP1ProofWithPublicValues::create_mock_proof(
                 &self.prover.agg_pk,
                 public_values,
                 self.prover.agg_mode,
                 SP1_CIRCUIT_VERSION,
-            )
+            ))
         } else {
-            self.prover
-                .network_prover
-                .prove(&self.prover.agg_pk, sp1_stdin)
-                .mode(self.prover.agg_mode)
-                .strategy(self.config.agg_proof_strategy)
-                .timeout(Duration::from_secs(self.config.timeout))
-                .min_auction_period(self.config.min_auction_period)
-                .max_price_per_pgu(self.config.max_price_per_pgu)
-                .cycle_limit(self.config.agg_cycle_limit)
-                .gas_limit(self.config.agg_gas_limit)
-                .whitelist(self.config.whitelist.clone())
-                .run_async()
-                .await?
-        };
-
-        let transaction_request = game.prove(agg_proof.bytes().into()).into_transaction_request();
-
-        let receipt = self
-            .signer
-            .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
-            .await?;
-
-        Ok(receipt.transaction_hash)
+            let proof_id = self.request_agg_proof(sp1_stdin).await?;
+            self.wait_for_proof(proof_id).await
+        }
     }
 
     /// Creates a new game with the given parameters.
