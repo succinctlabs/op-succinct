@@ -6,7 +6,10 @@ run the suite with the expected environment.
 
 ## Layout
 
-- `e2e/`: Go e2e tests (validity and faultproof proposers).
+- `e2e/`: Go e2e tests.
+  - `nodes/`: Nodes-only tests (no proposer) for local development.
+  - `validity/`: Validity proposer tests.
+  - `faultproof/`: Fault proof proposer tests.
 - `artifacts/`: Contract artifacts; a compressed tarball lives at
   `artifacts/compressed/artifacts.tzst` and is unpacked into `artifacts/src`
   before tests.
@@ -40,7 +43,41 @@ run the suite with the expected environment.
    just unzip-contract-artifacts
    ```
 
-## Running the e2e suite
+## Running Nodes Only (No Proposer)
+
+Start L1/L2 nodes without a proposer for local development and debugging:
+
+```bash
+just nodes
+```
+
+This starts a local devnet with L1 (EL + CL) and L2 (EL + CL) nodes at 1s block
+time and runs until interrupted with `Ctrl+C`. Output is logged to
+`tests/logs/nodes-<timestamp>.log`.
+
+### Generated Files
+
+The command creates the following files:
+
+| File | Purpose |
+|------|---------|
+| `tests/.env` | RPC endpoints using `127.0.0.1` for running the proposer natively |
+| `tests/.env.docker` | RPC endpoints using `host.docker.internal` for Docker containers |
+| `configs/L1/900.json` | L1 chain config (chain ID 900 for local devnet) |
+
+### Running the Proposer in Docker
+
+Mount the L1 chain config into the container (example for validity proposer):
+
+```bash
+docker compose --env-file tests/.env.docker run \
+  -v ./configs/L1/900.json:/app/configs/L1/900.json \
+  op-succinct
+```
+
+Adjust the compose file and service name for other proposer types.
+
+## Running the e2e Suite
 
 - Run everything (builds both binaries, unpacks artifacts):
 
