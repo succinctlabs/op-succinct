@@ -37,6 +37,7 @@ Create a `.env.proposer` file in the `fault-proof` directory with all required v
 |----------|-------------|
 | `L1_RPC` | L1 RPC endpoint URL |
 | `L2_RPC` | L2 RPC endpoint URL |
+| `PORTAL_ADDRESS` | Address of the OptimismPortal2 contract |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. (Set to `0x0000000000000000000000000000000000000000000000000000000000000001` if not using fast finality mode) |
@@ -109,6 +110,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 # Required Configuration
 L1_RPC=                  # L1 RPC endpoint URL
 L2_RPC=                  # L2 RPC endpoint URL
+PORTAL_ADDRESS=          # Address of the OptimismPortal2 contract
 FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract (obtained from deployment)
 GAME_TYPE=               # Type identifier for the dispute game (must match factory configuration)
 

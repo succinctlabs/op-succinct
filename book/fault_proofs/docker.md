@@ -26,6 +26,7 @@ The fault proof system consists of two main components:
 # Required Configuration
 L1_RPC=                  # L1 RPC endpoint URL
 L2_RPC=                  # L2 RPC endpoint URL
+PORTAL_ADDRESS=          # Address of the OptimismPortal2 contract
 FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract
 GAME_TYPE=               # Type identifier for the dispute game
 PRIVATE_KEY=             # Private key for transaction signing
