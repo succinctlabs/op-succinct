@@ -50,7 +50,9 @@ pub async fn new_proposer(
         use_kms_requester: false,
         max_price_per_pgu: 300_000_000, // 0.3 PROVE per billion PGU
         min_auction_period: 1,
-        timeout: 14400, // 4 hours
+        timeout: 14400,              // 4 hours
+        network_calls_timeout: 30,   // 30 seconds for API calls
+        auction_timeout: 120,        // 2 minutes for auction
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
         range_split_count: RangeSplitCount::one(),

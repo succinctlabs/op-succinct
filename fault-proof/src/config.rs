@@ -78,8 +78,17 @@ pub struct ProposerConfig {
     /// The minimum auction period (in seconds).
     pub min_auction_period: u64,
 
-    /// The timeout to use for proving (in seconds).
+    /// The timeout for proving (in seconds). Used as the server-side deadline for proof requests
+    /// and as the client-side maximum wait time in `wait_for_proof`.
     pub timeout: u64,
+
+    /// The timeout for individual network API calls like `get_proof_status` (in seconds).
+    /// If a single call exceeds this, it will be retried.
+    pub network_calls_timeout: u64,
+
+    /// The auction timeout (in seconds). If a proof request remains in "Requested" state
+    /// (no prover picked it up) beyond `created_at + auction_timeout`, the request is cancelled.
+    pub auction_timeout: u64,
 
     /// The cycle limit to use for range proofs.
     pub range_cycle_limit: u64,
@@ -181,6 +190,12 @@ impl ProposerConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             timeout: env::var("TIMEOUT").unwrap_or("14400".to_string()).parse()?, // 4 hours
+            network_calls_timeout: env::var("NETWORK_CALLS_TIMEOUT")
+                .unwrap_or("30".to_string())
+                .parse()?,
+            auction_timeout: env::var("AUCTION_TIMEOUT")
+                .unwrap_or("120".to_string()) // 2 minutes
+                .parse()?,
             range_cycle_limit: env::var("RANGE_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
@@ -223,6 +238,8 @@ impl ProposerConfig {
             max_price_per_pgu = self.max_price_per_pgu,
             min_auction_period = self.min_auction_period,
             timeout = self.timeout,
+            network_calls_timeout = self.network_calls_timeout,
+            auction_timeout = self.auction_timeout,
             range_cycle_limit = self.range_cycle_limit,
             range_gas_limit = self.range_gas_limit,
             range_split_count = ?self.range_split_count,
