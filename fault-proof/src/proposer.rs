@@ -174,8 +174,8 @@ where
     pub signer: SignerLock,
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
+        pub portal: Arc<IOptimismPortal2Instance<P>>,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
-    pub portal: Arc<IOptimismPortal2Instance<P>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
@@ -196,6 +196,7 @@ where
     pub async fn new(
         config: ProposerConfig,
         signer: SignerLock,
+        portal: IOptimismPortal2Instance<P>,
         factory: DisputeGameFactoryInstance<P>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         host: Arc<H>,
@@ -212,10 +213,6 @@ where
 
         let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
-        let portal = crate::contract::IOptimismPortal2::new(
-            config.portal_address,
-            factory.provider().clone(),
-        );
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         // Initialize state with anchor L2 block number
@@ -232,8 +229,8 @@ where
             signer,
             l1_provider,
             l2_provider,
-            factory: Arc::new(factory.clone()),
             portal: Arc::new(portal),
+            factory: Arc::new(factory.clone()),
             init_bond,
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {

@@ -7,7 +7,7 @@ use anyhow::Result;
 use fault_proof::{
     challenger::OPSuccinctChallenger,
     config::{ChallengerConfig, RangeSplitCount},
-    contract::DisputeGameFactory,
+    contract::{DisputeGameFactory, IOptimismPortal2},
     proposer::OPSuccinctProposer,
 };
 use op_succinct_host_utils::{
@@ -61,12 +61,13 @@ pub async fn init_proposer(
     };
 
     let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
+    let portal = IOptimismPortal2::new(*portal_address, l1_provider.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
     let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
     let host = initialize_host(fetcher.clone());
 
-    OPSuccinctProposer::new(config, signer, factory, fetcher, host).await
+    OPSuccinctProposer::new(config, signer, portal, factory, fetcher, host).await
 }
 
 /// Start a proposer, and return a handle to the proposer task.

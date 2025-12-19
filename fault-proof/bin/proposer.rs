@@ -6,7 +6,9 @@ use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
-    config::ProposerConfig, contract::DisputeGameFactory, prometheus::ProposerGauge,
+    config::ProposerConfig,
+    contract::{DisputeGameFactory, IOptimismPortal2},
+    prometheus::ProposerGauge,
     proposer::OPSuccinctProposer,
 };
 use op_succinct_host_utils::{
@@ -42,6 +44,14 @@ async fn main() -> Result<()> {
     let l1_provider =
         ProviderBuilder::new().connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
+    let portal = IOptimismPortal2::new(
+        env::var("PORTAL_ADDRESS")
+            .expect("PORTAL_ADDRESS must be set")
+            .parse::<Address>()
+            .unwrap(),
+        l1_provider.clone(),
+    );
+
     let factory = DisputeGameFactory::new(
         env::var("FACTORY_ADDRESS")
             .expect("FACTORY_ADDRESS must be set")
@@ -54,9 +64,16 @@ async fn main() -> Result<()> {
     let host = initialize_host(Arc::new(fetcher.clone()));
 
     let proposer = Arc::new(
-        OPSuccinctProposer::new(proposer_config, proposer_signer, factory, Arc::new(fetcher), host)
-            .await
-            .unwrap(),
+        OPSuccinctProposer::new(
+            proposer_config,
+            proposer_signer,
+            portal,
+            factory,
+            Arc::new(fetcher),
+            host,
+        )
+        .await
+        .unwrap(),
     );
 
     // Initialize proposer gauges.
