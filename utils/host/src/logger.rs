@@ -12,11 +12,14 @@ use tracing_subscriber::{
 static INIT: OnceLock<Result<()>> = OnceLock::new();
 
 fn build_env_filter() -> EnvFilter {
-    EnvFilter::try_from_default_env()
-        .unwrap_or_else(|e| {
-            println!("failed to setup env filter: {e:?}");
-            EnvFilter::new("info")
-        })
+    if let Ok(var) = env::var(EnvFilter::DEFAULT_ENV) {
+        match EnvFilter::builder().parse(var) {
+            Ok(env_filter) => return env_filter,
+            Err(e) => eprintln!("failed to setup env filter: {e:?}"),
+        }
+    }
+
+    EnvFilter::new("info")
         .add_directive("single_hint_handler=error".parse().unwrap())
         .add_directive("execute=error".parse().unwrap())
         .add_directive("sp1_prover=error".parse().unwrap())
