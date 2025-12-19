@@ -45,10 +45,7 @@ async fn main() -> Result<()> {
         ProviderBuilder::new().connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
     let portal = IOptimismPortal2::new(
-        env::var("PORTAL_ADDRESS")
-            .expect("PORTAL_ADDRESS must be set")
-            .parse::<Address>()
-            .unwrap(),
+        env::var("PORTAL_ADDRESS").expect("PORTAL_ADDRESS must be set").parse::<Address>().unwrap(),
         l1_provider.clone(),
     );
 
