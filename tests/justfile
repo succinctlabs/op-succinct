@@ -2,7 +2,11 @@ SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
 # Run only L1/L2 nodes (no proposer) - outputs RPC endpoints to tests/.env
+# Logs to tests/logs/nodes-<timestamp>.log
 nodes: build-contracts unzip-contract-artifacts
+    just logged nodes just _nodes-run
+
+_nodes-run:
     #!/bin/bash
     export DEVSTACK_ORCHESTRATOR=sysgo
     export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
@@ -58,8 +62,8 @@ long-running MODE:
     #!/bin/bash
     set -euo pipefail
     case "{{MODE}}" in
-        validity)     just logged {{MODE}} just test-e2e-sysgo "./e2e/validity/long-running/..." "TestValidityProposer_LongRunning" "0" ;;
-        faultproof)   just logged {{MODE}} just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_LongRunning" "0" ;;
+        validity)      just logged {{MODE}} just test-e2e-sysgo "./e2e/validity/long-running/..." "TestValidityProposer_LongRunning" "0" ;;
+        faultproof)    just logged {{MODE}} just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_LongRunning" "0" ;;
         faultproof-ff) just logged {{MODE}} just test-e2e-sysgo "./e2e/faultproof/long-running/..." "TestFaultProofProposer_FastFinality_LongRunning" "0" ;;
         *) echo "Usage: just long-running <validity|faultproof|faultproof-ff>"; exit 1 ;;
     esac
