@@ -22,6 +22,7 @@ use tracing::Instrument;
 pub async fn init_proposer(
     rpc_config: &RPCConfig,
     private_key: &str,
+    portal_address: &Address,
     factory_address: &Address,
     game_type: u32,
 ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
@@ -32,6 +33,7 @@ pub async fn init_proposer(
     let config = fault_proof::config::ProposerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
+        portal_address: *portal_address,
         factory_address: *factory_address,
         mock_mode: true,
         fast_finality_mode: false,
@@ -71,10 +73,12 @@ pub async fn init_proposer(
 pub async fn start_proposer(
     rpc_config: &RPCConfig,
     private_key: &str,
+    portal_address: &Address,
     factory_address: &Address,
     game_type: u32,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
-    let proposer = init_proposer(rpc_config, private_key, factory_address, game_type).await?;
+    let proposer =
+        init_proposer(rpc_config, private_key, portal_address, factory_address, game_type).await?;
     Ok(tokio::spawn(async move {
         Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER")).await
     }))

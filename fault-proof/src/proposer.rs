@@ -39,6 +39,7 @@ use crate::{
     contract::{
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
         GameStatus,
+        IOptimismPortal2::IOptimismPortal2Instance,
         OPSuccinctFaultDisputeGame::{self, OPSuccinctFaultDisputeGameInstance},
         ProposalStatus,
     },
@@ -174,6 +175,7 @@ where
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
+    pub portal: Arc<IOptimismPortal2Instance<P>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
@@ -210,6 +212,10 @@ where
 
         let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
+        let portal = crate::contract::IOptimismPortal2::new(
+            config.portal_address,
+            factory.provider().clone(),
+        );
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         // Initialize state with anchor L2 block number
@@ -227,6 +233,7 @@ where
             l1_provider,
             l2_provider,
             factory: Arc::new(factory.clone()),
+            portal: Arc::new(portal),
             init_bond,
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
@@ -1662,6 +1669,18 @@ where
                 );
                 return Ok((false, U256::ZERO, u32::MAX));
             }
+        }
+
+        // Check if our game type matches the current respected game type.
+        // The proposer should only create games when its type is the respected type.
+        let respected_game_type = self.portal.respectedGameType().call().await?;
+        if self.config.game_type != respected_game_type {
+            tracing::debug!(
+                "Skipping game creation: proposer game type ({}) does not match respected game type ({})",
+                self.config.game_type,
+                respected_game_type
+            );
+            return Ok((false, U256::ZERO, u32::MAX));
         }
 
         let (canonical_head_l2_block, parent_game_index) = {
