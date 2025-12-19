@@ -1672,10 +1672,10 @@ where
         // The proposer should only create games when its type is the respected type.
         let respected_game_type = self.portal.respectedGameType().call().await?;
         if self.config.game_type != respected_game_type {
-            tracing::debug!(
-                "Skipping game creation: proposer game type ({}) does not match respected game type ({})",
-                self.config.game_type,
-                respected_game_type
+            tracing::warn!(
+                proposer_game_type = self.config.game_type,
+                ?respected_game_type,
+                "Skipping game creation, game type does not match portal respected type"
             );
             return Ok((false, U256::ZERO, u32::MAX));
         }
