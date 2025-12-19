@@ -174,7 +174,7 @@ where
     pub signer: SignerLock,
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
-        pub portal: Arc<IOptimismPortal2Instance<P>>,
+    pub portal: Arc<IOptimismPortal2Instance<P>>,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
     pub init_bond: U256,
     pub safe_db_fallback: bool,
