@@ -17,6 +17,3 @@ monitoring/grafana/data/
 
 # Long-running test logs
 logs/
-
-# Test chain configs
-configs/

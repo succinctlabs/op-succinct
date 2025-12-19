@@ -37,7 +37,7 @@ type L2ChainConfig struct {
 	// If relative, it's resolved against the `/tests` directory.
 	EnvFilePath string
 	// L1ConfigDir is the directory to write L1 chain config.
-	// If relative, it's resolved against the `/tests` directory. Defaults to "configs/L1".
+	// If relative, it's resolved against the repo root. Defaults to "configs/L1".
 	L1ConfigDir string
 }
 
@@ -210,20 +210,24 @@ func newSystemCore(t devtest.T, opt stack.CommonOption) (*presets.Minimal, *sysg
 
 // writeEnvFiles writes RPC endpoints and L1 chain config for external proposer use.
 // Creates two env files: <envFilePath> (127.0.0.1) and <envFilePath>.docker (host.docker.internal).
-// Both envFilePath and l1ConfigDir are resolved against tests/ if relative.
+// envFilePath is resolved against tests/, l1ConfigDir is resolved against repo root.
 func writeEnvFiles(orch *sysgo.Orchestrator, ids sysgo.DefaultSingleChainInteropSystemIDs, l1ChainID eth.ChainID, envFilePath, l1ConfigDir string) {
 	logger := orch.P().Logger()
 	require := orch.P().Require()
 
-	// Resolve paths (relative to tests/)
-	testsDir := filepath.Join(utils.RepoRoot(), "tests")
+	repoRoot := utils.RepoRoot()
+	testsDir := filepath.Join(repoRoot, "tests")
+
+	// Resolve envFilePath relative to tests/
 	envPath := envFilePath
 	if !filepath.IsAbs(envFilePath) {
 		envPath = filepath.Join(testsDir, envFilePath)
 	}
 	dockerEnvPath := envPath + ".docker"
+
+	// Resolve l1ConfigDir relative to repo root
 	if !filepath.IsAbs(l1ConfigDir) {
-		l1ConfigDir = filepath.Join(testsDir, l1ConfigDir)
+		l1ConfigDir = filepath.Join(repoRoot, l1ConfigDir)
 	}
 
 	// Fetch nodes and keys
@@ -259,7 +263,6 @@ func writeEnvFiles(orch *sysgo.Orchestrator, ids sysgo.DefaultSingleChainInterop
 		"L2_RPC":        l2RPC,
 		"L2_NODE_RPC":   l2CL.UserRPC(),
 		"PRIVATE_KEY":   privKeyHex,
-		"L1_CONFIG_DIR": l1ConfigDir,
 	}
 
 	// Write host env file (127.0.0.1)
@@ -277,7 +280,6 @@ func writeEnvFiles(orch *sysgo.Orchestrator, ids sysgo.DefaultSingleChainInterop
 		"L2_RPC":        toDocker(l2RPC),
 		"L2_NODE_RPC":   toDocker(l2CL.UserRPC()),
 		"PRIVATE_KEY":   privKeyHex,
-		"L1_CONFIG_DIR": "/app/configs/L1",
 	}
 	err = sysgo.WriteEnvFile(dockerEnvPath, dockerEnvVars)
 	require.NoError(err, "failed to write .env.docker file")
