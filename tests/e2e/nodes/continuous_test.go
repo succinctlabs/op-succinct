@@ -23,10 +23,7 @@ func TestNodes_RunOnly(gt *testing.T) {
 	opt := opspresets.WithSuccinctNodes(&ids, chain)
 	sys := opspresets.NewSystemNodesOnly(t, opt)
 
-	t.Logger().Info("L1/L2 nodes are running. RPC endpoints written to tests/.env")
-	t.Logger().Info("Press Ctrl+C to stop...")
-
-	utils.RunUntilShutdown(30*time.Second, func() error {
+	utils.RunUntilShutdown(60*time.Second, func() error {
 		l2Unsafe := sys.L2EL.BlockRefByLabel(eth.Unsafe)
 		t.Logger().Info("L2 block", "unsafe", l2Unsafe.Number)
 		return nil
