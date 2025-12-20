@@ -39,9 +39,7 @@ use crate::{
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::{DisputeGameCreated, DisputeGameFactoryInstance},
-        GameStatus,
-        OPSuccinctFaultDisputeGame,
-        ProposalStatus,
+        GameStatus, OPSuccinctFaultDisputeGame, ProposalStatus,
     },
     is_parent_resolved,
     prometheus::ProposerGauge,
@@ -1043,7 +1041,8 @@ where
     ///
     /// Timeout behavior:
     /// - **Proving timeout** (`config.timeout`): Overall maximum wait time from start.
-    /// - **Network call timeout** (`config.network_calls_timeout`): Per-call timeout; failures retry.
+    /// - **Network call timeout** (`config.network_calls_timeout`): Per-call timeout; failures
+    ///   retry.
     /// - **Auction timeout** (`config.auction_timeout`): Cancels if no prover picks up the request.
     /// - **Server deadline** (`status.deadline()`): Server-side proving deadline.
     ///
@@ -1108,8 +1107,8 @@ where
             // Check auction timeout: if request is still in "Requested" state past the deadline.
             if let Some(details) = &request_details {
                 let auction_deadline = details.created_at + self.config.auction_timeout;
-                if details.fulfillment_status == FulfillmentStatus::Requested as i32
-                    && current_time > auction_deadline
+                if details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                    current_time > auction_deadline
                 {
                     tracing::warn!(
                         proof_id = %proof_id,
@@ -1220,7 +1219,8 @@ where
         }
     }
 
-    /// Generates an aggregation proof. In mock mode, executes locally. In network mode, submits and waits.
+    /// Generates an aggregation proof. In mock mode, executes locally. In network mode, submits and
+    /// waits.
     async fn generate_agg_proof(&self, sp1_stdin: &SP1Stdin) -> Result<SP1ProofWithPublicValues> {
         if self.config.mock_mode {
             tracing::info!("Generating aggregation proof in mock mode");
