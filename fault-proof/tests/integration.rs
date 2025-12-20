@@ -10,9 +10,9 @@ mod integration {
     use anyhow::{Context, Result};
     use common::{
         constants::{
-            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS, L2_BLOCK_OFFSET_FROM_FINALIZED,
-            MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE,
-            PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
+            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
+            L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
+            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
         },
         monitor::{verify_all_resolved_correctly, TrackedGame},
         TestEnvironment,
