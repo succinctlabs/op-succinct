@@ -191,7 +191,7 @@ impl ProposerConfig {
                 .parse()?,
             timeout: env::var("TIMEOUT").unwrap_or("14400".to_string()).parse()?, // 4 hours
             network_calls_timeout: env::var("NETWORK_CALLS_TIMEOUT")
-                .unwrap_or("30".to_string())
+                .unwrap_or("15".to_string())
                 .parse()?,
             auction_timeout: env::var("AUCTION_TIMEOUT")
                 .unwrap_or("60".to_string()) // 1 minute

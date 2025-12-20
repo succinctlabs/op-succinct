@@ -51,7 +51,7 @@ pub async fn new_proposer(
         max_price_per_pgu: 300_000_000, // 0.3 PROVE per billion PGU
         min_auction_period: 1,
         timeout: 14400, // 4 hours
-        network_calls_timeout: 30,
+        network_calls_timeout: 15,
         auction_timeout: 60,
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
