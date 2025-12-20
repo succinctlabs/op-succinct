@@ -1109,9 +1109,9 @@ where
             // Only cancel on mainnet where auction dynamics are meaningful.
             if let Some(details) = &request_details {
                 let auction_deadline = details.created_at + self.config.auction_timeout;
-                if self.prover.network_prover.network_mode() == NetworkMode::Mainnet
-                    && details.fulfillment_status == FulfillmentStatus::Requested as i32
-                    && current_time > auction_deadline
+                if self.prover.network_prover.network_mode() == NetworkMode::Mainnet &&
+                    details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
+                    current_time > auction_deadline
                 {
                     tracing::warn!(
                         proof_id = %proof_id,
