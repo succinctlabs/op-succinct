@@ -10,9 +10,9 @@ mod integration {
     use anyhow::{Context, Result};
     use common::{
         constants::{
-            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
-            L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
+            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS, L2_BLOCK_OFFSET_FROM_FINALIZED,
+            MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE,
+            PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
         },
         monitor::{verify_all_resolved_correctly, TrackedGame},
         TestEnvironment,
@@ -944,12 +944,12 @@ mod integration {
     }
 
     // Tests that the proposer fails fast when the contract's starting L2 block number is
-    // misconfigured to a future value (e.g., a single block ahead of actual finalized L2 block).
+    // misconfigured to a future value (10 blocks ahead of the finalized block at setup time).
     // This prevents the proposer from running indefinitely without creating games.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_rejects_future_starting_block() -> Result<()> {
         let env = TestEnvironment::setup_with_starting_block_offset(
-            (L2_BLOCK_OFFSET_FROM_FINALIZED + 1) as i64,
+            (L2_BLOCK_OFFSET_FROM_FINALIZED + 10) as i64,
         )
         .await?;
 
