@@ -52,7 +52,7 @@ pub async fn new_proposer(
         min_auction_period: 1,
         timeout: 14400,              // 4 hours
         network_calls_timeout: 30,   // 30 seconds for API calls
-        auction_timeout: 120,        // 2 minutes for auction
+        auction_timeout: 60,         // 1 minute for auction
         range_cycle_limit: 1_000_000_000_000,
         range_gas_limit: 1_000_000_000_000,
         range_split_count: RangeSplitCount::one(),

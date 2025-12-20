@@ -194,7 +194,7 @@ impl ProposerConfig {
                 .unwrap_or("30".to_string())
                 .parse()?,
             auction_timeout: env::var("AUCTION_TIMEOUT")
-                .unwrap_or("120".to_string()) // 2 minutes
+                .unwrap_or("60".to_string()) // 1 minute
                 .parse()?,
             range_cycle_limit: env::var("RANGE_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
