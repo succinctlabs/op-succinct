@@ -945,13 +945,13 @@ mod integration {
         Ok(())
     }
 
-    // Tests that the proposer's startup validations fail when the contract's starting L2 block
-    // number is misconfigured to a future value (e.g., a single block ahead of actual finalized
-    // L2 block). This prevents the proposer from running indefinitely without creating games.
+    // Tests that the proposer fails fast when the contract's starting L2 block number is
+    // misconfigured to a future value (10 blocks ahead of the finalized block at setup time).
+    // This prevents the proposer from running indefinitely without creating games.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_rejects_future_starting_block() -> Result<()> {
         let env = TestEnvironment::setup_with_starting_block_offset(
-            (L2_BLOCK_OFFSET_FROM_FINALIZED + 1) as i64,
+            (L2_BLOCK_OFFSET_FROM_FINALIZED + 10) as i64,
         )
         .await?;
 
