@@ -26,8 +26,9 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
-    network::proto::types::FulfillmentStatus, NetworkProver, Prover, ProverClient, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
+    network::{proto::types::FulfillmentStatus, NetworkMode},
+    NetworkProver, Prover, ProverClient, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey,
+    SP1Stdin, SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 use tokio::{
     sync::{Mutex, RwLock},
@@ -1105,10 +1106,12 @@ where
                 std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
             // Check auction timeout: if request is still in "Requested" state past the deadline.
+            // Only cancel on mainnet where auction dynamics are meaningful.
             if let Some(details) = &request_details {
                 let auction_deadline = details.created_at + self.config.auction_timeout;
-                if details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
-                    current_time > auction_deadline
+                if self.prover.network_prover.network_mode() == NetworkMode::Mainnet
+                    && details.fulfillment_status == FulfillmentStatus::Requested as i32
+                    && current_time > auction_deadline
                 {
                     tracing::warn!(
                         proof_id = %proof_id,
@@ -1117,14 +1120,16 @@ where
                         current_time,
                         "Auction timeout exceeded, cancelling request"
                     );
-                    // Cancel the request on the network.
-                    let _ = self
+                    if let Err(e) = self
                         .network_call_with_timeout(
                             self.prover.network_prover.cancel_request(proof_id),
                             "cancel_request",
                             proof_id,
                         )
-                        .await;
+                        .await
+                    {
+                        tracing::error!(proof_id = %proof_id, error = %e, "Failed to cancel proof request");
+                    }
                     bail!(
                         "Proof request {} auction timeout (no prover picked up, created_at={}, deadline={})",
                         proof_id,
