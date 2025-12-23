@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
@@ -31,7 +35,7 @@ where
     l2_provider: L2Provider,
     anchor_state_registry: AnchorStateRegistryInstance<P>,
     factory: DisputeGameFactoryInstance<P>,
-    challenger_bond: U256,
+    challenger_bond: OnceLock<U256>,
     state: Arc<Mutex<ChallengerState>>,
 }
 
@@ -56,7 +60,7 @@ where
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
             anchor_state_registry,
             factory,
-            challenger_bond: U256::ZERO, // Set during startup validations
+            challenger_bond: OnceLock::new(),
             state: Arc::new(Mutex::new(ChallengerState {
                 cursor: U256::ZERO,
                 games: HashMap::new(),
@@ -139,7 +143,7 @@ where
     }
 
     /// Runs one-time startup validations before the challenger begins normal operations.
-    pub async fn startup_validations(&mut self) -> Result<()> {
+    pub async fn startup_validations(&self) -> Result<()> {
         // Validate game type is registered and get game implementation.
         let game_impl = self.factory.game_impl(self.config.game_type).await?;
 
@@ -154,7 +158,10 @@ where
         }
 
         // Fetch challenger bond.
-        self.challenger_bond = game_impl.challengerBond().call().await?;
+        let bond = game_impl.challengerBond().call().await?;
+        self.challenger_bond
+            .set(bond)
+            .map_err(|_| anyhow::anyhow!("challenger_bond already set"))?;
 
         tracing::info!("Startup validations passed");
         Ok(())
@@ -471,8 +478,12 @@ where
 
     pub async fn submit_challenge_transaction(&self, game: &Game) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let challenger_bond = *self
+            .challenger_bond
+            .get()
+            .expect("challenger_bond must be set via startup_validations");
         let transaction_request =
-            contract.challenge().value(self.challenger_bond).into_transaction_request();
+            contract.challenge().value(challenger_bond).into_transaction_request();
         let receipt = self
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
