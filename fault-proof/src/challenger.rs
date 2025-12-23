@@ -139,7 +139,7 @@ where
     }
 
     /// Runs one-time startup validations before the challenger begins normal operations.
-    async fn startup_validations(&mut self) -> Result<()> {
+    pub async fn startup_validations(&mut self) -> Result<()> {
         // Validate game type is registered and get game implementation.
         let game_impl = self.factory.game_impl(self.config.game_type).await?;
 

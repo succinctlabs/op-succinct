@@ -343,7 +343,7 @@ where
     }
 
     /// Runs one-time startup validations before the proposer begins normal operations.
-    async fn startup_validations(&self) -> Result<()> {
+    pub async fn startup_validations(&self) -> Result<()> {
         // Validate anchor state registry matches factory's game implementation.
         Self::validate_anchor_state_registry(
             &self.anchor_state_registry,

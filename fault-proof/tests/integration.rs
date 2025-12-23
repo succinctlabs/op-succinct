@@ -802,7 +802,7 @@ mod integration {
 
         // === PHASE 2: Challenge Game 3 =================================
         info!("=== Phase 2: Challenge Game 3 ===");
-        let challenger = init_challenger(
+        let mut challenger = init_challenger(
             &env.rpc_config,
             env.private_keys.challenger,
             &env.deployed.anchor_state_registry,
@@ -810,6 +810,7 @@ mod integration {
             env.game_type,
             Some(100.0),
         )?;
+        challenger.startup_validations().await?;
         info!("✓ Challenger initialized");
 
         let game_to_challenge = Game {
@@ -943,9 +944,9 @@ mod integration {
         Ok(())
     }
 
-    // Tests that the proposer fails fast when the contract's starting L2 block number is
-    // misconfigured to a future value (e.g., a single block ahead of actual finalized L2 block).
-    // This prevents the proposer from running indefinitely without creating games.
+    // Tests that the proposer's startup validations fail when the contract's starting L2 block
+    // number is misconfigured to a future value (e.g., a single block ahead of actual finalized
+    // L2 block). This prevents the proposer from running indefinitely without creating games.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_rejects_future_starting_block() -> Result<()> {
         let env = TestEnvironment::setup_with_starting_block_offset(
@@ -953,7 +954,8 @@ mod integration {
         )
         .await?;
 
-        let result = env.init_proposer().await;
+        let proposer = env.init_proposer().await?;
+        let result = proposer.startup_validations().await;
 
         let error = match result {
             Err(e) => e,
