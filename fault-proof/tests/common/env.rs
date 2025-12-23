@@ -195,7 +195,7 @@ impl TestEnvironment {
         let proposer = init_proposer(
             &self.rpc_config,
             self.private_keys.proposer,
-            &self.deployed.portal,
+            &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
         )
@@ -208,7 +208,7 @@ impl TestEnvironment {
         let handle = start_proposer(
             &self.rpc_config,
             self.private_keys.proposer,
-            &self.deployed.portal,
+            &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
         )
