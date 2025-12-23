@@ -805,11 +805,11 @@ mod integration {
         let challenger = init_challenger(
             &env.rpc_config,
             env.private_keys.challenger,
+            &env.deployed.anchor_state_registry,
             &env.deployed.factory,
             env.game_type,
             Some(100.0),
-        )
-        .await?;
+        )?;
         info!("✓ Challenger initialized");
 
         let game_to_challenge = Game {
