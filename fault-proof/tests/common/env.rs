@@ -229,6 +229,7 @@ impl TestEnvironment {
         let handle = start_challenger(
             &self.rpc_config,
             self.private_keys.challenger,
+            &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
             malicious_percentage,

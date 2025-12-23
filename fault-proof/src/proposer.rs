@@ -215,14 +215,7 @@ where
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
         let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
-        // Initialize state with anchor L2 block number
-        let anchor_l2_block = factory.get_anchor_l2_block_number(config.game_type).await?;
-
-        Self::validate_anchor_l2_block(anchor_l2_block, &config, host.as_ref(), fetcher.as_ref())
-            .await?;
-
-        let initial_state =
-            ProposerState { canonical_head_l2_block: Some(anchor_l2_block), ..Default::default() };
+        let initial_state = ProposerState::default();
 
         Ok(Self {
             config: config.clone(),
@@ -246,39 +239,6 @@ where
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(RwLock::new(initial_state)),
         })
-    }
-
-    async fn validate_anchor_l2_block(
-        anchor_l2_block: U256,
-        config: &ProposerConfig,
-        host: &H,
-        fetcher: &OPSuccinctDataFetcher,
-    ) -> Result<()> {
-        let finalized_l2_block = host
-            .get_finalized_l2_block_number(fetcher, anchor_l2_block.to::<u64>())
-            .await?
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Cannot fetch finalized L2 block number from L2 RPC: {}\n\
-                     Please check that your L2 node is running and accessible.",
-                    config.l2_rpc
-                )
-            })?;
-
-        if anchor_l2_block > U256::from(finalized_l2_block) {
-            return Err(anyhow::anyhow!(
-                "Contract misconfiguration detected: Contract's anchor L2 block ({}) is ahead of \
-                 the current finalized L2 block ({}). This indicates:\n\
-                 1. The contract's startingL2BlockNumber is misconfigured to a future value, OR\n\
-                 2. Your L2 node is not fully synced, OR\n\
-                 3. Your L2 RPC endpoint is incorrect.\n\n\
-                 Please verify your configuration before starting the proposer.",
-                anchor_l2_block,
-                finalized_l2_block
-            ));
-        }
-
-        Ok(())
     }
 
     /// Returns a lightweight snapshot of the proposer's cached state.
@@ -326,8 +286,19 @@ where
         // Spawn a dedicated task for continuous metrics collection
         self.spawn_metrics_collector();
 
+        let mut startup_validated = false;
+        let mut startup_retry_count = 0u32;
+
         loop {
             interval.tick().await;
+
+            // 0. Run one-time validations before any operations.
+            if !startup_validated {
+                if !self.try_startup_validations(&mut startup_retry_count).await {
+                    continue;
+                }
+                startup_validated = true;
+            }
 
             // 1. Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
@@ -348,6 +319,112 @@ where
             // 4. Log task statistics.
             self.log_task_stats().await;
         }
+    }
+
+    /// Attempts startup validations, logging errors appropriately.
+    /// Returns `true` if validations passed, `false` if should retry.
+    async fn try_startup_validations(&self, retry_count: &mut u32) -> bool {
+        match self.startup_validations().await {
+            Ok(()) => true,
+            Err(e) => {
+                *retry_count += 1;
+                // Log full error on first attempt, brief message on subsequent retries.
+                if *retry_count == 1 {
+                    tracing::error!(attempt = *retry_count, error = %e, "Startup validations failed");
+                } else {
+                    tracing::warn!(
+                        attempt = *retry_count,
+                        "Startup validations still pending, retrying..."
+                    );
+                }
+                false
+            }
+        }
+    }
+
+    /// Runs one-time startup validations before the proposer begins normal operations.
+    async fn startup_validations(&self) -> Result<()> {
+        // Validate anchor state registry matches factory's game implementation.
+        Self::validate_anchor_state_registry(
+            &self.anchor_state_registry,
+            &self.factory,
+            self.config.game_type,
+        )
+        .await?;
+
+        // Fetch and validate anchor L2 block number.
+        let anchor_l2_block = self.anchor_state_registry.getAnchorRoot().call().await?._1;
+        Self::validate_anchor_l2_block(
+            anchor_l2_block,
+            &self.config,
+            self.host.as_ref(),
+            self.fetcher.as_ref(),
+        )
+        .await?;
+
+        // Initialize canonical head with anchor L2 block.
+        {
+            let mut state = self.state.write().await;
+            state.canonical_head_l2_block = Some(anchor_l2_block);
+        }
+
+        tracing::info!("Startup validations passed");
+        Ok(())
+    }
+
+    async fn validate_anchor_l2_block(
+        anchor_l2_block: U256,
+        config: &ProposerConfig,
+        host: &H,
+        fetcher: &OPSuccinctDataFetcher,
+    ) -> Result<()> {
+        let finalized_l2_block = host
+            .get_finalized_l2_block_number(fetcher, anchor_l2_block.to::<u64>())
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Cannot fetch finalized L2 block number from L2 RPC: {}\n\
+                     Please check that your L2 node is running and accessible.",
+                    config.l2_rpc
+                )
+            })?;
+
+        if anchor_l2_block > U256::from(finalized_l2_block) {
+            return Err(anyhow::anyhow!(
+                "Contract misconfiguration detected: Contract's anchor L2 block ({}) is ahead of \
+                 the current finalized L2 block ({}). This indicates:\n\
+                 1. The contract's startingL2BlockNumber is misconfigured to a future value, OR\n\
+                 2. Your L2 node is not fully synced, OR\n\
+                 3. Your L2 RPC endpoint is incorrect.\n\n\
+                 Please verify your configuration before starting the proposer.",
+                anchor_l2_block,
+                finalized_l2_block
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Validates that the provided anchor state registry matches the factory's game implementation.
+    async fn validate_anchor_state_registry(
+        anchor_state_registry: &AnchorStateRegistryInstance<P>,
+        factory: &DisputeGameFactoryInstance<P>,
+        game_type: u32,
+    ) -> Result<()> {
+        let game_impl_address = factory.gameImpls(game_type).call().await?;
+        if game_impl_address == Address::ZERO {
+            anyhow::bail!("Game type {game_type} is not registered in the factory");
+        }
+        let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, factory.provider());
+        let expected_registry = game_impl.anchorStateRegistry().call().await?;
+        if *anchor_state_registry.address() != expected_registry {
+            anyhow::bail!(
+                "Anchor state registry address mismatch: config has {}, but factory's game implementation uses {}",
+                anchor_state_registry.address(),
+                expected_registry
+            );
+        }
+        Ok(())
     }
 
     /// Synchronizes the proposer's cached view of the dispute-game tree with the on-chain state.
@@ -392,8 +469,7 @@ where
             return Ok(());
         };
 
-        let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
-        let anchor_address = anchor_game.address();
+        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
 
         let cursor = {
             let state = self.state.read().await;
@@ -429,7 +505,7 @@ where
             match fetch_result {
                 GameFetchResult::ValidGame { game_address, deadline } => {
                     // First time we hit the anchor, record its deadline
-                    if &game_address == anchor_address {
+                    if game_address == anchor_address {
                         anchor_deadline = Some(deadline);
                     }
 
@@ -449,7 +525,7 @@ where
                 }
                 GameFetchResult::UnsupportedType { game_address } => {
                     // Stop fetching once we find the anchor on an unsupported game.
-                    if &game_address == anchor_address {
+                    if game_address == anchor_address {
                         break
                     }
                 }
@@ -518,7 +594,7 @@ where
                 let parent_index = claim_data.parentIndex;
 
                 let is_finalized =
-                    self.factory.is_game_finalized(self.config.game_type, game_address).await?;
+                    self.anchor_state_registry.isGameFinalized(game_address).call().await?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
@@ -576,12 +652,12 @@ where
                                 tracing::debug!(game_index = %index, "Retaining game: canonical head");
                                 false
                             } else {
-                                let anchor_game = self
-                                    .factory
-                                    .get_anchor_game(self.config.game_type)
+                                let anchor_game_address = self
+                                    .anchor_state_registry
+                                    .anchorGame()
+                                    .call()
                                     .await
                                     .context("Failed to fetch anchor game for removal check")?;
-                                let anchor_game_address = *anchor_game.address();
 
                                 if anchor_game_address == game_address {
                                     tracing::debug!(game_index = %index, "Retaining game: anchor game");
@@ -654,17 +730,16 @@ where
         Ok(())
     }
 
-    /// Synchronizes the anchor game from the factory.
+    /// Synchronizes the anchor game from the registry.
     async fn sync_anchor_game(&self) -> Result<()> {
-        let anchor_game = self.factory.get_anchor_game(self.config.game_type).await?;
-        let anchor_address = anchor_game.address();
+        let anchor_address = self.anchor_state_registry.anchorGame().call().await?;
 
-        if *anchor_address != Address::ZERO {
+        if anchor_address != Address::ZERO {
             let mut state = self.state.write().await;
 
             // Fetch the anchor game from the cache.
             if let Some((_, anchor_game)) =
-                state.games.iter().find(|(_, game)| game.address == *anchor_address)
+                state.games.iter().find(|(_, game)| game.address == anchor_address)
             {
                 state.anchor_game = Some(anchor_game.clone());
                 tracing::debug!(?anchor_address, "Anchor game updated in cache");
