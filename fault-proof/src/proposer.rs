@@ -411,11 +411,7 @@ where
         factory: &DisputeGameFactoryInstance<P>,
         game_type: u32,
     ) -> Result<()> {
-        let game_impl_address = factory.gameImpls(game_type).call().await?;
-        if game_impl_address == Address::ZERO {
-            anyhow::bail!("Game type {game_type} is not registered in the factory");
-        }
-        let game_impl = OPSuccinctFaultDisputeGame::new(game_impl_address, factory.provider());
+        let game_impl = factory.game_impl(game_type).await?;
         let expected_registry = game_impl.anchorStateRegistry().call().await?;
         if *anchor_state_registry.address() != expected_registry {
             anyhow::bail!(

@@ -233,8 +233,7 @@ impl TestEnvironment {
             &self.deployed.factory,
             self.game_type,
             malicious_percentage,
-        )
-        .await?;
+        )?;
         info!("✓ Challenger service started with malicious percentage: {malicious_percentage:?}");
         Ok(handle)
     }

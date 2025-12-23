@@ -10,6 +10,7 @@ use tokio::{sync::Mutex, time};
 use crate::{
     config::ChallengerConfig,
     contract::{
+        AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, OPSuccinctFaultDisputeGame,
         ProposalStatus,
     },
@@ -28,6 +29,7 @@ where
     signer: SignerLock,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
+    anchor_state_registry: AnchorStateRegistryInstance<P>,
     factory: DisputeGameFactoryInstance<P>,
     challenger_bond: U256,
     state: Arc<Mutex<ChallengerState>>,
@@ -37,28 +39,29 @@ impl<P> OPSuccinctChallenger<P>
 where
     P: Provider + Clone,
 {
-    /// Creates a new challenger instance for testing with provided configuration.
-    pub async fn new(
+    /// Creates a new challenger instance with provided configuration.
+    pub fn new(
         config: ChallengerConfig,
         l1_provider: L1Provider,
+        anchor_state_registry: AnchorStateRegistryInstance<P>,
         factory: DisputeGameFactoryInstance<P>,
         signer: SignerLock,
-    ) -> Result<Self> {
-        let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
+    ) -> Self {
         let l2_rpc = config.l2_rpc.clone();
 
-        Ok(OPSuccinctChallenger {
+        OPSuccinctChallenger {
             config,
             signer,
             l1_provider: l1_provider.clone(),
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
+            anchor_state_registry,
             factory,
-            challenger_bond,
+            challenger_bond: U256::ZERO, // Set during startup validations
             state: Arc::new(Mutex::new(ChallengerState {
                 cursor: U256::ZERO,
                 games: HashMap::new(),
             })),
-        })
+        }
     }
 
     /// Runs the main challenger loop. On each tick it waits for the configured interval, refreshes
@@ -76,28 +79,85 @@ where
 
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
+        let mut startup_validated = false;
+        let mut startup_retry_count = 0u32;
+
         // Each loop iteration waits for the configured interval, synchronizes the cached state,
         // and then attempts to challenge, resolve, and claim bonds for any eligible games.
         loop {
             interval.tick().await;
 
-            // Synchronize cached dispute state before scheduling work.
+            // 0. Run one-time validations before any operations.
+            if !startup_validated {
+                if !self.try_startup_validations(&mut startup_retry_count).await {
+                    continue;
+                }
+                startup_validated = true;
+            }
+
+            // 1. Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
             }
 
+            // 2. Handle game challenging.
             if let Err(e) = self.handle_game_challenging().await {
                 tracing::warn!("Failed to handle game challenging: {:?}", e);
             }
 
+            // 3. Handle game resolution.
             if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
 
+            // 4. Handle bond claiming.
             if let Err(e) = self.handle_bond_claiming().await {
                 tracing::warn!("Failed to handle bond claiming: {:?}", e);
             }
         }
+    }
+
+    /// Attempts startup validations, logging errors appropriately.
+    /// Returns `true` if validations passed, `false` if should retry.
+    async fn try_startup_validations(&mut self, retry_count: &mut u32) -> bool {
+        match self.startup_validations().await {
+            Ok(()) => true,
+            Err(e) => {
+                *retry_count += 1;
+                // Log full error on first attempt, brief message on subsequent retries.
+                if *retry_count == 1 {
+                    tracing::error!(attempt = *retry_count, error = %e, "Startup validations failed");
+                } else {
+                    tracing::warn!(
+                        attempt = *retry_count,
+                        "Startup validations still pending, retrying..."
+                    );
+                }
+                false
+            }
+        }
+    }
+
+    /// Runs one-time startup validations before the challenger begins normal operations.
+    async fn startup_validations(&mut self) -> Result<()> {
+        // Validate game type is registered and get game implementation.
+        let game_impl = self.factory.game_impl(self.config.game_type).await?;
+
+        // Validate anchor state registry matches factory's game implementation.
+        let expected_registry = game_impl.anchorStateRegistry().call().await?;
+        if *self.anchor_state_registry.address() != expected_registry {
+            anyhow::bail!(
+                "Anchor state registry address mismatch: config has {}, but factory's game implementation uses {}",
+                self.anchor_state_registry.address(),
+                expected_registry
+            );
+        }
+
+        // Fetch challenger bond.
+        self.challenger_bond = game_impl.challengerBond().call().await?;
+
+        tracing::info!("Startup validations passed");
+        Ok(())
     }
 
     /// Synchronizes the game cache.
@@ -210,10 +270,8 @@ where
                         }
                     }
                     GameStatus::CHALLENGER_WINS => {
-                        let is_finalized = self
-                            .factory
-                            .is_game_finalized(self.config.game_type, game.address)
-                            .await?;
+                        let is_finalized =
+                            self.anchor_state_registry.isGameFinalized(game.address).call().await?;
                         let credit = contract.credit(signer_address).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
