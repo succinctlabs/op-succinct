@@ -128,11 +128,8 @@ sol! {
 
         /// @notice Returns the current anchor game reference.
         function anchorGame() public view returns (IDisputeGame anchorGame_);
-    }
 
-    #[sol(rpc)]
-    interface IOptimismPortal2 {
-        /// @notice The game type that the OptimismPortal consults for output proposals.
+        /// @notice Returns the respected game type.
         function respectedGameType() external view returns (GameType);
     }
 

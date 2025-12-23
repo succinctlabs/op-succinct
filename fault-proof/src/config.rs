@@ -19,8 +19,8 @@ pub struct ProposerConfig {
     /// The L2 RPC URL.
     pub l2_rpc: Url,
 
-    /// The address of the OptimismPortal2 contract.
-    pub portal_address: Address,
+    /// The address of the AnchorStateRegistry contract.
+    pub anchor_state_registry_address: Address,
 
     /// The address of the factory contract.
     pub factory_address: Address,
@@ -131,7 +131,9 @@ impl ProposerConfig {
         Ok(Self {
             l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
             l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
-            portal_address: env::var("PORTAL_ADDRESS")?.parse().expect("PORTAL_ADDRESS not set"),
+            anchor_state_registry_address: env::var("ANCHOR_STATE_REGISTRY_ADDRESS")?
+                .parse()
+                .expect("ANCHOR_STATE_REGISTRY_ADDRESS not set"),
             factory_address: env::var("FACTORY_ADDRESS")?.parse().expect("FACTORY_ADDRESS not set"),
             mock_mode: env::var("MOCK_MODE").unwrap_or("false".to_string()).parse()?,
             fast_finality_mode: env::var("FAST_FINALITY_MODE")

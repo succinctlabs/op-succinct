@@ -7,7 +7,7 @@ use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
     config::ProposerConfig,
-    contract::{DisputeGameFactory, IOptimismPortal2},
+    contract::{AnchorStateRegistry, DisputeGameFactory},
     prometheus::ProposerGauge,
     proposer::OPSuccinctProposer,
 };
@@ -44,8 +44,11 @@ async fn main() -> Result<()> {
     let l1_provider =
         ProviderBuilder::new().connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
 
-    let portal = IOptimismPortal2::new(
-        env::var("PORTAL_ADDRESS").expect("PORTAL_ADDRESS must be set").parse::<Address>().unwrap(),
+    let anchor_state_registry = AnchorStateRegistry::new(
+        env::var("ANCHOR_STATE_REGISTRY_ADDRESS")
+            .expect("ANCHOR_STATE_REGISTRY_ADDRESS must be set")
+            .parse::<Address>()
+            .unwrap(),
         l1_provider.clone(),
     );
 
@@ -64,7 +67,7 @@ async fn main() -> Result<()> {
         OPSuccinctProposer::new(
             proposer_config,
             proposer_signer,
-            portal,
+            anchor_state_registry,
             factory,
             Arc::new(fetcher),
             host,
