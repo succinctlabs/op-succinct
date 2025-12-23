@@ -40,9 +40,7 @@ use crate::{
     },
     is_parent_resolved,
     prometheus::ProposerGauge,
-    prover::{
-        MockProofProvider, NetworkProofProvider, ProofKeys, ProofProvider, ProofProviderConfig,
-    },
+    prover::{MockProofProvider, NetworkProofProvider, ProofKeys, ProofProvider},
     FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
 };
 
@@ -192,8 +190,10 @@ where
     ) -> Result<Self> {
         // Set up the network prover.
         let network_signer = get_network_signer(config.use_kms_requester).await?;
-        let network_mode =
-            determine_network_mode(config.range_proof_strategy, config.agg_proof_strategy)?;
+        let network_mode = determine_network_mode(
+            config.proof_provider.range_proof_strategy,
+            config.proof_provider.agg_proof_strategy,
+        )?;
         let network_prover = Arc::new(
             ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
         );
@@ -207,34 +207,18 @@ where
             agg_vk: Arc::new(agg_vk),
         };
 
-        let provider_config = ProofProviderConfig {
-            timeout: config.timeout,
-            network_calls_timeout: config.network_calls_timeout,
-            auction_timeout: config.auction_timeout,
-            range_proof_strategy: config.range_proof_strategy,
-            agg_proof_strategy: config.agg_proof_strategy,
-            agg_proof_mode: config.agg_proof_mode,
-            range_cycle_limit: config.range_cycle_limit,
-            range_gas_limit: config.range_gas_limit,
-            agg_cycle_limit: config.agg_cycle_limit,
-            agg_gas_limit: config.agg_gas_limit,
-            max_price_per_pgu: config.max_price_per_pgu,
-            min_auction_period: config.min_auction_period,
-            whitelist: config.whitelist.clone(),
-        };
-
         let prover = if config.mock_mode {
             ProofProvider::Mock(MockProofProvider::new(
                 network_prover,
                 keys,
-                provider_config,
+                config.proof_provider.clone(),
                 AGGREGATION_ELF,
             ))
         } else {
             ProofProvider::Network(NetworkProofProvider::new(
                 network_prover,
                 keys,
-                provider_config,
+                config.proof_provider.clone(),
                 network_mode,
             ))
         };

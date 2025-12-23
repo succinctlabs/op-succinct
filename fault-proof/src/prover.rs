@@ -5,14 +5,15 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::B256;
 use anyhow::{bail, Context, Result};
 use sp1_sdk::{
-    network::{proto::types::FulfillmentStatus, FulfillmentStrategy, NetworkMode},
+    network::{proto::types::FulfillmentStatus, NetworkMode},
     NetworkProver, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin,
     SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
 
+use crate::config::ProofProviderConfig;
 use op_succinct_proof_utils::get_range_elf_embedded;
 
 // ============================================================================
@@ -25,37 +26,6 @@ pub const PROOF_STATUS_POLL_INTERVAL: u64 = 2;
 
 /// Unique identifier for a proof request.
 pub type ProofId = B256;
-
-/// Configuration for proof provider operations.
-#[derive(Debug, Clone)]
-pub struct ProofProviderConfig {
-    /// Overall proving timeout (seconds).
-    pub timeout: u64,
-    /// Timeout for individual network calls (seconds).
-    pub network_calls_timeout: u64,
-    /// Auction timeout (seconds) - cancel if no prover picks up.
-    pub auction_timeout: u64,
-    /// Fulfillment strategy for range proofs.
-    pub range_proof_strategy: FulfillmentStrategy,
-    /// Fulfillment strategy for aggregation proofs.
-    pub agg_proof_strategy: FulfillmentStrategy,
-    /// Proof mode for aggregation proofs.
-    pub agg_proof_mode: SP1ProofMode,
-    /// Cycle limit for range proofs.
-    pub range_cycle_limit: u64,
-    /// Gas limit for range proofs.
-    pub range_gas_limit: u64,
-    /// Cycle limit for aggregation proofs.
-    pub agg_cycle_limit: u64,
-    /// Gas limit for aggregation proofs.
-    pub agg_gas_limit: u64,
-    /// Maximum price per PGU.
-    pub max_price_per_pgu: u64,
-    /// Minimum auction period.
-    pub min_auction_period: u64,
-    /// Whitelist of allowed prover addresses.
-    pub whitelist: Option<Vec<Address>>,
-}
 
 /// Container for proving and verifying keys.
 #[derive(Clone)]
