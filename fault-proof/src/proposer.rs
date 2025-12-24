@@ -882,6 +882,10 @@ where
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
 
+        if !receipt.status() {
+            bail!("Prove transaction reverted: {receipt:?}");
+        }
+
         Ok((receipt.transaction_hash, total_instruction_cycles, total_sp1_gas))
     }
 
@@ -935,6 +939,10 @@ where
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
+
+        if !receipt.status() {
+            bail!("Create game transaction reverted: {receipt:?}");
+        }
 
         let game_address = receipt
             .inner
@@ -1038,6 +1046,10 @@ where
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
 
+        if !receipt.status() {
+            bail!("Resolve transaction reverted: {receipt:?}");
+        }
+
         tracing::info!(
             game_index = %game.index,
             game_address = ?game.address,
@@ -1059,6 +1071,10 @@ where
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
+
+        if !receipt.status() {
+            bail!("Claim bond transaction reverted: {receipt:?}");
+        }
 
         tracing::info!(
             game_index = %game.index,
