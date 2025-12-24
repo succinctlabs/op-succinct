@@ -53,6 +53,12 @@ use crate::{
 /// ensuring all actionable games are included under normal conditions.
 pub const MAX_GAME_DEADLINE_LAG: u64 = 60 * 60 * 24 * 14; // 14 days
 
+/// Divisor for calculating deadline warning threshold.
+///
+/// When less than `max_duration / DEADLINE_WARNING_DIVISOR` time remains,
+/// the deadline is considered "approaching".
+pub const DEADLINE_WARNING_DIVISOR: u64 = 2;
+
 /// Type alias for task ID
 pub type TaskId = u64;
 
@@ -2033,7 +2039,7 @@ pub fn check_deadline_status(now: u64, deadline: u64, max_duration: u64) -> Dead
     }
 
     let time_remaining = deadline.saturating_sub(now);
-    let warning_threshold = max_duration / 2;
+    let warning_threshold = max_duration / DEADLINE_WARNING_DIVISOR;
 
     if time_remaining < warning_threshold {
         let hours_remaining = time_remaining as f64 / 3600.0;
