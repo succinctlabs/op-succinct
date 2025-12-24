@@ -146,16 +146,16 @@ where
         Ok(bond)
     }
 
-    /// Initialize challenger state with the validated challenger bond.
-    pub fn init_state(&self, bond: U256) {
-        self.challenger_bond.set(bond).expect("challenger_bond must not already be set");
-    }
-
     /// Validates startup and initializes state.
     pub async fn validate_and_init(&self) -> Result<()> {
         let bond = self.startup_validations().await?;
         self.init_state(bond);
         Ok(())
+    }
+
+    /// Initialize challenger state with the validated challenger bond.
+    pub fn init_state(&self, bond: U256) {
+        self.challenger_bond.set(bond).expect("challenger_bond must not already be set");
     }
 
     /// Synchronizes the game cache.
