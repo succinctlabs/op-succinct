@@ -85,10 +85,13 @@ where
         }
 
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+
+        // Each loop iteration waits for the configured interval, synchronizes the cached state,
+        // and then attempts to challenge, resolve, and claim bonds for any eligible games.
         loop {
             interval.tick().await;
 
-            // 1. Synchronize cached dispute state before scheduling work.
+            // Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
                 continue
