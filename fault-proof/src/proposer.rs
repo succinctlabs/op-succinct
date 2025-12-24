@@ -1887,42 +1887,43 @@ where
         deadline: u64,
         is_defense: bool,
     ) -> Result<bool> {
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
 
-        if now >= deadline {
-            tracing::error!(
-                game_address = ?game_address,
-                deadline = deadline,
-                now = now,
-                "Game deadline passed, cannot prove"
-            );
-            return Ok(true);
-        }
-
-        // Warn if deadline is approaching
-        let time_remaining = deadline.saturating_sub(now);
         let contract_params = self
             .contract_params
             .get()
             .context("contract_params must be set via try_init")?;
-        let duration = if is_defense {
+        let max_duration = if is_defense {
             contract_params.max_prove_duration
         } else {
             contract_params.max_challenge_duration
         };
-        let warning_threshold = duration / 2;
 
-        if time_remaining < warning_threshold {
-            let hours_remaining = time_remaining as f64 / 3600.0;
-            tracing::warn!(
-                game_address = ?game_address,
-                is_defense = is_defense,
-                "Game deadline approaching, {:.1} hours remaining",
-                hours_remaining
-            );
+        let status = check_deadline_status(now, deadline, max_duration);
+
+        match status {
+            DeadlineStatus::Passed => {
+                tracing::error!(
+                    game_address = ?game_address,
+                    deadline = deadline,
+                    now = now,
+                    "Game deadline passed, cannot prove"
+                );
+                Ok(true)
+            }
+            DeadlineStatus::Approaching { hours_remaining } => {
+                tracing::warn!(
+                    game_address = ?game_address,
+                    is_defense = is_defense,
+                    "Game deadline approaching, {:.1} hours remaining",
+                    hours_remaining
+                );
+                Ok(false)
+            }
+            DeadlineStatus::Ok => Ok(false),
         }
-
-        Ok(false)
     }
 
     /// Spawn a game resolution task
@@ -2016,6 +2017,34 @@ impl From<U256> for Cursor {
     }
 }
 
+/// Result of checking a game's deadline status.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DeadlineStatus {
+    /// Deadline has passed
+    Passed,
+    /// Deadline is approaching
+    Approaching { hours_remaining: f64 },
+    /// Deadline is not imminent
+    Ok,
+}
+
+/// Check the deadline status for a game.
+pub fn check_deadline_status(now: u64, deadline: u64, max_duration: u64) -> DeadlineStatus {
+    if now >= deadline {
+        return DeadlineStatus::Passed;
+    }
+
+    let time_remaining = deadline.saturating_sub(now);
+    let warning_threshold = max_duration / 2;
+
+    if time_remaining < warning_threshold {
+        let hours_remaining = time_remaining as f64 / 3600.0;
+        DeadlineStatus::Approaching { hours_remaining }
+    } else {
+        DeadlineStatus::Ok
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::config::RangeSplitCount;
@@ -2082,6 +2111,44 @@ mod tests {
             let ranges = RangeSplitCount::new(8).unwrap().split(0, 800).unwrap();
             let results = prove_ranges(ranges, None, 4, Duration::from_micros(100)).await.unwrap();
             assert_eq!(results.len(), 8);
+        }
+    }
+
+    mod proving_deadline_tests {
+        use super::super::{check_deadline_status, DeadlineStatus};
+        use rstest::rstest;
+
+        const HOUR: u64 = 3600;
+        const MAX_DURATION: u64 = 6 * HOUR;
+
+        #[rstest]
+        #[case::passed_in_past(1000, 900, DeadlineStatus::Passed)]
+        #[case::passed_exactly_now(1000, 1000, DeadlineStatus::Passed)]
+        #[case::ok_plenty_of_time(1000, 1000 + 5 * HOUR, DeadlineStatus::Ok)]
+        #[case::ok_at_threshold(1000, 1000 + MAX_DURATION / 2, DeadlineStatus::Ok)]
+        fn test_deadline_status(
+            #[case] now: u64,
+            #[case] deadline: u64,
+            #[case] expected: DeadlineStatus,
+        ) {
+            let status = check_deadline_status(now, deadline, MAX_DURATION);
+            assert_eq!(status, expected);
+        }
+
+        #[rstest]
+        #[case::two_hours_left(1000, 1000 + 2 * HOUR, 2.0)]
+        #[case::one_hour_left(1000, 1000 + HOUR, 1.0)]
+        fn test_deadline_approaching(
+            #[case] now: u64,
+            #[case] deadline: u64,
+            #[case] expected_hours: f64,
+        ) {
+            match check_deadline_status(now, deadline, MAX_DURATION) {
+                DeadlineStatus::Approaching { hours_remaining } => {
+                    assert!((hours_remaining - expected_hours).abs() < 0.01);
+                }
+                other => panic!("Expected Approaching, got {:?}", other),
+            }
         }
     }
 }
