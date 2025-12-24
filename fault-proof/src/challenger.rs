@@ -93,7 +93,10 @@ where
                     if retry_count == 1 {
                         tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
                     } else {
-                        tracing::warn!(attempt = retry_count, "Startup validations still pending, retrying...");
+                        tracing::warn!(
+                            attempt = retry_count,
+                            "Startup validations still pending, retrying..."
+                        );
                     }
                     interval.tick().await;
                 }
@@ -105,7 +108,7 @@ where
         loop {
             interval.tick().await;
 
-            // 1. Synchronize cached dispute state before scheduling work.
+            // Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
             }

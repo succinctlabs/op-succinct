@@ -809,7 +809,8 @@ mod integration {
             &env.deployed.factory,
             env.game_type,
             Some(100.0),
-        ).await?;
+        )
+        .await?;
         info!("✓ Challenger initialized");
 
         let game_to_challenge = Game {

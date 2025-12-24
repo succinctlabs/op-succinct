@@ -296,7 +296,10 @@ where
                     if retry_count == 1 {
                         tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
                     } else {
-                        tracing::warn!(attempt = retry_count, "Startup validations still pending, retrying...");
+                        tracing::warn!(
+                            attempt = retry_count,
+                            "Startup validations still pending, retrying..."
+                        );
                     }
                     interval.tick().await;
                 }
