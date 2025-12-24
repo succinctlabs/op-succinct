@@ -151,6 +151,15 @@ pub struct ProposerStateSnapshot {
     pub games: Vec<(U256, Address)>,
 }
 
+/// On-chain contract timing parameters.
+#[derive(Clone, Debug)]
+pub struct ContractParams {
+    /// Maximum duration allowed for challenging a game.
+    pub max_challenge_duration: u64,
+    /// Maximum duration allowed for proving after a challenge.
+    pub max_prove_duration: u64,
+}
+
 #[derive(Clone)]
 pub struct OPSuccinctProposer<P, H: OPSuccinctHost>
 where
@@ -158,6 +167,7 @@ where
     H: OPSuccinctHost + Clone + Send + Sync + 'static,
 {
     pub config: ProposerConfig,
+    contract_params: OnceLock<ContractParams>,
     pub signer: SignerLock,
     pub l1_provider: L1Provider,
     pub l2_provider: L2Provider,
@@ -230,6 +240,7 @@ where
 
         Ok(Self {
             config: config.clone(),
+            contract_params: OnceLock::new(),
             signer,
             l1_provider,
             l2_provider,
@@ -345,14 +356,13 @@ where
 
     /// Validates startup and initializes state.
     pub async fn validate_and_init(&self) -> Result<()> {
-        let (anchor_l2_block, init_bond) = self.startup_validations().await?;
-        self.init_state(anchor_l2_block, init_bond).await;
-        Ok(())
+        let (anchor_l2_block, init_bond, contract_params) = self.startup_validations().await?;
+        self.init_state(anchor_l2_block, init_bond, contract_params).await
     }
 
     /// Runs one-time startup validations before the proposer begins normal operations.
-    /// Returns the validated anchor L2 block number and init bond.
-    async fn startup_validations(&self) -> Result<(U256, U256)> {
+    /// Returns the validated anchor L2 block number, init bond, and contract params.
+    async fn startup_validations(&self) -> Result<(U256, U256, ContractParams)> {
         // Validate anchor state registry matches factory's game implementation.
         Self::validate_anchor_state_registry(
             &self.anchor_state_registry,
@@ -374,13 +384,31 @@ where
         // Fetch init bond.
         let init_bond = self.factory.fetch_init_bond(self.config.game_type).await?;
 
-        Ok((anchor_l2_block, init_bond))
+        // Fetch contract params from game implementation.
+        let game_impl = self.factory.game_impl(self.config.game_type).await?;
+        let max_challenge_duration = game_impl.maxChallengeDuration().call().await?.to::<u64>();
+        let max_prove_duration = game_impl.maxProveDuration().call().await?;
+        let contract_params = ContractParams { max_challenge_duration, max_prove_duration };
+
+        Ok((anchor_l2_block, init_bond, contract_params))
     }
 
-    /// Initialize proposer state with the validated anchor L2 block and init bond.
-    async fn init_state(&self, anchor_l2_block: U256, init_bond: U256) {
+    /// Initialize proposer state with the validated anchor L2 block, init bond, and contract
+    /// params.
+    async fn init_state(
+        &self,
+        anchor_l2_block: U256,
+        init_bond: U256,
+        contract_params: ContractParams,
+    ) -> Result<()> {
         self.state.write().await.canonical_head_l2_block = Some(anchor_l2_block);
-        self.init_bond.set(init_bond).expect("init_bond must not already be set");
+        self.init_bond
+            .set(init_bond)
+            .map_err(|_| anyhow::anyhow!("init_bond must not already be set"))?;
+        self.contract_params
+            .set(contract_params)
+            .map_err(|_| anyhow::anyhow!("contract_params must not already be set"))?;
+        Ok(())
     }
 
     async fn validate_anchor_l2_block(
@@ -1019,8 +1047,9 @@ where
         if self.config.fast_finality_mode {
             tracing::info!("Fast finality mode enabled: Spawning proof generation task");
 
-            // Spawn a tracked proving task for the new game
-            if let Err(e) = self.spawn_game_proving_task(game_address, false).await {
+            // Spawn a tracked proving task for the new game (None = just created, skip deadline
+            // check)
+            if let Err(e) = self.spawn_game_proving_task(game_address, false, None).await {
                 tracing::warn!("Failed to spawn fast finality proof task: {:?}", e);
             }
         }
@@ -1560,7 +1589,7 @@ where
                         .values()
                         .filter(|game| game.status == GameStatus::IN_PROGRESS)
                         .filter(|game| game.proposal_status == ProposalStatus::Unchallenged)
-                        .map(|game| (game.index, game.address))
+                        .map(|game| (game.index, game.address, game.deadline))
                         .collect::<Vec<_>>();
 
                     let proving_set = tasks
@@ -1574,13 +1603,13 @@ where
                     // Filter games being proven
                     candidates
                         .into_iter()
-                        .filter(|(_, address)| !proving_set.contains(address))
+                        .filter(|(_, address, _)| !proving_set.contains(address))
                         .collect::<Vec<_>>()
                 };
 
                 let mut spawned_count = 0;
 
-                for (index, game_address) in unproven_games {
+                for (index, game_address, deadline) in unproven_games {
                     if active_proving >= self.config.fast_finality_proving_limit {
                         tracing::debug!(
                             "Reached fast finality proving capacity ({}/{}) while resuming games",
@@ -1610,7 +1639,7 @@ where
                     }
 
                     // Spawn proving task
-                    match self.spawn_game_proving_task(game_address, false).await {
+                    match self.spawn_game_proving_task(game_address, false, Some(deadline)).await {
                         Ok(()) => {
                             tracing::info!(
                                 game_address = ?game_address,
@@ -1723,7 +1752,7 @@ where
 
         let mut tasks_spawned = false;
 
-        for (index, game_address, _) in candidates {
+        for (index, game_address, deadline) in candidates {
             if active_defense_tasks_count >= max_concurrent {
                 tracing::debug!(
                     "The max concurrent defense tasks count ({}) has been reached",
@@ -1741,7 +1770,7 @@ where
                 game_index = %index,
                 "Spawning defense for challenged game"
             );
-            self.spawn_game_proving_task(game_address, true).await?;
+            self.spawn_game_proving_task(game_address, true, Some(deadline)).await?;
             active_defense_tasks_count += 1;
             tasks_spawned = true;
         }
@@ -1757,8 +1786,21 @@ where
         })
     }
 
-    /// Spawn a game proving task for a specific game
-    async fn spawn_game_proving_task(&self, game_address: Address, is_defense: bool) -> Result<()> {
+    /// Spawn a game proving task for a specific game.
+    ///
+    /// Skips if game deadline has passed (too late to prove).
+    async fn spawn_game_proving_task(
+        &self,
+        game_address: Address,
+        is_defense: bool,
+        deadline: Option<u64>,
+    ) -> Result<()> {
+        if let Some(deadline) = deadline {
+            if self.check_game_deadline(game_address, deadline, is_defense)? {
+                return Ok(());
+            }
+        }
+
         let proposer: OPSuccinctProposer<P, H> = self.clone();
         let task_id = self.next_task_id.fetch_add(1, Ordering::Relaxed);
 
@@ -1832,6 +1874,55 @@ where
         let task_info = TaskInfo::GameProving { game_address, is_defense };
         self.tasks.lock().await.insert(task_id, (handle, task_info));
         Ok(())
+    }
+
+    /// Check if the game deadline has passed or is approaching.
+    ///
+    /// Returns `Ok(true)` if the deadline has passed (caller should skip this game).
+    /// Returns `Ok(false)` if the deadline has not passed (caller should continue).
+    /// Logs a warning if the deadline is approaching.
+    fn check_game_deadline(
+        &self,
+        game_address: Address,
+        deadline: u64,
+        is_defense: bool,
+    ) -> Result<bool> {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+
+        if now >= deadline {
+            tracing::error!(
+                game_address = ?game_address,
+                deadline = deadline,
+                now = now,
+                "Game deadline passed, cannot prove"
+            );
+            return Ok(true);
+        }
+
+        // Warn if deadline is approaching
+        let time_remaining = deadline.saturating_sub(now);
+        let contract_params = self
+            .contract_params
+            .get()
+            .context("contract_params must be set via try_init")?;
+        let duration = if is_defense {
+            contract_params.max_prove_duration
+        } else {
+            contract_params.max_challenge_duration
+        };
+        let warning_threshold = duration / 2;
+
+        if time_remaining < warning_threshold {
+            let hours_remaining = time_remaining as f64 / 3600.0;
+            tracing::warn!(
+                game_address = ?game_address,
+                is_defense = is_defense,
+                "Game deadline approaching, {:.1} hours remaining",
+                hours_remaining
+            );
+        }
+
+        Ok(false)
     }
 
     /// Spawn a game resolution task

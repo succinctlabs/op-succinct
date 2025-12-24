@@ -218,7 +218,13 @@ impl NetworkProofProvider {
                     "proving timeout exceeded"
                 );
                 ProposerGauge::ProvingTimeoutError.increment(1.0);
-                bail!("Proof request {proof_id} client timeout after {elapsed_secs}s");
+                bail!(
+                    "Proving timeout: proof_id={}, elapsed={}s, timeout={}s \
+                    (consider reducing workload: increase RANGE_SPLIT_COUNT or reduce PROPOSAL_INTERVAL_IN_BLOCKS)",
+                    proof_id,
+                    elapsed_secs,
+                    self.config.timeout
+                );
             }
 
             // Get proof status - retry on transient failures.
@@ -261,17 +267,18 @@ impl NetworkProofProvider {
             // Check auction timeout: if request is still in "Requested" state past the deadline.
             // Only cancel on mainnet where auction dynamics are meaningful.
             if let Some(details) = &request_details {
+                let timeout_secs = self.config.auction_timeout;
                 if let AuctionTimeout::Exceeded { elapsed_secs } = check_auction(
                     self.network_mode == NetworkMode::Mainnet,
                     details.fulfillment_status,
                     details.created_at,
-                    self.config.auction_timeout,
+                    timeout_secs,
                     current_time,
                 ) {
                     tracing::warn!(
                         proof_id = %proof_id,
                         elapsed_secs,
-                        timeout_secs = self.config.auction_timeout,
+                        timeout_secs,
                         "auction timeout exceeded, cancelling request"
                     );
                     if let Err(e) = self
@@ -285,7 +292,12 @@ impl NetworkProofProvider {
                         tracing::error!(proof_id = %proof_id, error = %e, "Failed to cancel proof request");
                     }
                     ProposerGauge::AuctionTimeoutError.increment(1.0);
-                    bail!("Proof request {} auction timeout after {}s", proof_id, elapsed_secs);
+                    bail!(
+                        "Auction timeout: proof_id={}, elapsed={}s, timeout={}s",
+                        proof_id,
+                        elapsed_secs,
+                        timeout_secs
+                    );
                 }
             }
 
@@ -300,7 +312,8 @@ impl NetworkProofProvider {
                 );
                 ProposerGauge::DeadlineExceededError.increment(1.0);
                 bail!(
-                    "Proof request {} deadline exceeded (deadline={}, current={})",
+                    "Deadline exceeded: proof_id={}, deadline={}, current_time={} \
+                     (consider reducing workload: increase RANGE_SPLIT_COUNT or reduce PROPOSAL_INTERVAL_IN_BLOCKS)",
                     proof_id,
                     deadline,
                     current_time
@@ -317,7 +330,7 @@ impl NetworkProofProvider {
                 }
                 ProofStatus::Failed => {
                     bail!(
-                        "Proof request {} is unfulfillable (execution_status: {:?})",
+                        "Proving failed: proof_id={}, execution_status={}",
                         proof_id,
                         status.execution_status()
                     );
