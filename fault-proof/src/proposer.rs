@@ -281,31 +281,13 @@ where
     /// Runs the proposer indefinitely.
     pub async fn run(self: Arc<Self>) -> Result<()> {
         tracing::info!("OP Succinct Proposer running...");
-        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+
+        self.try_init().await?;
 
         // Spawn a dedicated task for continuous metrics collection
         self.spawn_metrics_collector();
 
-        // Run startup validations with retries before entering main loop.
-        let mut retry_count = 0u32;
-        loop {
-            match self.validate_and_init().await {
-                Ok(()) => break,
-                Err(e) => {
-                    retry_count += 1;
-                    if retry_count == 1 {
-                        tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
-                    } else {
-                        tracing::warn!(
-                            attempt = retry_count,
-                            "Startup validations still pending, retrying..."
-                        );
-                    }
-                    interval.tick().await;
-                }
-            }
-        }
-
+        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
         loop {
             interval.tick().await;
 
@@ -330,8 +312,34 @@ where
         }
     }
 
+    /// Runs startup validations with retries before entering main loop.
+    pub async fn try_init(&self) -> Result<()> {
+        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+        let mut retry_count = 0u32;
+
+        loop {
+            match self.validate_and_init().await {
+                Ok(()) => break,
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count == 1 {
+                        tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
+                    } else {
+                        tracing::warn!(
+                            attempt = retry_count,
+                            "Startup validations still pending, retrying..."
+                        );
+                    }
+                    interval.tick().await;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Validates startup and initializes state.
-    pub async fn validate_and_init(&self) -> Result<()> {
+    async fn validate_and_init(&self) -> Result<()> {
         let anchor_l2_block = self.startup_validations().await?;
         self.init_state(anchor_l2_block).await;
         Ok(())
@@ -339,7 +347,7 @@ where
 
     /// Runs one-time startup validations before the proposer begins normal operations.
     /// Returns the validated anchor L2 block number.
-    pub async fn startup_validations(&self) -> Result<U256> {
+    async fn startup_validations(&self) -> Result<U256> {
         // Validate anchor state registry matches factory's game implementation.
         Self::validate_anchor_state_registry(
             &self.anchor_state_registry,
@@ -362,7 +370,7 @@ where
     }
 
     /// Initialize proposer state with the validated anchor L2 block.
-    pub async fn init_state(&self, anchor_l2_block: U256) {
+    async fn init_state(&self, anchor_l2_block: U256) {
         self.state.write().await.canonical_head_l2_block = Some(anchor_l2_block);
     }
 
