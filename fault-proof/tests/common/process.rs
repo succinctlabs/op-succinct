@@ -68,7 +68,11 @@ pub async fn init_proposer(
     let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
     let host = initialize_host(fetcher.clone());
 
-    OPSuccinctProposer::new(config, signer, anchor_state_registry, factory, fetcher, host).await
+    let proposer =
+        OPSuccinctProposer::new(config, signer, anchor_state_registry, factory, fetcher, host)
+            .await?;
+    proposer.validate_and_init().await?;
+    Ok(proposer)
 }
 
 /// Start a proposer, and return a handle to the proposer task.
@@ -93,7 +97,7 @@ pub async fn start_proposer(
 }
 
 /// Initialize a challenger without starting its run loop.
-pub fn init_challenger(
+pub async fn init_challenger(
     rpc_config: &RPCConfig,
     private_key: &str,
     anchor_state_registry_address: &Address,
@@ -119,11 +123,14 @@ pub fn init_challenger(
         AnchorStateRegistry::new(*anchor_state_registry_address, l1_provider.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
-    Ok(OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer))
+    let challenger =
+        OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer);
+    challenger.validate_and_init().await?;
+    Ok(challenger)
 }
 
 /// Start a challenger, and return a handle to the challenger task.
-pub fn start_challenger(
+pub async fn start_challenger(
     rpc_config: &RPCConfig,
     private_key: &str,
     anchor_state_registry_address: &Address,
@@ -139,7 +146,8 @@ pub fn start_challenger(
         factory_address,
         game_type,
         malicious_percentage,
-    )?;
+    )
+    .await?;
 
     Ok(tokio::spawn(async move {
         let mut challenger = challenger;
