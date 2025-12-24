@@ -809,8 +809,7 @@ mod integration {
             &env.deployed.factory,
             env.game_type,
             Some(100.0),
-        )?;
-        challenger.startup_validations().await?;
+        ).await?;
         info!("✓ Challenger initialized");
 
         let game_to_challenge = Game {
@@ -954,8 +953,7 @@ mod integration {
         )
         .await?;
 
-        let proposer = env.init_proposer().await?;
-        let result = proposer.startup_validations().await;
+        let result = env.init_proposer().await;
 
         let error = match result {
             Err(e) => e,
