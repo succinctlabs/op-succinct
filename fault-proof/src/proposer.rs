@@ -327,6 +327,13 @@ where
         }
     }
 
+    /// Validates startup and initializes state.
+    pub async fn validate_and_init(&self) -> Result<()> {
+        let anchor_l2_block = self.startup_validations().await?;
+        self.init_state(anchor_l2_block).await;
+        Ok(())
+    }
+
     /// Runs one-time startup validations before the proposer begins normal operations.
     /// Returns the validated anchor L2 block number.
     pub async fn startup_validations(&self) -> Result<U256> {
@@ -354,13 +361,6 @@ where
     /// Initialize proposer state with the validated anchor L2 block.
     pub async fn init_state(&self, anchor_l2_block: U256) {
         self.state.write().await.canonical_head_l2_block = Some(anchor_l2_block);
-    }
-
-    /// Validates startup and initializes state.
-    pub async fn validate_and_init(&self) -> Result<()> {
-        let anchor_l2_block = self.startup_validations().await?;
-        self.init_state(anchor_l2_block).await;
-        Ok(())
     }
 
     async fn validate_anchor_l2_block(
