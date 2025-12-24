@@ -68,11 +68,7 @@ pub async fn new_proposer(
     let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
     let host = initialize_host(fetcher.clone());
 
-    let proposer =
-        OPSuccinctProposer::new(config, signer, anchor_state_registry, factory, fetcher, host)
-            .await?;
-
-    Ok(proposer)
+    OPSuccinctProposer::new(config, signer, anchor_state_registry, factory, fetcher, host).await
 }
 
 /// Start a proposer, and return a handle to the proposer task.
