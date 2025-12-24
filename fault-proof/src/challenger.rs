@@ -100,7 +100,8 @@ where
             }
         }
 
-        // Main loop: synchronize state and handle challenging, resolution, and bond claiming.
+        // Each loop iteration waits for the configured interval, synchronizes the cached state,
+        // and then attempts to challenge, resolve, and claim bonds for any eligible games.
         loop {
             interval.tick().await;
 
@@ -109,17 +110,14 @@ where
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
             }
 
-            // 2. Handle game challenging.
             if let Err(e) = self.handle_game_challenging().await {
                 tracing::warn!("Failed to handle game challenging: {:?}", e);
             }
 
-            // 3. Handle game resolution.
             if let Err(e) = self.handle_game_resolution().await {
                 tracing::warn!("Failed to handle game resolution: {:?}", e);
             }
 
-            // 4. Handle bond claiming.
             if let Err(e) = self.handle_bond_claiming().await {
                 tracing::warn!("Failed to handle bond claiming: {:?}", e);
             }
