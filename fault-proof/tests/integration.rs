@@ -905,7 +905,7 @@ mod integration {
     async fn test_proposer_retains_anchor_after_bond_claim() -> Result<()> {
         let env = TestEnvironment::setup().await?;
 
-        let proposer = Arc::new(env.init_proposer().await?);
+        let proposer = Arc::new(env.new_proposer().await?);
 
         let proposer_handle = {
             let proposer_clone = proposer.clone();

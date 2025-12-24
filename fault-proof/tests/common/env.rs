@@ -189,17 +189,23 @@ impl TestEnvironment {
         Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
     }
 
-    pub async fn init_proposer(
+    pub async fn new_proposer(
         &self,
     ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
-        let proposer = new_proposer(
+        new_proposer(
             &self.rpc_config,
             self.private_keys.proposer,
             &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
         )
-        .await?;
+        .await
+    }
+
+    pub async fn init_proposer(
+        &self,
+    ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
+        let proposer = self.new_proposer().await?;
         proposer.try_init().await?;
         info!("✓ Proposer initialized");
         Ok(proposer)
