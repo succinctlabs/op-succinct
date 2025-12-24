@@ -20,6 +20,16 @@ pub const PROOF_STATUS_POLL_INTERVAL: u64 = 2;
 /// Unique identifier for a proof request.
 pub type ProofId = B256;
 
+/// Get the current Unix timestamp in seconds.
+///
+/// Panics if system time is before Unix epoch (should never happen).
+fn current_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("System time before Unix epoch")
+        .as_secs()
+}
+
 /// Container for proving and verifying keys.
 #[derive(Clone)]
 pub struct ProofKeys {
@@ -237,8 +247,7 @@ impl NetworkProofProvider {
                 }
             };
 
-            let current_time =
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+            let current_time = current_timestamp();
 
             // Check auction timeout: if request is still in "Requested" state past the deadline.
             // Only cancel on mainnet where auction dynamics are meaningful.
@@ -388,6 +397,9 @@ impl MockProofProvider {
         let total_instruction_cycles = report.total_instruction_count();
         let total_sp1_gas = report.gas.unwrap_or(0);
 
+        ProposerGauge::TotalInstructionCycles.set(total_instruction_cycles as f64);
+        ProposerGauge::TotalSP1Gas.set(total_sp1_gas as f64);
+
         tracing::info!(
             total_instruction_cycles = total_instruction_cycles,
             total_sp1_gas = total_sp1_gas,
@@ -489,7 +501,7 @@ pub enum Deadline {
 
 /// Check if the server-side proof deadline has been exceeded.
 pub fn check_deadline(deadline: u64, current_time: u64) -> Deadline {
-    if current_time > deadline {
+    if current_time >= deadline {
         Deadline::Exceeded { deadline }
     } else {
         Deadline::Ok
@@ -550,7 +562,7 @@ mod tests {
 
     #[rstest]
     #[case::ok(2000, 1500, Deadline::Ok)]
-    #[case::at_limit(2000, 2000, Deadline::Ok)]
+    #[case::at_limit(2000, 2000, Deadline::Exceeded { deadline: 2000 })]
     #[case::exceeded(2000, 2001, Deadline::Exceeded { deadline: 2000 })]
     fn test_deadline(#[case] deadline: u64, #[case] current: u64, #[case] expected: Deadline) {
         assert_eq!(check_deadline(deadline, current), expected);
