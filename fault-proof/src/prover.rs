@@ -1,8 +1,3 @@
-//! Proof Provider Abstraction
-//!
-//! This module provides a unified abstraction over proof generation, enabling proposer
-//! to be agnostic about how proofs are generated (network, local mock, etc.).
-
 use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::B256;
@@ -12,13 +7,10 @@ use sp1_sdk::{
     NetworkProver, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin,
     SP1VerifyingKey, SP1_CIRCUIT_VERSION,
 };
+use tokio::time::sleep;
 
 use crate::config::ProofProviderConfig;
 use op_succinct_proof_utils::get_range_elf_embedded;
-
-// ============================================================================
-// Constants and Types
-// ============================================================================
 
 /// Polling interval (in seconds) for checking proof status.
 /// Matches the SP1 SDK's internal polling interval.
@@ -92,10 +84,6 @@ impl ProofProvider {
         }
     }
 }
-
-// =============================================================================
-// Implementation: NetworkProofProvider
-// =============================================================================
 
 /// Network-based proof provider using SP1 prover network.
 #[derive(Clone)]
@@ -218,18 +206,16 @@ impl NetworkProofProvider {
 
         loop {
             // Proving timeout - ensures we don't wait forever if network calls keep failing.
-            if start_time.elapsed() > proving_timeout {
+            if let ProvingTimeout::Exceeded { elapsed_secs } =
+                check_timeout(start_time.elapsed(), proving_timeout)
+            {
                 tracing::warn!(
                     proof_id = %proof_id,
-                    elapsed_secs = start_time.elapsed().as_secs(),
+                    elapsed_secs,
                     timeout_secs = self.config.timeout,
                     "proving timeout exceeded"
                 );
-                bail!(
-                    "Proof request {} client timeout after {}s",
-                    proof_id,
-                    start_time.elapsed().as_secs()
-                );
+                bail!("Proof request {proof_id} client timeout after {elapsed_secs}s");
             }
 
             // Get proof status - retry on transient failures.
@@ -244,7 +230,7 @@ impl NetworkProofProvider {
                 Ok(result) => result,
                 Err(e) => {
                     tracing::warn!(proof_id = %proof_id, error = %e, "get_proof_status failed, retrying...");
-                    tokio::time::sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+                    sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
                     continue;
                 }
             };
@@ -261,7 +247,7 @@ impl NetworkProofProvider {
                 Ok(result) => result,
                 Err(e) => {
                     tracing::warn!(proof_id = %proof_id, error = %e, "get_proof_request failed, retrying...");
-                    tokio::time::sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+                    sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
                     continue;
                 }
             };
@@ -272,17 +258,18 @@ impl NetworkProofProvider {
             // Check auction timeout: if request is still in "Requested" state past the deadline.
             // Only cancel on mainnet where auction dynamics are meaningful.
             if let Some(details) = &request_details {
-                let auction_deadline = details.created_at + self.config.auction_timeout;
-                if self.network_mode == NetworkMode::Mainnet &&
-                    details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
-                    current_time > auction_deadline
-                {
+                if let AuctionTimeout::Exceeded { elapsed_secs } = check_auction(
+                    self.network_mode == NetworkMode::Mainnet,
+                    details.fulfillment_status,
+                    details.created_at,
+                    self.config.auction_timeout,
+                    current_time,
+                ) {
                     tracing::warn!(
                         proof_id = %proof_id,
-                        created_at = details.created_at,
-                        auction_deadline,
-                        current_time,
-                        "Auction timeout exceeded, cancelling request"
+                        elapsed_secs,
+                        timeout_secs = self.config.auction_timeout,
+                        "auction timeout exceeded, cancelling request"
                     );
                     if let Err(e) = self
                         .network_call_with_timeout(
@@ -294,62 +281,51 @@ impl NetworkProofProvider {
                     {
                         tracing::error!(proof_id = %proof_id, error = %e, "Failed to cancel proof request");
                     }
-                    bail!(
-                        "Proof request {} auction timeout (no prover picked up, created_at={}, deadline={})",
-                        proof_id,
-                        details.created_at,
-                        auction_deadline
-                    );
+                    bail!("Proof request {} auction timeout after {}s", proof_id, elapsed_secs);
                 }
             }
 
             // Check if the proof deadline has passed.
-            if current_time > status.deadline() {
+            if let Deadline::Exceeded { deadline } = check_deadline(status.deadline(), current_time)
+            {
                 tracing::warn!(
                     proof_id = %proof_id,
-                    deadline = status.deadline(),
+                    deadline,
                     current_time,
                     "Proof request deadline exceeded"
                 );
                 bail!(
                     "Proof request {} deadline exceeded (deadline={}, current={})",
                     proof_id,
-                    status.deadline(),
+                    deadline,
                     current_time
                 );
             }
 
             // Check fulfillment status.
-            match FulfillmentStatus::try_from(status.fulfillment_status()) {
-                Ok(FulfillmentStatus::Fulfilled) => {
+            match check_status(status.fulfillment_status()) {
+                ProofStatus::Ready => {
                     tracing::info!(proof_id = %proof_id, "Proof fulfilled");
                     return proof.ok_or_else(|| {
                         anyhow::anyhow!("Proof status is fulfilled but proof is None")
                     });
                 }
-                Ok(FulfillmentStatus::Unfulfillable) => {
+                ProofStatus::Failed => {
                     bail!(
                         "Proof request {} is unfulfillable (execution_status: {:?})",
                         proof_id,
                         status.execution_status()
                     );
                 }
-                Ok(FulfillmentStatus::Assigned) => {
-                    tracing::debug!(proof_id = %proof_id, "Proof assigned, proving...");
-                }
-                _ => {
-                    tracing::debug!(proof_id = %proof_id, "Proof pending...");
+                ProofStatus::Pending => {
+                    tracing::debug!(proof_id = %proof_id, "Proof pending/assigned, continuing...");
                 }
             }
 
-            tokio::time::sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+            sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
         }
     }
 }
-
-// =============================================================================
-// Implementation: MockProofProvider
-// =============================================================================
 
 /// Mock proof provider for local execution without network.
 #[derive(Clone)]

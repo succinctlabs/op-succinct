@@ -262,8 +262,6 @@ impl ProofProviderConfig {
     }
 }
 
-
-
 #[derive(Debug, Clone)]
 pub struct ChallengerConfig {
     pub l1_rpc: Url,
