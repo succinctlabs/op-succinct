@@ -19,7 +19,7 @@ use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{network::FulfillmentStrategy, SP1ProofMode};
 use tracing::Instrument;
 
-pub async fn init_proposer(
+pub async fn new_proposer(
     rpc_config: &RPCConfig,
     private_key: &str,
     anchor_state_registry_address: &Address,
@@ -71,7 +71,7 @@ pub async fn init_proposer(
     let proposer =
         OPSuccinctProposer::new(config, signer, anchor_state_registry, factory, fetcher, host)
             .await?;
-    proposer.validate_and_init().await?;
+
     Ok(proposer)
 }
 
@@ -83,7 +83,7 @@ pub async fn start_proposer(
     factory_address: &Address,
     game_type: u32,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
-    let proposer = init_proposer(
+    let proposer = new_proposer(
         rpc_config,
         private_key,
         anchor_state_registry_address,
@@ -96,8 +96,8 @@ pub async fn start_proposer(
     }))
 }
 
-/// Initialize a challenger without starting its run loop.
-pub async fn init_challenger(
+/// Create a new challenger instance.
+pub async fn new_challenger(
     rpc_config: &RPCConfig,
     private_key: &str,
     anchor_state_registry_address: &Address,
@@ -123,10 +123,7 @@ pub async fn init_challenger(
         AnchorStateRegistry::new(*anchor_state_registry_address, l1_provider.clone());
     let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
 
-    let challenger =
-        OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer);
-    challenger.validate_and_init().await?;
-    Ok(challenger)
+    Ok(OPSuccinctChallenger::new(config, l1_provider, anchor_state_registry, factory, signer))
 }
 
 /// Start a challenger, and return a handle to the challenger task.
@@ -138,8 +135,7 @@ pub async fn start_challenger(
     game_type: u32,
     malicious_percentage: Option<f64>,
 ) -> Result<tokio::task::JoinHandle<Result<()>>> {
-    // Initialize challenger with test configuration but do not run yet.
-    let challenger = init_challenger(
+    let challenger = new_challenger(
         rpc_config,
         private_key,
         anchor_state_registry_address,

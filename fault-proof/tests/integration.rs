@@ -1,6 +1,6 @@
 pub mod common;
 
-#[cfg(feature = "integration")]
+// #[cfg(feature = "integration")]
 mod integration {
     use super::*;
     use std::sync::Arc;
@@ -26,7 +26,7 @@ mod integration {
     use tokio::time::{sleep, Duration};
     use tracing::info;
 
-    use crate::common::init_challenger;
+    use crate::common::new_challenger;
 
     alloy_sol_types::sol! {
         #[sol(rpc)]
@@ -802,7 +802,7 @@ mod integration {
 
         // === PHASE 2: Challenge Game 3 =================================
         info!("=== Phase 2: Challenge Game 3 ===");
-        let challenger = init_challenger(
+        let challenger = new_challenger(
             &env.rpc_config,
             env.private_keys.challenger,
             &env.deployed.anchor_state_registry,
@@ -811,6 +811,7 @@ mod integration {
             Some(100.0),
         )
         .await?;
+        challenger.try_init().await?;
         info!("✓ Challenger initialized");
 
         let game_to_challenge = Game {

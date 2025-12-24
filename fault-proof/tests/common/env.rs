@@ -36,7 +36,7 @@ use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitE
 use crate::common::{
     constants::*,
     contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    init_proposer, start_challenger, start_proposer, warp_time, ANVIL,
+    new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
 };
 
 use super::{
@@ -192,7 +192,7 @@ impl TestEnvironment {
     pub async fn init_proposer(
         &self,
     ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
-        let proposer = init_proposer(
+        let proposer = new_proposer(
             &self.rpc_config,
             self.private_keys.proposer,
             &self.deployed.anchor_state_registry,
@@ -200,6 +200,7 @@ impl TestEnvironment {
             self.game_type,
         )
         .await?;
+        proposer.try_init().await?;
         info!("✓ Proposer initialized");
         Ok(proposer)
     }
