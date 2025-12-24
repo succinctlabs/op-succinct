@@ -1781,9 +1781,7 @@ where
         deadline: u64,
         is_defense: bool,
     ) -> Result<bool> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
         let max_duration = if is_defense {
             self.contract_params.max_prove_duration

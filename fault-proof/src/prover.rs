@@ -169,31 +169,6 @@ impl NetworkProofProvider {
         Ok(proof_id)
     }
 
-    /// Execute a network call with timeout.
-    async fn network_call_with_timeout<F, T>(
-        &self,
-        future: F,
-        operation: &str,
-        proof_id: ProofId,
-    ) -> Result<T>
-    where
-        F: std::future::Future<Output = Result<T, anyhow::Error>>,
-    {
-        let timeout_secs = self.config.network_calls_timeout;
-        match tokio::time::timeout(Duration::from_secs(timeout_secs), future).await {
-            Ok(Ok(result)) => Ok(result),
-            Ok(Err(e)) => {
-                tracing::warn!(proof_id = %proof_id, operation, error = %e, "Network error");
-                Err(e)
-            }
-            Err(_) => {
-                tracing::warn!(proof_id = %proof_id, operation, timeout_secs, "Network call timed out");
-                ProposerGauge::NetworkCallTimeout.increment(1.0);
-                bail!("Timeout after {}s for {} (proof_id={})", timeout_secs, operation, proof_id)
-            }
-        }
-    }
-
     /// Wait for a proof to be fulfilled by polling the network.
     ///
     /// Timeout behavior:
@@ -205,6 +180,7 @@ impl NetworkProofProvider {
     async fn wait_for_proof(&self, proof_id: ProofId) -> Result<SP1ProofWithPublicValues> {
         let start_time = std::time::Instant::now();
         let proving_timeout = Duration::from_secs(self.config.timeout);
+        let is_mainnet = self.network_mode == NetworkMode::Mainnet;
 
         loop {
             // Proving timeout - ensures we don't wait forever if network calls keep failing.
@@ -230,7 +206,7 @@ impl NetworkProofProvider {
             // Get proof status - retry on transient failures.
             let (status, proof) = match self
                 .network_call_with_timeout(
-                    async { self.prover.get_proof_status(proof_id).await },
+                    self.prover.get_proof_status(proof_id),
                     "get_proof_status",
                     proof_id,
                 )
@@ -247,7 +223,7 @@ impl NetworkProofProvider {
             // Get proof request details for auction timeout check - retry on transient failures.
             let request_details = match self
                 .network_call_with_timeout(
-                    async { self.prover.get_proof_request(proof_id).await },
+                    self.prover.get_proof_request(proof_id),
                     "get_proof_request",
                     proof_id,
                 )
@@ -269,7 +245,7 @@ impl NetworkProofProvider {
             if let Some(details) = &request_details {
                 let timeout_secs = self.config.auction_timeout;
                 if let AuctionTimeout::Exceeded { elapsed_secs } = check_auction(
-                    self.network_mode == NetworkMode::Mainnet,
+                    is_mainnet,
                     details.fulfillment_status,
                     details.created_at,
                     timeout_secs,
@@ -283,7 +259,7 @@ impl NetworkProofProvider {
                     );
                     if let Err(e) = self
                         .network_call_with_timeout(
-                            async { self.prover.cancel_request(proof_id).await },
+                            self.prover.cancel_request(proof_id),
                             "cancel_request",
                             proof_id,
                         )
@@ -341,6 +317,36 @@ impl NetworkProofProvider {
             }
 
             sleep(Duration::from_secs(PROOF_STATUS_POLL_INTERVAL)).await;
+        }
+    }
+
+    /// Execute a network call with timeout.
+    async fn network_call_with_timeout<F, T>(
+        &self,
+        future: F,
+        operation: &str,
+        proof_id: ProofId,
+    ) -> Result<T>
+    where
+        F: std::future::Future<Output = Result<T, anyhow::Error>>,
+    {
+        let timeout_secs = self.config.network_calls_timeout;
+        match tokio::time::timeout(Duration::from_secs(timeout_secs), future).await {
+            Ok(Ok(result)) => Ok(result),
+            Ok(Err(e)) => {
+                tracing::warn!(proof_id = %proof_id, operation, error = %e, "Network error");
+                Err(e)
+            }
+            Err(_) => {
+                tracing::warn!(proof_id = %proof_id, operation, timeout_secs, "Network call timed out");
+                ProposerGauge::NetworkCallTimeout.increment(1.0);
+                bail!(
+                    "Network timeout after {}s for {} (proof_id={})",
+                    timeout_secs,
+                    operation,
+                    proof_id
+                )
+            }
         }
     }
 }
