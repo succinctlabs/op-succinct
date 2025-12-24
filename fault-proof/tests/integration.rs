@@ -802,7 +802,7 @@ mod integration {
 
         // === PHASE 2: Challenge Game 3 =================================
         info!("=== Phase 2: Challenge Game 3 ===");
-        let mut challenger = init_challenger(
+        let challenger = init_challenger(
             &env.rpc_config,
             env.private_keys.challenger,
             &env.deployed.anchor_state_registry,

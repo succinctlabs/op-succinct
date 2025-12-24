@@ -83,21 +83,26 @@ where
 
         let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
 
-        let mut startup_validated = false;
-        let mut startup_retry_count = 0u32;
+        // Run startup validations with retries before entering main loop.
+        let mut retry_count = 0u32;
+        loop {
+            match self.validate_and_init().await {
+                Ok(()) => break,
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count == 1 {
+                        tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
+                    } else {
+                        tracing::warn!(attempt = retry_count, "Startup validations still pending, retrying...");
+                    }
+                    interval.tick().await;
+                }
+            }
+        }
 
-        // Each loop iteration waits for the configured interval, synchronizes the cached state,
-        // and then attempts to challenge, resolve, and claim bonds for any eligible games.
+        // Main loop: synchronize state and handle challenging, resolution, and bond claiming.
         loop {
             interval.tick().await;
-
-            // 0. Run one-time validations before any operations.
-            if !startup_validated {
-                if !self.try_startup_validations(&mut startup_retry_count).await {
-                    continue;
-                }
-                startup_validated = true;
-            }
 
             // 1. Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
@@ -121,29 +126,9 @@ where
         }
     }
 
-    /// Attempts startup validations, logging errors appropriately.
-    /// Returns `true` if validations passed, `false` if should retry.
-    async fn try_startup_validations(&mut self, retry_count: &mut u32) -> bool {
-        match self.startup_validations().await {
-            Ok(()) => true,
-            Err(e) => {
-                *retry_count += 1;
-                // Log full error on first attempt, brief message on subsequent retries.
-                if *retry_count == 1 {
-                    tracing::error!(attempt = *retry_count, error = %e, "Startup validations failed");
-                } else {
-                    tracing::warn!(
-                        attempt = *retry_count,
-                        "Startup validations still pending, retrying..."
-                    );
-                }
-                false
-            }
-        }
-    }
-
     /// Runs one-time startup validations before the challenger begins normal operations.
-    pub async fn startup_validations(&self) -> Result<()> {
+    /// Returns the challenger bond on success.
+    pub async fn startup_validations(&self) -> Result<U256> {
         // Validate game type is registered and get game implementation.
         let game_impl = self.factory.game_impl(self.config.game_type).await?;
 
@@ -159,11 +144,19 @@ where
 
         // Fetch challenger bond.
         let bond = game_impl.challengerBond().call().await?;
-        self.challenger_bond
-            .set(bond)
-            .map_err(|_| anyhow::anyhow!("challenger_bond already set"))?;
 
-        tracing::info!("Startup validations passed");
+        Ok(bond)
+    }
+
+    /// Initialize challenger state with the validated challenger bond.
+    pub fn init_state(&self, bond: U256) {
+        self.challenger_bond.set(bond).expect("challenger_bond must not already be set");
+    }
+
+    /// Validates startup and initializes state.
+    pub async fn validate_and_init(&self) -> Result<()> {
+        let bond = self.startup_validations().await?;
+        self.init_state(bond);
         Ok(())
     }
 
