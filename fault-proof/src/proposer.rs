@@ -1887,9 +1887,7 @@ where
         deadline: u64,
         is_defense: bool,
     ) -> Result<bool> {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
         let contract_params = self
             .contract_params
