@@ -423,3 +423,146 @@ impl MockProofProvider {
         ))
     }
 }
+/// Result of checking if proving has timed out.
+#[derive(Debug, PartialEq)]
+pub enum ProvingTimeout {
+    /// Still within timeout, continue polling.
+    Ok,
+    /// Timeout exceeded, should bail.
+    Exceeded { elapsed_secs: u64 },
+}
+
+/// Check if the overall proving timeout has been exceeded.
+pub fn check_timeout(elapsed: Duration, timeout: Duration) -> ProvingTimeout {
+    if elapsed > timeout {
+        ProvingTimeout::Exceeded { elapsed_secs: elapsed.as_secs() }
+    } else {
+        ProvingTimeout::Ok
+    }
+}
+
+/// Result of checking auction timeout.
+#[derive(Debug, PartialEq)]
+pub enum AuctionTimeout {
+    /// No timeout issue, continue.
+    Ok,
+    /// Not applicable (not mainnet or already assigned).
+    Skip,
+    /// Auction timed out, should cancel and bail.
+    Exceeded { elapsed_secs: u64 },
+}
+
+/// Check if the auction has timed out (no prover picked up the request).
+///
+/// Only applies on mainnet when the request is still in "Requested" state.
+pub fn check_auction(
+    is_mainnet: bool,
+    fulfillment_status: i32,
+    created_at: u64,
+    auction_timeout: u64,
+    current_time: u64,
+) -> AuctionTimeout {
+    if !is_mainnet {
+        return AuctionTimeout::Skip;
+    }
+
+    if fulfillment_status != FulfillmentStatus::Requested as i32 {
+        return AuctionTimeout::Skip;
+    }
+
+    let deadline = created_at + auction_timeout;
+    if current_time > deadline {
+        AuctionTimeout::Exceeded { elapsed_secs: current_time - created_at }
+    } else {
+        AuctionTimeout::Ok
+    }
+}
+
+/// Result of checking server deadline.
+#[derive(Debug, PartialEq)]
+pub enum Deadline {
+    /// Still within deadline.
+    Ok,
+    /// Deadline exceeded.
+    Exceeded { deadline: u64 },
+}
+
+/// Check if the server-side proof deadline has been exceeded.
+pub fn check_deadline(deadline: u64, current_time: u64) -> Deadline {
+    if current_time > deadline {
+        Deadline::Exceeded { deadline }
+    } else {
+        Deadline::Ok
+    }
+}
+
+/// Result of checking proof fulfillment status.
+#[derive(Debug, PartialEq)]
+pub enum ProofStatus {
+    /// Proof is ready, return it.
+    Ready,
+    /// Proof request failed permanently.
+    Failed,
+    /// Proof is being worked on, continue polling.
+    Pending,
+}
+
+/// Determine proof status from fulfillment status.
+pub fn check_status(status: i32) -> ProofStatus {
+    match FulfillmentStatus::try_from(status) {
+        Ok(FulfillmentStatus::Fulfilled) => ProofStatus::Ready,
+        Ok(FulfillmentStatus::Unfulfillable) => ProofStatus::Failed,
+        _ => ProofStatus::Pending,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    #[rstest]
+    #[case::ok(30, 60, ProvingTimeout::Ok)]
+    #[case::at_limit(60, 60, ProvingTimeout::Ok)]
+    #[case::exceeded(61, 60, ProvingTimeout::Exceeded { elapsed_secs: 61 })]
+    fn test_timeout(#[case] elapsed: u64, #[case] limit: u64, #[case] expected: ProvingTimeout) {
+        let result = check_timeout(Duration::from_secs(elapsed), Duration::from_secs(limit));
+        assert_eq!(result, expected);
+    }
+
+    #[rstest]
+    #[case::not_mainnet(false, FulfillmentStatus::Requested as i32, 2000, AuctionTimeout::Skip)]
+    #[case::assigned(true, FulfillmentStatus::Assigned as i32, 2000, AuctionTimeout::Skip)]
+    #[case::fulfilled(true, FulfillmentStatus::Fulfilled as i32, 2000, AuctionTimeout::Skip)]
+    #[case::within(true, FulfillmentStatus::Requested as i32, 1050, AuctionTimeout::Ok)]
+    #[case::at_limit(true, FulfillmentStatus::Requested as i32, 1060, AuctionTimeout::Ok)]
+    #[case::exceeded(true, FulfillmentStatus::Requested as i32, 1061, AuctionTimeout::Exceeded { elapsed_secs: 61 })]
+    fn test_auction(
+        #[case] is_mainnet: bool,
+        #[case] status: i32,
+        #[case] current_time: u64,
+        #[case] expected: AuctionTimeout,
+    ) {
+        let result = check_auction(is_mainnet, status, 1000, 60, current_time);
+        assert_eq!(result, expected);
+    }
+
+    #[rstest]
+    #[case::ok(2000, 1500, Deadline::Ok)]
+    #[case::at_limit(2000, 2000, Deadline::Ok)]
+    #[case::exceeded(2000, 2001, Deadline::Exceeded { deadline: 2000 })]
+    fn test_deadline(#[case] deadline: u64, #[case] current: u64, #[case] expected: Deadline) {
+        assert_eq!(check_deadline(deadline, current), expected);
+    }
+
+    #[rstest]
+    #[case::ready(FulfillmentStatus::Fulfilled as i32, ProofStatus::Ready)]
+    #[case::failed(FulfillmentStatus::Unfulfillable as i32, ProofStatus::Failed)]
+    #[case::pending_assigned(FulfillmentStatus::Assigned as i32, ProofStatus::Pending)]
+    #[case::pending_requested(FulfillmentStatus::Requested as i32, ProofStatus::Pending)]
+    #[case::pending_unknown(999, ProofStatus::Pending)]
+    fn test_status(#[case] status: i32, #[case] expected: ProofStatus) {
+        assert_eq!(check_status(status), expected);
+    }
+}
