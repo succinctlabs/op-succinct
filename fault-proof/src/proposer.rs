@@ -932,7 +932,6 @@ where
 
             Ok((proof, total_instruction_cycles, total_sp1_gas))
         } else {
-            // Step 1: Submit the proof request
             tracing::info!("Submitting range proof request to network");
             let proof_id = self
                 .prover
@@ -950,7 +949,6 @@ where
                 .request_async()
                 .await?;
 
-            // Step 2: Wait for proof completion and download
             let proof = self.wait_for_proof(proof_id, "range").await?;
 
             Ok((proof, 0, 0))
@@ -980,7 +978,6 @@ where
                 SP1_CIRCUIT_VERSION,
             )
         } else {
-            // Step 1: Submit the proof request (only once, no retry here)
             tracing::info!("Submitting aggregation proof request to network");
             let proof_id = self
                 .prover
@@ -997,7 +994,6 @@ where
                 .request_async()
                 .await?;
 
-            // Step 2: Wait for proof completion and download (with retry on network errors)
             self.wait_for_proof(proof_id, "aggregation").await?
         };
 
