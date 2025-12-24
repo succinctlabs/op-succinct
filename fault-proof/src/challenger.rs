@@ -15,7 +15,7 @@ use crate::{
     },
     is_parent_challenger_wins, is_parent_resolved,
     prometheus::ChallengerGauge,
-    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 use op_succinct_signer_utils::SignerLock;
@@ -341,12 +341,21 @@ where
 
         for game in candidates {
             if let Err(error) = self.submit_challenge_transaction(&game).await {
-                tracing::warn!(
-                    game_index = %game.index,
-                    game_address = ?game.address,
-                    ?error,
-                    "Failed to challenge game"
-                );
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Challenge tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Challenge tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
                 ChallengerGauge::GameChallengingError.increment(1.0);
                 continue;
             }
@@ -421,7 +430,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("Challenge transaction reverted: {receipt:?}");
+            bail!("transaction reverted: {receipt:?}");
         }
 
         tracing::info!(
@@ -450,12 +459,21 @@ where
 
         for game in candidates {
             if let Err(error) = self.submit_resolution_transaction(&game).await {
-                tracing::warn!(
-                    game_index = %game.index,
-                    game_address = ?game.address,
-                    ?error,
-                    "Failed to resolve game"
-                );
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Resolution tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Resolution tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
                 ChallengerGauge::GameResolutionError.increment(1.0);
                 continue;
             }
@@ -475,7 +493,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("Resolve transaction reverted: {receipt:?}");
+            bail!("transaction reverted: {receipt:?}");
         }
 
         tracing::info!(
@@ -504,12 +522,21 @@ where
 
         for game in candidates {
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
-                tracing::warn!(
-                    game_index = %game.index,
-                    game_address = ?game.address,
-                    ?error,
-                    "Failed to claim bond for game"
-                );
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Bond claim tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Bond claim tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
                 ChallengerGauge::BondClaimingError.increment(1.0);
                 continue;
             }
@@ -531,7 +558,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("Claim bond transaction reverted: {receipt:?}");
+            bail!("transaction reverted: {receipt:?}");
         }
 
         tracing::info!(
