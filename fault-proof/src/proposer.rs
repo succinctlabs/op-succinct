@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc,
+        Arc, OnceLock,
     },
     time::Duration,
 };
@@ -176,7 +176,7 @@ where
     pub l2_provider: L2Provider,
     pub anchor_state_registry: Arc<AnchorStateRegistryInstance<P>>,
     pub factory: Arc<DisputeGameFactoryInstance<P>>,
-    pub init_bond: U256,
+    init_bond: OnceLock<U256>,
     pub safe_db_fallback: bool,
     prover: SP1Prover,
     fetcher: Arc<OPSuccinctDataFetcher>,
@@ -213,7 +213,6 @@ where
 
         let l1_provider = ProviderBuilder::default().connect_http(config.l1_rpc.clone());
         let l2_provider = ProviderBuilder::default().connect_http(config.l2_rpc.clone());
-        let init_bond = factory.fetch_init_bond(config.game_type).await?;
 
         let initial_state = ProposerState::default();
 
@@ -224,7 +223,7 @@ where
             l2_provider,
             anchor_state_registry: Arc::new(anchor_state_registry),
             factory: Arc::new(factory.clone()),
-            init_bond,
+            init_bond: OnceLock::new(),
             safe_db_fallback: config.safe_db_fallback,
             prover: SP1Prover {
                 network_prover,
@@ -340,14 +339,14 @@ where
 
     /// Validates startup and initializes state.
     async fn validate_and_init(&self) -> Result<()> {
-        let anchor_l2_block = self.startup_validations().await?;
-        self.init_state(anchor_l2_block).await;
+        let (anchor_l2_block, init_bond) = self.startup_validations().await?;
+        self.init_state(anchor_l2_block, init_bond).await;
         Ok(())
     }
 
     /// Runs one-time startup validations before the proposer begins normal operations.
-    /// Returns the validated anchor L2 block number.
-    async fn startup_validations(&self) -> Result<U256> {
+    /// Returns the validated anchor L2 block number and init bond.
+    async fn startup_validations(&self) -> Result<(U256, U256)> {
         // Validate anchor state registry matches factory's game implementation.
         Self::validate_anchor_state_registry(
             &self.anchor_state_registry,
@@ -366,12 +365,16 @@ where
         )
         .await?;
 
-        Ok(anchor_l2_block)
+        // Fetch init bond.
+        let init_bond = self.factory.fetch_init_bond(self.config.game_type).await?;
+
+        Ok((anchor_l2_block, init_bond))
     }
 
-    /// Initialize proposer state with the validated anchor L2 block.
-    async fn init_state(&self, anchor_l2_block: U256) {
+    /// Initialize proposer state with the validated anchor L2 block and init bond.
+    async fn init_state(&self, anchor_l2_block: U256, init_bond: U256) {
         self.state.write().await.canonical_head_l2_block = Some(anchor_l2_block);
+        self.init_bond.set(init_bond).expect("init_bond must not already be set");
     }
 
     async fn validate_anchor_l2_block(
@@ -1075,10 +1078,12 @@ where
         output_root: FixedBytes<32>,
         extra_data: Vec<u8>,
     ) -> Result<Address> {
+        let init_bond =
+            *self.init_bond.get().expect("init_bond must be set via startup_validations");
         let transaction_request = self
             .factory
             .create(self.config.game_type, output_root, extra_data.into())
-            .value(self.init_bond)
+            .value(init_bond)
             .into_transaction_request();
 
         let receipt = self
