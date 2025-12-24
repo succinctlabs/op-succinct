@@ -7,7 +7,7 @@ use std::{
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use tokio::{sync::Mutex, time};
 
@@ -493,6 +493,10 @@ where
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
 
+        if !receipt.status() {
+            bail!("Challenge transaction reverted: {receipt:?}");
+        }
+
         tracing::info!(
             game_index = %game.index,
             game_address = ?game.address,
@@ -542,6 +546,10 @@ where
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
+
+        if !receipt.status() {
+            bail!("Resolve transaction reverted: {receipt:?}");
+        }
 
         tracing::info!(
             game_index = %game.index,
@@ -594,6 +602,10 @@ where
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
+
+        if !receipt.status() {
+            bail!("Claim bond transaction reverted: {receipt:?}");
+        }
 
         tracing::info!(
             game_index = %game.index,
