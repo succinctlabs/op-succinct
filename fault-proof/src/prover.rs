@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::B256;
 use anyhow::{bail, Context, Result};
+use op_succinct_host_utils::metrics::MetricsGauge;
 use sp1_sdk::{
     network::{proto::types::FulfillmentStatus, NetworkMode},
     NetworkProver, SP1ProofMode, SP1ProofWithPublicValues, SP1ProvingKey, SP1Stdin,
@@ -9,7 +10,7 @@ use sp1_sdk::{
 };
 use tokio::time::sleep;
 
-use crate::config::ProofProviderConfig;
+use crate::{config::ProofProviderConfig, prometheus::ProposerGauge};
 use op_succinct_proof_utils::get_range_elf_embedded;
 
 /// Polling interval (in seconds) for checking proof status.
@@ -187,6 +188,7 @@ impl NetworkProofProvider {
             }
             Err(_) => {
                 tracing::warn!(proof_id = %proof_id, operation, timeout_secs, "Network call timed out");
+                ProposerGauge::NetworkCallTimeout.increment(1.0);
                 bail!("Timeout after {}s for {} (proof_id={})", timeout_secs, operation, proof_id)
             }
         }
@@ -215,6 +217,7 @@ impl NetworkProofProvider {
                     timeout_secs = self.config.timeout,
                     "proving timeout exceeded"
                 );
+                ProposerGauge::ProvingTimeoutError.increment(1.0);
                 bail!("Proof request {proof_id} client timeout after {elapsed_secs}s");
             }
 
@@ -281,6 +284,7 @@ impl NetworkProofProvider {
                     {
                         tracing::error!(proof_id = %proof_id, error = %e, "Failed to cancel proof request");
                     }
+                    ProposerGauge::AuctionTimeoutError.increment(1.0);
                     bail!("Proof request {} auction timeout after {}s", proof_id, elapsed_secs);
                 }
             }
@@ -294,6 +298,7 @@ impl NetworkProofProvider {
                     current_time,
                     "Proof request deadline exceeded"
                 );
+                ProposerGauge::DeadlineExceededError.increment(1.0);
                 bail!(
                     "Proof request {} deadline exceeded (deadline={}, current={})",
                     proof_id,
