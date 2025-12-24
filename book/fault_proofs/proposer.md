@@ -99,7 +99,7 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `MIN_AUCTION_PERIOD` | The minimum auction period (in seconds). | `1` |
 | `TIMEOUT` | The proving timeout (in seconds). Used as the server-side deadline for proof requests and as the client-side maximum wait time when polling for proof completion. | `14,400` (4 hours) |
 | `NETWORK_CALLS_TIMEOUT` | The timeout for individual network API calls like `get_proof_status` (in seconds). If a single call exceeds this, it will be retried. | `15` |
-| `AUCTION_TIMEOUT` | The auction timeout (in seconds). If a proof request remains in "Requested" state (no prover picked it up) beyond this duration after creation, the request is cancelled. | `60` (1 minute) |
+| `AUCTION_TIMEOUT` | The auction timeout (in seconds). If a proof request remains in "Requested" state (no prover picked it up) beyond this duration after creation, the request is canceled. | `60` (1 minute) |
 | `RANGE_CYCLE_LIMIT` | The cycle limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_GAS_LIMIT` | The gas limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_SPLIT_COUNT` | The number of splits to use for range proofs. | `1` |
