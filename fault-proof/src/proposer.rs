@@ -338,7 +338,7 @@ where
     }
 
     /// Validates startup and initializes state.
-    async fn validate_and_init(&self) -> Result<()> {
+    pub async fn validate_and_init(&self) -> Result<()> {
         let (anchor_l2_block, init_bond) = self.startup_validations().await?;
         self.init_state(anchor_l2_block, init_bond).await;
         Ok(())

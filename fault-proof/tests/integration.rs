@@ -1,6 +1,6 @@
 pub mod common;
 
-// #[cfg(feature = "integration")]
+#[cfg(feature = "integration")]
 mod integration {
     use super::*;
     use std::sync::Arc;
@@ -15,7 +15,7 @@ mod integration {
             MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
         },
         monitor::{verify_all_resolved_correctly, TrackedGame},
-        TestEnvironment,
+        new_proposer, TestEnvironment,
     };
     use fault_proof::{
         challenger::Game,
@@ -955,7 +955,17 @@ mod integration {
         )
         .await?;
 
-        let result = env.init_proposer().await;
+        // Create proposer and call validate_and_init directly (not try_init which retries).
+        let proposer = new_proposer(
+            &env.rpc_config,
+            env.private_keys.proposer,
+            &env.deployed.anchor_state_registry,
+            &env.deployed.factory,
+            env.game_type,
+        )
+        .await?;
+
+        let result = proposer.validate_and_init().await;
 
         let error = match result {
             Err(e) => e,
