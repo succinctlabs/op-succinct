@@ -15,7 +15,7 @@ for the required setup steps.
 - [Rust](https://www.rust-lang.org/tools/install) (latest stable version)
 - [just](https://github.com/casey/just)
 - L1 and L2 archive node RPC endpoints
-  - L2 node should be configured with SafeDB enabled. 
+  - L2 node should be configured with SafeDB enabled.
   - See [SafeDB Configuration](./best_practices.md#safe-db-configuration) for more details.
 - ETH on L1 for:
   - Contract deployment
@@ -23,61 +23,66 @@ for the required setup steps.
   - Challenge bonds (proof rewards)
   - Transaction fees
 
-## Step 1: Deploy Contracts
+## Step 1: Clone and build contracts
 
-1. Clone and setup the repository:
+Clone the repository and build the contracts:
 
-    ```bash
-    git clone https://github.com/succinctlabs/op-succinct.git
-    cd op-succinct/contracts
-    forge install
-    ```
+```bash
+git clone https://github.com/succinctlabs/op-succinct.git
+cd op-succinct/contracts
+forge build
+cd ..
+```
 
-2. Create a `.env` file in the project root. See [this guide](deploy.md#prerequisites) for more details on these environment variables:
+## Step 2: Configure environment
 
-    ```env
-    # example .env file
-    L1_RPC=<YOUR_L1_RPC_URL>
-    L2_RPC=<YOUR_L2_RPC_URL>
-    L2_NODE_RPC=<YOUR_L2_NODE_RPC_URL>
-    PRIVATE_KEY=<YOUR_PRIVATE_KEY>
+Create a `.env` file in the project root. See [this guide](deploy.md#prerequisites) for more details on these environment variables:
 
-    # Required - set these values
-    GAME_TYPE=42
-    DISPUTE_GAME_FINALITY_DELAY_SECONDS=604800
-    MAX_CHALLENGE_DURATION=604800
-    MAX_PROVE_DURATION=86400
+```env
+# example .env file
+L1_RPC=<YOUR_L1_RPC_URL>
+L2_RPC=<YOUR_L2_RPC_URL>
+L2_NODE_RPC=<YOUR_L2_NODE_RPC_URL>
+PRIVATE_KEY=<YOUR_PRIVATE_KEY>
 
-    # Optional
+# Required - set these values
+GAME_TYPE=42
+DISPUTE_GAME_FINALITY_DELAY_SECONDS=604800
+MAX_CHALLENGE_DURATION=604800
+MAX_PROVE_DURATION=86400
 
-    # Not needed by default, but could be required for integrations that access consensus-layer data.
-    L1_BEACON_RPC=<L1_BEACON_RPC_URL>
+# Optional
 
-    # Warning: Setting PERMISSIONLESS_MODE=true allows anyone to propose and challenge games. Ensure this behavior is intended for your deployment.
-    # For a permissioned setup, set this to false and configure PROPOSER_ADDRESSES and CHALLENGER_ADDRESSES.
-    PERMISSIONLESS_MODE=true
+# Not needed by default, but could be required for integrations that access consensus-layer data.
+L1_BEACON_RPC=<L1_BEACON_RPC_URL>
 
-    # For testing, use mock verifier
-    OP_SUCCINCT_MOCK=true
-    ```
+# Warning: Setting PERMISSIONLESS_MODE=true allows anyone to propose and challenge games. Ensure this behavior is intended for your deployment.
+# For a permissioned setup, set this to false and configure PROPOSER_ADDRESSES and CHALLENGER_ADDRESSES.
+PERMISSIONLESS_MODE=true
 
-    ```admonish info
-    Obtaining a Test Private Key
+# For testing, use mock verifier
+OP_SUCCINCT_MOCK=true
+```
 
-    - Anvil (local devnet): Run `anvil` and use one of the pre-funded accounts printed on startup. Copy the Private Key value for any account. Only use these on your local Anvil network.
+```admonish info
+Obtaining a Test Private Key
 
-    - Foundry (generate a fresh key): Run `cast wallet new` to generate a human-readable output. Save the private key and fund it on your test network.
+- Anvil (local devnet): Run `anvil` and use one of the pre-funded accounts printed on startup. Copy the Private Key value for any account. Only use these on your local Anvil network.
 
-    ⚠️ **Caution:** Never use test keys on mainnet or with real assets.
-    ```
+- Foundry (generate a fresh key): Run `cast wallet new` to generate a human-readable output. Save the private key and fund it on your test network.
 
-3. Deploy an SP1 mock verifier:
+⚠️ **Caution:** Never use test keys on mainnet or with real assets.
+```
+
+## Step 3: Deploy contracts
+
+1. Deploy an SP1 mock verifier:
 
     ```bash
     just deploy-mock-verifier
-    ```  
+    ```
 
-4. Deploy the core fault dispute game contracts:
+2. Deploy the core fault dispute game contracts:
 
     ```bash
     just deploy-fdg-contracts
@@ -85,7 +90,7 @@ for the required setup steps.
 
 Save the output addresses, particularly the `FACTORY_ADDRESS` output as "Factory Proxy: 0x..."
 
-## Step 2: Run the Proposer
+## Step 4: Run the Proposer
 
 1. Create a `.env.proposer` file in the project root directory:
 
@@ -129,7 +134,7 @@ Save the output addresses, particularly the `FACTORY_ADDRESS` output as "Factory
     cargo run --bin proposer
     ```
 
-## Step 3: Run the Challenger
+## Step 5: Run the Challenger
 
 1. Create a `.env.challenger` file in the project root directory:
 
