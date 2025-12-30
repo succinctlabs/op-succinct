@@ -1,8 +1,6 @@
-use std::{env, sync::Arc};
+use std::sync::Arc;
 
-use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
-use alloy_transport_http::reqwest::Url;
 use anyhow::Result;
 use clap::Parser;
 use fault_proof::{
@@ -41,7 +39,7 @@ async fn main() -> Result<()> {
 
     let proposer_signer = SignerLock::from_env().await?;
 
-    let l1_provider = ProviderBuilder::new().connect_http(proposer_config.l1_rpc);
+    let l1_provider = ProviderBuilder::new().connect_http(proposer_config.l1_rpc.clone());
 
     let anchor_state_registry = AnchorStateRegistry::new(
         proposer_config.anchor_state_registry_address,
