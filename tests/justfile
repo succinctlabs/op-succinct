@@ -1,8 +1,6 @@
 SOURCE := source_directory()
 ROOT := parent_directory(SOURCE)
 
-
-
 test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-artifacts
     #!/bin/bash
 
