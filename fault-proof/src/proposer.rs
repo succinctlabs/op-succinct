@@ -1921,6 +1921,7 @@ where
                     "Game deadline approaching, {:.1} hours remaining",
                     hours_remaining
                 );
+                ProposerGauge::DeadlineApproaching.increment(1.0);
                 Ok(false)
             }
             DeadlineStatus::Ok => Ok(false),

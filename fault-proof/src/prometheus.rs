@@ -103,6 +103,11 @@ pub enum ProposerGauge {
     )]
     DeadlineExceededError,
     #[strum(
+        serialize = "op_succinct_fp_deadline_approaching",
+        message = "Total number of deadline approaching warnings"
+    )]
+    DeadlineApproaching,
+    #[strum(
         serialize = "op_succinct_fp_network_call_timeout",
         message = "Total number of network call timeouts"
     )]
