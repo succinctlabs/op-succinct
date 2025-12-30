@@ -96,7 +96,7 @@ contract AccessManager is Ownable {
             uint256 gameTimestamp = uint256(timestamp.raw());
 
             // If this game is older than deployment, no point searching further.
-            if (gameTimestamp <= DEPLOYMENT_TIMESTAMP) {
+            if (gameTimestamp < DEPLOYMENT_TIMESTAMP) {
                 return DEPLOYMENT_TIMESTAMP;
             }
 
