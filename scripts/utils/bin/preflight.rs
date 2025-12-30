@@ -139,10 +139,10 @@ async fn main() -> Result<()> {
         AnchorStateRegistry::new(anchor_state_registry_address, data_fetcher.l1_provider.clone());
     info!("AnchorStateRegistry at address: {anchor_state_registry_address}");
 
-    let factor_address =
+    let factory_address =
         env::var("FACTORY_ADDRESS")?.parse::<Address>().expect("FACTORY_ADDRESS must be set");
-    let factory = DisputeGameFactory::new(factor_address, data_fetcher.l1_provider.clone());
-    info!("Factory at address: {factor_address}");
+    let factory = DisputeGameFactory::new(factory_address, data_fetcher.l1_provider.clone());
+    info!("Factory at address: {factory_address}");
 
     let game_type = env::var("GAME_TYPE")?.parse::<u32>().expect("GAME_TYPE must be set");
 
