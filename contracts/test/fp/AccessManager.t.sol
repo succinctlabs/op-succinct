@@ -167,9 +167,8 @@ contract AccessManagerTest is Test {
 
     function testGetLastProposalTimestamp_FindsOPSuccinctGame() public {
         uint64 newTimestamp = uint64(accessManager.DEPLOYMENT_TIMESTAMP()) + 1;
-        MockDisputeGameFactory(address(mockFactory)).addGame(
-            GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE), newTimestamp
-        );
+        MockDisputeGameFactory(address(mockFactory))
+            .addGame(GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE), newTimestamp);
 
         assertEq(accessManager.getLastProposalTimestamp(), newTimestamp);
     }
@@ -179,9 +178,8 @@ contract AccessManagerTest is Test {
         MockDisputeGameFactory(address(mockFactory)).addGame(GameType.wrap(0), cannonTimestamp);
 
         uint64 opSuccinctTimestamp = uint64(accessManager.DEPLOYMENT_TIMESTAMP()) + 1;
-        MockDisputeGameFactory(address(mockFactory)).addGame(
-            GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE), opSuccinctTimestamp
-        );
+        MockDisputeGameFactory(address(mockFactory))
+            .addGame(GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE), opSuccinctTimestamp);
 
         assertEq(accessManager.getLastProposalTimestamp(), opSuccinctTimestamp);
     }
