@@ -41,24 +41,14 @@ async fn main() -> Result<()> {
 
     let proposer_signer = SignerLock::from_env().await?;
 
-    let l1_provider =
-        ProviderBuilder::new().connect_http(env::var("L1_RPC").unwrap().parse::<Url>().unwrap());
+    let l1_provider = ProviderBuilder::new().connect_http(proposer_config.l1_rpc);
 
     let anchor_state_registry = AnchorStateRegistry::new(
-        env::var("ANCHOR_STATE_REGISTRY_ADDRESS")
-            .expect("ANCHOR_STATE_REGISTRY_ADDRESS must be set")
-            .parse::<Address>()
-            .unwrap(),
+        proposer_config.anchor_state_registry_address,
         l1_provider.clone(),
     );
 
-    let factory = DisputeGameFactory::new(
-        env::var("FACTORY_ADDRESS")
-            .expect("FACTORY_ADDRESS must be set")
-            .parse::<Address>()
-            .unwrap(),
-        l1_provider.clone(),
-    );
+    let factory = DisputeGameFactory::new(proposer_config.factory_address, l1_provider.clone());
 
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(fetcher.clone()));
