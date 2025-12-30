@@ -14,7 +14,8 @@ use crate::{config::ProofProviderConfig, prometheus::ProposerGauge};
 use op_succinct_proof_utils::get_range_elf_embedded;
 
 /// Polling interval (in seconds) for checking proof status.
-/// Matches the SP1 SDK's internal polling interval.
+/// Matches the SP1 SDK's internal polling interval:
+/// https://github.com/succinctlabs/sp1/blob/dev/crates/sdk/src/network/prover.rs#L551
 pub const PROOF_STATUS_POLL_INTERVAL: u64 = 2;
 
 /// Unique identifier for a proof request.
