@@ -1894,10 +1894,8 @@ where
     ) -> Result<bool> {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
-        let contract_params = self
-            .contract_params
-            .get()
-            .context("contract_params must be set via try_init")?;
+        let contract_params =
+            self.contract_params.get().context("contract_params must be set via try_init")?;
         let max_duration = if is_defense {
             contract_params.max_prove_duration
         } else {

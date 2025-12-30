@@ -6,7 +6,7 @@ use alloy_provider::ProviderBuilder;
 use anyhow::Result;
 use fault_proof::{
     challenger::OPSuccinctChallenger,
-    config::{ChallengerConfig, RangeSplitCount},
+    config::{ChallengerConfig, ProofProviderConfig, RangeSplitCount},
     contract::{AnchorStateRegistry, DisputeGameFactory},
     proposer::OPSuccinctProposer,
 };
