@@ -1794,7 +1794,7 @@ where
 
         let backup = self.state.read().await.to_backup();
         let path = path.clone();
-        tokio::spawn(async move {
+        tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
                 tracing::warn!("Failed to backup proposer state: {:?}", e);
             }
