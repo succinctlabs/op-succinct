@@ -36,7 +36,6 @@ pub struct ProofKeys {
     pub range_pk: Arc<SP1ProvingKey>,
     pub range_vk: Arc<SP1VerifyingKey>,
     pub agg_pk: Arc<SP1ProvingKey>,
-    pub agg_vk: Arc<SP1VerifyingKey>,
 }
 
 /// Proof provider abstraction for generating range and aggregation proofs.

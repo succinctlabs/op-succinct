@@ -214,13 +214,12 @@ where
             ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
         );
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
+        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
 
         let keys = ProofKeys {
             range_pk: Arc::new(range_pk),
             range_vk: Arc::new(range_vk),
             agg_pk: Arc::new(agg_pk),
-            agg_vk: Arc::new(agg_vk),
         };
 
         let prover = if config.mock_mode {
