@@ -23,6 +23,15 @@ for the required setup steps.
   - Challenge bonds (proof rewards)
   - Transaction fees
 
+```` admonish info
+On Ubuntu, you'll need some system dependencies to run the service:
+
+```bash
+sudo apt update && sudo apt install -y \
+  curl clang pkg-config libssl-dev ca-certificates git libclang-dev jq build-essential
+```
+````
+
 ## Step 1: Clone and build contracts
 
 Clone the repository and build the contracts:
