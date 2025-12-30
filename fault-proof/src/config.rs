@@ -138,7 +138,7 @@ impl ProposerConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             proof_provider: ProofProviderConfig::from_env()?,
-            backup_file: env::var("PROPOSER_BACKUP_FILE").ok().map(PathBuf::from),
+            backup_file: env::var("BACKUP_FILE").ok().map(PathBuf::from),
         })
     }
 
