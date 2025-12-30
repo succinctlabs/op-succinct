@@ -1,6 +1,7 @@
 use std::{
     env,
     num::{NonZeroU8, NonZeroUsize},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -74,6 +75,9 @@ pub struct ProposerConfig {
 
     /// Configuration for proof provider operations.
     pub proof_provider: ProofProviderConfig,
+
+    /// Optional path to backup file for persisting proposer state across restarts.
+    pub backup_file: Option<PathBuf>,
 }
 
 /// Helper function to parse a comma-separated list of addresses
@@ -134,6 +138,7 @@ impl ProposerConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             proof_provider: ProofProviderConfig::from_env()?,
+            backup_file: env::var("PROPOSER_BACKUP_FILE").ok().map(PathBuf::from),
         })
     }
 
@@ -169,6 +174,7 @@ impl ProposerConfig {
             max_price_per_pgu = self.proof_provider.max_price_per_pgu,
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
+            backup_file = ?self.backup_file,
             "Proposer configuration loaded"
         );
     }

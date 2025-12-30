@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
+    path::Path,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, OnceLock,
@@ -27,11 +28,12 @@ use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 use tokio::{
-    sync::{Mutex, RwLock},
+    sync::{Mutex, RwLock, Semaphore},
     time,
 };
 
 use crate::{
+    backup::ProposerBackup,
     config::ProposerConfig,
     contract::{
         AnchorStateRegistry::AnchorStateRegistryInstance,
@@ -82,7 +84,7 @@ pub enum TaskInfo {
 /// Games form a directed acyclic graph where each game builds upon a parent game, extending the
 /// chain with a new proposed output root. The proposer tracks these games to determine when to
 /// propose new games, defend existing ones, resolve completed games and claim bonds.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Game {
     pub index: U256,
     pub address: Address,
@@ -187,6 +189,7 @@ where
     tasks: Arc<Mutex<TaskMap>>,
     next_task_id: Arc<AtomicU64>,
     state: Arc<RwLock<ProposerState>>,
+    backup_semaphore: Arc<Semaphore>,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -259,6 +262,7 @@ where
             tasks: Arc::new(Mutex::new(HashMap::new())),
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(RwLock::new(initial_state)),
+            backup_semaphore: Arc::new(Semaphore::new(1)),
         })
     }
 
@@ -317,6 +321,8 @@ where
                 tracing::warn!("Failed to sync proposer state: {:?}", e);
                 continue
             }
+
+            self.backup().await;
 
             // 2. Handle completed tasks.
             if let Err(e) = self.handle_completed_tasks().await {
@@ -413,6 +419,17 @@ where
         self.contract_params
             .set(contract_params)
             .map_err(|_| anyhow::anyhow!("contract_params must not already be set"))?;
+
+        // Restore state from backup if available.
+        if let Some(path) = &self.config.backup_file {
+            if let Some(restored) = ProposerState::try_restore(path) {
+                let mut state = self.state.write().await;
+                state.cursor = restored.cursor;
+                state.games = restored.games;
+                state.anchor_game = restored.anchor_game;
+            }
+        }
+
         Ok(())
     }
 
@@ -1766,6 +1783,25 @@ where
         ))
     }
 
+    /// Backup proposer state to disk in background. Skips if backup already in progress.
+    async fn backup(&self) {
+        let Some(path) = &self.config.backup_file else { return };
+
+        let Ok(permit) = self.backup_semaphore.clone().try_acquire_owned() else {
+            tracing::debug!("Skipping backup: previous backup still in progress");
+            return;
+        };
+
+        let backup = self.state.read().await.to_backup();
+        let path = path.clone();
+        tokio::spawn(async move {
+            if let Err(e) = backup.save(&path) {
+                tracing::warn!("Failed to backup proposer state: {:?}", e);
+            }
+            drop(permit);
+        });
+    }
+
     /// Spawn game defense tasks if needed
     ///
     /// Returns:
@@ -2080,6 +2116,45 @@ pub fn check_deadline_status(now: u64, deadline: u64, max_duration: u64) -> Dead
         DeadlineStatus::Approaching { hours_remaining }
     } else {
         DeadlineStatus::Ok
+    }
+}
+
+impl ProposerState {
+    /// Serialize the current state to a backup struct.
+    pub fn to_backup(&self) -> ProposerBackup {
+        ProposerBackup::new(
+            self.cursor.index(),
+            self.games.values().cloned().collect(),
+            self.anchor_game.as_ref().map(|g| g.index),
+        )
+    }
+
+    /// Restore state from a backup struct.
+    fn from_backup(backup: ProposerBackup) -> Self {
+        let games: HashMap<U256, Game> = backup.games.into_iter().map(|g| (g.index, g)).collect();
+
+        let anchor_game = backup.anchor_game_index.and_then(|idx| games.get(&idx).cloned());
+
+        Self {
+            cursor: backup.cursor.map(Cursor::from).unwrap_or_default(),
+            games,
+            anchor_game,
+            canonical_head_index: None,
+            canonical_head_l2_block: None,
+        }
+    }
+
+    /// Try to restore state from a backup file. Returns None if file doesn't exist or is invalid.
+    pub fn try_restore(path: &Path) -> Option<Self> {
+        let backup = ProposerBackup::load(path)?;
+        let state = Self::from_backup(backup);
+        tracing::info!(
+            ?path,
+            games = state.games.len(),
+            cursor = %state.cursor,
+            "Proposer state restored from backup"
+        );
+        Some(state)
     }
 }
 
