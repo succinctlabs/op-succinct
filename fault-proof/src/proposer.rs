@@ -1801,7 +1801,7 @@ where
         deadline: Option<u64>,
     ) -> Result<()> {
         if let Some(deadline) = deadline {
-            if self.check_game_deadline(game_address, deadline, is_defense)? {
+            if self.should_skip_proving(game_address, deadline, is_defense)? {
                 return Ok(());
             }
         }
@@ -1881,12 +1881,12 @@ where
         Ok(())
     }
 
-    /// Check if the game deadline has passed or is approaching.
+    /// Check if proving should be skipped due to insufficient time remaining.
     ///
-    /// Returns `Ok(true)` if the deadline has passed (caller should skip this game).
-    /// Returns `Ok(false)` if the deadline has not passed (caller should continue).
+    /// Returns `Ok(true)` if proving should be skipped (deadline passed).
+    /// Returns `Ok(false)` if proving should proceed.
     /// Logs a warning if the deadline is approaching.
-    fn check_game_deadline(
+    fn should_skip_proving(
         &self,
         game_address: Address,
         deadline: u64,
