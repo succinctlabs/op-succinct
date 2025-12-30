@@ -166,16 +166,18 @@ mod integration {
         let tracked_games = env.wait_and_track_games(1, 30).await?;
         info!("Proposer created {} game(s)", tracked_games.len());
 
-        // Wait for backup file
+        // Wait for proposer to sync the game into its internal state
         for _ in 0..30 {
-            if backup_path.exists() {
+            if !proposer.state_snapshot().await.games.is_empty() {
                 break;
             }
             sleep(Duration::from_secs(1)).await;
         }
-        assert!(backup_path.exists(), "Backup file should exist");
-
         let snapshot_before = proposer.state_snapshot().await;
+        assert!(!snapshot_before.games.is_empty(), "Proposer should have games in state");
+
+        // Allow backup to complete
+        sleep(Duration::from_secs(2)).await;
         proposer_handle.abort();
 
         // Phase 2: Restart and verify backup load
