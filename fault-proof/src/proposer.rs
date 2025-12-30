@@ -1079,7 +1079,7 @@ where
         extra_data: Vec<u8>,
     ) -> Result<Address> {
         let init_bond =
-            *self.init_bond.get().expect("init_bond must be set via startup_validations");
+            *self.init_bond.get().context("init_bond must be set via startup_validations")?;
         let transaction_request = self
             .factory
             .create(self.config.game_type, output_root, extra_data.into())

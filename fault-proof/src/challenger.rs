@@ -485,7 +485,7 @@ where
         let challenger_bond = *self
             .challenger_bond
             .get()
-            .expect("challenger_bond must be set via startup_validations");
+            .context("challenger_bond must be set via startup_validations")?;
         let transaction_request =
             contract.challenge().value(challenger_bond).into_transaction_request();
         let receipt = self
