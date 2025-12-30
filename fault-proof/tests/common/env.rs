@@ -198,6 +198,7 @@ impl TestEnvironment {
             &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
+            None,
         )
         .await
     }

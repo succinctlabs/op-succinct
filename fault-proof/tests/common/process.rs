@@ -1,5 +1,5 @@
 //! Process management utilities for running proposer and challenger tasks.
-use std::{num::NonZero, sync::Arc};
+use std::{num::NonZero, path::PathBuf, sync::Arc};
 
 use alloy_primitives::Address;
 use alloy_provider::ProviderBuilder;
@@ -25,11 +25,10 @@ pub async fn new_proposer(
     anchor_state_registry_address: &Address,
     factory_address: &Address,
     game_type: u32,
+    backup_file: Option<PathBuf>,
 ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
-    // Create signer directly from private key
     let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
 
-    // Create proposer config with test-specific settings
     let config = fault_proof::config::ProposerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
@@ -90,6 +89,7 @@ pub async fn start_proposer(
         anchor_state_registry_address,
         factory_address,
         game_type,
+        None,
     )
     .await?;
     Ok(tokio::spawn(async move {

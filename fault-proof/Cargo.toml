@@ -76,6 +76,7 @@ serde_json.workspace = true
 serde.workspace = true
 alloy-rpc-types-trace.workspace = true
 rstest = "0.26"
+tempfile = "3"
 which = "4.4"
 
 [features]
