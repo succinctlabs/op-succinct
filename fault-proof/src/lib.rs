@@ -195,6 +195,9 @@ where
     Ok(parent_game_contract.status().call().await? == GameStatus::CHALLENGER_WINS)
 }
 
+/// Prefix used for transaction revert errors.
+pub const TX_REVERTED_PREFIX: &str = "transaction reverted:";
+
 /// Extension trait for checking transaction error types.
 pub trait TxErrorExt {
     /// Returns true if this error indicates a transaction revert (definitive failure).
@@ -203,6 +206,6 @@ pub trait TxErrorExt {
 
 impl TxErrorExt for anyhow::Error {
     fn is_revert(&self) -> bool {
-        self.to_string().contains("transaction reverted")
+        self.to_string().starts_with(TX_REVERTED_PREFIX)
     }
 }

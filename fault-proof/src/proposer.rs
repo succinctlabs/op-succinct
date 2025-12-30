@@ -41,7 +41,7 @@ use crate::{
     is_parent_resolved,
     prometheus::ProposerGauge,
     prover::{MockProofProvider, NetworkProofProvider, ProofKeys, ProofProvider},
-    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt, TX_REVERTED_PREFIX,
 };
 
 /// Max allowed time (secs) between a game's deadline and the anchor game's deadline.
@@ -974,7 +974,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         Ok((receipt.transaction_hash, total_instruction_cycles, total_sp1_gas))
@@ -1034,7 +1034,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         let game_address = receipt
@@ -1160,7 +1160,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         tracing::info!(
@@ -1186,7 +1186,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         tracing::info!(

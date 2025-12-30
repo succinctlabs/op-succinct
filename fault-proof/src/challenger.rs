@@ -20,7 +20,7 @@ use crate::{
     },
     is_parent_challenger_wins, is_parent_resolved,
     prometheus::ChallengerGauge,
-    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt, TX_REVERTED_PREFIX,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 use op_succinct_signer_utils::SignerLock;
@@ -503,7 +503,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         tracing::info!(
@@ -566,7 +566,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         tracing::info!(
@@ -631,7 +631,7 @@ where
             .await?;
 
         if !receipt.status() {
-            bail!("transaction reverted: {receipt:?}");
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
         }
 
         tracing::info!(
