@@ -12,7 +12,7 @@ import (
 // TestFaultProofProposer_LongRunning runs until shutdown, logging progress.
 func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	cfg := opspresets.LongRunningFaultProofConfig()
+	cfg := opspresets.LongRunningFPProposerConfig()
 	cfg.EnvFilePath = "../../../.env.faultproof"
 	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 
@@ -25,7 +25,7 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 // TestFaultProofProposer_FastFinality_LongRunning runs until shutdown, logging progress.
 func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
-	cfg := opspresets.LongRunningFastFinalityFaultProofConfig()
+	cfg := opspresets.LongRunningFastFinalityFPProposerConfig()
 	cfg.EnvFilePath = "../../../.env.faultproof"
 	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
 

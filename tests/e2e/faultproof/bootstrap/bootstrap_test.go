@@ -15,7 +15,7 @@ import (
 // TestFaultProofProposer_SystemUp verifies the proposer-only system boots correctly.
 func TestFaultProofProposer_SystemUp(gt *testing.T) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewFaultProofSystem(t, opspresets.DefaultFaultProofConfig(), opspresets.DefaultL2ChainConfig())
+	sys := opspresets.NewFaultProofSystem(t, opspresets.DefaultFPProposerConfig(), opspresets.DefaultL2ChainConfig())
 	require := t.Require()
 	logger := t.Logger()
 
@@ -47,7 +47,7 @@ func TestFaultProofProposerAndChallenger_SystemUp(gt *testing.T) {
 // TestFaultProofProposer_CreatesFirstGame verifies the proposer creates and proves a game.
 func TestFaultProofProposer_CreatesFirstGame(gt *testing.T) {
 	t := devtest.ParallelT(gt)
-	sys := opspresets.NewFaultProofSystem(t, opspresets.DefaultFaultProofConfig(), opspresets.DefaultL2ChainConfig())
+	sys := opspresets.NewFaultProofSystem(t, opspresets.DefaultFPProposerConfig(), opspresets.DefaultL2ChainConfig())
 	require := t.Require()
 	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())

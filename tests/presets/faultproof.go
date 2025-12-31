@@ -11,8 +11,8 @@ import (
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
-// FaultProofConfig holds configuration for fault proof proposer tests.
-type FaultProofConfig struct {
+// FPProposerConfig holds configuration for fault proof proposer tests.
+type FPProposerConfig struct {
 	// Contract deployment configuration
 	MaxChallengeDuration         uint64
 	MaxProveDuration             uint64
@@ -36,9 +36,9 @@ type FaultProofConfig struct {
 	AggProofMode *string
 }
 
-// DefaultFaultProofConfig returns the default configuration for fast tests.
-func DefaultFaultProofConfig() FaultProofConfig {
-	return FaultProofConfig{
+// DefaultFPProposerConfig returns the default configuration for fast tests.
+func DefaultFPProposerConfig() FPProposerConfig {
+	return FPProposerConfig{
 		MaxChallengeDuration:         10, // Low for tests (vs 1 hour production)
 		MaxProveDuration:             10, // Low for tests (vs 12 hours production)
 		DisputeGameFinalityDelaySecs: 30, // Low for tests (vs 7 days production)
@@ -51,17 +51,17 @@ func DefaultFaultProofConfig() FaultProofConfig {
 	}
 }
 
-// FastFinalityFaultProofConfig returns configuration with fast finality mode enabled.
-func FastFinalityFaultProofConfig() FaultProofConfig {
-	cfg := DefaultFaultProofConfig()
+// FastFinalityFPProposerConfig returns configuration with fast finality mode enabled.
+func FastFinalityFPProposerConfig() FPProposerConfig {
+	cfg := DefaultFPProposerConfig()
 	cfg.FastFinalityMode = true
 	return cfg
 }
 
-// LongRunningFaultProofConfig returns configuration optimized for long-running progress tests.
+// LongRunningFPProposerConfig returns configuration optimized for long-running progress tests.
 // If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
-func LongRunningFaultProofConfig() FaultProofConfig {
-	cfg := DefaultFaultProofConfig()
+func LongRunningFPProposerConfig() FPProposerConfig {
+	cfg := DefaultFPProposerConfig()
 	cfg.MaxChallengeDuration = 1800 // =30m
 
 	timeout := uint64(900) // =15m
@@ -75,17 +75,17 @@ func LongRunningFaultProofConfig() FaultProofConfig {
 	return cfg
 }
 
-// LongRunningFastFinalityFaultProofConfig returns configuration for long-running fast finality tests.
+// LongRunningFastFinalityFPProposerConfig returns configuration for long-running fast finality tests.
 // If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
-func LongRunningFastFinalityFaultProofConfig() FaultProofConfig {
-	cfg := LongRunningFaultProofConfig()
+func LongRunningFastFinalityFPProposerConfig() FPProposerConfig {
+	cfg := LongRunningFPProposerConfig()
 	cfg.FastFinalityMode = true
 	cfg.FastFinalityProvingLimit = 8
 	return cfg
 }
 
 // ProposerOptions returns the proposer options for this configuration.
-func (c FaultProofConfig) ProposerOptions() []sysgo.FaultProofProposerOption {
+func (c FPProposerConfig) ProposerOptions() []sysgo.FaultProofProposerOption {
 	opts := []sysgo.FaultProofProposerOption{
 		sysgo.WithFPProposalIntervalInBlocks(c.ProposalIntervalInBlocks),
 		sysgo.WithFPFetchInterval(c.FetchInterval),
@@ -104,7 +104,7 @@ func (c FaultProofConfig) ProposerOptions() []sysgo.FaultProofProposerOption {
 }
 
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
-func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FaultProofConfig, chain L2ChainConfig) stack.CommonOption {
+func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FPProposerConfig, chain L2ChainConfig) stack.CommonOption {
 	// Set batcher's MaxBlocksPerSpanBatch to match the proposal interval
 	maxBlocksPerSpanBatch := int(cfg.ProposalIntervalInBlocks)
 	return withSuccinctPreset(dest, chain, maxBlocksPerSpanBatch, cfg.AggProofMode, func(opt *stack.CombinedOption[*sysgo.Orchestrator], ids sysgo.DefaultSingleChainInteropSystemIDs, l2ChainID eth.ChainID) {
@@ -122,16 +122,16 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 
 // WithDefaultSuccinctFPProposer creates a fault proof proposer with default configuration.
 func WithDefaultSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctFPProposer(dest, DefaultFaultProofConfig(), DefaultL2ChainConfig())
+	return WithSuccinctFPProposer(dest, DefaultFPProposerConfig(), DefaultL2ChainConfig())
 }
 
 // WithSuccinctFPProposerFastFinality creates a fault proof proposer optimized for fast finality.
 func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctFPProposer(dest, FastFinalityFaultProofConfig(), DefaultL2ChainConfig())
+	return WithSuccinctFPProposer(dest, FastFinalityFPProposerConfig(), DefaultL2ChainConfig())
 }
 
 // WithSuccinctFPProposerAndChallenger creates both a fault proof proposer and challenger with custom configuration.
-func WithSuccinctFPProposerAndChallenger(dest *sysgo.DefaultSingleChainInteropSystemIDs, proposerCfg FaultProofConfig, challengerCfg ChallengerConfig, chain L2ChainConfig) stack.CommonOption {
+func WithSuccinctFPProposerAndChallenger(dest *sysgo.DefaultSingleChainInteropSystemIDs, proposerCfg FPProposerConfig, challengerCfg FPChallengerConfig, chain L2ChainConfig) stack.CommonOption {
 	return stack.MakeCommon(stack.Combine(
 		WithSuccinctFPProposer(dest, proposerCfg, chain),
 		WithSuccinctFPChallenger(dest, challengerCfg),
@@ -140,7 +140,7 @@ func WithSuccinctFPProposerAndChallenger(dest *sysgo.DefaultSingleChainInteropSy
 
 // WithDefaultSuccinctFPProposerAndChallenger creates both a fault proof proposer and challenger with default configuration.
 func WithDefaultSuccinctFPProposerAndChallenger(dest *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctFPProposerAndChallenger(dest, DefaultFaultProofConfig(), DefaultChallengerConfig(), DefaultL2ChainConfig())
+	return WithSuccinctFPProposerAndChallenger(dest, DefaultFPProposerConfig(), DefaultFPChallengerConfig(), DefaultL2ChainConfig())
 }
 
 // FaultProofSystem wraps MinimalWithProposer and provides access to faultproof-specific features.
@@ -168,7 +168,7 @@ func (s *FaultProofSystem) StartProposer() {
 }
 
 // NewFaultProofSystem creates a new fault proof test system with custom configuration.
-func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig, chain L2ChainConfig) *FaultProofSystem {
+func NewFaultProofSystem(t devtest.T, cfg FPProposerConfig, chain L2ChainConfig) *FaultProofSystem {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
 	sys, prop := newSystemWithProposer(t, WithSuccinctFPProposer(&ids, cfg, chain), &ids)
 
@@ -181,8 +181,8 @@ func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig, chain L2ChainConfig)
 	}
 }
 
-// ChallengerConfig holds configuration for fault proof challenger tests.
-type ChallengerConfig struct {
+// FPChallengerConfig holds configuration for fault proof challenger tests.
+type FPChallengerConfig struct {
 	// FetchInterval is the polling interval in seconds for the challenger.
 	FetchInterval uint64
 
@@ -194,9 +194,9 @@ type ChallengerConfig struct {
 	EnvFilePath string
 }
 
-// DefaultChallengerConfig returns the default challenger configuration.
-func DefaultChallengerConfig() ChallengerConfig {
-	return ChallengerConfig{
+// DefaultFPChallengerConfig returns the default challenger configuration.
+func DefaultFPChallengerConfig() FPChallengerConfig {
+	return FPChallengerConfig{
 		FetchInterval:                1,
 		MaliciousChallengePercentage: 0.0,
 	}
@@ -204,7 +204,7 @@ func DefaultChallengerConfig() ChallengerConfig {
 
 // WithSuccinctFPChallenger creates a fault proof challenger with custom configuration.
 // Use with WithSuccinctFPProposer to create a complete system with both proposer and challenger.
-func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg ChallengerConfig) stack.CommonOption {
+func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg FPChallengerConfig) stack.CommonOption {
 	return stack.MakeCommon(stack.Finally(func(orch *sysgo.Orchestrator) {
 		challengerOpts := []sysgo.FaultProofChallengerOption{
 			sysgo.WithFPChallengerFetchInterval(cfg.FetchInterval),
@@ -221,7 +221,7 @@ func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg
 
 // WithDefaultSuccinctFPChallenger creates a fault proof challenger with default configuration.
 func WithDefaultSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctFPChallenger(ids, DefaultChallengerConfig())
+	return WithSuccinctFPChallenger(ids, DefaultFPChallengerConfig())
 }
 
 // FaultProofSystemWithChallenger wraps FaultProofSystem and adds challenger access.
@@ -242,7 +242,7 @@ func (s *FaultProofSystemWithChallenger) StartChallenger() {
 
 // NewFaultProofSystemWithChallenger creates a new fault proof test system with both proposer and challenger.
 // Both components can be started/stopped independently for testing scenarios.
-func NewFaultProofSystemWithChallenger(t devtest.T, proposerCfg FaultProofConfig, challengerCfg ChallengerConfig) *FaultProofSystemWithChallenger {
+func NewFaultProofSystemWithChallenger(t devtest.T, proposerCfg FPProposerConfig, challengerCfg FPChallengerConfig) *FaultProofSystemWithChallenger {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
 
 	// Combine proposer and challenger options
@@ -281,5 +281,5 @@ func NewFaultProofSystemWithChallenger(t devtest.T, proposerCfg FaultProofConfig
 
 // NewDefaultFaultProofSystemWithChallenger creates a fault proof system with both proposer and challenger using default configs.
 func NewDefaultFaultProofSystemWithChallenger(t devtest.T) *FaultProofSystemWithChallenger {
-	return NewFaultProofSystemWithChallenger(t, DefaultFaultProofConfig(), DefaultChallengerConfig())
+	return NewFaultProofSystemWithChallenger(t, DefaultFPProposerConfig(), DefaultFPChallengerConfig())
 }
