@@ -66,7 +66,6 @@ impl ProposerBackup {
         let json =
             serde_json::to_string_pretty(self).context("failed to serialize proposer backup")?;
 
-        // Atomic write: write to temp file, sync to disk, then rename.
         let tmp_path = path.with_extension("tmp");
 
         // Write and sync to ensure data is on disk before rename.
@@ -78,7 +77,6 @@ impl ProposerBackup {
 
         // Rename with cleanup on failure.
         if let Err(e) = std::fs::rename(&tmp_path, path) {
-            // Best-effort cleanup of orphaned temp file.
             let _ = std::fs::remove_file(&tmp_path);
             return Err(e).context("failed to rename proposer backup file");
         }

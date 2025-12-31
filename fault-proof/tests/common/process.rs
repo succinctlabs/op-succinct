@@ -27,8 +27,10 @@ pub async fn new_proposer(
     game_type: u32,
     backup_file: Option<PathBuf>,
 ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
+    // Create signer directly from private key
     let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
 
+    // Create proposer config with test-specific settings
     let config = fault_proof::config::ProposerConfig {
         l1_rpc: rpc_config.l1_rpc.clone(),
         l2_rpc: rpc_config.l2_rpc.clone(),
