@@ -16,7 +16,7 @@ use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{bail, Context, Result};
 use futures::stream::{self, StreamExt, TryStreamExt};
-use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -28,7 +28,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
-use sp1_sdk::{Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+use sp1_sdk::{HashableKey, Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 use tokio::{
     sync::{Mutex, RwLock, Semaphore},
     time,
@@ -79,6 +79,65 @@ pub enum TaskInfo {
     GameProving { game_address: Address, is_defense: bool },
     GameResolution,
     BondClaim,
+}
+
+/// Proposer identity information for version tracking and monitoring.
+/// This helps operators identify which ELF version is running and enables
+/// compatibility checks during hardfork transitions.
+#[derive(Clone, Debug)]
+pub struct ProposerIdentity {
+    /// Package version from Cargo.toml (e.g., "3.4.1")
+    pub version: &'static str,
+    /// DA layer feature (e.g., "ethereum", "celestia", "eigenda")
+    pub da_layer: &'static str,
+    /// Full version string with DA layer suffix (e.g., "3.4.1-celestia")
+    pub full_version: String,
+    /// Aggregation verification key hash
+    pub aggregation_vkey: B256,
+    /// Range verification key commitment
+    pub range_vkey_commitment: B256,
+}
+
+impl ProposerIdentity {
+    /// Returns the DA layer based on compile-time feature flags.
+    fn detect_da_layer() -> &'static str {
+        #[cfg(feature = "celestia")]
+        {
+            "celestia"
+        }
+        #[cfg(feature = "eigenda")]
+        {
+            "eigenda"
+        }
+        #[cfg(not(any(feature = "celestia", feature = "eigenda")))]
+        {
+            "ethereum"
+        }
+    }
+
+    /// Creates a new ProposerIdentity from computed vkeys.
+    pub fn new(aggregation_vkey: B256, range_vkey_commitment: B256) -> Self {
+        let version = env!("CARGO_PKG_VERSION");
+        let da_layer = Self::detect_da_layer();
+        let full_version = format!("{}-{}", version, da_layer);
+
+        Self { version, da_layer, full_version, aggregation_vkey, range_vkey_commitment }
+    }
+
+    /// Logs the proposer identity at startup.
+    pub fn log_startup_info(&self) {
+        tracing::info!(
+            version = %self.full_version,
+            aggregation_vkey = %format!("0x{}", hex::encode(&self.aggregation_vkey[..8])),
+            range_vkey_commitment = %format!("0x{}", hex::encode(&self.range_vkey_commitment[..8])),
+            "Proposer initialized"
+        );
+        tracing::debug!(
+            aggregation_vkey_full = %format!("0x{}", hex::encode(self.aggregation_vkey)),
+            range_vkey_commitment_full = %format!("0x{}", hex::encode(self.range_vkey_commitment)),
+            "Full vkey values"
+        );
+    }
 }
 
 /// Represents a dispute game in the on-chain game DAG.
@@ -192,6 +251,9 @@ where
     next_task_id: Arc<AtomicU64>,
     state: Arc<RwLock<ProposerState>>,
     backup_semaphore: Arc<Semaphore>,
+    /// Proposer identity with version and vkey information for monitoring and compatibility
+    /// checks.
+    pub identity: ProposerIdentity,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -219,7 +281,20 @@ where
             ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
         );
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
+
+        // Compute vkey hashes for on-chain compatibility checks.
+        // These are compared against game contract immutable values to ensure proof compatibility.
+        let aggregation_vkey = {
+            let hex_str = agg_vk.bytes32();
+            // bytes32() returns "0x..." prefixed hex string
+            B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
+        };
+        let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
+
+        // Create proposer identity for monitoring and version tracking.
+        let identity = ProposerIdentity::new(aggregation_vkey, range_vkey_commitment);
+        identity.log_startup_info();
 
         let keys = ProofKeys {
             range_pk: Arc::new(range_pk),
@@ -265,6 +340,7 @@ where
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(RwLock::new(initial_state)),
             backup_semaphore: Arc::new(Semaphore::new(1)),
+            identity,
         })
     }
 
@@ -894,6 +970,44 @@ where
                 );
             }
         }
+    }
+
+    /// Checks if a game's on-chain vkeys match the proposer's compiled-in vkeys.
+    ///
+    /// During hardfork transitions, old games have different vkeys than newly compiled proposers.
+    /// This check prevents wasting compute and gas on proofs that will fail on-chain verification.
+    ///
+    /// # Returns
+    /// - `Ok(true)`: Game vkeys match, safe to prove
+    /// - `Ok(false)`: Game vkeys mismatch, skip proving
+    /// - `Err`: Failed to fetch game vkeys
+    pub async fn is_game_vkey_compatible(&self, game_address: Address) -> Result<bool> {
+        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+
+        let on_chain_agg_vkey = game.aggregationVkey().call().await?.0;
+        let on_chain_range_commitment = game.rangeVkeyCommitment().call().await?.0;
+
+        let agg_match = on_chain_agg_vkey == self.identity.aggregation_vkey;
+        let range_match = on_chain_range_commitment == self.identity.range_vkey_commitment;
+
+        if !agg_match || !range_match {
+            tracing::warn!(
+                game_address = ?game_address,
+                proposer_version = %self.identity.full_version,
+                agg_vkey_match = agg_match,
+                range_vkey_match = range_match,
+                on_chain_agg_vkey = %format!("0x{}", hex::encode(&on_chain_agg_vkey[..8])),
+                expected_agg_vkey = %format!("0x{}", hex::encode(&self.identity.aggregation_vkey[..8])),
+                "VKey mismatch - cannot prove this game with current ELF version"
+            );
+            return Ok(false);
+        }
+
+        tracing::debug!(
+            game_address = ?game_address,
+            "VKey compatibility confirmed"
+        );
+        Ok(true)
     }
 
     /// Proves a dispute game at the given address.
@@ -1888,17 +2002,30 @@ where
 
     /// Spawn a game proving task for a specific game.
     ///
-    /// Skips if game deadline has passed (too late to prove).
+    /// Skips if game deadline has passed (too late to prove) or if vkey is incompatible.
     async fn spawn_game_proving_task(
         &self,
         game_address: Address,
         is_defense: bool,
         deadline: Option<u64>,
     ) -> Result<()> {
+        // Skip if deadline has passed
         if let Some(deadline) = deadline {
             if self.should_skip_proving(game_address, deadline, is_defense)? {
                 return Ok(());
             }
+        }
+
+        // Check vkey compatibility before spawning proving task.
+        // This prevents wasting compute and gas on proofs that will fail on-chain verification.
+        if !self.is_game_vkey_compatible(game_address).await? {
+            tracing::info!(
+                game_address = ?game_address,
+                is_defense = is_defense,
+                proposer_version = %self.identity.full_version,
+                "Skipping game proving: vkey mismatch with current ELF version"
+            );
+            return Ok(());
         }
 
         let proposer: OPSuccinctProposer<P, H> = self.clone();
