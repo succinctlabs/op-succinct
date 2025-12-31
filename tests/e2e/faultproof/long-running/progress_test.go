@@ -16,7 +16,7 @@ import (
 func TestFaultProofProposer_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFPProposerConfig()
-	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
+	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig(), opspresets.WithDefaultChallenger())
 
 	err := utils.RunProgressTest(func() error {
 		return checkLatestGame(t, sys, dgf, nil)
@@ -29,7 +29,7 @@ func TestFaultProofProposer_Progress(gt *testing.T) {
 func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.LongRunningFastFinalityFPProposerConfig()
-	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig())
+	sys, dgf := setupFaultProofSystem(t, cfg, opspresets.LongRunningL2ChainConfig(), opspresets.WithDefaultChallenger())
 
 	err := utils.RunProgressTest(func() error {
 		return checkLatestGame(t, sys, dgf, &cfg)
@@ -48,9 +48,6 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 }
 
 func setupFaultProofSystem(t devtest.T, cfg opspresets.FPProposerConfig, chain opspresets.L2ChainConfig, opts ...opspresets.FaultProofSystemOption) (*opspresets.FaultProofSystem, *utils.DgfClient) {
-	if len(opts) == 0 {
-		opts = []opspresets.FaultProofSystemOption{opspresets.WithDefaultChallenger()}
-	}
 	sys := opspresets.NewFaultProofSystem(t, cfg, chain, opts...)
 	t.Log("=== Stack is running ===")
 	return sys, sys.DgfClient(t)
