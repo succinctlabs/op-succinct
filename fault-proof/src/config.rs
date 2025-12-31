@@ -74,6 +74,15 @@ pub struct ProposerConfig {
 
     /// Configuration for proof provider operations.
     pub proof_provider: ProofProviderConfig,
+
+    /// When true, restricts proposer to defense-proving only.
+    /// Disables: game creation, resolution, bond claiming.
+    /// Keeps: defense proving for challenged games.
+    ///
+    /// Use this during hardfork transitions to run old ELF versions alongside new ones.
+    /// The old proposer (prove-only) defends existing games while the new proposer creates new
+    /// ones.
+    pub prove_only_mode: bool,
 }
 
 /// Helper function to parse a comma-separated list of addresses
@@ -134,6 +143,7 @@ impl ProposerConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             proof_provider: ProofProviderConfig::from_env()?,
+            prove_only_mode: env::var("PROVE_ONLY_MODE").unwrap_or("false".to_string()).parse()?,
         })
     }
 
@@ -169,8 +179,17 @@ impl ProposerConfig {
             max_price_per_pgu = self.proof_provider.max_price_per_pgu,
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
+            prove_only_mode = self.prove_only_mode,
             "Proposer configuration loaded"
         );
+
+        // Log a prominent warning if prove-only mode is enabled
+        if self.prove_only_mode {
+            tracing::warn!(
+                "PROVE-ONLY MODE ENABLED: Game creation, resolution, and bond claiming are disabled. \
+                 Only defense proving for challenged games is active."
+            );
+        }
     }
 }
 
