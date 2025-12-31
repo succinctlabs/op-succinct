@@ -161,9 +161,9 @@ func NewSystemNodesOnly(t devtest.T, opt stack.CommonOption) *presets.Minimal {
 	return minimal
 }
 
-// newSystemWithProposer creates a new test system and optionally returns the L2Prop backend.
+// newSystemWithProposer creates a new test system and optionally returns the L2ProposerBackend.
 // If ids is provided, it retrieves the proposer from the orchestrator.
-func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs) (*presets.MinimalWithProposer, sysgo.L2Prop) {
+func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs) (*presets.MinimalWithProposer, sysgo.L2ProposerBackend) {
 	minimal, orch, system := newSystemCore(t, opt)
 
 	l2 := system.L2Network(match.Assume(t, match.L2ChainA))
@@ -174,7 +174,7 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 		L2Proposer: dsl.NewL2Proposer(proposer),
 	}
 
-	var prop sysgo.L2Prop
+	var prop sysgo.L2ProposerBackend
 	if ids != nil {
 		var ok bool
 		prop, ok = orch.GetProposer(ids.L2AProposer)

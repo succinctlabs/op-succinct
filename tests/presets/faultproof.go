@@ -2,8 +2,10 @@ package presets
 
 import (
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
+	"github.com/ethereum-optimism/optimism/op-devstack/dsl"
 	"github.com/ethereum-optimism/optimism/op-devstack/presets"
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
+	"github.com/ethereum-optimism/optimism/op-devstack/stack/match"
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/succinctlabs/op-succinct/utils"
@@ -128,6 +130,19 @@ func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSys
 	return WithSuccinctFPProposer(dest, FastFinalityFaultProofConfig(), DefaultL2ChainConfig())
 }
 
+// WithSuccinctFPProposerAndChallenger creates both a fault proof proposer and challenger with custom configuration.
+func WithSuccinctFPProposerAndChallenger(dest *sysgo.DefaultSingleChainInteropSystemIDs, proposerCfg FaultProofConfig, challengerCfg ChallengerConfig, chain L2ChainConfig) stack.CommonOption {
+	return stack.MakeCommon(stack.Combine(
+		WithSuccinctFPProposer(dest, proposerCfg, chain),
+		WithSuccinctFPChallenger(dest, challengerCfg),
+	))
+}
+
+// WithDefaultSuccinctFPProposerAndChallenger creates both a fault proof proposer and challenger with default configuration.
+func WithDefaultSuccinctFPProposerAndChallenger(dest *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
+	return WithSuccinctFPProposerAndChallenger(dest, DefaultFaultProofConfig(), DefaultChallengerConfig(), DefaultL2ChainConfig())
+}
+
 // FaultProofSystem wraps MinimalWithProposer and provides access to faultproof-specific features.
 type FaultProofSystem struct {
 	*presets.MinimalWithProposer
@@ -164,4 +179,107 @@ func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig, chain L2ChainConfig)
 		MinimalWithProposer: sys,
 		proposer:            fp,
 	}
+}
+
+// ChallengerConfig holds configuration for fault proof challenger tests.
+type ChallengerConfig struct {
+	// FetchInterval is the polling interval in seconds for the challenger.
+	FetchInterval uint64
+
+	// MaliciousChallengePercentage is the percentage of valid games to challenge
+	// maliciously for testing defense mechanisms. Set to 0.0 for honest mode (default).
+	MaliciousChallengePercentage float64
+
+	// EnvFilePath is an optional path to write the challenger environment variables.
+	EnvFilePath string
+}
+
+// DefaultChallengerConfig returns the default challenger configuration.
+func DefaultChallengerConfig() ChallengerConfig {
+	return ChallengerConfig{
+		FetchInterval:                1,
+		MaliciousChallengePercentage: 0.0,
+	}
+}
+
+// WithSuccinctFPChallenger creates a fault proof challenger with custom configuration.
+// Use with WithSuccinctFPProposer to create a complete system with both proposer and challenger.
+func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg ChallengerConfig) stack.CommonOption {
+	return stack.MakeCommon(stack.Finally(func(orch *sysgo.Orchestrator) {
+		challengerOpts := []sysgo.FaultProofChallengerOption{
+			sysgo.WithFPChallengerFetchInterval(cfg.FetchInterval),
+		}
+		if cfg.MaliciousChallengePercentage > 0 {
+			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerMaliciousChallengePercentage(cfg.MaliciousChallengePercentage))
+		}
+		if cfg.EnvFilePath != "" {
+			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerWriteEnvFile(cfg.EnvFilePath))
+		}
+		sysgo.WithSuccinctFaultProofChallengerPostDeploy(orch, ids.L2ChallengerA, ids.L1EL, ids.L2AEL, challengerOpts...)
+	}))
+}
+
+// WithDefaultSuccinctFPChallenger creates a fault proof challenger with default configuration.
+func WithDefaultSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
+	return WithSuccinctFPChallenger(ids, DefaultChallengerConfig())
+}
+
+// FaultProofSystemWithChallenger wraps FaultProofSystem and adds challenger access.
+type FaultProofSystemWithChallenger struct {
+	*FaultProofSystem
+	challenger sysgo.FaultProofChallenger
+}
+
+// StopChallenger stops the faultproof challenger (for restart testing).
+func (s *FaultProofSystemWithChallenger) StopChallenger() {
+	s.challenger.Stop()
+}
+
+// StartChallenger starts the faultproof challenger (for restart testing).
+func (s *FaultProofSystemWithChallenger) StartChallenger() {
+	s.challenger.Start()
+}
+
+// NewFaultProofSystemWithChallenger creates a new fault proof test system with both proposer and challenger.
+// Both components can be started/stopped independently for testing scenarios.
+func NewFaultProofSystemWithChallenger(t devtest.T, proposerCfg FaultProofConfig, challengerCfg ChallengerConfig) *FaultProofSystemWithChallenger {
+	var ids sysgo.DefaultSingleChainInteropSystemIDs
+
+	// Combine proposer and challenger options
+	combinedOpt := WithSuccinctFPProposerAndChallenger(&ids, proposerCfg, challengerCfg, DefaultL2ChainConfig())
+
+	minimal, orch, system := newSystemCore(t, combinedOpt)
+
+	l2 := system.L2Network(match.Assume(t, match.L2ChainA))
+	proposer := l2.L2Proposer(match.Assume(t, match.FirstL2Proposer))
+
+	sys := &presets.MinimalWithProposer{
+		Minimal:    *minimal,
+		L2Proposer: dsl.NewL2Proposer(proposer),
+	}
+
+	prop, ok := orch.GetProposer(ids.L2AProposer)
+	t.Require().True(ok, "proposer not found")
+
+	fp, ok := prop.(sysgo.FaultProofProposer)
+	t.Require().True(ok, "proposer must implement FaultProofProposer")
+
+	chall, ok := orch.GetChallenger(ids.L2ChallengerA)
+	t.Require().True(ok, "challenger not found")
+
+	fc, ok := chall.(sysgo.FaultProofChallenger)
+	t.Require().True(ok, "challenger must implement FaultProofChallenger")
+
+	return &FaultProofSystemWithChallenger{
+		FaultProofSystem: &FaultProofSystem{
+			MinimalWithProposer: sys,
+			proposer:            fp,
+		},
+		challenger: fc,
+	}
+}
+
+// NewDefaultFaultProofSystemWithChallenger creates a fault proof system with both proposer and challenger using default configs.
+func NewDefaultFaultProofSystemWithChallenger(t devtest.T) *FaultProofSystemWithChallenger {
+	return NewFaultProofSystemWithChallenger(t, DefaultFaultProofConfig(), DefaultChallengerConfig())
 }
