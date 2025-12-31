@@ -103,6 +103,27 @@ func (c FPProposerConfig) ProposerOptions() []sysgo.FaultProofProposerOption {
 	return opts
 }
 
+// FPChallengerConfig holds configuration for fault proof challenger tests.
+type FPChallengerConfig struct {
+	// FetchInterval is the polling interval in seconds for the challenger.
+	FetchInterval uint64
+
+	// MaliciousChallengePercentage is the percentage of valid games to challenge
+	// maliciously for testing defense mechanisms. Set to 0.0 for honest mode (default).
+	MaliciousChallengePercentage float64
+
+	// EnvFilePath is an optional path to write the challenger environment variables.
+	EnvFilePath string
+}
+
+// DefaultFPChallengerConfig returns the default challenger configuration.
+func DefaultFPChallengerConfig() FPChallengerConfig {
+	return FPChallengerConfig{
+		FetchInterval:                1,
+		MaliciousChallengePercentage: 0.0,
+	}
+}
+
 // WithSuccinctFPProposer creates a fault proof proposer with custom configuration.
 func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg FPProposerConfig, chain L2ChainConfig) stack.CommonOption {
 	// Set batcher's MaxBlocksPerSpanBatch to match the proposal interval
@@ -125,9 +146,26 @@ func WithDefaultSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemID
 	return WithSuccinctFPProposer(dest, DefaultFPProposerConfig(), DefaultL2ChainConfig())
 }
 
-// WithSuccinctFPProposerFastFinality creates a fault proof proposer optimized for fast finality.
-func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctFPProposer(dest, FastFinalityFPProposerConfig(), DefaultL2ChainConfig())
+// WithSuccinctFPChallenger creates a fault proof challenger with custom configuration.
+// Use with WithSuccinctFPProposer to create a complete system with both proposer and challenger.
+func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg FPChallengerConfig) stack.CommonOption {
+	return stack.MakeCommon(stack.Finally(func(orch *sysgo.Orchestrator) {
+		challengerOpts := []sysgo.FaultProofChallengerOption{
+			sysgo.WithFPChallengerFetchInterval(cfg.FetchInterval),
+		}
+		if cfg.MaliciousChallengePercentage > 0 {
+			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerMaliciousChallengePercentage(cfg.MaliciousChallengePercentage))
+		}
+		if cfg.EnvFilePath != "" {
+			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerWriteEnvFile(cfg.EnvFilePath))
+		}
+		sysgo.WithSuccinctFaultProofChallengerPostDeploy(orch, ids.L2ChallengerA, ids.L1EL, ids.L2AEL, challengerOpts...)
+	}))
+}
+
+// WithDefaultSuccinctFPChallenger creates a fault proof challenger with default configuration.
+func WithDefaultSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
+	return WithSuccinctFPChallenger(ids, DefaultFPChallengerConfig())
 }
 
 // WithSuccinctFPProposerAndChallenger creates both a fault proof proposer and challenger with custom configuration.
@@ -250,49 +288,6 @@ func NewFaultProofSystem(t devtest.T, proposerCfg FPProposerConfig, chain L2Chai
 	}
 
 	return result
-}
-
-// FPChallengerConfig holds configuration for fault proof challenger tests.
-type FPChallengerConfig struct {
-	// FetchInterval is the polling interval in seconds for the challenger.
-	FetchInterval uint64
-
-	// MaliciousChallengePercentage is the percentage of valid games to challenge
-	// maliciously for testing defense mechanisms. Set to 0.0 for honest mode (default).
-	MaliciousChallengePercentage float64
-
-	// EnvFilePath is an optional path to write the challenger environment variables.
-	EnvFilePath string
-}
-
-// DefaultFPChallengerConfig returns the default challenger configuration.
-func DefaultFPChallengerConfig() FPChallengerConfig {
-	return FPChallengerConfig{
-		FetchInterval:                1,
-		MaliciousChallengePercentage: 0.0,
-	}
-}
-
-// WithSuccinctFPChallenger creates a fault proof challenger with custom configuration.
-// Use with WithSuccinctFPProposer to create a complete system with both proposer and challenger.
-func WithSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs, cfg FPChallengerConfig) stack.CommonOption {
-	return stack.MakeCommon(stack.Finally(func(orch *sysgo.Orchestrator) {
-		challengerOpts := []sysgo.FaultProofChallengerOption{
-			sysgo.WithFPChallengerFetchInterval(cfg.FetchInterval),
-		}
-		if cfg.MaliciousChallengePercentage > 0 {
-			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerMaliciousChallengePercentage(cfg.MaliciousChallengePercentage))
-		}
-		if cfg.EnvFilePath != "" {
-			challengerOpts = append(challengerOpts, sysgo.WithFPChallengerWriteEnvFile(cfg.EnvFilePath))
-		}
-		sysgo.WithSuccinctFaultProofChallengerPostDeploy(orch, ids.L2ChallengerA, ids.L1EL, ids.L2AEL, challengerOpts...)
-	}))
-}
-
-// WithDefaultSuccinctFPChallenger creates a fault proof challenger with default configuration.
-func WithDefaultSuccinctFPChallenger(ids *sysgo.DefaultSingleChainInteropSystemIDs) stack.CommonOption {
-	return WithSuccinctFPChallenger(ids, DefaultFPChallengerConfig())
 }
 
 // NewDefaultFaultProofSystem creates a fault proof system with default proposer config (no challenger).
