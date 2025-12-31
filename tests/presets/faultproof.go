@@ -206,15 +206,26 @@ func (s *FaultProofSystem) StartProposer() {
 	s.proposer.Start()
 }
 
+// HasChallenger returns true if the system was configured with a challenger.
+func (s *FaultProofSystem) HasChallenger() bool {
+	return s.challenger != nil
+}
+
 // StopChallenger stops the faultproof challenger (for restart testing).
 // Panics if the system was not configured with a challenger.
 func (s *FaultProofSystem) StopChallenger() {
+	if s.challenger == nil {
+		panic("system has no challenger; use WithChallenger option when creating the system")
+	}
 	s.challenger.Stop()
 }
 
 // StartChallenger starts the faultproof challenger (for restart testing).
 // Panics if the system was not configured with a challenger.
 func (s *FaultProofSystem) StartChallenger() {
+	if s.challenger == nil {
+		panic("system has no challenger; use WithChallenger option when creating the system")
+	}
 	s.challenger.Start()
 }
 
