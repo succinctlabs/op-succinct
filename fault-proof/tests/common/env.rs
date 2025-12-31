@@ -39,7 +39,8 @@ use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitE
 use crate::common::{
     constants::*,
     contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    new_challenger, new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
+    new_challenger, new_proposer, start_challenger, start_proposer, start_proposer_prove_only,
+    warp_time, ANVIL,
 };
 
 use super::{
@@ -245,6 +246,23 @@ impl TestEnvironment {
         )
         .await?;
         info!("✓ Proposer service started");
+        Ok(handle)
+    }
+
+    /// Start a proposer in prove-only mode.
+    ///
+    /// Prove-only mode disables game creation, resolution, and bond claiming,
+    /// but keeps defense proving active. Used during hardfork transitions.
+    pub async fn start_proposer_prove_only(&self) -> Result<JoinHandle<Result<()>>> {
+        let handle = start_proposer_prove_only(
+            &self.rpc_config,
+            self.private_keys.proposer,
+            &self.deployed.anchor_state_registry,
+            &self.deployed.factory,
+            self.game_type,
+        )
+        .await?;
+        info!("✓ Proposer service started in PROVE-ONLY mode");
         Ok(handle)
     }
 

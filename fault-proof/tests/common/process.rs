@@ -100,6 +100,86 @@ pub async fn start_proposer(
     }))
 }
 
+/// Create a new proposer instance in prove-only mode.
+///
+/// Prove-only mode disables game creation, resolution, and bond claiming,
+/// but keeps defense proving active. Used during hardfork transitions.
+pub async fn new_proposer_prove_only(
+    rpc_config: &RPCConfig,
+    private_key: &str,
+    anchor_state_registry_address: &Address,
+    factory_address: &Address,
+    game_type: u32,
+) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
+    let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
+
+    let config = fault_proof::config::ProposerConfig {
+        l1_rpc: rpc_config.l1_rpc.clone(),
+        l2_rpc: rpc_config.l2_rpc.clone(),
+        anchor_state_registry_address: *anchor_state_registry_address,
+        factory_address: *factory_address,
+        mock_mode: true,
+        fast_finality_mode: false,
+        proposal_interval_in_blocks: 10,
+        fetch_interval: 5,
+        game_type,
+        max_concurrent_defense_tasks: 1,
+        safe_db_fallback: false,
+        metrics_port: 9000,
+        fast_finality_proving_limit: 0,
+        use_kms_requester: false,
+        range_split_count: RangeSplitCount::one(),
+        max_concurrent_range_proofs: NonZero::<usize>::MIN,
+        proof_provider: ProofProviderConfig {
+            timeout: 14400,
+            network_calls_timeout: 15,
+            auction_timeout: 60,
+            range_proof_strategy: FulfillmentStrategy::Hosted,
+            agg_proof_strategy: FulfillmentStrategy::Hosted,
+            agg_proof_mode: SP1ProofMode::Plonk,
+            range_cycle_limit: 1_000_000_000_000,
+            range_gas_limit: 1_000_000_000_000,
+            agg_cycle_limit: 1_000_000_000_000,
+            agg_gas_limit: 1_000_000_000_000,
+            max_price_per_pgu: 300_000_000,
+            min_auction_period: 1,
+            whitelist: None,
+        },
+        prove_only_mode: true, // Key difference: prove-only mode enabled
+    };
+
+    let l1_provider = ProviderBuilder::default().connect_http(rpc_config.l1_rpc.clone());
+    let anchor_state_registry =
+        AnchorStateRegistry::new(*anchor_state_registry_address, l1_provider.clone());
+    let factory = DisputeGameFactory::new(*factory_address, l1_provider.clone());
+
+    let fetcher = Arc::new(OPSuccinctDataFetcher::new_with_rollup_config().await?);
+    let host = initialize_host(fetcher.clone());
+
+    OPSuccinctProposer::new(config, signer, anchor_state_registry, factory, fetcher, host).await
+}
+
+/// Start a proposer in prove-only mode, and return a handle to the task.
+pub async fn start_proposer_prove_only(
+    rpc_config: &RPCConfig,
+    private_key: &str,
+    anchor_state_registry_address: &Address,
+    factory_address: &Address,
+    game_type: u32,
+) -> Result<tokio::task::JoinHandle<Result<()>>> {
+    let proposer = new_proposer_prove_only(
+        rpc_config,
+        private_key,
+        anchor_state_registry_address,
+        factory_address,
+        game_type,
+    )
+    .await?;
+    Ok(tokio::spawn(async move {
+        Arc::new(proposer).run().instrument(tracing::info_span!("PROPOSER_PROVE_ONLY")).await
+    }))
+}
+
 /// Create a new challenger instance.
 pub async fn new_challenger(
     rpc_config: &RPCConfig,
