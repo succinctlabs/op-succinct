@@ -2,10 +2,8 @@ package presets
 
 import (
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
-	"github.com/ethereum-optimism/optimism/op-devstack/dsl"
 	"github.com/ethereum-optimism/optimism/op-devstack/presets"
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
-	"github.com/ethereum-optimism/optimism/op-devstack/stack/match"
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/succinctlabs/op-succinct/utils"
@@ -267,18 +265,7 @@ func NewFaultProofSystem(t devtest.T, proposerCfg FPProposerConfig, chain L2Chai
 		stackOpt = WithSuccinctFPProposer(&ids, proposerCfg, chain)
 	}
 
-	minimal, orch, system := newSystemCore(t, stackOpt)
-
-	l2 := system.L2Network(match.Assume(t, match.L2ChainA))
-	proposer := l2.L2Proposer(match.Assume(t, match.FirstL2Proposer))
-
-	sys := &presets.MinimalWithProposer{
-		Minimal:    *minimal,
-		L2Proposer: dsl.NewL2Proposer(proposer),
-	}
-
-	prop, ok := orch.GetProposer(ids.L2AProposer)
-	t.Require().True(ok, "proposer not found")
+	sys, orch, prop := newSystemWithProposer(t, stackOpt, &ids)
 
 	fp, ok := prop.(sysgo.FaultProofProposer)
 	t.Require().True(ok, "proposer must implement FaultProofProposer")
