@@ -48,7 +48,7 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 }
 
 func setupFaultProofSystem(t devtest.T, cfg opspresets.FPProposerConfig, chain opspresets.L2ChainConfig) (*opspresets.FaultProofSystem, *utils.DgfClient) {
-	sys := opspresets.NewFaultProofSystem(t, cfg, chain)
+	sys := opspresets.NewFaultProofSystem(t, cfg, chain, opspresets.WithDefaultChallenger())
 	t.Log("=== Stack is running ===")
 	return sys, sys.DgfClient(t)
 }
