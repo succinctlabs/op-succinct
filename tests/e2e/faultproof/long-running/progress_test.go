@@ -47,8 +47,11 @@ func TestFaultProofProposer_FastFinality_Progress(gt *testing.T) {
 	t.Require().True(proven, "fast finality did not prove first game")
 }
 
-func setupFaultProofSystem(t devtest.T, cfg opspresets.FPProposerConfig, chain opspresets.L2ChainConfig) (*opspresets.FaultProofSystem, *utils.DgfClient) {
-	sys := opspresets.NewFaultProofSystem(t, cfg, chain, opspresets.WithDefaultChallenger())
+func setupFaultProofSystem(t devtest.T, cfg opspresets.FPProposerConfig, chain opspresets.L2ChainConfig, opts ...opspresets.FaultProofSystemOption) (*opspresets.FaultProofSystem, *utils.DgfClient) {
+	if len(opts) == 0 {
+		opts = []opspresets.FaultProofSystemOption{opspresets.WithDefaultChallenger()}
+	}
+	sys := opspresets.NewFaultProofSystem(t, cfg, chain, opts...)
 	t.Log("=== Stack is running ===")
 	return sys, sys.DgfClient(t)
 }
