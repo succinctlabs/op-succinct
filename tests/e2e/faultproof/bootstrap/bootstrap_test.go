@@ -1,5 +1,3 @@
-// These tests intentionally omit TestMain because each test creates its own
-// isolated system with per-test configuration (proposer-only vs proposer+challenger).
 package bootstrap
 
 import (

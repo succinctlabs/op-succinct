@@ -13,9 +13,9 @@ import (
 func TestFaultProofProposer_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	proposerCfg := opspresets.LongRunningFPProposerConfig()
-	proposerCfg.EnvFilePath = "../../../.env.proposer"
+	proposerCfg.EnvFilePath = ".env.proposer"
 	challengerCfg := opspresets.DefaultFPChallengerConfig()
-	challengerCfg.EnvFilePath = "../../../.env.challenger"
+	challengerCfg.EnvFilePath = ".env.challenger"
 	sys, dgf := setupFaultProofSystem(t, proposerCfg, opspresets.LongRunningL2ChainConfig(), opspresets.WithChallenger(challengerCfg))
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
@@ -28,9 +28,9 @@ func TestFaultProofProposer_LongRunning(gt *testing.T) {
 func TestFaultProofProposer_FastFinality_LongRunning(gt *testing.T) {
 	t := devtest.SerialT(gt)
 	proposerCfg := opspresets.LongRunningFastFinalityFPProposerConfig()
-	proposerCfg.EnvFilePath = "../../../.env.proposer"
+	proposerCfg.EnvFilePath = ".env.proposer"
 	challengerCfg := opspresets.DefaultFPChallengerConfig()
-	challengerCfg.EnvFilePath = "../../../.env.challenger"
+	challengerCfg.EnvFilePath = ".env.challenger"
 	sys, dgf := setupFaultProofSystem(t, proposerCfg, opspresets.LongRunningL2ChainConfig(), opspresets.WithChallenger(challengerCfg))
 
 	utils.RunUntilShutdown(60*time.Second, func() error {
