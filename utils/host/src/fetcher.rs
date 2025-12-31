@@ -693,6 +693,7 @@ impl OPSuccinctDataFetcher {
         let l2_provider = self.l2_provider.clone();
 
         // Get L2 output data.
+        let l2_chain_id = l2_provider.get_chain_id().await?;
         let l2_output_block =
             l2_provider.get_block_by_number(l2_start_block.into()).await?.ok_or_else(|| {
                 anyhow::anyhow!("Block not found for block number {}", l2_start_block)
@@ -743,7 +744,7 @@ impl OPSuccinctDataFetcher {
             agreed_l2_head_hash,
             claimed_l2_output_root,
             claimed_l2_block_number: l2_end_block,
-            l2_chain_id: None,
+            l2_chain_id: Some(l2_chain_id),
             // Trim the trailing slash to avoid double slashes in the URL.
             l2_node_address: Some(
                 self.rpc_config.l2_rpc.as_str().trim_end_matches('/').to_string(),
