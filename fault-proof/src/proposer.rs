@@ -1641,24 +1641,28 @@ where
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
-        // Spawn game resolution task
-        if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
-            if let Err(e) = self.spawn_game_resolution_task().await {
-                tracing::warn!("Failed to spawn game resolution task: {:?}", e);
-            } else {
-                tracing::info!("Successfully spawned game resolution task");
+        // Spawn game resolution task (disabled in prove-only mode)
+        if !self.config.prove_only_mode {
+            if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
+                if let Err(e) = self.spawn_game_resolution_task().await {
+                    tracing::warn!("Failed to spawn game resolution task: {:?}", e);
+                } else {
+                    tracing::info!("Successfully spawned game resolution task");
+                }
             }
         }
 
-        // Spawn bond claim task
-        if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
-            if let Err(e) = self.spawn_bond_claim_task().await {
-                tracing::warn!("Failed to spawn bond claim task: {:?}", e);
+        // Spawn bond claim task (disabled in prove-only mode)
+        if !self.config.prove_only_mode {
+            if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
+                if let Err(e) = self.spawn_bond_claim_task().await {
+                    tracing::warn!("Failed to spawn bond claim task: {:?}", e);
+                } else {
+                    tracing::info!("Successfully spawned bond claim task");
+                }
             } else {
-                tracing::info!("Successfully spawned bond claim task");
+                tracing::info!("Bond claim task already active");
             }
-        } else {
-            tracing::info!("Bond claim task already active");
         }
 
         Ok(())
@@ -1762,6 +1766,13 @@ where
     /// If a game should not be created, dummy values are returned for the next L2 block number for
     /// proposal and parent game index.
     async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
+        // In prove-only mode, never create new games.
+        // This mode is for running old ELF versions during hardfork transitions.
+        if self.config.prove_only_mode {
+            tracing::debug!("Prove-only mode: skipping game creation");
+            return Ok((false, U256::ZERO, u32::MAX));
+        }
+
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.

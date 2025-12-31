@@ -78,6 +78,15 @@ pub struct ProposerConfig {
 
     /// Optional path to backup file for persisting proposer state across restarts.
     pub backup_path: Option<PathBuf>,
+
+    /// When true, restricts proposer to defense-proving only.
+    /// Disables: game creation, resolution, bond claiming.
+    /// Keeps: defense proving for challenged games.
+    ///
+    /// Use this during hardfork transitions to run old ELF versions alongside new ones.
+    /// The old proposer (prove-only) defends existing games while the new proposer creates new
+    /// ones.
+    pub prove_only_mode: bool,
 }
 
 /// Helper function to parse a comma-separated list of addresses
@@ -139,6 +148,7 @@ impl ProposerConfig {
                 .parse()?,
             proof_provider: ProofProviderConfig::from_env()?,
             backup_path: env::var("BACKUP_PATH").ok().map(PathBuf::from),
+            prove_only_mode: env::var("PROVE_ONLY_MODE").unwrap_or("false".to_string()).parse()?,
         })
     }
 
@@ -175,8 +185,17 @@ impl ProposerConfig {
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
             backup_path = ?self.backup_path,
+            prove_only_mode = self.prove_only_mode,
             "Proposer configuration loaded"
         );
+
+        // Log a prominent warning if prove-only mode is enabled
+        if self.prove_only_mode {
+            tracing::warn!(
+                "PROVE-ONLY MODE ENABLED: Game creation, resolution, and bond claiming are disabled. \
+                 Only defense proving for challenged games is active."
+            );
+        }
     }
 }
 
