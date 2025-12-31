@@ -40,7 +40,7 @@ func TestFaultProofProposer_RestartRecovery_MultipleRestarts(gt *testing.T) {
 func TestFaultProofProposer_RestartRecovery_WithBackup(gt *testing.T) {
 	cfg := opspresets.DefaultFaultProofConfig()
 	cfg.ProposalIntervalInBlocks = 40
-	cfg.BackupFile = filepath.Join(gt.TempDir(), "proposer_backup.json")
+	cfg.BackupPath = filepath.Join(gt.TempDir(), "proposer_backup.json")
 	runRecoveryTest(gt, cfg, 2, utils.ShortTimeout())
 }
 

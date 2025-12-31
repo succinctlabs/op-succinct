@@ -25,7 +25,7 @@ pub async fn new_proposer(
     anchor_state_registry_address: &Address,
     factory_address: &Address,
     game_type: u32,
-    backup_file: Option<PathBuf>,
+    backup_path: Option<PathBuf>,
 ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
     // Create signer directly from private key
     let signer = SignerLock::new(op_succinct_signer_utils::Signer::new_local_signer(private_key)?);
@@ -48,7 +48,7 @@ pub async fn new_proposer(
         use_kms_requester: false,
         range_split_count: RangeSplitCount::one(),
         max_concurrent_range_proofs: NonZero::<usize>::MIN,
-        backup_file,
+        backup_path,
         proof_provider: ProofProviderConfig {
             timeout: 14400, // 4 hours
             network_calls_timeout: 15,

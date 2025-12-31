@@ -27,7 +27,7 @@ type FaultProofConfig struct {
 	// If nil, the default (4 hours / 14400s) is used.
 	Timeout     *uint64
 	EnvFilePath string
-	BackupFile  string
+	BackupPath  string
 
 	// AggProofMode selects the SP1 verifier backend ("plonk" or "groth16").
 	// Only applies for network proving (i.e. when utils.UseNetworkProver() is true).
@@ -99,8 +99,8 @@ func (c FaultProofConfig) ProposerOptions() []sysgo.FaultProofProposerOption {
 	if c.EnvFilePath != "" {
 		opts = append(opts, sysgo.WithFPWriteEnvFile(c.EnvFilePath))
 	}
-	if c.BackupFile != "" {
-		opts = append(opts, sysgo.WithFPBackupFile(c.BackupFile))
+	if c.BackupPath != "" {
+		opts = append(opts, sysgo.WithFPBackupPath(c.BackupPath))
 	}
 	return opts
 }

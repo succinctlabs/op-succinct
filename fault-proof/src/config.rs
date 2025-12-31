@@ -77,7 +77,7 @@ pub struct ProposerConfig {
     pub proof_provider: ProofProviderConfig,
 
     /// Optional path to backup file for persisting proposer state across restarts.
-    pub backup_file: Option<PathBuf>,
+    pub backup_path: Option<PathBuf>,
 }
 
 /// Helper function to parse a comma-separated list of addresses
@@ -138,7 +138,7 @@ impl ProposerConfig {
                 .unwrap_or("1".to_string())
                 .parse()?,
             proof_provider: ProofProviderConfig::from_env()?,
-            backup_file: env::var("BACKUP_FILE").ok().map(PathBuf::from),
+            backup_path: env::var("BACKUP_PATH").ok().map(PathBuf::from),
         })
     }
 
@@ -174,7 +174,7 @@ impl ProposerConfig {
             max_price_per_pgu = self.proof_provider.max_price_per_pgu,
             min_auction_period = self.proof_provider.min_auction_period,
             whitelist = ?self.proof_provider.whitelist,
-            backup_file = ?self.backup_file,
+            backup_path = ?self.backup_path,
             "Proposer configuration loaded"
         );
     }

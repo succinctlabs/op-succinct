@@ -421,7 +421,7 @@ where
             .map_err(|_| anyhow::anyhow!("contract_params must not already be set"))?;
 
         // Restore state from backup if available.
-        if let Some(path) = &self.config.backup_file {
+        if let Some(path) = &self.config.backup_path {
             if let Some(restored) = ProposerState::try_restore(path) {
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
@@ -1785,7 +1785,7 @@ where
 
     /// Backup proposer state to disk in background. Skips if backup already in progress.
     async fn backup(&self) {
-        let Some(path) = &self.config.backup_file else { return };
+        let Some(path) = &self.config.backup_path else { return };
 
         let Ok(permit) = self.backup_semaphore.clone().try_acquire_owned() else {
             tracing::debug!("Skipping backup: previous backup still in progress");
