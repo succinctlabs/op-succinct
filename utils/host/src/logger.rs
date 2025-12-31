@@ -71,7 +71,12 @@ pub fn setup_logger() {
                     // Initialize with JSON formatting
                     Some(Box::new(
                         tracing_subscriber::fmt::layer()
-                            .event_format(tracing_subscriber::fmt::format().json())
+                            .event_format(
+                                tracing_subscriber::fmt::format()
+                                    .json()
+                                    .with_span_list(false)
+                                    .with_current_span(false)
+                            )
                             .with_filter(build_env_filter()),
                     ))
                 }
