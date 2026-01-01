@@ -1,7 +1,7 @@
 pub mod common;
 
 #[cfg(feature = "integration")]
-mod prover_sync {
+mod proposer_sync {
     use std::collections::HashMap;
 
     use crate::common::{
@@ -1570,7 +1570,6 @@ mod challenger_sync {
         let block = starting_l2_block + 1;
         env.create_game(random_invalid_root(), block, M, init_bond).await?;
 
-        // Warp past challenge deadline
         env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
 
         challenger.sync_state().await?;

@@ -265,8 +265,8 @@ where
                                     (should_challenge, false)
                                 }
                                 ProposalStatus::Challenged => {
-                                    let is_own_challenge = claim_data.counteredBy == signer_address;
-                                    let should_resolve = is_game_over && is_own_challenge && {
+                                    let is_own_game = claim_data.counteredBy == signer_address;
+                                    let should_resolve = is_game_over && is_own_game && {
                                         is_parent_resolved(game.parent_index, &self.factory).await?
                                     };
                                     (false, should_resolve)
