@@ -574,15 +574,23 @@ where
             .await
             .context("Failed to get host CLI args")?;
 
-        let witness_data = self.host.run(&host_args).await?;
-
-        let sp1_stdin = match self.host.witness_generator().get_sp1_stdin(witness_data) {
-            Ok(stdin) => stdin,
-            Err(e) => {
-                tracing::error!("Failed to get proof stdin: {}", e);
-                return Err(anyhow::anyhow!("Failed to get proof stdin: {}", e));
-            }
-        };
+        let host_clone = self.host.clone();
+        let sp1_stdin = tokio::task::spawn_blocking(move || {
+            let rt = tokio::runtime::Handle::current();
+            rt.block_on(async move {
+                let witness_data = host_clone
+                    .run(&host_args)
+                    .await
+                    .inspect_err(|e| tracing::error!("Failed to generate witness: {e}"))?;
+                let sp1_stdin = host_clone
+                    .witness_generator()
+                    .get_sp1_stdin(witness_data)
+                    .inspect_err(|e| tracing::error!("Failed to get proof stdin: {e}"))?;
+                Ok::<SP1Stdin, anyhow::Error>(sp1_stdin)
+            })
+        })
+        .await
+        .map_err(|e| anyhow::anyhow!("Witness generation task failed: {}", e))??;
 
         Ok(sp1_stdin)
     }
