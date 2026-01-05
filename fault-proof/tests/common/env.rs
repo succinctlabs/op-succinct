@@ -249,23 +249,6 @@ impl TestEnvironment {
         Ok(handle)
     }
 
-    /// Start a proposer in prove-only mode.
-    ///
-    /// Prove-only mode disables game creation, resolution, and bond claiming,
-    /// but keeps defense proving active. Used during hardfork transitions.
-    pub async fn start_proposer_prove_only(&self) -> Result<JoinHandle<Result<()>>> {
-        let handle = start_proposer_prove_only(
-            &self.rpc_config,
-            self.private_keys.proposer,
-            &self.deployed.anchor_state_registry,
-            &self.deployed.factory,
-            self.game_type,
-        )
-        .await?;
-        info!("✓ Proposer service started in PROVE-ONLY mode");
-        Ok(handle)
-    }
-
     pub fn stop_proposer(&self, handle: JoinHandle<Result<()>>) {
         handle.abort();
         info!("✓ Proposer service stopped");

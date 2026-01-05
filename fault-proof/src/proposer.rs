@@ -102,17 +102,11 @@ impl ProposerIdentity {
     /// Returns the DA layer based on compile-time feature flags.
     fn detect_da_layer() -> &'static str {
         #[cfg(feature = "celestia")]
-        {
-            "celestia"
-        }
-        #[cfg(feature = "eigenda")]
-        {
-            "eigenda"
-        }
+        return "celestia";
+        #[cfg(all(feature = "eigenda", not(feature = "celestia")))]
+        return "eigenda";
         #[cfg(not(any(feature = "celestia", feature = "eigenda")))]
-        {
-            "ethereum"
-        }
+        return "ethereum";
     }
 
     /// Creates a new ProposerIdentity from computed vkeys.
@@ -156,6 +150,16 @@ pub struct Game {
     pub deadline: u64,
     pub should_attempt_to_resolve: bool,
     pub should_attempt_to_claim_bond: bool,
+    pub aggregation_vkey: B256,
+    pub range_vkey_commitment: B256,
+}
+
+impl Game {
+    /// Returns true if this game's vkeys match the proposer's (owned = can prove/resolve/claim).
+    pub fn is_owned(&self, identity: &ProposerIdentity) -> bool {
+        self.aggregation_vkey == identity.aggregation_vkey &&
+            self.range_vkey_commitment == identity.range_vkey_commitment
+    }
 }
 
 /// Central cache of the proposer's view of dispute games.
@@ -972,42 +976,19 @@ where
         }
     }
 
-    /// Checks if a game's on-chain vkeys match the proposer's compiled-in vkeys.
-    ///
-    /// During hardfork transitions, old games have different vkeys than newly compiled proposers.
-    /// This check prevents wasting compute and gas on proofs that will fail on-chain verification.
-    ///
-    /// # Returns
-    /// - `Ok(true)`: Game vkeys match, safe to prove
-    /// - `Ok(false)`: Game vkeys mismatch, skip proving
-    /// - `Err`: Failed to fetch game vkeys
-    pub async fn is_game_vkey_compatible(&self, game_address: Address) -> Result<bool> {
-        let game = OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
+    /// Returns true if on-chain vkeys match ours (safe to create games).
+    async fn on_chain_vkeys_match(&self) -> Result<bool> {
+        let game_impl = self.factory.game_impl(self.config.game_type).await?;
+        let on_chain_agg = B256::from(game_impl.aggregationVkey().call().await?.0);
+        let on_chain_range = B256::from(game_impl.rangeVkeyCommitment().call().await?.0);
 
-        let on_chain_agg_vkey = game.aggregationVkey().call().await?.0;
-        let on_chain_range_commitment = game.rangeVkeyCommitment().call().await?.0;
+        let matches = on_chain_agg == self.identity.aggregation_vkey &&
+            on_chain_range == self.identity.range_vkey_commitment;
 
-        let agg_match = on_chain_agg_vkey == self.identity.aggregation_vkey;
-        let range_match = on_chain_range_commitment == self.identity.range_vkey_commitment;
-
-        if !agg_match || !range_match {
-            tracing::warn!(
-                game_address = ?game_address,
-                proposer_version = %self.identity.full_version,
-                agg_vkey_match = agg_match,
-                range_vkey_match = range_match,
-                on_chain_agg_vkey = %format!("0x{}", hex::encode(&on_chain_agg_vkey[..8])),
-                expected_agg_vkey = %format!("0x{}", hex::encode(&self.identity.aggregation_vkey[..8])),
-                "VKey mismatch - cannot prove this game with current ELF version"
-            );
-            return Ok(false);
+        if !matches {
+            tracing::info!("Proposer vkeys mismatch with on-chain vkeys - skipping game creation (hardfork detected)");
         }
-
-        tracing::debug!(
-            game_address = ?game_address,
-            "VKey compatibility confirmed"
-        );
-        Ok(true)
+        Ok(matches)
     }
 
     /// Proves a dispute game at the given address.
@@ -1227,6 +1208,8 @@ where
             state
                 .games
                 .values()
+                // Only resolve owned games (vkeys match).
+                .filter(|game| game.is_owned(&self.identity))
                 .filter(|game| game.should_attempt_to_resolve)
                 .cloned()
                 .collect::<Vec<_>>()
@@ -1268,6 +1251,8 @@ where
             state
                 .games
                 .values()
+                // Only claim bonds for owned games (vkeys match).
+                .filter(|game| game.is_owned(&self.identity))
                 .filter(|game| game.should_attempt_to_claim_bond)
                 .cloned()
                 .collect::<Vec<_>>()
@@ -1397,6 +1382,9 @@ where
             U256::from(claim_data.deadline).to::<u64>(),
         );
 
+        let aggregation_vkey = B256::from(contract.aggregationVkey().call().await?.0);
+        let range_vkey_commitment = B256::from(contract.rangeVkeyCommitment().call().await?.0);
+
         // Drop games whose type does not respect the expected type.
         if !was_respected {
             tracing::warn!(
@@ -1432,21 +1420,26 @@ where
             "Valid game: adding to cache"
         );
 
-        let mut state = self.state.write().await;
-        state.games.insert(
+        let game = Game {
             index,
-            Game {
-                index,
-                address: game_address,
-                parent_index,
-                l2_block,
-                status,
-                proposal_status,
-                deadline,
-                should_attempt_to_resolve: false,
-                should_attempt_to_claim_bond: false,
-            },
-        );
+            address: game_address,
+            parent_index,
+            l2_block,
+            status,
+            proposal_status,
+            deadline,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+            aggregation_vkey,
+            range_vkey_commitment,
+        };
+
+        if !game.is_owned(&self.identity) {
+            tracing::info!(game_index = %index, "Discovered foreign game (proposer's vkeys don't match on-chain vkeys) - tracking for DAG but not proving/resolving/claiming");
+        }
+
+        let mut state = self.state.write().await;
+        state.games.insert(index, game);
 
         Ok(GameFetchResult::ValidGame { game_address, deadline })
     }
@@ -1641,28 +1634,24 @@ where
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
-        // Spawn game resolution task (disabled in prove-only mode)
-        if !self.config.prove_only_mode {
-            if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
-                if let Err(e) = self.spawn_game_resolution_task().await {
-                    tracing::warn!("Failed to spawn game resolution task: {:?}", e);
-                } else {
-                    tracing::info!("Successfully spawned game resolution task");
-                }
+        // Spawn game resolution task (only operates on owned games via is_owned() filter)
+        if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
+            if let Err(e) = self.spawn_game_resolution_task().await {
+                tracing::warn!("Failed to spawn game resolution task: {:?}", e);
+            } else {
+                tracing::info!("Successfully spawned game resolution task");
             }
         }
 
-        // Spawn bond claim task (disabled in prove-only mode)
-        if !self.config.prove_only_mode {
-            if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
-                if let Err(e) = self.spawn_bond_claim_task().await {
-                    tracing::warn!("Failed to spawn bond claim task: {:?}", e);
-                } else {
-                    tracing::info!("Successfully spawned bond claim task");
-                }
+        // Spawn bond claim task (only operates on owned games via is_owned() filter)
+        if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
+            if let Err(e) = self.spawn_bond_claim_task().await {
+                tracing::warn!("Failed to spawn bond claim task: {:?}", e);
             } else {
-                tracing::info!("Bond claim task already active");
+                tracing::info!("Successfully spawned bond claim task");
             }
+        } else {
+            tracing::info!("Bond claim task already active");
         }
 
         Ok(())
@@ -1766,13 +1755,6 @@ where
     /// If a game should not be created, dummy values are returned for the next L2 block number for
     /// proposal and parent game index.
     async fn should_create_game(&self) -> Result<(bool, U256, u32)> {
-        // In prove-only mode, never create new games.
-        // This mode is for running old ELF versions during hardfork transitions.
-        if self.config.prove_only_mode {
-            tracing::debug!("Prove-only mode: skipping game creation");
-            return Ok((false, U256::ZERO, u32::MAX));
-        }
-
         // In fast finality mode, resume proving for existing games before creating new ones
         // TODO(fakedev9999): Consider unifying proving concurrency control for both fast finality
         // and defense proving with a priority system.
@@ -1895,6 +1877,11 @@ where
             return Ok((false, U256::ZERO, u32::MAX));
         }
 
+        // Skip creation if on-chain vkeys don't match (hardfork detected).
+        if !self.on_chain_vkeys_match().await? {
+            return Ok((false, U256::ZERO, u32::MAX));
+        }
+
         let (canonical_head_l2_block, parent_game_index) = {
             let state = self.state.read().await;
 
@@ -2011,9 +1998,7 @@ where
         })
     }
 
-    /// Spawn a game proving task for a specific game.
-    ///
-    /// Skips if game deadline has passed (too late to prove) or if vkey is incompatible.
+    /// Spawn a game proving task. Skips if deadline passed or vkeys don't match.
     async fn spawn_game_proving_task(
         &self,
         game_address: Address,
@@ -2027,16 +2012,20 @@ where
             }
         }
 
-        // Check vkey compatibility before spawning proving task.
-        // This prevents wasting compute and gas on proofs that will fail on-chain verification.
-        if !self.is_game_vkey_compatible(game_address).await? {
-            tracing::info!(
-                game_address = ?game_address,
-                is_defense = is_defense,
-                proposer_version = %self.identity.full_version,
-                "Skipping game proving: vkey mismatch with current ELF version"
-            );
-            return Ok(());
+        // Only prove owned games.
+        {
+            let state = self.state.read().await;
+            let game = state.games.values().find(|g| g.address == game_address);
+
+            if let Some(game) = game {
+                if !game.is_owned(&self.identity) {
+                    tracing::debug!(?game_address, "Skipping foreign game");
+                    return Ok(());
+                }
+            } else {
+                tracing::warn!(?game_address, "Game not in cache, skipping");
+                return Ok(());
+            }
         }
 
         let proposer: OPSuccinctProposer<P, H> = self.clone();
