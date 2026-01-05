@@ -1,11 +1,21 @@
 package presets
 
 import (
+	"context"
+	"fmt"
+	"math/big"
+
+	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-devstack/presets"
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
 	"github.com/ethereum-optimism/optimism/op-devstack/sysgo"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
+	opsbind "github.com/succinctlabs/op-succinct/bindings"
 	"github.com/succinctlabs/op-succinct/utils"
 )
 
@@ -109,11 +119,16 @@ func WithSuccinctFPProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs, cfg 
 		if !utils.UseNetworkProver() {
 			opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		}
-		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+
+		// Build FDG deployment options
+		fdgOpts := []sysgo.FdgOption{
 			sysgo.WithFdgL2StartingBlockNumber(1),
 			sysgo.WithFdgMaxChallengeDuration(cfg.MaxChallengeDuration),
 			sysgo.WithFdgMaxProveDuration(cfg.MaxProveDuration),
-			sysgo.WithFdgDisputeGameFinalityDelaySecs(cfg.DisputeGameFinalityDelaySecs)))
+			sysgo.WithFdgDisputeGameFinalityDelaySecs(cfg.DisputeGameFinalityDelaySecs),
+		}
+
+		opt.Add(sysgo.WithSuperDeployOPSuccinctFaultDisputeGame(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, fdgOpts...))
 		opt.Add(sysgo.WithSuperSuccinctFaultProofProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, cfg.ProposerOptions()...))
 	})
 }
@@ -132,6 +147,9 @@ func WithSuccinctFPProposerFastFinality(dest *sysgo.DefaultSingleChainInteropSys
 type FaultProofSystem struct {
 	*presets.MinimalWithProposer
 	proposer sysgo.FaultProofProposer
+	orch     *sysgo.Orchestrator
+	ids      sysgo.DefaultSingleChainInteropSystemIDs
+	cfg      FaultProofConfig
 }
 
 // DgfClient creates a DisputeGameFactory client for the faultproof system.
@@ -155,7 +173,7 @@ func (s *FaultProofSystem) StartProposer() {
 // NewFaultProofSystem creates a new fault proof test system with custom configuration.
 func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig, chain L2ChainConfig) *FaultProofSystem {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
-	sys, prop := newSystemWithProposer(t, WithSuccinctFPProposer(&ids, cfg, chain), &ids)
+	sys, prop, orch := newSystemWithProposer(t, WithSuccinctFPProposer(&ids, cfg, chain), &ids)
 
 	fp, ok := prop.(sysgo.FaultProofProposer)
 	t.Require().True(ok, "proposer must implement FaultProofProposer")
@@ -163,5 +181,222 @@ func NewFaultProofSystem(t devtest.T, cfg FaultProofConfig, chain L2ChainConfig)
 	return &FaultProofSystem{
 		MinimalWithProposer: sys,
 		proposer:            fp,
+		orch:                orch,
+		ids:                 ids,
+		cfg:                 cfg,
 	}
+}
+
+// GameImplConfig holds the configuration needed to deploy a new game implementation.
+// This is extracted from the current deployed game implementation.
+type GameImplConfig struct {
+	FactoryProxy        common.Address
+	VerifierAddress     common.Address
+	AnchorStateRegistry common.Address
+	AccessManager       common.Address
+	RollupConfigHash    [32]byte
+	AggregationVkey     [32]byte
+	RangeVkeyCommitment [32]byte
+	MaxChallengeDuration uint64
+	MaxProveDuration     uint64
+	ChallengerBondWei    *big.Int
+}
+
+// OPSuccinctGameType is the game type used for OP Succinct fault dispute games.
+const OPSuccinctGameType = uint32(42)
+
+// GetGameImplConfig queries the current game implementation to get its configuration.
+// This is used to deploy a new game implementation with the same configuration but different vkeys.
+func (s *FaultProofSystem) GetGameImplConfig(ctx context.Context, t devtest.T) (*GameImplConfig, error) {
+	client := s.L1EL.EthClient()
+	dgfAddr := s.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
+
+	// Create DGF binding to get the game implementation address
+	dgf, err := opsbind.NewDisputeGameFactoryCaller(dgfAddr, utils.NewEthCaller(client))
+	if err != nil {
+		return nil, fmt.Errorf("bind DGF: %w", err)
+	}
+
+	// Get the game implementation address for our game type
+	gameImplAddr, err := dgf.GameImpls(&bind.CallOpts{Context: ctx}, OPSuccinctGameType)
+	if err != nil {
+		return nil, fmt.Errorf("get game impl address: %w", err)
+	}
+
+	// Create game binding to query its configuration
+	game, err := opsbind.NewOPSuccinctFaultDisputeGameCaller(gameImplAddr, utils.NewEthCaller(client))
+	if err != nil {
+		return nil, fmt.Errorf("bind game impl: %w", err)
+	}
+
+	opts := &bind.CallOpts{Context: ctx}
+
+	// Query all configuration values
+	verifier, err := game.Sp1Verifier(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get verifier: %w", err)
+	}
+
+	asr, err := game.AnchorStateRegistry(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get anchor state registry: %w", err)
+	}
+
+	accessManager, err := game.AccessManager(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get access manager: %w", err)
+	}
+
+	rollupConfigHash, err := game.RollupConfigHash(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get rollup config hash: %w", err)
+	}
+
+	aggVkey, err := game.AggregationVkey(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get aggregation vkey: %w", err)
+	}
+
+	rangeVkey, err := game.RangeVkeyCommitment(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get range vkey commitment: %w", err)
+	}
+
+	maxChallengeDuration, err := game.MaxChallengeDuration(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get max challenge duration: %w", err)
+	}
+
+	maxProveDuration, err := game.MaxProveDuration(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get max prove duration: %w", err)
+	}
+
+	challengerBond, err := game.ChallengerBond(opts)
+	if err != nil {
+		return nil, fmt.Errorf("get challenger bond: %w", err)
+	}
+
+	return &GameImplConfig{
+		FactoryProxy:         dgfAddr,
+		VerifierAddress:      verifier,
+		AnchorStateRegistry:  asr,
+		AccessManager:        accessManager,
+		RollupConfigHash:     rollupConfigHash,
+		AggregationVkey:      aggVkey,
+		RangeVkeyCommitment:  rangeVkey,
+		MaxChallengeDuration: maxChallengeDuration,
+		MaxProveDuration:     maxProveDuration,
+		ChallengerBondWei:    challengerBond,
+	}, nil
+}
+
+// DeployGameImplWithFakeVkeys deploys a new game implementation with fake vkeys.
+// This simulates a hardfork scenario where the on-chain vkeys don't match the proposer's computed vkeys.
+// The new implementation uses the same configuration as the current one, except for the vkeys.
+func (s *FaultProofSystem) DeployGameImplWithFakeVkeys(
+	ctx context.Context,
+	t devtest.T,
+	fakeAggVkey, fakeRangeVkey string,
+) (common.Address, error) {
+	// Get current game configuration
+	implCfg, err := s.GetGameImplConfig(ctx, t)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("get game impl config: %w", err)
+	}
+
+	// Build deployment config with fake vkeys
+	deployCfg := sysgo.GameImplDeployConfig{
+		FactoryProxy:         implCfg.FactoryProxy,
+		VerifierAddress:      implCfg.VerifierAddress,
+		AnchorStateRegistry:  implCfg.AnchorStateRegistry,
+		AccessManager:        implCfg.AccessManager,
+		AggregationVkey:      fakeAggVkey,
+		RangeVkeyCommitment:  fakeRangeVkey,
+		RollupConfigHash:     fmt.Sprintf("0x%x", implCfg.RollupConfigHash),
+		MaxChallengeDuration: implCfg.MaxChallengeDuration,
+		MaxProveDuration:     implCfg.MaxProveDuration,
+		ChallengerBondWei:    implCfg.ChallengerBondWei.String(),
+	}
+
+	// Deploy the new implementation
+	newImplAddr, err := s.orch.DeployGameImplWithVkeys(s.ids.L1EL, deployCfg)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("deploy game impl with vkeys: %w", err)
+	}
+
+	t.Logger().Info("Deployed new game implementation with fake vkeys",
+		"address", newImplAddr,
+		"fakeAggVkey", fakeAggVkey[:20]+"...",
+		"fakeRangeVkey", fakeRangeVkey[:20]+"...")
+
+	return newImplAddr, nil
+}
+
+// UpgradeGameImplementation upgrades the DisputeGameFactory to use a new game implementation.
+// This simulates a hardfork where the game implementation is upgraded mid-operation.
+func (s *FaultProofSystem) UpgradeGameImplementation(
+	ctx context.Context,
+	t devtest.T,
+	newImplAddr common.Address,
+) error {
+	dgfAddr := s.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
+
+	// Create proper ethclient from RPC URL (required for bind.ContractTransactor interface)
+	l1EL, ok := s.orch.GetL1EL(s.ids.L1EL)
+	if !ok {
+		return fmt.Errorf("L1 EL node not found")
+	}
+	rpcClient, err := rpc.DialContext(ctx, l1EL.UserRPC())
+	if err != nil {
+		return fmt.Errorf("dial L1 RPC: %w", err)
+	}
+	defer rpcClient.Close()
+	client := ethclient.NewClient(rpcClient)
+
+	// Get L1 chain ID and private key for transaction signing
+	l1ChainID := s.ids.L1EL.ChainID()
+	l1PAOKey, err := s.orch.GetKeys().Secret(devkeys.L1ProxyAdminOwnerRole.Key(l1ChainID.ToBig()))
+	if err != nil {
+		return fmt.Errorf("get L1ProxyAdminOwnerRole key: %w", err)
+	}
+
+	// Create transaction options
+	transactOpts, err := bind.NewKeyedTransactorWithChainID(l1PAOKey, l1ChainID.ToBig())
+	if err != nil {
+		return fmt.Errorf("create transact opts: %w", err)
+	}
+	transactOpts.Context = ctx
+
+	// Create DGF transactor binding
+	dgf, err := opsbind.NewDisputeGameFactoryTransactor(dgfAddr, client)
+	if err != nil {
+		return fmt.Errorf("bind DGF transactor: %w", err)
+	}
+
+	// Call setImplementation to upgrade
+	tx, err := dgf.SetImplementation(transactOpts, OPSuccinctGameType, newImplAddr)
+	if err != nil {
+		return fmt.Errorf("set implementation: %w", err)
+	}
+
+	t.Logger().Info("Upgrading game implementation",
+		"newImpl", newImplAddr,
+		"txHash", tx.Hash())
+
+	// Wait for transaction to be mined
+	receipt, err := bind.WaitMined(ctx, client, tx)
+	if err != nil {
+		return fmt.Errorf("wait for tx: %w", err)
+	}
+
+	if receipt.Status != 1 {
+		return fmt.Errorf("tx failed: status=%d", receipt.Status)
+	}
+
+	t.Logger().Info("Game implementation upgraded successfully",
+		"newImpl", newImplAddr,
+		"blockNumber", receipt.BlockNumber)
+
+	return nil
 }

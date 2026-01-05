@@ -151,7 +151,7 @@ func withSuccinctPresetCore(dest *sysgo.DefaultSingleChainInteropSystemIDs, chai
 // NewSystem creates a new test system with the given stack option.
 // This is a unified function for creating both validity and fault proof test systems.
 func NewSystem(t devtest.T, opt stack.CommonOption) *presets.MinimalWithProposer {
-	sys, _ := newSystemWithProposer(t, opt, nil)
+	sys, _, _ := newSystemWithProposer(t, opt, nil)
 	return sys
 }
 
@@ -163,7 +163,8 @@ func NewSystemNodesOnly(t devtest.T, opt stack.CommonOption) *presets.Minimal {
 
 // newSystemWithProposer creates a new test system and optionally returns the L2Prop backend.
 // If ids is provided, it retrieves the proposer from the orchestrator.
-func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs) (*presets.MinimalWithProposer, sysgo.L2Prop) {
+// Also returns the orchestrator for advanced testing scenarios (e.g., contract upgrades).
+func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs) (*presets.MinimalWithProposer, sysgo.L2Prop, *sysgo.Orchestrator) {
 	minimal, orch, system := newSystemCore(t, opt)
 
 	l2 := system.L2Network(match.Assume(t, match.L2ChainA))
@@ -181,7 +182,7 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 		t.Require().True(ok, "proposer not found")
 	}
 
-	return sys, prop
+	return sys, prop, orch
 }
 
 // newSystemCore creates the orchestrator and minimal system shared by all system constructors.
