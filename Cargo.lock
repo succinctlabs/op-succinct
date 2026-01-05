@@ -306,8 +306,7 @@ dependencies = [
 [[package]]
 name = "alloy-eips"
 version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bdbec74583d0067798d77afa43d58f00d93035335d7ceaa5d3f93857d461bb9"
+source = "git+https://github.com/celo-org/alloy?tag=v1.1.0-fix-fake-exponential#a19277b9fb613e43b4b0198a841f2729429fdb5e"
 dependencies = [
  "alloy-eip2124",
  "alloy-eip2930",
@@ -321,6 +320,8 @@ dependencies = [
  "either",
  "ethereum_ssz",
  "ethereum_ssz_derive",
+ "num-bigint 0.4.6",
+ "num-traits",
  "serde",
  "serde_with",
  "sha2 0.10.9",
@@ -762,8 +763,7 @@ dependencies = [
 [[package]]
 name = "alloy-serde"
 version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "751d1887f7d202514a82c5b3caf28ee8bd4a2ad9549e4f498b6f0bff99b52add"
+source = "git+https://github.com/celo-org/alloy?tag=v1.1.0-fix-fake-exponential#a19277b9fb613e43b4b0198a841f2729429fdb5e"
 dependencies = [
  "alloy-primitives",
  "serde",
