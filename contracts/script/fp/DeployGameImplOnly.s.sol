@@ -31,51 +31,28 @@ import {OPSuccinctFaultDisputeGame} from "../../src/fp/OPSuccinctFaultDisputeGam
 ///   - CHALLENGER_BOND_WEI: Challenger bond amount in wei
 contract DeployGameImplOnly is Script {
     function run() public returns (address gameImpl) {
-        // Read required addresses from environment
-        address factoryProxy = vm.envAddress("FACTORY_PROXY");
-        address verifierAddress = vm.envAddress("VERIFIER_ADDRESS");
-        address anchorStateRegistry = vm.envAddress("ANCHOR_STATE_REGISTRY");
-        address accessManager = vm.envAddress("ACCESS_MANAGER");
-
-        // Read vkeys from environment (allows custom values for testing)
-        bytes32 aggregationVkey = vm.envBytes32("AGGREGATION_VKEY");
-        bytes32 rangeVkeyCommitment = vm.envBytes32("RANGE_VKEY_COMMITMENT");
-        bytes32 rollupConfigHash = vm.envBytes32("ROLLUP_CONFIG_HASH");
-
-        // Read configuration parameters
-        uint64 maxChallengeDuration = uint64(vm.envUint("MAX_CHALLENGE_DURATION"));
-        uint64 maxProveDuration = uint64(vm.envUint("MAX_PROVE_DURATION"));
-        uint256 challengerBondWei = vm.envUint("CHALLENGER_BOND_WEI");
-
         console.log("Deploying OPSuccinctFaultDisputeGame implementation with custom vkeys");
-        console.log("  Factory:", factoryProxy);
-        console.log("  Verifier:", verifierAddress);
-        console.log("  Anchor State Registry:", anchorStateRegistry);
-        console.log("  Access Manager:", accessManager);
-        console.log("  Max Challenge Duration:", maxChallengeDuration);
-        console.log("  Max Prove Duration:", maxProveDuration);
-        console.log("  Challenger Bond Wei:", challengerBondWei);
 
         vm.startBroadcast();
 
+        // Inline all env reads directly into constructor to avoid stack-too-deep error.
+        // The EVM stack limit is 16 slots; having 12+ local variables exceeds this.
         OPSuccinctFaultDisputeGame impl = new OPSuccinctFaultDisputeGame(
-            Duration.wrap(maxChallengeDuration),
-            Duration.wrap(maxProveDuration),
-            IDisputeGameFactory(factoryProxy),
-            ISP1Verifier(verifierAddress),
-            rollupConfigHash,
-            aggregationVkey,
-            rangeVkeyCommitment,
-            challengerBondWei,
-            IAnchorStateRegistry(anchorStateRegistry),
-            AccessManager(accessManager)
+            Duration.wrap(uint64(vm.envUint("MAX_CHALLENGE_DURATION"))),
+            Duration.wrap(uint64(vm.envUint("MAX_PROVE_DURATION"))),
+            IDisputeGameFactory(vm.envAddress("FACTORY_PROXY")),
+            ISP1Verifier(vm.envAddress("VERIFIER_ADDRESS")),
+            vm.envBytes32("ROLLUP_CONFIG_HASH"),
+            vm.envBytes32("AGGREGATION_VKEY"),
+            vm.envBytes32("RANGE_VKEY_COMMITMENT"),
+            vm.envUint("CHALLENGER_BOND_WEI"),
+            IAnchorStateRegistry(vm.envAddress("ANCHOR_STATE_REGISTRY")),
+            AccessManager(vm.envAddress("ACCESS_MANAGER"))
         );
 
         vm.stopBroadcast();
 
         gameImpl = address(impl);
-
-        // Output in parseable format for sysgo
         console.log("gameImpl: address", gameImpl);
 
         return gameImpl;
