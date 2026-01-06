@@ -21,7 +21,7 @@ use op_succinct_bindings::{
         self, OPSuccinctFaultDisputeGameInstance,
     },
 };
-use op_succinct_client_utils::types::u32_to_u8;
+use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::{get_rpcs_from_env, OPSuccinctDataFetcher, RPCConfig},
@@ -106,6 +106,7 @@ pub fn test_config(
     starting_root: String,
     aggregation_vkey: B256,
     range_vkey_commitment: B256,
+    rollup_config_hash: B256,
 ) -> FaultDisputeGameConfig {
     FaultDisputeGameConfig {
         aggregation_vkey: aggregation_vkey.to_string(),
@@ -121,7 +122,7 @@ pub fn test_config(
         permissionless_mode: false,
         proposer_addresses: vec![PROPOSER_ADDRESS.to_string()],
         range_vkey_commitment: range_vkey_commitment.to_string(),
-        rollup_config_hash: ROLLUP_CONFIG_HASH.to_string(),
+        rollup_config_hash: rollup_config_hash.to_string(),
         starting_l2_block_number,
         starting_root,
         use_sp1_mock_verifier: true,
@@ -140,7 +141,12 @@ impl TestEnvironment {
         // Get environment variables
         let mut rpc_config = get_rpcs_from_env();
 
-        let fetcher = OPSuccinctDataFetcher::new();
+        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+
+        // Compute rollup_config_hash from fetcher's chain config - matches proposer's computation
+        let rollup_config_hash = hash_rollup_config(
+            fetcher.rollup_config.as_ref().context("rollup_config required for test setup")?,
+        );
 
         // Setup fresh Anvil chain
         let anvil = setup_anvil_chain().await?;
@@ -151,6 +157,7 @@ impl TestEnvironment {
             anvil.starting_root.clone(),
             aggregation_vkey,
             range_vkey_commitment,
+            rollup_config_hash,
         );
         let json = serde_json::to_string_pretty(&test_config)?;
         std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
@@ -187,7 +194,12 @@ impl TestEnvironment {
         let (aggregation_vkey, range_vkey_commitment) = compute_vkeys();
 
         let mut rpc_config = get_rpcs_from_env();
-        let fetcher = OPSuccinctDataFetcher::new();
+        let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
+
+        // Compute rollup_config_hash from fetcher's chain config - matches proposer's computation
+        let rollup_config_hash = hash_rollup_config(
+            fetcher.rollup_config.as_ref().context("rollup_config required for test setup")?,
+        );
 
         // Setup anvil chain - gets actual L2 finalized block
         let anvil = setup_anvil_chain().await?;
@@ -214,6 +226,7 @@ impl TestEnvironment {
             starting_root,
             aggregation_vkey,
             range_vkey_commitment,
+            rollup_config_hash,
         );
         let json = serde_json::to_string_pretty(&test_config)?;
         std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
@@ -558,6 +571,12 @@ impl TestEnvironment {
             OPSuccinctFaultDisputeGame::new(self.deployed.game_implementation, provider);
         let verifier_address = existing_game.sp1Verifier().call().await?;
 
+        // Compute rollup_config_hash from the fetcher's chain config
+        // This stays the same during hardforks (only vkeys change)
+        let rollup_config_hash = hash_rollup_config(
+            self.fetcher.rollup_config.as_ref().context("rollup_config required")?,
+        );
+
         let contracts_dir =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("contracts");
 
@@ -577,7 +596,7 @@ impl TestEnvironment {
             .env("ACCESS_MANAGER", self.deployed.access_manager.to_string())
             .env("AGGREGATION_VKEY", aggregation_vkey.to_string())
             .env("RANGE_VKEY_COMMITMENT", range_vkey_commitment.to_string())
-            .env("ROLLUP_CONFIG_HASH", ROLLUP_CONFIG_HASH.to_string())
+            .env("ROLLUP_CONFIG_HASH", rollup_config_hash.to_string())
             .env("MAX_CHALLENGE_DURATION", MAX_CHALLENGE_DURATION.to_string())
             .env("MAX_PROVE_DURATION", MAX_PROVE_DURATION.to_string())
             .env("CHALLENGER_BOND_WEI", CHALLENGER_BOND.to_string())
