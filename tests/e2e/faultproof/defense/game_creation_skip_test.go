@@ -50,7 +50,7 @@ func TestGameCreationSkipOnVkeyMismatch(gt *testing.T) {
 	// Phase 1: Deploy system normally and verify games are created
 	// ═══════════════════════════════════════════════════════════════════════
 
-	cfg := opspresets.DefaultFaultProofConfig()
+	cfg := opspresets.DefaultFPProposerConfig()
 	cfg.ProposalIntervalInBlocks = 20 // Use reasonable interval
 	cfg.FastFinalityMode = false
 
@@ -67,7 +67,7 @@ func TestGameCreationSkipOnVkeyMismatch(gt *testing.T) {
 	initialCount, err := dgf.GameCount(ctx)
 	require.NoError(err)
 	logger.Info("Initial games created", "count", initialCount)
-	require.GreaterOrEqual(initialCount.Uint64(), uint64(1),
+	require.GreaterOrEqual(initialCount, uint64(1),
 		"At least one game should be created before upgrade")
 
 	// ═══════════════════════════════════════════════════════════════════════
@@ -124,11 +124,11 @@ func TestGameCreationSkipOnVkeyMismatch(gt *testing.T) {
 				"finalGameCount", finalGameCount)
 
 			// Assert no new games were created after upgrade
-			require.Equal(gameCountAfterUpgrade.Uint64(), finalGameCount.Uint64(),
+			require.Equal(gameCountAfterUpgrade, finalGameCount,
 				"Proposer should NOT create new games after vkey mismatch. "+
 					"Expected %d games, got %d. "+
 					"on_chain_vkeys_match() should have returned false.",
-				gameCountAfterUpgrade.Uint64(), finalGameCount.Uint64())
+				gameCountAfterUpgrade, finalGameCount)
 
 			logger.Info("Test passed: proposer correctly stopped creating games after vkey mismatch")
 			return
@@ -141,11 +141,11 @@ func TestGameCreationSkipOnVkeyMismatch(gt *testing.T) {
 				"afterUpgrade", gameCountAfterUpgrade)
 
 			// Game count should not increase
-			require.Equal(gameCountAfterUpgrade.Uint64(), currentCount.Uint64(),
+			require.Equal(gameCountAfterUpgrade, currentCount,
 				"Game was unexpectedly created despite vkey mismatch")
 
 		case <-ctx.Done():
-			t.Fatal("Test timed out while waiting for game count verification")
+			require.Fail("Test timed out while waiting for game count verification")
 			return
 		}
 	}
