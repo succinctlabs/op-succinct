@@ -1,6 +1,6 @@
 //! Shared constants for E2E tests.
 
-use alloy_primitives::{address, Address, B256, U256};
+use alloy_primitives::{address, Address, U256};
 
 // Anvil predefined accounts
 pub const ANVIL_ACCOUNT_0: Address = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -34,9 +34,9 @@ pub const MAX_PROVE_DURATION: u64 = 60 * 60 * 12; // 12 hours
 pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 weeks
 
 // Configuration hashes for OPSuccinctFaultDisputeGame
-pub const ROLLUP_CONFIG_HASH: B256 = B256::ZERO; // Mock value for testing
-                                                 // Note: AGGREGATION_VKEY and RANGE_VKEY_COMMITMENT are now computed from ELFs at runtime
-                                                 // via compute_vkeys() in env.rs to match the proposer's vkey computation
+// Note: AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT, and ROLLUP_CONFIG_HASH are now computed
+// at runtime via compute_vkeys() and hash_rollup_config() in env.rs to match the proposer's
+// identity computation.
 
 // Test configuration for L2 block offset
 // This offset is subtracted from finalized L2 block to get the starting anchor block

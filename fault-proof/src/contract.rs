@@ -114,6 +114,9 @@ sol! {
         /// @notice Returns the range verification key commitment.
         function rangeVkeyCommitment() external view returns (bytes32 rangeVkeyCommitment_);
 
+        /// @notice Returns the rollup config hash.
+        function rollupConfigHash() external view returns (bytes32 rollupConfigHash_);
+
         /// @notice Claim the credit belonging to the recipient address.
         function claimCredit(address _recipient) external;
 

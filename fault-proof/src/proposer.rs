@@ -16,7 +16,10 @@ use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{bail, Context, Result};
 use futures::stream::{self, StreamExt, TryStreamExt};
-use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
+use op_succinct_client_utils::{
+    boot::{hash_rollup_config, BootInfoStruct},
+    types::u32_to_u8,
+};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -96,6 +99,8 @@ pub struct ProposerIdentity {
     pub aggregation_vkey: B256,
     /// Range verification key commitment
     pub range_vkey_commitment: B256,
+    /// Rollup configuration hash
+    pub rollup_config_hash: B256,
 }
 
 impl ProposerIdentity {
@@ -109,13 +114,24 @@ impl ProposerIdentity {
         return "ethereum";
     }
 
-    /// Creates a new ProposerIdentity from computed vkeys.
-    pub fn new(aggregation_vkey: B256, range_vkey_commitment: B256) -> Self {
+    /// Creates a new ProposerIdentity from computed vkeys and rollup config hash.
+    pub fn new(
+        aggregation_vkey: B256,
+        range_vkey_commitment: B256,
+        rollup_config_hash: B256,
+    ) -> Self {
         let version = env!("CARGO_PKG_VERSION");
         let da_layer = Self::detect_da_layer();
         let full_version = format!("{}-{}", version, da_layer);
 
-        Self { version, da_layer, full_version, aggregation_vkey, range_vkey_commitment }
+        Self {
+            version,
+            da_layer,
+            full_version,
+            aggregation_vkey,
+            range_vkey_commitment,
+            rollup_config_hash,
+        }
     }
 
     /// Logs the proposer identity at startup.
@@ -124,12 +140,14 @@ impl ProposerIdentity {
             version = %self.full_version,
             aggregation_vkey = %format!("0x{}", hex::encode(&self.aggregation_vkey[..8])),
             range_vkey_commitment = %format!("0x{}", hex::encode(&self.range_vkey_commitment[..8])),
+            rollup_config_hash = %format!("0x{}", hex::encode(&self.rollup_config_hash[..8])),
             "Proposer initialized"
         );
         tracing::debug!(
             aggregation_vkey_full = %format!("0x{}", hex::encode(self.aggregation_vkey)),
             range_vkey_commitment_full = %format!("0x{}", hex::encode(self.range_vkey_commitment)),
-            "Full vkey values"
+            rollup_config_hash_full = %format!("0x{}", hex::encode(self.rollup_config_hash)),
+            "Full identity values"
         );
     }
 }
@@ -152,13 +170,17 @@ pub struct Game {
     pub should_attempt_to_claim_bond: bool,
     pub aggregation_vkey: B256,
     pub range_vkey_commitment: B256,
+    pub rollup_config_hash: B256,
 }
 
 impl Game {
-    /// Returns true if this game's vkeys match the proposer's (owned = can prove/resolve/claim).
+    /// Returns true if this game's identity params match the proposer's (owned = can
+    /// prove/resolve/claim). Checks aggregation_vkey, range_vkey_commitment, and
+    /// rollup_config_hash.
     pub fn is_owned(&self, identity: &ProposerIdentity) -> bool {
         self.aggregation_vkey == identity.aggregation_vkey &&
-            self.range_vkey_commitment == identity.range_vkey_commitment
+            self.range_vkey_commitment == identity.range_vkey_commitment &&
+            self.rollup_config_hash == identity.rollup_config_hash
     }
 }
 
@@ -296,8 +318,14 @@ where
         };
         let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
 
+        // Compute rollup config hash from the fetcher's chain config.
+        let rollup_config_hash = hash_rollup_config(
+            fetcher.rollup_config.as_ref().context("rollup_config required for identity")?,
+        );
+
         // Create proposer identity for monitoring and version tracking.
-        let identity = ProposerIdentity::new(aggregation_vkey, range_vkey_commitment);
+        let identity =
+            ProposerIdentity::new(aggregation_vkey, range_vkey_commitment, rollup_config_hash);
         identity.log_startup_info();
 
         let keys = ProofKeys {
@@ -1384,6 +1412,7 @@ where
 
         let aggregation_vkey = B256::from(contract.aggregationVkey().call().await?.0);
         let range_vkey_commitment = B256::from(contract.rangeVkeyCommitment().call().await?.0);
+        let rollup_config_hash = B256::from(contract.rollupConfigHash().call().await?.0);
 
         // Drop games whose type does not respect the expected type.
         if !was_respected {
@@ -1432,10 +1461,11 @@ where
             should_attempt_to_claim_bond: false,
             aggregation_vkey,
             range_vkey_commitment,
+            rollup_config_hash,
         };
 
         if !game.is_owned(&self.identity) {
-            tracing::info!(game_index = %index, "Discovered foreign game (proposer's vkeys don't match on-chain vkeys) - tracking for DAG but not proving/resolving/claiming");
+            tracing::info!(game_index = %index, "Discovered foreign game (proposer's identity params don't match on-chain params) - tracking for DAG but not proving/resolving/claiming");
         }
 
         let mut state = self.state.write().await;
