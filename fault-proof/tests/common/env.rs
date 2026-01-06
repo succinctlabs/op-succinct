@@ -6,7 +6,7 @@ use std::{
 };
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address, Bytes, FixedBytes, Uint, B256, U256};
+use alloy_primitives::{hex, Address, Bytes, FixedBytes, Uint, B256, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_eth::TransactionReceipt;
 use alloy_signer_local::PrivateKeySigner;
@@ -21,12 +21,16 @@ use op_succinct_bindings::{
         self, OPSuccinctFaultDisputeGameInstance,
     },
 };
+use op_succinct_client_utils::types::u32_to_u8;
+use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::{get_rpcs_from_env, OPSuccinctDataFetcher, RPCConfig},
     host::OPSuccinctHost,
     OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
+use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::{Signer, SignerLock};
+use sp1_sdk::{HashableKey, Prover, ProverClient};
 use tokio::task::JoinHandle;
 use tracing::{info, Level};
 
@@ -82,10 +86,33 @@ impl Drop for TestEnvironment {
     }
 }
 
+/// Compute vkeys from ELF programs.
+/// Returns (aggregation_vkey, range_vkey_commitment) as B256 values.
+/// Uses the same computation as `proposer.rs` and `config_common.rs`.
+pub fn compute_vkeys() -> (B256, B256) {
+    let prover = ProverClient::builder().cpu().build();
+
+    let (_, agg_vk) = prover.setup(AGGREGATION_ELF);
+    let aggregation_vkey = {
+        let hex_str = agg_vk.vk.bytes32();
+        B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
+    };
+
+    let (_, range_vk) = prover.setup(get_range_elf_embedded());
+    let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
+
+    (aggregation_vkey, range_vkey_commitment)
+}
+
 /// The test configuration, used for integration tests.
-pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> FaultDisputeGameConfig {
+pub fn test_config(
+    starting_l2_block_number: u64,
+    starting_root: String,
+    aggregation_vkey: B256,
+    range_vkey_commitment: B256,
+) -> FaultDisputeGameConfig {
     FaultDisputeGameConfig {
-        aggregation_vkey: AGGREGATION_VKEY.to_string(),
+        aggregation_vkey: aggregation_vkey.to_string(),
         challenger_addresses: vec![CHALLENGER_ADDRESS.to_string()],
         challenger_bond_wei: CHALLENGER_BOND.to::<u64>(),
         dispute_game_finality_delay_seconds: DISPUTE_GAME_FINALITY_DELAY_SECONDS,
@@ -97,7 +124,7 @@ pub fn test_config(starting_l2_block_number: u64, starting_root: String) -> Faul
         optimism_portal2_address: Address::ZERO.to_string(),
         permissionless_mode: false,
         proposer_addresses: vec![PROPOSER_ADDRESS.to_string()],
-        range_vkey_commitment: RANGE_VKEY_COMMITMENT.to_string(),
+        range_vkey_commitment: range_vkey_commitment.to_string(),
         rollup_config_hash: ROLLUP_CONFIG_HASH.to_string(),
         starting_l2_block_number,
         starting_root,
@@ -112,6 +139,9 @@ impl TestEnvironment {
     pub async fn setup() -> Result<Self> {
         init_logging();
 
+        // Compute vkeys from ELFs - these will match the proposer's computed vkeys
+        let (aggregation_vkey, range_vkey_commitment) = compute_vkeys();
+
         // Get environment variables
         let mut rpc_config = get_rpcs_from_env();
 
@@ -121,8 +151,12 @@ impl TestEnvironment {
         let anvil = setup_anvil_chain().await?;
 
         // Put the test config into ../contracts/opsuccinctfdgconfig.json
-        let test_config: FaultDisputeGameConfig =
-            test_config(anvil.starting_l2_block_number, anvil.starting_root.clone());
+        let test_config: FaultDisputeGameConfig = test_config(
+            anvil.starting_l2_block_number,
+            anvil.starting_root.clone(),
+            aggregation_vkey,
+            range_vkey_commitment,
+        );
         let json = serde_json::to_string_pretty(&test_config)?;
         std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
 
@@ -154,6 +188,9 @@ impl TestEnvironment {
     pub async fn setup_with_starting_block_offset(offset: i64) -> Result<Self> {
         init_logging();
 
+        // Compute vkeys from ELFs - these will match the proposer's computed vkeys
+        let (aggregation_vkey, range_vkey_commitment) = compute_vkeys();
+
         let mut rpc_config = get_rpcs_from_env();
         let fetcher = OPSuccinctDataFetcher::new();
 
@@ -177,7 +214,12 @@ impl TestEnvironment {
         };
 
         // Create config with offset starting block
-        let test_config = test_config(custom_starting_block, starting_root);
+        let test_config = test_config(
+            custom_starting_block,
+            starting_root,
+            aggregation_vkey,
+            range_vkey_commitment,
+        );
         let json = serde_json::to_string_pretty(&test_config)?;
         std::fs::write(OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH.clone(), json)?;
 

@@ -10,11 +10,11 @@ mod integration {
     use anyhow::{Context, Result};
     use common::{
         constants::{
-            AGGREGATION_VKEY, CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
+            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
             L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, RANGE_VKEY_COMMITMENT, TEST_GAME_TYPE,
-            WAIT_TIMEOUT,
+            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
         },
+        env::compute_vkeys,
         monitor::{verify_all_resolved_correctly, TrackedGame},
         new_proposer, TestEnvironment,
     };
@@ -1000,15 +1000,18 @@ mod integration {
         info!("=== Test: Old Proposer NOT Defending New Games After Hardfork ===");
 
         // ═══════════════════════════════════════════════════════════════════════
-        // Phase 1: Deploy contracts with original vkeys (B256::ZERO)
+        // Phase 1: Deploy contracts with real vkeys computed from ELFs
         // ═══════════════════════════════════════════════════════════════════════
+
+        // Compute vkeys from ELFs - these match what proposer will use
+        let (original_agg_vkey, original_range_vkey) = compute_vkeys();
 
         let env = TestEnvironment::setup().await?;
         let factory = env.factory()?;
         let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
 
-        info!("✓ Deployed contracts with original vkeys");
-        info!("  Original vkeys: {:?}, {:?}", AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT);
+        info!("✓ Deployed contracts with real ELF vkeys");
+        info!("  Original vkeys: {:?}, {:?}", original_agg_vkey, original_range_vkey);
 
         // ═══════════════════════════════════════════════════════════════════════
         // Phase 2: Create OLD proposer with original vkeys
@@ -1017,7 +1020,7 @@ mod integration {
         let proposer = Arc::new(env.init_proposer().await?);
 
         info!("✓ Created OLD proposer with original vkeys");
-        info!("  Proposer identity: {:?}, {:?}", AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT);
+        info!("  Proposer identity: {:?}, {:?}", original_agg_vkey, original_range_vkey);
 
         // ═══════════════════════════════════════════════════════════════════════
         // Phase 3: Simulate HARDFORK - Deploy new game implementation
@@ -1075,7 +1078,7 @@ mod integration {
         );
 
         info!("✓ SUCCESS: OLD proposer did NOT spawn defense task for NEW game");
-        info!("  OLD proposer vkeys: {:?}, {:?}", AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT);
+        info!("  OLD proposer vkeys: {:?}, {:?}", original_agg_vkey, original_range_vkey);
         info!(
             "  NEW game vkeys: {:?}, {:?}",
             HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
