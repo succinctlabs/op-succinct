@@ -35,8 +35,8 @@ pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 we
 
 // Configuration hashes for OPSuccinctFaultDisputeGame
 pub const ROLLUP_CONFIG_HASH: B256 = B256::ZERO; // Mock value for testing
-pub const AGGREGATION_VKEY: B256 = B256::ZERO; // Mock value for testing
-pub const RANGE_VKEY_COMMITMENT: B256 = B256::ZERO; // Mock value for testing
+                                                 // Note: AGGREGATION_VKEY and RANGE_VKEY_COMMITMENT are now computed from ELFs at runtime
+                                                 // via compute_vkeys() in env.rs to match the proposer's vkey computation
 
 // Test configuration for L2 block offset
 // This offset is subtracted from finalized L2 block to get the starting anchor block
