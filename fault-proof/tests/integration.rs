@@ -5,7 +5,7 @@ mod integration {
     use super::*;
     use std::sync::Arc;
 
-    use alloy_primitives::{B256, Bytes, FixedBytes, U256};
+    use alloy_primitives::{Bytes, FixedBytes, B256, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use common::{
