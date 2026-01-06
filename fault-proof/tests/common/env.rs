@@ -6,7 +6,7 @@ use std::{
 };
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address, B256, Bytes, FixedBytes, Uint, U256};
+use alloy_primitives::{Address, Bytes, FixedBytes, Uint, B256, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_eth::TransactionReceipt;
 use alloy_signer_local::PrivateKeySigner;
@@ -562,10 +562,8 @@ impl TestEnvironment {
             OPSuccinctFaultDisputeGame::new(self.deployed.game_implementation, provider);
         let verifier_address = existing_game.sp1Verifier().call().await?;
 
-        let contracts_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("contracts");
+        let contracts_dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("contracts");
 
         // Build environment variables for the forge script
         let output = Command::new("forge")
@@ -606,11 +604,7 @@ impl TestEnvironment {
 
     /// Set the game implementation for a specific game type.
     /// This upgrades the factory to use a new implementation (hardfork).
-    pub async fn set_game_implementation(
-        &self,
-        game_type: u32,
-        new_impl: Address,
-    ) -> Result<()> {
+    pub async fn set_game_implementation(&self, game_type: u32, new_impl: Address) -> Result<()> {
         let set_impl_call =
             DisputeGameFactory::setImplementationCall { _gameType: game_type, _impl: new_impl };
         self.send_factory_tx(set_impl_call.abi_encode(), None).await?;
