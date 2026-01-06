@@ -6,13 +6,13 @@ use std::{
 };
 
 use alloy_network::EthereumWallet;
-use alloy_primitives::{Address, Bytes, FixedBytes, Uint, U256};
+use alloy_primitives::{Address, B256, Bytes, FixedBytes, Uint, U256};
 use alloy_provider::ProviderBuilder;
 use alloy_rpc_types_eth::TransactionReceipt;
 use alloy_signer_local::PrivateKeySigner;
 use alloy_sol_types::{SolCall, SolValue};
 use alloy_transport_http::reqwest::Url;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use op_succinct_bindings::{
     anchor_state_registry::AnchorStateRegistry::{self, AnchorStateRegistryInstance},
     dispute_game_factory::DisputeGameFactory::{self, DisputeGameFactoryInstance},
@@ -546,6 +546,78 @@ impl TestEnvironment {
 
         Ok(receipt)
     }
+
+    /// Deploy a new game implementation with custom vkeys via forge script.
+    /// This simulates a hardfork where the game implementation changes.
+    pub async fn deploy_game_impl_with_vkeys(
+        &self,
+        aggregation_vkey: B256,
+        range_vkey_commitment: B256,
+    ) -> Result<Address> {
+        use std::process::Command;
+
+        // Get the SP1 verifier address from the existing game implementation
+        let provider = self.provider_with_role(Role::Proposer)?;
+        let existing_game =
+            OPSuccinctFaultDisputeGame::new(self.deployed.game_implementation, provider);
+        let verifier_address = existing_game.sp1Verifier().call().await?;
+
+        let contracts_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .join("contracts");
+
+        // Build environment variables for the forge script
+        let output = Command::new("forge")
+            .arg("script")
+            .arg("script/fp/DeployGameImplOnly.s.sol")
+            .arg("--broadcast")
+            .arg("--rpc-url")
+            .arg(&self.anvil.endpoint)
+            .arg("--private-key")
+            .arg(self.private_keys.deployer)
+            .arg("--json")
+            .env("FACTORY_PROXY", self.deployed.factory.to_string())
+            .env("VERIFIER_ADDRESS", verifier_address.to_string())
+            .env("ANCHOR_STATE_REGISTRY", self.deployed.anchor_state_registry.to_string())
+            .env("ACCESS_MANAGER", self.deployed.access_manager.to_string())
+            .env("AGGREGATION_VKEY", aggregation_vkey.to_string())
+            .env("RANGE_VKEY_COMMITMENT", range_vkey_commitment.to_string())
+            .env("ROLLUP_CONFIG_HASH", ROLLUP_CONFIG_HASH.to_string())
+            .env("MAX_CHALLENGE_DURATION", MAX_CHALLENGE_DURATION.to_string())
+            .env("MAX_PROVE_DURATION", MAX_PROVE_DURATION.to_string())
+            .env("CHALLENGER_BOND_WEI", CHALLENGER_BOND.to_string())
+            .current_dir(&contracts_dir)
+            .output()
+            .context("Failed to execute forge script")?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!("Forge script failed: {}", stderr);
+        }
+
+        // Parse JSON output to extract gameImpl address
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let impl_address = parse_game_impl_address(&stdout)?;
+
+        info!("✓ Deployed game implementation with custom vkeys at {impl_address}");
+        Ok(impl_address)
+    }
+
+    /// Set the game implementation for a specific game type.
+    /// This upgrades the factory to use a new implementation (hardfork).
+    pub async fn set_game_implementation(
+        &self,
+        game_type: u32,
+        new_impl: Address,
+    ) -> Result<()> {
+        let set_impl_call =
+            DisputeGameFactory::setImplementationCall { _gameType: game_type, _impl: new_impl };
+        self.send_factory_tx(set_impl_call.abi_encode(), None).await?;
+
+        info!("✓ Set game implementation for type {game_type} to {new_impl}");
+        Ok(())
+    }
 }
 
 pub struct TestPrivateKeys {
@@ -587,4 +659,31 @@ pub fn init_logging() {
 
         tracing_subscriber::registry().with(fmt::layer().compact()).with(filter).init()
     });
+}
+
+/// Parse the forge script JSON output to extract the gameImpl address.
+fn parse_game_impl_address(output: &str) -> Result<Address> {
+    #[derive(serde::Deserialize)]
+    struct ForgeOutput {
+        returns: ForgeReturns,
+    }
+
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct ForgeReturns {
+        game_impl: AddressField,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct AddressField {
+        value: String,
+    }
+
+    let json_line =
+        output.lines().next().ok_or_else(|| anyhow::anyhow!("No output from forge script"))?;
+
+    let forge_output: ForgeOutput =
+        serde_json::from_str(json_line).context("Failed to parse forge output")?;
+
+    forge_output.returns.game_impl.value.parse().context("Failed to parse gameImpl address")
 }

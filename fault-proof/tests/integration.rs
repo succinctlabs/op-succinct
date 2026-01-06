@@ -5,14 +5,15 @@ mod integration {
     use super::*;
     use std::sync::Arc;
 
-    use alloy_primitives::{Bytes, FixedBytes, U256};
+    use alloy_primitives::{B256, Bytes, FixedBytes, U256};
     use alloy_sol_types::{SolCall, SolValue};
     use anyhow::{Context, Result};
     use common::{
         constants::{
-            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
+            AGGREGATION_VKEY, CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS,
             L2_BLOCK_OFFSET_FROM_FINALIZED, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE, WAIT_TIMEOUT,
+            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, RANGE_VKEY_COMMITMENT, TEST_GAME_TYPE,
+            WAIT_TIMEOUT,
         },
         monitor::{verify_all_resolved_correctly, TrackedGame},
         new_proposer, TestEnvironment,
@@ -979,6 +980,107 @@ mod integration {
             "Unexpected error message. Got: '{}'. Expected reference to block gap.",
             err_msg
         );
+
+        Ok(())
+    }
+
+    // Custom vkeys for hardfork simulation (different from B256::ZERO used by default)
+    const HARDFORK_AGGREGATION_VKEY: B256 = B256::repeat_byte(0xDE);
+    const HARDFORK_RANGE_VKEY_COMMITMENT: B256 = B256::repeat_byte(0xCA);
+
+    /// Tests that an OLD proposer does NOT spawn defense tasks for NEW games
+    /// created after a hardfork that changes the vkeys.
+    ///
+    /// This tests the is_owned() check in a real hardfork scenario:
+    /// - OLD proposer vkeys: B256::ZERO (from original deployment)
+    /// - NEW game vkeys: FAKE (from upgraded implementation)
+    /// - is_owned() returns FALSE → No defense task spawned
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_old_proposer_no_defense_for_new_games_after_hardfork() -> Result<()> {
+        info!("=== Test: Old Proposer NOT Defending New Games After Hardfork ===");
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 1: Deploy contracts with original vkeys (B256::ZERO)
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+
+        info!("✓ Deployed contracts with original vkeys");
+        info!("  Original vkeys: {:?}, {:?}", AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 2: Create OLD proposer with original vkeys
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let proposer = Arc::new(env.init_proposer().await?);
+
+        info!("✓ Created OLD proposer with original vkeys");
+        info!("  Proposer identity: {:?}, {:?}", AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 3: Simulate HARDFORK - Deploy new game implementation
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let new_impl = env
+            .deploy_game_impl_with_vkeys(HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT)
+            .await?;
+
+        info!("✓ Deployed new game implementation at {new_impl}");
+        info!(
+            "  Hardfork vkeys: {:?}, {:?}",
+            HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
+        );
+
+        // Upgrade factory to use new implementation
+        env.set_game_implementation(TEST_GAME_TYPE, new_impl).await?;
+
+        info!("✓ Upgraded factory to use new implementation");
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 4: Create NEW game through factory
+        // ═══════════════════════════════════════════════════════════════════════
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, u32::MAX, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        info!("✓ Created NEW game at {game_address}");
+        info!(
+            "  Game vkeys (from new impl): {:?}, {:?}",
+            HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
+        );
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // Phase 5: Challenge game and verify NO defense
+        // ═══════════════════════════════════════════════════════════════════════
+
+        env.challenge_game(game_address).await?;
+        info!("✓ Challenged game");
+
+        // Sync state and try to spawn defense tasks
+        proposer.sync_state().await?;
+        let _ = proposer.spawn_defense_tasks_for_test().await?;
+
+        // Get active defense task addresses
+        let active_defense = proposer.get_active_defense_game_addresses().await;
+
+        // CRITICAL ASSERTION: OLD proposer should NOT defend NEW game
+        assert!(
+            !active_defense.contains(&game_address),
+            "OLD proposer should NOT defend NEW game after hardfork"
+        );
+
+        info!("✓ SUCCESS: OLD proposer did NOT spawn defense task for NEW game");
+        info!("  OLD proposer vkeys: {:?}, {:?}", AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT);
+        info!(
+            "  NEW game vkeys: {:?}, {:?}",
+            HARDFORK_AGGREGATION_VKEY, HARDFORK_RANGE_VKEY_COMMITMENT
+        );
+        info!("  is_owned() correctly returned FALSE");
 
         Ok(())
     }
