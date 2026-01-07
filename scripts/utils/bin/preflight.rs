@@ -264,7 +264,7 @@ async fn main() -> Result<()> {
         vec![range_proof.proof],
         vec![boot_info.clone()],
         vec![l1_head.clone()],
-        &range_vk,
+        range_vk,
         boot_info.l1Head,
         wallet.address(),
     )

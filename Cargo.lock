@@ -5459,12 +5459,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
-name = "human_bytes"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91f255a4535024abf7640cb288260811fc14794f62b063652ed349f9a6c2348e"
-
-[[package]]
 name = "hyper"
 version = "0.14.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10176,20 +10170,18 @@ checksum = "f89776e4d69bb58bc6993e99ffa1d11f228b839984854c7daeb5d37f87cbe950"
 
 [[package]]
 name = "postgresql_archive"
-version = "0.15.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14776d152cebebb5b09e219bf1ff399dd3e001b9e3eb362b612f0f44f87cd642"
+checksum = "e80b519badc77389e9bb48944da8b639eaddc0ab9bb0e921be233c11348f3655"
 dependencies = [
- "anyhow",
  "async-trait",
  "flate2",
+ "futures-util",
  "hex",
- "http 1.4.0",
- "human_bytes",
  "num-format",
- "regex",
+ "regex-lite",
  "reqwest 0.12.28",
- "reqwest-middleware 0.3.3",
+ "reqwest-middleware 0.4.2",
  "reqwest-retry",
  "reqwest-tracing",
  "semver 1.0.27",
@@ -10199,38 +10191,36 @@ dependencies = [
  "tar",
  "target-triple",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tracing",
  "url",
 ]
 
 [[package]]
 name = "postgresql_commands"
-version = "0.15.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffa3ef5705539debf55e5e589d7c826d7ac7a980cd2b2e61ab79de8125a8b84e"
+checksum = "20698f9f0fddfa20bb0f8db60c47c7c1996b781c8e4bc2d09182d6cab66da25c"
 dependencies = [
- "anyhow",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tracing",
 ]
 
 [[package]]
 name = "postgresql_embedded"
-version = "0.15.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23ea927907597f4102f82c31e939032c89563752b6ca7c04eb4089a5dcfa562d"
+checksum = "c73524453412018db32b4929cc0b58ecb2d04cff679e9d397ab32880fbe7a0ca"
 dependencies = [
  "anyhow",
- "home",
  "postgresql_archive",
  "postgresql_commands",
- "rand 0.8.5",
+ "rand 0.9.2",
  "semver 1.0.27",
  "sqlx",
  "target-triple",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.17",
  "tokio",
  "tracing",
  "url",
@@ -11164,9 +11154,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest-retry"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a83df1aaec00176d0fabb65dea13f832d2a446ca99107afc17c5d2d4981221d0"
+checksum = "29c73e4195a6bfbcb174b790d9b3407ab90646976c55de58a6515da25d851178"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -11176,8 +11166,9 @@ dependencies = [
  "hyper 1.8.1",
  "parking_lot 0.11.2",
  "reqwest 0.12.28",
- "reqwest-middleware 0.3.3",
+ "reqwest-middleware 0.4.2",
  "retry-policies",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "wasm-timer",
