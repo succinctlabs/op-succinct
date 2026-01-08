@@ -2139,6 +2139,8 @@ impl ProposerState {
             cursor: backup.cursor.map(Cursor::from).unwrap_or_default(),
             games,
             anchor_game,
+            // NOTE(fakedev9999): Not persisted; re-computed on first sync cycle from on-chain
+            // state.
             canonical_head_index: None,
             canonical_head_l2_block: None,
         }
