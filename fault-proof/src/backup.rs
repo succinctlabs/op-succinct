@@ -116,3 +116,62 @@ impl ProposerBackup {
         Some(backup)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Schema guard: if this test fails, you likely need to bump BACKUP_VERSION.
+    /// This catches accidental schema changes that would break backup compatibility.
+    #[test]
+    fn backup_schema_guard() {
+        use crate::contract::{GameStatus, ProposalStatus};
+        use alloy_primitives::Address;
+
+        // If Game fields change, this won't compile or the JSON keys will differ
+        let game = Game {
+            index: U256::ZERO,
+            address: Address::ZERO,
+            parent_index: 0,
+            l2_block: U256::ZERO,
+            status: GameStatus::IN_PROGRESS,
+            proposal_status: ProposalStatus::Unchallenged,
+            deadline: 0,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+        };
+
+        let json = serde_json::to_value(&game).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+
+        // If this assertion fails, Game schema changed - bump BACKUP_VERSION!
+        assert_eq!(
+            keys,
+            vec![
+                "address",
+                "deadline",
+                "index",
+                "l2_block",
+                "parent_index",
+                "proposal_status",
+                "should_attempt_to_claim_bond",
+                "should_attempt_to_resolve",
+                "status",
+            ],
+            "Game schema changed! Bump BACKUP_VERSION in backup.rs"
+        );
+
+        // Check ProposerBackup fields
+        let backup = ProposerBackup::new(None, vec![], None);
+        let json = serde_json::to_value(&backup).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+
+        assert_eq!(
+            keys,
+            vec!["anchor_game_index", "cursor", "games", "version"],
+            "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
+        );
+    }
+}
