@@ -438,18 +438,17 @@ where
             }
 
             // Restore state from backup if available.
-            if path.exists() {
-                if let Some(restored) = ProposerState::try_restore(path) {
-                    tracing::info!(?path, "Proposer state restored from backup");
-                    let mut state = self.state.write().await;
-                    state.cursor = restored.cursor;
-                    state.games = restored.games;
-                    state.anchor_game = restored.anchor_game;
-                    ProposerGauge::BackupRestoreSuccess.increment(1.0);
-                } else {
-                    tracing::warn!(?path, "Failed to restore proposer state from backup");
-                    ProposerGauge::BackupRestoreError.increment(1.0);
-                }
+            if let Some(restored) = ProposerState::try_restore(path) {
+                tracing::info!(?path, "Proposer state restored from backup");
+                let mut state = self.state.write().await;
+                state.cursor = restored.cursor;
+                state.games = restored.games;
+                state.anchor_game = restored.anchor_game;
+                ProposerGauge::BackupRestoreSuccess.increment(1.0);
+            } else if path.exists() {
+                // File exists but couldn't be parsed - this is an error.
+                tracing::warn!(?path, "Failed to restore proposer state from backup");
+                ProposerGauge::BackupRestoreError.increment(1.0);
             }
         }
 
