@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+use tempfile::NamedTempFile;
+
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder};
@@ -429,13 +431,10 @@ where
                 }
             }
 
-            // Validate path is writable.
-            let test_path = path.with_extension("writetest");
-            std::fs::File::create(&test_path)
+            // Validate path is writable by creating a temp file in the same directory.
+            let dir = path.parent().unwrap_or(Path::new("."));
+            NamedTempFile::new_in(dir)
                 .with_context(|| format!("backup path is not writable: {:?}", path))?;
-            if let Err(e) = std::fs::remove_file(&test_path) {
-                tracing::debug!(?test_path, ?e, "Failed to remove write test file");
-            }
 
             // Restore state from backup if available.
             if let Some(restored) = ProposerState::try_restore(path) {
