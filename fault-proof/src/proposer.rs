@@ -438,7 +438,6 @@ where
 
             // Restore state from backup if available.
             if let Some(restored) = ProposerState::try_restore(path) {
-                tracing::info!(?path, "Proposer state restored from backup");
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
                 state.games = restored.games;
