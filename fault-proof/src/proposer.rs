@@ -13,7 +13,10 @@ use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{bail, Context, Result};
 use futures::stream::{self, StreamExt, TryStreamExt};
-use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_client_utils::{
+    boot::{hash_rollup_config, BootInfoStruct},
+    types::u32_to_u8,
+};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -25,7 +28,7 @@ use op_succinct_host_utils::{
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
-use sp1_sdk::{Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
+use sp1_sdk::{HashableKey, Prover, ProverClient, SP1ProofWithPublicValues, SP1Stdin};
 use tokio::{
     sync::{Mutex, RwLock},
     time,
@@ -77,6 +80,74 @@ pub enum TaskInfo {
     BondClaim,
 }
 
+/// Proposer identity information for version tracking and monitoring.
+/// This helps operators identify which ELF version is running and enables
+/// compatibility checks during hardfork transitions.
+#[derive(Clone, Debug)]
+pub struct ProposerIdentity {
+    /// Package version from Cargo.toml (e.g., "3.4.1")
+    pub version: &'static str,
+    /// DA layer feature (e.g., "ethereum", "celestia", "eigenda")
+    pub da_layer: &'static str,
+    /// Full version string with DA layer suffix (e.g., "3.4.1-celestia")
+    pub full_version: String,
+    /// Aggregation verification key hash
+    pub aggregation_vkey: B256,
+    /// Range verification key commitment
+    pub range_vkey_commitment: B256,
+    /// Rollup configuration hash
+    pub rollup_config_hash: B256,
+}
+
+impl ProposerIdentity {
+    /// Returns the DA layer based on compile-time feature flags.
+    fn detect_da_layer() -> &'static str {
+        #[cfg(feature = "celestia")]
+        return "celestia";
+        #[cfg(all(feature = "eigenda", not(feature = "celestia")))]
+        return "eigenda";
+        #[cfg(not(any(feature = "celestia", feature = "eigenda")))]
+        return "ethereum";
+    }
+
+    /// Creates a new ProposerIdentity from computed vkeys and rollup config hash.
+    pub fn new(
+        aggregation_vkey: B256,
+        range_vkey_commitment: B256,
+        rollup_config_hash: B256,
+    ) -> Self {
+        let version = env!("CARGO_PKG_VERSION");
+        let da_layer = Self::detect_da_layer();
+        let full_version = format!("{}-{}", version, da_layer);
+
+        Self {
+            version,
+            da_layer,
+            full_version,
+            aggregation_vkey,
+            range_vkey_commitment,
+            rollup_config_hash,
+        }
+    }
+
+    /// Logs the proposer identity at startup.
+    pub fn log_startup_info(&self) {
+        tracing::info!(
+            version = %self.full_version,
+            aggregation_vkey = %format!("0x{}", hex::encode(&self.aggregation_vkey[..8])),
+            range_vkey_commitment = %format!("0x{}", hex::encode(&self.range_vkey_commitment[..8])),
+            rollup_config_hash = %format!("0x{}", hex::encode(&self.rollup_config_hash[..8])),
+            "Proposer initialized"
+        );
+        tracing::debug!(
+            aggregation_vkey_full = %format!("0x{}", hex::encode(self.aggregation_vkey)),
+            range_vkey_commitment_full = %format!("0x{}", hex::encode(self.range_vkey_commitment)),
+            rollup_config_hash_full = %format!("0x{}", hex::encode(self.rollup_config_hash)),
+            "Full identity values"
+        );
+    }
+}
+
 /// Represents a dispute game in the on-chain game DAG.
 ///
 /// Games form a directed acyclic graph where each game builds upon a parent game, extending the
@@ -93,6 +164,20 @@ pub struct Game {
     pub deadline: u64,
     pub should_attempt_to_resolve: bool,
     pub should_attempt_to_claim_bond: bool,
+    pub aggregation_vkey: B256,
+    pub range_vkey_commitment: B256,
+    pub rollup_config_hash: B256,
+}
+
+impl Game {
+    /// Returns true if this game's identity params match the proposer's (owned = can
+    /// prove/resolve/claim). Checks aggregation_vkey, range_vkey_commitment, and
+    /// rollup_config_hash.
+    pub fn is_owned(&self, identity: &ProposerIdentity) -> bool {
+        self.aggregation_vkey == identity.aggregation_vkey &&
+            self.range_vkey_commitment == identity.range_vkey_commitment &&
+            self.rollup_config_hash == identity.rollup_config_hash
+    }
 }
 
 /// Central cache of the proposer's view of dispute games.
@@ -187,6 +272,9 @@ where
     tasks: Arc<Mutex<TaskMap>>,
     next_task_id: Arc<AtomicU64>,
     state: Arc<RwLock<ProposerState>>,
+    /// Proposer identity with version and vkey information for monitoring and compatibility
+    /// checks.
+    pub identity: ProposerIdentity,
 }
 
 impl<P, H> OPSuccinctProposer<P, H>
@@ -214,7 +302,26 @@ where
             ProverClient::builder().network_for(network_mode).signer(network_signer).build(),
         );
         let (range_pk, range_vk) = network_prover.setup(get_range_elf_embedded());
-        let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
+        let (agg_pk, agg_vk) = network_prover.setup(AGGREGATION_ELF);
+
+        // Compute vkey hashes for on-chain compatibility checks.
+        // These are compared against game contract immutable values to ensure proof compatibility.
+        let aggregation_vkey = {
+            let hex_str = agg_vk.bytes32();
+            // bytes32() returns "0x..." prefixed hex string
+            B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
+        };
+        let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
+
+        // Compute rollup config hash from the fetcher's chain config.
+        let rollup_config_hash = hash_rollup_config(
+            fetcher.rollup_config.as_ref().context("rollup_config required for identity")?,
+        );
+
+        // Create proposer identity for monitoring and version tracking.
+        let identity =
+            ProposerIdentity::new(aggregation_vkey, range_vkey_commitment, rollup_config_hash);
+        identity.log_startup_info();
 
         let keys = ProofKeys {
             range_pk: Arc::new(range_pk),
@@ -259,6 +366,7 @@ where
             tasks: Arc::new(Mutex::new(HashMap::new())),
             next_task_id: Arc::new(AtomicU64::new(1)),
             state: Arc::new(RwLock::new(initial_state)),
+            identity,
         })
     }
 
@@ -859,6 +967,21 @@ where
         }
     }
 
+    /// Returns true if on-chain vkeys match ours (safe to create games).
+    async fn on_chain_vkeys_match(&self) -> Result<bool> {
+        let game_impl = self.factory.game_impl(self.config.game_type).await?;
+        let on_chain_agg = B256::from(game_impl.aggregationVkey().call().await?.0);
+        let on_chain_range = B256::from(game_impl.rangeVkeyCommitment().call().await?.0);
+
+        let matches = on_chain_agg == self.identity.aggregation_vkey &&
+            on_chain_range == self.identity.range_vkey_commitment;
+
+        if !matches {
+            tracing::info!("Proposer vkeys mismatch with on-chain vkeys - skipping game creation (hardfork detected)");
+        }
+        Ok(matches)
+    }
+
     /// Proves a dispute game at the given address.
     ///
     /// # Returns
@@ -1076,6 +1199,8 @@ where
             state
                 .games
                 .values()
+                // Only resolve owned games (vkeys match).
+                .filter(|game| game.is_owned(&self.identity))
                 .filter(|game| game.should_attempt_to_resolve)
                 .cloned()
                 .collect::<Vec<_>>()
@@ -1117,6 +1242,8 @@ where
             state
                 .games
                 .values()
+                // Only claim bonds for owned games (vkeys match).
+                .filter(|game| game.is_owned(&self.identity))
                 .filter(|game| game.should_attempt_to_claim_bond)
                 .cloned()
                 .collect::<Vec<_>>()
@@ -1246,6 +1373,10 @@ where
             U256::from(claim_data.deadline).to::<u64>(),
         );
 
+        let aggregation_vkey = B256::from(contract.aggregationVkey().call().await?.0);
+        let range_vkey_commitment = B256::from(contract.rangeVkeyCommitment().call().await?.0);
+        let rollup_config_hash = B256::from(contract.rollupConfigHash().call().await?.0);
+
         // Drop games whose type does not respect the expected type.
         if !was_respected {
             tracing::warn!(
@@ -1281,21 +1412,27 @@ where
             "Valid game: adding to cache"
         );
 
-        let mut state = self.state.write().await;
-        state.games.insert(
+        let game = Game {
             index,
-            Game {
-                index,
-                address: game_address,
-                parent_index,
-                l2_block,
-                status,
-                proposal_status,
-                deadline,
-                should_attempt_to_resolve: false,
-                should_attempt_to_claim_bond: false,
-            },
-        );
+            address: game_address,
+            parent_index,
+            l2_block,
+            status,
+            proposal_status,
+            deadline,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+            aggregation_vkey,
+            range_vkey_commitment,
+            rollup_config_hash,
+        };
+
+        if !game.is_owned(&self.identity) {
+            tracing::info!(game_index = %index, "Discovered foreign game (proposer's identity params don't match on-chain params) - tracking for DAG but not proving/resolving/claiming");
+        }
+
+        let mut state = self.state.write().await;
+        state.games.insert(index, game);
 
         Ok(GameFetchResult::ValidGame { game_address, deadline })
     }
@@ -1490,7 +1627,7 @@ where
             Err(e) => tracing::warn!("Failed to spawn game defense tasks: {:?}", e),
         }
 
-        // Spawn game resolution task
+        // Spawn game resolution task (only operates on owned games via is_owned() filter)
         if !self.has_active_task_of_type(&TaskInfo::GameResolution).await {
             if let Err(e) = self.spawn_game_resolution_task().await {
                 tracing::warn!("Failed to spawn game resolution task: {:?}", e);
@@ -1499,7 +1636,7 @@ where
             }
         }
 
-        // Spawn bond claim task
+        // Spawn bond claim task (only operates on owned games via is_owned() filter)
         if !self.has_active_task_of_type(&TaskInfo::BondClaim).await {
             if let Err(e) = self.spawn_bond_claim_task().await {
                 tracing::warn!("Failed to spawn bond claim task: {:?}", e);
@@ -1733,6 +1870,11 @@ where
             return Ok((false, U256::ZERO, u32::MAX));
         }
 
+        // Skip creation if on-chain vkeys don't match (hardfork detected).
+        if !self.on_chain_vkeys_match().await? {
+            return Ok((false, U256::ZERO, u32::MAX));
+        }
+
         let (canonical_head_l2_block, parent_game_index) = {
             let state = self.state.read().await;
 
@@ -1827,17 +1969,32 @@ where
         })
     }
 
-    /// Spawn a game proving task for a specific game.
-    ///
-    /// Skips if game deadline has passed (too late to prove).
+    /// Spawn a game proving task. Skips if deadline passed or vkeys don't match.
     async fn spawn_game_proving_task(
         &self,
         game_address: Address,
         is_defense: bool,
         deadline: Option<u64>,
     ) -> Result<()> {
+        // Skip if deadline has passed
         if let Some(deadline) = deadline {
             if self.should_skip_proving(game_address, deadline, is_defense)? {
+                return Ok(());
+            }
+        }
+
+        // Only prove owned games.
+        {
+            let state = self.state.read().await;
+            let game = state.games.values().find(|g| g.address == game_address);
+
+            if let Some(game) = game {
+                if !game.is_owned(&self.identity) {
+                    tracing::debug!(?game_address, "Skipping foreign game");
+                    return Ok(());
+                }
+            } else {
+                tracing::warn!(?game_address, "Game not in cache, skipping");
                 return Ok(());
             }
         }
