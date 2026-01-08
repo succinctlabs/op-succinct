@@ -420,29 +420,34 @@ where
             .set(contract_params)
             .map_err(|_| anyhow::anyhow!("contract_params must not already be set"))?;
 
-        // Validate backup path is writable before attempting any operations.
+        // Validate backup path and restore state if available.
         if let Some(path) = &self.config.backup_path {
+            // Validate parent directory exists.
             if let Some(parent) = path.parent() {
-                if !parent.exists() {
+                if !parent.as_os_str().is_empty() && !parent.exists() {
                     anyhow::bail!("backup path parent directory does not exist: {:?}", parent);
                 }
             }
+
+            // Validate path is writable.
             let test_path = path.with_extension("writetest");
             std::fs::File::create(&test_path)
                 .with_context(|| format!("backup path is not writable: {:?}", path))?;
-            let _ = std::fs::remove_file(&test_path);
-        }
+            if let Err(e) = std::fs::remove_file(&test_path) {
+                tracing::debug!(?test_path, ?e, "Failed to remove write test file");
+            }
 
-        // Restore state from backup if available.
-        if let Some(path) = &self.config.backup_path {
+            // Restore state from backup if available.
             if path.exists() {
                 if let Some(restored) = ProposerState::try_restore(path) {
+                    tracing::info!(?path, "Proposer state restored from backup");
                     let mut state = self.state.write().await;
                     state.cursor = restored.cursor;
                     state.games = restored.games;
                     state.anchor_game = restored.anchor_game;
                     ProposerGauge::BackupRestoreSuccess.increment(1.0);
                 } else {
+                    tracing::warn!(?path, "Failed to restore proposer state from backup");
                     ProposerGauge::BackupRestoreError.increment(1.0);
                 }
             }
