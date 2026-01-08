@@ -420,6 +420,19 @@ where
             .set(contract_params)
             .map_err(|_| anyhow::anyhow!("contract_params must not already be set"))?;
 
+        // Validate backup path is writable before attempting any operations.
+        if let Some(path) = &self.config.backup_path {
+            if let Some(parent) = path.parent() {
+                if !parent.exists() {
+                    anyhow::bail!("backup path parent directory does not exist: {:?}", parent);
+                }
+            }
+            let test_path = path.with_extension("writetest");
+            std::fs::File::create(&test_path)
+                .with_context(|| format!("backup path is not writable: {:?}", path))?;
+            let _ = std::fs::remove_file(&test_path);
+        }
+
         // Restore state from backup if available.
         if let Some(path) = &self.config.backup_path {
             if let Some(restored) = ProposerState::try_restore(path) {
