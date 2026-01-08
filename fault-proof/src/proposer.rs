@@ -8,6 +8,8 @@ use std::{
     time::Duration,
 };
 
+use tempfile::NamedTempFile;
+
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, FixedBytes, TxHash, B256, U256};
 use alloy_provider::{Provider, ProviderBuilder};
@@ -420,13 +422,32 @@ where
             .set(contract_params)
             .map_err(|_| anyhow::anyhow!("contract_params must not already be set"))?;
 
-        // Restore state from backup if available.
+        // Validate backup path and restore state if available.
         if let Some(path) = &self.config.backup_path {
+            // Validate parent directory exists.
+            if let Some(parent) = path.parent() {
+                if !parent.as_os_str().is_empty() && !parent.exists() {
+                    anyhow::bail!("backup path parent directory does not exist: {:?}", parent);
+                }
+            }
+
+            // Validate path is writable by creating a temp file in the same directory.
+            let dir = path.parent().unwrap_or(Path::new("."));
+            NamedTempFile::new_in(dir)
+                .with_context(|| format!("backup path is not writable: {:?}", path))?;
+
+            // Restore state from backup if available.
             if let Some(restored) = ProposerState::try_restore(path) {
+                tracing::info!(?path, "Proposer state restored from backup");
                 let mut state = self.state.write().await;
                 state.cursor = restored.cursor;
                 state.games = restored.games;
                 state.anchor_game = restored.anchor_game;
+                ProposerGauge::BackupRestoreSuccess.increment(1.0);
+            } else if path.exists() {
+                // File exists but couldn't be parsed - this is an error.
+                tracing::warn!(?path, "Failed to restore proposer state from backup");
+                ProposerGauge::BackupRestoreError.increment(1.0);
             }
         }
 
@@ -1797,6 +1818,9 @@ where
         tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
                 tracing::warn!("Failed to backup proposer state: {:?}", e);
+                ProposerGauge::BackupSaveError.increment(1.0);
+            } else {
+                ProposerGauge::BackupSaveSuccess.increment(1.0);
             }
             drop(permit);
         });
@@ -2139,6 +2163,8 @@ impl ProposerState {
             cursor: backup.cursor.map(Cursor::from).unwrap_or_default(),
             games,
             anchor_game,
+            // NOTE(fakedev9999): Not persisted; re-computed on first sync cycle from on-chain
+            // state.
             canonical_head_index: None,
             canonical_head_l2_block: None,
         }

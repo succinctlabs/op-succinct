@@ -5,6 +5,8 @@
 
 use std::{collections::HashSet, io::Write, path::Path};
 
+use tempfile::NamedTempFile;
+
 use alloy_primitives::U256;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -66,20 +68,12 @@ impl ProposerBackup {
         let json =
             serde_json::to_string_pretty(self).context("failed to serialize proposer backup")?;
 
-        let tmp_path = path.with_extension("tmp");
-
-        // Write and sync to ensure data is on disk before rename.
-        let mut file = std::fs::File::create(&tmp_path)
-            .context("failed to create proposer backup temp file")?;
-        file.write_all(json.as_bytes()).context("failed to write proposer backup temp file")?;
-        file.sync_all().context("failed to sync proposer backup temp file")?;
-        drop(file);
-
-        // Rename with cleanup on failure.
-        if let Err(e) = std::fs::rename(&tmp_path, path) {
-            let _ = std::fs::remove_file(&tmp_path);
-            return Err(e).context("failed to rename proposer backup file");
-        }
+        let dir = path.parent().unwrap_or(Path::new("."));
+        let mut temp =
+            NamedTempFile::new_in(dir).context("failed to create proposer backup temp file")?;
+        temp.write_all(json.as_bytes()).context("failed to write proposer backup temp file")?;
+        temp.as_file().sync_all().context("failed to sync proposer backup temp file")?;
+        temp.persist(path).context("failed to persist proposer backup file")?;
 
         tracing::debug!(?path, games = self.games.len(), "Proposer state backed up");
         Ok(())
@@ -120,5 +114,64 @@ impl ProposerBackup {
 
         tracing::info!(?path, games = backup.games.len(), "Proposer backup loaded");
         Some(backup)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Schema guard: if this test fails, you likely need to bump BACKUP_VERSION.
+    /// This catches accidental schema changes that would break backup compatibility.
+    #[test]
+    fn backup_schema_guard() {
+        use crate::contract::{GameStatus, ProposalStatus};
+        use alloy_primitives::Address;
+
+        // If Game fields change, this won't compile or the JSON keys will differ
+        let game = Game {
+            index: U256::ZERO,
+            address: Address::ZERO,
+            parent_index: 0,
+            l2_block: U256::ZERO,
+            status: GameStatus::IN_PROGRESS,
+            proposal_status: ProposalStatus::Unchallenged,
+            deadline: 0,
+            should_attempt_to_resolve: false,
+            should_attempt_to_claim_bond: false,
+        };
+
+        let json = serde_json::to_value(&game).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+
+        // If this assertion fails, Game schema changed - bump BACKUP_VERSION!
+        assert_eq!(
+            keys,
+            vec![
+                "address",
+                "deadline",
+                "index",
+                "l2_block",
+                "parent_index",
+                "proposal_status",
+                "should_attempt_to_claim_bond",
+                "should_attempt_to_resolve",
+                "status",
+            ],
+            "Game schema changed! Bump BACKUP_VERSION in backup.rs"
+        );
+
+        // Check ProposerBackup fields
+        let backup = ProposerBackup::new(None, vec![], None);
+        let json = serde_json::to_value(&backup).unwrap();
+        let mut keys: Vec<_> = json.as_object().unwrap().keys().cloned().collect();
+        keys.sort();
+
+        assert_eq!(
+            keys,
+            vec!["anchor_game_index", "cursor", "games", "version"],
+            "ProposerBackup schema changed! Bump BACKUP_VERSION in backup.rs"
+        );
     }
 }
