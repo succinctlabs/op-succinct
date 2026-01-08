@@ -15,7 +15,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_scripts::HostExecutorArgs;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{blocking::{Elf, ProverClient, Prover}, utils};
 use std::{
     cmp::{max, min},
     fs::{self, OpenOptions},
@@ -86,7 +86,7 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
 
     // Execute the program for each block range in parallel.
     execution_inputs.par_iter().for_each(|(sp1_stdin, (range, block_data))| {
-        let result = prover.execute(get_range_elf_embedded(), sp1_stdin).deferred_proof_verification(false).run();
+        let result = prover.execute(Elf::Static(get_range_elf_embedded()), (*sp1_stdin).clone()).deferred_proof_verification(false).run();
 
         if let Some(err) = result.as_ref().err() {
             log::warn!(
