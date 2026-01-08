@@ -435,11 +435,16 @@ where
 
         // Restore state from backup if available.
         if let Some(path) = &self.config.backup_path {
-            if let Some(restored) = ProposerState::try_restore(path) {
-                let mut state = self.state.write().await;
-                state.cursor = restored.cursor;
-                state.games = restored.games;
-                state.anchor_game = restored.anchor_game;
+            if path.exists() {
+                if let Some(restored) = ProposerState::try_restore(path) {
+                    let mut state = self.state.write().await;
+                    state.cursor = restored.cursor;
+                    state.games = restored.games;
+                    state.anchor_game = restored.anchor_game;
+                    ProposerGauge::BackupRestoreSuccess.increment(1.0);
+                } else {
+                    ProposerGauge::BackupRestoreError.increment(1.0);
+                }
             }
         }
 
@@ -1810,6 +1815,9 @@ where
         tokio::task::spawn_blocking(move || {
             if let Err(e) = backup.save(&path) {
                 tracing::warn!("Failed to backup proposer state: {:?}", e);
+                ProposerGauge::BackupSaveError.increment(1.0);
+            } else {
+                ProposerGauge::BackupSaveSuccess.increment(1.0);
             }
             drop(permit);
         });
