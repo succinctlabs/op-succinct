@@ -114,4 +114,3 @@ tx_hash=$(cast send "$DISPUTE_FACTORY_ADDRESS" "create(uint32,bytes32,bytes)" 42
 echo "Transaction sent: $tx_hash"
 
 echo "Done."
-

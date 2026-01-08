@@ -13,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code.
-        uses: actions/checkout@v6
+        uses: actions/checkout@v1
       - name: misspell
         id: check_for_typos
         uses: reviewdog/action-misspell@v1
         with:
-          github_token: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           path: "./book"
           locale: "US"
           exclude: |
