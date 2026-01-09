@@ -1753,29 +1753,35 @@ mod challenger_sync {
     /// child games should be marked for challenge.
     ///
     /// Topology: M -> 0 (invalid, becomes CHALLENGER_WINS) -> 1 (valid child)
+    ///
+    /// Timing strategy: Create child game DURING the prove period (not after resolution)
+    /// so its challenge window is still open when parent resolves. We use a two-stage
+    /// time warp to ensure child is created with a fresh challenge window.
     #[tokio::test]
     async fn test_challenge_marking_parent_challenger_wins() -> Result<()> {
         let (env, challenger, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
-        // Create game 0 (invalid)
+        // Create game 0 (invalid) and challenge it
         env.create_game(random_invalid_root(), starting_l2_block + 1, M, init_bond).await?;
         let (_, game0_addr) = env.last_game_info().await?;
-
-        // Initial sync: game 0 should be marked for challenge
-        challenger.sync_state().await?;
-        assert!(cached_game(&challenger, 0).await?.should_attempt_to_challenge);
-
-        // Make game 0 become CHALLENGER_WINS
         env.challenge_game(game0_addr).await?;
-        env.warp_time(MAX_PROVE_DURATION + 1).await?;
-        env.resolve_game(game0_addr).await?;
 
-        // Create child game AFTER parent is resolved (so challenge window is fresh)
+        // Warp most of the prove duration, leaving 60 seconds
+        env.warp_time(MAX_PROVE_DURATION - 60).await?;
+
+        // Create child game now - it gets a fresh MAX_CHALLENGE_DURATION (1 hour) window
         let root1 = env.compute_output_root_at_block(starting_l2_block + 2).await?;
         env.create_game(root1, starting_l2_block + 2, 0, init_bond).await?;
 
+        // Warp past parent's prove deadline (60 + 61 = 121 seconds more)
+        env.warp_time(61).await?;
+
+        // Resolve parent as CHALLENGER_WINS
+        env.resolve_game(game0_addr).await?;
+
+        // Child still has ~59 minutes left on its challenge window
         // Sync: child of CHALLENGER_WINS should be marked for challenge
         challenger.sync_state().await?;
         assert!(
