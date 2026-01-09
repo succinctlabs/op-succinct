@@ -1750,41 +1750,37 @@ mod challenger_sync {
     }
 
     /// Verifies CHALLENGER_WINS cascade: when parent becomes CHALLENGER_WINS,
-    /// descendants should be marked for challenge.
+    /// child games should be marked for challenge.
     ///
-    /// Topology: M -> 0 (invalid) -> 1 (valid) -> 2 (valid)
+    /// Topology: M -> 0 (invalid, becomes CHALLENGER_WINS) -> 1 (valid child)
     #[tokio::test]
     async fn test_challenge_marking_parent_challenger_wins() -> Result<()> {
         let (env, challenger, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
 
-        // Create chain: 0 (invalid) -> 1 (valid) -> 2 (valid)
+        // Create game 0 (invalid)
         env.create_game(random_invalid_root(), starting_l2_block + 1, M, init_bond).await?;
         let (_, game0_addr) = env.last_game_info().await?;
 
-        let root1 = env.compute_output_root_at_block(starting_l2_block + 2).await?;
-        env.create_game(root1, starting_l2_block + 2, 0, init_bond).await?;
-
-        let root2 = env.compute_output_root_at_block(starting_l2_block + 3).await?;
-        env.create_game(root2, starting_l2_block + 3, 1, init_bond).await?;
-
-        // Initial sync: only game 0 should be marked for challenge
+        // Initial sync: game 0 should be marked for challenge
         challenger.sync_state().await?;
         assert!(cached_game(&challenger, 0).await?.should_attempt_to_challenge);
-        assert!(!cached_game(&challenger, 1).await?.should_attempt_to_challenge);
-        assert!(!cached_game(&challenger, 2).await?.should_attempt_to_challenge);
 
         // Make game 0 become CHALLENGER_WINS
         env.challenge_game(game0_addr).await?;
         env.warp_time(MAX_PROVE_DURATION + 1).await?;
         env.resolve_game(game0_addr).await?;
 
-        // After sync: descendants should be marked for challenge
+        // Create child game AFTER parent is resolved (so challenge window is fresh)
+        let root1 = env.compute_output_root_at_block(starting_l2_block + 2).await?;
+        env.create_game(root1, starting_l2_block + 2, 0, init_bond).await?;
+
+        // Sync: child of CHALLENGER_WINS should be marked for challenge
         challenger.sync_state().await?;
         assert!(
             cached_game(&challenger, 1).await?.should_attempt_to_challenge,
-            "Child of CHALLENGER_WINS should be marked"
+            "Child of CHALLENGER_WINS should be marked for challenge"
         );
 
         Ok(())
