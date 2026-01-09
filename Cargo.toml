@@ -110,15 +110,15 @@ hana-host = { git = "https://github.com/celestiaorg/hana", rev = "1d272dd83263db
 hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "1d272dd83263dbcc2ad97daaac84b2e578a0b288" }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.3" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.0.4" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
