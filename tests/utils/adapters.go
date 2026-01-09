@@ -209,6 +209,24 @@ const (
 	ProposalResolved                  ProposalStatus = 4
 )
 
+// String returns the string representation of the ProposalStatus.
+func (s ProposalStatus) String() string {
+	switch s {
+	case Unchallenged:
+		return "Unchallenged"
+	case Challenged:
+		return "Challenged"
+	case UnchallengedAndValidProofProvided:
+		return "UnchallengedAndValidProofProvided"
+	case ChallengedAndValidProofProvided:
+		return "ChallengedAndValidProofProvided"
+	case ProposalResolved:
+		return "ProposalResolved"
+	default:
+		return fmt.Sprintf("ProposalStatus(%d)", s)
+	}
+}
+
 // FdgClient is a client for interacting with the OPSuccinctFaultDisputeGame contract.
 type FdgClient struct {
 	caller *opsbind.OPSuccinctFaultDisputeGameCaller
