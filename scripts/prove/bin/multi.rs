@@ -1,3 +1,4 @@
+#![feature(duration_constructors_lite)]
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
@@ -7,8 +8,16 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, Elf, ProveRequest, Prover, ProverClient};
-use std::{fs, sync::Arc, time::Instant};
+use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
+use sp1_sdk::{
+    network::{proto::types::ProofMode, NetworkMode},
+    utils, Elf, ProveRequest, Prover, ProverClient, SP1ProofWithPublicValues,
+};
+use std::{
+    fs,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::debug;
 
 /// Execute the OP Succinct program for multiple blocks.
@@ -46,13 +55,29 @@ async fn main() -> Result<()> {
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
 
-    let prover = ProverClient::from_env().await;
+    // let prover = ProverClient::builder()
+    //     .network_for(NetworkMode::Mainnet)
+    //     .rpc_url("https://rpc.sepolia.succinct.xyz")
+    //     .build()
+    //     .await;
 
     if args.prove {
-        // If the prove flag is set, generate a proof.
-        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-        // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, sp1_stdin).compressed().await.unwrap();
+        // // If the prove flag is set, generate a proof.
+        // let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+        // // Generate proofs in compressed mode for aggregation verification.
+        // let proof = prover
+        //     .prove(&pk, sp1_stdin)
+        //     .timeout(Duration::from_hours(1))
+        //     .compressed()
+        //     .await
+        //     .unwrap();
+
+        let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
+
+        let ProofRequestResults { proof_id: _, proof, elapsed: _ } =
+            request_proof_from_env(ProofMode::Compressed, 6, cluster_elf, sp1_stdin)
+                .await
+                .map_err(|e| anyhow::anyhow!("failed to request proof: {}", e))?;
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", data_fetcher.get_l2_chain_id().await.unwrap());
@@ -60,9 +85,10 @@ async fn main() -> Result<()> {
             fs::create_dir_all(&proof_dir).unwrap();
         }
         // Save the proof to the proof directory corresponding to the chain ID.
-        proof
-            .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
-            .expect("saving proof failed");
+        // proof
+        //     .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
+        //     .expect("saving proof failed");
+        let _proof = SP1ProofWithPublicValues::from(proof);
     } else {
         let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
