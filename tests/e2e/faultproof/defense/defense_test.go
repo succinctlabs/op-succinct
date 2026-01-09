@@ -27,6 +27,7 @@ func TestFaultProofProposer_DefendsWithProofAfterChallenge(gt *testing.T) {
 	proposerCfg.ProposalIntervalInBlocks = 40
 	proposerCfg.RangeSplitCount = 1
 	proposerCfg.MaxConcurrentRangeProofs = 1
+	proposerCfg.MaxProveDuration = 60 // Give proposer 60s to respond to challenge
 
 	// Configure challenger to always challenge valid games (malicious mode)
 	challengerCfg := opspresets.DefaultFPChallengerConfig()
