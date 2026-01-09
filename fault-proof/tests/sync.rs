@@ -1980,13 +1980,10 @@ mod challenger_sync {
     /// - DEFENDER_WINS: Always evicted
     /// - CHALLENGER_WINS + finalized + credit = 0: Evicted
     #[rstest]
-    #[case::defender_wins_evicted(false, true)]
-    #[case::challenger_wins_no_credit_evicted(true, true)]
+    #[case::defender_wins(false)]
+    #[case::challenger_wins_no_credit(true)]
     #[tokio::test]
-    async fn test_game_eviction(
-        #[case] is_invalid: bool,
-        #[case] expected_evicted: bool,
-    ) -> Result<()> {
+    async fn test_game_eviction(#[case] is_invalid: bool) -> Result<()> {
         let (env, challenger, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
@@ -2019,8 +2016,10 @@ mod challenger_sync {
 
         challenger.sync_state().await?;
 
-        let is_evicted = challenger.get_game(U256::from(0)).await.is_none();
-        assert_eq!(is_evicted, expected_evicted, "Eviction state mismatch");
+        assert!(
+            challenger.get_game(U256::from(0)).await.is_none(),
+            "Game should be evicted"
+        );
 
         Ok(())
     }
