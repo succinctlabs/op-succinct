@@ -2016,10 +2016,7 @@ mod challenger_sync {
 
         challenger.sync_state().await?;
 
-        assert!(
-            challenger.get_game(U256::from(0)).await.is_none(),
-            "Game should be evicted"
-        );
+        assert!(challenger.get_game(U256::from(0)).await.is_none(), "Game should be evicted");
 
         Ok(())
     }
