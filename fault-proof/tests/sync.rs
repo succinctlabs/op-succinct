@@ -1880,6 +1880,44 @@ mod challenger_sync {
         Ok(())
     }
 
+    /// Verifies that child games with resolved parents ARE marked for resolution.
+    ///
+    /// Topology: M -> 0 (CHALLENGER_WINS, resolved) -> 1 (challenged child)
+    #[tokio::test]
+    async fn test_resolution_marking_parent_resolved() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create parent (index 0) with invalid root
+        let block1 = starting_l2_block + 1;
+        env.create_game(random_invalid_root(), block1, M, init_bond).await?;
+        let (_, parent_address) = env.last_game_info().await?;
+
+        // Create child (index 1) with invalid root
+        let block2 = starting_l2_block + 2;
+        env.create_game(random_invalid_root(), block2, 0, init_bond).await?;
+        let (_, child_address) = env.last_game_info().await?;
+
+        // Challenge both games
+        env.challenge_game(parent_address).await?;
+        env.challenge_game(child_address).await?;
+
+        // Resolve parent as CHALLENGER_WINS
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(parent_address).await?;
+
+        challenger.sync_state().await?;
+
+        let child = cached_game(&challenger, 1).await?;
+        assert!(
+            child.should_attempt_to_resolve,
+            "Child with resolved parent should be marked for resolution"
+        );
+
+        Ok(())
+    }
+
     // ==================== Bond Claim Marking Tests ====================
 
     /// Verifies `should_attempt_to_claim_bond` flag across different states.
