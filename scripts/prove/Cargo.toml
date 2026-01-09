@@ -12,6 +12,10 @@ name = "multi"
 path = "bin/multi.rs"
 
 [[bin]]
+name = "multi-and-agg"
+path = "bin/multi-and-agg.rs"
+
+[[bin]]
 name = "agg"
 path = "bin/agg.rs"
 
@@ -19,6 +23,8 @@ path = "bin/agg.rs"
 
 # workspace
 tokio.workspace = true
+tokio-stream = "0.1.17"
+futures.workspace = true
 clap.workspace = true
 cargo_metadata.workspace = true
 anyhow.workspace = true
@@ -33,9 +39,16 @@ op-succinct-client-utils.workspace = true
 op-succinct-proof-utils.workspace = true
 op-succinct-scripts = { path = "../utils" }
 op-succinct-elfs.workspace = true
+op-succinct-fp.workspace = true
 
 # alloy
 alloy-primitives.workspace = true
+alloy-sol-macro.workspace = true
+alloy-transport-http.workspace = true
+alloy-provider.workspace = true
+alloy-sol-types.workspace = true
+alloy-contract.workspace = true
+alloy-network.workspace = true
 
 # sp1
 sp1-sdk.workspace = true
