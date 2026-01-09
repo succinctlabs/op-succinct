@@ -61,6 +61,15 @@ async fn main() -> Result<()> {
     //     .build()
     //     .await;
 
+    if args.use_cache {
+        let chain_id = data_fetcher.get_l2_chain_id().await.unwrap();
+        // Serialize the cache to a file.
+        let cache_path = format!("cache/{chain_id}/{l2_start_block}-{l2_end_block}.bin");
+        // Create the directory if it doesn't exist.
+        fs::create_dir_all(std::path::Path::new(&cache_path).parent().unwrap())?;
+        bincode::serialize_into(&mut fs::File::create(&cache_path)?, &sp1_stdin)?;
+    }
+
     if args.prove {
         // // If the prove flag is set, generate a proof.
         // let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
