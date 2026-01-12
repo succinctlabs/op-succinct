@@ -35,6 +35,7 @@ jobs:
           - "./e2e/faultproof/fastfinality/..."
           - "./e2e/faultproof/recovery/..."
           - "./e2e/faultproof/defense/..."
+          - "./e2e/faultproof/withdrawal/..."
 
     steps:
       - name: Checkout sources
