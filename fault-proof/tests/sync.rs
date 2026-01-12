@@ -6,10 +6,11 @@ mod proposer_sync {
 
     use crate::common::{
         constants::{
-            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
+            CHALLENGER_BOND, DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
+            MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, PROVER_ADDRESS,
+            TEST_GAME_TYPE,
         },
-        TestEnvironment,
+        Role, TestEnvironment,
     };
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
@@ -1386,6 +1387,94 @@ mod proposer_sync {
         );
         tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
 
+        Ok(())
+    }
+
+    /// Verifies bond claiming works correctly when proposer and prover are different addresses.
+    ///
+    /// Scenario:
+    /// - Proposer creates game (pays INIT_BOND)
+    /// - Challenger challenges (pays CHALLENGER_BOND)
+    /// - Separate Prover provides valid proof
+    /// - Game resolves as DEFENDER_WINS
+    ///
+    /// Expected bond distribution:
+    /// - Proposer: Gets INIT_BOND back
+    /// - Prover: Gets CHALLENGER_BOND as reward
+    /// - Challenger: Gets nothing (loses bond)
+    #[tokio::test]
+    async fn test_bond_claim_with_multiple_recipients() -> Result<()> {
+        let (env, proposer, init_bond) = setup().await?;
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // 1. Create game as proposer
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+        tracing::info!("✓ Created game at block {block}");
+
+        // 2. Challenge the game
+        env.challenge_game(game_address).await?;
+        tracing::info!("✓ Game challenged");
+
+        // 3. Prove with DIFFERENT address (prover, not proposer)
+        env.prove_game_with_role(game_address, Role::Prover).await?;
+        tracing::info!("✓ Game proved by separate prover");
+
+        // 4. Warp time past challenge duration and resolve
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(game_address).await?;
+        tracing::info!("✓ Game resolved as DEFENDER_WINS");
+
+        // 5. Warp time past finality delay
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        // 6. Sync proposer state
+        proposer.sync_state().await?;
+
+        // 7. Verify proposer's game state shows bond can be claimed
+        let game = cached_game(&proposer, 0).await?;
+        assert!(
+            game.should_attempt_to_claim_bond,
+            "Proposer should be able to claim bond (different prover scenario)"
+        );
+        tracing::info!("✓ Proposer's should_attempt_to_claim_bond = true");
+
+        // 8. Verify credit amounts are correct
+        let proposer_credit = env.get_credit(game_address, PROPOSER_ADDRESS).await?;
+        let prover_credit = env.get_credit(game_address, PROVER_ADDRESS).await?;
+
+        // Proposer gets their init bond back, prover gets challenger bond
+        assert_eq!(proposer_credit, init_bond, "Proposer should get init_bond back");
+        assert_eq!(prover_credit, CHALLENGER_BOND, "Prover should get challenger_bond");
+        tracing::info!(
+            "✓ Credit distribution verified: proposer={}, prover={}",
+            proposer_credit,
+            prover_credit
+        );
+
+        // 9. Claim bond via proposer (simulates proposer impl behavior)
+        env.claim_bond(game_address, PROPOSER_ADDRESS).await?;
+        tracing::info!("✓ Proposer claimed bond");
+
+        // 10. Verify proposer credit is now 0
+        let proposer_credit_after = env.get_credit(game_address, PROPOSER_ADDRESS).await?;
+        assert_eq!(
+            proposer_credit_after,
+            U256::ZERO,
+            "Proposer credit should be 0 after claim"
+        );
+
+        // 11. Prover credit should still be claimable
+        let prover_credit_after = env.get_credit(game_address, PROVER_ADDRESS).await?;
+        assert_eq!(
+            prover_credit_after, CHALLENGER_BOND,
+            "Prover credit should still be available"
+        );
+        tracing::info!("✓ Prover credit still available after proposer claim");
+
+        tracing::info!("✓ test_bond_claim_with_multiple_recipients passed");
         Ok(())
     }
 

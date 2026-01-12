@@ -53,6 +53,7 @@ pub enum Role {
     Proposer,
     Challenger,
     Deployer,
+    Prover,
 }
 
 /// Common test environment setup
@@ -352,6 +353,7 @@ impl TestEnvironment {
             Role::Proposer => self.private_keys.proposer,
             Role::Challenger => self.private_keys.challenger,
             Role::Deployer => self.private_keys.deployer,
+            Role::Prover => self.private_keys.prover,
         };
 
         let wallet = PrivateKeySigner::from_str(key)?;
@@ -467,9 +469,8 @@ impl TestEnvironment {
     pub async fn get_credit(&self, game_address: Address, recipient: Address) -> Result<U256> {
         let provider = &self.anvil.provider;
         let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
-        let normal_credit = game.normalModeCredit(recipient).call().await?;
-        let refund_credit = game.refundModeCredit(recipient).call().await?;
-        Ok(normal_credit + refund_credit)
+        let credit = game.credit(recipient).call().await?;
+        Ok(credit)
     }
 
     pub async fn last_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
@@ -523,12 +524,30 @@ impl TestEnvironment {
 
         Ok(receipt)
     }
+
+    pub async fn prove_game_with_role(
+        &self,
+        address: Address,
+        role: Role,
+    ) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(address, role).await?;
+        let receipt = game
+            .prove(Bytes::new())
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
 }
 
 pub struct TestPrivateKeys {
     pub deployer: &'static str,
     pub proposer: &'static str,
     pub challenger: &'static str,
+    pub prover: &'static str,
 }
 
 impl Default for TestPrivateKeys {
@@ -537,6 +556,7 @@ impl Default for TestPrivateKeys {
             deployer: DEPLOYER_PRIVATE_KEY,
             proposer: PROPOSER_PRIVATE_KEY,
             challenger: CHALLENGER_PRIVATE_KEY,
+            prover: PROVER_PRIVATE_KEY,
         }
     }
 }
