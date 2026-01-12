@@ -30,13 +30,16 @@ use op_succinct_signer_utils::{Signer, SignerLock};
 use tokio::task::JoinHandle;
 use tracing::{info, Level};
 
-use fault_proof::{config::FaultDisputeGameConfig, proposer::OPSuccinctProposer, L2ProviderTrait};
+use fault_proof::{
+    challenger::OPSuccinctChallenger, config::FaultDisputeGameConfig, proposer::OPSuccinctProposer,
+    L2ProviderTrait,
+};
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
 use crate::common::{
     constants::*,
     contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
+    new_challenger, new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
 };
 
 use super::{
@@ -198,6 +201,7 @@ impl TestEnvironment {
             &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
+            None,
         )
         .await
     }
@@ -209,6 +213,25 @@ impl TestEnvironment {
         proposer.try_init().await?;
         info!("✓ Proposer initialized");
         Ok(proposer)
+    }
+
+    pub async fn new_challenger(&self) -> Result<OPSuccinctChallenger<fault_proof::L1Provider>> {
+        new_challenger(
+            &self.rpc_config,
+            self.private_keys.challenger,
+            &self.deployed.anchor_state_registry,
+            &self.deployed.factory,
+            self.game_type,
+            None,
+        )
+        .await
+    }
+
+    pub async fn init_challenger(&self) -> Result<OPSuccinctChallenger<fault_proof::L1Provider>> {
+        let challenger = self.new_challenger().await?;
+        challenger.try_init().await?;
+        info!("✓ Challenger initialized");
+        Ok(challenger)
     }
 
     pub async fn start_proposer(&self) -> Result<JoinHandle<Result<()>>> {
@@ -527,6 +550,7 @@ pub fn init_logging() {
             std::env::var("RUST_LOG").unwrap_or("info".to_string()).parse().unwrap_or(Level::INFO);
 
         let filter = Targets::new().with_targets([
+            ("backup", level),
             ("integration", level),
             ("sync", level),
             ("fault_proof", level),
