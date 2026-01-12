@@ -6,8 +6,9 @@ mod proposer_sync {
 
     use crate::common::{
         constants::{
-            DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION, MAX_PROVE_DURATION,
-            MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, TEST_GAME_TYPE,
+            CHALLENGER_BOND, DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
+            MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, PROVER_ADDRESS,
+            TEST_GAME_TYPE,
         },
         TestEnvironment,
     };
@@ -1403,7 +1404,7 @@ mod proposer_sync {
     /// - Prover receives the challenger's bond as reward
     #[tokio::test]
     async fn test_bond_claim_with_multiple_recipients() -> Result<()> {
-        use crate::common::{constants::{CHALLENGER_BOND, PROVER_ADDRESS}, Role};
+        use crate::common::Role;
 
         let (env, _proposer, init_bond) = setup().await?;
 
