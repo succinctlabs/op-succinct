@@ -1389,6 +1389,81 @@ mod proposer_sync {
         Ok(())
     }
 
+    /// Tests bond claiming when proposer and prover are different addresses.
+    ///
+    /// Scenario: ChallengedAndValidProofProvided with distinct proposer/prover
+    /// - Proposer creates game with initial bond
+    /// - Challenger challenges with challenger bond
+    /// - Prover (different address from proposer) proves the claim
+    /// - Game resolves as DEFENDER_WINS
+    /// - After finalization, both proposer and prover can claim their respective credits
+    ///
+    /// This test verifies that the system correctly distributes credits to both parties:
+    /// - Proposer receives their initial bond back
+    /// - Prover receives the challenger's bond as reward
+    #[tokio::test]
+    async fn test_bond_claim_with_multiple_recipients() -> Result<()> {
+        use crate::common::{constants::PROVER_ADDRESS, Role};
+
+        let (env, _proposer, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create game as proposer
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+        tracing::info!("✓ Created game at block {block}");
+
+        // Challenge the game
+        env.challenge_game(game_address).await?;
+        tracing::info!("✓ Challenger challenged the game");
+
+        // Prove with DIFFERENT address (Prover, not Proposer)
+        env.prove_game_with_role(game_address, Role::Prover).await?;
+        tracing::info!("✓ Prover (different from proposer) proved the game");
+
+        // Resolve the game
+        env.resolve_game(game_address).await?;
+        tracing::info!("✓ Resolved game as DEFENDER_WINS");
+
+        // Warp past finality delay
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+
+        // Get credits for both parties
+        let proposer_credit = env.get_credit(game_address, PROPOSER_ADDRESS).await?;
+        let prover_credit = env.get_credit(game_address, PROVER_ADDRESS).await?;
+
+        tracing::info!(
+            "Credits - Proposer: {} wei, Prover: {} wei",
+            proposer_credit,
+            prover_credit
+        );
+
+        // Verify both have claimable credits
+        assert!(proposer_credit > U256::ZERO, "Proposer should have credit (bond return)");
+        assert!(prover_credit > U256::ZERO, "Prover should have credit (challenger's bond)");
+
+        // Claim both credits
+        env.claim_bond(game_address, PROPOSER_ADDRESS).await?;
+        tracing::info!("✓ Proposer claimed bond");
+
+        env.claim_bond_with_role(game_address, PROVER_ADDRESS, Role::Prover).await?;
+        tracing::info!("✓ Prover claimed reward");
+
+        // Verify credits are now zero
+        let proposer_credit_after = env.get_credit(game_address, PROPOSER_ADDRESS).await?;
+        let prover_credit_after = env.get_credit(game_address, PROVER_ADDRESS).await?;
+
+        assert_eq!(proposer_credit_after, U256::ZERO, "Proposer credit should be 0 after claim");
+        assert_eq!(prover_credit_after, U256::ZERO, "Prover credit should be 0 after claim");
+
+        tracing::info!("✓ Both parties successfully claimed their credits");
+
+        Ok(())
+    }
+
     /// Verifies that defense tasks are spawned in deadline-ascending order.
     ///
     /// This test creates 2 games, then challenges them in reverse order (game 1 first, then

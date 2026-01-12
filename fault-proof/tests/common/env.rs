@@ -53,6 +53,7 @@ pub enum Role {
     Proposer,
     Challenger,
     Deployer,
+    Prover,
 }
 
 /// Common test environment setup
@@ -352,6 +353,7 @@ impl TestEnvironment {
             Role::Proposer => self.private_keys.proposer,
             Role::Challenger => self.private_keys.challenger,
             Role::Deployer => self.private_keys.deployer,
+            Role::Prover => self.private_keys.prover,
         };
 
         let wallet = PrivateKeySigner::from_str(key)?;
@@ -523,12 +525,50 @@ impl TestEnvironment {
 
         Ok(receipt)
     }
+
+    /// Prove a game with a specific role (e.g., Prover instead of Proposer)
+    pub async fn prove_game_with_role(
+        &self,
+        address: Address,
+        role: Role,
+    ) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(address, role).await?;
+        let receipt = game
+            .prove(Bytes::new())
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
+
+    /// Claim bond with a specific role
+    pub async fn claim_bond_with_role(
+        &self,
+        game_address: Address,
+        recipient: Address,
+        role: Role,
+    ) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(game_address, role).await?;
+        let receipt = game
+            .claimCredit(recipient)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
 }
 
 pub struct TestPrivateKeys {
     pub deployer: &'static str,
     pub proposer: &'static str,
     pub challenger: &'static str,
+    pub prover: &'static str,
 }
 
 impl Default for TestPrivateKeys {
@@ -537,6 +577,7 @@ impl Default for TestPrivateKeys {
             deployer: DEPLOYER_PRIVATE_KEY,
             proposer: PROPOSER_PRIVATE_KEY,
             challenger: CHALLENGER_PRIVATE_KEY,
+            prover: PROVER_PRIVATE_KEY,
         }
     }
 }
