@@ -36,7 +36,8 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	l2User.VerifyBalanceExact(depositAmount)
 
 	// Log respected game type for debugging
-	logger.Info("Using respected game type", "gameType", bridge.RespectedGameType())
+	respectedGameType := bridge.RespectedGameType()
+	logger.Info("Using respected game type", "gameType", respectedGameType)
 
 	// Phase 1: Initiate withdrawal on L2
 	logger.Info("Phase 1: Initiating withdrawal on L2")
@@ -47,13 +48,14 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	expectedL2UserBalance := depositAmount.Sub(withdrawAmount).Sub(withdrawal.InitiateGasCost())
 	l2User.VerifyBalanceExact(expectedL2UserBalance)
 
-	// Wait for at least one game to be created before proving
-	// The FP proposer needs time to batch L2 blocks and create games
+	// Wait for a game of the required type to be created before proving.
+	// The system may have games of other types (e.g., permissioned type 0),
+	// but the FP proposer creates games of the respected type.
 	dgf := sys.DgfClient(t)
 	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
 	defer cancel()
-	logger.Info("Waiting for dispute game creation")
-	utils.WaitForGameCount(ctx, t, dgf, 1)
+	logger.Info("Waiting for game of required type")
+	utils.WaitForGameOfType(ctx, t, dgf, respectedGameType)
 
 	// Phase 2: Prove withdrawal on L1
 	logger.Info("Phase 2: Proving withdrawal on L1")
