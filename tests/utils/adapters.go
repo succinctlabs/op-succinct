@@ -185,37 +185,6 @@ func WaitForGameCount(ctx context.Context, t devtest.T, dgf *DgfClient, min uint
 	}
 }
 
-// WaitForGameOfType waits until a dispute game of the specified type exists.
-// This is needed because the system may have games of other types (e.g., permissioned type 0)
-// while the FP proposer creates games of type 1.
-func WaitForGameOfType(ctx context.Context, t devtest.T, dgf *DgfClient, gameType uint32) {
-	for {
-		gameCount, err := dgf.GameCount(ctx)
-		require.NoError(t, err, "failed to get game count from factory")
-
-		// Check all games (newest first) for matching type
-		for i := int64(gameCount) - 1; i >= 0; i-- {
-			game, err := dgf.GameAtIndex(ctx, uint64(i))
-			if err != nil {
-				continue
-			}
-			if game.GameType == gameType {
-				t.Logger().Info("Found game of required type", "index", i, "gameType", gameType)
-				return
-			}
-		}
-
-		t.Logger().Info("Waiting for game of required type...", "gameType", gameType, "totalGames", gameCount)
-
-		select {
-		case <-ctx.Done():
-			t.Errorf("timeout waiting for game of type %d", gameType)
-			t.FailNow()
-		case <-time.After(time.Second):
-		}
-	}
-}
-
 // -------------------------------------------------------------
 // Fault Dispute Game Client
 // -------------------------------------------------------------
