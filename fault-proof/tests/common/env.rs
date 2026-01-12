@@ -450,6 +450,17 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    /// Closes the game and sets the bond distribution mode.
+    ///
+    /// This must be called after resolution to finalize the bond distribution mode
+    /// (NORMAL or REFUND) before credits can be accurately queried or claimed.
+    pub async fn close_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(address).await?;
+        let receipt =
+            game.closeGame().send().await?.with_required_confirmations(1).get_receipt().await?;
+        Ok(receipt)
+    }
+
     pub async fn claim_bond(
         &self,
         game_address: Address,
@@ -466,11 +477,28 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    /// Returns the credit balance for a recipient in a game.
+    ///
+    /// For resolved games (bondDistributionMode is NORMAL or REFUND), uses the contract's
+    /// `credit()` function which returns the correct claimable amount.
+    ///
+    /// For unresolved games (bondDistributionMode is UNDECIDED), returns `refundModeCredit`
+    /// since bonds are stored there during initialization before resolution.
     pub async fn get_credit(&self, game_address: Address, recipient: Address) -> Result<U256> {
         let provider = &self.anvil.provider;
         let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
-        let credit = game.credit(recipient).call().await?;
-        Ok(credit)
+
+        // BondDistributionMode: UNDECIDED = 0, NORMAL = 1, REFUND = 2
+        let mode = game.bondDistributionMode().call().await?;
+        if mode == 0 {
+            // UNDECIDED: game not resolved yet, bonds are in refundModeCredit
+            let refund_credit = game.refundModeCredit(recipient).call().await?;
+            Ok(refund_credit)
+        } else {
+            // NORMAL or REFUND: use contract's credit() which handles both correctly
+            let credit = game.credit(recipient).call().await?;
+            Ok(credit)
+        }
     }
 
     pub async fn last_game_info(&self) -> Result<(Uint<256, 4>, Address)> {

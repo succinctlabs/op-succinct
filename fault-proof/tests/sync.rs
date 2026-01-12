@@ -1403,7 +1403,7 @@ mod proposer_sync {
     /// - Prover receives the challenger's bond as reward
     #[tokio::test]
     async fn test_bond_claim_with_multiple_recipients() -> Result<()> {
-        use crate::common::{constants::PROVER_ADDRESS, Role};
+        use crate::common::{constants::{CHALLENGER_BOND, PROVER_ADDRESS}, Role};
 
         let (env, _proposer, init_bond) = setup().await?;
 
@@ -1431,6 +1431,10 @@ mod proposer_sync {
         // Warp past finality delay
         env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
 
+        // Close game to finalize bond distribution mode (required before querying credits)
+        env.close_game(game_address).await?;
+        tracing::info!("✓ Game closed, bond distribution mode set");
+
         // Get credits for both parties
         let proposer_credit = env.get_credit(game_address, PROPOSER_ADDRESS).await?;
         let prover_credit = env.get_credit(game_address, PROVER_ADDRESS).await?;
@@ -1441,9 +1445,9 @@ mod proposer_sync {
             prover_credit
         );
 
-        // Verify both have claimable credits
-        assert!(proposer_credit > U256::ZERO, "Proposer should have credit (bond return)");
-        assert!(prover_credit > U256::ZERO, "Prover should have credit (challenger's bond)");
+        // Verify correct credit distribution
+        assert_eq!(proposer_credit, init_bond, "Proposer should get init_bond back");
+        assert_eq!(prover_credit, CHALLENGER_BOND, "Prover should get challenger's bond");
 
         // Claim both credits
         env.claim_bond(game_address, PROPOSER_ADDRESS).await?;
