@@ -1,11 +1,13 @@
 package withdrawal
 
 import (
+	"context"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
+	"github.com/succinctlabs/op-succinct/utils"
 )
 
 // TestFaultProofProposer_WithdrawalFinalized verifies the full withdrawal lifecycle:
@@ -44,6 +46,14 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	// Verify L2 balance after initiation
 	expectedL2UserBalance := depositAmount.Sub(withdrawAmount).Sub(withdrawal.InitiateGasCost())
 	l2User.VerifyBalanceExact(expectedL2UserBalance)
+
+	// Wait for at least one game to be created before proving
+	// The FP proposer needs time to batch L2 blocks and create games
+	dgf := sys.DgfClient(t)
+	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
+	defer cancel()
+	logger.Info("Waiting for dispute game creation")
+	utils.WaitForGameCount(ctx, t, dgf, 1)
 
 	// Phase 2: Prove withdrawal on L1
 	logger.Info("Phase 2: Proving withdrawal on L1")
