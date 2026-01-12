@@ -10,7 +10,7 @@ mod proposer_sync {
             MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE, PROPOSER_ADDRESS, PROVER_ADDRESS,
             TEST_GAME_TYPE,
         },
-        TestEnvironment,
+        Role, TestEnvironment,
     };
     use alloy_primitives::{Bytes, FixedBytes, Uint, U256};
     use alloy_sol_types::{SolCall, SolValue};
@@ -1404,8 +1404,6 @@ mod proposer_sync {
     /// - Prover receives the challenger's bond as reward
     #[tokio::test]
     async fn test_bond_claim_with_multiple_recipients() -> Result<()> {
-        use crate::common::Role;
-
         let (env, _proposer, init_bond) = setup().await?;
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
