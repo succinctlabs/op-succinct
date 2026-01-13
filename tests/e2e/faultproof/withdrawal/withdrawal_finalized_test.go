@@ -24,8 +24,9 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	// System setup produces ~250 L2 blocks while the proposer starts at block ~10.
 	// By waiting for enough games upfront, we ensure the withdrawal will be at a block
 	// the proposer has already covered or will cover soon.
+	// Rate: ~1.15 games/min (23 games in 20 min observed). Need LongTimeout for 30 games.
 	dgf := sys.DgfClient(t)
-	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
+	ctx, cancel := context.WithTimeout(t.Ctx(), utils.LongTimeout())
 	defer cancel()
 
 	logger.Info("Waiting for proposer to build game coverage")
