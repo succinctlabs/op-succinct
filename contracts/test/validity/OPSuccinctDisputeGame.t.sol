@@ -3,10 +3,12 @@ pragma solidity ^0.8.15;
 
 // Testing
 import "forge-std/Test.sol";
+import {Proxy} from "@optimism/src/universal/Proxy.sol";
+import {ProxyAdmin} from "@optimism/src/universal/ProxyAdmin.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Libraries
-import {Claim, GameStatus, GameType, GameTypes, Hash, OutputRoot, Timestamp} from "src/dispute/lib/Types.sol";
+import {Claim, GameStatus, GameType, GameTypes, Hash, Proposal, Timestamp} from "src/dispute/lib/Types.sol";
 import {AlreadyInitialized, GameNotInProgress, NoCreditToClaim, GameNotFinalized} from "src/dispute/lib/Errors.sol";
 import {Utils} from "../helpers/Utils.sol";
 
@@ -16,8 +18,6 @@ import {OPSuccinctDisputeGame} from "src/validity/OPSuccinctDisputeGame.sol";
 import {OPSuccinctL2OutputOracle} from "src/validity/OPSuccinctL2OutputOracle.sol";
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
-import {Proxy} from "@optimism/src/universal/Proxy.sol";
-
 // Interfaces
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
@@ -33,7 +33,8 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
     event Resolved(GameStatus indexed status);
 
     DisputeGameFactory factory;
-    ERC1967Proxy factoryProxy;
+    Proxy factoryProxy;
+    ProxyAdmin proxyAdmin;
 
     OPSuccinctDisputeGame gameImpl;
     OPSuccinctDisputeGame game;
@@ -51,12 +52,20 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
     uint256 l1BlockNumber = 1000;
 
     function setUp() public {
+        // Deploy ProxyAdmin with this test contract as owner.
+        proxyAdmin = new ProxyAdmin(address(this));
+
         // Deploy the implementation contract for DisputeGameFactory.
         DisputeGameFactory factoryImpl = new DisputeGameFactory();
 
-        // Deploy a proxy pointing to the factory implementation.
-        factoryProxy = new ERC1967Proxy(
-            address(factoryImpl), abi.encodeWithSelector(DisputeGameFactory.initialize.selector, address(this))
+        // Deploy an Optimism Proxy pointing to ProxyAdmin.
+        factoryProxy = new Proxy(address(proxyAdmin));
+
+        // Initialize the factory through ProxyAdmin.
+        proxyAdmin.upgradeAndCall(
+            payable(address(factoryProxy)),
+            address(factoryImpl),
+            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, address(this))
         );
 
         // Cast the proxy to the factory contract.
@@ -110,7 +119,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         assertEq(game.gameType().raw(), gameType.raw());
         assertEq(game.gameCreator(), address(l2OutputOracle));
         assertEq(game.rootClaim().raw(), rootClaim);
-        assertEq(game.l2BlockNumber(), l2BlockNumber);
+        assertEq(game.l2SequenceNumber(), l2BlockNumber);
         assertEq(game.l1BlockNumber(), l1BlockNumber);
         assertEq(game.proverAddress(), proposer);
         assertEq(game.configName(), l2OutputOracle.GENESIS_CONFIG_NAME());
