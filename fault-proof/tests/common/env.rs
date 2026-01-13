@@ -311,12 +311,30 @@ impl TestEnvironment {
         Ok(legacy_impl)
     }
 
-    /// Set the respected game type on the OptimismPortal2.
+    /// Set the respected game type on the AnchorStateRegistry.
+    /// In v5.0.0, respected game type is stored in AnchorStateRegistry, not OptimismPortal2.
     pub async fn set_respected_game_type(&self, game_type: u32) -> Result<()> {
-        let set_type_call = MockOptimismPortal2::setRespectedGameTypeCall { _gameType: game_type };
-        self.send_portal_tx(set_type_call.abi_encode(), None).await?;
+        let set_type_call = AnchorStateRegistry::setRespectedGameTypeCall { _gameType: game_type };
+        self.send_anchor_state_registry_tx(set_type_call.abi_encode(), None).await?;
         info!("✓ Set respected game type to {game_type}");
         Ok(())
+    }
+
+    pub async fn send_anchor_state_registry_tx(
+        &self,
+        call: Vec<u8>,
+        value: Option<Uint<256, 4>>,
+    ) -> Result<()> {
+        let proposer_signer =
+            SignerLock::new(Signer::new_local_signer(self.private_keys.proposer)?);
+        send_contract_transaction(
+            &proposer_signer,
+            &self.rpc_config.l1_rpc,
+            self.deployed.anchor_state_registry,
+            Bytes::from(call),
+            value,
+        )
+        .await
     }
 
     pub async fn send_factory_tx(&self, call: Vec<u8>, value: Option<Uint<256, 4>>) -> Result<()> {
