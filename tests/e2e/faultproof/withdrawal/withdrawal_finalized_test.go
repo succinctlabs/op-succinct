@@ -1,13 +1,11 @@
 package withdrawal
 
 import (
-	"context"
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
-	"github.com/succinctlabs/op-succinct/utils"
 )
 
 // TestFaultProofProposer_WithdrawalFinalized verifies the full withdrawal lifecycle:
@@ -19,18 +17,6 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	logger := t.Logger()
 
 	bridge := sys.StandardBridge()
-
-	// Wait for proposer to build up game coverage before proceeding.
-	// System setup produces ~250 L2 blocks while the proposer starts at block ~10.
-	// By waiting for enough games upfront, we ensure the withdrawal will be at a block
-	// the proposer has already covered or will cover soon.
-	// Rate: ~1.15 games/min (23 games in 20 min observed). Need LongTimeout for 30 games.
-	dgf := sys.DgfClient(t)
-	ctx, cancel := context.WithTimeout(t.Ctx(), utils.LongTimeout())
-	defer cancel()
-
-	logger.Info("Waiting for proposer to build game coverage")
-	utils.WaitForGameCount(ctx, t, dgf, 30) // ~300 blocks of coverage (30 games × 10 blocks/game)
 
 	initialL1Balance := eth.Ether(1)
 	depositAmount := eth.OneTenthEther
@@ -60,8 +46,7 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	l2User.VerifyBalanceExact(expectedL2UserBalance)
 
 	// Phase 2: Prove withdrawal on L1
-	// Since we waited for game coverage upfront, the withdrawal block should be
-	// covered by existing games or the proposer will catch up quickly.
+	// forGamePublished will wait for a game covering the withdrawal block.
 	logger.Info("Phase 2: Proving withdrawal on L1")
 	withdrawal.Prove(l1User)
 	expectedL1UserBalance = expectedL1UserBalance.Sub(withdrawal.ProveGasCost())
