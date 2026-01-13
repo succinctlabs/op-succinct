@@ -20,6 +20,17 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 
 	bridge := sys.StandardBridge()
 
+	// Wait for proposer to build up game coverage before proceeding.
+	// System setup produces ~250 L2 blocks while the proposer starts at block ~10.
+	// By waiting for enough games upfront, we ensure the withdrawal will be at a block
+	// the proposer has already covered or will cover soon.
+	dgf := sys.DgfClient(t)
+	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
+	defer cancel()
+
+	logger.Info("Waiting for proposer to build game coverage")
+	utils.WaitForGameCount(ctx, t, dgf, 30) // ~300 blocks of coverage (30 games × 10 blocks/game)
+
 	initialL1Balance := eth.Ether(1)
 	depositAmount := eth.OneTenthEther
 	withdrawAmount := eth.OneHundredthEther
@@ -47,15 +58,9 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 	expectedL2UserBalance := depositAmount.Sub(withdrawAmount).Sub(withdrawal.InitiateGasCost())
 	l2User.VerifyBalanceExact(expectedL2UserBalance)
 
-	// Wait for at least one game to be created before proving.
-	// The FP proposer needs time to batch L2 blocks and create games.
-	dgf := sys.DgfClient(t)
-	ctx, cancel := context.WithTimeout(t.Ctx(), utils.ShortTimeout())
-	defer cancel()
-	logger.Info("Waiting for dispute game creation")
-	utils.WaitForGameCount(ctx, t, dgf, 1)
-
 	// Phase 2: Prove withdrawal on L1
+	// Since we waited for game coverage upfront, the withdrawal block should be
+	// covered by existing games or the proposer will catch up quickly.
 	logger.Info("Phase 2: Proving withdrawal on L1")
 	withdrawal.Prove(l1User)
 	expectedL1UserBalance = expectedL1UserBalance.Sub(withdrawal.ProveGasCost())
