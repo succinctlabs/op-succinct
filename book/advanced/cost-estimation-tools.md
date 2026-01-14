@@ -70,10 +70,12 @@ host.run() → WitnessData → get_sp1_stdin() → SP1Stdin
 
 Witness generation (`host.run()`) fetches L1/L2 data and executes blocks, which can take **hours** for large ranges. Caching saves this data to disk.
 
-We cache `WitnessData` (not `SP1Stdin`) because:
-1. It's produced right after the bottleneck
-2. It's our own type with stable serialization
-3. SP1Stdin is an SDK type that may change between versions
+We cache `SP1Stdin` because:
+1. It's DA-agnostic (works with all feature flags: default, celestia, eigenda)
+2. It skips the hours-long `host.run()` bottleneck
+3. SP1Stdin implements serde serialization via bincode
+
+Note: The `get_sp1_stdin()` conversion is milliseconds, so caching after this step has negligible overhead.
 
 ### Cache Flags
 
@@ -102,20 +104,14 @@ cargo run --bin cost-estimator -- --start 1000 --end 1100 --batch-size 10 --cach
 ### Cache Location
 
 ```
-data/{chain_id}/witness-cache/{start_block}-{end_block}.bin
+data/{chain_id}/witness-cache/{start_block}-{end_block}-stdin.bin
 ```
 
-Example: `data/8453/witness-cache/1000-1020.bin` for Base.
+Example: `data/8453/witness-cache/1000-1020-stdin.bin` for Base.
 
 ### DA Compatibility
 
-| DA Type | Feature Flag | Cache Compatible |
-|---------|--------------|------------------|
-| Ethereum | (default) | Yes (with Celestia) |
-| Celestia | `--features celestia` | Yes (with Ethereum) |
-| EigenDA | `--features eigenda` | No (separate cache) |
-
-Cache files are **not compatible** across DA types.
+Cache files work across all DA types (Ethereum, Celestia, EigenDA) since SP1Stdin is DA-agnostic.
 
 ### Cache Management
 
@@ -124,7 +120,7 @@ Cache files are **not compatible** across DA types.
 rm -rf data/{chain_id}/witness-cache/
 
 # Clear specific range
-rm data/{chain_id}/witness-cache/{start}-{end}.bin
+rm data/{chain_id}/witness-cache/{start}-{end}-stdin.bin
 ```
 
 Cache files are typically 100MB-1GB per range.
