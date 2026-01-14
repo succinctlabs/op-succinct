@@ -2,12 +2,10 @@ package withdrawal
 
 import (
 	"testing"
-	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
-	"github.com/succinctlabs/op-succinct/utils"
 )
 
 // TestFaultProofProposer_WithdrawalFinalized verifies the full withdrawal lifecycle:
@@ -20,48 +18,37 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 
 	bridge := sys.StandardBridge()
 
-	initialL1Balance := eth.Ether(1)
-	depositAmount := eth.OneTenthEther
 	withdrawAmount := eth.OneHundredthEther
 
-	// Use same key for both chains (upstream pattern)
-	l1User := sys.FunderL1.NewFundedEOA(initialL1Balance)
-	l2User := l1User.AsEL(sys.L2EL)
+	// Use pre-funded L2 account to initiate withdrawal early (no deposit delay).
+	// This ensures the withdrawal happens at a low L2 block number, close to what
+	// games already cover, avoiding the race condition where L2 advances far ahead.
+	l2User := sys.FunderL2.NewFundedEOA(withdrawAmount.Mul(2)) // Extra for gas
+	initialL2Balance := l2User.GetBalance()
+	logger.Info("L2 user funded", "balance", initialL2Balance)
 
-	// Fund L2 user via deposit
-	logger.Info("Depositing to L2")
-	deposit := bridge.Deposit(depositAmount, l1User)
-	expectedL1UserBalance := initialL1Balance.Sub(depositAmount).Sub(deposit.GasCost())
-	l1User.VerifyBalanceExact(expectedL1UserBalance)
-	l2User.VerifyBalanceExact(depositAmount)
+	// L1 user for proving and finalizing (needs L1 ETH for gas)
+	l1User := sys.FunderL1.NewFundedEOA(eth.Ether(1))
+	initialL1Balance := l1User.GetBalance()
 
 	// Log respected game type for debugging
-	respectedGameType := bridge.RespectedGameType()
-	logger.Info("Using respected game type", "gameType", respectedGameType)
+	logger.Info("Using respected game type", "gameType", bridge.RespectedGameType())
 
-	// Wait for games to cover current L2 block before initiating withdrawal.
-	// This ensures the proposer has caught up to L2, so the withdrawal proof
-	// can be constructed from consistent, verified state.
-	dgf := sys.DgfClient(t)
-	currentL2Block := sys.L2EL.BlockRefByLabel(eth.Unsafe).Number
-	logger.Info("Waiting for game coverage before withdrawal", "currentL2Block", currentL2Block)
-	waitForGameCoveringBlock(t, dgf, sys, currentL2Block, respectedGameType)
-
-	// Phase 1: Initiate withdrawal on L2
+	// Phase 1: Initiate withdrawal on L2 (happens early, at low block number)
 	logger.Info("Phase 1: Initiating withdrawal on L2")
 	withdrawal := bridge.InitiateWithdrawal(withdrawAmount, l2User)
 	logger.Info("Withdrawal initiated", "blockHash", withdrawal.InitiateBlockHash())
 
 	// Verify L2 balance after initiation
-	expectedL2UserBalance := depositAmount.Sub(withdrawAmount).Sub(withdrawal.InitiateGasCost())
-	l2User.VerifyBalanceExact(expectedL2UserBalance)
+	expectedL2Balance := initialL2Balance.Sub(withdrawAmount).Sub(withdrawal.InitiateGasCost())
+	l2User.VerifyBalanceExact(expectedL2Balance)
 
 	// Phase 2: Prove withdrawal on L1
 	// forGamePublished will wait for a game covering the withdrawal block.
 	logger.Info("Phase 2: Proving withdrawal on L1")
 	withdrawal.Prove(l1User)
-	expectedL1UserBalance = expectedL1UserBalance.Sub(withdrawal.ProveGasCost())
-	l1User.VerifyBalanceExact(expectedL1UserBalance)
+	expectedL1Balance := initialL1Balance.Sub(withdrawal.ProveGasCost())
+	l1User.VerifyBalanceExact(expectedL1Balance)
 
 	// Phase 3: Advance time and wait for game resolution
 	logger.Info("Phase 3: Waiting for dispute game resolution")
@@ -78,47 +65,8 @@ func TestFaultProofProposer_WithdrawalFinalized(gt *testing.T) {
 		"gameResolutionDelay", bridge.GameResolutionDelay(),
 		"gameFinalityDelay", bridge.DisputeGameFinalityDelay())
 	withdrawal.Finalize(l1User)
-	expectedL1UserBalance = expectedL1UserBalance.Sub(withdrawal.FinalizeGasCost()).Add(withdrawAmount)
-	l1User.VerifyBalanceExact(expectedL1UserBalance)
+	expectedL1Balance = expectedL1Balance.Sub(withdrawal.FinalizeGasCost()).Add(withdrawAmount)
+	l1User.VerifyBalanceExact(expectedL1Balance)
 
 	logger.Info("Withdrawal finalization test completed successfully")
-}
-
-// waitForGameCoveringBlock waits until a game exists that covers the given L2 block number.
-// This ensures the proposer has caught up to L2 state before we initiate a withdrawal.
-func waitForGameCoveringBlock(t devtest.T, dgf *utils.DgfClient, sys *opspresets.FaultProofSystem, targetBlock uint64, gameType uint32) {
-	ctx := t.Ctx()
-	logger := t.Logger()
-
-	t.Require().Eventuallyf(func() bool {
-		game, err := dgf.LatestGame(ctx)
-		if err != nil || game == nil {
-			logger.Info("No games found yet, waiting...")
-			return false
-		}
-
-		// Only consider games of the required type
-		if game.GameType != gameType {
-			logger.Info("Latest game is wrong type", "gameType", game.GameType, "expected", gameType)
-			return false
-		}
-
-		// Get the L2 block number this game covers
-		fdg, err := utils.NewFdgClient(sys.L1EL.EthClient(), game.Proxy)
-		if err != nil {
-			logger.Warn("Failed to create FDG client", "err", err)
-			return false
-		}
-
-		gameL2Block, err := fdg.L2BlockNumber(ctx)
-		if err != nil {
-			logger.Warn("Failed to get game L2 block", "err", err)
-			return false
-		}
-
-		logger.Info("Checking game coverage", "gameL2Block", gameL2Block, "targetBlock", targetBlock)
-		return gameL2Block >= targetBlock
-	}, 40*time.Minute, 1*time.Second, "waiting for game covering L2 block %d", targetBlock)
-
-	logger.Info("Game coverage achieved", "targetBlock", targetBlock)
 }
