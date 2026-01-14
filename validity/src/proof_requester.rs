@@ -17,6 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tracing::{info, warn};
+use bincode::Options;
 
 use crate::{
     db::DriverDBClient, OPSuccinctRequest, ProgramConfig, RequestExecutionStatistics,
@@ -531,7 +532,19 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             RequestType::Aggregation => {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
-                    self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+
+                    let proof_bytes = if self.agg_mode == SP1ProofMode::Compressed {
+                        // If it's a compressed proof, we need to serialize the entire struct with bincode.
+                        bincode::DefaultOptions::new()
+                            .with_big_endian()
+                            .with_fixint_encoding()
+                            .serialize(&proof)
+                            .unwrap()
+                    } else {
+                        proof.bytes()
+                    };
+
+                    self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;
