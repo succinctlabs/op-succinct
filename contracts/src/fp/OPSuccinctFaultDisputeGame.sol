@@ -312,6 +312,12 @@ contract OPSuccinctFaultDisputeGame is Clone, ISemver, IDisputeGame {
         l2SequenceNumber_ = _getArgUint256(0x54);
     }
 
+    /// @notice The L2 block number for which this game is proposing an output root.
+    /// @dev Alias for l2SequenceNumber() for backward compatibility.
+    function l2BlockNumber() public pure returns (uint256 l2BlockNumber_) {
+        l2BlockNumber_ = l2SequenceNumber();
+    }
+
     /// @notice The parent index of the game.
     function parentIndex() public pure returns (uint32 parentIndex_) {
         parentIndex_ = _getArgUint32(0x74);
