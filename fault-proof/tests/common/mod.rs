@@ -8,5 +8,5 @@ pub mod monitor;
 pub mod process;
 
 pub use anvil::*;
-pub use env::TestEnvironment;
+pub use env::{Role, TestEnvironment};
 pub use process::*;
