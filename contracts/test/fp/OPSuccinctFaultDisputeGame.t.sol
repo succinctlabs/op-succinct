@@ -32,6 +32,7 @@ import {AggregationOutputs, OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE} from "src/lib/T
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
+import {SP1Verifier} from "@sp1-contracts/src/v3.0.0/SP1VerifierGroth16.sol";
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {AccessManager} from "src/fp/AccessManager.sol";
 
@@ -813,5 +814,151 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         factory.create{value: 1 ether}(
             gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
         );
+    }
+}
+
+/// @title OPSuccinctFaultDisputeGameInvalidProofTest
+/// @notice Tests that invalid proofs are rejected by the real SP1 verifier
+/// @dev Uses real SP1Verifier (not mock) to verify cryptographic rejection
+contract OPSuccinctFaultDisputeGameInvalidProofTest is Test {
+    event Challenged(address indexed challenger);
+    event Proved(address indexed prover);
+    event Resolved(GameStatus indexed status);
+
+    DisputeGameFactory factory;
+    ERC1967Proxy factoryProxy;
+
+    OPSuccinctFaultDisputeGame gameImpl;
+    OPSuccinctFaultDisputeGame parentGame;
+    OPSuccinctFaultDisputeGame game;
+
+    AnchorStateRegistry anchorStateRegistry;
+    AccessManager accessManager;
+
+    address proposer = address(0x123);
+    address challenger = address(0x456);
+    address prover = address(0x789);
+
+    MockOptimismPortal2 portal;
+
+    uint256 disputeGameFinalityDelaySeconds = 1000;
+
+    GameType gameType = GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE);
+    Duration maxChallengeDuration = Duration.wrap(12 hours);
+    Duration maxProveDuration = Duration.wrap(3 days);
+    Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
+
+    uint256 l2BlockNumber = 2000;
+    uint32 parentIndex = 0;
+
+    function setUp() public {
+        // Deploy factory
+        DisputeGameFactory factoryImpl = new DisputeGameFactory();
+        factoryProxy = new ERC1967Proxy(
+            address(factoryImpl), abi.encodeWithSelector(DisputeGameFactory.initialize.selector, address(this))
+        );
+        factory = DisputeGameFactory(address(factoryProxy));
+
+        // Deploy REAL SP1 verifier (not mock)
+        SP1Verifier sp1Verifier = new SP1Verifier();
+
+        // Create anchor state registry
+        SuperchainConfig superchainConfig = new SuperchainConfig();
+        portal = new MockOptimismPortal2(gameType, disputeGameFinalityDelaySeconds);
+        OutputRoot memory startingAnchorRoot = OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0});
+
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(new AnchorStateRegistry()),
+            abi.encodeCall(
+                AnchorStateRegistry.initialize,
+                (
+                    ISuperchainConfig(address(superchainConfig)),
+                    IDisputeGameFactory(address(factory)),
+                    IOptimismPortal2(payable(address(portal))),
+                    startingAnchorRoot
+                )
+            )
+        );
+        anchorStateRegistry = AnchorStateRegistry(address(proxy));
+
+        // Create access manager
+        accessManager = new AccessManager(2 weeks, IDisputeGameFactory(address(factory)));
+        accessManager.setProposer(proposer, true);
+        accessManager.setChallenger(challenger, true);
+
+        // Parameters for OPSuccinctFaultDisputeGame
+        bytes32 rollupConfigHash = bytes32(0);
+        bytes32 aggregationVkey = bytes32(0);
+        bytes32 rangeVkeyCommitment = bytes32(0);
+        uint256 proofReward = 1 ether;
+
+        // Deploy game implementation with REAL verifier
+        gameImpl = new OPSuccinctFaultDisputeGame(
+            maxChallengeDuration,
+            maxProveDuration,
+            IDisputeGameFactory(address(factory)),
+            ISP1Verifier(address(sp1Verifier)), // Real verifier!
+            rollupConfigHash,
+            aggregationVkey,
+            rangeVkeyCommitment,
+            proofReward,
+            IAnchorStateRegistry(address(anchorStateRegistry)),
+            accessManager
+        );
+
+        factory.setInitBond(gameType, 1 ether);
+        factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
+
+        // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp.
+        vm.warp(block.timestamp + 1000);
+
+        // Create parent game
+        vm.deal(proposer, 100 ether);
+        vm.startPrank(proposer);
+        parentGame = OPSuccinctFaultDisputeGame(
+            address(
+                factory.create{value: 1 ether}(
+                    gameType, Claim.wrap(keccak256("parentClaim")), abi.encodePacked(uint256(1000), type(uint32).max)
+                )
+            )
+        );
+        vm.stopPrank();
+
+        // Create child game (parent doesn't need to be resolved for prove() testing)
+        vm.startPrank(proposer);
+        game = OPSuccinctFaultDisputeGame(
+            address(factory.create{value: 1 ether}(gameType, rootClaim, abi.encodePacked(l2BlockNumber, parentIndex)))
+        );
+        vm.stopPrank();
+    }
+
+    /// @notice Fuzz test: invalid proof bytes should cause prove() to revert
+    /// @dev Tests that the real SP1 verifier rejects garbage/random proof bytes
+    /// @param invalidProof Random bytes that are not a valid SP1 proof
+    function testFuzz_invalidProofRejected(bytes calldata invalidProof) public {
+        vm.assume(invalidProof.length < 10000); // Bound size to avoid OOG reverts
+        vm.prank(prover);
+        vm.expectRevert(); // Real verifier rejects invalid proofs
+        game.prove(invalidProof);
+    }
+
+    /// @notice Test: empty proof bytes should be rejected
+    /// @dev Empty bytes cause slice out of bounds error (not WrongVerifierSelector)
+    ///      when verifier tries to read first 4 bytes for selector check
+    function testEmptyProofRejected() public {
+        vm.prank(prover);
+        vm.expectRevert(); // Reverts with slice bounds error
+        game.prove(bytes(""));
+    }
+
+    /// @notice Test: garbage proof bytes should be rejected
+    /// @dev 4+ bytes that don't match VERIFIER_HASH triggers WrongVerifierSelector
+    ///      Using generic expectRevert since error has dynamic parameters
+    function testGarbageProofRejected() public {
+        bytes memory garbageProof = hex"deadbeefcafebabe0123456789abcdef";
+
+        vm.prank(prover);
+        vm.expectRevert(); // Reverts with WrongVerifierSelector(actualSelector, expectedSelector)
+        game.prove(garbageProof);
     }
 }
