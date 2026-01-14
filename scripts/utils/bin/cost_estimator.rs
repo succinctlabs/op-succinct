@@ -10,6 +10,9 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::ExecutionStats,
+    witness_cache::{
+        cache_exists, load_witness_from_cache, save_witness_to_cache, WitnessDataType,
+    },
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
@@ -26,14 +29,21 @@ use std::{
 
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
-async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
+#[allow(clippy::too_many_arguments)]
+async fn execute_blocks_and_write_stats_csv<H>(
     host: Arc<H>,
     host_args: &[H::Args],
     ranges: Vec<SpanBatchRange>,
     l2_chain_id: u64,
     start: u64,
     end: u64,
-) -> Result<()> {
+    should_try_cache: bool,
+    should_save_cache: bool,
+) -> Result<()>
+where
+    H: OPSuccinctHost,
+    H::WitnessGenerator: WitnessGenerator<WitnessData = WitnessDataType>,
+{
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     // Fetch all of the execution stats block ranges in parallel.
@@ -67,11 +77,32 @@ async fn execute_blocks_and_write_stats_csv<H: OPSuccinctHost>(
     let prover = ProverClient::builder().cpu().build();
 
     // Run the host tasks in parallel using join_all
-    let handles = host_args.iter().map(|host_args| {
+    let handles = host_args.iter().zip(ranges.iter()).map(|(host_args, range)| {
         let host_args = host_args.clone();
         let host = host.clone();
+        let start = range.start;
+        let end = range.end;
         tokio::spawn(async move {
+            // Try loading from cache
+            if should_try_cache && cache_exists(l2_chain_id, start, end) {
+                if let Ok(Some(witness)) = load_witness_from_cache(l2_chain_id, start, end) {
+                    info!("Loaded witness from cache for range {}-{}", start, end);
+                    return host.witness_generator().get_sp1_stdin(witness).unwrap();
+                }
+            }
+
+            // Generate witness
             let witness_data = host.run(&host_args).await.unwrap();
+
+            // Save to cache
+            if should_save_cache {
+                if let Ok(cache_path) =
+                    save_witness_to_cache(l2_chain_id, start, end, &witness_data)
+                {
+                    info!("Saved witness to cache: {}", cache_path.display());
+                }
+            }
+
             host.witness_generator().get_sp1_stdin(witness_data).unwrap()
         })
     });
@@ -221,6 +252,10 @@ async fn main() -> Result<()> {
 
     info!("The span batch ranges which will be executed: {split_ranges:?}");
 
+    // Determine cache behavior from flags
+    let should_try_cache = args.use_cache || args.cache;
+    let should_save_cache = args.save_cache || args.cache;
+
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             host.fetch(range.start, range.end, None, args.safe_db_fallback)
@@ -238,6 +273,8 @@ async fn main() -> Result<()> {
         l2_chain_id,
         l2_start_block,
         l2_end_block,
+        should_try_cache,
+        should_save_cache,
     )
     .await?;
 

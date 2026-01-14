@@ -1,14 +1,22 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
-    block_range::get_validated_block_range, fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost,
-    stats::ExecutionStats, witness_generation::WitnessGenerator,
+    block_range::get_validated_block_range,
+    fetcher::OPSuccinctDataFetcher,
+    host::OPSuccinctHost,
+    stats::ExecutionStats,
+    witness_cache::{cache_exists, load_witness_from_cache, save_witness_to_cache},
+    witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, ProverClient};
-use std::{fs, sync::Arc, time::Instant};
+use std::{
+    fs,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tracing::debug;
 
 /// Execute the OP Succinct program for multiple blocks.
@@ -35,13 +43,37 @@ async fn main() -> Result<()> {
     )
     .await?;
 
-    let host_args = host.fetch(l2_start_block, l2_end_block, None, args.safe_db_fallback).await?;
+    let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-    debug!("Host args: {:?}", host_args);
+    // Determine cache behavior from flags
+    let should_try_cache = args.use_cache || args.cache;
+    let should_save_cache = args.save_cache || args.cache;
 
-    let start_time = Instant::now();
-    let witness_data = host.run(&host_args).await?;
-    let witness_generation_duration = start_time.elapsed();
+    // Check cache first if enabled
+    let (witness_data, witness_generation_duration) =
+        if should_try_cache && cache_exists(l2_chain_id, l2_start_block, l2_end_block) {
+            println!("Loading witness from cache...");
+            let witness = load_witness_from_cache(l2_chain_id, l2_start_block, l2_end_block)?
+                .expect("Cache exists but failed to load");
+            (witness, Duration::ZERO)
+        } else {
+            let host_args =
+                host.fetch(l2_start_block, l2_end_block, None, args.safe_db_fallback).await?;
+            debug!("Host args: {:?}", host_args);
+
+            let start_time = Instant::now();
+            let witness = host.run(&host_args).await?;
+            let duration = start_time.elapsed();
+
+            // Save to cache if enabled
+            if should_save_cache {
+                let cache_path =
+                    save_witness_to_cache(l2_chain_id, l2_start_block, l2_end_block, &witness)?;
+                println!("Saved witness to cache: {}", cache_path.display());
+            }
+
+            (witness, duration)
+        };
 
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
@@ -55,7 +87,7 @@ async fn main() -> Result<()> {
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
-        let proof_dir = format!("data/{}/proofs", data_fetcher.get_l2_chain_id().await.unwrap());
+        let proof_dir = format!("data/{}/proofs", l2_chain_id);
         if !std::path::Path::new(&proof_dir).exists() {
             fs::create_dir_all(&proof_dir).unwrap();
         }
@@ -64,8 +96,6 @@ async fn main() -> Result<()> {
             .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
             .expect("saving proof failed");
     } else {
-        let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
-
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
 
