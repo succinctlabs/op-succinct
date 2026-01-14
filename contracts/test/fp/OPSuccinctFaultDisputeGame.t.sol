@@ -84,13 +84,13 @@ abstract contract OPSuccinctFaultDisputeGameTestBase is Test {
 
     /// @notice Whether to resolve the parent game during setUp
     /// @return true to resolve parent (default), false to skip
-    function _shouldResolveParent() internal virtual pure returns (bool) {
+    function _shouldResolveParent() internal pure virtual returns (bool) {
         return true;
     }
 
     /// @notice Initial ether to deal to proposer for testing
     /// @return Amount in wei (default: 2 ether for original tests)
-    function _proposerInitialBalance() internal virtual pure returns (uint256) {
+    function _proposerInitialBalance() internal pure virtual returns (uint256) {
         return 2 ether;
     }
 
