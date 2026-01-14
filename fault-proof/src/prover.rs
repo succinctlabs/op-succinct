@@ -140,20 +140,30 @@ impl NetworkProofProvider {
 
     /// Submit a range proof request to the network.
     async fn request_range_proof(&self, stdin: &SP1Stdin) -> Result<ProofId> {
-        let proof_id = self
+        let mut proof_builder = self
             .prover
             .prove(&self.keys.range_pk, stdin)
             .compressed()
-            .skip_simulation(true)
             .strategy(self.config.range_proof_strategy)
             .timeout(Duration::from_secs(self.config.timeout))
             .min_auction_period(self.config.min_auction_period)
             .max_price_per_pgu(self.config.max_price_per_pgu)
-            .cycle_limit(self.config.range_cycle_limit)
-            .gas_limit(self.config.range_gas_limit)
-            .whitelist(self.config.whitelist.clone())
-            .request_async()
-            .await?;
+            .whitelist(self.config.whitelist.clone());
+
+        if self.config.range_cycle_limit > 0 && self.config.range_gas_limit > 0 {
+            proof_builder = proof_builder
+                .skip_simulation(true)
+                .cycle_limit(self.config.range_cycle_limit)
+                .gas_limit(self.config.range_gas_limit);
+        } else {
+            assert!(
+                self.config.range_cycle_limit == 0 && self.config.range_gas_limit == 0,
+                "range_cycle_limit and range_gas_limit must both be zero or both be non-zero"
+            );
+            proof_builder = proof_builder.skip_simulation(false);
+        }
+
+        let proof_id = proof_builder.request_async().await?;
 
         tracing::info!(proof_id = %proof_id, "Range proof request submitted");
         Ok(proof_id)
@@ -161,19 +171,29 @@ impl NetworkProofProvider {
 
     /// Submit an aggregation proof request to the network.
     async fn request_agg_proof(&self, stdin: &SP1Stdin) -> Result<ProofId> {
-        let proof_id = self
+        let mut proof_builder = self
             .prover
             .prove(&self.keys.agg_pk, stdin)
             .mode(self.config.agg_proof_mode)
-            .strategy(self.config.agg_proof_strategy)
             .timeout(Duration::from_secs(self.config.timeout))
             .min_auction_period(self.config.min_auction_period)
             .max_price_per_pgu(self.config.max_price_per_pgu)
-            .cycle_limit(self.config.agg_cycle_limit)
-            .gas_limit(self.config.agg_gas_limit)
-            .whitelist(self.config.whitelist.clone())
-            .request_async()
-            .await?;
+            .whitelist(self.config.whitelist.clone());
+
+        if self.config.agg_cycle_limit > 0 && self.config.agg_gas_limit > 0 {
+            proof_builder = proof_builder
+                .skip_simulation(true)
+                .cycle_limit(self.config.agg_cycle_limit)
+                .gas_limit(self.config.agg_gas_limit);
+        } else {
+            assert!(
+                self.config.agg_cycle_limit == 0 && self.config.agg_gas_limit == 0,
+                "agg_cycle_limit and agg_gas_limit must both be zero or both be non-zero"
+            );
+            proof_builder = proof_builder.skip_simulation(false);
+        }
+
+        let proof_id = proof_builder.request_async().await?;
 
         tracing::info!(proof_id = %proof_id, "Aggregation proof request submitted");
         Ok(proof_id)
