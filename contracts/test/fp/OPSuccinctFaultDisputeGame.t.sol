@@ -47,12 +47,10 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 import {MockOptimismPortal2} from "../../src/utils/MockOptimismPortal2.sol";
 import {MockSystemConfig} from "../../src/utils/MockSystemConfig.sol";
 
-contract OPSuccinctFaultDisputeGameTest is Test {
-    // Event definitions matching those in OPSuccinctFaultDisputeGame.
-    event Challenged(address indexed challenger);
-    event Proved(address indexed prover);
-    event Resolved(GameStatus indexed status);
-
+/// @title OPSuccinctFaultDisputeGameTestBase
+/// @notice Abstract base contract with shared test setup for OPSuccinctFaultDisputeGame tests
+/// @dev Subclasses implement _createVerifier() to specify mock or real verifier
+abstract contract OPSuccinctFaultDisputeGameTestBase is Test {
     DisputeGameFactory factory;
     Proxy factoryProxy;
     ProxyAdmin proxyAdmin;
@@ -82,10 +80,23 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     uint256 l2BlockNumber = 2000;
     uint32 parentIndex = 0;
 
-    // For a new parent game that we manipulate separately in some tests.
-    OPSuccinctFaultDisputeGame separateParentGame;
+    /// @notice Creates the SP1 verifier instance (mock or real)
+    /// @return The SP1 verifier to use in tests
+    function _createVerifier() internal virtual returns (ISP1Verifier);
 
-    function setUp() public {
+    /// @notice Whether to resolve the parent game during setUp
+    /// @return true to resolve parent (default), false to skip
+    function _shouldResolveParent() internal pure virtual returns (bool) {
+        return true;
+    }
+
+    /// @notice Initial ether to deal to proposer for testing
+    /// @return Amount in wei (default: 2 ether for original tests)
+    function _proposerInitialBalance() internal pure virtual returns (uint256) {
+        return 2 ether;
+    }
+
+    function setUp() public virtual {
         // Deploy ProxyAdmin with this test contract as owner.
         proxyAdmin = new ProxyAdmin(address(this));
 
@@ -105,8 +116,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Cast the proxy to the factory contract.
         factory = DisputeGameFactory(address(factoryProxy));
 
-        // Create a mock verifier.
-        SP1MockVerifier sp1Verifier = new SP1MockVerifier();
+        // Create verifier (mock or real based on subclass).
+        ISP1Verifier sp1Verifier = _createVerifier();
 
         // Create an anchor state registry.
         // Pass address(this) as guardian so the test contract can call guardian-restricted functions.
@@ -147,7 +158,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             maxChallengeDuration,
             maxProveDuration,
             IDisputeGameFactory(address(factory)),
-            ISP1Verifier(address(sp1Verifier)),
+            sp1Verifier,
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
@@ -162,12 +173,12 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
-        // Create the first (parent) game – it uses uint32.max as parent index.
-        vm.startPrank(proposer);
-        vm.deal(proposer, 2 ether); // extra funds for testing.
-
         // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp.
         vm.warp(block.timestamp + 1000);
+
+        // Create the first (parent) game – it uses uint32.max as parent index.
+        vm.startPrank(proposer);
+        vm.deal(proposer, _proposerInitialBalance()); // funds for testing.
 
         // This parent game will be at index 0.
         parentGame = OPSuccinctFaultDisputeGame(
@@ -181,13 +192,15 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             )
         );
 
-        // We want the parent game to finalize. We'll skip its challenge period.
-        (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
-        vm.warp(parentGameDeadline.raw() + 1 seconds);
-        parentGame.resolve();
+        if (_shouldResolveParent()) {
+            // We want the parent game to finalize. We'll skip its challenge period.
+            (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
+            vm.warp(parentGameDeadline.raw() + 1 seconds);
+            parentGame.resolve();
 
-        vm.warp(parentGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
-        parentGame.claimCredit(proposer);
+            vm.warp(parentGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+            parentGame.claimCredit(proposer);
+        }
 
         // Create the child game referencing parent index = 0.
         // The child game is at index 1.
@@ -203,6 +216,20 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
 
         vm.stopPrank();
+    }
+}
+
+contract OPSuccinctFaultDisputeGameTest is OPSuccinctFaultDisputeGameTestBase {
+    // Event definitions matching those in OPSuccinctFaultDisputeGame.
+    event Challenged(address indexed challenger);
+    event Proved(address indexed prover);
+    event Resolved(GameStatus indexed status);
+
+    // For a new parent game that we manipulate separately in some tests.
+    OPSuccinctFaultDisputeGame separateParentGame;
+
+    function _createVerifier() internal override returns (ISP1Verifier) {
+        return ISP1Verifier(address(new SP1MockVerifier()));
     }
 
     // =========================================
@@ -820,116 +847,17 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 /// @title OPSuccinctFaultDisputeGameInvalidProofTest
 /// @notice Tests that invalid proofs are rejected by the real SP1 verifier
 /// @dev Uses real SP1Verifier (not mock) to verify cryptographic rejection
-contract OPSuccinctFaultDisputeGameInvalidProofTest is Test {
-    event Challenged(address indexed challenger);
-    event Proved(address indexed prover);
-    event Resolved(GameStatus indexed status);
+contract OPSuccinctFaultDisputeGameInvalidProofTest is OPSuccinctFaultDisputeGameTestBase {
+    function _createVerifier() internal override returns (ISP1Verifier) {
+        return ISP1Verifier(address(new SP1Verifier()));
+    }
 
-    DisputeGameFactory factory;
-    ERC1967Proxy factoryProxy;
+    function _shouldResolveParent() internal pure override returns (bool) {
+        return false; // Parent doesn't need to be resolved for prove() testing
+    }
 
-    OPSuccinctFaultDisputeGame gameImpl;
-    OPSuccinctFaultDisputeGame parentGame;
-    OPSuccinctFaultDisputeGame game;
-
-    AnchorStateRegistry anchorStateRegistry;
-    AccessManager accessManager;
-
-    address proposer = address(0x123);
-    address challenger = address(0x456);
-    address prover = address(0x789);
-
-    MockOptimismPortal2 portal;
-
-    uint256 disputeGameFinalityDelaySeconds = 1000;
-
-    GameType gameType = GameType.wrap(OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE);
-    Duration maxChallengeDuration = Duration.wrap(12 hours);
-    Duration maxProveDuration = Duration.wrap(3 days);
-    Claim rootClaim = Claim.wrap(keccak256("rootClaim"));
-
-    uint256 l2BlockNumber = 2000;
-    uint32 parentIndex = 0;
-
-    function setUp() public {
-        // Deploy factory
-        DisputeGameFactory factoryImpl = new DisputeGameFactory();
-        factoryProxy = new ERC1967Proxy(
-            address(factoryImpl), abi.encodeWithSelector(DisputeGameFactory.initialize.selector, address(this))
-        );
-        factory = DisputeGameFactory(address(factoryProxy));
-
-        // Deploy REAL SP1 verifier (not mock)
-        SP1Verifier sp1Verifier = new SP1Verifier();
-
-        // Create anchor state registry
-        SuperchainConfig superchainConfig = new SuperchainConfig();
-        portal = new MockOptimismPortal2(gameType, disputeGameFinalityDelaySeconds);
-        OutputRoot memory startingAnchorRoot = OutputRoot({root: Hash.wrap(keccak256("genesis")), l2BlockNumber: 0});
-
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(new AnchorStateRegistry()),
-            abi.encodeCall(
-                AnchorStateRegistry.initialize,
-                (
-                    ISuperchainConfig(address(superchainConfig)),
-                    IDisputeGameFactory(address(factory)),
-                    IOptimismPortal2(payable(address(portal))),
-                    startingAnchorRoot
-                )
-            )
-        );
-        anchorStateRegistry = AnchorStateRegistry(address(proxy));
-
-        // Create access manager
-        accessManager = new AccessManager(2 weeks, IDisputeGameFactory(address(factory)));
-        accessManager.setProposer(proposer, true);
-        accessManager.setChallenger(challenger, true);
-
-        // Parameters for OPSuccinctFaultDisputeGame
-        bytes32 rollupConfigHash = bytes32(0);
-        bytes32 aggregationVkey = bytes32(0);
-        bytes32 rangeVkeyCommitment = bytes32(0);
-        uint256 proofReward = 1 ether;
-
-        // Deploy game implementation with REAL verifier
-        gameImpl = new OPSuccinctFaultDisputeGame(
-            maxChallengeDuration,
-            maxProveDuration,
-            IDisputeGameFactory(address(factory)),
-            ISP1Verifier(address(sp1Verifier)), // Real verifier!
-            rollupConfigHash,
-            aggregationVkey,
-            rangeVkeyCommitment,
-            proofReward,
-            IAnchorStateRegistry(address(anchorStateRegistry)),
-            accessManager
-        );
-
-        factory.setInitBond(gameType, 1 ether);
-        factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
-
-        // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp.
-        vm.warp(block.timestamp + 1000);
-
-        // Create parent game
-        vm.deal(proposer, 100 ether);
-        vm.startPrank(proposer);
-        parentGame = OPSuccinctFaultDisputeGame(
-            address(
-                factory.create{value: 1 ether}(
-                    gameType, Claim.wrap(keccak256("parentClaim")), abi.encodePacked(uint256(1000), type(uint32).max)
-                )
-            )
-        );
-        vm.stopPrank();
-
-        // Create child game (parent doesn't need to be resolved for prove() testing)
-        vm.startPrank(proposer);
-        game = OPSuccinctFaultDisputeGame(
-            address(factory.create{value: 1 ether}(gameType, rootClaim, abi.encodePacked(l2BlockNumber, parentIndex)))
-        );
-        vm.stopPrank();
+    function _proposerInitialBalance() internal pure override returns (uint256) {
+        return 100 ether; // More funds for testing
     }
 
     /// @notice Fuzz test: invalid proof bytes should cause prove() to revert
