@@ -79,3 +79,57 @@ pub fn load_witness_from_cache(
 pub fn cache_exists(chain_id: u64, start_block: u64, end_block: u64) -> bool {
     get_cache_path(chain_id, start_block, end_block).exists()
 }
+
+// ============================================================================
+// SP1Stdin caching (DA-agnostic)
+// ============================================================================
+
+use sp1_sdk::SP1Stdin;
+
+/// Returns the stdin cache file path for a given block range.
+pub fn get_stdin_cache_path(chain_id: u64, start_block: u64, end_block: u64) -> PathBuf {
+    get_cache_dir(chain_id).join(format!("{}-{}-stdin.bin", start_block, end_block))
+}
+
+/// Save SP1Stdin to cache using bincode.
+///
+/// SP1Stdin is DA-agnostic (same type regardless of witness generator), so this
+/// works with generic host types unlike WitnessData caching.
+pub fn save_stdin_to_cache(
+    chain_id: u64,
+    start_block: u64,
+    end_block: u64,
+    stdin: &SP1Stdin,
+) -> Result<PathBuf> {
+    let cache_dir = get_cache_dir(chain_id);
+    if !cache_dir.exists() {
+        fs::create_dir_all(&cache_dir)?;
+    }
+
+    let cache_path = get_stdin_cache_path(chain_id, start_block, end_block);
+    let bytes = bincode::serialize(stdin)?;
+    fs::write(&cache_path, &bytes)?;
+
+    Ok(cache_path)
+}
+
+/// Load SP1Stdin from cache if it exists.
+///
+/// Returns `Ok(Some(stdin))` if the cache file exists and was successfully deserialized,
+/// `Ok(None)` if the cache file doesn't exist, or an error if deserialization failed.
+pub fn load_stdin_from_cache(
+    chain_id: u64,
+    start_block: u64,
+    end_block: u64,
+) -> Result<Option<SP1Stdin>> {
+    let cache_path = get_stdin_cache_path(chain_id, start_block, end_block);
+
+    if !cache_path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = fs::read(&cache_path)?;
+    let stdin = bincode::deserialize(&bytes)?;
+
+    Ok(Some(stdin))
+}

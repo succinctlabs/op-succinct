@@ -10,9 +10,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::ExecutionStats,
-    witness_cache::{
-        cache_exists, load_witness_from_cache, save_witness_to_cache, WitnessDataType,
-    },
+    witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
@@ -42,7 +40,6 @@ async fn execute_blocks_and_write_stats_csv<H>(
 ) -> Result<()>
 where
     H: OPSuccinctHost,
-    H::WitnessGenerator: WitnessGenerator<WitnessData = WitnessDataType>,
 {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
@@ -83,27 +80,32 @@ where
         let start = range.start;
         let end = range.end;
         tokio::spawn(async move {
-            // Try loading from cache
-            if should_try_cache && cache_exists(l2_chain_id, start, end) {
-                if let Ok(Some(witness)) = load_witness_from_cache(l2_chain_id, start, end) {
-                    info!("Loaded witness from cache for range {}-{}", start, end);
-                    return host.witness_generator().get_sp1_stdin(witness).unwrap();
+            // Try loading SP1Stdin from cache
+            if should_try_cache {
+                match load_stdin_from_cache(l2_chain_id, start, end) {
+                    Ok(Some(stdin)) => {
+                        info!("Loaded stdin from cache for range {}-{}", start, end);
+                        return stdin;
+                    }
+                    Ok(None) => {} // No cache, generate below
+                    Err(e) => {
+                        log::warn!("Failed to load stdin cache for range {}-{}: {e}", start, end);
+                    }
                 }
             }
 
-            // Generate witness
+            // Generate witness and convert to SP1Stdin
             let witness_data = host.run(&host_args).await.unwrap();
+            let stdin = host.witness_generator().get_sp1_stdin(witness_data).unwrap();
 
-            // Save to cache
+            // Save SP1Stdin to cache
             if should_save_cache {
-                if let Ok(cache_path) =
-                    save_witness_to_cache(l2_chain_id, start, end, &witness_data)
-                {
-                    info!("Saved witness to cache: {}", cache_path.display());
+                if let Ok(cache_path) = save_stdin_to_cache(l2_chain_id, start, end, &stdin) {
+                    info!("Saved stdin to cache: {}", cache_path.display());
                 }
             }
 
-            host.witness_generator().get_sp1_stdin(witness_data).unwrap()
+            stdin
         })
     });
 

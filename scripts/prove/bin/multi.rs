@@ -5,7 +5,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
     stats::ExecutionStats,
-    witness_cache::{cache_exists, load_witness_from_cache, save_witness_to_cache},
+    witness_cache::{load_witness_from_cache, save_witness_to_cache},
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
@@ -49,31 +49,42 @@ async fn main() -> Result<()> {
     let should_try_cache = args.use_cache || args.cache;
     let should_save_cache = args.save_cache || args.cache;
 
-    // Check cache first if enabled
-    let (witness_data, witness_generation_duration) =
-        if should_try_cache && cache_exists(l2_chain_id, l2_start_block, l2_end_block) {
-            println!("Loading witness from cache...");
-            let witness = load_witness_from_cache(l2_chain_id, l2_start_block, l2_end_block)?
-                .expect("Cache exists but failed to load");
-            (witness, Duration::ZERO)
-        } else {
-            let host_args =
-                host.fetch(l2_start_block, l2_end_block, None, args.safe_db_fallback).await?;
-            debug!("Host args: {:?}", host_args);
+    // Helper closure to generate witness
+    let generate_witness = || async {
+        let host_args =
+            host.fetch(l2_start_block, l2_end_block, None, args.safe_db_fallback).await?;
+        debug!("Host args: {:?}", host_args);
 
-            let start_time = Instant::now();
-            let witness = host.run(&host_args).await?;
-            let duration = start_time.elapsed();
+        let start_time = Instant::now();
+        let witness = host.run(&host_args).await?;
+        let duration = start_time.elapsed();
 
-            // Save to cache if enabled
-            if should_save_cache {
-                let cache_path =
-                    save_witness_to_cache(l2_chain_id, l2_start_block, l2_end_block, &witness)?;
-                println!("Saved witness to cache: {}", cache_path.display());
+        // Save to cache if enabled
+        if should_save_cache {
+            let cache_path =
+                save_witness_to_cache(l2_chain_id, l2_start_block, l2_end_block, &witness)?;
+            println!("Saved witness to cache: {}", cache_path.display());
+        }
+
+        Ok::<_, anyhow::Error>((witness, duration))
+    };
+
+    // Check cache first if enabled (with graceful fallback)
+    let (witness_data, witness_generation_duration) = if should_try_cache {
+        match load_witness_from_cache(l2_chain_id, l2_start_block, l2_end_block) {
+            Ok(Some(witness)) => {
+                println!("Loaded witness from cache");
+                (witness, Duration::ZERO)
             }
-
-            (witness, duration)
-        };
+            Ok(None) => generate_witness().await?,
+            Err(e) => {
+                eprintln!("Warning: Failed to load cache: {e}, regenerating witness...");
+                generate_witness().await?
+            }
+        }
+    } else {
+        generate_witness().await?
+    };
 
     // Get the stdin for the block.
     let sp1_stdin = host.witness_generator().get_sp1_stdin(witness_data)?;
