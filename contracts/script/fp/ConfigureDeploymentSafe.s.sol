@@ -67,16 +67,16 @@ contract ConfigureDeploymentSafe is Script, Utils {
         calls[_op] = IMulticall3.Call3(
             config.factoryProxy,
             false,
-            abi.encodeWithSelector(DisputeGameFactory.setInitBond.selector, gameType, config.initialBondWei)
+            abi.encodeWithSelector(
+                DisputeGameFactory.setImplementation.selector, gameType, IDisputeGame(config.gameImplementation)
+            )
         );
         if (config.initialBondWei != 0) {
             _op++;
             calls[_op] = IMulticall3.Call3(
                 config.factoryProxy,
                 false,
-                abi.encodeWithSelector(
-                    DisputeGameFactory.setImplementation.selector, gameType, IDisputeGame(config.gameImplementation)
-                )
+                abi.encodeWithSelector(DisputeGameFactory.setInitBond.selector, gameType, config.initialBondWei)
             );
         }
         if (config.optimismPortal2 != address(0)) {
