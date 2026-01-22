@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alloy_rpc_client::RpcClient;
 use anyhow::Result;
 use async_trait::async_trait;
 use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
@@ -142,15 +143,18 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
         let eth_rpc_url = std::env::var("L1_RPC")
             .map_err(|_| anyhow::anyhow!("L1_RPC environment variable not set"))?;
+        let eth_rpc_client = RpcClient::new_http(
+            eth_rpc_url.parse().map_err(|e| anyhow::anyhow!("Failed to parse L1_RPC URL: {e}"))?,
+        );
         let mock_mode = env::var("OP_SUCCINCT_MOCK")
             .unwrap_or("false".to_string())
             .parse::<bool>()
             .unwrap_or(false);
-        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
+        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_client, mock_mode };
         let maybe_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_preimage_data,
-            oracle.clone(),
+            oracle.as_ref(),
             canoe_provider,
             CanoeVerifierAddressFetcherDeployedByEigenLabs {},
         )
