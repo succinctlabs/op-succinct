@@ -43,6 +43,10 @@ path = "bin/gen_sp1_test_artifacts.rs"
 name = "preflight"
 path = "bin/preflight.rs"
 
+[[bin]]
+name = "gen-hypercube-benches"
+path = "bin/gen_hypercube_benches.rs"
+
 [dependencies]
 
 # workspace
