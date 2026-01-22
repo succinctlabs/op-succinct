@@ -223,3 +223,49 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
+
+# Fix RwLockReadGuard PartialEq bug in reth-transaction-pool (must patch all v1.9.3 reth crates)
+[patch."https://github.com/paradigmxyz/reth"]
+reth-basic-payload-builder = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-chain-state = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-chainspec = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-codecs = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-codecs-derive = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-consensus = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-consensus-common = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-db-models = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-engine-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-errors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-ethereum-engine-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-ethereum-forks = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-ethereum-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-evm = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-execution-errors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-execution-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-metrics = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-network-peers = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-chainspec = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-consensus = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-evm = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-forks = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-payload-builder = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-optimism-txpool = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-payload-builder = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-payload-builder-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-payload-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-payload-util = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-payload-validator = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-primitives-traits = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-prune-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-revm = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-stages-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-static-file-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-storage-api = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-storage-errors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-tasks = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-transaction-pool = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-trie = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-trie-common = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-trie-sparse = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-zstd-compressors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
