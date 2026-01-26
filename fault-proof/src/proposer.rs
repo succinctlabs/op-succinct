@@ -1045,8 +1045,8 @@ where
                 Ok::<SP1Stdin, anyhow::Error>(sp1_stdin)
             })
         })
-            .await
-            .map_err(|e| anyhow::anyhow!("Witness generation task failed: {}", e))??;
+        .await
+        .map_err(|e| anyhow::anyhow!("Witness generation task failed: {}", e))??;
 
         Ok(sp1_stdin)
     }

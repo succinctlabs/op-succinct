@@ -133,8 +133,14 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 CeloToOpProviderAdapter(l2_provider.clone()),
             )
             .await?;
-            WitnessExecutorTrait::run(&executor, boot_info.clone(), pipeline, cursor, l2_provider)
-                .await?;
+            WitnessExecutorTrait::run(
+                &executor,
+                boot_info.clone(),
+                pipeline,
+                cursor,
+                l2_provider.to_oracle_l2_chain_provider(),
+            )
+            .await?;
         }
 
         // Extract the EigenDA preimage data

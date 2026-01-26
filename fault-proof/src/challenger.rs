@@ -416,7 +416,9 @@ where
         };
 
         for game in candidates {
-            if let Err(error) = self.submit_challenge_transaction(&game, self.config.disable_monitor_only).await {
+            if let Err(error) =
+                self.submit_challenge_transaction(&game, self.config.disable_monitor_only).await
+            {
                 if error.is_revert() {
                     tracing::error!(
                         game_index = %game.index,

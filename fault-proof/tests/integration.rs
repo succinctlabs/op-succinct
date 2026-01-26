@@ -826,7 +826,7 @@ mod integration {
             should_attempt_to_resolve: false,
             should_attempt_to_claim_bond: false,
         };
-        challenger.submit_challenge_transaction(&game_to_challenge).await?;
+        challenger.submit_challenge_transaction(&game_to_challenge, true).await?;
         info!("✓ Challenged game 3");
 
         // === PHASE 3: Resolve all 3 games and finalize the first 2 games ===

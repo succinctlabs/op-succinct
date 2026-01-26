@@ -368,13 +368,13 @@ impl OPSuccinctDataFetcher {
             .get(&rollup_config.l1_chain_id)
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                "No built-in L1 config exists for chain ID {}.\n\
+                    "No built-in L1 config exists for chain ID {}.\n\
                  To proceed, either:\n\
                  • Create a config file at: {}\n\
                  • Or set L1_CONFIG_DIR to the directory containing <chain_id>.json",
-                rollup_config.l1_chain_id,
-                l1_config_path.display()
-            )
+                    rollup_config.l1_chain_id,
+                    l1_config_path.display()
+                )
             })?
             .clone();
 
