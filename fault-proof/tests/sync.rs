@@ -1,7 +1,7 @@
 pub mod common;
 
 #[cfg(feature = "integration")]
-mod sync {
+mod proposer_sync {
     use std::collections::HashMap;
 
     use crate::common::{
@@ -116,7 +116,9 @@ mod sync {
     #[case::noanch_five_games_three_branches(5, &[], &[M, 0, 1, 0, 0], &[1, 1, 1, 4, 3], Some(3), 5)] // Branches: M->0->1->2, 0->3, 0->4, Blocks: 0->1->2->3, 1->5, 1->4
     #[case::anch_single_game_default_interval(1, &[0], &[M], &[], Some(0), 1)]
     #[case::anch_two_games_same_branch(2, &[0, 1], &[M, 0], &[], Some(1), 2)]
-    #[case::anch_two_games_same_parent_diff_intervals(2, &[0], &[M, M], &[1, 2], Some(0), 1)]
+    #[case::anch_two_games_genesis_parent_override(2, &[0], &[M, M], &[1, 2], Some(1), 2)] // M->0(anchor), M->1, game 1 overrides (genesis, higher block)
+    #[case::anch_lower_parent_override(4, &[0, 1], &[M, 0, 1, 0], &[1, 1, 1, 3], Some(3), 4)] // M->0->1(anchor)->2, 0->3, game 3 overrides (lower parent, higher block)
+    #[case::anch_no_override_lower_block(4, &[0, 1], &[M, 0, 1, 0], &[1, 1, 2, 2], Some(2), 4)] // M->0->1(anchor)->2, 0->3, no override (game 3 block < game 2)
     #[case::anch_five_games_two_branches(5, &[0, 1], &[M, 0, 1, 0, 3], &[1, 1, 1, 2, 2], Some(2), 3)]
     #[tokio::test]
     async fn test_sync_state_happy_paths(
@@ -1383,6 +1385,702 @@ mod sync {
             "Game 0: should_attempt_to_claim_bond should be false (credit = 0)"
         );
         tracing::info!("✓ Case 3: DEFENDER_WINS + finalized + credit = 0 → should_attempt_to_claim_bond = false");
+
+        Ok(())
+    }
+
+    /// Verifies that defense tasks are spawned in deadline-ascending order.
+    ///
+    /// This test creates 2 games, then challenges them in reverse order (game 1 first, then
+    /// game 0). Since the deadline is reset to `challenge_time + MAX_PROVE_DURATION` on challenge,
+    /// the game challenged first (game 1) will have the earliest deadline.
+    ///
+    /// Timeline:
+    /// - Game 0: Created at T0
+    /// - Game 1: Created at T0 + 100s
+    /// - Game 1: Challenged first → deadline = T_challenge + MAX_PROVE_DURATION
+    /// - Game 0: Challenged second → deadline = (T_challenge + ε) + MAX_PROVE_DURATION
+    ///
+    /// Result: game_1.deadline < game_0.deadline
+    /// Expected defense order: Game 1 first (earliest deadline)
+    ///
+    /// Note: This test only verifies that defense tasks are spawned for challenged games with
+    /// correct deadline ordering. It does not wait for proving to complete, as the actual proving
+    /// would fail in the Anvil test environment (no real L1 RPC).
+    #[tokio::test]
+    async fn test_defense_tasks_prioritize_earliest_deadline() -> Result<()> {
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+
+        let proposer = env.init_proposer().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let time_gap = 100u64; // 100 seconds between game creations
+        let mut game_addresses = Vec::new();
+
+        // Create 2 games with increasing deadlines (time gap between creation)
+        for i in 0..2u64 {
+            let block = starting_l2_block + 1 + i;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, M, init_bond).await?;
+            let (_, address) = env.last_game_info().await?;
+            game_addresses.push(address);
+            tracing::info!("✓ Created game {i} at block {block}");
+
+            // Add time gap before next game (except after last game)
+            if i < 1 {
+                env.warp_time(time_gap).await?;
+            }
+        }
+
+        // Challenge games in REVERSE creation order (game 1 first, then game 0).
+        // Since deadline = challenge_time + MAX_PROVE_DURATION, game 1 will have the earlier
+        // deadline.
+        env.challenge_game(game_addresses[1]).await?;
+        tracing::info!("✓ Challenged game 1 FIRST (will have earlier deadline)");
+
+        env.challenge_game(game_addresses[0]).await?;
+        tracing::info!("✓ Challenged game 0 SECOND (will have later deadline)");
+
+        // Sync state to update proposal status
+        proposer.sync_state().await?;
+
+        // Verify both games are challenged
+        for i in 0..2u64 {
+            let game = proposer.get_game(U256::from(i)).await.unwrap();
+            assert_eq!(
+                game.proposal_status,
+                ProposalStatus::Challenged,
+                "Game {i} should be challenged"
+            );
+        }
+
+        // Verify deadlines are in expected order (game 1 < game 0)
+        let game_0 = proposer.get_game(U256::from(0)).await.unwrap();
+        let game_1 = proposer.get_game(U256::from(1)).await.unwrap();
+
+        assert!(
+            game_1.deadline < game_0.deadline,
+            "Game 1 should have earlier deadline than game 0: {} < {}",
+            game_1.deadline,
+            game_0.deadline
+        );
+
+        tracing::info!("Deadlines - Game 0: {}, Game 1: {}", game_0.deadline, game_1.deadline);
+
+        // Spawn defense tasks - with max_concurrent_defense_tasks=1, only the earliest deadline
+        // game (game 1) should be selected for defense.
+        let spawned = proposer.spawn_defense_tasks_for_test().await?;
+        assert!(spawned, "Should have spawned at least one defense task");
+
+        // Verify the defense task was spawned for game 1 (earliest deadline).
+        let active_defense_addresses = proposer.get_active_defense_game_addresses().await;
+        assert_eq!(
+            active_defense_addresses.len(),
+            1,
+            "Should have exactly 1 active defense task (max_concurrent_defense_tasks=1)"
+        );
+        assert_eq!(
+            active_defense_addresses[0], game_addresses[1],
+            "Defense task should be for game 1 (earliest deadline)"
+        );
+
+        tracing::info!("✓ Defense task correctly spawned for game 1: {:?}", game_addresses[1]);
+
+        Ok(())
+    }
+}
+
+#[cfg(feature = "integration")]
+mod challenger_sync {
+    use crate::common::{
+        constants::{
+            CHALLENGER_ADDRESS, DISPUTE_GAME_FINALITY_DELAY_SECONDS, MAX_CHALLENGE_DURATION,
+            MAX_PROVE_DURATION, MOCK_PERMISSIONED_GAME_TYPE, TEST_GAME_TYPE,
+        },
+        TestEnvironment,
+    };
+    use alloy_primitives::{Bytes, FixedBytes, U256};
+    use alloy_sol_types::{SolCall, SolValue};
+    use anyhow::{Context, Result};
+    use fault_proof::{
+        challenger::{Game, OPSuccinctChallenger},
+        contract::{GameStatus, ProposalStatus},
+    };
+    use op_succinct_bindings::dispute_game_factory::DisputeGameFactory;
+    use rand::Rng;
+    use rstest::rstest;
+
+    const M: u32 = u32::MAX;
+
+    async fn setup(
+    ) -> Result<(TestEnvironment, OPSuccinctChallenger<fault_proof::L1Provider>, U256)> {
+        let env = TestEnvironment::setup().await?;
+        let factory = env.factory()?;
+        let init_bond = factory.initBonds(TEST_GAME_TYPE).call().await?;
+        let challenger = env.init_challenger().await?;
+        Ok((env, challenger, init_bond))
+    }
+
+    async fn cached_game(
+        challenger: &OPSuccinctChallenger<fault_proof::L1Provider>,
+        index: u64,
+    ) -> Result<Game> {
+        challenger
+            .get_game(U256::from(index))
+            .await
+            .with_context(|| format!("game {index} missing from cache"))
+    }
+
+    /// Helper to create an invalid (random) output root.
+    fn random_invalid_root() -> FixedBytes<32> {
+        let mut rng = rand::rng();
+        let mut bytes = [0u8; 32];
+        rng.fill(&mut bytes);
+        FixedBytes::<32>::from(bytes)
+    }
+
+    // ==================== Basic Sync Tests ====================
+
+    /// Verifies challenger state sync with varying game counts.
+    #[rstest]
+    #[case::zero_games(0)]
+    #[case::single_game(1)]
+    #[case::multiple_games(3)]
+    #[tokio::test]
+    async fn test_sync_state_game_count(#[case] num_games: u64) -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let mut parent_id = M;
+
+        for i in 0..num_games {
+            let block = starting_l2_block + 1 + i;
+            let root_claim = env.compute_output_root_at_block(block).await?;
+            env.create_game(root_claim, block, parent_id, init_bond).await?;
+            parent_id = if parent_id == M { 0 } else { parent_id + 1 };
+        }
+
+        challenger.sync_state().await?;
+
+        assert_eq!(
+            challenger.cached_game_count().await,
+            num_games as usize,
+            "Should have {num_games} games cached"
+        );
+
+        for i in 0..num_games {
+            let game = cached_game(&challenger, i).await?;
+            assert_eq!(game.index, U256::from(i));
+            assert!(!game.is_invalid, "Valid output root should not be marked invalid");
+        }
+
+        Ok(())
+    }
+
+    /// Verifies that re-syncing doesn't duplicate games.
+    #[tokio::test]
+    async fn test_sync_state_idempotent() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+        let root_claim = env.compute_output_root_at_block(block).await?;
+        env.create_game(root_claim, block, M, init_bond).await?;
+
+        challenger.sync_state().await?;
+        challenger.sync_state().await?;
+
+        assert_eq!(challenger.cached_game_count().await, 1, "Should still have only 1 game");
+
+        Ok(())
+    }
+
+    // ==================== Game Filtering Tests ====================
+
+    /// Verifies that games with unsupported game types are filtered out.
+    #[tokio::test]
+    async fn test_sync_state_filters_unsupported_game_type() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        env.setup_legacy_game_type(MOCK_PERMISSIONED_GAME_TYPE, init_bond).await?;
+        env.set_respected_game_type(TEST_GAME_TYPE).await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create a legacy game (index 0)
+        let block = starting_l2_block + 1;
+        let root = env.compute_output_root_at_block(block).await?;
+        let extra_data = <(U256, u32)>::abi_encode_packed(&(U256::from(block), M));
+        let create_call = DisputeGameFactory::createCall {
+            _gameType: MOCK_PERMISSIONED_GAME_TYPE,
+            _rootClaim: root,
+            _extraData: Bytes::from(extra_data),
+        };
+        env.send_factory_tx(create_call.abi_encode(), Some(init_bond)).await?;
+
+        // Create a valid game (index 1)
+        let block2 = starting_l2_block + 2;
+        let root2 = env.compute_output_root_at_block(block2).await?;
+        env.create_game(root2, block2, M, init_bond).await?;
+
+        challenger.sync_state().await?;
+
+        assert_eq!(
+            challenger.cached_game_count().await,
+            1,
+            "Only valid game type should be cached"
+        );
+        assert!(
+            challenger.get_game(U256::from(0)).await.is_none(),
+            "Legacy game should be filtered"
+        );
+        assert!(challenger.get_game(U256::from(1)).await.is_some(), "Valid game should be cached");
+
+        Ok(())
+    }
+
+    /// Verifies that games whose type was not respected when created are filtered.
+    #[tokio::test]
+    async fn test_sync_state_filters_non_respected_game_type() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        env.setup_legacy_game_type(MOCK_PERMISSIONED_GAME_TYPE, init_bond).await?;
+        env.set_respected_game_type(MOCK_PERMISSIONED_GAME_TYPE).await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create game with TEST_GAME_TYPE (not respected at creation)
+        let block = starting_l2_block + 1;
+        let root = env.compute_output_root_at_block(block).await?;
+        env.create_game(root, block, M, init_bond).await?;
+
+        // Switch respected type
+        env.set_respected_game_type(TEST_GAME_TYPE).await?;
+
+        // Create game with TEST_GAME_TYPE (now respected)
+        let block2 = starting_l2_block + 2;
+        let root2 = env.compute_output_root_at_block(block2).await?;
+        env.create_game(root2, block2, M, init_bond).await?;
+
+        challenger.sync_state().await?;
+
+        assert_eq!(challenger.cached_game_count().await, 1, "Only respected game should be cached");
+        assert!(
+            challenger.get_game(U256::from(0)).await.is_none(),
+            "Non-respected game should be filtered"
+        );
+        assert!(
+            challenger.get_game(U256::from(1)).await.is_some(),
+            "Respected game should be cached"
+        );
+
+        Ok(())
+    }
+
+    // ==================== Challenge Marking Tests ====================
+
+    /// Verifies `should_attempt_to_challenge` flag across different game states.
+    ///
+    /// Case guide:
+    /// - "invalid_root": Game with invalid output root → should challenge
+    /// - "valid_root": Game with valid output root → should NOT challenge
+    /// - "already_challenged": Invalid game already challenged → should NOT challenge
+    #[rstest]
+    #[case::invalid_root_should_challenge(true, false, true)]
+    #[case::valid_root_should_not_challenge(false, false, false)]
+    #[case::already_challenged_should_not_challenge(true, true, false)]
+    #[tokio::test]
+    async fn test_challenge_marking_single_game(
+        #[case] is_invalid: bool,
+        #[case] already_challenged: bool,
+        #[case] expected_should_challenge: bool,
+    ) -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+
+        let root = if is_invalid {
+            random_invalid_root()
+        } else {
+            env.compute_output_root_at_block(block).await?
+        };
+        env.create_game(root, block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        if already_challenged {
+            env.challenge_game(game_address).await?;
+        }
+
+        challenger.sync_state().await?;
+
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(game.is_invalid, is_invalid);
+        assert_eq!(
+            game.should_attempt_to_challenge, expected_should_challenge,
+            "should_attempt_to_challenge mismatch for is_invalid={is_invalid}, already_challenged={already_challenged}"
+        );
+
+        Ok(())
+    }
+
+    /// Verifies multiple invalid games are all marked for challenge.
+    #[tokio::test]
+    async fn test_challenge_marking_multiple_invalid_games() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        for i in 0..2u64 {
+            let block = starting_l2_block + 1 + i;
+            env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        }
+
+        challenger.sync_state().await?;
+
+        for i in 0..2u64 {
+            let game = cached_game(&challenger, i).await?;
+            assert!(game.is_invalid, "Game {i} should be invalid");
+            assert!(game.should_attempt_to_challenge, "Game {i} should be marked for challenge");
+        }
+
+        Ok(())
+    }
+
+    /// Verifies CHALLENGER_WINS cascade: when parent becomes CHALLENGER_WINS,
+    /// child games should be marked for challenge.
+    ///
+    /// Topology: M -> 0 (invalid, becomes CHALLENGER_WINS) -> 1 (valid child)
+    ///
+    /// Timing strategy: Create child game DURING the prove period (not after resolution)
+    /// so its challenge window is still open when parent resolves. We use a two-stage
+    /// time warp to ensure child is created with a fresh challenge window.
+    #[tokio::test]
+    async fn test_challenge_marking_parent_challenger_wins() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create game 0 (invalid) and challenge it
+        env.create_game(random_invalid_root(), starting_l2_block + 1, M, init_bond).await?;
+        let (_, game0_addr) = env.last_game_info().await?;
+        env.challenge_game(game0_addr).await?;
+
+        // Warp most of the prove duration, leaving 60 seconds
+        env.warp_time(MAX_PROVE_DURATION - 60).await?;
+
+        // Create child game now - it gets a fresh MAX_CHALLENGE_DURATION (1 hour) window
+        let root1 = env.compute_output_root_at_block(starting_l2_block + 2).await?;
+        env.create_game(root1, starting_l2_block + 2, 0, init_bond).await?;
+
+        // Warp past parent's prove deadline (60 + 61 = 121 seconds more)
+        env.warp_time(61).await?;
+
+        // Resolve parent as CHALLENGER_WINS
+        env.resolve_game(game0_addr).await?;
+
+        // Child still has ~59 minutes left on its challenge window
+        // Sync: child of CHALLENGER_WINS should be marked for challenge
+        challenger.sync_state().await?;
+        assert!(
+            cached_game(&challenger, 1).await?.should_attempt_to_challenge,
+            "Child of CHALLENGER_WINS should be marked for challenge"
+        );
+
+        Ok(())
+    }
+
+    // ==================== Resolution Marking Tests ====================
+
+    /// Verifies `should_attempt_to_resolve` flag across different conditions.
+    ///
+    /// Conditions for resolution:
+    /// - Game is challenged
+    /// - Game deadline has passed (game_over)
+    /// - Parent is resolved (for non-root games)
+    /// - Game was challenged by our address (own game)
+    #[rstest]
+    #[case::deadline_passed(true)]
+    #[case::deadline_not_passed(false)]
+    #[tokio::test]
+    async fn test_resolution_marking(#[case] expected_should_resolve: bool) -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        env.challenge_game(game_address).await?;
+
+        if expected_should_resolve {
+            env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        }
+
+        challenger.sync_state().await?;
+
+        let game = cached_game(&challenger, 0).await?;
+        assert_eq!(game.proposal_status, ProposalStatus::Challenged);
+        assert_eq!(game.should_attempt_to_resolve, expected_should_resolve);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_no_challenge_after_deadline() -> Result<()> {
+        use crate::common::constants::MAX_CHALLENGE_DURATION;
+
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+
+        challenger.sync_state().await?;
+
+        let game = cached_game(&challenger, 0).await?;
+        assert!(game.is_invalid, "Game should be marked invalid");
+        assert!(!game.should_attempt_to_challenge, "Should not challenge after deadline");
+
+        Ok(())
+    }
+
+    /// Verifies that child games with unresolved parents are NOT marked for resolution.
+    ///
+    /// Topology: M -> 0 (unresolved) -> 1 (challenged child)
+    #[tokio::test]
+    async fn test_resolution_marking_parent_not_resolved() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create parent (index 0)
+        let block1 = starting_l2_block + 1;
+        let root1 = env.compute_output_root_at_block(block1).await?;
+        env.create_game(root1, block1, M, init_bond).await?;
+
+        // Create child (index 1) with invalid root
+        let block2 = starting_l2_block + 2;
+        env.create_game(random_invalid_root(), block2, 0, init_bond).await?;
+        let (_, child_address) = env.last_game_info().await?;
+
+        env.challenge_game(child_address).await?;
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+
+        challenger.sync_state().await?;
+
+        let child = cached_game(&challenger, 1).await?;
+        assert!(
+            !child.should_attempt_to_resolve,
+            "Child with unresolved parent should NOT be marked for resolution"
+        );
+
+        Ok(())
+    }
+
+    /// Verifies that child games with resolved parents ARE marked for resolution.
+    ///
+    /// Topology: M -> 0 (CHALLENGER_WINS, resolved) -> 1 (challenged child)
+    #[tokio::test]
+    async fn test_resolution_marking_parent_resolved() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Create parent (index 0) with invalid root
+        let block1 = starting_l2_block + 1;
+        env.create_game(random_invalid_root(), block1, M, init_bond).await?;
+        let (_, parent_address) = env.last_game_info().await?;
+
+        // Create child (index 1) with invalid root
+        let block2 = starting_l2_block + 2;
+        env.create_game(random_invalid_root(), block2, 0, init_bond).await?;
+        let (_, child_address) = env.last_game_info().await?;
+
+        // Challenge both games
+        env.challenge_game(parent_address).await?;
+        env.challenge_game(child_address).await?;
+
+        // Resolve parent as CHALLENGER_WINS
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(parent_address).await?;
+
+        challenger.sync_state().await?;
+
+        let child = cached_game(&challenger, 1).await?;
+        assert!(
+            child.should_attempt_to_resolve,
+            "Child with resolved parent should be marked for resolution"
+        );
+
+        Ok(())
+    }
+
+    // ==================== Bond Claim Marking Tests ====================
+
+    /// Verifies `should_attempt_to_claim_bond` flag across different states.
+    ///
+    /// Conditions for bond claim:
+    /// - Game status is CHALLENGER_WINS
+    /// - Game is finalized (past finality delay)
+    /// - Credit > 0
+    #[rstest]
+    #[case::finalized_with_credit(true, false, true)]
+    #[case::not_finalized(false, false, false)]
+    #[case::finalized_no_credit(true, true, false)]
+    #[tokio::test]
+    async fn test_bond_claim_marking(
+        #[case] finalized: bool,
+        #[case] claim_bond: bool,
+        #[case] expected_should_claim: bool,
+    ) -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+        env.create_game(random_invalid_root(), block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        // Challenge, resolve as CHALLENGER_WINS
+        env.challenge_game(game_address).await?;
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(game_address).await?;
+
+        if finalized {
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        }
+
+        if claim_bond {
+            env.claim_bond(game_address, CHALLENGER_ADDRESS).await?;
+        }
+
+        challenger.sync_state().await?;
+
+        if claim_bond {
+            // Game should be evicted after bond claim
+            assert!(
+                challenger.get_game(U256::from(0)).await.is_none(),
+                "Game should be evicted after bond claim"
+            );
+        } else {
+            let game = cached_game(&challenger, 0).await?;
+            assert_eq!(game.status, GameStatus::CHALLENGER_WINS);
+            assert_eq!(
+                game.should_attempt_to_claim_bond, expected_should_claim,
+                "should_attempt_to_claim_bond mismatch"
+            );
+        }
+
+        Ok(())
+    }
+
+    // ==================== Game Eviction Tests ====================
+
+    /// Verifies game eviction based on final status.
+    ///
+    /// Eviction rules:
+    /// - DEFENDER_WINS: Always evicted
+    /// - CHALLENGER_WINS + finalized + credit = 0: Evicted
+    #[rstest]
+    #[case::defender_wins(false)]
+    #[case::challenger_wins_no_credit(true)]
+    #[tokio::test]
+    async fn test_game_eviction(#[case] is_invalid: bool) -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+        let block = starting_l2_block + 1;
+
+        let root = if is_invalid {
+            random_invalid_root()
+        } else {
+            env.compute_output_root_at_block(block).await?
+        };
+        env.create_game(root, block, M, init_bond).await?;
+        let (_, game_address) = env.last_game_info().await?;
+
+        // Initial sync
+        challenger.sync_state().await?;
+        assert_eq!(challenger.cached_game_count().await, 1);
+
+        if is_invalid {
+            // Challenge → resolve as CHALLENGER_WINS → claim bond
+            env.challenge_game(game_address).await?;
+            env.warp_time(MAX_PROVE_DURATION + 1).await?;
+            env.resolve_game(game_address).await?;
+            env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+            env.claim_bond(game_address, CHALLENGER_ADDRESS).await?;
+        } else {
+            // No challenge → resolve as DEFENDER_WINS
+            env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+            env.resolve_game(game_address).await?;
+        }
+
+        challenger.sync_state().await?;
+
+        assert!(challenger.get_game(U256::from(0)).await.is_none(), "Game should be evicted");
+
+        Ok(())
+    }
+
+    /// Verifies correct eviction when multiple games have different final states.
+    ///
+    /// Topology: M -> 0 (DEFENDER_WINS), M -> 1 (CHALLENGER_WINS, claimed), M -> 2 (IN_PROGRESS)
+    #[tokio::test]
+    async fn test_multi_branch_eviction() -> Result<()> {
+        let (env, challenger, init_bond) = setup().await?;
+
+        let starting_l2_block = env.anvil.starting_l2_block_number;
+
+        // Game 0: valid → DEFENDER_WINS
+        let root0 = env.compute_output_root_at_block(starting_l2_block + 1).await?;
+        env.create_game(root0, starting_l2_block + 1, M, init_bond).await?;
+        let (_, addr0) = env.last_game_info().await?;
+
+        // Game 1: invalid → CHALLENGER_WINS
+        env.create_game(random_invalid_root(), starting_l2_block + 2, M, init_bond).await?;
+        let (_, addr1) = env.last_game_info().await?;
+
+        // Game 2: valid, stays IN_PROGRESS
+        let root2 = env.compute_output_root_at_block(starting_l2_block + 3).await?;
+        env.create_game(root2, starting_l2_block + 3, M, init_bond).await?;
+
+        // Initial sync
+        challenger.sync_state().await?;
+        assert_eq!(challenger.cached_game_count().await, 3);
+
+        // Challenge game 1 first (before time warp closes challenge window)
+        env.challenge_game(addr1).await?;
+
+        // Resolve game 0 as DEFENDER_WINS (no challenge, so it wins)
+        env.warp_time(MAX_CHALLENGE_DURATION + 1).await?;
+        env.resolve_game(addr0).await?;
+
+        // Resolve game 1 as CHALLENGER_WINS (already challenged, deadline passed)
+        env.warp_time(MAX_PROVE_DURATION + 1).await?;
+        env.resolve_game(addr1).await?;
+        env.warp_time(DISPUTE_GAME_FINALITY_DELAY_SECONDS + 1).await?;
+        env.claim_bond(addr1, CHALLENGER_ADDRESS).await?;
+
+        // Sync and verify eviction
+        challenger.sync_state().await?;
+
+        assert!(
+            challenger.get_game(U256::from(0)).await.is_none(),
+            "DEFENDER_WINS should be evicted"
+        );
+        assert!(
+            challenger.get_game(U256::from(1)).await.is_none(),
+            "CHALLENGER_WINS with claimed bond should be evicted"
+        );
+        assert!(
+            challenger.get_game(U256::from(2)).await.is_some(),
+            "IN_PROGRESS game should be retained"
+        );
 
         Ok(())
     }

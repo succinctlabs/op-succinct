@@ -37,6 +37,7 @@ Create a `.env.proposer` file in the `fault-proof` directory with all required v
 |----------|-------------|
 | `L1_RPC` | L1 RPC endpoint URL |
 | `L2_RPC` | L2 RPC endpoint URL |
+| `ANCHOR_STATE_REGISTRY_ADDRESS` | Address of the AnchorStateRegistry contract |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. (Set to `0x0000000000000000000000000000000000000000000000000000000000000001` if not using fast finality mode) |
@@ -96,7 +97,9 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `USE_KMS_REQUESTER` | Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. | `false` |
 | `MAX_PRICE_PER_PGU` | The maximum price per pgu for proving. | `300,000,000` |
 | `MIN_AUCTION_PERIOD` | The minimum auction period (in seconds). | `1` |
-| `TIMEOUT` | The timeout to use for proving (in seconds). | `14,400` (4 hours) |
+| `TIMEOUT` | The proving timeout (in seconds). Used as the server-side deadline for proof requests and as the client-side maximum wait time when polling for proof completion. | `14,400` (4 hours) |
+| `NETWORK_CALLS_TIMEOUT` | The timeout for individual network API calls like `get_proof_status` (in seconds). If a single call exceeds this, it will be retried. | `15` |
+| `AUCTION_TIMEOUT` | The auction timeout (in seconds). If a proof request remains in "Requested" state (no prover picked it up) beyond this duration after creation, the request is canceled. | `60` (1 minute) |
 | `RANGE_CYCLE_LIMIT` | The cycle limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_GAS_LIMIT` | The gas limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_SPLIT_COUNT` | The number of splits to use for range proofs. | `1` |
@@ -104,29 +107,32 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `AGG_CYCLE_LIMIT` | The cycle limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |
+| `BACKUP_PATH` | Path to backup file for persisting proposer state across restarts. Enables faster recovery by restoring cached state instead of re-syncing from the factory. | (disabled) |
 
 ```env
 # Required Configuration
-L1_RPC=                  # L1 RPC endpoint URL
-L2_RPC=                  # L2 RPC endpoint URL
-FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract (obtained from deployment)
-GAME_TYPE=               # Type identifier for the dispute game (must match factory configuration)
+L1_RPC=                          # L1 RPC endpoint URL
+L2_RPC=                          # L2 RPC endpoint URL
+ANCHOR_STATE_REGISTRY_ADDRESS=   # Address of the AnchorStateRegistry contract
+FACTORY_ADDRESS=                 # Address of the DisputeGameFactory contract (obtained from deployment)
+GAME_TYPE=                       # Type identifier for the dispute game (must match factory configuration)
 
 # Transaction Signing Configuration (Choose one)
 # Option 1: Private Key Signer
-PRIVATE_KEY=             # Private key for transaction signing
+PRIVATE_KEY=                     # Private key for transaction signing
 # Option 2: Web3 Signer
-SIGNER_URL=              # URL of the web3 signer service
-SIGNER_ADDRESS=          # Address of the account managed by the web3 signer
+SIGNER_URL=                      # URL of the web3 signer service
+SIGNER_ADDRESS=                  # Address of the account managed by the web3 signer
 
 # Optional Configuration
-MOCK_MODE=false                          # Whether to use mock mode
-FAST_FINALITY_MODE=false                 # Whether to use fast finality mode
-RANGE_PROOF_STRATEGY=reserved            # Set to hosted to use hosted proof strategy
-AGG_PROOF_STRATEGY=reserved              # Set to hosted to use hosted proof strategy
-PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
-FETCH_INTERVAL=30                        # Polling interval in seconds
-PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
+MOCK_MODE=false                  # Whether to use mock mode
+FAST_FINALITY_MODE=false         # Whether to use fast finality mode
+RANGE_PROOF_STRATEGY=reserved    # Set to hosted to use hosted proof strategy
+AGG_PROOF_STRATEGY=reserved      # Set to hosted to use hosted proof strategy
+PROPOSAL_INTERVAL_IN_BLOCKS=1800 # Number of L2 blocks between proposals
+FETCH_INTERVAL=30                # Polling interval in seconds
+PROPOSER_METRICS_PORT=9000       # The port to expose metrics on
+BACKUP_PATH=                     # persist state across restarts (e.g. /backup/proposer_state.json)
 ```
 
 ### Configuration Steps

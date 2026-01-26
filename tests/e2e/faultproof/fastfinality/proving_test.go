@@ -1,3 +1,5 @@
+// These tests intentionally omit TestMain because each test creates its own
+// isolated system via NewFaultProofSystem() with per-test configuration.
 package fpfastfinality
 
 import (
@@ -11,41 +13,39 @@ import (
 )
 
 func TestFaultProofProposer_RangeSplitOne(gt *testing.T) {
-	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg := opspresets.FastFinalityFPProposerConfig()
 	cfg.ProposalIntervalInBlocks = 40
 	cfg.RangeSplitCount = 1
 	cfg.MaxConcurrentRangeProofs = 1
-	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute, cfg)
+	waitForDefenderWinsAtIndex(gt, 0, utils.ShortTimeout(), cfg)
 }
 
 func TestFaultProofProposer_RangeSplitSixteen(gt *testing.T) {
-	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg := opspresets.FastFinalityFPProposerConfig()
 	cfg.ProposalIntervalInBlocks = 40
 	cfg.RangeSplitCount = 16
 	cfg.MaxConcurrentRangeProofs = 16
-	waitForDefenderWinsAtIndex(gt, 0, 10*time.Minute, cfg)
+	waitForDefenderWinsAtIndex(gt, 0, utils.ShortTimeout(), cfg)
 }
 
 func TestFaultProofProposer_RangeSplitTwo_ThreeGames(gt *testing.T) {
-	cfg := opspresets.FastFinalityFaultProofConfig()
+	cfg := opspresets.FastFinalityFPProposerConfig()
 	cfg.RangeSplitCount = 2
 	cfg.MaxConcurrentRangeProofs = 2
 	cfg.FastFinalityProvingLimit = 4
-	waitForDefenderWinsAtIndex(gt, 2, 60*time.Minute, cfg)
+	waitForDefenderWinsAtIndex(gt, 2, utils.LongTimeout(), cfg)
 }
 
-func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration, cfg opspresets.FaultProofConfig) {
-	t := devtest.SerialT(gt)
-	sys := opspresets.NewFaultProofSystem(t, cfg)
+func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration, cfg opspresets.FPProposerConfig) {
+	t := devtest.ParallelT(gt)
+	sys := opspresets.NewFaultProofSystem(t, cfg, opspresets.DefaultL2ChainConfig())
 	require := t.Require()
 	logger := t.Logger()
 	ctx, cancel := context.WithTimeout(t.Ctx(), timeout)
 	defer cancel()
 
-	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
-	logger.Info("Dispute Game Factory Address:", "address", dgfAddr.Hex())
-	dgf, err := utils.NewDgfClient(sys.L1EL.EthClient(), dgfAddr)
-	require.NoError(err, "failed to create Dispute Game Factory client")
+	dgf := sys.DgfClient(t)
+	logger.Info("Waiting for game creation", "targetIndex", index)
 
 	utils.WaitForGameCount(ctx, t, dgf, uint64(index+1))
 
@@ -56,5 +56,5 @@ func waitForDefenderWinsAtIndex(gt *testing.T, index int, timeout time.Duration,
 	require.NoError(err, "failed to create Fault Dispute Game client")
 
 	utils.WaitForDefenderWins(ctx, t, fdg)
-	t.Logger().Info("Dispute game defender wins", "gameIndex", index)
+	logger.Info("Dispute game defender wins", "gameIndex", index)
 }

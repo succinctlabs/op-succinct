@@ -87,6 +87,52 @@ pub enum ProposerGauge {
         message = "Total SP1 gas used in last successful game proving"
     )]
     TotalSP1Gas,
+    #[strum(
+        serialize = "op_succinct_fp_proof_timeout_error",
+        message = "Total number of proving timeout errors"
+    )]
+    ProvingTimeoutError,
+    #[strum(
+        serialize = "op_succinct_fp_auction_timeout_error",
+        message = "Total number of auction timeout errors"
+    )]
+    AuctionTimeoutError,
+    #[strum(
+        serialize = "op_succinct_fp_deadline_exceeded_error",
+        message = "Total number of deadline exceeded errors"
+    )]
+    DeadlineExceededError,
+    #[strum(
+        serialize = "op_succinct_fp_deadline_approaching",
+        message = "Total number of deadline approaching warnings"
+    )]
+    DeadlineApproaching,
+    #[strum(
+        serialize = "op_succinct_fp_network_call_timeout",
+        message = "Total number of network call timeouts"
+    )]
+    NetworkCallTimeout,
+    // Backup metrics
+    #[strum(
+        serialize = "op_succinct_fp_backup_save_success",
+        message = "Total number of successful backup saves"
+    )]
+    BackupSaveSuccess,
+    #[strum(
+        serialize = "op_succinct_fp_backup_save_error",
+        message = "Total number of backup save errors"
+    )]
+    BackupSaveError,
+    #[strum(
+        serialize = "op_succinct_fp_backup_restore_success",
+        message = "Total number of successful backup restores"
+    )]
+    BackupRestoreSuccess,
+    #[strum(
+        serialize = "op_succinct_fp_backup_restore_error",
+        message = "Total number of backup restore errors"
+    )]
+    BackupRestoreError,
 }
 
 impl MetricsGauge for ProposerGauge {}

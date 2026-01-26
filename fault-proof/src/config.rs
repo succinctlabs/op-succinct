@@ -1,6 +1,7 @@
 use std::{
     env,
     num::{NonZeroU8, NonZeroUsize},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -19,6 +20,9 @@ pub struct ProposerConfig {
     /// The L2 RPC URL.
     pub l2_rpc: Url,
 
+    /// The address of the AnchorStateRegistry contract.
+    pub anchor_state_registry_address: Address,
+
     /// The address of the factory contract.
     pub factory_address: Address,
 
@@ -27,15 +31,6 @@ pub struct ProposerConfig {
 
     /// Whether to use fast finality mode.
     pub fast_finality_mode: bool,
-
-    /// Proof fulfillment strategy for range proofs.
-    pub range_proof_strategy: FulfillmentStrategy,
-
-    /// Proof fulfillment strategy for aggregation proofs.
-    pub agg_proof_strategy: FulfillmentStrategy,
-
-    /// Proof mode for aggregation proofs (Groth16 or Plonk).
-    pub agg_proof_mode: SP1ProofMode,
 
     /// The interval in blocks between proposing new games.
     pub proposal_interval_in_blocks: u64,
@@ -69,21 +64,6 @@ pub struct ProposerConfig {
     /// plaintext private key.
     pub use_kms_requester: bool,
 
-    /// The maximum price per pgu for proving.
-    pub max_price_per_pgu: u64,
-
-    /// The minimum auction period (in seconds).
-    pub min_auction_period: u64,
-
-    /// The timeout to use for proving (in seconds).
-    pub timeout: u64,
-
-    /// The cycle limit to use for range proofs.
-    pub range_cycle_limit: u64,
-
-    /// The gas limit to use for range proofs.
-    pub range_gas_limit: u64,
-
     /// The number of segments to split the range into (1-16).
     pub range_split_count: RangeSplitCount,
 
@@ -93,14 +73,11 @@ pub struct ProposerConfig {
     /// on observed latency, and system resources before deviating from default.
     pub max_concurrent_range_proofs: NonZeroUsize,
 
-    /// The cycle limit to use for aggregation proofs.
-    pub agg_cycle_limit: u64,
+    /// Configuration for proof provider operations.
+    pub proof_provider: ProofProviderConfig,
 
-    /// The gas limit to use for aggregation proofs.
-    pub agg_gas_limit: u64,
-
-    /// The list of prover addresses that are allowed to bid on proof requests.
-    pub whitelist: Option<Vec<Address>>,
+    /// Optional path to backup file for persisting proposer state across restarts.
+    pub backup_path: Option<PathBuf>,
 }
 
 /// Helper function to parse a comma-separated list of addresses
@@ -128,26 +105,14 @@ impl ProposerConfig {
         Ok(Self {
             l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
             l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
+            anchor_state_registry_address: env::var("ANCHOR_STATE_REGISTRY_ADDRESS")?
+                .parse()
+                .expect("ANCHOR_STATE_REGISTRY_ADDRESS not set"),
             factory_address: env::var("FACTORY_ADDRESS")?.parse().expect("FACTORY_ADDRESS not set"),
             mock_mode: env::var("MOCK_MODE").unwrap_or("false".to_string()).parse()?,
             fast_finality_mode: env::var("FAST_FINALITY_MODE")
                 .unwrap_or("false".to_string())
                 .parse()?,
-            range_proof_strategy: parse_fulfillment_strategy(
-                env::var("RANGE_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
-            ),
-            agg_proof_strategy: parse_fulfillment_strategy(
-                env::var("AGG_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
-            ),
-            agg_proof_mode: if env::var("AGG_PROOF_MODE")
-                .unwrap_or("plonk".to_string())
-                .to_lowercase() ==
-                "groth16"
-            {
-                SP1ProofMode::Groth16
-            } else {
-                SP1ProofMode::Plonk
-            },
             proposal_interval_in_blocks: env::var("PROPOSAL_INTERVAL_IN_BLOCKS")
                 .unwrap_or("1800".to_string())
                 .parse()?,
@@ -168,28 +133,141 @@ impl ProposerConfig {
             use_kms_requester: env::var("USE_KMS_REQUESTER")
                 .unwrap_or("false".to_string())
                 .parse()?,
-            max_price_per_pgu: env::var("MAX_PRICE_PER_PGU")
-                .unwrap_or("300000000".to_string()) // 0.3 PROVE per billion PGU
-                .parse()?,
-            min_auction_period: env::var("MIN_AUCTION_PERIOD")
+            range_split_count: env::var("RANGE_SPLIT_COUNT").unwrap_or("1".to_string()).parse()?,
+            max_concurrent_range_proofs: env::var("MAX_CONCURRENT_RANGE_PROOFS")
                 .unwrap_or("1".to_string())
                 .parse()?,
+            proof_provider: ProofProviderConfig::from_env()?,
+            backup_path: env::var("BACKUP_PATH").ok().map(PathBuf::from),
+        })
+    }
+
+    /// Log the configuration using structured tracing fields.
+    pub fn log(&self) {
+        tracing::info!(
+            l1_rpc = %self.l1_rpc,
+            l2_rpc = %self.l2_rpc,
+            factory_address = %self.factory_address,
+            mock_mode = self.mock_mode,
+            fast_finality_mode = self.fast_finality_mode,
+            game_type = self.game_type,
+            proposal_interval_in_blocks = self.proposal_interval_in_blocks,
+            fetch_interval = self.fetch_interval,
+            max_concurrent_defense_tasks = self.max_concurrent_defense_tasks,
+            safe_db_fallback = self.safe_db_fallback,
+            metrics_port = self.metrics_port,
+            fast_finality_proving_limit = self.fast_finality_proving_limit,
+            use_kms_requester = self.use_kms_requester,
+            range_split_count = ?self.range_split_count,
+            max_concurrent_range_proofs = ?self.max_concurrent_range_proofs,
+            // Proof provider fields
+            timeout = self.proof_provider.timeout,
+            network_calls_timeout = self.proof_provider.network_calls_timeout,
+            auction_timeout = self.proof_provider.auction_timeout,
+            range_proof_strategy = ?self.proof_provider.range_proof_strategy,
+            agg_proof_strategy = ?self.proof_provider.agg_proof_strategy,
+            agg_proof_mode = ?self.proof_provider.agg_proof_mode,
+            range_cycle_limit = self.proof_provider.range_cycle_limit,
+            range_gas_limit = self.proof_provider.range_gas_limit,
+            agg_cycle_limit = self.proof_provider.agg_cycle_limit,
+            agg_gas_limit = self.proof_provider.agg_gas_limit,
+            max_price_per_pgu = self.proof_provider.max_price_per_pgu,
+            min_auction_period = self.proof_provider.min_auction_period,
+            whitelist = ?self.proof_provider.whitelist,
+            backup_path = ?self.backup_path,
+            "Proposer configuration loaded"
+        );
+    }
+}
+
+/// Configuration for proof provider operations (network calls, timeouts, limits).
+#[derive(Debug, Clone)]
+pub struct ProofProviderConfig {
+    /// The timeout for proving (in seconds). Used as the server-side deadline for proof requests
+    /// and as the client-side maximum wait time in `wait_for_proof`.
+    pub timeout: u64,
+
+    /// The timeout for individual network API calls like `get_proof_status` (in seconds).
+    /// If a single call exceeds this, it will be retried.
+    pub network_calls_timeout: u64,
+
+    /// The auction timeout (in seconds). If a proof request remains in "Requested" state
+    /// (no prover picked it up) beyond `created_at + auction_timeout`, the request is cancelled.
+    pub auction_timeout: u64,
+
+    /// Proof fulfillment strategy for range proofs.
+    pub range_proof_strategy: FulfillmentStrategy,
+
+    /// Proof fulfillment strategy for aggregation proofs.
+    pub agg_proof_strategy: FulfillmentStrategy,
+
+    /// Proof mode for aggregation proofs (Groth16 or Plonk).
+    pub agg_proof_mode: SP1ProofMode,
+
+    /// The cycle limit to use for range proofs.
+    pub range_cycle_limit: u64,
+
+    /// The gas limit to use for range proofs.
+    pub range_gas_limit: u64,
+
+    /// The cycle limit to use for aggregation proofs.
+    pub agg_cycle_limit: u64,
+
+    /// The gas limit to use for aggregation proofs.
+    pub agg_gas_limit: u64,
+
+    /// The maximum price per pgu for proving.
+    pub max_price_per_pgu: u64,
+
+    /// The minimum auction period (in seconds).
+    pub min_auction_period: u64,
+
+    /// The list of prover addresses that are allowed to bid on proof requests.
+    pub whitelist: Option<Vec<Address>>,
+}
+
+impl ProofProviderConfig {
+    pub fn from_env() -> Result<Self> {
+        Ok(Self {
             timeout: env::var("TIMEOUT").unwrap_or("14400".to_string()).parse()?, // 4 hours
+            network_calls_timeout: env::var("NETWORK_CALLS_TIMEOUT")
+                .unwrap_or("15".to_string())
+                .parse()?,
+            auction_timeout: env::var("AUCTION_TIMEOUT")
+                .unwrap_or("60".to_string()) // 1 minute
+                .parse()?,
+            range_proof_strategy: parse_fulfillment_strategy(
+                env::var("RANGE_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
+            ),
+            agg_proof_strategy: parse_fulfillment_strategy(
+                env::var("AGG_PROOF_STRATEGY").unwrap_or("reserved".to_string()),
+            ),
+            agg_proof_mode: if env::var("AGG_PROOF_MODE")
+                .unwrap_or("plonk".to_string())
+                .to_lowercase() ==
+                "groth16"
+            {
+                SP1ProofMode::Groth16
+            } else {
+                SP1ProofMode::Plonk
+            },
             range_cycle_limit: env::var("RANGE_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
             range_gas_limit: env::var("RANGE_GAS_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
-            range_split_count: env::var("RANGE_SPLIT_COUNT").unwrap_or("1".to_string()).parse()?,
-            max_concurrent_range_proofs: env::var("MAX_CONCURRENT_RANGE_PROOFS")
-                .unwrap_or("1".to_string())
-                .parse()?,
             agg_cycle_limit: env::var("AGG_CYCLE_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
                 .parse()?,
             agg_gas_limit: env::var("AGG_GAS_LIMIT")
                 .unwrap_or("1000000000000".to_string()) // 1 trillion
+                .parse()?,
+            max_price_per_pgu: env::var("MAX_PRICE_PER_PGU")
+                .unwrap_or("300000000".to_string()) // 0.3 PROVE per billion PGU
+                .parse()?,
+            min_auction_period: env::var("MIN_AUCTION_PERIOD")
+                .unwrap_or("1".to_string())
                 .parse()?,
             whitelist: parse_whitelist(&env::var("WHITELIST").unwrap_or("".to_string()))?,
         })
@@ -200,6 +278,10 @@ impl ProposerConfig {
 pub struct ChallengerConfig {
     pub l1_rpc: Url,
     pub l2_rpc: Url,
+
+    /// The address of the AnchorStateRegistry contract.
+    pub anchor_state_registry_address: Address,
+
     pub factory_address: Address,
 
     /// The interval in seconds between checking for new challenges opportunities.
@@ -222,6 +304,9 @@ impl ChallengerConfig {
         Ok(Self {
             l1_rpc: env::var("L1_RPC")?.parse().expect("L1_RPC not set"),
             l2_rpc: env::var("L2_RPC")?.parse().expect("L2_RPC not set"),
+            anchor_state_registry_address: env::var("ANCHOR_STATE_REGISTRY_ADDRESS")?
+                .parse()
+                .expect("ANCHOR_STATE_REGISTRY_ADDRESS not set"),
             factory_address: env::var("FACTORY_ADDRESS")?.parse().expect("FACTORY_ADDRESS not set"),
             game_type: env::var("GAME_TYPE").expect("GAME_TYPE not set").parse()?,
             fetch_interval: env::var("FETCH_INTERVAL").unwrap_or("30".to_string()).parse()?,
@@ -232,6 +317,21 @@ impl ChallengerConfig {
                 .unwrap_or("0.0".to_string())
                 .parse()?,
         })
+    }
+
+    /// Log the configuration using structured tracing fields.
+    pub fn log(&self) {
+        tracing::info!(
+            l1_rpc = %self.l1_rpc,
+            l2_rpc = %self.l2_rpc,
+            anchor_state_registry_address = %self.anchor_state_registry_address,
+            factory_address = %self.factory_address,
+            game_type = self.game_type,
+            fetch_interval = self.fetch_interval,
+            metrics_port = self.metrics_port,
+            malicious_challenge_percentage = self.malicious_challenge_percentage,
+            "Challenger configuration loaded"
+        );
     }
 }
 
@@ -289,17 +389,24 @@ impl RangeSplitCount {
         self.0.get() as usize
     }
 
-    /// Split `[start, end)` into up to `count` contiguous, non-empty subranges.
+    /// Split a block range into up to `count` contiguous, non-empty subranges for proving.
     ///
-    /// Behavior:
+    /// # Proving semantics
+    /// Each tuple `(start, end)` represents a proving range where:
+    /// - `start` is the **agreed** block (already-proven checkpoint)
+    /// - `end` is the **claimed** block (included in the proof)
+    ///
+    /// # Behavior
     /// - Errors if `start > end` or the range is empty.
     /// - Caps the number of produced segments to the number of blocks in the range.
-    /// - Uses ceil division to keep segments as even as possible; the final segment takes any
-    ///   remainder.
-    /// - Always returns ranges that exactly cover `[start, end)` with no gaps or overlaps.
+    /// - Uses ceil division for even segments; may yield fewer than requested (e.g., 9 blocks ÷ 4 →
+    ///   step=3 → 3 segments: (0,3], (3,6], (6,9]).
+    /// - Returns ranges that exactly cover `(start, end]` with no gaps or overlaps.
     ///
-    /// NOTE: Ceiling division may yield fewer segments than requested when step sizes exhaust the
-    /// range early. Example: 9 blocks ÷ 4 → step=3 → 3 segments: [0,3), [3,6), [6,9).
+    /// NOTE: At runtime, the actual interval may slightly differ from `proposal_interval_in_blocks`
+    /// because if a game already exists at the target L2 block, the proposer increments the block
+    /// number until it finds an unused slot (e.g., 1802 blocks instead of 1800). Since we divide
+    /// the actual total by the split count, drift just slightly adjusts range sizes.
     pub fn split(&self, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
         let total = end.checked_sub(start).ok_or_else(|| {
             anyhow::anyhow!("end block {end} is not greater than start block {start}")
@@ -414,6 +521,7 @@ mod split_range_tests {
         16,
         &[(0, 2), (2, 4), (4, 6), (6, 8), (8, 10), (10, 12), (12, 14), (14, 16)]
     )]
+    #[case::drift_up(range_split_count(4), 0, 1802, &[(0, 451), (451, 902), (902, 1353), (1353, 1802)])]
     fn test_splits_expected_paths(
         #[case] splits: RangeSplitCount,
         #[case] start: u64,

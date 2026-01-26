@@ -30,13 +30,16 @@ use op_succinct_signer_utils::{Signer, SignerLock};
 use tokio::task::JoinHandle;
 use tracing::{info, Level};
 
-use fault_proof::{config::FaultDisputeGameConfig, proposer::OPSuccinctProposer, L2ProviderTrait};
+use fault_proof::{
+    challenger::OPSuccinctChallenger, config::FaultDisputeGameConfig, proposer::OPSuccinctProposer,
+    L2ProviderTrait,
+};
 use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitExt};
 
 use crate::common::{
     constants::*,
     contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    init_proposer, start_challenger, start_proposer, warp_time, ANVIL,
+    new_challenger, new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
 };
 
 use super::{
@@ -189,24 +192,53 @@ impl TestEnvironment {
         Ok(Self { game_type, private_keys, rpc_config, fetcher, anvil, deployed })
     }
 
+    pub async fn new_proposer(
+        &self,
+    ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
+        new_proposer(
+            &self.rpc_config,
+            self.private_keys.proposer,
+            &self.deployed.anchor_state_registry,
+            &self.deployed.factory,
+            self.game_type,
+            None,
+        )
+        .await
+    }
+
     pub async fn init_proposer(
         &self,
     ) -> Result<OPSuccinctProposer<fault_proof::L1Provider, impl OPSuccinctHost + Clone>> {
-        let proposer = init_proposer(
-            &self.rpc_config,
-            self.private_keys.proposer,
-            &self.deployed.factory,
-            self.game_type,
-        )
-        .await?;
+        let proposer = self.new_proposer().await?;
+        proposer.try_init().await?;
         info!("✓ Proposer initialized");
         Ok(proposer)
+    }
+
+    pub async fn new_challenger(&self) -> Result<OPSuccinctChallenger<fault_proof::L1Provider>> {
+        new_challenger(
+            &self.rpc_config,
+            self.private_keys.challenger,
+            &self.deployed.anchor_state_registry,
+            &self.deployed.factory,
+            self.game_type,
+            None,
+        )
+        .await
+    }
+
+    pub async fn init_challenger(&self) -> Result<OPSuccinctChallenger<fault_proof::L1Provider>> {
+        let challenger = self.new_challenger().await?;
+        challenger.try_init().await?;
+        info!("✓ Challenger initialized");
+        Ok(challenger)
     }
 
     pub async fn start_proposer(&self) -> Result<JoinHandle<Result<()>>> {
         let handle = start_proposer(
             &self.rpc_config,
             self.private_keys.proposer,
+            &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
         )
@@ -227,6 +259,7 @@ impl TestEnvironment {
         let handle = start_challenger(
             &self.rpc_config,
             self.private_keys.challenger,
+            &self.deployed.anchor_state_registry,
             &self.deployed.factory,
             self.game_type,
             malicious_percentage,
@@ -517,7 +550,8 @@ pub fn init_logging() {
             std::env::var("RUST_LOG").unwrap_or("info".to_string()).parse().unwrap_or(Level::INFO);
 
         let filter = Targets::new().with_targets([
-            ("e2e", level),
+            ("backup", level),
+            ("integration", level),
             ("sync", level),
             ("fault_proof", level),
             ("op_succinct_fp", level),
