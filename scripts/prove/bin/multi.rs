@@ -8,7 +8,7 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use op_succinct_prove::{execute_multi, DEFAULT_RANGE};
+use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, Prover, ProverClient};
 use tracing::{debug, info};
@@ -35,7 +35,7 @@ async fn main() -> Result<()> {
         &data_fetcher,
         args.start,
         args.end,
-        DEFAULT_RANGE,
+        args.default_range,
     )
     .await?;
 

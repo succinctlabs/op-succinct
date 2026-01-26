@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use alloy_rpc_client::RpcClient;
 use anyhow::Result;
 use async_trait::async_trait;
 use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
@@ -116,7 +117,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
 
         let executor = EigenDAWitnessExecutor::new(eigenda_preimage_provider);
 
-        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await?;
         if let Some((cursor, l1_provider, l2_provider)) = input {
             // Wrap RollupConfig with CeloRollupConfig
             let celo_rollup_config = CeloRollupConfig(boot_info.rollup_config.clone());
@@ -131,17 +132,9 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 l1_provider.clone(),
                 CeloToOpProviderAdapter(l2_provider.clone()),
             )
-            .await
-            .unwrap();
-            WitnessExecutorTrait::run(
-                &executor,
-                boot_info.clone(),
-                pipeline,
-                cursor,
-                l2_provider.to_oracle_l2_chain_provider(),
-            )
-            .await
-            .unwrap();
+            .await?;
+            WitnessExecutorTrait::run(&executor, boot_info.clone(), pipeline, cursor, l2_provider)
+                .await?;
         }
 
         // Extract the EigenDA preimage data
@@ -153,15 +146,18 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
         let eth_rpc_url = std::env::var("L1_RPC")
             .map_err(|_| anyhow::anyhow!("L1_RPC environment variable not set"))?;
+        let eth_rpc_client = RpcClient::new_http(
+            eth_rpc_url.parse().map_err(|e| anyhow::anyhow!("Failed to parse L1_RPC URL: {e}"))?,
+        );
         let mock_mode = env::var("OP_SUCCINCT_MOCK")
             .unwrap_or("false".to_string())
             .parse::<bool>()
             .unwrap_or(false);
-        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_url, mock_mode };
+        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_client, mock_mode };
         let maybe_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
             &boot_info,
             &eigenda_preimage_data,
-            oracle.clone(),
+            oracle.as_ref(),
             canoe_provider,
             CanoeVerifierAddressFetcherDeployedByEigenLabs {},
         )

@@ -56,6 +56,9 @@ alloy-provider.workspace = true
 alloy-rlp.workspace = true
 alloy-sol-types.workspace = true
 
+# reth (feature unification for transitive deps)
+reth-optimism-primitives.workspace = true
+
 # general
 anyhow.workspace = true
 async-trait.workspace = true

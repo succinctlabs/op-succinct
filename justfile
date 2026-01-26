@@ -82,32 +82,32 @@ deploy-fdg-contracts env_file=".env" *features='':
 _deploy-fdg-contracts env_file=".env" custom_config_file="":
     #!/usr/bin/env bash
     set -euo pipefail
-    
+
     # Load environment variables from project root
     source {{env_file}}
-
+    
     # Load environment variables from contracts directory if it exists
     if [ -f "contracts/.env" ]; then
         source contracts/.env
     fi
-
+    
     # Check if required environment variables are set
     if [ -z "${RPC_URL:-}" ] && [ -z "${L1_RPC:-}" ]; then
         echo "Error: Neither RPC_URL nor L1_RPC environment variable is set"
         exit 1
     fi
-
+    
     if [ -z "${PRIVATE_KEY:-}" ]; then
         echo "Error: PRIVATE_KEY environment variable is not set"
         exit 1
     fi
-
+    
     # Use RPC_URL if set, otherwise fall back to L1_RPC
     RPC_URL_TO_USE="${RPC_URL:-$L1_RPC}"
     echo "Using RPC URL: $RPC_URL_TO_USE"
 
     echo "Deploying FDG contracts..."
-
+    
     # Change to contracts directory
     cd contracts
 
@@ -118,21 +118,26 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
       cp $CUSTOM_CONFIG opsuccinctfdgconfig.json
     fi
 
-    # Install dependencies
-    echo "Installing forge dependencies..."
-    forge install
+    # Install dependencies only if not already present
+    # (avoids git lock conflicts in parallel test runs)
+    if [ ! -d "lib/forge-std" ]; then
+        echo "Installing forge dependencies..."
+        forge install
+    else
+        echo "Forge dependencies already installed, skipping..."
+    fi
 
     # Build contracts
     echo "Building contracts..."
     forge build
-
+    
     # Setup verification flags
     VERIFY=""
     if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
         VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --retries 10 --delay 5"
         echo "Verification enabled with Etherscan"
     fi
-
+    
     # Run deployment script
     echo "Running deployment script..."
     forge script script/fp/DeployOPSuccinctFDG.s.sol \
@@ -142,7 +147,7 @@ _deploy-fdg-contracts env_file=".env" custom_config_file="":
         --rpc-url "$RPC_URL_TO_USE" \
         --private-key "$PRIVATE_KEY" \
         $VERIFY
-
+    
     echo "FDG contract deployment complete!"
 
 # Deploy mock verifier
@@ -151,12 +156,12 @@ deploy-mock-verifier env_file=".env":
     set -a
     source {{env_file}}
     set +a
-
+    
     if [ -z "$L1_RPC" ]; then
         echo "L1_RPC not set in {{env_file}}"
         exit 1
     fi
-
+    
     if [ -z "$PRIVATE_KEY" ]; then
         echo "PRIVATE_KEY not set in {{env_file}}"
         exit 1
@@ -165,10 +170,10 @@ deploy-mock-verifier env_file=".env":
     cd contracts
 
     VERIFY=""
-    if [ $ETHERSCAN_API_KEY != "" ]; then
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
-
+    
     forge script script/validity/DeployMockVerifier.s.sol:DeployMockVerifier \
     --rpc-url $L1_RPC \
     --private-key $PRIVATE_KEY \
@@ -187,7 +192,7 @@ deploy-oracle env_file=".env" *features='':
         echo "Fetching rollup config with features: {{features}}"
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
-
+    
     # Load environment variables
     source {{env_file}}
 
@@ -195,10 +200,10 @@ deploy-oracle env_file=".env" *features='':
     cd contracts
 
     VERIFY=""
-    if [ "$ETHERSCAN_API_KEY" != "" ]; then
+    if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
-
+    
     ENV_VARS=""
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
@@ -214,7 +219,7 @@ deploy-oracle env_file=".env" *features='':
 upgrade-oracle env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-
+    
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release -- --env-file {{env_file}}
@@ -222,7 +227,7 @@ upgrade-oracle env_file=".env" *features='':
         echo "Fetching rollup config with features: {{features}}"
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
-
+    
     # Load environment variables
     source {{env_file}}
 
@@ -231,16 +236,16 @@ upgrade-oracle env_file=".env" *features='':
 
     # forge install
     forge install
-
+    
     # Run the forge upgrade script
-
+    
     ENV_VARS="L2OO_ADDRESS=$L2OO_ADDRESS"
     if [ -n "${EXECUTE_UPGRADE_CALL:-}" ]; then ENV_VARS="$ENV_VARS EXECUTE_UPGRADE_CALL=$EXECUTE_UPGRADE_CALL"; fi
     if [ -n "${ADMIN_PK:-}" ]; then ENV_VARS="$ENV_VARS ADMIN_PK=$ADMIN_PK"; fi
     if [ -n "${DEPLOY_PK:-}" ]; then ENV_VARS="$ENV_VARS DEPLOY_PK=$DEPLOY_PK"; fi
 
-
-
+    
+    
     VERIFY_FLAGS=""
     if [ -n "${ETHERSCAN_API_KEY:-}" ]; then
         VERIFY_FLAGS="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
@@ -261,7 +266,7 @@ upgrade-oracle env_file=".env" *features='':
 deploy-dispute-game-factory env_file=".env":
     #!/usr/bin/env bash
     set -euo pipefail
-
+    
     # Load environment variables
     source {{env_file}}
 
@@ -285,7 +290,7 @@ deploy-dispute-game-factory env_file=".env":
     if [ -n "$ETHERSCAN_API_KEY" ]; then
       VERIFY="--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY"
     fi
-
+    
     # Run the forge deployment script
     env L2OO_ADDRESS=$L2OO_ADDRESS \
         PROPOSER_ADDRESSES=$PROPOSER_ADDRESSES \
@@ -311,21 +316,26 @@ upgrade-fault-dispute-game env_file="fault-proof/.env.upgrade":
 
     # Run the forge upgrade script.
     if [ "${DRY_RUN}" = "false" ]; then
+        if [ -z "${PRIVATE_KEY:-}" ]; then
+            echo "Error: PRIVATE_KEY environment variable is required when DRY_RUN=false"
+            exit 1
+        fi
+
         forge script script/fp/UpgradeOPSuccinctFDG.s.sol:UpgradeOPSuccinctFDG \
             --rpc-url $L1_RPC \
             --private-key $PRIVATE_KEY \
             --etherscan-api-key $ETHERSCAN_API_KEY \
             --broadcast
     else
-        forge script UpgradeOPSuccinctFDG --sig "getUpgradeCalldata()" \
-            --private-key $PRIVATE_KEY
+        forge script script/fp/UpgradeOPSuccinctFDG.s.sol:UpgradeOPSuccinctFDG \
+            --sig "getUpgradeCalldata()"
     fi
 
 # Add a new OpSuccinctConfig to the L2 Output Oracle
 add-config config_name env_file=".env" *features='':
     #!/usr/bin/env bash
     set -euo pipefail
-
+    
     # First fetch rollup config using the env file
     if [ -z "{{features}}" ]; then
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release -- --env-file {{env_file}}
@@ -333,7 +343,7 @@ add-config config_name env_file=".env" *features='':
         echo "Fetching rollup config with features: {{features}}"
         RUST_LOG=info cargo run --bin fetch-l2oo-config --release --features {{features}} -- --env-file {{env_file}}
     fi
-
+    
     # Load environment variables
     source {{env_file}}
 
@@ -342,7 +352,7 @@ add-config config_name env_file=".env" *features='':
 
     # forge install
     forge install
-
+    
     # Run the forge script to add config
     env L2OO_ADDRESS="$L2OO_ADDRESS" \
         ${EXECUTE_UPGRADE_CALL:+EXECUTE_UPGRADE_CALL="$EXECUTE_UPGRADE_CALL"} \
@@ -354,11 +364,11 @@ add-config config_name env_file=".env" *features='':
         --private-key $PRIVATE_KEY \
         --broadcast
 
-# Remove an OpSuccinctConfig from the L2 Output Oracle
+# Remove an OpSuccinctConfig from the L2 Output Oracle  
 remove-config config_name env_file=".env":
     #!/usr/bin/env bash
     set -euo pipefail
-
+    
     # Load environment variables
     source {{env_file}}
 
@@ -367,7 +377,7 @@ remove-config config_name env_file=".env":
 
     # forge install
     forge install
-
+    
     # Run the forge script to remove config
     env L2OO_ADDRESS="$L2OO_ADDRESS" \
         ${EXECUTE_UPGRADE_CALL:+EXECUTE_UPGRADE_CALL="$EXECUTE_UPGRADE_CALL"} \
@@ -379,6 +389,61 @@ remove-config config_name env_file=".env":
         --private-key $PRIVATE_KEY \
         --broadcast
 
+# Generate verification key hashes for all DA variants.
+vkeys:
+    #!/usr/bin/env bash
+    set -e
+
+    echo "Generating verification key hashes..."
+    echo ""
+
+    # Ethereum DA
+    ETH_OUTPUT=$(RUST_LOG=error cargo run --release --bin config 2>&1)
+    ETH_RANGE=$(echo "$ETH_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+    AGG_KEY=$(echo "$ETH_OUTPUT" | grep "Aggregation Verification Key Hash" | awk '{print $NF}')
+
+    # Celestia DA
+    CEL_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features celestia 2>&1)
+    CEL_RANGE=$(echo "$CEL_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+
+    # EigenDA
+    EIGEN_OUTPUT=$(RUST_LOG=error cargo run --release --bin config --features eigenda 2>&1)
+    EIGEN_RANGE=$(echo "$EIGEN_OUTPUT" | grep "Range Verification Key Hash" | awk '{print $NF}')
+
+    echo "## Verification Key Hashes"
+    echo ""
+    echo "| Program | Verification Key Hash |"
+    echo "|--------|------------------------|"
+    echo "| Ethereum DA Range Verification Key | **$ETH_RANGE** |"
+    echo "| Celestia DA Range Verification Key | **$CEL_RANGE** |"
+    echo "| EigenDA Range Verification Key | **$EIGEN_RANGE** |"
+    echo "| Aggregation Verification Key | **$AGG_KEY** |"
+
+# Build all ELF files.
+build-elfs: build-range-elfs build-agg-elf
+
+# Build ELF files for range programs.
+build-range-elfs:
+    #!/usr/bin/env bash
+
+    cd programs/range/ethereum
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.4 --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
+
+    cd ../celestia
+    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
+
+    cd ../eigenda
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
+
+# Build ELF file for aggregation program.
+build-agg-elf:
+    #!/usr/bin/env bash
+
+    cd programs/aggregation
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.4 --output-directory ../../elf
+
+# Run all unit tests except for the specified ones.
 audit-forkdiff:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -400,7 +465,47 @@ tests:
     --skip test_post_to_github \
     --skip execute_batch \
 
-# Run end-to-end tests.
-e2e-tests:
-   cd fault-proof && \
-   cargo t --release --features e2e -- --test-threads=1 --nocapture
+# Run fault-proof integration tests
+# target: test file (integration, sync, etc.)
+# da: DA feature (ethereum, eigenda, celestia). DA-agnostic tests like sync work with any.
+fp-integration-tests target="integration" da="ethereum":
+  cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
+
+# Run DA-specific host utility tests
+# da: ethereum, eigenda, celestia
+da-integration-tests da="ethereum":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # EigenDA tests require SRS file - create symlink if needed
+    if [ "{{da}}" = "eigenda" ] && [ ! -e "utils/eigenda/host/resources" ]; then
+        if [ ! -d "resources" ]; then
+            echo "Error: resources/ directory not found. Run from workspace root."
+            exit 1
+        fi
+        ln -sf ../../../resources utils/eigenda/host/resources
+        echo "Created symlink: utils/eigenda/host/resources -> resources/"
+    fi
+
+    cargo t -p op-succinct-{{da}}-host-utils --features integration --release -- --test-threads=1 --nocapture
+
+forge-build *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    cd contracts
+
+    forge build {{ARGS}}
+
+    # Forge build compiles only the src/ graph; the scripts/ graph is compiled by `forge script`.
+    # On the first invocation, `forge script` may compile a small set of dependencies.
+    # To avoid paying this cost in every CI test, we pre‑warm the script cache once here.
+    #
+    # Notes:
+    # - A single `forge script <any script> --skip-simulation` is sufficient to compile the script
+    #   dependency graph into the cache.
+    forge script "script/validity/DeployMockVerifier.s.sol" \
+    --skip "/**/test/**" \
+    --sig "idonotexist()" \
+    --skip-simulation \
+    2>/dev/null || true

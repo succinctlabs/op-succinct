@@ -42,6 +42,7 @@ sp1-testing-suite-artifacts/
 # Contracts
 contracts/opsuccinctl2ooconfig.json
 contracts/opsuccinctfdgconfig.json
+**/soljson-latest.js
 
 # Rollup Configs
 configs/
@@ -51,6 +52,13 @@ configs/
 **/codegen
 # Grafana alloy config
 config.alloy
+
+# EigenDA SRS symlink (created by `just da-integration-tests eigenda`)
+utils/eigenda/host/resources
+
+# Forge build artifacts in tests/
+tests/cache/
+tests/out/
 
 # Generated audit forkdiffs
 audits/audit-forkdiff.html
