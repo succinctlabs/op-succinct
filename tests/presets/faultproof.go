@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-chain-ops/devkeys"
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-devstack/presets"
 	"github.com/ethereum-optimism/optimism/op-devstack/stack"
@@ -13,8 +12,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 	opsbind "github.com/succinctlabs/op-succinct/bindings"
 	"github.com/succinctlabs/op-succinct/utils"
 )
@@ -425,41 +422,42 @@ func (s *FaultProofSystem) GetGameImplConfig(ctx context.Context, t devtest.T) (
 	}, nil
 }
 
-// DeployGameImplWithFakeVkeys deploys a new game implementation with fake vkeys.
-// This simulates a hardfork scenario where the on-chain vkeys don't match the proposer's computed vkeys.
-// The new implementation uses the same configuration as the current one, except for the vkeys.
-func (s *FaultProofSystem) DeployGameImplWithFakeVkeys(
+// UpgradeGameImplWithFakeVkeys deploys a new game implementation with fake vkeys and
+// upgrades the factory to use it. This uses the same Forge script (UpgradeOPSuccinctFDG.s.sol)
+// that operators use in production.
+//
+// This simulates a hardfork scenario where the on-chain vkeys don't match the proposer's
+// computed vkeys.
+func (s *FaultProofSystem) UpgradeGameImplWithFakeVkeys(
 	ctx context.Context,
 	t devtest.T,
 	fakeAggVkey, fakeRangeVkey string,
 ) (common.Address, error) {
-	// Get current game configuration
 	implCfg, err := s.GetGameImplConfig(ctx, t)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("get game impl config: %w", err)
 	}
 
-	// Build deployment config with fake vkeys
-	deployCfg := sysgo.GameImplDeployConfig{
-		FactoryProxy:         implCfg.FactoryProxy,
-		VerifierAddress:      implCfg.VerifierAddress,
-		AnchorStateRegistry:  implCfg.AnchorStateRegistry,
-		AccessManager:        implCfg.AccessManager,
-		AggregationVkey:      fakeAggVkey,
-		RangeVkeyCommitment:  fakeRangeVkey,
-		RollupConfigHash:     fmt.Sprintf("0x%x", implCfg.RollupConfigHash),
+	upgradeCfg := sysgo.UpgradeGameImplConfig{
+		FactoryAddress:       implCfg.FactoryProxy,
+		GameType:             OPSuccinctGameType,
 		MaxChallengeDuration: implCfg.MaxChallengeDuration,
 		MaxProveDuration:     implCfg.MaxProveDuration,
+		VerifierAddress:      implCfg.VerifierAddress,
+		RollupConfigHash:     fmt.Sprintf("0x%x", implCfg.RollupConfigHash),
+		AggregationVkey:      fakeAggVkey,
+		RangeVkeyCommitment:  fakeRangeVkey,
 		ChallengerBondWei:    implCfg.ChallengerBondWei.String(),
+		AnchorStateRegistry:  implCfg.AnchorStateRegistry,
+		AccessManager:        implCfg.AccessManager,
 	}
 
-	// Deploy the new implementation
-	newImplAddr, err := s.orch.DeployGameImplWithVkeys(s.ids.L1EL, deployCfg)
+	newImplAddr, err := s.orch.UpgradeGameImpl(s.ids.L1EL, upgradeCfg)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("deploy game impl with vkeys: %w", err)
+		return common.Address{}, fmt.Errorf("upgrade game impl via Forge script: %w", err)
 	}
 
-	t.Logger().Info("Deployed new game implementation with fake vkeys",
+	t.Logger().Info("Upgraded game implementation with fake vkeys via Forge script",
 		"address", newImplAddr,
 		"fakeAggVkey", fakeAggVkey[:20]+"...",
 		"fakeRangeVkey", fakeRangeVkey[:20]+"...")
@@ -467,70 +465,3 @@ func (s *FaultProofSystem) DeployGameImplWithFakeVkeys(
 	return newImplAddr, nil
 }
 
-// UpgradeGameImplementation upgrades the DisputeGameFactory to use a new game implementation.
-// This simulates a hardfork where the game implementation is upgraded mid-operation.
-func (s *FaultProofSystem) UpgradeGameImplementation(
-	ctx context.Context,
-	t devtest.T,
-	newImplAddr common.Address,
-) error {
-	dgfAddr := s.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
-
-	// Create proper ethclient from RPC URL (required for bind.ContractTransactor interface)
-	l1EL, ok := s.orch.GetL1EL(s.ids.L1EL)
-	if !ok {
-		return fmt.Errorf("L1 EL node not found")
-	}
-	rpcClient, err := rpc.DialContext(ctx, l1EL.UserRPC())
-	if err != nil {
-		return fmt.Errorf("dial L1 RPC: %w", err)
-	}
-	defer rpcClient.Close()
-	client := ethclient.NewClient(rpcClient)
-
-	// Get L1 chain ID and private key for transaction signing
-	l1ChainID := s.ids.L1EL.ChainID()
-	l1PAOKey, err := s.orch.GetKeys().Secret(devkeys.L1ProxyAdminOwnerRole.Key(l1ChainID.ToBig()))
-	if err != nil {
-		return fmt.Errorf("get L1ProxyAdminOwnerRole key: %w", err)
-	}
-
-	// Create transaction options
-	transactOpts, err := bind.NewKeyedTransactorWithChainID(l1PAOKey, l1ChainID.ToBig())
-	if err != nil {
-		return fmt.Errorf("create transact opts: %w", err)
-	}
-	transactOpts.Context = ctx
-
-	// Create DGF transactor binding
-	dgf, err := opsbind.NewDisputeGameFactoryTransactor(dgfAddr, client)
-	if err != nil {
-		return fmt.Errorf("bind DGF transactor: %w", err)
-	}
-
-	// Call setImplementation to upgrade
-	tx, err := dgf.SetImplementation(transactOpts, OPSuccinctGameType, newImplAddr)
-	if err != nil {
-		return fmt.Errorf("set implementation: %w", err)
-	}
-
-	t.Logger().Info("Upgrading game implementation",
-		"newImpl", newImplAddr,
-		"txHash", tx.Hash())
-
-	// Wait for transaction to be mined
-	receipt, err := bind.WaitMined(ctx, client, tx)
-	if err != nil {
-		return fmt.Errorf("wait for tx: %w", err)
-	}
-
-	if receipt.Status != 1 {
-		return fmt.Errorf("tx failed: status=%d", receipt.Status)
-	}
-
-	t.Logger().Info("Game implementation upgraded successfully",
-		"newImpl", newImplAddr,
-		"blockNumber", receipt.BlockNumber)
-
-	return nil
-}

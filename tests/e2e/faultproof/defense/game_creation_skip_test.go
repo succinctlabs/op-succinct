@@ -74,19 +74,14 @@ func TestGameCreationSkipOnVkeyMismatch(gt *testing.T) {
 	// Phase 2: Simulate hardfork by upgrading game implementation
 	// ═══════════════════════════════════════════════════════════════════════
 
-	logger.Info("Phase 2: Deploying new game implementation with fake vkeys",
+	logger.Info("Phase 2: Upgrading game implementation with fake vkeys via Forge script",
 		"fakeAggVkey", fakeAggregationVkey[:20]+"...",
 		"fakeRangeVkey", fakeRangeVkeyCommitment[:20]+"...")
 
-	// Deploy new game implementation with fake vkeys
-	newImplAddr, err := sys.DeployGameImplWithFakeVkeys(ctx, t, fakeAggregationVkey, fakeRangeVkeyCommitment)
-	require.NoError(err, "failed to deploy new game implementation")
-	logger.Info("New implementation deployed", "address", newImplAddr)
-
-	// Upgrade factory to use new implementation
-	err = sys.UpgradeGameImplementation(ctx, t, newImplAddr)
-	require.NoError(err, "failed to upgrade game implementation")
-	logger.Info("Factory upgraded to new implementation")
+	// Deploy and upgrade via Forge script (same script operators use in production)
+	newImplAddr, err := sys.UpgradeGameImplWithFakeVkeys(ctx, t, fakeAggregationVkey, fakeRangeVkeyCommitment)
+	require.NoError(err, "failed to upgrade game implementation via Forge script")
+	logger.Info("Factory upgraded to new implementation via Forge script", "address", newImplAddr)
 
 	// Record game count after upgrade
 	gameCountAfterUpgrade, err := dgf.GameCount(ctx)
