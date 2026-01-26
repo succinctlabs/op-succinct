@@ -14,7 +14,8 @@ use serde::{Deserialize, Serialize};
 use crate::proposer::Game;
 
 /// Current backup format version. Increment when making breaking changes.
-pub const BACKUP_VERSION: u32 = 1;
+/// v2: Added aggregation_vkey, range_vkey_commitment, rollup_config_hash to Game.
+pub const BACKUP_VERSION: u32 = 2;
 
 /// Serializable backup of the proposer state.
 #[derive(Serialize, Deserialize)]
@@ -126,7 +127,7 @@ mod tests {
     #[test]
     fn backup_schema_guard() {
         use crate::contract::{GameStatus, ProposalStatus};
-        use alloy_primitives::Address;
+        use alloy_primitives::{Address, B256};
 
         // If Game fields change, this won't compile or the JSON keys will differ
         let game = Game {
@@ -139,6 +140,9 @@ mod tests {
             deadline: 0,
             should_attempt_to_resolve: false,
             should_attempt_to_claim_bond: false,
+            aggregation_vkey: B256::ZERO,
+            range_vkey_commitment: B256::ZERO,
+            rollup_config_hash: B256::ZERO,
         };
 
         let json = serde_json::to_value(&game).unwrap();
@@ -150,11 +154,14 @@ mod tests {
             keys,
             vec![
                 "address",
+                "aggregation_vkey",
                 "deadline",
                 "index",
                 "l2_block",
                 "parent_index",
                 "proposal_status",
+                "range_vkey_commitment",
+                "rollup_config_hash",
                 "should_attempt_to_claim_bond",
                 "should_attempt_to_resolve",
                 "status",

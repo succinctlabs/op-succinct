@@ -602,8 +602,10 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
-    /// Deploy a new game implementation with custom vkeys via forge script.
+    /// Deploy a new game implementation with custom vkeys via forge script and set it in the factory.
     /// This simulates a hardfork where the game implementation changes.
+    /// Note: This also sets the implementation in the factory, so calling set_game_implementation
+    /// afterwards is not required.
     pub async fn deploy_game_impl_with_vkeys(
         &self,
         aggregation_vkey: B256,
@@ -627,16 +629,18 @@ impl TestEnvironment {
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("contracts");
 
         // Build environment variables for the forge script
+        // Uses UpgradeOPSuccinctFDG.s.sol which deploys impl and sets it in factory
         let output = Command::new("forge")
             .arg("script")
-            .arg("script/fp/DeployGameImplOnly.s.sol")
+            .arg("script/fp/UpgradeOPSuccinctFDG.s.sol")
             .arg("--broadcast")
             .arg("--rpc-url")
             .arg(&self.anvil.endpoint)
             .arg("--private-key")
             .arg(self.private_keys.deployer)
             .arg("--json")
-            .env("FACTORY_PROXY", self.deployed.factory.to_string())
+            .env("FACTORY_ADDRESS", self.deployed.factory.to_string())
+            .env("GAME_TYPE", TEST_GAME_TYPE.to_string())
             .env("VERIFIER_ADDRESS", verifier_address.to_string())
             .env("ANCHOR_STATE_REGISTRY", self.deployed.anchor_state_registry.to_string())
             .env("ACCESS_MANAGER", self.deployed.access_manager.to_string())
@@ -659,7 +663,7 @@ impl TestEnvironment {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let impl_address = parse_game_impl_address(&stdout)?;
 
-        info!("✓ Deployed game implementation with custom vkeys at {impl_address}");
+        info!("✓ Deployed and set game implementation with custom vkeys at {impl_address}");
         Ok(impl_address)
     }
 

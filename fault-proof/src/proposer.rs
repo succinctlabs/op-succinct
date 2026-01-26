@@ -89,12 +89,8 @@ pub enum TaskInfo {
 /// compatibility checks during hardfork transitions.
 #[derive(Clone, Debug)]
 pub struct ProposerIdentity {
-    /// Package version from Cargo.toml (e.g., "3.4.1")
-    pub version: &'static str,
-    /// DA layer feature (e.g., "ethereum", "celestia", "eigenda")
-    pub da_layer: &'static str,
     /// Full version string with DA layer suffix (e.g., "3.4.1-celestia")
-    pub full_version: String,
+    pub version: String,
     /// Aggregation verification key hash
     pub aggregation_vkey: B256,
     /// Range verification key commitment
@@ -120,24 +116,17 @@ impl ProposerIdentity {
         range_vkey_commitment: B256,
         rollup_config_hash: B256,
     ) -> Self {
-        let version = env!("CARGO_PKG_VERSION");
+        let pkg_version = env!("CARGO_PKG_VERSION");
         let da_layer = Self::detect_da_layer();
-        let full_version = format!("{}-{}", version, da_layer);
+        let version = format!("{}-{}", pkg_version, da_layer);
 
-        Self {
-            version,
-            da_layer,
-            full_version,
-            aggregation_vkey,
-            range_vkey_commitment,
-            rollup_config_hash,
-        }
+        Self { version, aggregation_vkey, range_vkey_commitment, rollup_config_hash }
     }
 
     /// Logs the proposer identity at startup.
     pub fn log_startup_info(&self) {
         tracing::info!(
-            version = %self.full_version,
+            version = %self.version,
             aggregation_vkey = %format!("0x{}", hex::encode(&self.aggregation_vkey[..8])),
             range_vkey_commitment = %format!("0x{}", hex::encode(&self.range_vkey_commitment[..8])),
             rollup_config_hash = %format!("0x{}", hex::encode(&self.rollup_config_hash[..8])),
@@ -1005,13 +994,16 @@ where
     }
 
     /// Returns true if on-chain vkeys match ours (safe to create games).
+    /// Checks all 3 identity fields: aggregation_vkey, range_vkey_commitment, rollup_config_hash.
     async fn on_chain_vkeys_match(&self) -> Result<bool> {
         let game_impl = self.factory.game_impl(self.config.game_type).await?;
         let on_chain_agg = B256::from(game_impl.aggregationVkey().call().await?.0);
         let on_chain_range = B256::from(game_impl.rangeVkeyCommitment().call().await?.0);
+        let on_chain_rollup_hash = B256::from(game_impl.rollupConfigHash().call().await?.0);
 
         let matches = on_chain_agg == self.identity.aggregation_vkey &&
-            on_chain_range == self.identity.range_vkey_commitment;
+            on_chain_range == self.identity.range_vkey_commitment &&
+            on_chain_rollup_hash == self.identity.rollup_config_hash;
 
         if !matches {
             tracing::info!("Proposer vkeys mismatch with on-chain vkeys - skipping game creation (hardfork detected)");
@@ -2035,27 +2027,9 @@ where
         is_defense: bool,
         deadline: Option<u64>,
     ) -> Result<()> {
-        // Skip if deadline has passed
-        if let Some(deadline) = deadline {
-            if self.should_skip_proving(game_address, deadline, is_defense)? {
-                return Ok(());
-            }
-        }
-
-        // Only prove owned games.
-        {
-            let state = self.state.read().await;
-            let game = state.games.values().find(|g| g.address == game_address);
-
-            if let Some(game) = game {
-                if !game.is_owned(&self.identity) {
-                    tracing::debug!(?game_address, "Skipping foreign game");
-                    return Ok(());
-                }
-            } else {
-                tracing::warn!(?game_address, "Game not in cache, skipping");
-                return Ok(());
-            }
+        // Skip if game is not owned or deadline has passed
+        if self.should_skip_proving(game_address, deadline, is_defense).await? {
+            return Ok(());
         }
 
         let proposer: OPSuccinctProposer<P, H> = self.clone();
@@ -2133,51 +2107,78 @@ where
         Ok(())
     }
 
-    /// Check if proving should be skipped due to insufficient time remaining.
+    /// Check if proving should be skipped for any reason.
     ///
-    /// Returns `Ok(true)` if proving should be skipped (deadline passed).
+    /// Returns `Ok(true)` if proving should be skipped:
+    /// - Game not found in cache
+    /// - Game not owned (vkeys don't match)
+    /// - Deadline has passed
+    ///
     /// Returns `Ok(false)` if proving should proceed.
     /// Logs a warning if the deadline is approaching.
-    fn should_skip_proving(
+    async fn should_skip_proving(
         &self,
         game_address: Address,
-        deadline: u64,
+        deadline: Option<u64>,
         is_defense: bool,
     ) -> Result<bool> {
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+        // Check ownership - only prove games we own
+        {
+            let state = self.state.read().await;
+            let game = state.games.values().find(|g| g.address == game_address);
 
-        let contract_params =
-            self.contract_params.get().context("contract_params must be set via try_init")?;
-        let max_duration = if is_defense {
-            contract_params.max_prove_duration
-        } else {
-            contract_params.max_challenge_duration
-        };
-
-        let status = check_deadline_status(now, deadline, max_duration);
-
-        match status {
-            DeadlineStatus::Passed => {
-                tracing::error!(
-                    game_address = ?game_address,
-                    deadline = deadline,
-                    now = now,
-                    "Game deadline passed, cannot prove"
-                );
-                Ok(true)
+            match game {
+                Some(game) if !game.is_owned(&self.identity) => {
+                    tracing::debug!(?game_address, "Skipping foreign game");
+                    return Ok(true);
+                }
+                None => {
+                    tracing::warn!(?game_address, "Game not in cache, skipping");
+                    return Ok(true);
+                }
+                _ => {}
             }
-            DeadlineStatus::Approaching { hours_remaining } => {
-                tracing::warn!(
-                    game_address = ?game_address,
-                    is_defense = is_defense,
-                    "Game deadline approaching, {:.1} hours remaining",
-                    hours_remaining
-                );
-                ProposerGauge::DeadlineApproaching.increment(1.0);
-                Ok(false)
-            }
-            DeadlineStatus::Ok => Ok(false),
         }
+
+        // Check deadline if provided
+        if let Some(deadline) = deadline {
+            let now =
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+
+            let contract_params =
+                self.contract_params.get().context("contract_params must be set via try_init")?;
+            let max_duration = if is_defense {
+                contract_params.max_prove_duration
+            } else {
+                contract_params.max_challenge_duration
+            };
+
+            let status = check_deadline_status(now, deadline, max_duration);
+
+            match status {
+                DeadlineStatus::Passed => {
+                    tracing::error!(
+                        game_address = ?game_address,
+                        deadline = deadline,
+                        now = now,
+                        "Game deadline passed, cannot prove"
+                    );
+                    return Ok(true);
+                }
+                DeadlineStatus::Approaching { hours_remaining } => {
+                    tracing::warn!(
+                        game_address = ?game_address,
+                        is_defense = is_defense,
+                        "Game deadline approaching, {:.1} hours remaining",
+                        hours_remaining
+                    );
+                    ProposerGauge::DeadlineApproaching.increment(1.0);
+                }
+                DeadlineStatus::Ok => {}
+            }
+        }
+
+        Ok(false)
     }
 
     /// Spawn a game resolution task

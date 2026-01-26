@@ -33,11 +33,6 @@ pub const MAX_CHALLENGE_DURATION: u64 = 60 * 60; // 1 hour
 pub const MAX_PROVE_DURATION: u64 = 60 * 60 * 12; // 12 hours
 pub const FALLBACK_TIMEOUT: U256 = U256::from_limbs([1209600, 0, 0, 0]); // 2 weeks
 
-// Configuration hashes for OPSuccinctFaultDisputeGame
-// Note: AGGREGATION_VKEY, RANGE_VKEY_COMMITMENT, and ROLLUP_CONFIG_HASH are now computed
-// at runtime via compute_vkeys() and hash_rollup_config() in env.rs to match the proposer's
-// identity computation.
-
 // Test configuration for L2 block offset
 // This offset is subtracted from finalized L2 block to get the starting anchor block
 pub const L2_BLOCK_OFFSET_FROM_FINALIZED: u64 = 500;
