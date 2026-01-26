@@ -45,7 +45,6 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
         Ok(SingleChainHostWithEigenDA {
             kona_cfg: host,
             eigenda_proxy_address,
-            recency_window: 0,
             verbose: 1,
         })
     }

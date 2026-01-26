@@ -39,7 +39,6 @@ fn test_get_sp1_stdin_with_eigenda_data_but_no_canoe_proof() {
     let generator = EigenDAWitnessGenerator {};
 
     let eigenda_witness = EigenDAWitness {
-        recencies: vec![],
         validities: vec![],
         encoded_payloads: vec![],
         canoe_proof_bytes: None,
@@ -64,7 +63,6 @@ fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
 
     // Create a valid EigenDAWitness with garbage in canoe_proof_bytes
     let eigenda_witness = EigenDAWitness {
-        recencies: vec![],
         validities: vec![],
         encoded_payloads: vec![],
         canoe_proof_bytes: Some(vec![0xFF, 0xFF, 0xFF, 0xFF]), // Invalid proof bytes
