@@ -2142,8 +2142,7 @@ where
 
         // Check deadline if provided
         if let Some(deadline) = deadline {
-            let now =
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs();
 
             let contract_params =
                 self.contract_params.get().context("contract_params must be set via try_init")?;

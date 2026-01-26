@@ -1046,7 +1046,7 @@ mod integration {
         // ═══════════════════════════════════════════════════════════════════════
 
         let starting_l2_block = env.anvil.starting_l2_block_number;
-        let block = starting_l2_block + 1;
+        let block = starting_l2_block + 10;
         let root_claim = env.compute_output_root_at_block(block).await?;
         env.create_game(root_claim, block, u32::MAX, init_bond).await?;
         let (_, game_address) = env.last_game_info().await?;

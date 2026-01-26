@@ -602,8 +602,8 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
-    /// Deploy a new game implementation with custom vkeys via forge script and set it in the factory.
-    /// This simulates a hardfork where the game implementation changes.
+    /// Deploy a new game implementation with custom vkeys via forge script and set it in the
+    /// factory. This simulates a hardfork where the game implementation changes.
     /// Note: This also sets the implementation in the factory, so calling set_game_implementation
     /// afterwards is not required.
     pub async fn deploy_game_impl_with_vkeys(
