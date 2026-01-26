@@ -947,12 +947,14 @@ mod integration {
     }
 
     // Tests that the proposer fails fast when the contract's starting L2 block number is
-    // misconfigured to a future value (100 blocks beyond of the finalized block at setup time).
+    // misconfigured to a future value (10000 blocks beyond of the finalized block at setup time).
     // This prevents the proposer from running indefinitely without creating games.
+    // Note: We use a large offset (10000 blocks) to avoid race conditions where the L2 chain
+    // advances during test setup, especially on networks with faster block times.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_proposer_rejects_future_starting_block() -> Result<()> {
         let env = TestEnvironment::setup_with_starting_block_offset(
-            (L2_BLOCK_OFFSET_FROM_FINALIZED + 100) as i64,
+            (L2_BLOCK_OFFSET_FROM_FINALIZED + 10000) as i64,
         )
         .await?;
 
