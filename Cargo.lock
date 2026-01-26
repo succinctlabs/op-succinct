@@ -10954,7 +10954,7 @@ checksum = "1e061d1b48cb8d38042de4ae0a7a6401009d6143dc80d2e2d6f31f0bdd6470c7"
 [[package]]
 name = "reth-basic-payload-builder"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -10978,7 +10978,7 @@ dependencies = [
 [[package]]
 name = "reth-chain-state"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11024,7 +11024,7 @@ dependencies = [
 [[package]]
 name = "reth-chainspec"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -11062,7 +11062,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11090,7 +11090,7 @@ dependencies = [
 [[package]]
 name = "reth-codecs-derive"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -11113,7 +11113,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -11138,7 +11138,7 @@ dependencies = [
 [[package]]
 name = "reth-consensus-common"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11162,7 +11162,7 @@ dependencies = [
 [[package]]
 name = "reth-db-models"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -11172,7 +11172,7 @@ dependencies = [
 [[package]]
 name = "reth-engine-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11206,7 +11206,7 @@ dependencies = [
 [[package]]
 name = "reth-errors"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "reth-consensus 1.9.3",
  "reth-execution-errors 1.9.3",
@@ -11217,7 +11217,7 @@ dependencies = [
 [[package]]
 name = "reth-eth-wire-types"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -11254,7 +11254,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-engine-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -11285,7 +11285,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-forks"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-eip2124",
  "alloy-hardforks 0.4.7",
@@ -11316,7 +11316,7 @@ dependencies = [
 [[package]]
 name = "reth-ethereum-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11354,7 +11354,7 @@ dependencies = [
 [[package]]
 name = "reth-evm"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11409,7 +11409,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-errors"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-evm 0.23.3",
  "alloy-primitives",
@@ -11440,7 +11440,7 @@ dependencies = [
 [[package]]
 name = "reth-execution-types"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11456,7 +11456,7 @@ dependencies = [
 [[package]]
 name = "reth-fs-util"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "serde",
  "serde_json",
@@ -11466,7 +11466,7 @@ dependencies = [
 [[package]]
 name = "reth-metrics"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "metrics",
  "metrics-derive",
@@ -11488,7 +11488,7 @@ dependencies = [
 [[package]]
 name = "reth-network-peers"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -11501,7 +11501,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-chainspec"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-chains",
  "alloy-consensus",
@@ -11524,7 +11524,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-consensus"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11549,7 +11549,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-evm"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11576,7 +11576,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-forks"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-op-hardforks",
  "alloy-primitives",
@@ -11587,7 +11587,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-payload-builder"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11627,7 +11627,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11640,7 +11640,7 @@ dependencies = [
 [[package]]
 name = "reth-optimism-txpool"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11676,7 +11676,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-builder"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -11697,7 +11697,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-builder-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "pin-project 1.1.10",
  "reth-payload-primitives",
@@ -11709,7 +11709,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -11729,7 +11729,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-util"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -11739,7 +11739,7 @@ dependencies = [
 [[package]]
 name = "reth-payload-validator"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-rpc-types-engine",
@@ -11789,7 +11789,7 @@ dependencies = [
 [[package]]
 name = "reth-primitives-traits"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11828,7 +11828,7 @@ dependencies = [
 [[package]]
 name = "reth-prune-types"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-primitives",
  "derive_more 2.1.1",
@@ -11839,7 +11839,7 @@ dependencies = [
 [[package]]
 name = "reth-revm"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-primitives",
  "reth-primitives-traits 1.9.3",
@@ -11863,7 +11863,7 @@ dependencies = [
 [[package]]
 name = "reth-stages-types"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-primitives",
  "reth-trie-common 1.9.3",
@@ -11883,7 +11883,7 @@ dependencies = [
 [[package]]
 name = "reth-static-file-types"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-primitives",
  "derive_more 2.1.1",
@@ -11916,7 +11916,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-api"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -11954,7 +11954,7 @@ dependencies = [
 [[package]]
 name = "reth-storage-errors"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-eips",
  "alloy-primitives",
@@ -11970,7 +11970,7 @@ dependencies = [
 [[package]]
 name = "reth-tasks"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "auto_impl",
  "dyn-clone",
@@ -11986,7 +11986,7 @@ dependencies = [
 [[package]]
 name = "reth-transaction-pool"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12047,7 +12047,7 @@ dependencies = [
 [[package]]
 name = "reth-trie"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -12092,7 +12092,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-common"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -12125,7 +12125,7 @@ dependencies = [
 [[package]]
 name = "reth-trie-sparse"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "alloy-primitives",
  "alloy-rlp",
@@ -12149,7 +12149,7 @@ dependencies = [
 [[package]]
 name = "reth-zstd-compressors"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
 dependencies = [
  "zstd",
 ]
@@ -17275,4 +17275,4 @@ dependencies = [
 [[patch.unused]]
 name = "reth-primitives"
 version = "1.9.3"
-source = "git+ssh://git@github.com/paradigmxyz/reth.git?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"
+source = "git+https://github.com/succinctlabs/reth?branch=v1.9.3-kona#292656ca5a7b230c95352d84ca3d72561094e3cf"

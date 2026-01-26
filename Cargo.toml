@@ -231,31 +231,31 @@ alloy-tx-macros = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.3" }
 
 
 # Note: vergen-lib conflict fixed by pinning vergen=9.0.4, vergen-git2=1.0.5 in Cargo.lock
-#
-# Patch reth crates using SSH URL to work around Cargo same-source restriction
-# v1.9.3-kona branch has the PartialEq fix (backport of PR #21336)
-# Must patch all related crates to maintain API compatibility
+
+# Patch reth crates to fix PartialEq bug in reth-transaction-pool (PR #21336)
+# Using succinctlabs fork to enable HTTPS patching in CI (Cargo requires different source URL)
+# v1.9.3-kona branch contains the backported fix from paradigmxyz/reth
 [patch."https://github.com/paradigmxyz/reth"]
-reth-chainspec = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-chain-state = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-consensus = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-errors = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-ethereum-forks = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-ethereum-primitives = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-execution-errors = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-execution-types = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-chainspec = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-consensus = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-evm = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-forks = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-payload-builder = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-primitives = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-optimism-txpool = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-primitives = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-primitives-traits = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-revm = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-storage-api = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-storage-errors = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-transaction-pool = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-trie = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
-reth-trie-common = { git = "ssh://git@github.com/paradigmxyz/reth.git", branch = "v1.9.3-kona" }
+reth-chainspec = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-chain-state = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-consensus = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-ethereum-forks = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-ethereum-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-execution-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-execution-types = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-chainspec = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-consensus = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-evm = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-forks = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-payload-builder = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-txpool = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-primitives-traits = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-revm = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-storage-api = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-storage-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-transaction-pool = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-trie = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-trie-common = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
