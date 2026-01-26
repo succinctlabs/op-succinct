@@ -173,12 +173,12 @@ abstract contract OPSuccinctFaultDisputeGameTestBase is Test {
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
 
-        // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp.
-        vm.warp(block.timestamp + 1000);
-
         // Create the first (parent) game – it uses uint32.max as parent index.
         vm.startPrank(proposer);
         vm.deal(proposer, _proposerInitialBalance()); // funds for testing.
+
+        // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp.
+        vm.warp(block.timestamp + 1000);
 
         // This parent game will be at index 0.
         parentGame = OPSuccinctFaultDisputeGame(
@@ -856,14 +856,12 @@ contract OPSuccinctFaultDisputeGameInvalidProofTest is OPSuccinctFaultDisputeGam
         return false; // Parent doesn't need to be resolved for prove() testing
     }
 
-    function _proposerInitialBalance() internal pure override returns (uint256) {
-        return 100 ether; // More funds for testing
-    }
-
     /// @notice Fuzz test: invalid proof bytes should cause prove() to revert
-    /// @dev Tests that the real SP1 verifier rejects garbage/random proof bytes
+    /// @dev Tests that the real SP1 verifier rejects garbage/random proof bytes.
+    ///      Assumes length >= 4 to test the WrongVerifierSelector path (empty proof tested separately).
     /// @param invalidProof Random bytes that are not a valid SP1 proof
     function testFuzz_invalidProofRejected(bytes calldata invalidProof) public {
+        vm.assume(invalidProof.length >= 4); // Avoid slice bounds error (tested in testEmptyProofRejected)
         vm.assume(invalidProof.length < 10000); // Bound size to avoid OOG reverts
         vm.prank(prover);
         vm.expectRevert(); // Real verifier rejects invalid proofs
@@ -888,5 +886,30 @@ contract OPSuccinctFaultDisputeGameInvalidProofTest is OPSuccinctFaultDisputeGam
         vm.prank(prover);
         vm.expectRevert(); // Reverts with WrongVerifierSelector(actualSelector, expectedSelector)
         game.prove(garbageProof);
+    }
+
+    /// @notice Test: proof with valid selector but invalid Groth16 proof body is rejected
+    /// @dev This tests deeper verification logic by passing the selector check but failing
+    ///      at the actual cryptographic verification. The SP1Verifier expects:
+    ///      - First 4 bytes: selector matching VERIFIER_HASH (0x09069090)
+    ///      - Next 256 bytes: uint256[8] Groth16 proof points
+    function testValidSelectorInvalidProofBodyRejected() public {
+        // Build proof with correct selector (first 4 bytes of VERIFIER_HASH)
+        // but garbage Groth16 proof body (8 * 32 = 256 bytes)
+        bytes memory proofWithValidSelector = abi.encodePacked(
+            bytes4(0x09069090), // Valid selector from SP1Verifier.VERIFIER_HASH()
+            uint256(0x1111111111111111111111111111111111111111111111111111111111111111),
+            uint256(0x2222222222222222222222222222222222222222222222222222222222222222),
+            uint256(0x3333333333333333333333333333333333333333333333333333333333333333),
+            uint256(0x4444444444444444444444444444444444444444444444444444444444444444),
+            uint256(0x5555555555555555555555555555555555555555555555555555555555555555),
+            uint256(0x6666666666666666666666666666666666666666666666666666666666666666),
+            uint256(0x7777777777777777777777777777777777777777777777777777777777777777),
+            uint256(0x8888888888888888888888888888888888888888888888888888888888888888)
+        );
+
+        vm.prank(prover);
+        vm.expectRevert(); // Fails at Groth16 cryptographic verification
+        game.prove(proofWithValidSelector);
     }
 }
