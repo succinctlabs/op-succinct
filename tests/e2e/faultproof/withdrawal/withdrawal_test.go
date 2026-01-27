@@ -38,14 +38,20 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 
 	// Create DgfClient using same DGF address - verify it works
 	dgf := sys.DgfClient(t)
-	ctx, cancel := context.WithTimeout(t.Ctx(), 30*time.Second)
+
+	// Wait for multiple games to be created. The proposer creates games every ~30-40 seconds
+	// (regardless of ProposalIntervalInBlocks setting), so we need to wait for several games
+	// to ensure games cover high enough block numbers for the withdrawal.
+	//
+	// The chain advances rapidly during deposit/withdrawal operations (~200+ blocks).
+	// By waiting for 5 games upfront, we ensure the proposer is actively creating games
+	// and will continue to catch up as the chain advances.
+	ctx, cancel := context.WithTimeout(t.Ctx(), 4*time.Minute)
 	defer cancel()
 
-	// Wait for at least one game to be created - this verifies the proposer is working
-	// and games are being created on the OPSuccinct DGF (game type 42)
-	logger.Info("Waiting for first game to be created on OPSuccinct DGF")
-	utils.WaitForGameCount(ctx, t, dgf, 1)
-	logger.Info("Game created successfully, DGF is working correctly")
+	logger.Info("Waiting for games to be created on OPSuccinct DGF (need 5 games)")
+	utils.WaitForGameCount(ctx, t, dgf, 5)
+	logger.Info("Games created successfully, DGF is working correctly")
 
 	// Get the standard bridge DSL
 	bridge := sys.StandardBridge()
