@@ -25,9 +25,10 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	logger := t.Logger()
 
 	// === SETUP ===
-	// Configure proposer - we need enough time for game to be created
+	// Configure proposer - we need games created frequently to ensure a game covers
+	// the withdrawal block within the 90s timeout in bridge.go
 	proposerCfg := opspresets.DefaultFPProposerConfig()
-	proposerCfg.ProposalIntervalInBlocks = 20 // Create games frequently
+	proposerCfg.ProposalIntervalInBlocks = 5 // Create games very frequently for withdrawal test
 
 	sys := opspresets.NewFaultProofSystem(t, proposerCfg, opspresets.DefaultL2ChainConfig())
 
