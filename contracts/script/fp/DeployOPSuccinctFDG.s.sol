@@ -184,6 +184,13 @@ contract DeployOPSuccinctFDG is Script, Utils {
         GameType gameType,
         ProxyAdmin proxyAdmin
     ) internal returns (AnchorStateRegistry) {
+        // Check if using existing ASR (for e2e tests where games must use the same ASR as OptimismPortal2)
+        if (config.existingAnchorStateRegistry != address(0)) {
+            AnchorStateRegistry registry = AnchorStateRegistry(config.existingAnchorStateRegistry);
+            console.log("Using existing AnchorStateRegistry:", address(registry));
+            return registry;
+        }
+
         // Deploy MockSystemConfig for testing (in production, use existing SystemConfig)
         // Pass msg.sender as guardian for deployment scripts
         MockSystemConfig mockSystemConfig = new MockSystemConfig(msg.sender);
@@ -210,7 +217,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
         );
 
         AnchorStateRegistry registry = AnchorStateRegistry(address(registryProxy));
-        console.log("Anchor state registry:", address(registry));
+        console.log("Deployed new AnchorStateRegistry:", address(registry));
         return registry;
     }
 
