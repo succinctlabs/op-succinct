@@ -27,6 +27,8 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 
 // Utils
 import {MockOptimismPortal2} from "../../src/utils/MockOptimismPortal2.sol";
+import {MockSystemConfig} from "../../src/utils/MockSystemConfig.sol";
+import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 
 contract OPSuccinctDisputeGameTest is Test, Utils {
     // Event definitions matching those in OPSuccinctDisputeGame.
@@ -40,6 +42,7 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
     OPSuccinctDisputeGame game;
 
     OPSuccinctL2OutputOracle l2OutputOracle;
+    AnchorStateRegistry anchorStateRegistry;
 
     address proposer = address(0x123);
 
@@ -74,8 +77,25 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
         // Deploy L2OutputOracle using Utils helper functions.
         (l2OutputOracle,) = deployL2OutputOracleWithStandardParams(proposer, address(0), address(this));
 
+        // Deploy anchor state registry for v5.0.0 compatibility.
+        MockSystemConfig mockSystemConfig = new MockSystemConfig(address(this));
+        uint256 disputeGameFinalityDelaySeconds = 604800; // 7 days
+        Proposal memory startingAnchorRoot = Proposal({root: Hash.wrap(keccak256("genesis")), l2SequenceNumber: 0});
+
+        AnchorStateRegistry registryImpl = new AnchorStateRegistry(disputeGameFinalityDelaySeconds);
+        Proxy registryProxy = new Proxy(address(proxyAdmin));
+        proxyAdmin.upgradeAndCall(
+            payable(address(registryProxy)),
+            address(registryImpl),
+            abi.encodeCall(
+                AnchorStateRegistry.initialize,
+                (ISystemConfig(address(mockSystemConfig)), IDisputeGameFactory(address(factory)), startingAnchorRoot, gameType)
+            )
+        );
+        anchorStateRegistry = AnchorStateRegistry(address(registryProxy));
+
         // Deploy the implementation of OPSuccinctDisputeGame.
-        gameImpl = new OPSuccinctDisputeGame(address(l2OutputOracle));
+        gameImpl = new OPSuccinctDisputeGame(address(l2OutputOracle), IAnchorStateRegistry(address(anchorStateRegistry)));
 
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
