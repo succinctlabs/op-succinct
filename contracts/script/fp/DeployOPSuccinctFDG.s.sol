@@ -129,6 +129,13 @@ contract DeployOPSuccinctFDG is Script, Utils {
             optimismPortal2: portalAddress
         });
 
+        // Output addresses in format expected by Go test infrastructure:
+        // <name>: address 0x...
+        // These are parsed by parseNamedAddresses in deployer_succinct.go
+        console.log("factoryProxy: address", address(factoryProxy));
+        console.log("anchorStateRegistry: address", address(registry));
+        console.log("sp1Verifier: address", sp1Config.verifierAddress);
+
         return deployedContracts;
     }
 
