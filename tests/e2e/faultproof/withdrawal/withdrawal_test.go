@@ -29,8 +29,13 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	// games for recent blocks (unsafe head) rather than only finalized blocks.
 	// This is critical for the withdrawal test because the chain advances rapidly
 	// during deposit/withdrawal operations.
+	//
+	// IMPORTANT: Use a LARGER ProposalIntervalInBlocks (not smaller!) so each game
+	// covers more blocks. With interval=50, games cover blocks 1, 51, 101, 151, 201, 251...
+	// so only ~6 games are needed to cover block 279 (vs ~56 games with interval=5).
+	// Since games are created every ~36 seconds, larger intervals = faster coverage.
 	proposerCfg := opspresets.FastFinalityFPProposerConfig()
-	proposerCfg.ProposalIntervalInBlocks = 5 // Create games very frequently for withdrawal test
+	proposerCfg.ProposalIntervalInBlocks = 50 // Larger interval = each game covers more blocks
 
 	sys := opspresets.NewFaultProofSystem(t, proposerCfg, opspresets.DefaultL2ChainConfig())
 
@@ -102,16 +107,17 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	logger.Info("Withdrawal initiated on L2",
 		"initiateBlockHash", withdrawal.InitiateBlockHash().Hex())
 
-	// === PHASE 2.5: Ensure proposer is active ===
-	// Wait for at least one game to be created, confirming the proposer is running.
-	// The Prove() call below has its own 90-second timeout to find a game covering
-	// the withdrawal block - no need to wait for many games upfront.
-	ctx, cancel := context.WithTimeout(t.Ctx(), 2*time.Minute)
+	// === PHASE 2.5: Wait for games to cover withdrawal block ===
+	// With ProposalIntervalInBlocks=50, games cover blocks 1, 51, 101, 151, 201, 251, 301...
+	// The withdrawal block is typically around 250-350 (depends on setup time).
+	// We need ~6-7 games to cover it, but wait for 8 to have margin.
+	// Games are created every ~36 seconds, so 8 games = ~5 minutes.
+	ctx, cancel := context.WithTimeout(t.Ctx(), 6*time.Minute)
 	defer cancel()
 
-	logger.Info("Waiting for at least 1 game to confirm proposer is active")
-	utils.WaitForGameCount(ctx, t, dgf, 1)
-	logger.Info("Proposer is active, proceeding to prove withdrawal")
+	logger.Info("Waiting for games to cover withdrawal block (need ~8 games with interval=50)")
+	utils.WaitForGameCount(ctx, t, dgf, 8)
+	logger.Info("Sufficient games created, proceeding to prove withdrawal")
 
 	// === PHASE 3: Prove withdrawal on L1 ===
 	// This waits for a game covering the withdrawal block to be published (90s timeout in bridge.go)
