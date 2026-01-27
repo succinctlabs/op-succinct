@@ -94,7 +94,7 @@ pub fn compute_vkeys() -> (B256, B256) {
 
     let (_, agg_vk) = prover.setup(AGGREGATION_ELF);
     let aggregation_vkey = {
-        let hex_str = agg_vk.vk.bytes32();
+        let hex_str = agg_vk.bytes32();
         B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
     };
 

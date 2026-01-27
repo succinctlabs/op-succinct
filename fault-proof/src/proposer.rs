@@ -303,7 +303,10 @@ where
         let aggregation_vkey = {
             let hex_str = agg_vk.bytes32();
             // bytes32() returns "0x..." prefixed hex string
-            B256::from_slice(&hex::decode(hex_str.trim_start_matches("0x")).unwrap())
+            B256::from_slice(
+                &hex::decode(hex_str.trim_start_matches("0x"))
+                    .context("failed to decode aggregation vkey hex")?,
+            )
         };
         let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
 

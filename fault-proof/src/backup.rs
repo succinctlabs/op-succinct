@@ -14,8 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::proposer::Game;
 
 /// Current backup format version. Increment when making breaking changes.
-/// v2: Added aggregation_vkey, range_vkey_commitment, rollup_config_hash to Game.
-pub const BACKUP_VERSION: u32 = 2;
+pub const BACKUP_VERSION: u32 = 1;
 
 /// Serializable backup of the proposer state.
 #[derive(Serialize, Deserialize)]
