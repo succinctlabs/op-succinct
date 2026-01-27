@@ -2,11 +2,14 @@
 package fpwithdrawal
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-devstack/devtest"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	opspresets "github.com/succinctlabs/op-succinct/presets"
+	"github.com/succinctlabs/op-succinct/utils"
 )
 
 // TestFaultProof_WithdrawalFinalized verifies the complete withdrawal lifecycle:
@@ -28,11 +31,33 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 
 	sys := opspresets.NewFaultProofSystem(t, proposerCfg, opspresets.DefaultL2ChainConfig())
 
+	// Log DGF address for debugging (this is the OPSuccinct DGF that should have game type 42)
+	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
+	logger.Info("DGF address from L2Deployment", "address", dgfAddr.Hex())
+
+	// Create DgfClient using same DGF address - verify it works
+	dgf := sys.DgfClient(t)
+	ctx, cancel := context.WithTimeout(t.Ctx(), 30*time.Second)
+	defer cancel()
+
+	// Wait for at least one game to be created - this verifies the proposer is working
+	// and games are being created on the OPSuccinct DGF (game type 42)
+	logger.Info("Waiting for first game to be created on OPSuccinct DGF")
+	utils.WaitForGameCount(ctx, t, dgf, 1)
+	logger.Info("Game created successfully, DGF is working correctly")
+
 	// Get the standard bridge DSL
 	bridge := sys.StandardBridge()
 
+	// Log the respected game type - this should be 42
+	gameType := bridge.RespectedGameType()
 	logger.Info("FaultProof withdrawal test starting",
-		"respectedGameType", bridge.RespectedGameType(),
+		"respectedGameType", gameType,
+		"dgfAddress", dgfAddr.Hex())
+
+	// Now try the StandardBridge methods that query the DGF
+	// These should work now that we've verified game type 42 is registered
+	logger.Info("Testing StandardBridge DGF queries",
 		"withdrawalDelay", bridge.WithdrawalDelay(),
 		"gameResolutionDelay", bridge.GameResolutionDelay(),
 		"disputeGameFinalityDelay", bridge.DisputeGameFinalityDelay())
