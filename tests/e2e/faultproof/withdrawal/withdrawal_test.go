@@ -25,9 +25,11 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	logger := t.Logger()
 
 	// === SETUP ===
-	// Configure proposer - we need games created frequently to ensure a game covers
-	// the withdrawal block within the 90s timeout in bridge.go
-	proposerCfg := opspresets.DefaultFPProposerConfig()
+	// Configure proposer with fast finality mode - this allows the proposer to create
+	// games for recent blocks (unsafe head) rather than only finalized blocks.
+	// This is critical for the withdrawal test because the chain advances rapidly
+	// during deposit/withdrawal operations.
+	proposerCfg := opspresets.FastFinalityFPProposerConfig()
 	proposerCfg.ProposalIntervalInBlocks = 5 // Create games very frequently for withdrawal test
 
 	sys := opspresets.NewFaultProofSystem(t, proposerCfg, opspresets.DefaultL2ChainConfig())
@@ -38,20 +40,6 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 
 	// Create DgfClient using same DGF address - verify it works
 	dgf := sys.DgfClient(t)
-
-	// Wait for multiple games to be created. The proposer creates games every ~30-40 seconds
-	// (regardless of ProposalIntervalInBlocks setting), so we need to wait for several games
-	// to ensure games cover high enough block numbers for the withdrawal.
-	//
-	// The chain advances rapidly during deposit/withdrawal operations (~200+ blocks).
-	// By waiting for 5 games upfront, we ensure the proposer is actively creating games
-	// and will continue to catch up as the chain advances.
-	ctx, cancel := context.WithTimeout(t.Ctx(), 4*time.Minute)
-	defer cancel()
-
-	logger.Info("Waiting for games to be created on OPSuccinct DGF (need 5 games)")
-	utils.WaitForGameCount(ctx, t, dgf, 5)
-	logger.Info("Games created successfully, DGF is working correctly")
 
 	// Get the standard bridge DSL
 	bridge := sys.StandardBridge()
@@ -91,6 +79,8 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	// === PHASE 1: Deposit from L1 to L2 ===
 	// The max amount of withdrawal is limited to the total amount of deposit
 	// We trigger deposit first to fund the L1 ETHLockbox to satisfy the invariant
+	// IMPORTANT: Do deposit/withdrawal EARLY before waiting for games, so the withdrawal
+	// block number is low enough for games to catch up within the 90s timeout.
 	logger.Info("Phase 1: Depositing ETH from L1 to L2", "amount", depositAmount)
 
 	deposit := bridge.Deposit(depositAmount, l1User)
@@ -112,8 +102,19 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	logger.Info("Withdrawal initiated on L2",
 		"initiateBlockHash", withdrawal.InitiateBlockHash().Hex())
 
+	// === PHASE 2.5: Ensure proposer is active ===
+	// Wait for at least one game to be created, confirming the proposer is running.
+	// The Prove() call below has its own 90-second timeout to find a game covering
+	// the withdrawal block - no need to wait for many games upfront.
+	ctx, cancel := context.WithTimeout(t.Ctx(), 2*time.Minute)
+	defer cancel()
+
+	logger.Info("Waiting for at least 1 game to confirm proposer is active")
+	utils.WaitForGameCount(ctx, t, dgf, 1)
+	logger.Info("Proposer is active, proceeding to prove withdrawal")
+
 	// === PHASE 3: Prove withdrawal on L1 ===
-	// This waits for a game covering the withdrawal block to be published
+	// This waits for a game covering the withdrawal block to be published (90s timeout in bridge.go)
 	logger.Info("Phase 3: Proving withdrawal on L1 (waiting for game)")
 
 	withdrawal.Prove(l1User)
