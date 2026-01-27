@@ -112,8 +112,9 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	// The withdrawal block depends on L2 chain state at withdrawal time, which can be
 	// 500-700 blocks depending on setup time and chain advancement.
 	// We need ~14-15 games to cover block 700+, with margin for safety.
-	// Games are created every ~36-50 seconds, so 15 games = ~10 minutes.
-	ctx, cancel := context.WithTimeout(t.Ctx(), 10*time.Minute)
+	// Games are created every ~50-55 seconds, so 15 games = ~13 minutes.
+	// Use 15 minute timeout to ensure we have time for all games.
+	ctx, cancel := context.WithTimeout(t.Ctx(), 15*time.Minute)
 	defer cancel()
 
 	logger.Info("Waiting for games to cover withdrawal block (need ~15 games with interval=50)")
