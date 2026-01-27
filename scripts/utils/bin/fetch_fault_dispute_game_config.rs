@@ -132,10 +132,8 @@ async fn update_fdg_config() -> Result<()> {
     // SystemConfig configuration - derive from rollup config by default.
     // For production deployments, this is required for proper guardian functionality.
     // For testing, if zero address, a MockSystemConfig will be deployed.
-    let rollup_config = data_fetcher
-        .rollup_config
-        .as_ref()
-        .ok_or(anyhow::anyhow!("Rollup config not found"))?;
+    let rollup_config =
+        data_fetcher.rollup_config.as_ref().ok_or(anyhow::anyhow!("Rollup config not found"))?;
 
     let system_config_address = env::var("SYSTEM_CONFIG_ADDRESS").unwrap_or_else(|_| {
         // Default to the address from rollup config
