@@ -37,7 +37,7 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	proposerCfg := opspresets.FastFinalityFPProposerConfig()
 	proposerCfg.ProposalIntervalInBlocks = 50 // Larger interval = each game covers more blocks
 
-	sys := opspresets.NewFaultProofSystem(t, proposerCfg, opspresets.DefaultL2ChainConfig())
+	sys := opspresets.NewFaultProofSystem(t, proposerCfg, opspresets.DefaultL2ChainConfig(), opspresets.WithFPTimeTravel())
 
 	// Log DGF address for debugging (this is the OPSuccinct DGF that should have game type 42)
 	dgfAddr := sys.L2Chain.Escape().Deployment().DisputeGameFactoryProxyAddr()
