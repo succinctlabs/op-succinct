@@ -109,14 +109,15 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 
 	// === PHASE 2.5: Wait for games to cover withdrawal block ===
 	// With ProposalIntervalInBlocks=50, games cover blocks 1, 51, 101, 151, 201, 251, 301...
-	// The withdrawal block is typically around 250-350 (depends on setup time).
-	// We need ~6-7 games to cover it, but wait for 8 to have margin.
-	// Games are created every ~36 seconds, so 8 games = ~5 minutes.
-	ctx, cancel := context.WithTimeout(t.Ctx(), 6*time.Minute)
+	// The withdrawal block depends on L2 chain state at withdrawal time, which can be
+	// 500-700 blocks depending on setup time and chain advancement.
+	// We need ~14-15 games to cover block 700+, with margin for safety.
+	// Games are created every ~36-50 seconds, so 15 games = ~10 minutes.
+	ctx, cancel := context.WithTimeout(t.Ctx(), 10*time.Minute)
 	defer cancel()
 
-	logger.Info("Waiting for games to cover withdrawal block (need ~8 games with interval=50)")
-	utils.WaitForGameCount(ctx, t, dgf, 8)
+	logger.Info("Waiting for games to cover withdrawal block (need ~15 games with interval=50)")
+	utils.WaitForGameCount(ctx, t, dgf, 15)
 	logger.Info("Sufficient games created, proceeding to prove withdrawal")
 
 	// === PHASE 3: Prove withdrawal on L1 ===
