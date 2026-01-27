@@ -89,13 +89,19 @@ contract OPSuccinctDisputeGameTest is Test, Utils {
             address(registryImpl),
             abi.encodeCall(
                 AnchorStateRegistry.initialize,
-                (ISystemConfig(address(mockSystemConfig)), IDisputeGameFactory(address(factory)), startingAnchorRoot, gameType)
+                (
+                    ISystemConfig(address(mockSystemConfig)),
+                    IDisputeGameFactory(address(factory)),
+                    startingAnchorRoot,
+                    gameType
+                )
             )
         );
         anchorStateRegistry = AnchorStateRegistry(address(registryProxy));
 
         // Deploy the implementation of OPSuccinctDisputeGame.
-        gameImpl = new OPSuccinctDisputeGame(address(l2OutputOracle), IAnchorStateRegistry(address(anchorStateRegistry)));
+        gameImpl =
+            new OPSuccinctDisputeGame(address(l2OutputOracle), IAnchorStateRegistry(address(anchorStateRegistry)));
 
         // Register our reference implementation under the specified gameType.
         factory.setImplementation(gameType, IDisputeGame(address(gameImpl)));
