@@ -1,13 +1,14 @@
 name: Sysgo E2E Tests
 
 on:
-  push:
-    tags:
-      - v[0-9]+.*
-    branches:
-      - main
-  merge_group:
-  pull_request:
+  # push:
+  #   tags:
+  #     - v[0-9]+.*
+  #   branches:
+  #     - main
+  # merge_group:
+  # pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

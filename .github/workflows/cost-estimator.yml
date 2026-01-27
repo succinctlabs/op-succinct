@@ -3,11 +3,11 @@ name: Cost Estimator
 on:
   push:
     tags:
-      - v[0-9]+.*
+      - celo/v[0-9]+.*
     branches:
-      - main
+      - develop
   pull_request:
-    branches: [main]
+    branches: [develop]
     paths-ignore:
       - '**/*.pdf'
       - '**/*.md'
@@ -18,15 +18,9 @@ concurrency:
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
 
 jobs:
-  cost-estimator:
-    runs-on:
-      - runs-on
-      - cpu=16
-      - ram=64
-      - family=m7a+m7i-flex
-      - image=ubuntu22-full-x64
-      - run-id=${{ github.run_id }}
-      - spot=false
+  integration-tests:
+    environment: e2e
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -35,9 +29,12 @@ jobs:
 
       - name: Run cost estimator on recent block range
         run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling
+          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --rolling
         env:
           L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
           L1_RPC: ${{ secrets.L1_RPC }}
           L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
           L2_RPC: ${{ secrets.L2_RPC }}
+          EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+          SP1_PROVER: mock
+          OP_SUCCINCT_MOCK: true 
