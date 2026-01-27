@@ -75,23 +75,40 @@ contract DeployOPSuccinctFDG is Script, Utils {
     }
 
     function deployContracts(FDGConfig memory config) internal returns (DeployedContracts memory) {
-        // Deploy ProxyAdmin with msg.sender as owner.
-        ProxyAdmin proxyAdmin = new ProxyAdmin(msg.sender);
-        console.log("ProxyAdmin deployed at:", address(proxyAdmin));
+        DisputeGameFactory factory;
+        ProxyAdmin proxyAdmin;
 
-        // Deploy factory implementation.
-        DisputeGameFactory factoryImpl = new DisputeGameFactory();
+        // Check if using existing DGF (for e2e tests where OptimismPortal2 must use the same DGF)
+        bool useExistingDgf = config.existingDisputeGameFactoryProxy != address(0);
 
-        // Deploy factory proxy using Optimism Proxy pattern.
-        Proxy factoryProxy = new Proxy(address(proxyAdmin));
+        if (useExistingDgf) {
+            // Use existing DisputeGameFactory - required for e2e tests where
+            // OptimismPortal2 is already configured with a specific DGF
+            factory = DisputeGameFactory(config.existingDisputeGameFactoryProxy);
+            console.log("Using existing DisputeGameFactory:", address(factory));
 
-        // Initialize the factory through ProxyAdmin.
-        proxyAdmin.upgradeAndCall(
-            payable(address(factoryProxy)),
-            address(factoryImpl),
-            abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
-        );
-        DisputeGameFactory factory = DisputeGameFactory(address(factoryProxy));
+            // Deploy ProxyAdmin for AnchorStateRegistry (still needed for new components)
+            proxyAdmin = new ProxyAdmin(msg.sender);
+            console.log("ProxyAdmin deployed at:", address(proxyAdmin));
+        } else {
+            // Deploy ProxyAdmin with msg.sender as owner.
+            proxyAdmin = new ProxyAdmin(msg.sender);
+            console.log("ProxyAdmin deployed at:", address(proxyAdmin));
+
+            // Deploy factory implementation.
+            DisputeGameFactory factoryImpl = new DisputeGameFactory();
+
+            // Deploy factory proxy using Optimism Proxy pattern.
+            Proxy factoryProxy = new Proxy(address(proxyAdmin));
+
+            // Initialize the factory through ProxyAdmin.
+            proxyAdmin.upgradeAndCall(
+                payable(address(factoryProxy)),
+                address(factoryImpl),
+                abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
+            );
+            factory = DisputeGameFactory(address(factoryProxy));
+        }
 
         GameType gameType = GameType.wrap(config.gameType);
 
@@ -106,7 +123,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
             deployAnchorStateRegistry(config, factory, startingAnchorRoot, gameType, proxyAdmin);
 
         // Deploy and configure access manager
-        AccessManager accessManager = deployAccessManager(config, address(factoryProxy));
+        AccessManager accessManager = deployAccessManager(config, address(factory));
 
         // Deploy SP1 verifier and get configuration
         SP1Config memory sp1Config = deploySP1Verifier(config);
@@ -121,7 +138,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
         // Create deployed contracts struct
         DeployedContracts memory deployedContracts = DeployedContracts({
-            factoryProxy: address(factoryProxy),
+            factoryProxy: address(factory),
             gameImplementation: address(gameImpl),
             sp1Verifier: sp1Config.verifierAddress,
             anchorStateRegistry: address(registry),
@@ -132,7 +149,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
         // Output addresses in format expected by Go test infrastructure:
         // <name>: address 0x...
         // These are parsed by parseNamedAddresses in deployer_succinct.go
-        console.log("factoryProxy: address", address(factoryProxy));
+        console.log("factoryProxy: address", address(factory));
         console.log("anchorStateRegistry: address", address(registry));
         console.log("sp1Verifier: address", sp1Config.verifierAddress);
 
