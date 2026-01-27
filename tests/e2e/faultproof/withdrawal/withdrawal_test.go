@@ -49,6 +49,15 @@ func TestFaultProof_WithdrawalFinalized(gt *testing.T) {
 	// Get the standard bridge DSL
 	bridge := sys.StandardBridge()
 
+	// Also log the DGF address from L2Chain to compare
+	l2ChainDgfAddr := sys.L2Chain.DisputeGameFactoryProxyAddr()
+	logger.Info("DGF address from L2Chain (used by StandardBridge)", "address", l2ChainDgfAddr.Hex())
+	if dgfAddr != l2ChainDgfAddr {
+		logger.Error("DGF ADDRESS MISMATCH!",
+			"L2Deployment", dgfAddr.Hex(),
+			"L2Chain", l2ChainDgfAddr.Hex())
+	}
+
 	// Log the respected game type - this should be 42
 	gameType := bridge.RespectedGameType()
 	logger.Info("FaultProof withdrawal test starting",
