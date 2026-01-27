@@ -58,6 +58,7 @@ alloy-sol-types.workspace = true
 
 # reth (feature unification for transitive deps)
 reth-optimism-primitives.workspace = true
+reth-ethereum-primitives.workspace = true
 
 # general
 anyhow.workspace = true

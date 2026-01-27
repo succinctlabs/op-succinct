@@ -5,7 +5,7 @@ pragma solidity ^0.8.15;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {Claim, GameType, Hash, OutputRoot, Duration} from "src/dispute/lib/Types.sol";
+import {Claim, GameType, Hash, Proposal, Duration} from "src/dispute/lib/Types.sol";
 import {LibString} from "@solady/utils/LibString.sol";
 
 // Interfaces
@@ -13,12 +13,14 @@ import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
+import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 import {ISuperchainConfig} from "interfaces/L1/ISuperchainConfig.sol";
 import {IOptimismPortal2} from "interfaces/L1/IOptimismPortal2.sol";
 
 // Contracts
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {AccessManager} from "../../src/fp/AccessManager.sol";
+import {MockSystemConfig} from "src/utils/MockSystemConfig.sol";
 import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -147,7 +149,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
         // Set respected game type
         /// @custom:dev: Requires portal guardian role
-        IOptimismPortal2(payable(contracts.optimismPortal2)).setRespectedGameType(gameType);
+        IAnchorStateRegistry(contracts.anchorStateRegistry).setRespectedGameType(gameType);
     }
 
     function deployGameImplementation(
@@ -193,27 +195,27 @@ contract DeployOPSuccinctFDG is Script, Utils {
             registry = AnchorStateRegistry(config.anchorStateRegistryAddress);
             console.log("Using existing AnchorStateRegistry:", address(registry));
         } else {
-            OutputRoot memory startingAnchorRoot =
-                OutputRoot({root: Hash.wrap(config.startingRoot), l2BlockNumber: config.startingL2BlockNumber});
+            Proposal memory startingAnchorRoot =
+                Proposal({root: Hash.wrap(config.startingRoot), l2SequenceNumber: config.startingL2BlockNumber});
 
-            // Get or create superchain config
-            ISuperchainConfig superchainConfig;
-            if (config.celoSuperchainConfigAddress != address(0)) {
-                superchainConfig = ISuperchainConfig(config.celoSuperchainConfigAddress);
+            // Get or create system config
+            ISystemConfig systemConfig;
+            if (config.optimismPortal2Address != address(0)) {
+                systemConfig = IOptimismPortal2(portalAddress).systemConfig();
             } else {
-                superchainConfig = ISuperchainConfig(address(new SuperchainConfig()));
+                systemConfig = ISystemConfig(address(new MockSystemConfig(msg.sender)));
             }
 
             // Deploy the anchor state registry proxy
             ERC1967Proxy registryProxy = new ERC1967Proxy(
-                address(new AnchorStateRegistry()),
+                address(new AnchorStateRegistry(config.disputeGameFinalityDelaySeconds)),
                 abi.encodeCall(
                     AnchorStateRegistry.initialize,
                     (
-                        superchainConfig,
+                        systemConfig,
                         IDisputeGameFactory(address(factory)),
-                        IOptimismPortal2(portalAddress),
-                        startingAnchorRoot
+                        startingAnchorRoot,
+                        GameType.wrap(config.gameType)
                     )
                 )
             );
