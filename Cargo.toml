@@ -57,7 +57,7 @@ base64 = "0.22.1"
 tower-http = { version = "0.5.2", features = ["limit"] }
 lazy_static = "1.5.0"
 tracing = { version = "0.1.40", default-features = false }
-tracing-subscriber = { version = "0.3.20", features = ["fmt", "json"] }
+tracing-subscriber = { version = "0.3.22", features = ["fmt", "json"] }
 tracing-opentelemetry = "^0.24"
 opentelemetry = { version = "^0.23.0", features = ["trace"] }
 opentelemetry_sdk = { version = "^0.23.0", features = [
@@ -75,6 +75,10 @@ metrics-process = "2.4.0"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 tempfile = "3.10.1"
+
+# vergen - pin to exact versions for rollup-boost compatibility
+vergen = "=9.0.4"
+vergen-git2 = "=1.0.5"
 
 # kona
 kona-mpt = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7" }
@@ -104,10 +108,10 @@ celo-protocol = { git = "https://github.com/celo-org/celo-kona", rev = "2b95a45"
 celo-genesis = { git = "https://github.com/celo-org/celo-kona", rev = "2b95a45", default-features = false }
 
 # hana
-hana-blobstream = { git = "https://github.com/celestiaorg/hana", rev = "5d98991" }
-hana-celestia = { git = "https://github.com/celestiaorg/hana", rev = "5d98991" }
-hana-host = { git = "https://github.com/celestiaorg/hana", rev = "5d98991" }
-hana-oracle = { git = "https://github.com/celestiaorg/hana", rev = "5d98991" }
+hana-blobstream = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
+hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
+hana-host = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
+hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 
 # hokulea
 hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "3c70c79" }
@@ -141,31 +145,32 @@ op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
 # Alloy (Network)
-alloy-signer-local = { version = "1.1.3" }
-alloy-provider = { version = "1.1.3" }
-alloy-transport = { version = "1.1.3" }
-alloy-transport-http = { version = "1.1.3" }
-alloy-contract = { version = "1.1.3" }
-alloy-network = { version = "1.1.3" }
+alloy-signer-local = { version = "=1.1.3" }
+alloy-provider = { version = "=1.1.3" }
+alloy-transport = { version = "=1.1.3" }
+alloy-transport-http = { version = "=1.1.3" }
+alloy-contract = { version = "=1.1.3" }
+alloy-network = { version = "=1.1.3" }
 
 # Alloy
 alloy-rlp = { version = "0.3.12", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false, features = [
     "ethereum",
 ] }
-alloy-eips = { version = "1.1.3", default-features = false }
-alloy-serde = { version = "1.1.3", default-features = false }
-alloy-consensus = { version = "1.1.3", default-features = false }
-alloy-rpc-types = { version = "1.1.3", default-features = false }
-alloy-rpc-client = { version = "1.1.3", default-features = false }
-alloy-node-bindings = { version = "1.1.3", default-features = false }
-alloy-rpc-types-engine = { version = "1.1.3", default-features = false }
-alloy-rpc-types-beacon = { version = "1.1.3", default-features = false }
-alloy-rpc-types-eth = { version = "1.1.3", default-features = false }
-alloy-rpc-types-trace = { version = "1.1.3", default-features = false }
-alloy-signer = { version = "1.1.3", default-features = false }
-alloy-signer-gcp = { version = "1.1.3", default-features = false }
-alloy = { version = "1.1.3", features = [
+alloy-eips = { version = "=1.1.3", default-features = false }
+alloy-serde = { version = "=1.1.3", default-features = false }
+alloy-consensus = { version = "=1.1.3", default-features = false }
+alloy-tx-macros = { version = "=1.1.3", default-features = false }
+alloy-rpc-types = { version = "=1.1.3", default-features = false }
+alloy-rpc-client = { version = "=1.1.3", default-features = false }
+alloy-node-bindings = { version = "=1.1.3", default-features = false }
+alloy-rpc-types-engine = { version = "=1.1.3", default-features = false }
+alloy-rpc-types-beacon = { version = "=1.1.3", default-features = false }
+alloy-rpc-types-eth = { version = "=1.1.3", default-features = false }
+alloy-rpc-types-trace = { version = "=1.1.3", default-features = false }
+alloy-signer = { version = "=1.1.3", default-features = false }
+alloy-signer-gcp = { version = "=1.1.3", default-features = false }
+alloy = { version = "=1.1.3", features = [
     "reqwest",
     "network",
     "providers",
@@ -174,6 +179,7 @@ alloy = { version = "1.1.3", features = [
 ] }
 
 # Keccak with the SHA3 patch is more efficient than the default Keccak.
+# Note: alloy-primitives/sol-types are at 1.4.x to match kona dependencies
 alloy-primitives = { version = "1.4.1", default-features = false, features = [
     "sha3-keccak",
 ] }
@@ -197,17 +203,12 @@ celo-alloy-network = { git = "https://github.com/celo-org/celo-kona", rev = "2b9
 alloy-evm = { version = "0.24.2", default-features = false }
 alloy-op-evm = { version = "0.24.2", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
+# Versions aligned with kona v1.2.7
 revm = { version = "33.1.0", default-features = false, features = [
     "bn",
 ] }
 revm-precompile = { version = "31.0.0", default-features = false }
 op-revm = { version = "14.1.0", default-features = false }
-
-# reth (feature override for transitive deps)
-reth-optimism-primitives = { git = "https://github.com/paradigmxyz/reth", tag = "v1.9.3", default-features = false, features = [
-    "serde",
-    "serde-bincode-compat",
-] }
 
 # Celo Execution
 alloy-celo-evm = { git = "https://github.com/celo-org/celo-kona", rev = "2b95a45", default-features = false }
@@ -240,57 +241,47 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
+
+# Pin alloy-tx-macros to v1.1.3 to match alloy-consensus v1.1.3
+# The derive macro must match the trait definition version
+alloy-tx-macros = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.3" }
+
 # We patch alloy-eips to a version where fake_exponential does not overflow when provided with large inputs.
 alloy-eips = { git = "https://github.com/celo-org/alloy", rev = "f88c10d3", default-features = false }
 # We also need to patch alloy-serde to this version since otherwise a different non patch version is also included in the project
 # which breaks trait bound satisfaction
 alloy-serde = { git = "https://github.com/celo-org/alloy", rev = "f88c10d3", default-features = false }
 
-# Fix RwLockReadGuard PartialEq bug in reth-transaction-pool (must patch all v1.9.3 reth crates)
+
+# Note: vergen-lib conflict fixed by pinning vergen=9.0.4, vergen-git2=1.0.5 in Cargo.lock
+
+# Patch reth crates to fix PartialEq bug in reth-transaction-pool (PR #21336)
+# Using succinctlabs fork to enable HTTPS patching in CI (Cargo requires different source URL)
+# v1.9.3-kona branch contains the backported fix from paradigmxyz/reth
 [patch."https://github.com/paradigmxyz/reth"]
-reth-basic-payload-builder = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-chain-state = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-chainspec = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-codecs = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-codecs-derive = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-consensus = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-consensus-common = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-db-models = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-engine-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-errors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-ethereum-engine-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-ethereum-forks = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-ethereum-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-evm = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-execution-errors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-execution-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-metrics = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-network-peers = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-chainspec = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-consensus = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-evm = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-forks = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-payload-builder = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-optimism-txpool = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-payload-builder = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-payload-builder-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-payload-primitives = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-payload-util = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-payload-validator = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-primitives-traits = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-prune-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-revm = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-stages-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-static-file-types = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-storage-api = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-storage-errors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-tasks = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-transaction-pool = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-trie = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-trie-common = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-trie-sparse = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
-reth-zstd-compressors = { git = "https://github.com/seolaoh/reth", rev = "292656c" }
+reth-chainspec = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-chain-state = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-consensus = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-ethereum-forks = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-ethereum-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-execution-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-execution-types = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-chainspec = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-consensus = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-evm = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-forks = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-payload-builder = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-optimism-txpool = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-primitives-traits = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-revm = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-storage-api = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-storage-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-transaction-pool = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-trie = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
+reth-trie-common = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 
 [patch."https://github.com/op-rs/kona"]
 kona-mpt = { git = "https://github.com/celo-org/kona", rev = "ce6c778e" }
