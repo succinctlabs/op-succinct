@@ -148,9 +148,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             .parse::<bool>()
             .unwrap_or(false);
         let eth_rpc_client = RpcClient::new_http(
-            eth_rpc_url
-                .parse()
-                .map_err(|_| anyhow::anyhow!("Failed to parse L1_RPC as URL"))?,
+            eth_rpc_url.parse().map_err(|_| anyhow::anyhow!("Failed to parse L1_RPC as URL"))?,
         );
         let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_client, mock_mode };
         let maybe_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
