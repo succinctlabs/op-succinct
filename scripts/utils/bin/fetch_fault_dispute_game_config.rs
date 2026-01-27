@@ -138,8 +138,8 @@ async fn update_fdg_config() -> Result<()> {
     // Existing DisputeGameFactory configuration (for e2e tests).
     // If provided, the deployment will register game type 42 in this existing factory
     // instead of creating a new one. This ensures OptimismPortal2 uses the same DGF.
-    let existing_dispute_game_factory_proxy =
-        env::var("EXISTING_DISPUTE_GAME_FACTORY_PROXY").unwrap_or_else(|_| {
+    let existing_dispute_game_factory_proxy = env::var("EXISTING_DISPUTE_GAME_FACTORY_PROXY")
+        .unwrap_or_else(|_| {
             // Default to zero address - will deploy a new DisputeGameFactory
             "0x0000000000000000000000000000000000000000".to_string()
         });
