@@ -33,7 +33,8 @@ kona-preimage.workspace = true
 kona-proof.workspace = true
 kona-protocol.workspace = true
 kona-registry.workspace = true
-kona-rpc.workspace = true
+# Note: kona-rpc is NOT included to avoid rollup-boost dependency chain.
+# RPC types (OutputResponse, SafeHeadResponse) are defined locally in src/rpc_types.rs
 
 # celo-kona
 celo-host.workspace = true
@@ -55,10 +56,6 @@ alloy-primitives.workspace = true
 alloy-provider.workspace = true
 alloy-rlp.workspace = true
 alloy-sol-types.workspace = true
-
-# reth (feature unification for transitive deps)
-reth-optimism-primitives.workspace = true
-reth-ethereum-primitives.workspace = true
 
 # general
 anyhow.workspace = true
