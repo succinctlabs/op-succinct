@@ -94,7 +94,9 @@ kona-proof = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7"
 kona-client = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7" }
 kona-host = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7" }
 kona-providers-alloy = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7" }
-kona-rpc = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7", default-features = false }
+# Note: kona-rpc is NOT included to avoid rollup-boost -> reth-optimism-primitives dependency
+# which causes alloy version conflicts with hokulea v1.1.4. RPC types are defined locally in
+# utils/host/src/rpc_types.rs instead.
 kona-protocol = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7", default-features = false }
 kona-registry = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7", default-features = false }
 kona-genesis = { git = "https://github.com/op-rs/kona", tag = "kona-client/v1.2.7", default-features = false }
@@ -106,15 +108,15 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.3" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -136,33 +138,33 @@ op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
 op-succinct-range-utils = { path = "programs/range/utils" }
 op-succinct-bindings = { path = "bindings" }
 
-# Alloy (Network)
-alloy-signer-local = { version = "=1.1.3" }
-alloy-provider = { version = "=1.1.3" }
-alloy-transport = { version = "=1.1.3" }
-alloy-transport-http = { version = "=1.1.3" }
-alloy-contract = { version = "=1.1.3" }
-alloy-network = { version = "=1.1.3" }
+# Alloy (Network) - versions allow semver compatible upgrades for hokulea v1.1.4 (requires 1.4.3)
+alloy-signer-local = { version = "1.4" }
+alloy-provider = { version = "1.4" }
+alloy-transport = { version = "1.4" }
+alloy-transport-http = { version = "1.4" }
+alloy-contract = { version = "1.4" }
+alloy-network = { version = "1.4" }
 
-# Alloy
+# Alloy - versions allow semver compatible upgrades for hokulea v1.1.4
 alloy-rlp = { version = "0.3.12", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false, features = [
     "ethereum",
 ] }
-alloy-eips = { version = "=1.1.3", default-features = false }
-alloy-serde = { version = "=1.1.3", default-features = false }
-alloy-consensus = { version = "=1.1.3", default-features = false }
-alloy-tx-macros = { version = "=1.1.3", default-features = false }
-alloy-rpc-types = { version = "=1.1.3", default-features = false }
-alloy-rpc-client = { version = "=1.1.3", default-features = false }
-alloy-node-bindings = { version = "=1.1.3", default-features = false }
-alloy-rpc-types-engine = { version = "=1.1.3", default-features = false }
-alloy-rpc-types-beacon = { version = "=1.1.3", default-features = false }
-alloy-rpc-types-eth = { version = "=1.1.3", default-features = false }
-alloy-rpc-types-trace = { version = "=1.1.3", default-features = false }
-alloy-signer = { version = "=1.1.3", default-features = false }
-alloy-signer-gcp = { version = "=1.1.3", default-features = false }
-alloy = { version = "=1.1.3", features = [
+alloy-eips = { version = "1.4", default-features = false }
+alloy-serde = { version = "1.4", default-features = false }
+alloy-consensus = { version = "1.4", default-features = false }
+alloy-tx-macros = { version = "1.4", default-features = false }
+alloy-rpc-types = { version = "1.4", default-features = false }
+alloy-rpc-client = { version = "1.4", default-features = false }
+alloy-node-bindings = { version = "1.4", default-features = false }
+alloy-rpc-types-engine = { version = "1.4", default-features = false }
+alloy-rpc-types-beacon = { version = "1.4", default-features = false }
+alloy-rpc-types-eth = { version = "1.4", default-features = false }
+alloy-rpc-types-trace = { version = "1.4", default-features = false }
+alloy-signer = { version = "1.4", default-features = false }
+alloy-signer-gcp = { version = "1.4", default-features = false }
+alloy = { version = "1.4", features = [
     "reqwest",
     "network",
     "providers",
@@ -225,9 +227,8 @@ sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sh
 p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
 
-# Pin alloy-tx-macros to v1.1.3 to match alloy-consensus v1.1.3
-# The derive macro must match the trait definition version
-alloy-tx-macros = { git = "https://github.com/alloy-rs/alloy", tag = "v1.1.3" }
+# Note: alloy-tx-macros crates.io version must match alloy-consensus version
+# Both are now at 1.4.x for hokulea v1.1.4 compatibility
 
 
 # Note: vergen-lib conflict fixed by pinning vergen=9.0.4, vergen-git2=1.0.5 in Cargo.lock
