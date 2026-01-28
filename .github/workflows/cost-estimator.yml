@@ -3,7 +3,7 @@ name: Cost Estimator
 on:
   push:
     tags:
-      - celo/v[0-9]+.*
+      - celo/v[0-9]*
     branches:
       - develop
   pull_request:
@@ -37,4 +37,4 @@ jobs:
           L2_RPC: ${{ secrets.L2_RPC }}
           EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
           SP1_PROVER: mock
-          OP_SUCCINCT_MOCK: true 
+          OP_SUCCINCT_MOCK: true

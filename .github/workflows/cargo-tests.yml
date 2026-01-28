@@ -22,7 +22,7 @@ on:
     branches:
       - develop
     tags:
-      - "v[0-9]+.*"
+      - "celo/v[0-9]*"
     paths-ignore:
       - "**/*.md"
       - "**/*.pdf"

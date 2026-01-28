@@ -8,7 +8,7 @@ on:
       - 'contracts/**'
   push:
     tags:
-      - celo/v[0-9]+.*
+      - celo/v[0-9]*
     branches:
       - develop
   workflow_dispatch:

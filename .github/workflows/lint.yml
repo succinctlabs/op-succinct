@@ -3,7 +3,7 @@ name: Lint
 on:
   push:
     tags:
-      - celo/v[0-9]+.*
+      - celo/v[0-9]*
     branches:
       - main
   pull_request:
