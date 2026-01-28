@@ -49,7 +49,6 @@ pub async fn new_proposer(
         range_split_count: RangeSplitCount::one(),
         max_concurrent_range_proofs: NonZero::<usize>::MIN,
         backup_path,
-        prove_only_mode: false,
         proof_provider: ProofProviderConfig {
             timeout: 14400, // 4 hours
             network_calls_timeout: 15,

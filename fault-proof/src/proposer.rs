@@ -2132,7 +2132,7 @@ where
 
             match game {
                 Some(game) if !game.is_owned(&self.identity) => {
-                    tracing::debug!(?game_address, "Skipping foreign game");
+                    tracing::info!(?game_address, "Skipping foreign game (vkey mismatch)");
                     return Ok(true);
                 }
                 None => {
