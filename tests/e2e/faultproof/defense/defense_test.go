@@ -26,9 +26,11 @@ func TestFaultProofProposer_DefendsWithProofAfterChallenge(gt *testing.T) {
 	proposerCfg := opspresets.FastFinalityFPProposerConfig()
 	proposerCfg.ProposalIntervalInBlocks = 40
 	proposerCfg.RangeSplitCount = 1
-	// Use 2 concurrent proofs so defense can happen in parallel with fast finality proving.
-	// With 1, the proposer gets stuck proving Game 1 while Game 0's defense deadline passes.
+	// Use 2 concurrent proofs and 2 fast finality proving slots so defense can happen
+	// in parallel with fast finality proving. With 1, the proposer gets stuck proving
+	// Game 1 while Game 0's defense deadline passes.
 	proposerCfg.MaxConcurrentRangeProofs = 2
+	proposerCfg.FastFinalityProvingLimit = 2
 	proposerCfg.MaxProveDuration = 180 // Give proposer 180s to respond to challenge (generous for CI)
 
 	// Configure challenger to always challenge valid games (malicious mode)
