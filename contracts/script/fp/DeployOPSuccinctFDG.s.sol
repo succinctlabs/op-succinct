@@ -100,8 +100,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
             Proposal({root: Hash.wrap(config.startingRoot), l2SequenceNumber: config.startingL2BlockNumber});
 
         // Deploy or get AnchorStateRegistry
-        AnchorStateRegistry registry =
-            deployOrGetAnchorStateRegistry(config, factory, startingAnchorRoot, gameType);
+        AnchorStateRegistry registry = deployOrGetAnchorStateRegistry(config, factory, startingAnchorRoot, gameType);
 
         // Deploy and configure access manager
         AccessManager accessManager = deployAccessManager(config, address(factoryProxy));
