@@ -43,8 +43,7 @@ use tracing_subscriber::{filter::Targets, fmt, prelude::*, util::SubscriberInitE
 use crate::common::{
     constants::*,
     contracts::{deploy_mock_permissioned_game, send_contract_transaction},
-    new_challenger, new_proposer, start_challenger, start_proposer, start_proposer_prove_only,
-    warp_time, ANVIL,
+    new_challenger, new_proposer, start_challenger, start_proposer, warp_time, ANVIL,
 };
 
 use super::{
@@ -671,7 +670,7 @@ impl TestEnvironment {
     /// This upgrades the factory to use a new implementation (hardfork).
     pub async fn set_game_implementation(&self, game_type: u32, new_impl: Address) -> Result<()> {
         let set_impl_call =
-            DisputeGameFactory::setImplementationCall { _gameType: game_type, _impl: new_impl };
+            DisputeGameFactory::setImplementation_0Call { _gameType: game_type, _impl: new_impl };
         self.send_factory_tx(set_impl_call.abi_encode(), None).await?;
 
         info!("✓ Set game implementation for type {game_type} to {new_impl}");
