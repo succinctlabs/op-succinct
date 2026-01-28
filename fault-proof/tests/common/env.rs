@@ -53,6 +53,7 @@ pub enum Role {
     Proposer,
     Challenger,
     Deployer,
+    Prover,
 }
 
 /// Common test environment setup
@@ -373,6 +374,7 @@ impl TestEnvironment {
             Role::Proposer => self.private_keys.proposer,
             Role::Challenger => self.private_keys.challenger,
             Role::Deployer => self.private_keys.deployer,
+            Role::Prover => self.private_keys.prover,
         };
 
         let wallet = PrivateKeySigner::from_str(key)?;
@@ -470,6 +472,17 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    /// Closes the game and sets the bond distribution mode.
+    ///
+    /// This must be called after resolution to finalize the bond distribution mode
+    /// (NORMAL or REFUND) before credits can be accurately queried or claimed.
+    pub async fn close_game(&self, address: Address) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game(address).await?;
+        let receipt =
+            game.closeGame().send().await?.with_required_confirmations(1).get_receipt().await?;
+        Ok(receipt)
+    }
+
     pub async fn claim_bond(
         &self,
         game_address: Address,
@@ -486,12 +499,28 @@ impl TestEnvironment {
         Ok(receipt)
     }
 
+    /// Returns the credit balance for a recipient in a game.
+    ///
+    /// For resolved games (bondDistributionMode is NORMAL or REFUND), uses the contract's
+    /// `credit()` function which returns the correct claimable amount.
+    ///
+    /// For unresolved games (bondDistributionMode is UNDECIDED), returns `refundModeCredit`
+    /// since bonds are stored there during initialization before resolution.
     pub async fn get_credit(&self, game_address: Address, recipient: Address) -> Result<U256> {
         let provider = &self.anvil.provider;
         let game = OPSuccinctFaultDisputeGame::new(game_address, provider);
-        let normal_credit = game.normalModeCredit(recipient).call().await?;
-        let refund_credit = game.refundModeCredit(recipient).call().await?;
-        Ok(normal_credit + refund_credit)
+
+        // BondDistributionMode: UNDECIDED = 0, NORMAL = 1, REFUND = 2
+        let mode = game.bondDistributionMode().call().await?;
+        if mode == 0 {
+            // UNDECIDED: game not resolved yet, bonds are in refundModeCredit
+            let refund_credit = game.refundModeCredit(recipient).call().await?;
+            Ok(refund_credit)
+        } else {
+            // NORMAL or REFUND: use contract's credit() which handles both correctly
+            let credit = game.credit(recipient).call().await?;
+            Ok(credit)
+        }
     }
 
     pub async fn last_game_info(&self) -> Result<(Uint<256, 4>, Address)> {
@@ -545,12 +574,50 @@ impl TestEnvironment {
 
         Ok(receipt)
     }
+
+    /// Prove a game with a specific role (e.g., Prover instead of Proposer)
+    pub async fn prove_game_with_role(
+        &self,
+        address: Address,
+        role: Role,
+    ) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(address, role).await?;
+        let receipt = game
+            .prove(Bytes::new())
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
+
+    /// Claim bond with a specific role
+    pub async fn claim_bond_with_role(
+        &self,
+        game_address: Address,
+        recipient: Address,
+        role: Role,
+    ) -> Result<TransactionReceipt> {
+        let game = self.fault_dispute_game_with_role(game_address, role).await?;
+        let receipt = game
+            .claimCredit(recipient)
+            .send()
+            .await?
+            .with_required_confirmations(1)
+            .get_receipt()
+            .await?;
+
+        Ok(receipt)
+    }
 }
 
 pub struct TestPrivateKeys {
     pub deployer: &'static str,
     pub proposer: &'static str,
     pub challenger: &'static str,
+    pub prover: &'static str,
 }
 
 impl Default for TestPrivateKeys {
@@ -559,6 +626,7 @@ impl Default for TestPrivateKeys {
             deployer: DEPLOYER_PRIVATE_KEY,
             proposer: PROPOSER_PRIVATE_KEY,
             challenger: CHALLENGER_PRIVATE_KEY,
+            prover: PROVER_PRIVATE_KEY,
         }
     }
 }
