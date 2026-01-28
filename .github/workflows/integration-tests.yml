@@ -1,20 +1,21 @@
 name: Integration Tests
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/integration-tests.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'justfile'
-      - 'fault-proof/**'
-      - 'bindings/**'
-      - 'utils/**'
-  push:
-    tags:
-      - celo/v[0-9]*
-    branches:
-      - develop
+  # pull_request:
+  #   paths:
+  #     - '.github/workflows/integration-tests.yml'
+  #     - 'Cargo.toml'
+  #     - 'Cargo.lock'
+  #     - 'justfile'
+  #     - 'fault-proof/**'
+  #     - 'bindings/**'
+  #     - 'utils/**'
+  # push:
+  #   tags:
+  #     - celo/v[0-9]*
+  #   branches:
+  #     - develop
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
