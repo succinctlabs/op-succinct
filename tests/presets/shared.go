@@ -163,8 +163,9 @@ func NewSystemNodesOnly(t devtest.T, opt stack.CommonOption) *presets.Minimal {
 
 // newSystemWithProposer creates a new test system and returns the orchestrator and proposer backend.
 // If ids is nil, the proposer backend is not retrieved.
-func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs) (*presets.MinimalWithProposer, *sysgo.Orchestrator, sysgo.L2ProposerBackend) {
-	minimal, orch, system := newSystemCore(t, opt)
+// Additional options (e.g., presets.WithTimeTravel()) can be passed via extraOpts.
+func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.DefaultSingleChainInteropSystemIDs, extraOpts ...stack.CommonOption) (*presets.MinimalWithProposer, *sysgo.Orchestrator, sysgo.L2ProposerBackend) {
+	minimal, orch, system := newSystemCore(t, opt, extraOpts...)
 
 	l2 := system.L2Network(match.Assume(t, match.L2ChainA))
 	proposer := l2.L2Proposer(match.Assume(t, match.FirstL2Proposer))
@@ -185,7 +186,8 @@ func newSystemWithProposer(t devtest.T, opt stack.CommonOption, ids *sysgo.Defau
 }
 
 // newSystemCore creates the orchestrator and minimal system shared by all system constructors.
-func newSystemCore(t devtest.T, opt stack.CommonOption) (*presets.Minimal, *sysgo.Orchestrator, stack.ExtensibleSystem) {
+// Additional options (e.g., presets.WithTimeTravel()) can be passed via extraOpts.
+func newSystemCore(t devtest.T, opt stack.CommonOption, extraOpts ...stack.CommonOption) (*presets.Minimal, *sysgo.Orchestrator, stack.ExtensibleSystem) {
 	p := devtest.NewP(t.Ctx(), t.Logger(), func(now bool) {
 		t.Errorf("test failed")
 		if now {
@@ -196,7 +198,9 @@ func newSystemCore(t devtest.T, opt stack.CommonOption) (*presets.Minimal, *sysg
 	})
 	t.Cleanup(p.Close)
 
-	combinedOpt := stack.Combine(opt, presets.WithSafeDBEnabled())
+	// Combine all options: main option, safe DB, and any extra options
+	allOpts := append([]stack.CommonOption{opt, presets.WithSafeDBEnabled()}, extraOpts...)
+	combinedOpt := stack.Combine(allOpts...)
 
 	orch := sysgo.NewOrchestrator(p, stack.SystemHook(combinedOpt))
 	var orchIntf stack.Orchestrator = orch
