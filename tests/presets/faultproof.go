@@ -62,7 +62,6 @@ func FastFinalityFPProposerConfig() FPProposerConfig {
 func LongRunningFPProposerConfig() FPProposerConfig {
 	cfg := DefaultFPProposerConfig()
 	cfg.MaxChallengeDuration = 1800 // =30m
-	cfg.MaxProveDuration = 300      // =5m, generous for CI mock proving
 
 	timeout := uint64(900) // =15m
 	cfg.Timeout = &timeout
@@ -81,8 +80,6 @@ func LongRunningFastFinalityFPProposerConfig() FPProposerConfig {
 	cfg := LongRunningFPProposerConfig()
 	cfg.FastFinalityMode = true
 	cfg.FastFinalityProvingLimit = 8
-	// Allow parallel proving so defense can happen alongside fast finality proving
-	cfg.MaxConcurrentRangeProofs = 2
 	return cfg
 }
 

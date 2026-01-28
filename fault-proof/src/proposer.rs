@@ -1662,16 +1662,13 @@ where
                     let state = self.state.read().await;
                     let tasks = self.tasks.lock().await;
 
-                    let mut candidates: Vec<_> = state
+                    let candidates = state
                         .games
                         .values()
                         .filter(|game| game.status == GameStatus::IN_PROGRESS)
                         .filter(|game| game.proposal_status == ProposalStatus::Unchallenged)
                         .map(|game| (game.index, game.address, game.deadline))
-                        .collect();
-
-                    // Sort by game index to ensure oldest games are proven first
-                    candidates.sort_by_key(|(index, _, _)| *index);
+                        .collect::<Vec<_>>();
 
                     let proving_set = tasks
                         .values()
