@@ -4,8 +4,9 @@
 //! start_block, end_block). Caching allows skipping the time-consuming witness generation step
 //! (`host.run()`) on subsequent runs.
 //!
-//! SP1Stdin is DA-agnostic (same type regardless of witness generator), so cache files work
-//! across all DA types (Ethereum, Celestia, EigenDA).
+//! Note: While SP1Stdin is the same type across all DA implementations, the serialized contents
+//! (WitnessData) are DA-specific. Cache files are compatible between Ethereum DA and Celestia DA
+//! (both use DefaultWitnessData), but NOT compatible with EigenDA (uses EigenDAWitnessData).
 
 use std::{fs, path::PathBuf};
 
@@ -25,8 +26,7 @@ pub fn get_stdin_cache_path(chain_id: u64, start_block: u64, end_block: u64) -> 
 /// Save SP1Stdin to cache using bincode.
 ///
 /// Creates the cache directory if it doesn't exist and serializes the stdin using bincode.
-/// SP1Stdin is DA-agnostic (same type regardless of witness generator), so this
-/// works with generic host types.
+/// Note: Cache files are only compatible within the same DA type family (see module docs).
 pub fn save_stdin_to_cache(
     chain_id: u64,
     start_block: u64,

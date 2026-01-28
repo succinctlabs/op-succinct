@@ -71,19 +71,15 @@ host.run() → WitnessData → get_sp1_stdin() → SP1Stdin
 Witness generation (`host.run()`) fetches L1/L2 data and executes blocks, which can take **hours** for large ranges. Caching saves this data to disk.
 
 We cache `SP1Stdin` because:
-1. It's DA-agnostic (works with all feature flags: default, celestia, eigenda)
-2. It skips the hours-long `host.run()` bottleneck
-3. SP1Stdin implements serde serialization via bincode
+1. It skips the hours-long `host.run()` bottleneck
+2. SP1Stdin implements serde serialization via bincode
+3. The cache is compatible across Ethereum and Celestia DA (both use the same witness format)
 
 Note: The `get_sp1_stdin()` conversion is milliseconds, so caching after this step has negligible overhead.
 
-### Cache Flags
+### Cache Flag
 
-| Flag | Description |
-|------|-------------|
-| `--cache` | Load from cache if available, save if not (recommended) |
-| `--use-cache` | Load from cache only (won't save) |
-| `--save-cache` | Save to cache only (force regenerate) |
+Use `--cache` to enable caching. If a cache file exists for the block range, it will be loaded. Otherwise, witness generation runs and the result is saved to cache.
 
 ### Examples
 
@@ -94,8 +90,9 @@ cargo run --bin multi -- --start 1000 --end 1020 --cache
 # Second run: loads from cache (instant), then proves
 cargo run --bin multi -- --start 1000 --end 1020 --cache --prove
 
-# Force regenerate (ignores existing cache)
-cargo run --bin multi -- --start 1000 --end 1020 --save-cache
+# Force regenerate by deleting cache first
+rm data/{chain_id}/witness-cache/1000-1020-stdin.bin
+cargo run --bin multi -- --start 1000 --end 1020 --cache
 
 # Cost estimator with caching
 cargo run --bin cost-estimator -- --start 1000 --end 1100 --batch-size 10 --cache
@@ -111,7 +108,13 @@ Example: `data/8453/witness-cache/1000-1020-stdin.bin` for Base.
 
 ### DA Compatibility
 
-Cache files work across all DA types (Ethereum, Celestia, EigenDA) since SP1Stdin is DA-agnostic.
+| DA Type | Compatible With |
+|---------|-----------------|
+| Ethereum (default) | Celestia |
+| Celestia | Ethereum |
+| EigenDA | EigenDA only |
+
+Cache files are compatible between Ethereum and Celestia (both use `DefaultWitnessData`), but **not** with EigenDA (uses `EigenDAWitnessData`). Don't mix cache files across incompatible DA types.
 
 ### Cache Management
 

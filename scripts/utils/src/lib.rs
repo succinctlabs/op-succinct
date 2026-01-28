@@ -15,14 +15,7 @@ pub struct HostExecutorArgs {
     /// The number of blocks to execute in a single batch.
     #[arg(long, default_value = "10")]
     pub batch_size: u64,
-    /// Load witness from cache if available (skip witness generation).
-    #[arg(long)]
-    pub use_cache: bool,
-    /// Save generated witness to cache for future runs.
-    #[arg(long)]
-    pub save_cache: bool,
     /// Enable caching: load from cache if available, save to cache if not.
-    /// Equivalent to --use-cache --save-cache.
     #[arg(long)]
     pub cache: bool,
     /// Use a fixed recent range.

@@ -27,7 +27,6 @@ use std::{
 
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order).
-#[allow(clippy::too_many_arguments)]
 async fn execute_blocks_and_write_stats_csv<H>(
     host: Arc<H>,
     host_args: &[H::Args],
@@ -35,8 +34,7 @@ async fn execute_blocks_and_write_stats_csv<H>(
     l2_chain_id: u64,
     start: u64,
     end: u64,
-    should_try_cache: bool,
-    should_save_cache: bool,
+    cache_enabled: bool,
 ) -> Result<()>
 where
     H: OPSuccinctHost,
@@ -81,7 +79,7 @@ where
         let end = range.end;
         tokio::spawn(async move {
             // Try loading SP1Stdin from cache
-            if should_try_cache {
+            if cache_enabled {
                 match load_stdin_from_cache(l2_chain_id, start, end) {
                     Ok(Some(stdin)) => {
                         info!("Loaded stdin from cache for range {}-{}", start, end);
@@ -99,7 +97,7 @@ where
             let stdin = host.witness_generator().get_sp1_stdin(witness_data).unwrap();
 
             // Save SP1Stdin to cache
-            if should_save_cache {
+            if cache_enabled {
                 if let Ok(cache_path) = save_stdin_to_cache(l2_chain_id, start, end, &stdin) {
                     info!("Saved stdin to cache: {}", cache_path.display());
                 }
@@ -254,10 +252,6 @@ async fn main() -> Result<()> {
 
     info!("The span batch ranges which will be executed: {split_ranges:?}");
 
-    // Determine cache behavior from flags
-    let should_try_cache = args.use_cache || args.cache;
-    let should_save_cache = args.save_cache || args.cache;
-
     let host_args = futures::stream::iter(split_ranges.iter())
         .map(|range| async {
             host.fetch(range.start, range.end, None, args.safe_db_fallback)
@@ -275,8 +269,7 @@ async fn main() -> Result<()> {
         l2_chain_id,
         l2_start_block,
         l2_end_block,
-        should_try_cache,
-        should_save_cache,
+        args.cache,
     )
     .await?;
 

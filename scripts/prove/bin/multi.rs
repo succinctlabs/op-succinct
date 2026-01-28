@@ -17,7 +17,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tracing::debug;
+use tracing::{debug, info, warn};
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -45,10 +45,6 @@ async fn main() -> Result<()> {
 
     let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
 
-    // Determine cache behavior from flags
-    let should_try_cache = args.use_cache || args.cache;
-    let should_save_cache = args.save_cache || args.cache;
-
     // Helper closure to generate stdin (runs witness generation and converts to SP1Stdin)
     let generate_stdin = || async {
         let host_args =
@@ -63,25 +59,25 @@ async fn main() -> Result<()> {
         let stdin = host.witness_generator().get_sp1_stdin(witness)?;
 
         // Save to cache if enabled
-        if should_save_cache {
+        if args.cache {
             let cache_path =
                 save_stdin_to_cache(l2_chain_id, l2_start_block, l2_end_block, &stdin)?;
-            println!("Saved stdin to cache: {}", cache_path.display());
+            info!("Saved stdin to cache: {}", cache_path.display());
         }
 
         Ok::<_, anyhow::Error>((stdin, duration))
     };
 
     // Check cache first if enabled (with graceful fallback)
-    let (sp1_stdin, witness_generation_duration) = if should_try_cache {
+    let (sp1_stdin, witness_generation_duration) = if args.cache {
         match load_stdin_from_cache(l2_chain_id, l2_start_block, l2_end_block) {
             Ok(Some(stdin)) => {
-                println!("Loaded stdin from cache");
+                info!("Loaded stdin from cache");
                 (stdin, Duration::ZERO)
             }
             Ok(None) => generate_stdin().await?,
             Err(e) => {
-                eprintln!("Warning: Failed to load cache: {e}, regenerating...");
+                warn!("Failed to load cache: {e}, regenerating...");
                 generate_stdin().await?
             }
         }
