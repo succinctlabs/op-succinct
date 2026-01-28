@@ -16,10 +16,7 @@ use alloy_provider::{Provider, ProviderBuilder};
 use alloy_sol_types::{SolEvent, SolValue};
 use anyhow::{bail, Context, Result};
 use futures::stream::{self, StreamExt, TryStreamExt};
-use op_succinct_client_utils::{
-    boot::{hash_rollup_config, BootInfoStruct},
-    types::u32_to_u8,
-};
+use op_succinct_client_utils::boot::{hash_rollup_config, BootInfoStruct};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher,
@@ -300,15 +297,8 @@ where
 
         // Compute vkey hashes for on-chain compatibility checks.
         // These are compared against game contract immutable values to ensure proof compatibility.
-        let aggregation_vkey = {
-            let hex_str = agg_vk.bytes32();
-            // bytes32() returns "0x..." prefixed hex string
-            B256::from_slice(
-                &hex::decode(hex_str.trim_start_matches("0x"))
-                    .context("failed to decode aggregation vkey hex")?,
-            )
-        };
-        let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
+        let aggregation_vkey = B256::from(agg_vk.bytes32_raw());
+        let range_vkey_commitment = B256::from(range_vk.hash_bytes());
 
         // Compute rollup config hash from the fetcher's chain config.
         let rollup_config_hash = hash_rollup_config(
