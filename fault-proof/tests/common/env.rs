@@ -648,7 +648,7 @@ impl TestEnvironment {
     /// This upgrades the factory to use a new implementation (hardfork).
     pub async fn set_game_implementation(&self, game_type: u32, new_impl: Address) -> Result<()> {
         let set_impl_call =
-            DisputeGameFactory::setImplementation_0Call { _gameType: game_type, _impl: new_impl };
+            DisputeGameFactory::setImplementationCall { _gameType: game_type, _impl: new_impl };
         self.send_factory_tx(set_impl_call.abi_encode(), None).await?;
 
         info!("✓ Set game implementation for type {game_type} to {new_impl}");
