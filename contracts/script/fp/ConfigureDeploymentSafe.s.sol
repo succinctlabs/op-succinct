@@ -9,7 +9,7 @@ import {GameType} from "src/dispute/lib/Types.sol";
 
 // Interfaces
 import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
-import {IOptimismPortal2} from "interfaces/L1/IOptimismPortal2.sol";
+import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
 import {IMulticall3} from "forge-std/interfaces/IMulticall3.sol";
 
 // Contracts
@@ -67,8 +67,8 @@ contract ConfigureDeploymentSafe is Script, Utils {
         calls[_op] = IMulticall3.Call3(
             config.factoryProxy,
             false,
-            abi.encodeWithSelector(
-                DisputeGameFactory.setImplementation.selector, gameType, IDisputeGame(config.gameImplementation)
+            abi.encodeWithSignature(
+                "setImplementation(uint32,address)", gameType, IDisputeGame(config.gameImplementation)
             )
         );
         if (config.initialBondWei != 0) {
@@ -84,7 +84,7 @@ contract ConfigureDeploymentSafe is Script, Utils {
             calls[_op] = IMulticall3.Call3(
                 config.optimismPortal2,
                 false,
-                abi.encodeWithSelector(IOptimismPortal2.setRespectedGameType.selector, gameType)
+                abi.encodeWithSelector(IAnchorStateRegistry.setRespectedGameType.selector, gameType)
             );
         }
 

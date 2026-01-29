@@ -13,7 +13,6 @@ use op_succinct_host_utils::{
     get_network_proof, get_range_proof_stdin, ProvingConfig,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use op_succinct_prove::DEFAULT_RANGE;
 use sp1_sdk::{utils, HashableKey, Prover, ProverClient, SP1ProofMode};
 use std::{env, num::NonZeroUsize, path::PathBuf, str::FromStr, sync::Arc};
 use tracing::info;
@@ -56,7 +55,7 @@ async fn main() -> Result<()> {
         &data_fetcher,
         args.start,
         args.end,
-        DEFAULT_RANGE,
+        args.default_range,
     )
     .await?;
 
@@ -209,6 +208,9 @@ pub struct Args {
     /// The end block of the range to execute.
     #[arg(long)]
     pub end: Option<u64>,
+    /// The number of blocks to use for the default range.
+    #[arg(long, default_value = "5")]
+    pub default_range: u64,
     /// The environment file to use.
     #[arg(long, default_value = ".env")]
     pub env_file: PathBuf,

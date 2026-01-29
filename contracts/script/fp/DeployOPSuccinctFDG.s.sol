@@ -5,7 +5,7 @@ pragma solidity ^0.8.15;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {Claim, GameType, Hash, OutputRoot, Duration} from "src/dispute/lib/Types.sol";
+import {Claim, GameType, Hash, Proposal, Duration} from "src/dispute/lib/Types.sol";
 import {LibString} from "@solady/utils/LibString.sol";
 
 // Interfaces
@@ -13,17 +13,16 @@ import {IDisputeGame} from "interfaces/dispute/IDisputeGame.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
 import {ISP1Verifier} from "@sp1-contracts/src/ISP1Verifier.sol";
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
-import {ISuperchainConfig} from "interfaces/L1/ISuperchainConfig.sol";
-import {IOptimismPortal2} from "interfaces/L1/IOptimismPortal2.sol";
+import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 
 // Contracts
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {AccessManager} from "../../src/fp/AccessManager.sol";
-import {SuperchainConfig} from "src/L1/SuperchainConfig.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {OPSuccinctFaultDisputeGame} from "../../src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
+import {MockSystemConfig} from "../../src/utils/MockSystemConfig.sol";
 
 // Utils
 import {Utils} from "../../test/helpers/Utils.sol";
@@ -55,7 +54,9 @@ contract DeployOPSuccinctFDG is Script, Utils {
         vm.startBroadcast();
 
         // Load configuration
-        FDGConfig memory config = readFDGJson("opsuccinctfdgconfig.json");
+        string memory configPath =
+            vm.envOr("OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH", string("opsuccinctfdgconfig.json"));
+        FDGConfig memory config = readFDGJson(configPath);
 
         // Deploy contracts
         DeployedContracts memory deployedContracts = deployContracts(config);
@@ -95,8 +96,11 @@ contract DeployOPSuccinctFDG is Script, Utils {
         GameType gameType = GameType.wrap(config.gameType);
         address payable portalAddress = deployOrGetOptimismPortal2(config, gameType);
 
+        Proposal memory startingAnchorRoot =
+            Proposal({root: Hash.wrap(config.startingRoot), l2SequenceNumber: config.startingL2BlockNumber});
+
         // Deploy or get AnchorStateRegistry
-        AnchorStateRegistry registry = deployOrGetAnchorStateRegistry(config, factory, portalAddress);
+        AnchorStateRegistry registry = deployOrGetAnchorStateRegistry(config, factory, startingAnchorRoot, gameType);
 
         // Deploy and configure access manager
         AccessManager accessManager = deployAccessManager(config, address(factoryProxy));
@@ -145,7 +149,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
         // Set respected game type
         /// @custom:dev: Requires portal guardian role
-        IOptimismPortal2(payable(contracts.optimismPortal2)).setRespectedGameType(gameType);
+        IAnchorStateRegistry(contracts.anchorStateRegistry).setRespectedGameType(gameType);
     }
 
     function deployGameImplementation(
@@ -183,7 +187,8 @@ contract DeployOPSuccinctFDG is Script, Utils {
     function deployOrGetAnchorStateRegistry(
         FDGConfig memory config,
         DisputeGameFactory factory,
-        address payable portalAddress
+        Proposal memory startingAnchorRoot,
+        GameType gameType
     ) internal returns (AnchorStateRegistry) {
         AnchorStateRegistry registry;
         if (config.anchorStateRegistryAddress != address(0)) {
@@ -191,27 +196,32 @@ contract DeployOPSuccinctFDG is Script, Utils {
             registry = AnchorStateRegistry(config.anchorStateRegistryAddress);
             console.log("Using existing AnchorStateRegistry:", address(registry));
         } else {
-            OutputRoot memory startingAnchorRoot =
-                OutputRoot({root: Hash.wrap(config.startingRoot), l2BlockNumber: config.startingL2BlockNumber});
-
-            // Get or create superchain config
-            ISuperchainConfig superchainConfig;
-            if (config.celoSuperchainConfigAddress != address(0)) {
-                superchainConfig = ISuperchainConfig(config.celoSuperchainConfigAddress);
+            // Use existing SystemConfig or deploy MockSystemConfig for testing
+            address systemConfigAddress;
+            if (config.systemConfigAddress != address(0)) {
+                systemConfigAddress = config.systemConfigAddress;
+                console.log("Using existing SystemConfig:", systemConfigAddress);
             } else {
-                superchainConfig = ISuperchainConfig(address(new SuperchainConfig()));
+                // Deploy MockSystemConfig for testing
+                // Pass msg.sender as guardian for deployment scripts
+                MockSystemConfig mockSystemConfig = new MockSystemConfig(msg.sender);
+                systemConfigAddress = address(mockSystemConfig);
+                console.log("Deployed MockSystemConfig:", systemConfigAddress);
             }
+
+            // Deploy the anchor state registry implementation with finality delay
+            AnchorStateRegistry registryImpl = new AnchorStateRegistry(config.disputeGameFinalityDelaySeconds);
 
             // Deploy the anchor state registry proxy
             ERC1967Proxy registryProxy = new ERC1967Proxy(
-                address(new AnchorStateRegistry()),
+                address(registryImpl),
                 abi.encodeCall(
                     AnchorStateRegistry.initialize,
                     (
-                        superchainConfig,
+                        ISystemConfig(systemConfigAddress),
                         IDisputeGameFactory(address(factory)),
-                        IOptimismPortal2(portalAddress),
-                        startingAnchorRoot
+                        startingAnchorRoot,
+                        gameType
                     )
                 )
             );

@@ -1,0 +1,40 @@
+name: Cost Estimator
+
+on:
+  push:
+    tags:
+      - celo/v[0-9]*
+    branches:
+      - develop
+  pull_request:
+    branches: [develop]
+    paths-ignore:
+      - '**/*.pdf'
+      - '**/*.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
+
+jobs:
+  integration-tests:
+    environment: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Run cost estimator on recent block range
+        run: |
+          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --rolling
+        env:
+          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+          L1_RPC: ${{ secrets.L1_RPC }}
+          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+          L2_RPC: ${{ secrets.L2_RPC }}
+          EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+          SP1_PROVER: mock
+          OP_SUCCINCT_MOCK: true

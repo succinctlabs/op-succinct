@@ -4,7 +4,7 @@ This guide explains how to run and understand the test suite for the OP Succinct
 
 ## Overview
 
-The fault-proof crate includes comprehensive end-to-end tests that run actual proposer and challenger binaries against a forked Ethereum network. These tests validate the complete lifecycle of dispute games including creation, challenges, resolution, and bond claims.
+The fault-proof crate includes comprehensive integration tests that run actual proposer and challenger binaries against a forked Ethereum network (Anvil). These tests validate the complete lifecycle of dispute games including creation, challenges, resolution, and bond claims.
 
 ## Prerequisites
 
@@ -36,9 +36,9 @@ Before running the tests, ensure you have:
 
 ## Available Tests
 
-### End-to-End Tests (`fault-proof/tests/e2e.rs`)
+### Integration Tests (`fault-proof/tests/integration.rs`)
 
-The asynchronous end-to-end suite spins up real proposer and challenger services, interacts with
+The asynchronous integration test suite spins up real proposer and challenger services, interacts with
 the dispute game factory, and warps Anvil time to exercise full lifecycles. Each test uses the
 `_native` services and validates that contracts and coordination logic behave as expected.
 
@@ -56,13 +56,21 @@ the dispute game factory, and warps Anvil time to exercise full lifecycles. Each
   - **Phase 3: Resolution** – The clock is warped past both challenge and prove windows, ensuring
     `ChallengerWins`.
   - **Phase 4: Bond Claims** – Challenger recovers bonds once the finality delay elapses.
+- `test_proposer_retains_anchor_after_bond_claim()`: Verifies proposer internal state consistency.
+  Drives the proposer through game creation, resolution, and bond claims, then asserts that the
+  cached anchor game remains in the cache after the bond claim.
 
 #### Game Type Transition
 
-- `test_game_type_transition_skips_legacy_games()`: Seeds the factory with legacy permissioned
-  games, ensures the respected game type is restored, and verifies the proposer starts producing
-  fresh `TEST_GAME_TYPE` games without touching legacy ones. The test also asserts that historical
+- `test_game_type_transition_skips_legacy_game()`: Seeds the factory with a single legacy permissioned
+  game, ensures the respected game type is restored, and verifies the proposer starts producing
+  fresh `TEST_GAME_TYPE` games without touching legacy one. The test also asserts that historical
   mock games remain `IN_PROGRESS`.
+
+- `test_game_type_transition_while_proposer_running()`: Starts the proposer service with the current
+  game type set to legacy. It seeds a legacy game, then updates the respected game type to `TEST_GAME_TYPE`
+  while the proposer remains active. Verifies that the proposer correctly ignores the existing legacy game
+  and begins producing new games of type `TEST_GAME_TYPE`.
 
 #### Game Chain Validation Scenarios
 
@@ -82,6 +90,6 @@ These tests focus on anchor selection, parent validation, and handling of invali
 
 ### Basic Test Execution
 ```bash
-# Run all end-to-end tests with single thread and no capture
-just e2e-tests
+# Run all integration tests with single thread and no capture
+just fp-integration-tests
 ```

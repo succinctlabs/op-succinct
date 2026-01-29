@@ -27,9 +27,9 @@ The proposer performs several key functions:
 
 The proposer is configured through environment variables.
 
-Create a `.env` file in the `fault-proof` directory with all required variables. This single file is used by:
+Create a `.env.proposer` file in the `fault-proof` directory with all required variables. This single file is used by:
 - Docker Compose (for both variable substitution and runtime configuration)
-- Direct binary execution (source it with `. .env` before running)
+- Direct binary execution (`cargo run --bin proposer` from the `fault-proof` directory; the binary automatically loads `.env.proposer`)
 
 ### Required Environment Variables
 
@@ -37,6 +37,7 @@ Create a `.env` file in the `fault-proof` directory with all required variables.
 |----------|-------------|
 | `L1_RPC` | L1 RPC endpoint URL |
 | `L2_RPC` | L2 RPC endpoint URL |
+| `ANCHOR_STATE_REGISTRY_ADDRESS` | Address of the AnchorStateRegistry contract |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
 | `NETWORK_PRIVATE_KEY` | Private key for the Succinct Prover Network. See the [Succinct Prover Network Quickstart](https://docs.succinct.xyz/docs/sp1/prover-network/quickstart) for setup instructions. (Set to `0x0000000000000000000000000000000000000000000000000000000000000001` if not using fast finality mode) |
@@ -78,6 +79,8 @@ Depending on the one you choose, you must provide the corresponding environment 
 
 | Variable | Description | Default Value |
 |----------|-------------|---------------|
+| `L1_CONFIG_DIR` | The directory containing the L1 chain configuration files. | `<project-root>/configs/L1` |
+| `L2_CONFIG_DIR` | Directory containing L2 chain configuration files | `<project-root>/configs/L2` |
 | `MOCK_MODE` | Whether to use mock mode | `false` |
 | `FAST_FINALITY_MODE` | Whether to use fast finality mode | `false` |
 | `RANGE_PROOF_STRATEGY` | Proof fulfillment strategy for range proofs. Set to `hosted` to use the hosted proof strategy. | `reserved` |
@@ -94,7 +97,9 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `USE_KMS_REQUESTER` | Whether to expect NETWORK_PRIVATE_KEY to be an AWS KMS key ARN instead of a plaintext private key. | `false` |
 | `MAX_PRICE_PER_PGU` | The maximum price per pgu for proving. | `300,000,000` |
 | `MIN_AUCTION_PERIOD` | The minimum auction period (in seconds). | `1` |
-| `TIMEOUT` | The timeout to use for proving (in seconds). | `14,400` (4 hours) |
+| `TIMEOUT` | The proving timeout (in seconds). Used as the server-side deadline for proof requests and as the client-side maximum wait time when polling for proof completion. | `14,400` (4 hours) |
+| `NETWORK_CALLS_TIMEOUT` | The timeout for individual network API calls like `get_proof_status` (in seconds). If a single call exceeds this, it will be retried. | `15` |
+| `AUCTION_TIMEOUT` | The auction timeout (in seconds). If a proof request remains in "Requested" state (no prover picked it up) beyond this duration after creation, the request is canceled. | `60` (1 minute) |
 | `RANGE_CYCLE_LIMIT` | The cycle limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_GAS_LIMIT` | The gas limit to use for range proofs. | `1,000,000,000,000` |
 | `RANGE_SPLIT_COUNT` | The number of splits to use for range proofs. | `1` |
@@ -102,44 +107,51 @@ Depending on the one you choose, you must provide the corresponding environment 
 | `AGG_CYCLE_LIMIT` | The cycle limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `AGG_GAS_LIMIT` | The gas limit to use for aggregation proofs. | `1,000,000,000,000` |
 | `WHITELIST` | The list of prover addresses that are allowed to bid on proof requests. | `` |
+| `BACKUP_PATH` | Path to backup file for persisting proposer state across restarts. Enables faster recovery by restoring cached state instead of re-syncing from the factory. | (disabled) |
 
 ```env
 # Required Configuration
-L1_RPC=                  # L1 RPC endpoint URL
-L2_RPC=                  # L2 RPC endpoint URL
-FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract (obtained from deployment)
-GAME_TYPE=               # Type identifier for the dispute game (must match factory configuration)
+L1_RPC=                          # L1 RPC endpoint URL
+L2_RPC=                          # L2 RPC endpoint URL
+ANCHOR_STATE_REGISTRY_ADDRESS=   # Address of the AnchorStateRegistry contract
+FACTORY_ADDRESS=                 # Address of the DisputeGameFactory contract (obtained from deployment)
+GAME_TYPE=                       # Type identifier for the dispute game (must match factory configuration)
 
 # Transaction Signing Configuration (Choose one)
 # Option 1: Private Key Signer
-PRIVATE_KEY=             # Private key for transaction signing
+PRIVATE_KEY=                     # Private key for transaction signing
 # Option 2: Web3 Signer
-SIGNER_URL=              # URL of the web3 signer service
-SIGNER_ADDRESS=          # Address of the account managed by the web3 signer
+SIGNER_URL=                      # URL of the web3 signer service
+SIGNER_ADDRESS=                  # Address of the account managed by the web3 signer
 
 # Optional Configuration
-MOCK_MODE=false                          # Whether to use mock mode
-FAST_FINALITY_MODE=false                 # Whether to use fast finality mode
-RANGE_PROOF_STRATEGY=reserved            # Set to hosted to use hosted proof strategy
-AGG_PROOF_STRATEGY=reserved              # Set to hosted to use hosted proof strategy
-PROPOSAL_INTERVAL_IN_BLOCKS=1800         # Number of L2 blocks between proposals
-FETCH_INTERVAL=30                        # Polling interval in seconds
-PROPOSER_METRICS_PORT=9000               # The port to expose metrics on
+MOCK_MODE=false                  # Whether to use mock mode
+FAST_FINALITY_MODE=false         # Whether to use fast finality mode
+RANGE_PROOF_STRATEGY=reserved    # Set to hosted to use hosted proof strategy
+AGG_PROOF_STRATEGY=reserved      # Set to hosted to use hosted proof strategy
+PROPOSAL_INTERVAL_IN_BLOCKS=1800 # Number of L2 blocks between proposals
+FETCH_INTERVAL=30                # Polling interval in seconds
+PROPOSER_METRICS_PORT=9000       # The port to expose metrics on
+BACKUP_PATH=                     # persist state across restarts (e.g. /backup/proposer_state.json)
 ```
 
 ### Configuration Steps
 
 1. Deploy the DisputeGameFactory contract following the [deployment guide](./deploy.md)
 2. Copy the factory address from the deployment output
-3. Create `.env` file with the above configuration
+3. Create a `.env.proposer` file with the above configuration
 4. Ensure your account has sufficient ETH for bonds and gas
 
 ## Running
 
 To run the proposer, from the fault-proof directory:
-   ```bash
-   cargo run --bin proposer
-   ```
+```bash
+# Uses .env.proposer by default
+cargo run --bin proposer
+
+# Or specify a custom environment file
+cargo run --bin proposer -- --env-file custom.env
+```
 
 The proposer will run indefinitely, creating new games and optionally resolving them based on the configuration.
 

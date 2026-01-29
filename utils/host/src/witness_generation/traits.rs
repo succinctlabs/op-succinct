@@ -57,7 +57,7 @@ pub trait WitnessGenerator {
         });
         let beacon = OnlineBlobStore { provider: blob_provider.clone(), store: blob_data.clone() };
 
-        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await.unwrap();
+        let (boot_info, input) = get_inputs_for_pipeline(oracle.clone()).await?;
         if let Some((cursor, l1_provider, l2_provider)) = input {
             // Wrap RollupConfig with CeloRollupConfig
             let celo_rollup_config = CeloRollupConfig(boot_info.rollup_config.clone());
@@ -77,8 +77,7 @@ pub trait WitnessGenerator {
                 .unwrap();
             self.get_executor()
                 .run(boot_info, pipeline, cursor, l2_provider.to_oracle_l2_chain_provider())
-                .await
-                .unwrap();
+                .await?;
         }
 
         let witness = Self::WitnessData::from_parts(

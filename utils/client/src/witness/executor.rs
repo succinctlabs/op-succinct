@@ -136,6 +136,7 @@ pub trait WitnessExecutor {
         // Wrap RollupConfig with CeloRollupConfig
         let celo_rollup_config = CeloRollupConfig(boot.rollup_config.clone());
         let celo_rollup_config = Arc::new(celo_rollup_config);
+
         let executor = CeloExecutor::new(
             celo_rollup_config.as_ref(),
             l2_provider.clone(),

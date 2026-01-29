@@ -1,7 +1,7 @@
 //! Contract deployment utilities for E2E tests.
-
 use alloy_primitives::{Address, Bytes, TxKind, U256};
 use alloy_rpc_types_eth::{transaction::request::TransactionInput, TransactionRequest};
+use alloy_sol_types::SolConstructor;
 use alloy_transport_http::reqwest::Url;
 use anyhow::{anyhow, Context, Result};
 use op_succinct_bindings::mock_permissioned_dispute_game::MockPermissionedDisputeGame;
@@ -15,6 +15,7 @@ use tracing::info;
 pub struct DeployedContracts {
     pub factory: Address,
     pub portal: Address,
+    pub anchor_state_registry: Address,
     pub access_manager: Address,
     pub game_implementation: Address,
 }
@@ -33,7 +34,6 @@ struct ForgeReturns {
     game_implementation: AddressField,
     #[allow(dead_code)]
     sp1_verifier: AddressField,
-    #[allow(dead_code)]
     anchor_state_registry: AddressField,
     access_manager: AddressField,
     optimism_portal2: AddressField,
@@ -75,6 +75,7 @@ fn parse_forge_output(output: &str) -> Result<DeployedContracts> {
     Ok(DeployedContracts {
         factory: forge_output.returns.factory_proxy.value,
         portal: forge_output.returns.optimism_portal2.value,
+        anchor_state_registry: forge_output.returns.anchor_state_registry.value,
         access_manager: forge_output.returns.access_manager.value,
         game_implementation: forge_output.returns.game_implementation.value,
     })
@@ -114,17 +115,28 @@ pub async fn deploy_test_contracts(rpc_url: &str, private_key: &str) -> Result<D
     info!("✓ Contracts deployed successfully");
     info!("  Factory: {}", deployed_contracts.factory);
     info!("  Portal: {}", deployed_contracts.portal);
+    info!("  Anchor State Registry: {}", deployed_contracts.anchor_state_registry);
     info!("  Access Manager: {}", deployed_contracts.access_manager);
     info!("  Game Implementation: {}", deployed_contracts.game_implementation);
 
     Ok(deployed_contracts)
 }
 
-pub async fn deploy_mock_permissioned_game(signer: &SignerLock, rpc: &Url) -> Result<Address> {
-    let bytecode = MockPermissionedDisputeGame::BYTECODE.clone();
+pub async fn deploy_mock_permissioned_game(
+    signer: &SignerLock,
+    rpc: &Url,
+    factory: Address,
+) -> Result<Address> {
+    let ctor_args =
+        MockPermissionedDisputeGame::constructorCall { _disputeGameFactory: factory }.abi_encode();
 
-    let request =
-        TransactionRequest { input: TransactionInput::new(bytecode), ..Default::default() };
+    let mut creation_code = MockPermissionedDisputeGame::BYTECODE.to_vec();
+    creation_code.extend_from_slice(&ctor_args);
+
+    let request = TransactionRequest {
+        input: TransactionInput::new(Bytes::from(creation_code)),
+        ..Default::default()
+    };
 
     let receipt = signer
         .send_transaction_request(rpc.clone(), request)

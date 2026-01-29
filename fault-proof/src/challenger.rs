@@ -1,22 +1,26 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, U256};
 use alloy_provider::{Provider, ProviderBuilder};
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use serde_json;
 use tokio::{sync::Mutex, time};
 
 use crate::{
     config::ChallengerConfig,
     contract::{
+        AnchorStateRegistry::AnchorStateRegistryInstance,
         DisputeGameFactory::DisputeGameFactoryInstance, GameStatus, OPSuccinctFaultDisputeGame,
         ProposalStatus,
     },
     is_parent_challenger_wins, is_parent_resolved,
     prometheus::ChallengerGauge,
-    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait,
+    FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt, TX_REVERTED_PREFIX,
 };
 use op_succinct_host_utils::metrics::MetricsGauge;
 use op_succinct_signer_utils::SignerLock;
@@ -29,8 +33,9 @@ where
     signer: SignerLock,
     l1_provider: L1Provider,
     l2_provider: L2Provider,
+    anchor_state_registry: AnchorStateRegistryInstance<P>,
     factory: DisputeGameFactoryInstance<P>,
-    challenger_bond: U256,
+    challenger_bond: OnceLock<U256>,
     state: Arc<Mutex<ChallengerState>>,
 }
 
@@ -38,40 +43,44 @@ impl<P> OPSuccinctChallenger<P>
 where
     P: Provider + Clone,
 {
-    /// Creates a new challenger instance for testing with provided configuration.
-    pub async fn new(
+    /// Creates a new challenger instance with provided configuration.
+    pub fn new(
         config: ChallengerConfig,
         l1_provider: L1Provider,
+        anchor_state_registry: AnchorStateRegistryInstance<P>,
         factory: DisputeGameFactoryInstance<P>,
         signer: SignerLock,
-    ) -> Result<Self> {
-        let challenger_bond = factory.fetch_challenger_bond(config.game_type).await?;
+    ) -> Self {
         let l2_rpc = config.l2_rpc.clone();
 
-        Ok(OPSuccinctChallenger {
+        OPSuccinctChallenger {
             config,
             signer,
             l1_provider: l1_provider.clone(),
             l2_provider: ProviderBuilder::default().connect_http(l2_rpc),
+            anchor_state_registry,
             factory,
-            challenger_bond,
+            challenger_bond: OnceLock::new(),
             state: Arc::new(Mutex::new(ChallengerState {
                 cursor: U256::ZERO,
                 games: HashMap::new(),
             })),
-        })
+        }
     }
 
     /// Runs the main challenger loop. On each tick it waits for the configured interval, refreshes
     /// cached state, and then handles challenging, resolution, and bond-claiming tasks.
     pub async fn run(&mut self) -> Result<()> {
         tracing::info!("OP Succinct Lite Challenger running...");
+
+        self.try_init().await?;
+
         if self.config.disable_monitor_only {
             if self.config.malicious_challenge_percentage > 0.0 {
                 tracing::warn!(
-                "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
-                self.config.malicious_challenge_percentage
-            );
+                    "\x1b[33mMalicious challenging enabled: {}% of valid games will be challenged for testing\x1b[0m",
+                    self.config.malicious_challenge_percentage
+                );
             } else {
                 tracing::info!("Honest challenger mode (malicious challenging disabled)");
             }
@@ -89,6 +98,7 @@ where
             // Synchronize cached dispute state before scheduling work.
             if let Err(e) = self.sync_state().await {
                 tracing::warn!("Failed to sync challenger state: {:?}", e);
+                continue
             }
 
             if let Err(e) = self.handle_game_challenging().await {
@@ -105,6 +115,66 @@ where
         }
     }
 
+    /// Runs startup validations with retries before entering main loop.
+    pub async fn try_init(&self) -> Result<()> {
+        let mut interval = time::interval(Duration::from_secs(self.config.fetch_interval));
+        let mut retry_count = 0u32;
+
+        loop {
+            match self.validate_and_init().await {
+                Ok(()) => break,
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count == 1 {
+                        tracing::error!(attempt = retry_count, error = %e, "Startup validations failed");
+                    } else {
+                        tracing::warn!(
+                            attempt = retry_count,
+                            "Startup validations still pending, retrying..."
+                        );
+                    }
+                    interval.tick().await;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validates startup and initializes state.
+    async fn validate_and_init(&self) -> Result<()> {
+        let bond = self.startup_validations().await?;
+        self.init_state(bond);
+        Ok(())
+    }
+
+    /// Runs one-time startup validations before the challenger begins normal operations.
+    /// Returns the challenger bond on success.
+    async fn startup_validations(&self) -> Result<U256> {
+        // Validate game type is registered and get game implementation.
+        let game_impl = self.factory.game_impl(self.config.game_type).await?;
+
+        // Validate anchor state registry matches factory's game implementation.
+        let expected_registry = game_impl.anchorStateRegistry().call().await?;
+        if *self.anchor_state_registry.address() != expected_registry {
+            anyhow::bail!(
+                "Anchor state registry address mismatch: config has {}, but factory's game implementation uses {}",
+                self.anchor_state_registry.address(),
+                expected_registry
+            );
+        }
+
+        // Fetch challenger bond.
+        let bond = game_impl.challengerBond().call().await?;
+
+        Ok(bond)
+    }
+
+    /// Initialize challenger state with the validated challenger bond.
+    fn init_state(&self, bond: U256) {
+        self.challenger_bond.set(bond).expect("challenger_bond must not already be set");
+    }
+
     /// Synchronizes the game cache.
     ///
     /// 1. Load new games.
@@ -117,7 +187,7 @@ where
     ///    - Games are marked for bond claim if they are finalized and there is credit to claim.
     ///    - Games are evicted once finalized with no remaining credit or whenever resolves as
     ///      defender wins.
-    async fn sync_state(&self) -> Result<()> {
+    pub async fn sync_state(&self) -> Result<()> {
         // 1. Load new games.
         let mut next_index = {
             let state = self.state.lock().await;
@@ -130,29 +200,11 @@ where
         };
 
         let Some(latest_index) = self.factory.fetch_latest_game_index().await? else {
-            tracing::debug!("No games to fetch (factory returned None)");
             return Ok(());
         };
 
-        if next_index > latest_index {
-            tracing::debug!("No games to fetch");
-        } else {
-            tracing::info!(
-                start=%next_index,
-                latest=%latest_index,
-                number=%latest_index.saturating_add(U256::from(1u8)).saturating_sub(next_index),
-                "Begin fetching games",
-            );
-        }
-
         while next_index <= latest_index {
             self.fetch_game(next_index).await?;
-
-            tracing::debug!(
-                current=%next_index, latest=%latest_index, remaining=%latest_index.saturating_sub(next_index),
-                "Fetched game",
-            );
-
             next_index += U256::from(1);
         }
 
@@ -184,13 +236,9 @@ where
                 Remove(U256),
             }
 
-            tracing::info!(count = games.len(), "Begin updating game statuses");
-
             let mut actions = Vec::with_capacity(games.len());
 
             for game in games {
-                tracing::debug!(index=%game.index, address=%game.address, "Updating game status");
-
                 let contract =
                     OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
                 let status = contract.status().call().await?;
@@ -200,112 +248,65 @@ where
 
                 match status {
                     GameStatus::IN_PROGRESS => {
-                        let is_game_over = match proposal_status {
-                            ProposalStatus::Challenged => now_ts >= deadline,
-                            _ => false,
-                        };
+                        let is_game_over = now_ts >= deadline;
 
-                        if proposal_status == ProposalStatus::Unchallenged {
-                            let is_parent_challenger_wins =
-                                is_parent_challenger_wins(game.parent_index, &self.factory).await?;
+                        // Determine challenge/resolve actions based on proposal status.
+                        // - Unchallenged: challenge if game is still active AND (invalid OR parent
+                        //   lost)
+                        // - Challenged: resolve if game is over AND parent resolved AND we
+                        //   challenged it
+                        let (should_attempt_to_challenge, should_attempt_to_resolve) =
+                            match proposal_status {
+                                ProposalStatus::Unchallenged => {
+                                    let should_challenge = !is_game_over && {
+                                        let parent_lost = is_parent_challenger_wins(
+                                            game.parent_index,
+                                            &self.factory,
+                                        )
+                                        .await?;
+                                        game.is_invalid || parent_lost
+                                    };
+                                    (should_challenge, false)
+                                }
+                                ProposalStatus::Challenged => {
+                                    let is_own_game = claim_data.counteredBy == signer_address;
+                                    let should_resolve = is_game_over && is_own_game && {
+                                        is_parent_resolved(game.parent_index, &self.factory).await?
+                                    };
+                                    (false, should_resolve)
+                                }
+                                _ => (false, false),
+                            };
 
-                            if !is_game_over && (game.is_invalid || is_parent_challenger_wins) {
-                                actions.push(GameSyncAction::Update {
-                                    index: game.index,
-                                    status,
-                                    proposal_status,
-                                    should_attempt_to_challenge: true,
-                                    should_attempt_to_resolve: false,
-                                    should_attempt_to_claim_bond: false,
-                                });
-
-                                tracing::debug!(
-                                    game_index = %game.index,
-                                    ?status,
-                                    ?proposal_status,
-                                    should_attempt_to_challenge = true,
-                                    should_attempt_to_resolve = false,
-                                    should_attempt_to_claim_bond = false,
-                                    "Mark game to be challenged"
-                                );
-                            }
-                        } else if proposal_status == ProposalStatus::Challenged {
-                            let is_parent_resolved =
-                                is_parent_resolved(game.parent_index, &self.factory).await?;
-                            let is_own_game = claim_data.counteredBy == signer_address;
-
-                            if is_game_over && is_parent_resolved && is_own_game {
-                                actions.push(GameSyncAction::Update {
-                                    index: game.index,
-                                    status,
-                                    proposal_status,
-                                    should_attempt_to_challenge: false,
-                                    should_attempt_to_resolve: true,
-                                    should_attempt_to_claim_bond: false,
-                                });
-
-                                tracing::debug!(
-                                    game_index = %game.index,
-                                    ?status,
-                                    ?proposal_status,
-                                    should_attempt_to_challenge = false,
-                                    should_attempt_to_resolve = true,
-                                    should_attempt_to_claim_bond = false,
-                                    "Mark game to be resolved"
-                                );
-                            }
-                        }
+                        actions.push(GameSyncAction::Update {
+                            index: game.index,
+                            status,
+                            proposal_status,
+                            should_attempt_to_challenge,
+                            should_attempt_to_resolve,
+                            should_attempt_to_claim_bond: false,
+                        });
                     }
                     GameStatus::CHALLENGER_WINS => {
-                        let is_finalized = self
-                            .factory
-                            .is_game_finalized(self.config.game_type, game.address)
-                            .await?;
+                        let is_finalized =
+                            self.anchor_state_registry.isGameFinalized(game.address).call().await?;
                         let credit = contract.credit(signer_address).call().await?;
 
                         if is_finalized && credit == U256::ZERO {
                             actions.push(GameSyncAction::Remove(game.index));
-
-                            tracing::debug!(
-                                game_index = %game.index,
-                                ?status,
-                                ?proposal_status,
-                                is_finalized = is_finalized,
-                                "Remove the game from queue because challenger wins and no credit left"
-                            );
                         } else {
-                            let should_attempt_to_claim_bond = is_finalized && credit > U256::ZERO;
                             actions.push(GameSyncAction::Update {
                                 index: game.index,
                                 status,
                                 proposal_status,
                                 should_attempt_to_challenge: false,
                                 should_attempt_to_resolve: false,
-                                should_attempt_to_claim_bond,
+                                should_attempt_to_claim_bond: is_finalized && credit > U256::ZERO,
                             });
-
-                            tracing::debug!(
-                                game_index = %game.index,
-                                ?status,
-                                ?proposal_status,
-                                is_finalized = is_finalized,
-                                credit = %credit,
-                                should_attempt_to_challenge = false,
-                                should_attempt_to_resolve = false,
-                                should_attempt_to_claim_bond = should_attempt_to_claim_bond,
-                                "Mark game as ready to claim bond",
-                            );
                         }
                     }
                     GameStatus::DEFENDER_WINS => {
                         actions.push(GameSyncAction::Remove(game.index));
-
-                        tracing::debug!(
-                            game_index = %game.index,
-                            ?status,
-                            ?proposal_status,
-                            "Remove the game because defender wins"
-                        );
                     }
                     _ => unreachable!("Unexpected game status: {:?}", status),
                 }
@@ -337,8 +338,6 @@ where
             }
         }
 
-        tracing::info!("Synced games to latest index");
-
         Ok(())
     }
 
@@ -359,7 +358,7 @@ where
             return Ok(());
         }
 
-        let l2_block_number = contract.l2BlockNumber().call().await?;
+        let l2_block_number = contract.l2SequenceNumber().call().await?;
         let computed_output_root =
             self.l2_provider.compute_output_root_at_block(l2_block_number).await?;
         let output_root = contract.rootClaim().call().await?;
@@ -416,22 +415,25 @@ where
                 .collect::<Vec<_>>()
         };
 
-        if candidates.is_empty() {
-            tracing::info!("No candidates to challenge");
-        } else {
-            tracing::info!(count = candidates.len(), "Begin challenging candidates");
-        }
-
         for game in candidates {
             if let Err(error) =
                 self.submit_challenge_transaction(&game, self.config.disable_monitor_only).await
             {
-                tracing::warn!(
-                    game_index = %game.index,
-                    game_address = ?game.address,
-                    ?error,
-                    "Failed to challenge game"
-                );
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Challenge tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Challenge tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
                 ChallengerGauge::GameChallengingError.increment(1.0);
                 continue;
             }
@@ -453,8 +455,6 @@ where
             let should_challenge: f64 = rng.random_range(0.0..100.0);
 
             if should_challenge <= self.config.malicious_challenge_percentage {
-                tracing::info!("Malicious challenger enabled, attempting a challenge");
-
                 let candidate = {
                     let state = self.state.lock().await;
                     state
@@ -498,8 +498,6 @@ where
             }
         }
 
-        tracing::info!("Challenging job completed");
-
         Ok(())
     }
 
@@ -509,18 +507,12 @@ where
         submit_enabled: bool,
     ) -> Result<()> {
         let contract = OPSuccinctFaultDisputeGame::new(game.address, self.l1_provider.clone());
+        let challenger_bond = *self
+            .challenger_bond
+            .get()
+            .context("challenger_bond must be set via startup_validations")?;
         let transaction_request =
-            contract.challenge().value(self.challenger_bond).into_transaction_request();
-        let json_request = serde_json::to_string(&transaction_request)?;
-
-        tracing::info!(
-            submit_challenge_tx=submit_enabled,
-            game_index = %game.index,
-            game_address = ?game.address,
-            l2_block = %game.l2_block_number,
-            tx = %json_request,
-            "Challenging game"
-        );
+            contract.challenge().value(challenger_bond).into_transaction_request();
 
         // If monitor_only mode is enabled, just log and skip challenging
         if !submit_enabled {
@@ -532,6 +524,10 @@ where
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
+
+        if !receipt.status() {
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
+        }
 
         tracing::info!(
             game_index = %game.index,
@@ -557,29 +553,29 @@ where
                 .collect::<Vec<_>>()
         };
 
-        if candidates.is_empty() {
-            tracing::info!("No games to resolve");
-            return Ok(());
-        } else {
-            tracing::info!(count = candidates.len(), "Begin resolving games");
-        }
-
         for game in candidates {
             if let Err(error) = self.submit_resolution_transaction(&game).await {
-                tracing::warn!(
-                    game_index = %game.index,
-                    game_address = ?game.address,
-                    ?error,
-                    "Failed to resolve game"
-                );
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Resolution tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Resolution tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
                 ChallengerGauge::GameResolutionError.increment(1.0);
                 continue;
             }
 
             ChallengerGauge::GamesResolved.increment(1.0);
         }
-
-        tracing::info!("Resolving job completed");
 
         Ok(())
     }
@@ -591,6 +587,10 @@ where
             .signer
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
+
+        if !receipt.status() {
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
+        }
 
         tracing::info!(
             game_index = %game.index,
@@ -616,29 +616,29 @@ where
                 .collect::<Vec<_>>()
         };
 
-        if candidates.is_empty() {
-            tracing::info!("No bonds to claim");
-            return Ok(());
-        } else {
-            tracing::info!(count = candidates.len(), "Begin claiming bonds");
-        }
-
         for game in candidates {
             if let Err(error) = self.submit_bond_claim_transaction(&game).await {
-                tracing::warn!(
-                    game_index = %game.index,
-                    game_address = ?game.address,
-                    ?error,
-                    "Failed to claim bond for game"
-                );
+                if error.is_revert() {
+                    tracing::error!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Bond claim tx included but reverted on-chain"
+                    );
+                } else {
+                    tracing::warn!(
+                        game_index = %game.index,
+                        game_address = ?game.address,
+                        ?error,
+                        "Bond claim tx unconfirmed (may be on-chain), will verify next cycle"
+                    );
+                }
                 ChallengerGauge::BondClaimingError.increment(1.0);
                 continue;
             }
 
             ChallengerGauge::GamesBondsClaimed.increment(1.0);
         }
-
-        tracing::info!("Claiming bonds job completed");
 
         Ok(())
     }
@@ -653,6 +653,10 @@ where
             .send_transaction_request(self.config.l1_rpc.clone(), transaction_request)
             .await?;
 
+        if !receipt.status() {
+            bail!("{TX_REVERTED_PREFIX} {receipt:?}");
+        }
+
         tracing::info!(
             game_index = %game.index,
             game_address = ?game.address,
@@ -662,6 +666,29 @@ where
         );
 
         Ok(())
+    }
+
+    // ==================== Integration Test Helpers ====================
+
+    /// Returns a copy of a game's full internal state for testing.
+    #[cfg(feature = "integration")]
+    pub async fn get_game(&self, index: U256) -> Option<Game> {
+        let state = self.state.lock().await;
+        state.games.get(&index).cloned()
+    }
+
+    /// Returns the number of cached games for testing.
+    #[cfg(feature = "integration")]
+    pub async fn cached_game_count(&self) -> usize {
+        let state = self.state.lock().await;
+        state.games.len()
+    }
+
+    /// Returns a snapshot of all cached game indices for testing.
+    #[cfg(feature = "integration")]
+    pub async fn cached_game_indices(&self) -> Vec<U256> {
+        let state = self.state.lock().await;
+        state.games.keys().cloned().collect()
     }
 }
 

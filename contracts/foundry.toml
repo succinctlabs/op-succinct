@@ -20,6 +20,7 @@ remappings = [
     "src/L2/=lib/optimism/packages/contracts-bedrock/src/L2/",
     "src/dispute/=lib/optimism/packages/contracts-bedrock/src/dispute/",
     "src/cannon/=lib/optimism/packages/contracts-bedrock/src/cannon/",
+    "src/universal/=lib/optimism/packages/contracts-bedrock/src/universal/",
     "interfaces/=lib/optimism/packages/contracts-bedrock/interfaces/",
     "@lib-keccak/=lib/lib-keccak/contracts/lib",
 ]
@@ -34,7 +35,13 @@ cbor_metadata = false
 # [lint]
 # severity = ["high", "med", "low", "gas"] # Drop all "info" notes
 
-# Enable read-write access to all files in current directory
-fs_permissions = [{ access = "read-write", path = "." }]
+# Enable read-write access to current directory and read access to temp directories.
+# /tmp (Linux) and /var/folders (macOS) are needed for parallel sysgo-powered e2e tests
+# that write config files to isolated temp directories.
+fs_permissions = [
+    { access = "read-write", path = "." },
+    { access = "read", path = "/tmp" },
+    { access = "read", path = "/var/folders" },
+]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

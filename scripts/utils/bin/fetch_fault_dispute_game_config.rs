@@ -1,12 +1,12 @@
 use std::{env, sync::Arc};
 
 use alloy_eips::BlockId;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use fault_proof::config::FaultDisputeGameConfig;
 use op_succinct_host_utils::{
     fetcher::{OPSuccinctDataFetcher, RPCMode},
     host::OPSuccinctHost,
-    OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
+    setup_logger, OP_SUCCINCT_FAULT_DISPUTE_GAME_CONFIG_PATH,
 };
 use op_succinct_proof_utils::initialize_host;
 use op_succinct_scripts::config_common::{
@@ -59,6 +59,9 @@ use serde_json::Value;
 /// ## Contract Configuration
 /// - `OPTIMISM_PORTAL2_ADDRESS`: Address of the OptimismPortal2 contract. If not provided or set to
 ///   zero address, a MockOptimismPortal2 will be deployed (default: zero address)
+/// - `SYSTEM_CONFIG_ADDRESS`: Address of the SystemConfig contract. If not provided, it is
+///   auto-derived from the rollup config. For testing, if set to zero address, a MockSystemConfig
+///   will be deployed (default: derived from rollup config)
 /// - `ANCHOR_STATE_REGISTRY_ADDRESS` - If set will avoid avoid re-creating new AnchorStateRegistry
 ///   (default: zero address)
 /// - `DISPUTE_GAME_FACTORY_ADDRESS` - If set will avoid avoid re-creating new DisputeGameFactory
@@ -89,7 +92,7 @@ use serde_json::Value;
 async fn update_fdg_config() -> Result<()> {
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
     let host = initialize_host(Arc::new(data_fetcher.clone()));
-    let shared_config = get_shared_config_data().await?;
+    let shared_config = get_shared_config_data(data_fetcher.clone()).await?;
 
     // Game configuration.
     let game_type = env::var("GAME_TYPE").unwrap_or("42".to_string()).parse().unwrap();
@@ -147,6 +150,18 @@ async fn update_fdg_config() -> Result<()> {
         "0x0000000000000000000000000000000000000000".to_string()
     });
 
+    // SystemConfig configuration - derive from rollup config by default.
+    // For production deployments, this is required for proper guardian functionality.
+    // For testing, if zero address, a MockSystemConfig will be deployed.
+    let rollup_config =
+        data_fetcher.rollup_config.as_ref().ok_or(anyhow::anyhow!("Rollup config not found"))?;
+
+    let system_config_address = env::var("SYSTEM_CONFIG_ADDRESS").unwrap_or_else(|_| {
+        // Default to the address from rollup config
+        format!("{:?}", rollup_config.l1_system_config_address)
+    });
+    log::info!("Using SystemConfig address: {system_config_address}");
+
     // Get starting block number - use `latest finalized - dispute game finality delay` if not set.
     let starting_l2_block_number = match env::var("STARTING_L2_BLOCK_NUMBER") {
         Ok(n) => n.parse().unwrap(),
@@ -155,11 +170,7 @@ async fn update_fdg_config() -> Result<()> {
             let finalized_l2_header = data_fetcher.get_l2_header(BlockId::finalized()).await?;
             let finalized_l2_block = finalized_l2_header.number;
 
-            let block_time = &data_fetcher
-                .rollup_config
-                .as_ref()
-                .ok_or(anyhow::anyhow!("Rollup config not found"))?
-                .block_time;
+            let block_time = &rollup_config.block_time;
 
             let num_blocks_for_finality = dispute_game_finality_delay_seconds / block_time;
             let search_start = finalized_l2_block.saturating_sub(num_blocks_for_finality);
@@ -171,9 +182,26 @@ async fn update_fdg_config() -> Result<()> {
                     None => search_start,
                 };
 
+            // NOTE: Starting from block 0 (genesis) is intentionally disallowed because in
+            // op-stack chains genesis state is provided as part of the `RollupConfig`, which is
+            // NOT part of the chain state.
+            if finalized_l2_block_number <= num_blocks_for_finality {
+                bail!(
+                    "finalized L2 block ({}) too low for finality window ({} blocks)",
+                    finalized_l2_block_number,
+                    num_blocks_for_finality,
+                );
+            }
+
             finalized_l2_block_number.saturating_sub(num_blocks_for_finality)
         }
     };
+
+    if starting_l2_block_number == 0 {
+        log::warn!("Starting L2 block number is 0. Make sure this is intended.");
+    } else {
+        log::info!("Using starting L2 block number: {starting_l2_block_number}");
+    }
 
     let starting_block_number_hex = format!("0x{starting_l2_block_number:x}");
     let optimism_output_data: Value = data_fetcher
@@ -226,6 +254,7 @@ async fn update_fdg_config() -> Result<()> {
         rollup_config_hash: shared_config.rollup_config_hash,
         starting_l2_block_number,
         starting_root: starting_output_root,
+        system_config_address,
         use_sp1_mock_verifier: shared_config.use_sp1_mock_verifier,
         verifier_address: shared_config.verifier_address,
     };
@@ -251,14 +280,22 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    setup_logger();
+
     let args = Args::parse();
 
     // This fetches the .env file from the project root. If the command is invoked in the contracts/
     // directory, the .env file in the root of the repo is used.
     if let Some(root) = find_project_root() {
-        dotenv::from_path(root.join(args.env_file)).ok();
+        dotenv::from_path(root.join(&args.env_file)).ok();
+        log::info!("Loaded {} from project root", args.env_file);
     } else {
-        eprintln!("Warning: Could not find project root. {} file not loaded.", args.env_file);
+        // Try to load the env file in case it's present
+        if dotenv::from_path(args.env_file.clone()).is_ok() {
+            log::info!("Loaded {} from current directory", args.env_file);
+        } else {
+            log::error!("Could not find env file. {} file not loaded", args.env_file);
+        }
     }
 
     update_fdg_config().await?;

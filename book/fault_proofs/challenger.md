@@ -25,7 +25,11 @@ The challenger performs several key functions:
 
 ## Configuration
 
-The challenger is configured through environment variables. Create a `.env.challenger` file in the project root directory:
+The challenger is configured through environment variables.
+
+Create a `.env.challenger` file in the `fault-proof` directory with all required variables. This single file is used by:
+- Docker Compose (for both variable substitution and runtime configuration)
+- Direct binary execution (`cargo run --bin challenger` from the `fault-proof` directory; the binary automatically loads `.env.challenger`)
 
 ### Required Environment Variables
 
@@ -33,6 +37,7 @@ The challenger is configured through environment variables. Create a `.env.chall
 |----------|-------------|
 | `L1_RPC` | L1 RPC endpoint URL |
 | `L2_RPC` | L2 RPC endpoint URL |
+| `ANCHOR_STATE_REGISTRY_ADDRESS` | Address of the AnchorStateRegistry contract |
 | `FACTORY_ADDRESS` | Address of the DisputeGameFactory contract |
 | `GAME_TYPE` | Type identifier for the dispute game |
 
@@ -54,11 +59,12 @@ Either `PRIVATE_KEY` or both `SIGNER_URL` and `SIGNER_ADDRESS` must be set for t
 
 ```env
 # Required Configuration
-L1_RPC=                  # L1 RPC endpoint URL
-L2_RPC=                  # L2 RPC endpoint URL
-FACTORY_ADDRESS=         # Address of the DisputeGameFactory contract
-GAME_TYPE=               # Type identifier for the dispute game
-PRIVATE_KEY=             # Private key for transaction signing
+L1_RPC=                              # L1 RPC endpoint URL
+L2_RPC=                              # L2 RPC endpoint URL
+ANCHOR_STATE_REGISTRY_ADDRESS=       # Address of the AnchorStateRegistry contract
+FACTORY_ADDRESS=                     # Address of the DisputeGameFactory contract
+GAME_TYPE=                           # Type identifier for the dispute game
+PRIVATE_KEY=                         # Private key for transaction signing
 
 # Optional Configuration
 FETCH_INTERVAL=30                     # Polling interval in seconds
@@ -70,9 +76,13 @@ MALICIOUS_CHALLENGE_PERCENTAGE=0.0    # Percentage of valid games to challenge f
 
 ## Running
 
-To run the challenger:
+To run the challenger from the `fault-proof` directory:
 ```bash
+# Uses .env.challenger by default
 cargo run --bin challenger
+
+# Or specify a custom environment file
+cargo run --bin challenger -- --env-file custom.env
 ```
 
 The challenger will run indefinitely, monitoring for invalid games and challenging them as needed.

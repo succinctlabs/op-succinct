@@ -1,30 +1,141 @@
 name: Integration Tests
 
 on:
-  push:
-    branches: [ develop ]
-  pull_request:
-    branches: [ develop ]
+  # pull_request:
+  #   paths:
+  #     - '.github/workflows/integration-tests.yml'
+  #     - 'Cargo.toml'
+  #     - 'Cargo.lock'
+  #     - 'justfile'
+  #     - 'fault-proof/**'
+  #     - 'bindings/**'
+  #     - 'utils/**'
+  # push:
+  #   tags:
+  #     - celo/v[0-9]*
+  #   branches:
+  #     - develop
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && github.ref != 'refs/heads/main' }}
+
 jobs:
-  integration-tests:
+  fp-integration-tests:
+    name: Fault Proof (${{ matrix.test }}${{ matrix.da != 'ethereum' && format(' - {0}', matrix.da) || '' }})
     environment: e2e
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # sync is DA-agnostic (runs once), integration is DA-specific
+        include:
+          - test: sync
+            da: ethereum
+          - test: integration
+            da: ethereum
+          - test: integration
+            da: eigenda
+
     steps:
-      - uses: actions/checkout@v4
+    - name: Configure runs-on cache
+      uses: runs-on/action@v2
 
-      - name: Setup CI
-        uses: ./.github/actions/setup
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-      - name: Run cost estimator on recent block range
-        run: |
-          RUST_LOG=info cargo run --bin cost-estimator --release --features eigenda -- --rolling
-        env:
-          L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
-          L1_RPC: ${{ secrets.L1_RPC }}
-          L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
-          L2_RPC: ${{ secrets.L2_RPC }}
-          EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
-          SP1_PROVER: mock
-          OP_SUCCINCT_MOCK: true 
+    - name: Setup Rust
+      run: rustup toolchain install stable --profile minimal
+
+    - name: Install Foundry
+      uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: nightly-d592b3e0f142d694c3be539702704a4a73238773
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          bindings
+
+    - name: Install just
+      uses: extractions/setup-just@v3
+
+    - name: Run tests
+      run: just fp-integration-tests ${{ matrix.test }} ${{ matrix.da }}
+      env:
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
+        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fp-${{ matrix.test }}-${{ matrix.da }}-logs
+        path: |
+          **/*.log
+          target/debug/deps/*.log
+        retention-days: 7
+
+  da-integration-tests:
+    name: DA Host (${{ matrix.da }})
+    environment: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    strategy:
+      fail-fast: false
+      matrix:
+        da: [eigenda]
+
+    steps:
+    - name: Configure runs-on cache
+      uses: runs-on/action@v2
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup Rust
+      run: |
+        rustup toolchain install stable --profile minimal
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: |
+          .
+          bindings
+
+    - name: Install just
+      uses: extractions/setup-just@v3
+
+    - name: Run tests
+      run: just da-integration-tests ${{ matrix.da }}
+      env:
+        L1_RPC: ${{ secrets.L1_RPC }}
+        L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+        L2_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_RPC }}
+        L2_NODE_RPC: ${{ matrix.da == 'eigenda' && secrets.L2_EIGENDA_RPC || secrets.L2_NODE_RPC }}
+        EIGENDA_PROXY_ADDRESS: ${{ secrets.EIGENDA_PROXY_ADDRESS }}
+        OP_SUCCINCT_MOCK: 'true'
+
+    - name: Upload test logs on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: da-host-${{ matrix.da }}-logs
+        path: |
+          **/*.log
+          target/debug/deps/*.log
+        retention-days: 7

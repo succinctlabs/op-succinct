@@ -23,3 +23,9 @@
 [submodule "contracts/lib/lib-keccak"]
 	path = contracts/lib/lib-keccak
 	url = https://github.com/ethereum-optimism/lib-keccak
+[submodule "tests/optimism"]
+	path = tests/optimism
+	url = https://github.com/succinctlabs/optimism
+[submodule "tests/sp1-contracts"]
+	path = tests/sp1-contracts
+	url = https://github.com/succinctlabs/sp1-contracts.git

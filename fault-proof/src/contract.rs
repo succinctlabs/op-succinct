@@ -1,4 +1,5 @@
 use alloy_sol_macro::sol;
+use serde::{Deserialize, Serialize};
 
 sol! {
     type GameType is uint32;
@@ -11,6 +12,9 @@ sol! {
     contract DisputeGameFactory {
         /// @notice Emitted when a new dispute game is created.
         event DisputeGameCreated(address indexed disputeProxy, GameType indexed gameType, Claim indexed rootClaim);
+
+        /// @notice Emitted when a new game implementation added to the factory
+        event ImplementationSet(address indexed impl, GameType indexed gameType);
 
         /// @notice `gameImpls` is a mapping that maps `GameType`s to their respective
         ///         `IDisputeGame` implementations.
@@ -45,22 +49,25 @@ sol! {
     #[allow(missing_docs)]
     #[sol(rpc)]
     interface IFaultDisputeGame {
-        function l2BlockNumber() external view returns (uint256 l2BlockNumber_);
+        function l2SequenceNumber() external view returns (uint256 l2SequenceNumber_);
     }
 
     #[sol(rpc)]
     contract OPSuccinctFaultDisputeGame {
-        /// @notice Getter for the starting block number.
-        function startingBlockNumber() external view returns (uint256 startingBlockNumber_);
-
         /// @notice Getter for the game type.
         function gameType() public pure returns (GameType gameType_);
 
         /// @notice Getter for the creator of the dispute game.
         function gameCreator() public pure returns (address creator_);
 
+        /// @notice The L2 sequence number (block number) for which this game is proposing an output root.
+        function l2SequenceNumber() public pure returns (uint256 l2SequenceNumber_);
+
         /// @notice The L2 block number for which this game is proposing an output root.
         function l2BlockNumber() public pure returns (uint256 l2BlockNumber_);
+
+        /// @notice Only the starting block number of the game.
+        function startingBlockNumber() external view returns (uint256 startingBlockNumber_);
 
         /// @notice Getter for the root claim.
         function rootClaim() public pure returns (Claim rootClaim_);
@@ -95,6 +102,9 @@ sol! {
         /// @notice Returns the max challenge duration.
         function maxChallengeDuration() external view returns (uint256 maxChallengeDuration_);
 
+        /// @notice Returns the max prove duration.
+        function maxProveDuration() external view returns (uint64 maxProveDuration_);
+
         /// @notice Returns the anchor state registry contract.
         function anchorStateRegistry() external view returns (IAnchorStateRegistry registry_);
 
@@ -125,9 +135,13 @@ sol! {
 
         /// @notice Returns the current anchor game reference.
         function anchorGame() public view returns (IDisputeGame anchorGame_);
+
+        /// @notice Returns the respected game type.
+        function respectedGameType() external view returns (GameType);
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
     /// @notice The current status of the dispute game.
     enum GameStatus {
         // The game is currently in progress, and has not been resolved.
@@ -138,7 +152,7 @@ sol! {
         DEFENDER_WINS
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     enum ProposalStatus {
         // The initial state of a new proposal.
         Unchallenged,

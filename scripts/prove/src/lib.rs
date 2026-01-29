@@ -5,7 +5,6 @@ use op_succinct_host_utils::fetcher::{BlockInfo, OPSuccinctDataFetcher};
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{ExecutionReport, ProverClient, SP1Stdin};
 
-pub const DEFAULT_RANGE: u64 = 5;
 pub const TWO_WEEKS: Duration = Duration::from_secs(14 * 24 * 60 * 60);
 
 pub async fn execute_multi(
@@ -21,8 +20,7 @@ pub async fn execute_multi(
         .execute(get_range_elf_embedded(), &sp1_stdin)
         .calculate_gas(true)
         .deferred_proof_verification(false)
-        .run()
-        .unwrap();
+        .run()?;
 
     let execution_duration = start_time.elapsed();
 
