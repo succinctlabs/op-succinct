@@ -6,15 +6,14 @@ go 1.23.8
 require github.com/ethereum-optimism/optimism v1.16.2
 
 require (
-	github.com/BurntSushi/toml v1.5.0
-	github.com/bmatcuk/doublestar/v4 v4.8.1
 	github.com/ethereum/go-ethereum v1.16.3
+	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/sync v0.14.0
 )
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
@@ -131,7 +130,6 @@ require (
 	github.com/kurtosis-tech/kurtosis/grpc-file-transfer/golang v0.0.0-20230803130419-099ee7a4e3dc // indirect
 	github.com/kurtosis-tech/kurtosis/path-compression v0.0.0-20250108161014-0819b8ca912f // indirect
 	github.com/kurtosis-tech/stacktrace v0.0.0-20211028211901-1c67a77b5409 // indirect
-	github.com/lib/pq v1.10.9 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
 	github.com/libp2p/go-libp2p v0.36.2 // indirect
@@ -264,6 +262,7 @@ require (
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
