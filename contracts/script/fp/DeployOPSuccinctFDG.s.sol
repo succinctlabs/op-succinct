@@ -19,7 +19,8 @@ import {ISystemConfig} from "interfaces/L1/ISystemConfig.sol";
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {AccessManager} from "../../src/fp/AccessManager.sol";
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {Proxy} from "@optimism/src/universal/Proxy.sol";
+import {ProxyAdmin} from "@optimism/src/universal/ProxyAdmin.sol";
 import {OPSuccinctFaultDisputeGame} from "../../src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
 import {MockSystemConfig} from "../../src/utils/MockSystemConfig.sol";
@@ -30,6 +31,8 @@ import {MockOptimismPortal2} from "../../src/utils/MockOptimismPortal2.sol";
 
 contract DeployOPSuccinctFDG is Script, Utils {
     using stdJson for string;
+
+    ProxyAdmin internal _proxyAdmin;
 
     struct DeployedContracts {
         address factoryProxy;
@@ -89,7 +92,7 @@ contract DeployOPSuccinctFDG is Script, Utils {
 
     function deployContracts(FDGConfig memory config) internal returns (DeployedContracts memory) {
         // Deploy or get DisputeGameFactory
-        ERC1967Proxy factoryProxy = deployOrGetDisputeGameFactoryProxy(config);
+        Proxy factoryProxy = deployOrGetDisputeGameFactoryProxy(config);
         DisputeGameFactory factory = DisputeGameFactory(address(factoryProxy));
 
         // Deploy MockOptimismPortal2 or get OptimismPortal2
@@ -173,14 +176,36 @@ contract DeployOPSuccinctFDG is Script, Utils {
         );
     }
 
-    function deployOrGetDisputeGameFactoryProxy(FDGConfig memory config) internal returns (ERC1967Proxy) {
+    function getOrCreateProxyAdmin() internal returns (ProxyAdmin) {
+        if (address(_proxyAdmin) == address(0)) {
+            // Deploy ProxyAdmin with msg.sender as owner.
+            _proxyAdmin = new ProxyAdmin(msg.sender);
+            console.log("ProxyAdmin deployed at:", address(_proxyAdmin));
+        }
+        return _proxyAdmin;
+    }
+
+    function deployOrGetDisputeGameFactoryProxy(FDGConfig memory config) internal returns (Proxy) {
         if (config.disputeGameFactoryAddress != address(0)) {
-            return ERC1967Proxy(payable(config.disputeGameFactoryAddress));
+            return Proxy(payable(config.disputeGameFactoryAddress));
         } else {
-            return new ERC1967Proxy(
-                address(new DisputeGameFactory()),
+            // Get or create ProxyAdmin.
+            ProxyAdmin proxyAdmin = getOrCreateProxyAdmin();
+
+            // Deploy factory implementation.
+            DisputeGameFactory factoryImpl = new DisputeGameFactory();
+
+            // Deploy factory proxy using Optimism Proxy pattern.
+            Proxy factoryProxy = new Proxy(address(proxyAdmin));
+
+            // Initialize the factory through ProxyAdmin.
+            proxyAdmin.upgradeAndCall(
+                payable(address(factoryProxy)),
+                address(factoryImpl),
                 abi.encodeWithSelector(DisputeGameFactory.initialize.selector, msg.sender)
             );
+
+            return factoryProxy;
         }
     }
 
@@ -209,11 +234,18 @@ contract DeployOPSuccinctFDG is Script, Utils {
                 console.log("Deployed MockSystemConfig:", systemConfigAddress);
             }
 
+            // Get or create ProxyAdmin.
+            ProxyAdmin proxyAdmin = getOrCreateProxyAdmin();
+
             // Deploy the anchor state registry implementation with finality delay
             AnchorStateRegistry registryImpl = new AnchorStateRegistry(config.disputeGameFinalityDelaySeconds);
 
-            // Deploy the anchor state registry proxy
-            ERC1967Proxy registryProxy = new ERC1967Proxy(
+            // Deploy the anchor state registry proxy using Optimism Proxy pattern.
+            Proxy registryProxy = new Proxy(address(proxyAdmin));
+
+            // Initialize the registry through ProxyAdmin.
+            proxyAdmin.upgradeAndCall(
+                payable(address(registryProxy)),
                 address(registryImpl),
                 abi.encodeCall(
                     AnchorStateRegistry.initialize,
