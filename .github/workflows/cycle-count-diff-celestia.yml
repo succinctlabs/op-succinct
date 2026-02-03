@@ -49,6 +49,14 @@ jobs:
           path: old_code
           submodules: recursive
 
+      - name: Install SP1 vk map (new branch)
+        run: python3 scripts/setup_sp1_vk_map.py
+        working-directory: ./new_code
+
+      - name: Install SP1 vk map (old branch)
+        run: python3 scripts/setup_sp1_vk_map.py
+        working-directory: ./old_code
+
       - name: Run Test On New Branch
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test test_cycle_count_diff --release --features celestia -- --exact --nocapture

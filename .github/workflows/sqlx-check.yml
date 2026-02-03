@@ -27,6 +27,9 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
       
+      - name: Install SP1 vk map
+        run: python3 scripts/setup_sp1_vk_map.py
+
       - name: Install SQLx CLI
         run: cargo install sqlx-cli --no-default-features --features native-tls,postgres
       

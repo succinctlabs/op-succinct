@@ -33,6 +33,9 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup
 
+      - name: Install SP1 vk map
+        run: python3 scripts/setup_sp1_vk_map.py
+
       - name: Run cost estimator on recent block range
         run: |
           RUST_LOG=info cargo run --bin cost-estimator --release -- --rolling

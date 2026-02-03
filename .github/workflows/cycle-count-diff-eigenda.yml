@@ -80,6 +80,14 @@ jobs:
           cp -r ./srs/resources ./new_code/scripts/prove
           cp -r ./srs/resources ./old_code/scripts/prove
 
+      - name: Install SP1 vk map (new branch)
+        run: python3 scripts/setup_sp1_vk_map.py
+        working-directory: ./new_code
+
+      - name: Install SP1 vk map (old branch)
+        run: python3 scripts/setup_sp1_vk_map.py
+        working-directory: ./old_code
+
       - name: Run Test On New Branch
         run: |
           RUST_LOG=info NEW_BRANCH=true cargo test -p op-succinct-prove --features eigenda test_cycle_count_diff --release -- --exact --nocapture

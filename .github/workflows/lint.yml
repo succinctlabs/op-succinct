@@ -58,6 +58,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
+
+      - name: Install SP1 vk map
+        run: python3 scripts/setup_sp1_vk_map.py
       
       - name: Run cargo check
         uses: actions-rs/cargo@v1

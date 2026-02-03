@@ -1,9 +1,16 @@
 default:
   @just --list
 
+# Ensure SP1 vk map is installed for sp1-prover builds.
+sp1-vk-map:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  python3 scripts/setup_sp1_vk_map.py
+
 # Runs the op-succinct program for a single block.
 run-single l2_block_num use-cache="false" prove="false":
   #!/usr/bin/env bash
+  python3 scripts/setup_sp1_vk_map.py
   CACHE_FLAG=""
   if [ "{{use-cache}}" = "true" ]; then
     CACHE_FLAG="--use-cache"
@@ -17,6 +24,7 @@ run-single l2_block_num use-cache="false" prove="false":
 # Runs the op-succinct program for multiple blocks.
 run-multi start end use-cache="false" prove="false":
   #!/usr/bin/env bash
+  python3 scripts/setup_sp1_vk_map.py
   CACHE_FLAG=""
   if [ "{{use-cache}}" = "true" ]; then
     CACHE_FLAG="--use-cache"
@@ -32,6 +40,7 @@ run-multi start end use-cache="false" prove="false":
 # If no range is provided, runs for the last 5 finalized blocks.
 cost-estimator *args='':
   #!/usr/bin/env bash
+  python3 scripts/setup_sp1_vk_map.py
   if [ -z "{{args}}" ]; then
     cargo run --bin cost-estimator --release
   else
@@ -402,6 +411,7 @@ remove-config config_name env_file=".env":
 vkeys:
     #!/usr/bin/env bash
     set -e
+    python3 scripts/setup_sp1_vk_map.py
 
     echo "Generating verification key hashes..."
     echo ""
@@ -436,24 +446,25 @@ build-range-elfs:
     #!/usr/bin/env bash
 
     cd programs/range/ethereum
-    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --docker --tag v5.2.4 --output-directory ../../../elf
-    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-bump --output-directory ../../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name range-elf-embedded --output-directory ../../../elf --features embedded
 
     cd ../celestia
-    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
+    ~/.sp1/bin/cargo-prove prove build --elf-name celestia-range-elf-embedded --output-directory ../../../elf --features embedded
 
     cd ../eigenda
-    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --docker --tag v5.2.4 --output-directory ../../../elf --features embedded
+    ~/.sp1/bin/cargo-prove prove build --elf-name eigenda-range-elf-embedded --output-directory ../../../elf --features embedded
 
 # Build ELF file for aggregation program.
 build-agg-elf:
     #!/usr/bin/env bash
 
     cd programs/aggregation
-    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --docker --tag v5.2.4 --output-directory ../../elf
+    ~/.sp1/bin/cargo-prove prove build --elf-name aggregation-elf --output-directory ../../elf
 
 # Run all unit tests except for the specified ones.
 tests:
+   python3 scripts/setup_sp1_vk_map.py
    cargo t --release \
     -- \
     --skip test_cycle_count_diff \
@@ -463,6 +474,7 @@ tests:
 # target: test file (integration, sync, etc.)
 # da: DA feature (ethereum, eigenda, celestia). DA-agnostic tests like sync work with any.
 fp-integration-tests target="integration" da="ethereum":
+  python3 scripts/setup_sp1_vk_map.py
   cd fault-proof && cargo t --test {{target}} --release --features integration,{{da}} -- --test-threads=1 --nocapture
 
 # Run DA-specific host utility tests
@@ -470,6 +482,7 @@ fp-integration-tests target="integration" da="ethereum":
 da-integration-tests da="ethereum":
     #!/usr/bin/env bash
     set -euo pipefail
+    python3 scripts/setup_sp1_vk_map.py
 
     # EigenDA tests require SRS file - create symlink if needed
     if [ "{{da}}" = "eigenda" ] && [ ! -e "utils/eigenda/host/resources" ]; then

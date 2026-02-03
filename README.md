@@ -44,6 +44,11 @@ mdbook serve --open
 
 To configure or change the OP Succinct codebase, please refer to the [OP Succinct Book](https://succinctlabs.github.io/op-succinct).
 
+### SP1 vk map
+
+If builds fail while downloading `vk-map-v5.0.0`, run `just sp1-vk-map` (or `python3 scripts/setup_sp1_vk_map.py`)
+to install the vk map into the SP1 prover dependency before running `cargo` commands.
+
 ## Acknowledgments
 
 This repo would not exist without:
