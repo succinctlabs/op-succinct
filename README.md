@@ -46,8 +46,7 @@ To configure or change the OP Succinct codebase, please refer to the [OP Succinc
 
 ### SP1 vk map
 
-If builds fail while downloading `vk-map-v5.0.0`, run `just sp1-vk-map` (or `python3 scripts/setup_sp1_vk_map.py`)
-to install the vk map into the SP1 prover dependency before running `cargo` commands.
+If `vk-map-v5.0.0` download fails, run `just sp1-vk-map` (or `python3 scripts/setup_sp1_vk_map.py`) before `cargo`.
 
 ## Acknowledgments
 

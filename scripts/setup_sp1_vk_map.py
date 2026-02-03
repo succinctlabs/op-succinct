@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
 import hashlib
 import json
 import shutil
@@ -41,22 +39,17 @@ def main() -> int:
     )
     metadata = json.loads(metadata_raw)
 
-    sp1_packages = [
-        pkg for pkg in metadata.get("packages", []) if pkg.get("name") == "sp1-prover"
-    ]
+    sp1_packages = [pkg for pkg in metadata.get("packages", []) if pkg.get("name") == "sp1-prover"]
     if not sp1_packages:
         print("sp1-prover package not found in cargo metadata.", file=sys.stderr)
         return 1
 
-    dest_paths = []
-    for pkg in sp1_packages:
-        manifest_path = Path(pkg["manifest_path"]).resolve()
-        dest_paths.append(manifest_path.parent / "src" / "vk_map.bin")
+    dest_paths = {
+        (Path(pkg["manifest_path"]).resolve().parent / "src" / "vk_map.bin")
+        for pkg in sp1_packages
+    }
 
-    unique_dest_paths = sorted(set(dest_paths))
-    install_errors = 0
-
-    for dest_path in unique_dest_paths:
+    for dest_path in sorted(dest_paths):
         if dest_path.exists() and sha256(dest_path) == EXPECTED_SHA256:
             print(f"vk_map.bin already installed at {dest_path}")
             continue
@@ -70,12 +63,11 @@ def main() -> int:
                 f"Failed to install vk_map.bin at {dest_path}: hash mismatch ({dest_hash}).",
                 file=sys.stderr,
             )
-            install_errors += 1
-            continue
+            return 1
 
         print(f"Installed vk_map.bin at {dest_path}")
 
-    return 1 if install_errors else 0
+    return 0
 
 
 if __name__ == "__main__":
