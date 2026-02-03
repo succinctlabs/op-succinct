@@ -25,9 +25,11 @@ use op_succinct_host_utils::witness_generation::{
     DefaultOracleBase, WitnessGenerator,
 };
 use rkyv::to_bytes;
-use sp1_core_executor::SP1ReduceProof;
-use sp1_prover::InnerSC;
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_core_executor::SP1RecursionProof;
+use sp1_hypercube::SP1PcsProofInner;
+use sp1_primitives::SP1GlobalContext;
+use sp1_sdk::blocking::{Elf, Prover, ProverClient};
+use sp1_sdk::{ProvingKey, SP1Stdin};
 
 type WitnessExecutor = EigenDAWitnessExecutor<
     PreimageWitnessCollector<DefaultOracleBase>,
@@ -62,9 +64,10 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
                 // The ELF is included in the canoe-sp1-cc-host crate
                 const CANOE_ELF: &[u8] = canoe_sp1_cc_host::ELF;
                 let client = ProverClient::from_env();
-                let (_pk, canoe_vk) = client.setup(CANOE_ELF);
+                let canoe_pk = client.setup(Elf::Static(CANOE_ELF)).unwrap();
+                let canoe_vk = canoe_pk.verifying_key();
 
-                let reduced_proof: SP1ReduceProof<InnerSC> =
+                let reduced_proof: SP1RecursionProof<SP1GlobalContext, SP1PcsProofInner> =
                     serde_cbor::from_slice(&proof_bytes)
                         .map_err(|e| anyhow::anyhow!("Failed to deserialize canoe proof: {}", e))?;
                 stdin.write_proof(reduced_proof, canoe_vk.vk.clone());
