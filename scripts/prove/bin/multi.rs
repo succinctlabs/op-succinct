@@ -4,6 +4,7 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
+    network::{get_network_signer, parse_fulfillment_strategy},
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
@@ -11,13 +12,49 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{
+    network::proto::types::FulfillmentStatus, utils, Elf, NetworkProver, ProveRequest, Prover,
+    ProverClient, SP1ProofWithPublicValues,
+};
 use std::{
+    env,
     fs,
     sync::Arc,
     time::{Duration, Instant},
 };
+use tokio::time::sleep;
 use tracing::{debug, info, warn};
+
+/// Helper function to wait for a proof to complete on the network.
+async fn wait_for_proof(
+    prover: &NetworkProver,
+    proof_id: alloy_primitives::B256,
+) -> Result<SP1ProofWithPublicValues> {
+    const POLL_INTERVAL: Duration = Duration::from_secs(2);
+
+    loop {
+        let (status, proof) = prover.get_proof_status(proof_id).await?;
+        let fulfillment_status =
+            FulfillmentStatus::try_from(status.fulfillment_status()).unwrap_or_default();
+
+        match fulfillment_status {
+            FulfillmentStatus::Fulfilled => {
+                return proof.ok_or_else(|| {
+                    anyhow::anyhow!("Proof status is Fulfilled but proof data is missing")
+                });
+            }
+            FulfillmentStatus::UnspecifiedFulfillmentStatus
+            | FulfillmentStatus::Assigned
+            | FulfillmentStatus::Requested => {
+                info!("Proof {} in progress, waiting...", proof_id);
+                sleep(POLL_INTERVAL).await;
+            }
+            FulfillmentStatus::Unfulfillable => {
+                return Err(anyhow::anyhow!("Proof {} is unfulfillable", proof_id));
+            }
+        }
+    }
+}
 
 /// Execute the OP Succinct program for multiple blocks.
 #[tokio::main]
@@ -85,13 +122,33 @@ async fn main() -> Result<()> {
         generate_stdin().await?
     };
 
-    let prover = ProverClient::from_env();
-
     if args.prove {
-        // If the prove flag is set, generate a proof.
-        let (pk, _) = prover.setup(get_range_elf_embedded());
+        // When proving, use the network prover with strategy from environment.
+        let use_kms_requester = env::var("USE_KMS_REQUESTER")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .unwrap_or(false);
+
+        let network_signer = get_network_signer(use_kms_requester).await?;
+        let range_proof_strategy =
+            parse_fulfillment_strategy(env::var("RANGE_PROOF_STRATEGY").unwrap_or_default());
+
+        let prover = ProverClient::builder().network().signer(network_signer).build().await;
+
+        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+        let proof_id = prover
+            .prove(&pk, sp1_stdin.clone())
+            .compressed()
+            .strategy(range_proof_strategy)
+            .request()
+            .await
+            .context("Failed to submit proof request")?;
+        info!("Proof request submitted: {}", proof_id);
+        let proof = wait_for_proof(&prover, proof_id)
+            .await
+            .context("Failed to generate proof")?;
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", l2_chain_id);
@@ -102,6 +159,11 @@ async fn main() -> Result<()> {
         proof
             .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
             .expect("saving proof failed");
+
+        info!(
+            "Proof saved to {}/proofs/{}-{}.bin",
+            l2_chain_id, l2_start_block, l2_end_block
+        );
     } else {
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;

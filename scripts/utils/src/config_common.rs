@@ -5,7 +5,7 @@ use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::fetcher::OPSuccinctDataFetcher;
 use op_succinct_proof_utils::get_range_elf_embedded;
-use sp1_sdk::{HashableKey, Prover, ProverClient};
+use sp1_sdk::{Elf, HashableKey, Prover, ProverClient, ProvingKey};
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -83,11 +83,13 @@ pub async fn get_shared_config_data(
     let rollup_config_hash = format!("0x{:x}", hash_rollup_config(rollup_config));
 
     // Calculate verification keys.
-    let prover = ProverClient::builder().cpu().build();
-    let (_, agg_vkey) = prover.setup(AGGREGATION_ELF);
+    let prover = ProverClient::builder().cpu().build().await;
+    let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
+    let agg_vkey = agg_pk.verifying_key();
     let aggregation_vkey = agg_vkey.vk.bytes32();
 
-    let (_, range_vkey) = prover.setup(get_range_elf_embedded());
+    let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+    let range_vkey = range_pk.verifying_key();
     let range_vkey_commitment = format!("0x{}", hex::encode(u32_to_u8(range_vkey.vk.hash_u32())));
 
     Ok(SharedConfigData {

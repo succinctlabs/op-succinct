@@ -23,8 +23,45 @@ use op_succinct_host_utils::{
     witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
-use sp1_sdk::{utils, Prover, ProverClient, SP1ProofMode};
+use sp1_sdk::{
+    network::proto::types::FulfillmentStatus, utils, Elf, NetworkProver, ProveRequest, Prover,
+    ProverClient, ProvingKey, SP1ProofMode, SP1ProofWithPublicValues,
+};
+use std::time::Duration;
+use tokio::time::sleep;
 use tracing::info;
+
+/// Helper function to wait for a proof to complete on the network.
+/// Polls the network prover until the proof is fulfilled or fails.
+async fn wait_for_proof(
+    prover: &NetworkProver,
+    proof_id: alloy_primitives::B256,
+) -> Result<SP1ProofWithPublicValues> {
+    const POLL_INTERVAL: Duration = Duration::from_secs(2);
+
+    loop {
+        let (status, proof) = prover.get_proof_status(proof_id).await?;
+        let fulfillment_status =
+            FulfillmentStatus::try_from(status.fulfillment_status()).unwrap_or_default();
+
+        match fulfillment_status {
+            FulfillmentStatus::Fulfilled => {
+                return proof.ok_or_else(|| {
+                    anyhow!("Proof status is Fulfilled but proof data is missing")
+                });
+            }
+            FulfillmentStatus::UnspecifiedFulfillmentStatus
+            | FulfillmentStatus::Assigned
+            | FulfillmentStatus::Requested => {
+                info!("Proof {} in progress, waiting...", proof_id);
+                sleep(POLL_INTERVAL).await;
+            }
+            FulfillmentStatus::Unfulfillable => {
+                return Err(anyhow!("Proof {} is unfulfillable", proof_id));
+            }
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -225,17 +262,25 @@ async fn main() -> Result<()> {
 
     let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
         .context("failed to determine network mode from range and agg fulfillment strategies")?;
-    let network_prover =
-        ProverClient::builder().network_for(network_mode).signer(network_signer.clone()).build();
+    let network_prover = ProverClient::builder()
+        .network_for(network_mode)
+        .signer(network_signer.clone())
+        .build()
+        .await;
     info!("Initialized network prover successfully");
 
-    let (range_pk, _range_vk) = network_prover.setup(get_range_elf_embedded());
-    let mut range_proof = network_prover
-        .prove(&range_pk, &range_proof_stdin)
+    let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+    let range_proof_id = network_prover
+        .prove(&range_pk, range_proof_stdin.clone())
         .compressed()
         .strategy(range_proof_strategy)
-        .run()
-        .unwrap();
+        .request()
+        .await
+        .context("Failed to submit range proof request")?;
+    info!("Range proof request submitted: {}", range_proof_id);
+    let mut range_proof = wait_for_proof(&network_prover, range_proof_id)
+        .await
+        .context("Failed to generate range proof")?;
 
     // Save the proof to the proof directory corresponding to the chain ID.
     let range_proof_dir =
@@ -253,11 +298,15 @@ async fn main() -> Result<()> {
     assert_eq!(boot_info.l1Head, l1_head_hash, "L1 head hash mismatch");
 
     // Initialize the network prover.
-    let network_prover =
-        ProverClient::builder().network_for(network_mode).signer(network_signer).build();
+    let network_prover = ProverClient::builder()
+        .network_for(network_mode)
+        .signer(network_signer)
+        .build()
+        .await;
     info!("Initialized network prover successfully");
 
-    let (_, range_vk) = network_prover.setup(get_range_elf_embedded());
+    let range_pk_for_vk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+    let range_vk = range_pk_for_vk.verifying_key().clone();
 
     let agg_proof_stdin = get_agg_proof_stdin(
         vec![range_proof.proof],
@@ -285,13 +334,18 @@ async fn main() -> Result<()> {
     };
     info!("Aggregation proof mode: {:?}", agg_proof_mode);
 
-    let (agg_pk, _) = network_prover.setup(AGGREGATION_ELF);
-    let agg_proof = network_prover
-        .prove(&agg_pk, &agg_proof_stdin)
+    let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
+    let agg_proof_id = network_prover
+        .prove(&agg_pk, agg_proof_stdin.clone())
         .mode(agg_proof_mode)
         .strategy(agg_proof_strategy)
-        .run()
-        .unwrap();
+        .request()
+        .await
+        .context("Failed to submit aggregation proof request")?;
+    info!("Aggregation proof request submitted: {}", agg_proof_id);
+    let agg_proof = wait_for_proof(&network_prover, agg_proof_id)
+        .await
+        .context("Failed to generate aggregation proof")?;
 
     let agg_proof_dir =
         format!("data/{}/proofs/agg", data_fetcher.get_l2_chain_id().await.unwrap());
