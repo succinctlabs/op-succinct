@@ -11,7 +11,10 @@ members = [
     "utils/signer",
     "utils/ethereum/client",
     "utils/ethereum/host",
-    "programs/range/*",
+    "programs/range/utils",
+    "programs/range/ethereum",
+    "programs/range/celestia",
+    "programs/range/eigenda",
     "programs/aggregation",
     "scripts/*",
     "validity",
@@ -58,6 +61,7 @@ tower-http = { version = "0.5.2", features = ["limit"] }
 lazy_static = "1.5.0"
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.22", features = ["fmt", "json"] }
+url = "2.5.4"
 tracing-opentelemetry = "^0.24"
 opentelemetry = { version = "^0.23.0", features = ["trace"] }
 opentelemetry_sdk = { version = "^0.23.0", features = [
@@ -107,16 +111,17 @@ hana-celestia = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-moch
 hana-host = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 
-# hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+# hokulea - SP1 v6 migration branch
+hokulea-compute-proof = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+hokulea-eigenda = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+hokulea-host-bin = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+hokulea-proof = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+hokulea-witgen = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+hokulea-zkvm-verification = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+# canoe-sp1-cc modules - SP1 v6 compatible
+canoe-sp1-cc-host = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+canoe-sp1-cc-verifier = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
+canoe-verifier-address-fetcher = { git = "https://github.com/fakedev9999/hokulea", branch = "fakedev9999/bump-sp1-v6-beta1" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }
@@ -187,27 +192,32 @@ op-alloy-rpc-types = { version = "0.22.4", default-features = false }
 op-alloy-rpc-types-engine = { version = "0.22.4", default-features = false }
 op-alloy-network = { version = "0.22.4", default-features = false }
 
-# Execution
+# Execution - aligned with kona v1.2.7 (alloy-evm 0.24.2, revm 33.1.0)
 alloy-evm = { version = "0.24.2", default-features = false }
 alloy-op-evm = { version = "0.24.2", default-features = false }
 # Use kzg-rs and substrate-bn for the zkVM.
-# Versions aligned with kona v1.2.7
 revm = { version = "33.1.0", default-features = false, features = [
     "bn",
 ] }
 revm-precompile = { version = "31.0.0", default-features = false }
 op-revm = { version = "14.1.0", default-features = false }
 
-# SP1
-sp1-sdk = { version = "=5.2.4", default-features = false, features = ["network"] }
-sp1-lib = { version = "=5.2.4", features = ["verify"] }
-sp1-zkvm = { version = "=5.2.4", features = ["verify"] }
-sp1-build = { version = "=5.2.4" }
-sp1-prover = { version = "=5.2.4" }
-sp1-core-executor = { version = "=5.2.4" }
+# SP1 - Hypercube (multilinear_v6 branch from sp1-wip)
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "network",
+] }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "verify",
+] }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6", features = [
+    "verify",
+] }
+sp1-build = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
+sp1-core-executor = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
 
-# kzg
-kzg-rs = { version = "0.2.6", features = ["rkyv", "serde"] }
+# kzg - version 0.2.7 to match tqn/patch-6.0.0 branch
+kzg-rs = { version = "0.2.7", features = ["rkyv", "serde"] }
 c-kzg = { version = "2.0.0", default-features = false }
 
 # Cloud dependencies
@@ -220,12 +230,15 @@ codegen-units = 1
 lto = "fat"
 
 [patch.crates-io]
-tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
-sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-4.0.0" }
-substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-5.0.0" }
-sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
-p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-5.0.0" }
-k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-5.0.0" }
+sha2 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.9-sp1-6.0.0-beta.1" }
+substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-6.0.0-beta.1" }
+sha3 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-6.0.0-beta.1" }
+p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p256-13.2-sp1-6.0.0-beta.1" }
+k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0-beta.1" }
+kzg-rs = { git = "https://github.com/succinctlabs/kzg-rs", branch = "fakedev9999/patch-6.0.0-beta.1" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1-wip.git", branch = "multilinear_v6" }
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0-beta.1" }
 
 # Note: alloy-tx-macros crates.io version must match alloy-consensus version
 # Both are now at 1.4.x for hokulea v1.1.4 compatibility
@@ -233,30 +246,19 @@ k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k2
 
 # Note: vergen-lib conflict fixed by pinning vergen=9.0.4, vergen-git2=1.0.5 in Cargo.lock
 
-# Patch reth crates to fix PartialEq bug in reth-transaction-pool (PR #21336)
-# Using succinctlabs fork to enable HTTPS patching in CI (Cargo requires different source URL)
-# v1.9.3-kona branch contains the backported fix from paradigmxyz/reth
+# Patch reth crates for kona compatibility
+# Using succinctlabs fork v1.9.3-kona branch
 [patch."https://github.com/paradigmxyz/reth"]
 reth-chainspec = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-chain-state = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-consensus = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-ethereum-forks = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-ethereum-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-execution-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-execution-types = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-chainspec = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-consensus = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-evm = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-forks = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-payload-builder = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-optimism-txpool = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-primitives = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-primitives-traits = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-revm = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-storage-api = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-storage-errors = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
-reth-transaction-pool = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-trie = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
 reth-trie-common = { git = "https://github.com/succinctlabs/reth", branch = "v1.9.3-kona" }
