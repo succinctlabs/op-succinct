@@ -1,10 +1,9 @@
-use std::{
-    env,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
+use alloy_rpc_client::RpcClient;
 use anyhow::Result;
 use async_trait::async_trait;
+use canoe_sp1_cc_host::CanoeSp1CCProvider;
 use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
 use hokulea_compute_proof::create_kzg_proofs_for_eigenda_preimage;
 use hokulea_proof::{
@@ -25,9 +24,8 @@ use op_succinct_host_utils::witness_generation::{
     DefaultOracleBase, WitnessGenerator,
 };
 use rkyv::to_bytes;
-use sp1_core_executor::SP1ReduceProof;
-use sp1_prover::InnerSC;
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_sdk::SP1Stdin;
+use url::Url;
 
 type WitnessExecutor = EigenDAWitnessExecutor<
     PreimageWitnessCollector<DefaultOracleBase>,
@@ -35,7 +33,44 @@ type WitnessExecutor = EigenDAWitnessExecutor<
     OracleEigenDAPreimageProvider<DefaultOracleBase>,
 >;
 
-pub struct EigenDAWitnessGenerator {}
+/// EigenDA witness generator with optional canoe proof generation.
+///
+/// When `l1_rpc_url` is provided, the generator will create canoe proofs for EigenDA
+/// certificate validation. When `None`, canoe proof generation is skipped.
+pub struct EigenDAWitnessGenerator {
+    /// L1 RPC URL for canoe proof generation. If None, canoe proofs are not generated.
+    pub l1_rpc_url: Option<Url>,
+    /// If true, generate mock proofs instead of real network proofs.
+    pub mock_mode: bool,
+}
+
+impl EigenDAWitnessGenerator {
+    /// Create a new witness generator without canoe proof generation.
+    pub fn new() -> Self {
+        Self {
+            l1_rpc_url: None,
+            mock_mode: false,
+        }
+    }
+
+    /// Create a new witness generator with canoe proof generation enabled.
+    ///
+    /// # Arguments
+    /// * `l1_rpc_url` - The L1 RPC endpoint URL for the canoe proof provider
+    /// * `mock_mode` - If true, generate mock proofs; if false, use network proving
+    pub fn with_canoe_proofs(l1_rpc_url: Url, mock_mode: bool) -> Self {
+        Self {
+            l1_rpc_url: Some(l1_rpc_url),
+            mock_mode,
+        }
+    }
+}
+
+impl Default for EigenDAWitnessGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[async_trait]
 impl WitnessGenerator for EigenDAWitnessGenerator {
@@ -46,37 +81,10 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
         panic!("get_executor should not be called directly for EigenDAWitnessGenerator")
     }
 
-    fn get_sp1_stdin(&self, mut witness: Self::WitnessData) -> Result<SP1Stdin> {
+    fn get_sp1_stdin(&self, witness: Self::WitnessData) -> Result<SP1Stdin> {
         let mut stdin = SP1Stdin::new();
 
-        // If eigenda blob witness data is present, write the canoe proof to stdin
-        if let Some(eigenda_data) = &witness.eigenda_data {
-            let mut eigenda_witness: EigenDAWitness = serde_cbor::from_slice(eigenda_data)
-                .map_err(|e| {
-                    anyhow::anyhow!("Failed to deserialize EigenDA blob witness data: {}", e)
-                })?;
-
-            // Take the canoe proof bytes from the witness data
-            if let Some(proof_bytes) = eigenda_witness.canoe_proof_bytes.take() {
-                // Get the canoe SP1 CC client ELF and setup verification key
-                // The ELF is included in the canoe-sp1-cc-host crate
-                const CANOE_ELF: &[u8] = canoe_sp1_cc_host::ELF;
-                let client = ProverClient::from_env();
-                let (_pk, canoe_vk) = client.setup(CANOE_ELF);
-
-                let reduced_proof: SP1ReduceProof<InnerSC> =
-                    serde_cbor::from_slice(&proof_bytes)
-                        .map_err(|e| anyhow::anyhow!("Failed to deserialize canoe proof: {}", e))?;
-                stdin.write_proof(reduced_proof, canoe_vk.vk.clone());
-
-                // Re-serialize the witness data without the proof
-                witness.eigenda_data = Some(serde_cbor::to_vec(&eigenda_witness).map_err(|e| {
-                    anyhow::anyhow!("Failed to serialize sanitized EigenDA data: {}", e)
-                })?);
-            }
-        }
-
-        // Write the witness data after the proofs
+        // Write the witness data (including canoe proof bytes if present)
         let buffer = to_bytes::<rkyv::rancor::Error>(&witness)?;
         stdin.write_slice(&buffer);
         Ok(stdin)
@@ -138,30 +146,41 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
 
         let kzg_proofs = create_kzg_proofs_for_eigenda_preimage(&eigenda_preimage_data);
 
-        // Generate canoe proofs using the reduced proof provider for proof aggregation
-        use alloy_rpc_client::RpcClient;
-        use canoe_sp1_cc_host::CanoeSp1CCReducedProofProvider;
-        let eth_rpc_url = std::env::var("L1_RPC")
-            .map_err(|_| anyhow::anyhow!("L1_RPC environment variable not set"))?;
-        let mock_mode = env::var("OP_SUCCINCT_MOCK")
-            .unwrap_or("false".to_string())
-            .parse::<bool>()
-            .unwrap_or(false);
-        let eth_rpc_client = RpcClient::new_http(
-            eth_rpc_url.parse().map_err(|_| anyhow::anyhow!("Failed to parse L1_RPC as URL"))?,
-        );
-        let canoe_provider = CanoeSp1CCReducedProofProvider { eth_rpc_client, mock_mode };
-        let maybe_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
-            &boot_info,
-            &eigenda_preimage_data,
-            oracle.as_ref(),
-            canoe_provider,
-            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
-        )
-        .await?;
+        // Generate canoe proof if L1 RPC URL is configured
+        let maybe_canoe_proof_bytes: Option<Vec<u8>> = match &self.l1_rpc_url {
+            Some(l1_rpc_url) => {
+                // Create the canoe provider with the L1 RPC client
+                let canoe_provider = CanoeSp1CCProvider {
+                    eth_rpc_client: RpcClient::new_http(l1_rpc_url.clone()),
+                    mock_mode: self.mock_mode,
+                };
+                let canoe_address_fetcher = CanoeVerifierAddressFetcherDeployedByEigenLabs {};
 
-        let maybe_canoe_proof_bytes =
-            maybe_canoe_proof.map(|proof| serde_cbor::to_vec(&proof).expect("serde error"));
+                // Generate the canoe proof using hokulea's proof generation function
+                let optional_canoe_proof = hokulea_witgen::from_boot_info_to_canoe_proof(
+                    &boot_info,
+                    &eigenda_preimage_data,
+                    oracle.as_ref(),
+                    canoe_provider,
+                    canoe_address_fetcher,
+                )
+                .await?;
+
+                // Serialize the proof using serde_json (consistent with hokulea examples)
+                optional_canoe_proof
+                    .map(|proof| serde_json::to_vec(&proof).expect("Failed to serialize canoe proof"))
+            }
+            None => {
+                if !eigenda_preimage_data.validities.is_empty() {
+                    tracing::warn!(
+                        "EigenDA preimage contains {} certificates requiring validation, but L1 RPC URL \
+                         is not configured. Canoe proof generation is skipped.",
+                        eigenda_preimage_data.validities.len()
+                    );
+                }
+                None
+            }
+        };
 
         let eigenda_witness = EigenDAWitness::from_preimage(
             eigenda_preimage_data,

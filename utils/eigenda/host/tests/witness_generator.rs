@@ -15,28 +15,29 @@ fn default_witness() -> EigenDAWitnessData {
 
 #[test]
 fn test_get_sp1_stdin_with_no_eigenda_data() {
-    let generator = EigenDAWitnessGenerator {};
+    let generator = EigenDAWitnessGenerator::new();
     assert!(generator.get_sp1_stdin(default_witness()).is_ok());
 }
 
 #[test]
-fn test_get_sp1_stdin_rejects_malformed_eigenda_data() {
-    let generator = EigenDAWitnessGenerator {};
+fn test_get_sp1_stdin_accepts_any_eigenda_data() {
+    // With SP1 v6 migration complete, get_sp1_stdin no longer validates the eigenda data.
+    // It directly writes the witness data to stdin, letting the zkVM program handle validation.
+    let generator = EigenDAWitnessGenerator::new();
     let witness = EigenDAWitnessData {
         preimage_store: PreimageStore::default(),
         blob_data: BlobData::default(),
-        eigenda_data: Some(vec![0xFF, 0xFF, 0xFF, 0xFF]), // Malformed data
+        eigenda_data: Some(vec![0xFF, 0xFF, 0xFF, 0xFF]), // Any data is accepted
     };
 
-    let err = generator.get_sp1_stdin(witness).unwrap_err();
-    assert!(err.to_string().contains("Failed to deserialize EigenDA blob witness data"));
+    assert!(generator.get_sp1_stdin(witness).is_ok());
 }
 
 /// Valid EigenDAWitness with no canoe proof (canoe_proof_bytes: None).
 /// This is a realistic scenario for blocks without EigenDA certs requiring validity proofs.
 #[test]
 fn test_get_sp1_stdin_with_eigenda_data_but_no_canoe_proof() {
-    let generator = EigenDAWitnessGenerator {};
+    let generator = EigenDAWitnessGenerator::new();
 
     let eigenda_witness =
         EigenDAWitness { validities: vec![], encoded_payloads: vec![], canoe_proof_bytes: None };
@@ -52,17 +53,17 @@ fn test_get_sp1_stdin_with_eigenda_data_but_no_canoe_proof() {
     assert!(generator.get_sp1_stdin(witness).is_ok());
 }
 
-/// Adversarial case: Valid EigenDAWitness structure with invalid canoe_proof_bytes.
-/// This bypasses the first deserialization but should fail at nested proof deserialization.
+/// Test case: Valid EigenDAWitness structure with canoe_proof_bytes.
+/// SP1 v6 migration is complete - canoe proof bytes are now preserved in the witness.
 #[test]
-fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
-    let generator = EigenDAWitnessGenerator {};
+fn test_get_sp1_stdin_preserves_canoe_proof_bytes() {
+    let generator = EigenDAWitnessGenerator::new();
 
-    // Create a valid EigenDAWitness with garbage in canoe_proof_bytes
+    // Create a valid EigenDAWitness with some canoe_proof_bytes
     let eigenda_witness = EigenDAWitness {
         validities: vec![],
         encoded_payloads: vec![],
-        canoe_proof_bytes: Some(vec![0xFF, 0xFF, 0xFF, 0xFF]), // Invalid proof bytes
+        canoe_proof_bytes: Some(vec![0xFF, 0xFF, 0xFF, 0xFF]), // Any proof bytes
     };
 
     let eigenda_data = serde_cbor::to_vec(&eigenda_witness).expect("serialization should work");
@@ -73,8 +74,9 @@ fn test_get_sp1_stdin_rejects_invalid_canoe_proof_bytes() {
         eigenda_data: Some(eigenda_data),
     };
 
-    let err = generator.get_sp1_stdin(witness).unwrap_err();
-    assert!(err.to_string().contains("Failed to deserialize canoe proof"));
+    // With SP1 v6 migration complete, canoe proof bytes are preserved in the witness
+    // and written to stdin for zkVM verification.
+    assert!(generator.get_sp1_stdin(witness).is_ok());
 }
 
 /// Requires: L1_RPC, L1_BEACON_RPC, L2_RPC, L2_NODE_RPC, EIGENDA_PROXY_ADDRESS
@@ -89,8 +91,6 @@ mod integration {
     use op_succinct_host_utils::{
         fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost, setup_logger,
     };
-    use sp1_core_executor::SP1ReduceProof;
-    use sp1_prover::InnerSC;
     use tracing::info;
 
     #[tokio::test(flavor = "multi_thread")]
@@ -125,11 +125,13 @@ mod integration {
             eigenda_witness.canoe_proof_bytes.is_some()
         );
 
-        // If canoe proof is present, verify it deserializes correctly
-        if let Some(ref proof_bytes) = eigenda_witness.canoe_proof_bytes {
-            let _proof: SP1ReduceProof<InnerSC> = serde_cbor::from_slice(proof_bytes)
-                .expect("Canoe proof should deserialize to SP1ReduceProof");
-            info!("Canoe proof deserialization verified ({} bytes)", proof_bytes.len());
+        // With SP1 v6 migration complete, canoe proofs are generated when L1 RPC URL is configured.
+        // The default EigenDAOPSuccinctHost::new() creates a generator without canoe proof support.
+        // Use EigenDAOPSuccinctHost::with_canoe_proofs() to enable canoe proof generation.
+        if eigenda_witness.canoe_proof_bytes.is_some() {
+            info!("Canoe proof present in witness");
+        } else {
+            info!("Canoe proof not generated (L1 RPC URL not configured)");
         }
 
         let stdin = host.witness_generator().get_sp1_stdin(witness_data)?;

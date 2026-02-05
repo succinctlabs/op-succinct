@@ -6,6 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use hokulea_host_bin::cfg::SingleChainHostWithEigenDA;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
+use url::Url;
 
 use crate::witness_generator::EigenDAWitnessGenerator;
 
@@ -79,7 +80,32 @@ impl OPSuccinctHost for EigenDAOPSuccinctHost {
 }
 
 impl EigenDAOPSuccinctHost {
+    /// Create a new EigenDA host without canoe proof generation.
+    ///
+    /// To enable canoe proof generation, use `with_canoe_proofs` after construction.
     pub fn new(fetcher: Arc<OPSuccinctDataFetcher>) -> Self {
-        Self { fetcher, witness_generator: Arc::new(EigenDAWitnessGenerator {}) }
+        Self {
+            fetcher,
+            witness_generator: Arc::new(EigenDAWitnessGenerator::new()),
+        }
+    }
+
+    /// Create a new EigenDA host with canoe proof generation enabled.
+    ///
+    /// # Arguments
+    /// * `fetcher` - The data fetcher for OP Succinct operations
+    /// * `l1_rpc_url` - The L1 RPC endpoint URL for canoe proof generation
+    /// * `mock_mode` - If true, generate mock proofs; if false, use network proving
+    pub fn with_canoe_proofs(
+        fetcher: Arc<OPSuccinctDataFetcher>,
+        l1_rpc_url: Url,
+        mock_mode: bool,
+    ) -> Self {
+        Self {
+            fetcher,
+            witness_generator: Arc::new(EigenDAWitnessGenerator::with_canoe_proofs(
+                l1_rpc_url, mock_mode,
+            )),
+        }
     }
 }
