@@ -42,36 +42,45 @@ struct Args {
 }
 
 /// Load the aggregation proof data.
-fn load_aggregation_proof_data(
+async fn load_aggregation_proof_data(
     proof_names: Vec<String>,
     range_vkey: &SP1VerifyingKey,
 ) -> (Vec<SP1Proof>, Vec<BootInfoStruct>) {
-    let metadata = MetadataCommand::new().exec().unwrap();
-    let workspace_root = metadata.workspace_root;
-    let proof_directory = format!("{workspace_root}/data/fetched_proofs");
+    let range_vkey = range_vkey.clone();
 
-    let mut proofs = Vec::with_capacity(proof_names.len());
-    let mut boot_infos = Vec::with_capacity(proof_names.len());
+    // CpuProver::new() creates its own tokio runtime internally, so it must be constructed
+    // outside the main tokio runtime context via spawn_blocking.
+    tokio::task::spawn_blocking(move || {
+        let metadata = MetadataCommand::new().exec().unwrap();
+        let workspace_root = metadata.workspace_root;
+        let proof_directory = format!("{workspace_root}/data/fetched_proofs");
 
-    // Use blocking prover for synchronous verification
-    let prover = blocking::CpuProver::new();
+        let mut proofs = Vec::with_capacity(proof_names.len());
+        let mut boot_infos = Vec::with_capacity(proof_names.len());
 
-    for proof_name in proof_names.iter() {
-        let proof_path = format!("{proof_directory}/{proof_name}.bin");
-        if fs::metadata(&proof_path).is_err() {
-            panic!("Proof file not found: {proof_path}");
+        let prover = blocking::CpuProver::new();
+
+        for proof_name in proof_names.iter() {
+            let proof_path = format!("{proof_directory}/{proof_name}.bin");
+            if fs::metadata(&proof_path).is_err() {
+                panic!("Proof file not found: {proof_path}");
+            }
+            let mut deserialized_proof =
+                SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
+            prover
+                .verify(&deserialized_proof, &range_vkey, None)
+                .expect("proof verification failed");
+            proofs.push(deserialized_proof.proof);
+
+            // The public values are the BootInfoStruct.
+            let boot_info = deserialized_proof.public_values.read();
+            boot_infos.push(boot_info);
         }
-        let mut deserialized_proof =
-            SP1ProofWithPublicValues::load(proof_path).expect("loading proof failed");
-        prover.verify(&deserialized_proof, range_vkey, None).expect("proof verification failed");
-        proofs.push(deserialized_proof.proof);
 
-        // The public values are the BootInfoStruct.
-        let boot_info = deserialized_proof.public_values.read();
-        boot_infos.push(boot_info);
-    }
-
-    (proofs, boot_infos)
+        (proofs, boot_infos)
+    })
+    .await
+    .expect("load_aggregation_proof_data task panicked")
 }
 
 // Execute the OP Succinct program for a single block.
@@ -89,7 +98,7 @@ async fn main() -> Result<()> {
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
     let vkey = range_pk.verifying_key().clone();
 
-    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
+    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey).await;
 
     let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
     let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
