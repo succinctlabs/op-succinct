@@ -31,6 +31,14 @@ struct Args {
     /// Env file path.
     #[arg(default_value = ".env", short, long)]
     env_file: String,
+
+    /// Save the aggregation ELF and stdin artifacts for external debugging.
+    #[arg(long)]
+    save_artifacts: bool,
+
+    /// Directory to save artifacts to.
+    #[arg(long, default_value = "data/artifacts")]
+    artifacts_dir: String,
 }
 
 /// Load the aggregation proof data.
@@ -91,6 +99,22 @@ async fn main() -> Result<()> {
     let stdin =
         get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
             .expect("Failed to get agg proof stdin");
+
+    if args.save_artifacts {
+        let artifacts_dir = &args.artifacts_dir;
+        fs::create_dir_all(artifacts_dir)?;
+
+        // Save the aggregation ELF as program.bin.
+        let elf_path = format!("{artifacts_dir}/program.bin");
+        fs::write(&elf_path, AGGREGATION_ELF)?;
+        println!("Saved aggregation ELF to {elf_path}");
+
+        // Save the SP1Stdin (bincode serialized).
+        let stdin_path = format!("{artifacts_dir}/stdin.bin");
+        let stdin_bytes = bincode::serialize(&stdin)?;
+        fs::write(&stdin_path, &stdin_bytes)?;
+        println!("Saved aggregation stdin ({} bytes) to {stdin_path}", stdin_bytes.len());
+    }
 
     let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
     let agg_vk = agg_pk.verifying_key();
