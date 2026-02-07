@@ -11,6 +11,10 @@ homepage.workspace = true
 name = "validity"
 path = "bin/validity.rs"
 
+[[bin]]
+name = "dump_proofs"
+path = "bin/dump_proofs.rs"
+
 [dependencies]
 
 # workspace
@@ -39,6 +43,7 @@ alloy-sol-types.workspace = true
 
 anyhow.workspace = true
 dotenv.workspace = true
+hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
