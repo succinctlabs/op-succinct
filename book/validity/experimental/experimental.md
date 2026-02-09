@@ -13,3 +13,9 @@ For detailed setup instructions, see the [Celestia DA](./celestia.md) section.
 The `op-succinct-eigenda` service monitors the state of an OP Stack chain with EigenDA enabled, uses an EigenDA Proxy to retrieve and validate blobs from DA certificates, requests proofs from the [Succinct Prover Network](https://docs.succinct.xyz/docs/sp1/prover-network/intro) and submits them to L1.
 
 For detailed setup instructions, see the [EigenDA DA](./eigenda.md) section.
+
+## Validium
+
+Validium stores transaction data off-chain and only posts a hash (commitment) on-chain. The zkVM verifies `keccak256(batch_data) == commitment`.
+
+For detailed setup instructions, see the [Validium](./validium.md) section.

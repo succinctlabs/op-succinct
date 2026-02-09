@@ -7,6 +7,8 @@ members = [
     "utils/celestia/host",
     "utils/eigenda/client",
     "utils/eigenda/host",
+    "utils/validium/client",
+    "utils/validium/host",
     "utils/proof",
     "utils/signer",
     "utils/ethereum/client",
@@ -132,6 +134,8 @@ op-succinct-celestia-client-utils = { path = "utils/celestia/client" }
 op-succinct-celestia-host-utils = { path = "utils/celestia/host" }
 op-succinct-eigenda-client-utils = { path = "utils/eigenda/client" }
 op-succinct-eigenda-host-utils = { path = "utils/eigenda/host" }
+op-succinct-validium-client-utils = { path = "utils/validium/client" }
+op-succinct-validium-host-utils = { path = "utils/validium/host" }
 op-succinct-proof-utils = { path = "utils/proof" }
 op-succinct-signer-utils = { path = "utils/signer" }
 op-succinct-signer-gcp-utils = { path = "utils/signer-gcp" }
