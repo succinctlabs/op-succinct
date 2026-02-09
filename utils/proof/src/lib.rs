@@ -13,6 +13,10 @@ pub fn get_range_elf_embedded() -> &'static [u8] {
             use op_succinct_elfs::EIGENDA_RANGE_ELF_EMBEDDED;
 
             EIGENDA_RANGE_ELF_EMBEDDED
+        } else if #[cfg(feature = "validium")] {
+            use op_succinct_elfs::VALIDIUM_RANGE_ELF_EMBEDDED;
+
+            VALIDIUM_RANGE_ELF_EMBEDDED
         } else {
             use op_succinct_elfs::RANGE_ELF_EMBEDDED;
 
@@ -41,6 +45,16 @@ cfg_if::cfg_if! {
         ) -> Arc<EigenDAOPSuccinctHost> {
             tracing::info!("Initializing host with EigenDA");
             Arc::new(EigenDAOPSuccinctHost::new(fetcher))
+        }
+    } else if #[cfg(feature = "validium")] {
+        use op_succinct_validium_host_utils::ValidiumOPSuccinctHost;
+
+        /// Initialize the Validium host.
+        pub fn initialize_host(
+            fetcher: Arc<OPSuccinctDataFetcher>,
+        ) -> Arc<ValidiumOPSuccinctHost> {
+            tracing::info!("Initializing host with Validium DA");
+            Arc::new(ValidiumOPSuccinctHost::new(fetcher))
         }
     } else {
         use op_succinct_ethereum_host_utils::host::SingleChainOPSuccinctHost;

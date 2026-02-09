@@ -9,6 +9,7 @@ edition.workspace = true
 # local
 op-succinct-celestia-host-utils = { workspace = true, optional = true }
 op-succinct-eigenda-host-utils = { workspace = true, optional = true }
+op-succinct-validium-host-utils = { workspace = true, optional = true }
 op-succinct-elfs.workspace = true
 op-succinct-ethereum-host-utils = { workspace = true, optional = true }
 op-succinct-host-utils.workspace = true
@@ -21,4 +22,5 @@ tracing.workspace = true
 default = ["ethereum"]
 celestia = ["op-succinct-celestia-host-utils"]
 eigenda = ["op-succinct-eigenda-host-utils"]
+validium = ["op-succinct-validium-host-utils"]
 ethereum = ["op-succinct-ethereum-host-utils"]

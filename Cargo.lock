@@ -8735,6 +8735,7 @@ dependencies = [
  "op-succinct-elfs",
  "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
+ "op-succinct-validium-host-utils",
  "tracing",
 ]
 
@@ -8777,6 +8778,7 @@ name = "op-succinct-range-utils"
 version = "3.4.1"
 dependencies = [
  "anyhow",
+ "kona-derive",
  "kona-proof",
  "op-succinct-client-utils",
  "rkyv",
@@ -8874,6 +8876,45 @@ dependencies = [
  "strum 0.27.2",
  "strum_macros 0.27.2",
  "tikv-jemallocator",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "op-succinct-validium-client-utils"
+version = "3.4.1"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "kona-derive",
+ "kona-driver",
+ "kona-genesis",
+ "kona-preimage",
+ "kona-proof",
+ "kona-protocol",
+ "op-succinct-client-utils",
+ "rkyv",
+ "spin 0.10.0",
+]
+
+[[package]]
+name = "op-succinct-validium-host-utils"
+version = "3.4.1"
+dependencies = [
+ "alloy-eips",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "kona-host",
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-ethereum-client-utils",
+ "op-succinct-host-utils",
+ "op-succinct-validium-client-utils",
+ "reqwest 0.12.24",
+ "rkyv",
+ "sp1-sdk",
  "tokio",
  "tracing",
 ]
@@ -14869,6 +14910,18 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "validium-program"
+version = "3.4.1"
+dependencies = [
+ "kona-proof",
+ "op-succinct-client-utils",
+ "op-succinct-range-utils",
+ "op-succinct-validium-client-utils",
+ "rkyv",
+ "sp1-zkvm",
 ]
 
 [[package]]

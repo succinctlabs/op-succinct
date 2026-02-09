@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
+use kona_derive::BlobProvider;
 use kona_proof::{l1::OracleL1ChainProvider, l2::OracleL2ChainProvider};
 use op_succinct_client_utils::{
     boot::BootInfoStruct,
@@ -20,11 +21,28 @@ pub fn setup_tracing() {
     tracing::subscriber::set_global_default(subscriber).map_err(|e| anyhow!(e)).unwrap();
 }
 
+/// Runs the range program with the standard BlobStore (Ethereum DA).
 pub async fn run_range_program<E>(executor: E, oracle: Arc<PreimageStore>, beacon: BlobStore)
 where
     E: WitnessExecutor<
             O = PreimageStore,
             B = BlobStore,
+            L1 = OracleL1ChainProvider<PreimageStore>,
+            L2 = OracleL2ChainProvider<PreimageStore>,
+        > + Send
+        + Sync,
+{
+    run_range_program_with_blob_provider(executor, oracle, beacon).await
+}
+
+/// Runs the range program with a generic BlobProvider.
+/// This allows different DA modes (Ethereum, Validium, etc.).
+pub async fn run_range_program_with_blob_provider<E, B>(executor: E, oracle: Arc<PreimageStore>, beacon: B)
+where
+    B: BlobProvider + Send + Sync + Debug + Clone,
+    E: WitnessExecutor<
+            O = PreimageStore,
+            B = B,
             L1 = OracleL1ChainProvider<PreimageStore>,
             L2 = OracleL2ChainProvider<PreimageStore>,
         > + Send
