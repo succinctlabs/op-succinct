@@ -11,6 +11,7 @@ sp1_zkvm::entrypoint!(main);
 
 use canoe_sp1_cc_verifier::CanoeSp1CCVerifier;
 use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
+use celo_proof::CeloBootInfo;
 use hokulea_proof::eigenda_witness::EigenDAWitness;
 use hokulea_zkvm_verification::eigenda_witness_to_preloaded_provider;
 use op_succinct_client_utils::witness::{EigenDAWitnessData, WitnessData};
@@ -35,12 +36,17 @@ fn main() {
             .await
             .expect("Failed to load oracle and blob provider");
 
+        // Load boot info using CeloBootInfo which uses celo_registry (has Celo chain configs)
+        let celo_boot =
+            CeloBootInfo::load(oracle.as_ref()).await.expect("Failed to load boot info");
+
         let eigenda_witness: EigenDAWitness = serde_cbor::from_slice(
             &witness_data.eigenda_data.clone().expect("eigenda witness data is not present"),
         )
         .expect("cannot deserialize eigenda witness");
         let preloaded_preimage_provider = eigenda_witness_to_preloaded_provider(
             oracle.clone(),
+            &celo_boot.op_boot_info,
             CanoeSp1CCVerifier {},
             CanoeVerifierAddressFetcherDeployedByEigenLabs {},
             eigenda_witness,

@@ -116,15 +116,15 @@ hana-host = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 hana-oracle = { git = "https://github.com/celestiaorg/hana", tag = "1.5.0-mocha" }
 
 # hokulea
-hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
-canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", tag = "hokulea-client/v1.1.4" }
+hokulea-compute-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+hokulea-eigenda = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+hokulea-host-bin = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+hokulea-proof = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+hokulea-witgen = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+hokulea-zkvm-verification = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+canoe-sp1-cc-host = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+canoe-sp1-cc-verifier = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
+canoe-verifier-address-fetcher = { git = "https://github.com/Layr-Labs/hokulea", rev = "bf561cc" }
 
 # op-succinct
 op-succinct-prove = { path = "scripts/prove" }

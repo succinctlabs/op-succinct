@@ -15,6 +15,9 @@ serde_cbor.workspace = true
 # kona
 kona-proof.workspace = true
 
+# celo-kona
+celo-proof.workspace = true
+
 # hokulea
 hokulea-proof.workspace = true
 hokulea-zkvm-verification.workspace = true
