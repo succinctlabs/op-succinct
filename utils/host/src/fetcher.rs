@@ -364,35 +364,16 @@ impl OPSuccinctDataFetcher {
         }
 
         // Lookup the L1 config from the registry.
-        let mut l1_config = L1_CONFIGS
-            .get(&rollup_config.l1_chain_id)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No built-in L1 config exists for chain ID {}.\n\
-                 To proceed, either:\n\
-                 • Create a config file at: {}\n\
-                 • Or set L1_CONFIG_DIR to the directory containing <chain_id>.json",
-                    rollup_config.l1_chain_id,
-                    l1_config_path.display()
-                )
-            })?
-            .clone();
-
-        // Override the L1 config to remove the BPOs and OSAKA timestamp and blob schedule for Celo,
-        // until we're ready for Fusaka in op-geth.
-        // This is done independently of the chain id, because updates are
-        // required once Mainnet or Sepolia has further changes.
-        // Also pay attention when bumping kona if there're any additions to
-        // l1_config.blob_schedule. https://github.com/op-rs/kona/blob/kona-client/v1.1.6/crates/protocol/registry/src/l1/mod.rs#L63-L86
-        l1_config.osaka_time = None;
-        l1_config.bpo1_time = None;
-        l1_config.bpo2_time = None;
-        l1_config.bpo3_time = None;
-        l1_config.bpo4_time = None;
-        l1_config.bpo5_time = None;
-        l1_config.blob_schedule.remove("osaka");
-        l1_config.blob_schedule.remove("bpo1");
-        l1_config.blob_schedule.remove("bpo2");
+        let l1_config = L1_CONFIGS.get(&rollup_config.l1_chain_id).ok_or_else(|| {
+            anyhow::anyhow!(
+                "No built-in L1 config exists for chain ID {}.\n\
+             To proceed, either:\n\
+             • Create a config file at: {}\n\
+             • Or set L1_CONFIG_DIR to the directory containing <chain_id>.json",
+                rollup_config.l1_chain_id,
+                l1_config_path.display()
+            )
+        })?;
 
         tracing::debug!(
             "Fetched L1 config for chain ID {} from registry: {:?}",
@@ -405,7 +386,7 @@ impl OPSuccinctDataFetcher {
             .with_context(|| format!("creating {}", l1_config_dir.display()))?;
 
         // Write the L1 config to the file
-        let l1_config_str = serde_json::to_string_pretty(&l1_config)?;
+        let l1_config_str = serde_json::to_string_pretty(l1_config)?;
         fs::write(&l1_config_path, l1_config_str)?;
 
         tracing::info!(
