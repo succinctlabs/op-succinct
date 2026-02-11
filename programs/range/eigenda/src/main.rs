@@ -10,7 +10,7 @@
 sp1_zkvm::entrypoint!(main);
 
 use canoe_sp1_cc_verifier::CanoeSp1CCVerifier;
-use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
+use celo_eigenda_registry::CeloCanoeVerifierAddressFetcher;
 use celo_proof::CeloBootInfo;
 use hokulea_proof::eigenda_witness::EigenDAWitness;
 use hokulea_zkvm_verification::eigenda_witness_to_preloaded_provider;
@@ -48,7 +48,7 @@ fn main() {
             oracle.clone(),
             &celo_boot.op_boot_info,
             CanoeSp1CCVerifier {},
-            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
+            CeloCanoeVerifierAddressFetcher {},
             eigenda_witness,
         )
         .await
