@@ -24,6 +24,9 @@ celo-host.workspace = true
 celo-genesis.workspace = true
 celo-protocol.workspace = true
 
+# celo eigenda registry
+celo-eigenda-registry.workspace = true
+
 # hokulea
 hokulea-compute-proof.workspace = true
 hokulea-eigenda.workspace = true
@@ -31,7 +34,6 @@ hokulea-host-bin.workspace = true
 hokulea-proof.workspace = true
 hokulea-witgen.workspace = true
 canoe-sp1-cc-host.workspace = true
-canoe-verifier-address-fetcher.workspace = true
 
 # alloy
 alloy-eips.workspace = true

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use async_trait::async_trait;
-use canoe_verifier_address_fetcher::CanoeVerifierAddressFetcherDeployedByEigenLabs;
+use celo_eigenda_registry::CeloCanoeVerifierAddressFetcher;
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloToOpProviderAdapter;
 use hokulea_compute_proof::create_kzg_proofs_for_eigenda_preimage;
@@ -165,7 +165,7 @@ impl WitnessGenerator for EigenDAWitnessGenerator {
             &eigenda_preimage_data,
             oracle.as_ref(),
             canoe_provider,
-            CanoeVerifierAddressFetcherDeployedByEigenLabs {},
+            CeloCanoeVerifierAddressFetcher {},
         )
         .await?;
 
