@@ -28,6 +28,7 @@ use std::{
 /// Run the zkVM execution process for each split range in parallel. Writes the execution stats for
 /// each block range to a CSV file after each execution completes (not guaranteed to be in order),
 /// unless log_only is true, in which case stats are only logged.
+#[allow(clippy::too_many_arguments)]
 async fn execute_blocks_and_write_stats_csv<H>(
     host: Arc<H>,
     host_args: &[H::Args],
