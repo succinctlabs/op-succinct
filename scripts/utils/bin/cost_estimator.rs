@@ -105,8 +105,13 @@ where
 
             // Save SP1Stdin to cache
             if cache_enabled {
-                if let Ok(cache_path) = save_stdin_to_cache(l2_chain_id, start, end, &stdin) {
-                    info!("Saved stdin to cache: {}", cache_path.display());
+                match save_stdin_to_cache(l2_chain_id, start, end, &stdin) {
+                    Ok(cache_path) => {
+                        info!("Saved stdin to cache: {}", cache_path.display());
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to save stdin cache for range {}-{}: {e}", start, end);
+                    }
                 }
             }
 

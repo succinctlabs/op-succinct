@@ -62,9 +62,14 @@ async fn main() -> Result<()> {
 
         // Save to cache if enabled
         if args.cache {
-            let cache_path =
-                save_stdin_to_cache(l2_chain_id, l2_start_block, l2_end_block, &stdin)?;
-            info!("Saved stdin to cache: {}", cache_path.display());
+            match save_stdin_to_cache(l2_chain_id, l2_start_block, l2_end_block, &stdin) {
+                Ok(cache_path) => {
+                    info!("Saved stdin to cache: {}", cache_path.display());
+                }
+                Err(e) => {
+                    warn!("Failed to save stdin cache: {e}");
+                }
+            }
         }
 
         Ok::<_, anyhow::Error>((stdin, duration))
