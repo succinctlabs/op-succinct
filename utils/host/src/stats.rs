@@ -94,8 +94,10 @@ impl ExecutionStats {
         let get_cycles = |key: &str| *report.cycle_tracker.get(key).unwrap_or(&0);
 
         let nb_blocks = block_data.len() as u64;
-        let nb_transactions = block_data.iter().map(|b| b.transaction_count).sum();
+        let nb_transactions: u64 = block_data.iter().map(|b| b.transaction_count).sum();
         let total_gas_used: u64 = block_data.iter().map(|b| b.gas_used).sum();
+        let total_cycles = report.total_instruction_count();
+        let per_tx = |n: u64| if nb_transactions > 0 { n / nb_transactions } else { 0 };
 
         Self {
             l1_head,
@@ -103,8 +105,8 @@ impl ExecutionStats {
             // to subtract 1 to give the user back the block corresponding to the
             // blockhash they're proving from.
             batch_start: block_data[0].block_number - 1,
-            batch_end: block_data[block_data.len() - 1].block_number,
-            total_instruction_count: report.total_instruction_count(),
+            batch_end: block_data.last().unwrap().block_number,
+            total_instruction_count: total_cycles,
             total_sp1_gas: report.gas().unwrap_or(0),
             block_execution_instruction_count: get_cycles("block-execution"),
             oracle_verify_instruction_count: get_cycles("oracle-verify"),
@@ -117,15 +119,15 @@ impl ExecutionStats {
             ec_recover_cycles: get_cycles(keys::EC_RECOVER),
             p256_verify_cycles: get_cycles(keys::P256_VERIFY),
             nb_transactions,
-            eth_gas_used: block_data.iter().map(|b| b.gas_used).sum(),
+            eth_gas_used: total_gas_used,
             l1_fees: block_data.iter().map(|b| b.total_l1_fees).sum(),
             total_tx_fees: block_data.iter().map(|b| b.total_tx_fees).sum(),
             nb_blocks,
-            cycles_per_block: report.total_instruction_count() / nb_blocks,
-            cycles_per_transaction: report.total_instruction_count() / nb_transactions,
-            transactions_per_block: nb_transactions / nb_blocks,
+            cycles_per_block: total_cycles / nb_blocks,
+            cycles_per_transaction: per_tx(total_cycles),
+            transactions_per_block: per_tx(nb_transactions),
             gas_used_per_block: total_gas_used / nb_blocks,
-            gas_used_per_transaction: total_gas_used / nb_transactions,
+            gas_used_per_transaction: per_tx(total_gas_used),
             witness_generation_time_sec,
             total_execution_time_sec,
         }

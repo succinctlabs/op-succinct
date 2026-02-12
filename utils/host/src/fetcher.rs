@@ -184,26 +184,36 @@ impl OPSuccinctDataFetcher {
     /// resources to "prove" the start block. This is why the start block is not included in the
     /// range for which we fetch block data.
     pub async fn get_l2_block_data_range(&self, start: u64, end: u64) -> Result<Vec<BlockInfo>> {
-        use futures::stream::{self, StreamExt};
-
         let block_data = stream::iter(start + 1..=end)
             .map(|block_number| async move {
                 let block =
                     self.l2_provider.get_block_by_number(block_number.into()).await?.unwrap();
-                let receipts =
-                    self.l2_provider.get_block_receipts(block_number.into()).await?.unwrap();
-                let total_l1_fees: u128 =
-                    receipts.iter().map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0)).sum();
-                let total_tx_fees: u128 = receipts
-                    .iter()
-                    .map(|tx| {
-                        // tx.inner.effective_gas_price * tx.inner.gas_used +
-                        // tx.l1_block_info.l1_fee is the total fee for the transaction.
-                        // tx.inner.effective_gas_price * tx.inner.gas_used is the tx fee on L2.
-                        tx.inner.effective_gas_price * tx.inner.gas_used as u128 +
-                            tx.l1_block_info.l1_fee.unwrap_or(0)
-                    })
-                    .sum();
+                let (total_l1_fees, total_tx_fees) = match self
+                    .l2_provider
+                    .get_block_receipts(block_number.into())
+                    .await
+                {
+                    Ok(Some(receipts)) => {
+                        let l1_fees: u128 = receipts
+                            .iter()
+                            .map(|tx| tx.l1_block_info.l1_fee.unwrap_or(0))
+                            .sum();
+                        let tx_fees: u128 = receipts
+                            .iter()
+                            .map(|tx| {
+                                tx.inner.effective_gas_price * tx.inner.gas_used as u128
+                                    + tx.l1_block_info.l1_fee.unwrap_or(0)
+                            })
+                            .sum();
+                        (l1_fees, tx_fees)
+                    }
+                    Ok(None) | Err(_) => {
+                        tracing::warn!(
+                            "Failed to fetch receipts for block {block_number}, fee stats will be zero"
+                        );
+                        (0u128, 0u128)
+                    }
+                };
 
                 Ok(BlockInfo {
                     block_number,
@@ -236,7 +246,7 @@ impl OPSuccinctDataFetcher {
         if let Some(block) = block {
             Ok(block.header.inner)
         } else {
-            bail!("Failed to get L1 header for block {block_number}");
+            bail!("Failed to get L2 header for block {block_number}");
         }
     }
 

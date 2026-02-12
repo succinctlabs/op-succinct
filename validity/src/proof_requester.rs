@@ -294,7 +294,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
             &self.program_config.range_vk,
-            pv.clone(),
+            pv,
             SP1ProofMode::Compressed,
             SP1_CIRCUIT_VERSION,
         ))
@@ -345,7 +345,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
             &self.program_config.agg_vk,
-            pv.clone(),
+            pv,
             self.agg_mode,
             SP1_CIRCUIT_VERSION,
         ))
