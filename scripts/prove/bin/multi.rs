@@ -11,7 +11,11 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, Elf, ProveRequest, Prover, ProverClient};
+use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
+use sp1_sdk::{
+    network::proto::types::ProofMode, utils, Elf, ProveRequest, Prover, ProverClient,
+    SP1ProofWithPublicValues,
+};
 use std::{
     fs,
     sync::Arc,
@@ -85,23 +89,34 @@ async fn main() -> Result<()> {
         generate_stdin().await?
     };
 
-    let prover = ProverClient::from_env().await;
-
     if args.prove {
-        // If the prove flag is set, generate a proof.
-        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-        // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, sp1_stdin).compressed().await.unwrap();
-
-        // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", l2_chain_id);
         if !std::path::Path::new(&proof_dir).exists() {
             fs::create_dir_all(&proof_dir).unwrap();
         }
-        // Save the proof to the proof directory corresponding to the chain ID.
-        proof
-            .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
-            .expect("saving proof failed");
+
+        let sp1_prover = std::env::var("SP1_PROVER").unwrap_or_default();
+
+        if sp1_prover == "cluster" {
+            // Self-hosted cluster mode: bypass ProverClient, talk to cluster API directly.
+            let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
+            let ProofRequestResults { proof, .. } =
+                request_proof_from_env(ProofMode::Compressed, 6, cluster_elf, sp1_stdin)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("cluster proof failed: {}", e))?;
+            let proof = SP1ProofWithPublicValues::from(proof);
+            proof
+                .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
+                .expect("saving proof failed");
+        } else {
+            // Existing network/cpu/cuda mode.
+            let prover = ProverClient::from_env().await;
+            let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+            let proof = prover.prove(&pk, sp1_stdin).compressed().await.unwrap();
+            proof
+                .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
+                .expect("saving proof failed");
+        }
     } else {
         let (block_data, report, execution_duration) =
             execute_multi(&data_fetcher, sp1_stdin, l2_start_block, l2_end_block).await?;
