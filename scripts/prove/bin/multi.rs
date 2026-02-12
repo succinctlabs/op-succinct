@@ -103,7 +103,7 @@ async fn main() -> Result<()> {
             let ProofRequestResults { proof, .. } =
                 request_proof_from_env(ProofMode::Compressed, 6, cluster_elf, sp1_stdin)
                     .await
-                    .map_err(|e| anyhow::anyhow!("cluster proof failed: {}", e))?;
+                    .map_err(|e| anyhow::anyhow!("cluster proof failed: {e}"))?;
             let proof = SP1ProofWithPublicValues::from(proof);
             proof
                 .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))

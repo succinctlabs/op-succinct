@@ -18,6 +18,7 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::get_range_elf_embedded;
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
+    blocking::{self, Prover as BlockingProver},
     network::{
         proto::types::{ExecutionStatus, FulfillmentStatus},
         NetworkMode,
@@ -37,7 +38,7 @@ use crate::{
 
 /// Configuration for the driver.
 pub struct DriverConfig {
-    pub network_prover: Arc<NetworkProver>,
+    pub network_prover: Option<Arc<NetworkProver>>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
     pub signer: SignerLock,
@@ -91,43 +92,87 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        // Set up the network prover.
-        let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
-        let network_mode = determine_network_mode(
-            requester_config.range_proof_strategy,
-            requester_config.agg_proof_strategy,
-        )?;
-        let network_prover = Arc::new(
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build().await,
-        );
+        let sp1_prover_env = std::env::var("SP1_PROVER").unwrap_or_default();
+        let is_cluster = sp1_prover_env == "cluster";
 
-        let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-        let range_vk = range_pk.verifying_key().clone();
+        // Set up keys and network prover.
+        // In cluster mode, use blocking CpuProver for key setup (no network credentials needed).
+        let (program_config, network_prover) = if is_cluster {
+            let cpu_prover = blocking::CpuProver::new();
+            let range_pk = cpu_prover.setup(Elf::Static(get_range_elf_embedded())).expect("range ELF setup failed");
+            let range_vk = range_pk.verifying_key().clone();
+            let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
+            let agg_vk = agg_pk.verifying_key().clone();
+            let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
+            let range_vkey_commitment = B256::from(multi_block_vkey_u8);
+            let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
 
-        let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
-        let agg_vk = agg_pk.verifying_key().clone();
-        let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
-        let range_vkey_commitment = B256::from(multi_block_vkey_u8);
-        let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
+            let rollup_config_hash = hash_rollup_config(
+                fetcher
+                    .rollup_config
+                    .as_ref()
+                    .ok_or_else(|| {
+                        anyhow!("Rollup config must be set to initialize the proposer.")
+                    })?,
+            );
 
-        // Initialize fetcher
-        let rollup_config_hash = hash_rollup_config(
-            fetcher
-                .rollup_config
-                .as_ref()
-                .ok_or_else(|| anyhow!("Rollup config must be set to initialize the proposer."))?,
-        );
+            let program_config = ProgramConfig {
+                range_vk: Arc::new(range_vk),
+                range_pk: Arc::new(range_pk),
+                agg_vk: Arc::new(agg_vk),
+                agg_pk: Arc::new(agg_pk),
+                commitments: CommitmentConfig {
+                    range_vkey_commitment,
+                    agg_vkey_hash,
+                    rollup_config_hash,
+                },
+            };
 
-        let program_config = ProgramConfig {
-            range_vk: Arc::new(range_vk),
-            range_pk: Arc::new(range_pk),
-            agg_vk: Arc::new(agg_vk),
-            agg_pk: Arc::new(agg_pk),
-            commitments: CommitmentConfig {
-                range_vkey_commitment,
-                agg_vkey_hash,
-                rollup_config_hash,
-            },
+            (program_config, None)
+        } else {
+            let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
+            let network_mode = determine_network_mode(
+                requester_config.range_proof_strategy,
+                requester_config.agg_proof_strategy,
+            )?;
+            let network_prover = Arc::new(
+                ProverClient::builder()
+                    .network_for(network_mode)
+                    .signer(network_signer)
+                    .build()
+                    .await,
+            );
+
+            let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+            let range_vk = range_pk.verifying_key().clone();
+            let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
+            let agg_vk = agg_pk.verifying_key().clone();
+            let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
+            let range_vkey_commitment = B256::from(multi_block_vkey_u8);
+            let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
+
+            let rollup_config_hash = hash_rollup_config(
+                fetcher
+                    .rollup_config
+                    .as_ref()
+                    .ok_or_else(|| {
+                        anyhow!("Rollup config must be set to initialize the proposer.")
+                    })?,
+            );
+
+            let program_config = ProgramConfig {
+                range_vk: Arc::new(range_vk),
+                range_pk: Arc::new(range_pk),
+                agg_vk: Arc::new(agg_vk),
+                agg_pk: Arc::new(agg_pk),
+                commitments: CommitmentConfig {
+                    range_vkey_commitment,
+                    agg_vkey_hash,
+                    rollup_config_hash,
+                },
+            };
+
+            (program_config, Some(network_prover))
         };
         program_config.log();
 
@@ -139,6 +184,7 @@ where
             db_client.clone(),
             program_config.clone(),
             requester_config.mock,
+            is_cluster,
             requester_config.range_proof_strategy,
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
@@ -341,11 +387,17 @@ where
     /// Process a single OP Succinct request's proof status.
     #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self, request))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
+        let network_prover = self
+            .driver_config
+            .network_prover
+            .as_ref()
+            .context("network_prover required for proof status polling")?;
+
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
             let proof_request_id = B256::from_slice(proof_request_id);
             let (status, proof) = self
                 .network_call_with_timeout(
-                    self.driver_config.network_prover.get_proof_status(proof_request_id),
+                    network_prover.get_proof_status(proof_request_id),
                     "waiting for proof status",
                     &request,
                 )
@@ -353,7 +405,7 @@ where
 
             let request_details = self
                 .network_call_with_timeout(
-                    self.driver_config.network_prover.get_proof_request(proof_request_id),
+                    network_prover.get_proof_request(proof_request_id),
                     "waiting for proof request details",
                     &request,
                 )
@@ -367,13 +419,13 @@ where
             if let Some(request_details) = request_details {
                 let auction_deadline =
                     request_details.created_at + self.requester_config.auction_timeout;
-                if self.driver_config.network_prover.network_mode() == NetworkMode::Mainnet &&
+                if network_prover.network_mode() == NetworkMode::Mainnet &&
                     request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
                     current_time > auction_deadline
                 {
                     // Cancel the request in the network.
                     self.network_call_with_timeout(
-                        self.driver_config.network_prover.cancel_request(proof_request_id),
+                        network_prover.cancel_request(proof_request_id),
                         "cancelling proof request",
                         &request,
                     )
@@ -481,7 +533,7 @@ where
 
                 if let Some(proof_request) = self
                     .network_call_with_timeout(
-                        self.driver_config.network_prover.get_proof_request(proof_request_id),
+                        network_prover.get_proof_request(proof_request_id),
                         "fetching execution statistics",
                         &request,
                     )
@@ -1524,7 +1576,11 @@ where
         self.set_orphaned_tasks_to_failed().await?;
 
         // Get all proof statuses of all requests in the proving state.
-        self.handle_proving_requests().await?;
+        // Skip in cluster/mock mode — those modes store proofs directly (never enter Prove state),
+        // and handle_proving_requests requires network_prover for status polling.
+        if !self.proof_requester.cluster && !self.proof_requester.mock {
+            self.handle_proving_requests().await?;
+        }
 
         // Add new range requests to the database.
         self.add_new_ranges().await?;

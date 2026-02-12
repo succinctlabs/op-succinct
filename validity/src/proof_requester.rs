@@ -7,8 +7,12 @@ use op_succinct_host_utils::{
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
+use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
 use sp1_sdk::{
-    network::{proto::types::ExecutionStatus, FulfillmentStrategy},
+    network::{
+        proto::types::{ExecutionStatus, ProofMode},
+        FulfillmentStrategy,
+    },
     Elf, NetworkProver, ProveRequest, Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin,
     SP1_CIRCUIT_VERSION,
 };
@@ -25,11 +29,12 @@ use crate::{
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub host: Arc<H>,
-    pub network_prover: Arc<NetworkProver>,
+    pub network_prover: Option<Arc<NetworkProver>>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub db_client: Arc<DriverDBClient>,
     pub program_config: ProgramConfig,
     pub mock: bool,
+    pub cluster: bool,
     pub range_strategy: FulfillmentStrategy,
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
@@ -49,11 +54,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         host: Arc<H>,
-        network_prover: Arc<NetworkProver>,
+        network_prover: Option<Arc<NetworkProver>>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         db_client: Arc<DriverDBClient>,
         program_config: ProgramConfig,
         mock: bool,
+        cluster: bool,
         range_strategy: FulfillmentStrategy,
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
@@ -68,6 +74,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         min_auction_period: u64,
         auction_timeout: u64,
     ) -> Self {
+        assert!(
+            !(mock && cluster),
+            "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock=true"
+        );
         Self {
             host,
             network_prover,
@@ -75,6 +85,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             db_client,
             program_config,
             mock,
+            cluster,
             range_strategy,
             agg_strategy,
             agg_mode,
@@ -190,8 +201,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Requests a range proof via the network prover.
     pub async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        let proof_id = match self
+        let network_prover = self
             .network_prover
+            .as_ref()
+            .context("network_prover required for request_range_proof")?;
+
+        let proof_id = match network_prover
             .prove(&self.program_config.range_pk, stdin)
             .compressed()
             .strategy(self.range_strategy)
@@ -217,8 +232,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Requests an aggregation proof via the network prover.
     pub async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        let proof_id = match self
+        let network_prover = self
             .network_prover
+            .as_ref()
+            .context("network_prover required for request_agg_proof")?;
+
+        let proof_id = match network_prover
             .prove(&self.program_config.agg_pk, stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
@@ -241,12 +260,42 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         Ok(proof_id)
     }
 
+    /// Generates a range proof via cluster (synchronous — blocks until proof is ready).
+    pub async fn cluster_range_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
+        info!("Generating range proof via cluster");
+        let timeout_hours = (self.proving_timeout / 3600).max(1);
+        let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
+        let ProofRequestResults { proof, .. } =
+            request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
+        Ok(SP1ProofWithPublicValues::from(proof))
+    }
+
+    /// Generates an aggregation proof via cluster (synchronous — blocks until proof is ready).
+    pub async fn cluster_agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
+        info!("Generating aggregation proof via cluster");
+        let timeout_hours = (self.proving_timeout / 3600).max(1);
+        let proto_mode = to_proto_proof_mode(self.agg_mode);
+        let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
+        let ProofRequestResults { proof, .. } =
+            request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
+        Ok(SP1ProofWithPublicValues::from(proof))
+    }
+
     /// Generates a mock range proof and writes the execution statistics to the database.
     pub async fn generate_mock_range_proof(
         &self,
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
+        let network_prover = self
+            .network_prover
+            .as_ref()
+            .context("network_prover required for generate_mock_range_proof")?;
+
         info!(
             request_id = request.id,
             request_type = ?request.req_type,
@@ -256,8 +305,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         );
 
         let start_time = Instant::now();
-        let (pv, report) = match self
-            .network_prover
+        let (pv, report) = match network_prover
             .execute(Elf::Static(get_range_elf_embedded()), stdin)
             .calculate_gas(true)
             .deferred_proof_verification(false)
@@ -306,9 +354,13 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
-        let start_time = Instant::now();
-        let (pv, report) = match self
+        let network_prover = self
             .network_prover
+            .as_ref()
+            .context("network_prover required for generate_mock_agg_proof")?;
+
+        let start_time = Instant::now();
+        let (pv, report) = match network_prover
             .execute(Elf::Static(AGGREGATION_ELF), stdin)
             .calculate_gas(true)
             .deferred_proof_verification(false)
@@ -506,7 +558,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             "Completed witness generation"
         );
 
-        // For mock mode, update status to Execution before proceeding.
+        // For mock mode, update status to Execution before proceeding (local execution).
+        // Cluster mode skips this — proving happens on the remote cluster, not locally.
         if self.mock {
             self.db_client.update_request_status(request.id, RequestStatus::Execution).await?;
         }
@@ -517,6 +570,18 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let proof = self.generate_mock_range_proof(&request, stdin).await?;
                     let proof_bytes = bincode::serialize(&proof)?;
                     self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
+                } else if self.cluster {
+                    // Cluster mode: synchronous like mock, stores proof directly.
+                    let proof = self.cluster_range_proof(stdin).await?;
+                    let proof_bytes = bincode::serialize(&proof)?;
+                    self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
+
+                    info!(
+                        request_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        "Range proof completed via cluster"
+                    );
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;
@@ -539,6 +604,17 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
                     self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+                } else if self.cluster {
+                    // Cluster mode: synchronous like mock, stores proof directly.
+                    let proof = self.cluster_agg_proof(stdin).await?;
+                    self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+
+                    info!(
+                        request_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        "Aggregation proof completed via cluster"
+                    );
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;
@@ -558,5 +634,15 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         }
 
         Ok(())
+    }
+}
+
+/// Convert SP1ProofMode to proto ProofMode for cluster API.
+fn to_proto_proof_mode(mode: SP1ProofMode) -> ProofMode {
+    match mode {
+        SP1ProofMode::Core => ProofMode::Core,
+        SP1ProofMode::Compressed => ProofMode::Compressed,
+        SP1ProofMode::Plonk => ProofMode::Plonk,
+        SP1ProofMode::Groth16 => ProofMode::Groth16,
     }
 }

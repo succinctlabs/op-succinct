@@ -6,7 +6,10 @@ use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin};
 use op_succinct_proof_utils::get_range_elf_embedded;
+use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
 use sp1_sdk::{
+    blocking::{self, Prover as BlockingProver},
+    network::proto::types::ProofMode,
     utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, ProvingKey, SP1Proof,
     SP1ProofWithPublicValues, SP1VerifyingKey,
 };
@@ -33,10 +36,9 @@ struct Args {
 }
 
 /// Load the aggregation proof data.
-async fn load_aggregation_proof_data(
+fn load_aggregation_proof_data(
     proof_names: Vec<String>,
     range_vkey: &SP1VerifyingKey,
-    prover: &impl Prover,
 ) -> (Vec<SP1Proof>, Vec<BootInfoStruct>) {
     let metadata = MetadataCommand::new().exec().unwrap();
     let workspace_root = metadata.workspace_root;
@@ -44,6 +46,9 @@ async fn load_aggregation_proof_data(
 
     let mut proofs = Vec::with_capacity(proof_names.len());
     let mut boot_infos = Vec::with_capacity(proof_names.len());
+
+    // Use blocking prover for synchronous verification
+    let prover = blocking::CpuProver::new();
 
     for proof_name in proof_names.iter() {
         let proof_path = format!("{proof_directory}/{proof_name}.bin");
@@ -72,37 +77,79 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let prover = ProverClient::from_env().await;
+    let sp1_prover = std::env::var("SP1_PROVER").unwrap_or_default();
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
-    let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-    let vkey = range_pk.verifying_key().clone();
+    if sp1_prover == "cluster" {
+        // Cluster mode: use blocking CpuProver for key setup (no network credentials needed).
+        let cpu_prover = blocking::CpuProver::new();
+        let range_pk = cpu_prover.setup(Elf::Static(get_range_elf_embedded())).expect("range ELF setup failed");
+        let vkey = range_pk.verifying_key().clone();
 
-    let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey, &prover).await;
+        let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
 
-    let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
-    let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
-    let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
-    let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
-    println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
-    let stdin =
-        get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
-            .expect("Failed to get agg proof stdin");
+        let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
+        let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
+        let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
+        let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
+        println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
+        let stdin =
+            get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
+                .expect("Failed to get agg proof stdin");
 
-    let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
-    let agg_vk = agg_pk.verifying_key();
-    println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
+        let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
+        let agg_vk = agg_pk.verifying_key();
+        println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
 
-    if args.prove {
-        prover.prove(&agg_pk, stdin).groth16().await.expect("proving failed");
+        if args.prove {
+            let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
+            let ProofRequestResults { proof, .. } =
+                request_proof_from_env(ProofMode::Groth16, 6, cluster_elf, stdin)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("cluster proof failed: {e}"))?;
+            let proof = SP1ProofWithPublicValues::from(proof);
+            proof.save("output.bin").expect("saving proof failed");
+        } else {
+            let (_, report) = cpu_prover.execute(Elf::Static(AGGREGATION_ELF), stdin)
+                .calculate_gas(true)
+                .deferred_proof_verification(false)
+                .run()
+                .expect("execution failed");
+            println!("report: {report:?}");
+        }
     } else {
-        let (_, report) = prover
-            .execute(Elf::Static(AGGREGATION_ELF), stdin)
-            .calculate_gas(true)
-            .deferred_proof_verification(false)
-            .await
-            .unwrap();
-        println!("report: {report:?}");
+        // Existing network/cpu/cuda mode.
+        let prover = ProverClient::from_env().await;
+
+        let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+        let vkey = range_pk.verifying_key().clone();
+
+        let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
+
+        let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
+        let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
+        let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
+        let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
+        println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
+        let stdin =
+            get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
+                .expect("Failed to get agg proof stdin");
+
+        let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
+        let agg_vk = agg_pk.verifying_key();
+        println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
+
+        if args.prove {
+            prover.prove(&agg_pk, stdin).groth16().await.expect("proving failed");
+        } else {
+            let (_, report) = prover
+                .execute(Elf::Static(AGGREGATION_ELF), stdin)
+                .calculate_gas(true)
+                .deferred_proof_verification(false)
+                .await
+                .unwrap();
+            println!("report: {report:?}");
+        }
     }
 
     Ok(())
