@@ -8,7 +8,7 @@ Self-hosted cluster mode is an alternative to the Succinct Prover Network. You d
 
 ## Prerequisites
 
-- A deployed SP1 cluster passing the fibonacci smoke test. Follow the [SP1 Cluster Deployment Guide](https://github.com/succinctlabs/sp1-cluster/blob/main/DEPLOY.md) to set one up.
+- A deployed SP1 cluster passing the fibonacci smoke test. Follow the [SP1 Cluster Kubernetes Deployment Guide](https://docs.succinct.xyz/docs/next/provers/setup/deployment/kubernetes) to set one up.
 - RPC endpoints for your OP Stack chain (L1, L1 beacon, L2, L2 node).
 - `kubectl` access to the cluster (for port-forwarding).
 
