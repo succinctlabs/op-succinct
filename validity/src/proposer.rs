@@ -32,8 +32,9 @@ use tracing::{debug, info, warn};
 use crate::{
     db::{DriverDBClient, OPSuccinctRequest, RequestMode, RequestStatus, RequestType},
     find_gaps, get_latest_proposed_block_number, get_ranges_to_prove_by_blocks,
-    get_ranges_to_prove_by_gas, CommitmentConfig, ContractConfig, OPSuccinctProofRequester,
-    ProgramConfig, RequestExecutionStatistics, RequesterConfig, ValidityGauge,
+    get_ranges_to_prove_by_gas, ClusterProver, CommitmentConfig, ContractConfig,
+    OPSuccinctProofRequester, ProgramConfig, RequestExecutionStatistics, RequesterConfig,
+    ValidityGauge,
 };
 
 /// Configuration for the driver.
@@ -176,6 +177,13 @@ where
         };
         program_config.log();
 
+        // Initialize cluster prover if in cluster mode.
+        let cluster_prover = if is_cluster {
+            Some(ClusterProver::new(requester_config.proving_timeout, requester_config.agg_proof_mode))
+        } else {
+            None
+        };
+
         // Initialize the proof requester.
         let proof_requester = Arc::new(OPSuccinctProofRequester::new(
             host,
@@ -184,7 +192,7 @@ where
             db_client.clone(),
             program_config.clone(),
             requester_config.mock,
-            is_cluster,
+            cluster_prover,
             requester_config.range_proof_strategy,
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
@@ -1578,7 +1586,7 @@ where
         // Get all proof statuses of all requests in the proving state.
         // Skip in cluster/mock mode — those modes store proofs directly (never enter Prove state),
         // and handle_proving_requests requires network_prover for status polling.
-        if !self.proof_requester.cluster && !self.proof_requester.mock {
+        if self.proof_requester.cluster_prover.is_none() && !self.proof_requester.mock {
             self.handle_proving_requests().await?;
         }
 

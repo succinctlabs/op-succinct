@@ -27,6 +27,47 @@ use crate::{
     RequestStatus, RequestType, ValidityGauge,
 };
 
+/// Cluster-based prover using a self-hosted sp1-cluster.
+///
+/// Proofs are synchronous — `request_proof_from_env` blocks until the proof is ready.
+/// No network credentials required; only CLI_CLUSTER_RPC and CLI_REDIS_NODES.
+#[derive(Clone)]
+pub struct ClusterProver {
+    pub proving_timeout: u64,
+    pub agg_mode: SP1ProofMode,
+}
+
+impl ClusterProver {
+    pub fn new(proving_timeout: u64, agg_mode: SP1ProofMode) -> Self {
+        Self { proving_timeout, agg_mode }
+    }
+
+    /// Generates a range proof via cluster (synchronous — blocks until proof is ready).
+    pub async fn range_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
+        tracing::info!("Generating range proof via cluster");
+        let timeout_hours = (self.proving_timeout / 3600).max(1);
+        let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
+        let ProofRequestResults { proof, .. } =
+            request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
+        Ok(SP1ProofWithPublicValues::from(proof))
+    }
+
+    /// Generates an aggregation proof via cluster (synchronous — blocks until proof is ready).
+    pub async fn agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
+        tracing::info!("Generating aggregation proof via cluster");
+        let timeout_hours = (self.proving_timeout / 3600).max(1);
+        let proto_mode = to_proto_proof_mode(self.agg_mode);
+        let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
+        let ProofRequestResults { proof, .. } =
+            request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin)
+                .await
+                .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
+        Ok(SP1ProofWithPublicValues::from(proof))
+    }
+}
+
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub host: Arc<H>,
     pub network_prover: Option<Arc<NetworkProver>>,
@@ -34,7 +75,7 @@ pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub db_client: Arc<DriverDBClient>,
     pub program_config: ProgramConfig,
     pub mock: bool,
-    pub cluster: bool,
+    pub cluster_prover: Option<ClusterProver>,
     pub range_strategy: FulfillmentStrategy,
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
@@ -59,7 +100,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         db_client: Arc<DriverDBClient>,
         program_config: ProgramConfig,
         mock: bool,
-        cluster: bool,
+        cluster_prover: Option<ClusterProver>,
         range_strategy: FulfillmentStrategy,
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
@@ -75,7 +116,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         auction_timeout: u64,
     ) -> Self {
         assert!(
-            !(mock && cluster),
+            !(mock && cluster_prover.is_some()),
             "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock=true"
         );
         Self {
@@ -85,7 +126,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             db_client,
             program_config,
             mock,
-            cluster,
+            cluster_prover,
             range_strategy,
             agg_strategy,
             agg_mode,
@@ -258,31 +299,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         };
 
         Ok(proof_id)
-    }
-
-    /// Generates a range proof via cluster (synchronous — blocks until proof is ready).
-    pub async fn cluster_range_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
-        info!("Generating range proof via cluster");
-        let timeout_hours = (self.proving_timeout / 3600).max(1);
-        let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-        let ProofRequestResults { proof, .. } =
-            request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
-        Ok(SP1ProofWithPublicValues::from(proof))
-    }
-
-    /// Generates an aggregation proof via cluster (synchronous — blocks until proof is ready).
-    pub async fn cluster_agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
-        info!("Generating aggregation proof via cluster");
-        let timeout_hours = (self.proving_timeout / 3600).max(1);
-        let proto_mode = to_proto_proof_mode(self.agg_mode);
-        let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-        let ProofRequestResults { proof, .. } =
-            request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
-        Ok(SP1ProofWithPublicValues::from(proof))
     }
 
     /// Generates a mock range proof and writes the execution statistics to the database.
@@ -570,9 +586,9 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let proof = self.generate_mock_range_proof(&request, stdin).await?;
                     let proof_bytes = bincode::serialize(&proof)?;
                     self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
-                } else if self.cluster {
+                } else if let Some(cluster) = &self.cluster_prover {
                     // Cluster mode: synchronous like mock, stores proof directly.
-                    let proof = self.cluster_range_proof(stdin).await?;
+                    let proof = cluster.range_proof(stdin).await?;
                     let proof_bytes = bincode::serialize(&proof)?;
                     self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
 
@@ -604,9 +620,9 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
                     self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
-                } else if self.cluster {
+                } else if let Some(cluster) = &self.cluster_prover {
                     // Cluster mode: synchronous like mock, stores proof directly.
-                    let proof = self.cluster_agg_proof(stdin).await?;
+                    let proof = cluster.agg_proof(stdin).await?;
                     self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
 
                     info!(
