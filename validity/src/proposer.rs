@@ -100,22 +100,21 @@ where
         // In cluster mode, use blocking CpuProver for key setup (no network credentials needed).
         let (program_config, network_prover) = if is_cluster {
             let cpu_prover = blocking::CpuProver::new();
-            let range_pk = cpu_prover.setup(Elf::Static(get_range_elf_embedded())).expect("range ELF setup failed");
+            let range_pk = cpu_prover
+                .setup(Elf::Static(get_range_elf_embedded()))
+                .expect("range ELF setup failed");
             let range_vk = range_pk.verifying_key().clone();
-            let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
+            let agg_pk =
+                cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
             let agg_vk = agg_pk.verifying_key().clone();
             let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
             let range_vkey_commitment = B256::from(multi_block_vkey_u8);
             let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
 
-            let rollup_config_hash = hash_rollup_config(
-                fetcher
-                    .rollup_config
-                    .as_ref()
-                    .ok_or_else(|| {
-                        anyhow!("Rollup config must be set to initialize the proposer.")
-                    })?,
-            );
+            let rollup_config_hash =
+                hash_rollup_config(fetcher.rollup_config.as_ref().ok_or_else(|| {
+                    anyhow!("Rollup config must be set to initialize the proposer.")
+                })?);
 
             let program_config = ProgramConfig {
                 range_vk: Arc::new(range_vk),
@@ -152,14 +151,10 @@ where
             let range_vkey_commitment = B256::from(multi_block_vkey_u8);
             let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
 
-            let rollup_config_hash = hash_rollup_config(
-                fetcher
-                    .rollup_config
-                    .as_ref()
-                    .ok_or_else(|| {
-                        anyhow!("Rollup config must be set to initialize the proposer.")
-                    })?,
-            );
+            let rollup_config_hash =
+                hash_rollup_config(fetcher.rollup_config.as_ref().ok_or_else(|| {
+                    anyhow!("Rollup config must be set to initialize the proposer.")
+                })?);
 
             let program_config = ProgramConfig {
                 range_vk: Arc::new(range_vk),
@@ -179,7 +174,10 @@ where
 
         // Initialize cluster prover if in cluster mode.
         let cluster_prover = if is_cluster {
-            Some(ClusterProver::new(requester_config.proving_timeout, requester_config.agg_proof_mode))
+            Some(ClusterProver::new(
+                requester_config.proving_timeout,
+                requester_config.agg_proof_mode,
+            ))
         } else {
             None
         };

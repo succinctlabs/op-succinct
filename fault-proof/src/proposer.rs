@@ -47,7 +47,9 @@ use crate::{
     },
     is_parent_resolved,
     prometheus::ProposerGauge,
-    prover::{ClusterProofProvider, MockProofProvider, NetworkProofProvider, ProofKeys, ProofProvider},
+    prover::{
+        ClusterProofProvider, MockProofProvider, NetworkProofProvider, ProofKeys, ProofProvider,
+    },
     FactoryTrait, L1Provider, L2Provider, L2ProviderTrait, TxErrorExt, TX_REVERTED_PREFIX,
 };
 
@@ -291,9 +293,12 @@ where
         let (_keys, identity, prover) = if sp1_prover_env == "cluster" {
             // Cluster mode: use blocking CpuProver for key setup (no network credentials needed).
             let cpu_prover = blocking::CpuProver::new();
-            let range_pk = cpu_prover.setup(Elf::Static(get_range_elf_embedded())).expect("range ELF setup failed");
+            let range_pk = cpu_prover
+                .setup(Elf::Static(get_range_elf_embedded()))
+                .expect("range ELF setup failed");
             let range_vk = range_pk.verifying_key().clone();
-            let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
+            let agg_pk =
+                cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
             let agg_vk = agg_pk.verifying_key().clone();
 
             let aggregation_vkey = B256::from(agg_vk.bytes32_raw());

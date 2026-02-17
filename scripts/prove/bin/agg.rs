@@ -83,7 +83,9 @@ async fn main() -> Result<()> {
     if sp1_prover == "cluster" {
         // Cluster mode: use blocking CpuProver for key setup (no network credentials needed).
         let cpu_prover = blocking::CpuProver::new();
-        let range_pk = cpu_prover.setup(Elf::Static(get_range_elf_embedded())).expect("range ELF setup failed");
+        let range_pk = cpu_prover
+            .setup(Elf::Static(get_range_elf_embedded()))
+            .expect("range ELF setup failed");
         let vkey = range_pk.verifying_key().clone();
 
         let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
@@ -93,9 +95,15 @@ async fn main() -> Result<()> {
         let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
         let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
         println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
-        let stdin =
-            get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
-                .expect("Failed to get agg proof stdin");
+        let stdin = get_agg_proof_stdin(
+            proofs,
+            boot_infos,
+            headers,
+            &vkey,
+            header.hash_slow(),
+            args.prover,
+        )
+        .expect("Failed to get agg proof stdin");
 
         let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
         let agg_vk = agg_pk.verifying_key();
@@ -110,7 +118,8 @@ async fn main() -> Result<()> {
             let proof = SP1ProofWithPublicValues::from(proof);
             proof.save("output.bin").expect("saving proof failed");
         } else {
-            let (_, report) = cpu_prover.execute(Elf::Static(AGGREGATION_ELF), stdin)
+            let (_, report) = cpu_prover
+                .execute(Elf::Static(AGGREGATION_ELF), stdin)
                 .calculate_gas(true)
                 .deferred_proof_verification(false)
                 .run()
@@ -131,9 +140,15 @@ async fn main() -> Result<()> {
         let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
         let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
         println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
-        let stdin =
-            get_agg_proof_stdin(proofs, boot_infos, headers, &vkey, header.hash_slow(), args.prover)
-                .expect("Failed to get agg proof stdin");
+        let stdin = get_agg_proof_stdin(
+            proofs,
+            boot_infos,
+            headers,
+            &vkey,
+            header.hash_slow(),
+            args.prover,
+        )
+        .expect("Failed to get agg proof stdin");
 
         let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
         let agg_vk = agg_pk.verifying_key();
