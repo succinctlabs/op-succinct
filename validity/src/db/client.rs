@@ -75,6 +75,18 @@ impl DriverDBClient {
         .await
     }
 
+    /// Fetch a single request by its database ID.
+    pub async fn fetch_request_by_id(&self, id: i64) -> Result<Option<OPSuccinctRequest>, Error> {
+        let request = sqlx::query_as!(
+            OPSuccinctRequest,
+            "SELECT * FROM requests WHERE id = $1",
+            id,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(request)
+    }
+
     /// Inserts a request into the database.
     pub async fn insert_request(&self, req: &OPSuccinctRequest) -> Result<PgQueryResult, Error> {
         sqlx::query!(

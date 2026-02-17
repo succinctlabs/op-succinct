@@ -11,7 +11,12 @@ homepage.workspace = true
 name = "validity"
 path = "bin/validity.rs"
 
+[[bin]]
+name = "replay-agg"
+path = "bin/replay_agg.rs"
+
 [dependencies]
+hex.workspace = true
 
 # workspace
 tokio.workspace = true
