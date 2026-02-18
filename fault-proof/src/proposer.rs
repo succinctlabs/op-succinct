@@ -489,7 +489,7 @@ where
 
         // Fetch contract params from game implementation.
         let game_impl = self.factory.game_impl(self.config.game_type).await?;
-        let max_challenge_duration = game_impl.maxChallengeDuration().call().await?.to::<u64>();
+        let max_challenge_duration = game_impl.maxChallengeDuration().call().await?;
         let max_prove_duration = game_impl.maxProveDuration().call().await?;
         let contract_params = ContractParams { max_challenge_duration, max_prove_duration };
 
@@ -756,26 +756,27 @@ where
                 let contract =
                     OPSuccinctFaultDisputeGame::new(game_address, self.l1_provider.clone());
                 let claim_data = contract.claimData().call().await?;
-                let status = contract.status().call().await?;
-                let deadline = U256::from(claim_data.deadline).to::<u64>();
+                let status = GameStatus::try_from(contract.status().call().await?)?;
+                let deadline = claim_data.deadline;
                 let parent_index = claim_data.parentIndex;
 
                 let is_finalized =
                     self.anchor_state_registry.isGameFinalized(game_address).call().await?;
+                let proposal_status = ProposalStatus::try_from(claim_data.status)?;
 
                 match status {
                     GameStatus::IN_PROGRESS => {
                         let game_type = contract.gameType().call().await?;
                         let parent_resolved =
                             is_parent_resolved(parent_index, self.factory.as_ref()).await?;
-                        let is_game_over = match claim_data.status {
+                        let is_game_over = match proposal_status {
                             ProposalStatus::Unchallenged => now_ts >= deadline,
                             ProposalStatus::UnchallengedAndValidProofProvided |
                             ProposalStatus::ChallengedAndValidProofProvided => true,
                             _ => false,
                         };
                         let creator = contract.gameCreator().call().await?;
-                        let is_own_game = match claim_data.status {
+                        let is_own_game = match proposal_status {
                             ProposalStatus::Unchallenged => creator == signer_address,
                             ProposalStatus::UnchallengedAndValidProofProvided |
                             ProposalStatus::ChallengedAndValidProofProvided => {
@@ -792,7 +793,7 @@ where
                         actions.push(GameSyncAction::Update {
                             index,
                             status,
-                            proposal_status: claim_data.status,
+                            proposal_status,
                             deadline,
                             should_attempt_to_resolve,
                             should_attempt_to_claim_bond: false,
@@ -840,7 +841,7 @@ where
                                 actions.push(GameSyncAction::Update {
                                     index,
                                     status,
-                                    proposal_status: claim_data.status,
+                                    proposal_status,
                                     deadline,
                                     should_attempt_to_resolve: false,
                                     should_attempt_to_claim_bond: false,
@@ -850,7 +851,7 @@ where
                             actions.push(GameSyncAction::Update {
                                 index,
                                 status,
-                                proposal_status: claim_data.status,
+                                proposal_status,
                                 deadline,
                                 should_attempt_to_resolve: false,
                                 should_attempt_to_claim_bond: is_finalized && credit > U256::ZERO,
@@ -1365,8 +1366,8 @@ where
         }
 
         let game = self.factory.gameAtIndex(index).call().await?;
-        let game_address = game.proxy;
-        let game_type = game.gameType;
+        let game_address = game.proxy_;
+        let game_type = game.gameType_;
 
         // Drop unsupported game types.
         if game_type != self.config.game_type {
@@ -1386,13 +1387,13 @@ where
         let output_root = self.l2_provider.compute_output_root_at_block(l2_block).await?;
         let claim = contract.rootClaim().call().await?;
         let was_respected = contract.wasRespectedGameTypeWhenCreated().call().await?;
-        let status = contract.status().call().await?;
+        let status = GameStatus::try_from(contract.status().call().await?)?;
         let claim_data = contract.claimData().call().await?;
 
         let (parent_index, proposal_status, deadline) = (
             claim_data.parentIndex,
-            claim_data.status,
-            U256::from(claim_data.deadline).to::<u64>(),
+            ProposalStatus::try_from(claim_data.status)?,
+            claim_data.deadline,
         );
 
         let aggregation_vkey = B256::from(contract.aggregationVkey().call().await?.0);
@@ -1477,7 +1478,7 @@ where
             .games(self.config.game_type, output_root, extra_data.clone().into())
             .call()
             .await?
-            .proxy;
+            .proxy_;
 
         // If there already exists a game at the next L2 block number for proposal, increment the L2
         // block number by 1
@@ -1493,7 +1494,7 @@ where
                 .games(self.config.game_type, output_root, extra_data.clone().into())
                 .call()
                 .await?
-                .proxy;
+                .proxy_;
         }
 
         tracing::info!(

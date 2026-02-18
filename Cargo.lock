@@ -7411,6 +7411,7 @@ dependencies = [
  "num-format",
  "op-alloy-consensus",
  "op-alloy-network",
+ "op-succinct-bindings",
  "op-succinct-client-utils",
  "op-succinct-elfs",
  "opentelemetry 0.23.0",

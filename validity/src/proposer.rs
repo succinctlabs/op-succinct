@@ -1119,7 +1119,8 @@ where
             let transaction_request = self
                 .contract_config
                 .l2oo_contract
-                .proposeL2Output(
+                // `_1` suffix: forge-generated disambiguation for the 6-arg configName overload.
+                .proposeL2Output_1(
                     self.requester_config.op_succinct_config_name_hash,
                     output.output_root,
                     U256::from(completed_agg_proof.end_block),
@@ -1154,9 +1155,9 @@ where
             self.contract_config.l2oo_contract.opSuccinctConfigs(config_name).call().await?;
 
         // Extract the OpSuccinctConfig fields with meaningful names.
-        let contract_agg_vkey_hash = contract_config.aggregation_vkey();
-        let contract_range_vkey_commitment = contract_config.range_vkey_commitment();
-        let contract_rollup_config_hash = contract_config.rollup_config_hash();
+        let contract_agg_vkey_hash = contract_config.aggregationVkey;
+        let contract_range_vkey_commitment = contract_config.rangeVkeyCommitment;
+        let contract_rollup_config_hash = contract_config.rollupConfigHash;
 
         let rollup_config_hash_match =
             contract_rollup_config_hash == self.program_config.commitments.rollup_config_hash;
