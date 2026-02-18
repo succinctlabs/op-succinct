@@ -50,6 +50,12 @@ jobs:
       - name: Install protobuf compiler
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
+      - name: Install Go 1.24
+        run: |
+          curl -LO https://go.dev/dl/go1.24.0.linux-arm64.tar.gz
+          sudo tar -C /usr/local -xzf go1.24.0.linux-arm64.tar.gz
+          echo "/usr/local/go/bin" >> $GITHUB_PATH
+
       - name: Install SP1 toolchain
         run: |
           curl -L https://sp1.succinct.xyz | bash
