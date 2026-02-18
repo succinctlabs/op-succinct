@@ -13,6 +13,7 @@ anyhow.workspace = true
 rkyv.workspace = true
 
 # kona
+kona-derive.workspace = true
 kona-proof.workspace = true
 
 # sp1
