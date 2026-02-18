@@ -230,6 +230,29 @@ p256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-p2
 k256 = { git = "https://github.com/sp1-patches/elliptic-curves", tag = "patch-k256-13.4-sp1-6.0.0" }
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
 
+# Patch SP1 crates from crates.io to use git — prevents duplicate symbol errors when
+# transitive dependencies (e.g., hokulea -> sp1-contract-call) pull SP1 from crates.io
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-lib = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-core-executor = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-hypercube = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-primitives = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-core-machine = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-curves = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-derive = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-cuda = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-jit = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-prover-types = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-recursion-circuit = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-recursion-compiler = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-recursion-executor = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-recursion-gnark-ffi = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-recursion-machine = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+sp1-verifier = { git = "https://github.com/succinctlabs/sp1", tag = "v6.0.0" }
+
 # Note: alloy-tx-macros crates.io version must match alloy-consensus version
 # Both are now at 1.4.x for hokulea v1.1.4 compatibility
 
