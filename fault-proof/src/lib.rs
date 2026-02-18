@@ -173,10 +173,11 @@ where
         return Ok(true);
     }
 
-    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy_;
     let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
+    let status = GameStatus::try_from(parent_game_contract.status().call().await?)?;
 
-    Ok(parent_game_contract.status().call().await? != GameStatus::IN_PROGRESS)
+    Ok(status != GameStatus::IN_PROGRESS)
 }
 
 async fn is_parent_challenger_wins<P>(
@@ -190,10 +191,11 @@ where
         return Ok(false);
     }
 
-    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy;
+    let parent_game_address = factory.gameAtIndex(U256::from(parent_index)).call().await?.proxy_;
     let parent_game_contract = IDisputeGame::new(parent_game_address, factory.provider());
+    let status = GameStatus::try_from(parent_game_contract.status().call().await?)?;
 
-    Ok(parent_game_contract.status().call().await? == GameStatus::CHALLENGER_WINS)
+    Ok(status == GameStatus::CHALLENGER_WINS)
 }
 
 /// Prefix used for transaction revert errors.

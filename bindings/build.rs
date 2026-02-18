@@ -21,13 +21,22 @@ fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed={}", contracts_package_path.join("remappings.txt"));
     println!("cargo:rerun-if-changed={}", contracts_package_path.join("foundry.toml"));
 
-    // Check if forge is available
-    if Command::new("forge").arg("--version").output().is_err() {
-        println!("cargo:warning=Forge not found in PATH. Skipping bindings generation.");
-        return Ok(());
+    // Check if forge is available; skip regeneration if not (e.g. Docker builds).
+    // CI jobs with forge (cargo-tests, lint) will catch ABI drift.
+    let forge_check = Command::new("forge").arg("--version").output();
+    match forge_check {
+        Err(_) => {
+            println!("cargo:warning=Forge not found in PATH. Skipping bindings generation.");
+            return Ok(());
+        }
+        Ok(output) if !output.status.success() => {
+            anyhow::bail!(
+                "Forge is installed but returned an error. Check your Foundry installation."
+            );
+        }
+        Ok(_) => {} // forge available, continue
     }
 
-    // Use 'forge bind' to generate bindings for only the contracts we need for E2E tests
     let mut forge_command = Command::new("forge");
     forge_command.args([
         "bind",
@@ -38,8 +47,8 @@ fn main() -> anyhow::Result<()> {
         "--skip-extra-derives",
     ]);
 
-    // Only generate bindings for the contracts we actually need for E2E testing
     let required_contracts = [
+        // E2E test contracts
         "DisputeGameFactory",
         "SuperchainConfig",
         "MockOptimismPortal2",
@@ -49,10 +58,14 @@ fn main() -> anyhow::Result<()> {
         "OPSuccinctFaultDisputeGame",
         "ERC1967Proxy",
         "MockPermissionedDisputeGame",
-        // Also include interfaces that we need
+        // Interfaces
         "IDisputeGameFactory",
         "IDisputeGame",
         "IFaultDisputeGame",
+        "IAnchorStateRegistry",
+        // Production contracts (host utils)
+        "OPSuccinctL2OutputOracle",
+        "OPSuccinctDisputeGame",
     ];
 
     // Create a regex pattern that matches any of our required contracts

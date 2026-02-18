@@ -21,6 +21,7 @@ path = "bin/challenger.rs"
 
 [dependencies]
 # local
+op-succinct-bindings.workspace = true
 op-succinct-client-utils.workspace = true
 op-succinct-elfs.workspace = true
 op-succinct-ethereum-host-utils.workspace = true
@@ -72,7 +73,6 @@ tempfile = "3"
 alloy-signer-local.workspace = true
 alloy-node-bindings.workspace = true
 alloy.workspace = true
-op-succinct-bindings.workspace = true
 serde_json.workspace = true
 serde.workspace = true
 alloy-rpc-types-trace.workspace = true
