@@ -85,10 +85,9 @@ async fn main() -> Result<()> {
         generate_stdin().await?
     };
 
-    let prover = ProverClient::from_env();
-
     if args.prove {
         // If the prove flag is set, generate a proof.
+        let prover = ProverClient::from_env();
         let (pk, _) = prover.setup(get_range_elf_embedded());
         // Generate proofs in compressed mode for aggregation verification.
         let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
