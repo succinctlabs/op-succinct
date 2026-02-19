@@ -295,11 +295,11 @@ where
                 let cpu_prover = blocking::CpuProver::new();
                 let range_pk = cpu_prover
                     .setup(Elf::Static(get_range_elf_embedded()))
-                    .expect("range ELF setup failed");
+                    .context("range ELF setup failed")?;
                 let range_vk = range_pk.verifying_key().clone();
                 let agg_pk = cpu_prover
                     .setup(Elf::Static(AGGREGATION_ELF))
-                    .expect("agg ELF setup failed");
+                    .context("agg ELF setup failed")?;
                 let agg_vk = agg_pk.verifying_key().clone();
                 (range_pk, range_vk, agg_pk, agg_vk, None, None)
             } else {

@@ -7700,12 +7700,15 @@ dependencies = [
 name = "op-succinct-proof-utils"
 version = "4.0.1"
 dependencies = [
+ "anyhow",
  "cfg-if",
  "op-succinct-celestia-host-utils",
  "op-succinct-eigenda-host-utils",
  "op-succinct-elfs",
  "op-succinct-ethereum-host-utils",
  "op-succinct-host-utils",
+ "sp1-cluster-utils",
+ "sp1-sdk",
  "tracing",
 ]
 

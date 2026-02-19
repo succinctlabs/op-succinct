@@ -95,7 +95,7 @@ async fn main() -> Result<()> {
 
         if sp1_prover == "cluster" {
             // Self-hosted cluster mode: bypass ProverClient, talk to cluster API directly.
-            let proof = cluster_range_proof(6 * 3600, sp1_stdin).await?;
+            let proof = cluster_range_proof(args.cluster_timeout, sp1_stdin).await?;
             proof
                 .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
                 .expect("saving proof failed");

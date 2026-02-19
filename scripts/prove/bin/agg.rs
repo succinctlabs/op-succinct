@@ -8,8 +8,8 @@ use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin
 use op_succinct_proof_utils::{cluster_agg_proof, get_range_elf_embedded};
 use sp1_sdk::{
     blocking::{self, Prover as BlockingProver},
-    utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, SP1Proof, SP1ProofMode,
-    SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
+    utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, ProvingKey, SP1Proof,
+    SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
 use std::fs;
 
@@ -31,6 +31,10 @@ struct Args {
     /// Env file path.
     #[arg(default_value = ".env", short, long)]
     env_file: String,
+
+    /// Cluster proving timeout in seconds (only used when SP1_PROVER=cluster).
+    #[arg(long, default_value = "21600")]
+    cluster_timeout: u64,
 }
 
 /// Load the aggregation proof data.
@@ -109,19 +113,17 @@ async fn main() -> Result<()> {
     if sp1_prover == "cluster" {
         // Cluster mode: use blocking CpuProver for key setup (no network credentials needed).
         let cpu_prover = blocking::CpuProver::new();
-        let range_pk = cpu_prover
-            .setup(Elf::Static(get_range_elf_embedded()))
-            .expect("range ELF setup failed");
+        let range_pk = cpu_prover.setup(Elf::Static(get_range_elf_embedded()))?;
         let vkey = range_pk.verifying_key().clone();
 
         let stdin = build_agg_stdin(&fetcher, args.proofs, &vkey, args.prover).await?;
 
-        let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
+        let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF))?;
         let agg_vk = agg_pk.verifying_key();
         println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
 
         if args.prove {
-            let proof = cluster_agg_proof(6 * 3600, SP1ProofMode::Groth16, stdin).await?;
+            let proof = cluster_agg_proof(args.cluster_timeout, SP1ProofMode::Groth16, stdin).await?;
             proof.save("output.bin").expect("saving proof failed");
         } else {
             let (_, report) = cpu_prover

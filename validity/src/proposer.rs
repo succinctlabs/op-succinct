@@ -100,10 +100,11 @@ where
             let cpu_prover = blocking::CpuProver::new();
             let range_pk = cpu_prover
                 .setup(Elf::Static(get_range_elf_embedded()))
-                .expect("range ELF setup failed");
+                .context("range ELF setup failed")?;
             let range_vk = range_pk.verifying_key().clone();
-            let agg_pk =
-                cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
+            let agg_pk = cpu_prover
+                .setup(Elf::Static(AGGREGATION_ELF))
+                .context("agg ELF setup failed")?;
             let agg_vk = agg_pk.verifying_key().clone();
             (range_pk, range_vk, agg_pk, agg_vk, None)
         } else {
@@ -342,8 +343,15 @@ where
     }
 
     /// Handle all proof requests in the Prove state.
+    ///
+    /// No-op in cluster and mock modes: those modes store proofs directly during
+    /// `make_proof_request` and never enter the Prove state, so there is nothing to poll.
     #[tracing::instrument(name = "proposer.handle_proving_requests", skip(self))]
     pub async fn handle_proving_requests(&self) -> Result<()> {
+        if self.proof_requester.cluster_prover.is_some() || self.proof_requester.mock {
+            return Ok(());
+        }
+
         // Get all requests from the database.
         let prove_requests = self
             .driver_config
@@ -1556,11 +1564,7 @@ where
         self.set_orphaned_tasks_to_failed().await?;
 
         // Get all proof statuses of all requests in the proving state.
-        // Skip in cluster/mock mode — those modes store proofs directly (never enter Prove state),
-        // and handle_proving_requests requires network_prover for status polling.
-        if self.proof_requester.cluster_prover.is_none() && !self.proof_requester.mock {
-            self.handle_proving_requests().await?;
-        }
+        self.handle_proving_requests().await?;
 
         // Add new range requests to the database.
         self.add_new_ranges().await?;
