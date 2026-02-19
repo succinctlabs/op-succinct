@@ -11,7 +11,10 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, ProverClient};
+use sp1_sdk::{
+    blocking::{CpuProver, Prover as BlockingProver},
+    utils, Elf, ProveRequest, Prover, ProverClient,
+};
 use std::{
     fs,
     sync::Arc,
@@ -66,9 +69,9 @@ async fn main() -> Result<()> {
         };
 
         if args.prove {
-            let prover = ProverClient::from_env();
-            let (pk, _) = prover.setup(get_range_elf_embedded());
-            let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+            let prover = ProverClient::from_env().await;
+            let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+            let proof = prover.prove(&pk, sp1_stdin).compressed().await.unwrap();
 
             let proof_dir = format!("data/{}/proofs", l2_chain_id);
             if !std::path::Path::new(&proof_dir).exists() {
@@ -80,36 +83,37 @@ async fn main() -> Result<()> {
         } else {
             // Inline SP1 execution (same logic as execute_multi, without the block data RPC).
             let start_time = Instant::now();
-            let prover = ProverClient::builder().mock().build();
-            let (_, report) = prover
-                .execute(get_range_elf_embedded(), &sp1_stdin)
-                .calculate_gas(true)
-                .deferred_proof_verification(false)
-                .run()?;
+            let (_, report) = tokio::task::spawn_blocking(move || {
+                let prover = CpuProver::new();
+                prover
+                    .execute(Elf::Static(get_range_elf_embedded()), sp1_stdin)
+                    .calculate_gas(true)
+                    .deferred_proof_verification(false)
+                    .run()
+            })
+            .await??;
             let execution_duration = start_time.elapsed();
 
             // Try to fetch block data for stats; fall back to synthetic entries if RPC fails.
-            let block_data = match data_fetcher
-                .get_l2_block_data_range(l2_start_block, l2_end_block)
-                .await
-            {
-                Ok(data) => data,
-                Err(e) => {
-                    warn!(
-                        "Failed to fetch block data for stats (RPC may be restricted): {e}. \
+            let block_data =
+                match data_fetcher.get_l2_block_data_range(l2_start_block, l2_end_block).await {
+                    Ok(data) => data,
+                    Err(e) => {
+                        warn!(
+                            "Failed to fetch block data for stats (RPC may be restricted): {e}. \
                          Using zeroed per-block stats; cycle/gas counts remain accurate."
-                    );
-                    (l2_start_block..l2_end_block)
-                        .map(|block_number| BlockInfo {
-                            block_number,
-                            transaction_count: 0,
-                            gas_used: 0,
-                            total_l1_fees: 0,
-                            total_tx_fees: 0,
-                        })
-                        .collect()
-                }
-            };
+                        );
+                        (l2_start_block..l2_end_block)
+                            .map(|block_number| BlockInfo {
+                                block_number,
+                                transaction_count: 0,
+                                gas_used: 0,
+                                total_l1_fees: 0,
+                                total_tx_fees: 0,
+                            })
+                            .collect()
+                    }
+                };
 
             let stats = ExecutionStats::new(
                 0,
