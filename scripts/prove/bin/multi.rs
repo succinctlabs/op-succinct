@@ -1,8 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use op_succinct_host_utils::{
     block_range::get_validated_block_range,
-    fetcher::OPSuccinctDataFetcher,
+    fetcher::{BlockInfo, OPSuccinctDataFetcher},
     host::OPSuccinctHost,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
@@ -28,6 +28,117 @@ async fn main() -> Result<()> {
         .context(format!("Environment file not found: {}", args.env_file.display()))?;
     utils::setup_logger();
 
+    // Cache-only fast path: when --cache is set with explicit --start and --end,
+    // skip all heavy RPC calls (rollup config, block range validation, host initialization)
+    // and run SP1 execution purely from cached witness data.
+    if args.cache && args.start.is_some() && args.end.is_some() {
+        let l2_start_block = args.start.unwrap();
+        let l2_end_block = args.end.unwrap();
+
+        // Use basic constructor — avoids optimism_rollupConfig RPC call.
+        let data_fetcher = OPSuccinctDataFetcher::new();
+
+        // eth_chainId is universally supported, even on restricted endpoints.
+        let l2_chain_id = data_fetcher.get_l2_chain_id().await?;
+
+        // Load cached witness data.
+        let sp1_stdin = match load_stdin_from_cache(l2_chain_id, l2_start_block, l2_end_block) {
+            Ok(Some(stdin)) => {
+                info!("Loaded stdin from cache");
+                stdin
+            }
+            Ok(None) => {
+                bail!(
+                    "Cache file not found for blocks {}-{}. \
+                     Run without --cache first to generate the witness, or remove --cache to use full RPC flow.",
+                    l2_start_block,
+                    l2_end_block
+                );
+            }
+            Err(e) => {
+                bail!(
+                    "Failed to load cache for blocks {}-{}: {e}. \
+                     Run without --cache first to regenerate the witness.",
+                    l2_start_block,
+                    l2_end_block
+                );
+            }
+        };
+
+        if args.prove {
+            let prover = ProverClient::from_env();
+            let (pk, _) = prover.setup(get_range_elf_embedded());
+            let proof = prover.prove(&pk, &sp1_stdin).compressed().run().unwrap();
+
+            let proof_dir = format!("data/{}/proofs", l2_chain_id);
+            if !std::path::Path::new(&proof_dir).exists() {
+                fs::create_dir_all(&proof_dir).unwrap();
+            }
+            proof
+                .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
+                .expect("saving proof failed");
+        } else {
+            // Inline SP1 execution (same logic as execute_multi, without the block data RPC).
+            let start_time = Instant::now();
+            let prover = ProverClient::builder().mock().build();
+            let (_, report) = prover
+                .execute(get_range_elf_embedded(), &sp1_stdin)
+                .calculate_gas(true)
+                .deferred_proof_verification(false)
+                .run()?;
+            let execution_duration = start_time.elapsed();
+
+            // Try to fetch block data for stats; fall back to synthetic entries if RPC fails.
+            let block_data = match data_fetcher
+                .get_l2_block_data_range(l2_start_block, l2_end_block)
+                .await
+            {
+                Ok(data) => data,
+                Err(e) => {
+                    warn!(
+                        "Failed to fetch block data for stats (RPC may be restricted): {e}. \
+                         Using zeroed per-block stats; cycle/gas counts remain accurate."
+                    );
+                    (l2_start_block..l2_end_block)
+                        .map(|block_number| BlockInfo {
+                            block_number,
+                            transaction_count: 0,
+                            gas_used: 0,
+                            total_l1_fees: 0,
+                            total_tx_fees: 0,
+                        })
+                        .collect()
+                }
+            };
+
+            let stats = ExecutionStats::new(
+                0,
+                &block_data,
+                &report,
+                0, // witness generation was cached
+                execution_duration.as_secs(),
+            );
+
+            println!("Execution Stats: \n{stats:?}");
+
+            let report_dir = format!("execution-reports/multi/{l2_chain_id}");
+            if !std::path::Path::new(&report_dir).exists() {
+                fs::create_dir_all(&report_dir)?;
+            }
+
+            let report_path = format!(
+                "execution-reports/multi/{l2_chain_id}/{l2_start_block}-{l2_end_block}.csv"
+            );
+
+            let mut csv_writer = csv::Writer::from_path(report_path)?;
+            csv_writer.serialize(&stats)?;
+            csv_writer.flush()?;
+        }
+
+        return Ok(());
+    }
+
+    // Standard flow: full RPC initialization and witness generation.
     let data_fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let host = initialize_host(Arc::new(data_fetcher.clone()));
