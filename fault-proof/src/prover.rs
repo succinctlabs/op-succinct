@@ -3,10 +3,10 @@ use std::{sync::Arc, time::Duration};
 use alloy_primitives::B256;
 use anyhow::{bail, Context, Result};
 use op_succinct_host_utils::metrics::MetricsGauge;
-use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
+use op_succinct_proof_utils::{cluster_agg_proof, cluster_range_proof, get_range_elf_embedded};
 use sp1_sdk::{
     network::{
-        proto::types::{FulfillmentStatus, ProofMode},
+        proto::types::FulfillmentStatus,
         NetworkMode,
     },
     Elf, NetworkProver, ProveRequest, Prover, SP1ProofMode, SP1ProofWithPublicValues,
@@ -15,8 +15,6 @@ use sp1_sdk::{
 use tokio::time::sleep;
 
 use crate::{config::ProofProviderConfig, prometheus::ProposerGauge};
-use op_succinct_elfs::AGGREGATION_ELF;
-use op_succinct_proof_utils::get_range_elf_embedded;
 
 /// Polling interval (in seconds) for checking proof status.
 /// Matches the SP1 SDK's internal polling interval:
@@ -448,10 +446,8 @@ impl MockProofProvider {
         ))
     }
 }
+
 /// Cluster-based proof provider using a self-hosted sp1-cluster.
-///
-/// Proofs are synchronous — `request_proof_from_env` blocks until the proof is ready.
-/// No network credentials (NETWORK_PRIVATE_KEY) required; only CLI_CLUSTER_RPC and CLI_REDIS_NODES.
 #[derive(Clone)]
 pub struct ClusterProofProvider {
     keys: ProofKeys,
@@ -463,43 +459,17 @@ impl ClusterProofProvider {
         Self { keys, config }
     }
 
-    /// Generate a range proof via cluster.
     pub async fn generate_range_proof(
         &self,
         stdin: SP1Stdin,
     ) -> Result<(SP1ProofWithPublicValues, u64, u64)> {
-        tracing::info!("Generating range proof via cluster");
-        let timeout_hours = (self.config.timeout / 3600).max(1);
-        let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-        let ProofRequestResults { proof, .. } =
-            request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
-        let proof = SP1ProofWithPublicValues::from(proof);
+        let proof = cluster_range_proof(self.config.timeout, stdin).await?;
+        // Cluster API does not report execution cycle or gas metrics.
         Ok((proof, 0, 0))
     }
 
-    /// Generate an aggregation proof via cluster.
     pub async fn generate_agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
-        tracing::info!("Generating aggregation proof via cluster");
-        let timeout_hours = (self.config.timeout / 3600).max(1);
-        let proto_mode = to_proto_proof_mode(self.config.agg_proof_mode);
-        let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-        let ProofRequestResults { proof, .. } =
-            request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
-        Ok(SP1ProofWithPublicValues::from(proof))
-    }
-}
-
-/// Convert SP1ProofMode to proto ProofMode for cluster API.
-fn to_proto_proof_mode(mode: SP1ProofMode) -> ProofMode {
-    match mode {
-        SP1ProofMode::Core => ProofMode::Core,
-        SP1ProofMode::Compressed => ProofMode::Compressed,
-        SP1ProofMode::Plonk => ProofMode::Plonk,
-        SP1ProofMode::Groth16 => ProofMode::Groth16,
+        cluster_agg_proof(self.config.timeout, self.config.agg_proof_mode, stdin).await
     }
 }
 

@@ -6,11 +6,10 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::get_range_elf_embedded;
-use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
+use op_succinct_proof_utils::{cluster_agg_proof, cluster_range_proof, get_range_elf_embedded};
 use sp1_sdk::{
     network::{
-        proto::types::{ExecutionStatus, ProofMode},
+        proto::types::ExecutionStatus,
         FulfillmentStrategy,
     },
     Elf, NetworkProver, ProveRequest, Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin,
@@ -28,9 +27,6 @@ use crate::{
 };
 
 /// Cluster-based prover using a self-hosted sp1-cluster.
-///
-/// Proofs are synchronous — `request_proof_from_env` blocks until the proof is ready.
-/// No network credentials required; only CLI_CLUSTER_RPC and CLI_REDIS_NODES.
 #[derive(Clone)]
 pub struct ClusterProver {
     pub proving_timeout: u64,
@@ -42,29 +38,12 @@ impl ClusterProver {
         Self { proving_timeout, agg_mode }
     }
 
-    /// Generates a range proof via cluster (synchronous — blocks until proof is ready).
     pub async fn range_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
-        tracing::info!("Generating range proof via cluster");
-        let timeout_hours = (self.proving_timeout / 3600).max(1);
-        let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-        let ProofRequestResults { proof, .. } =
-            request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
-        Ok(SP1ProofWithPublicValues::from(proof))
+        cluster_range_proof(self.proving_timeout, stdin).await
     }
 
-    /// Generates an aggregation proof via cluster (synchronous — blocks until proof is ready).
     pub async fn agg_proof(&self, stdin: SP1Stdin) -> Result<SP1ProofWithPublicValues> {
-        tracing::info!("Generating aggregation proof via cluster");
-        let timeout_hours = (self.proving_timeout / 3600).max(1);
-        let proto_mode = to_proto_proof_mode(self.agg_mode);
-        let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-        let ProofRequestResults { proof, .. } =
-            request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin)
-                .await
-                .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
-        Ok(SP1ProofWithPublicValues::from(proof))
+        cluster_agg_proof(self.proving_timeout, self.agg_mode, stdin).await
     }
 }
 
@@ -650,15 +629,5 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         }
 
         Ok(())
-    }
-}
-
-/// Convert SP1ProofMode to proto ProofMode for cluster API.
-fn to_proto_proof_mode(mode: SP1ProofMode) -> ProofMode {
-    match mode {
-        SP1ProofMode::Core => ProofMode::Core,
-        SP1ProofMode::Compressed => ProofMode::Compressed,
-        SP1ProofMode::Plonk => ProofMode::Plonk,
-        SP1ProofMode::Groth16 => ProofMode::Groth16,
     }
 }

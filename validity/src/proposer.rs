@@ -96,9 +96,7 @@ where
         let sp1_prover_env = std::env::var("SP1_PROVER").unwrap_or_default();
         let is_cluster = sp1_prover_env == "cluster";
 
-        // Set up keys and network prover.
-        // In cluster mode, use blocking CpuProver for key setup (no network credentials needed).
-        let (program_config, network_prover) = if is_cluster {
+        let (range_pk, range_vk, agg_pk, agg_vk, network_prover) = if is_cluster {
             let cpu_prover = blocking::CpuProver::new();
             let range_pk = cpu_prover
                 .setup(Elf::Static(get_range_elf_embedded()))
@@ -107,28 +105,7 @@ where
             let agg_pk =
                 cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
             let agg_vk = agg_pk.verifying_key().clone();
-            let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
-            let range_vkey_commitment = B256::from(multi_block_vkey_u8);
-            let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
-
-            let rollup_config_hash =
-                hash_rollup_config(fetcher.rollup_config.as_ref().ok_or_else(|| {
-                    anyhow!("Rollup config must be set to initialize the proposer.")
-                })?);
-
-            let program_config = ProgramConfig {
-                range_vk: Arc::new(range_vk),
-                range_pk: Arc::new(range_pk),
-                agg_vk: Arc::new(agg_vk),
-                agg_pk: Arc::new(agg_pk),
-                commitments: CommitmentConfig {
-                    range_vkey_commitment,
-                    agg_vkey_hash,
-                    rollup_config_hash,
-                },
-            };
-
-            (program_config, None)
+            (range_pk, range_vk, agg_pk, agg_vk, None)
         } else {
             let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
             let network_mode = determine_network_mode(
@@ -142,33 +119,30 @@ where
                     .build()
                     .await,
             );
-
             let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
             let range_vk = range_pk.verifying_key().clone();
             let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
             let agg_vk = agg_pk.verifying_key().clone();
-            let multi_block_vkey_u8 = u32_to_u8(range_vk.vk.hash_u32());
-            let range_vkey_commitment = B256::from(multi_block_vkey_u8);
-            let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
+            (range_pk, range_vk, agg_pk, agg_vk, Some(network_prover))
+        };
 
-            let rollup_config_hash =
-                hash_rollup_config(fetcher.rollup_config.as_ref().ok_or_else(|| {
-                    anyhow!("Rollup config must be set to initialize the proposer.")
-                })?);
+        let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
+        let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
+        let rollup_config_hash =
+            hash_rollup_config(fetcher.rollup_config.as_ref().ok_or_else(|| {
+                anyhow!("Rollup config must be set to initialize the proposer.")
+            })?);
 
-            let program_config = ProgramConfig {
-                range_vk: Arc::new(range_vk),
-                range_pk: Arc::new(range_pk),
-                agg_vk: Arc::new(agg_vk),
-                agg_pk: Arc::new(agg_pk),
-                commitments: CommitmentConfig {
-                    range_vkey_commitment,
-                    agg_vkey_hash,
-                    rollup_config_hash,
-                },
-            };
-
-            (program_config, Some(network_prover))
+        let program_config = ProgramConfig {
+            range_vk: Arc::new(range_vk),
+            range_pk: Arc::new(range_pk),
+            agg_vk: Arc::new(agg_vk),
+            agg_pk: Arc::new(agg_pk),
+            commitments: CommitmentConfig {
+                range_vkey_commitment,
+                agg_vkey_hash,
+                rollup_config_hash,
+            },
         };
         program_config.log();
 

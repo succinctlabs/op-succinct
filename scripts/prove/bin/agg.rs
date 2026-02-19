@@ -5,13 +5,11 @@ use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin};
-use op_succinct_proof_utils::get_range_elf_embedded;
-use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
+use op_succinct_proof_utils::{cluster_agg_proof, get_range_elf_embedded};
 use sp1_sdk::{
     blocking::{self, Prover as BlockingProver},
-    network::proto::types::ProofMode,
-    utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, ProvingKey, SP1Proof,
-    SP1ProofWithPublicValues, SP1VerifyingKey,
+    utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, SP1Proof, SP1ProofMode,
+    SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
 use std::fs;
 
@@ -68,6 +66,34 @@ fn load_aggregation_proof_data(
     (proofs, boot_infos)
 }
 
+/// Build the aggregation proof stdin from loaded proofs.
+async fn build_agg_stdin(
+    fetcher: &OPSuccinctDataFetcher,
+    proof_names: Vec<String>,
+    range_vkey: &SP1VerifyingKey,
+    prover_address: Address,
+) -> Result<SP1Stdin> {
+    let (proofs, boot_infos) = load_aggregation_proof_data(proof_names, range_vkey);
+
+    let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
+    let l1_head_hash = header.hash_slow();
+    let headers = fetcher.get_header_preimages(&boot_infos, l1_head_hash).await?;
+    let multi_block_vkey_u8 = u32_to_u8(range_vkey.vk.hash_u32());
+    let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
+    println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
+
+    let stdin = get_agg_proof_stdin(
+        proofs,
+        boot_infos,
+        headers,
+        range_vkey,
+        l1_head_hash,
+        prover_address,
+    )?;
+
+    Ok(stdin)
+}
+
 // Execute the OP Succinct program for a single block.
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -88,34 +114,14 @@ async fn main() -> Result<()> {
             .expect("range ELF setup failed");
         let vkey = range_pk.verifying_key().clone();
 
-        let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
-
-        let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
-        let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
-        let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
-        let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
-        println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
-        let stdin = get_agg_proof_stdin(
-            proofs,
-            boot_infos,
-            headers,
-            &vkey,
-            header.hash_slow(),
-            args.prover,
-        )
-        .expect("Failed to get agg proof stdin");
+        let stdin = build_agg_stdin(&fetcher, args.proofs, &vkey, args.prover).await?;
 
         let agg_pk = cpu_prover.setup(Elf::Static(AGGREGATION_ELF)).expect("agg ELF setup failed");
         let agg_vk = agg_pk.verifying_key();
         println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
 
         if args.prove {
-            let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-            let ProofRequestResults { proof, .. } =
-                request_proof_from_env(ProofMode::Groth16, 6, cluster_elf, stdin)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("cluster proof failed: {e}"))?;
-            let proof = SP1ProofWithPublicValues::from(proof);
+            let proof = cluster_agg_proof(6 * 3600, SP1ProofMode::Groth16, stdin).await?;
             proof.save("output.bin").expect("saving proof failed");
         } else {
             let (_, report) = cpu_prover
@@ -133,22 +139,7 @@ async fn main() -> Result<()> {
         let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         let vkey = range_pk.verifying_key().clone();
 
-        let (proofs, boot_infos) = load_aggregation_proof_data(args.proofs, &vkey);
-
-        let header = fetcher.get_latest_l1_head_in_batch(&boot_infos).await?;
-        let headers = fetcher.get_header_preimages(&boot_infos, header.hash_slow()).await?;
-        let multi_block_vkey_u8 = u32_to_u8(vkey.vk.hash_u32());
-        let multi_block_vkey_b256 = B256::from(multi_block_vkey_u8);
-        println!("Range ELF Verification Key Commitment: {multi_block_vkey_b256}");
-        let stdin = get_agg_proof_stdin(
-            proofs,
-            boot_infos,
-            headers,
-            &vkey,
-            header.hash_slow(),
-            args.prover,
-        )
-        .expect("Failed to get agg proof stdin");
+        let stdin = build_agg_stdin(&fetcher, args.proofs, &vkey, args.prover).await?;
 
         let agg_pk = prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
         let agg_vk = agg_pk.verifying_key();

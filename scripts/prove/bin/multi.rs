@@ -8,14 +8,10 @@ use op_succinct_host_utils::{
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
+use op_succinct_proof_utils::{cluster_range_proof, get_range_elf_embedded, initialize_host};
 use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_cluster_utils::{request_proof_from_env, ClusterElf, ProofRequestResults};
-use sp1_sdk::{
-    network::proto::types::ProofMode, utils, Elf, ProveRequest, Prover, ProverClient,
-    SP1ProofWithPublicValues,
-};
+use sp1_sdk::{utils, Elf, ProveRequest, Prover, ProverClient};
 use std::{
     fs,
     sync::Arc,
@@ -99,12 +95,7 @@ async fn main() -> Result<()> {
 
         if sp1_prover == "cluster" {
             // Self-hosted cluster mode: bypass ProverClient, talk to cluster API directly.
-            let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-            let ProofRequestResults { proof, .. } =
-                request_proof_from_env(ProofMode::Compressed, 6, cluster_elf, sp1_stdin)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("cluster proof failed: {e}"))?;
-            let proof = SP1ProofWithPublicValues::from(proof);
+            let proof = cluster_range_proof(6 * 3600, sp1_stdin).await?;
             proof
                 .save(format!("{proof_dir}/{l2_start_block}-{l2_end_block}.bin"))
                 .expect("saving proof failed");
