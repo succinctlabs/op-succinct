@@ -77,7 +77,7 @@ pub async fn cluster_range_proof(
     stdin: SP1Stdin,
 ) -> Result<SP1ProofWithPublicValues> {
     tracing::info!("Generating range proof via cluster");
-    let timeout_hours = (timeout_secs / 3600).max(1);
+    let timeout_hours = timeout_secs.div_ceil(3600).max(1);
     let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
     let ProofRequestResults { proof, .. } =
         request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
@@ -93,7 +93,7 @@ pub async fn cluster_agg_proof(
     stdin: SP1Stdin,
 ) -> Result<SP1ProofWithPublicValues> {
     tracing::info!("Generating aggregation proof via cluster");
-    let timeout_hours = (timeout_secs / 3600).max(1);
+    let timeout_hours = timeout_secs.div_ceil(3600).max(1);
     let proto_mode = to_proto_proof_mode(agg_mode);
     let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
     let ProofRequestResults { proof, .. } =

@@ -289,9 +289,10 @@ where
         host: Arc<H>,
     ) -> Result<Self> {
         let sp1_prover_env = std::env::var("SP1_PROVER").unwrap_or_default();
+        let is_cluster = sp1_prover_env == "cluster";
 
         let (range_pk, range_vk, agg_pk, agg_vk, network_prover, network_mode) =
-            if sp1_prover_env == "cluster" {
+            if is_cluster {
                 let cpu_prover = blocking::CpuProver::new();
                 let range_pk = cpu_prover
                     .setup(Elf::Static(get_range_elf_embedded()))
@@ -339,7 +340,7 @@ where
             agg_vk: Arc::new(agg_vk),
         };
 
-        let prover = if sp1_prover_env == "cluster" {
+        let prover = if is_cluster {
             ProofProvider::Cluster(ClusterProofProvider::new(
                 keys.clone(),
                 config.proof_provider.clone(),

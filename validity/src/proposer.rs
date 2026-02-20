@@ -179,7 +179,7 @@ where
             requester_config.whitelist.clone(),
             requester_config.min_auction_period,
             requester_config.auction_timeout,
-        ));
+        )?);
 
         let l2oo_contract =
             OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider.clone());
@@ -348,7 +348,7 @@ where
     /// `make_proof_request` and never enter the Prove state, so there is nothing to poll.
     #[tracing::instrument(name = "proposer.handle_proving_requests", skip(self))]
     pub async fn handle_proving_requests(&self) -> Result<()> {
-        if self.proof_requester.cluster_prover.is_some() || self.proof_requester.mock {
+        if self.proof_requester.is_synchronous_proving() {
             return Ok(());
         }
 
@@ -430,28 +430,15 @@ where
 
                     ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                    match request.req_type {
-                        RequestType::Range => {
-                            warn!(
-                                proof_id = request.id,
-                                start_block = request.start_block,
-                                end_block = request.end_block,
-                                auction_deadline = auction_deadline,
-                                current_time = current_time,
-                                "Range proof request auction deadline exceeded"
-                            );
-                        }
-                        RequestType::Aggregation => {
-                            warn!(
-                                proof_id = request.id,
-                                start_block = request.start_block,
-                                end_block = request.end_block,
-                                auction_deadline = auction_deadline,
-                                current_time = current_time,
-                                "Aggregation proof request auction deadline exceeded"
-                            );
-                        }
-                    }
+                    warn!(
+                        proof_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        req_type = ?request.req_type,
+                        auction_deadline,
+                        current_time,
+                        "Proof request auction deadline exceeded"
+                    );
 
                     return Ok(());
                 }
@@ -472,28 +459,15 @@ where
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                match request.req_type {
-                    RequestType::Range => {
-                        warn!(
-                            proof_id = request.id,
-                            start_block = request.start_block,
-                            end_block = request.end_block,
-                            deadline = status.deadline(),
-                            current_time = current_time,
-                            "Range proof request timed out"
-                        );
-                    }
-                    RequestType::Aggregation => {
-                        warn!(
-                            proof_id = request.id,
-                            start_block = request.start_block,
-                            end_block = request.end_block,
-                            deadline = status.deadline(),
-                            current_time = current_time,
-                            "Aggregation proof request timed out"
-                        );
-                    }
-                }
+                warn!(
+                    proof_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    req_type = ?request.req_type,
+                    deadline = status.deadline(),
+                    current_time,
+                    "Proof request timed out"
+                );
 
                 return Ok(());
             }

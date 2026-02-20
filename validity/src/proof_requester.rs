@@ -93,12 +93,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         whitelist: Option<Vec<Address>>,
         min_auction_period: u64,
         auction_timeout: u64,
-    ) -> Self {
-        assert!(
+    ) -> Result<Self> {
+        anyhow::ensure!(
             !(mock && cluster_prover.is_some()),
             "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock=true"
         );
-        Self {
+        Ok(Self {
             host,
             network_prover,
             fetcher,
@@ -119,7 +119,13 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             whitelist,
             min_auction_period,
             auction_timeout,
-        }
+        })
+    }
+
+    /// Returns true if proofs are generated synchronously (mock or cluster mode)
+    /// and never enter the Prove state for network polling.
+    pub fn is_synchronous_proving(&self) -> bool {
+        self.mock || self.cluster_prover.is_some()
     }
 
     /// Generates the witness for a range proof.
@@ -337,7 +343,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
             &self.program_config.range_vk,
-            pv.clone(),
+            pv,
             SP1ProofMode::Compressed,
             SP1_CIRCUIT_VERSION,
         ))
@@ -392,7 +398,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
             &self.program_config.agg_vk,
-            pv.clone(),
+            pv,
             self.agg_mode,
             SP1_CIRCUIT_VERSION,
         ))
