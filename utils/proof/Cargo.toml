@@ -13,8 +13,14 @@ op-succinct-elfs.workspace = true
 op-succinct-ethereum-host-utils = { workspace = true, optional = true }
 op-succinct-host-utils.workspace = true
 
+# sp1
+sp1-sdk.workspace = true
+sp1-cluster-utils.workspace = true
+
 # general
+anyhow.workspace = true
 cfg-if.workspace = true
+tokio.workspace = true
 tracing.workspace = true
 
 [features]

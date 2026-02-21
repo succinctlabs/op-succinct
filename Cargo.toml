@@ -207,6 +207,7 @@ sp1-prover = "=6.0.1"
 sp1-core-executor = "=6.0.1"
 sp1-hypercube = "=6.0.1"
 sp1-primitives = "=6.0.1"
+sp1-cluster-utils = { git = "https://github.com/succinctlabs/sp1-cluster.git", tag = "v2.0.1" }
 
 # kzg
 kzg-rs = { version = "0.2.8", features = ["rkyv", "serde"] }
