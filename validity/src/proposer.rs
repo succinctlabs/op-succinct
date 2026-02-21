@@ -15,7 +15,7 @@ use op_succinct_host_utils::{
     DisputeGameFactory::DisputeGameFactoryInstance as DisputeGameFactoryContract,
     OPSuccinctL2OutputOracle::OPSuccinctL2OutputOracleInstance as OPSuccinctL2OOContract,
 };
-use op_succinct_proof_utils::get_range_elf_embedded;
+use op_succinct_proof_utils::{cluster_setup_keys, get_range_elf_embedded, is_cluster_mode};
 use op_succinct_signer_utils::SignerLock;
 use sp1_sdk::{
     network::{
@@ -37,7 +37,7 @@ use crate::{
 
 /// Configuration for the driver.
 pub struct DriverConfig {
-    pub network_prover: Arc<NetworkProver>,
+    pub network_prover: Option<Arc<NetworkProver>>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub driver_db_client: Arc<DriverDBClient>,
     pub signer: SignerLock,
@@ -91,26 +91,33 @@ where
             .add_chain_lock(requester_config.l1_chain_id, requester_config.l2_chain_id)
             .await?;
 
-        // Set up the network prover.
-        let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
-        let network_mode = determine_network_mode(
-            requester_config.range_proof_strategy,
-            requester_config.agg_proof_strategy,
-        )?;
-        let network_prover = Arc::new(
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build().await,
-        );
+        let is_cluster = is_cluster_mode();
 
-        let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-        let range_vk = range_pk.verifying_key().clone();
+        let (range_pk, range_vk, agg_pk, agg_vk, network_prover) = if is_cluster {
+            let (range_pk, range_vk, agg_pk, agg_vk) = cluster_setup_keys().await?;
+            (range_pk, range_vk, agg_pk, agg_vk, None)
+        } else {
+            let network_signer = get_network_signer(requester_config.use_kms_requester).await?;
+            let network_mode = determine_network_mode(
+                requester_config.range_proof_strategy,
+                requester_config.agg_proof_strategy,
+            )?;
+            let network_prover = Arc::new(
+                ProverClient::builder()
+                    .network_for(network_mode)
+                    .signer(network_signer)
+                    .build()
+                    .await,
+            );
+            let range_pk = network_prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+            let range_vk = range_pk.verifying_key().clone();
+            let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
+            let agg_vk = agg_pk.verifying_key().clone();
+            (range_pk, range_vk, agg_pk, agg_vk, Some(network_prover))
+        };
 
-        let agg_pk = network_prover.setup(Elf::Static(AGGREGATION_ELF)).await?;
-        let agg_vk = agg_pk.verifying_key().clone();
-        let multi_block_vkey_u8 = u32_to_u8(range_vk.hash_u32());
-        let range_vkey_commitment = B256::from(multi_block_vkey_u8);
+        let range_vkey_commitment = B256::from(u32_to_u8(range_vk.vk.hash_u32()));
         let agg_vkey_hash = B256::from_str(&agg_vk.bytes32())?;
-
-        // Initialize fetcher
         let rollup_config_hash = hash_rollup_config(
             fetcher
                 .rollup_config
@@ -131,7 +138,6 @@ where
         };
         program_config.log();
 
-        // Initialize the proof requester.
         let proof_requester = Arc::new(OPSuccinctProofRequester::new(
             host,
             network_prover.clone(),
@@ -139,6 +145,7 @@ where
             db_client.clone(),
             program_config.clone(),
             requester_config.mock,
+            is_cluster,
             requester_config.range_proof_strategy,
             requester_config.agg_proof_strategy,
             requester_config.agg_proof_mode,
@@ -152,7 +159,7 @@ where
             requester_config.whitelist.clone(),
             requester_config.min_auction_period,
             requester_config.auction_timeout,
-        ));
+        )?);
 
         let l2oo_contract =
             OPSuccinctL2OOContract::new(requester_config.l2oo_address, provider.clone());
@@ -316,9 +323,15 @@ where
     }
 
     /// Handle all proof requests in the Prove state.
+    ///
+    /// No-op in cluster and mock modes: those modes store proofs directly during
+    /// `make_proof_request` and never enter the Prove state, so there is nothing to poll.
     #[tracing::instrument(name = "proposer.handle_proving_requests", skip(self))]
     pub async fn handle_proving_requests(&self) -> Result<()> {
-        // Get all requests from the database.
+        if self.proof_requester.is_synchronous_proving() {
+            return Ok(());
+        }
+
         let prove_requests = self
             .driver_config
             .driver_db_client
@@ -330,7 +343,6 @@ where
             )
             .await?;
 
-        // Get the proof status of all of the requests.
         for request in prove_requests {
             self.process_proof_request_status(request).await?;
         }
@@ -341,11 +353,17 @@ where
     /// Process a single OP Succinct request's proof status.
     #[tracing::instrument(name = "proposer.process_proof_request_status", skip(self, request))]
     pub async fn process_proof_request_status(&self, request: OPSuccinctRequest) -> Result<()> {
+        let network_prover = self
+            .driver_config
+            .network_prover
+            .as_ref()
+            .context("network_prover required for proof status polling")?;
+
         if let Some(proof_request_id) = request.proof_request_id.as_ref() {
             let proof_request_id = B256::from_slice(proof_request_id);
             let (status, proof) = self
                 .network_call_with_timeout(
-                    self.driver_config.network_prover.get_proof_status(proof_request_id),
+                    network_prover.get_proof_status(proof_request_id),
                     "waiting for proof status",
                     &request,
                 )
@@ -353,7 +371,7 @@ where
 
             let request_details = self
                 .network_call_with_timeout(
-                    self.driver_config.network_prover.get_proof_request(proof_request_id),
+                    network_prover.get_proof_request(proof_request_id),
                     "waiting for proof request details",
                     &request,
                 )
@@ -367,13 +385,13 @@ where
             if let Some(request_details) = request_details {
                 let auction_deadline =
                     request_details.created_at + self.requester_config.auction_timeout;
-                if self.driver_config.network_prover.network_mode() == NetworkMode::Mainnet &&
+                if network_prover.network_mode() == NetworkMode::Mainnet &&
                     request_details.fulfillment_status == FulfillmentStatus::Requested as i32 &&
                     current_time > auction_deadline
                 {
                     // Cancel the request in the network.
                     self.network_call_with_timeout(
-                        self.driver_config.network_prover.cancel_request(proof_request_id),
+                        network_prover.cancel_request(proof_request_id),
                         "cancelling proof request",
                         &request,
                     )
@@ -390,28 +408,15 @@ where
 
                     ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                    match request.req_type {
-                        RequestType::Range => {
-                            warn!(
-                                proof_id = request.id,
-                                start_block = request.start_block,
-                                end_block = request.end_block,
-                                auction_deadline = auction_deadline,
-                                current_time = current_time,
-                                "Range proof request auction deadline exceeded"
-                            );
-                        }
-                        RequestType::Aggregation => {
-                            warn!(
-                                proof_id = request.id,
-                                start_block = request.start_block,
-                                end_block = request.end_block,
-                                auction_deadline = auction_deadline,
-                                current_time = current_time,
-                                "Aggregation proof request auction deadline exceeded"
-                            );
-                        }
-                    }
+                    warn!(
+                        proof_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        req_type = ?request.req_type,
+                        auction_deadline,
+                        current_time,
+                        "Proof request auction deadline exceeded"
+                    );
 
                     return Ok(());
                 }
@@ -432,28 +437,15 @@ where
 
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
 
-                match request.req_type {
-                    RequestType::Range => {
-                        warn!(
-                            proof_id = request.id,
-                            start_block = request.start_block,
-                            end_block = request.end_block,
-                            deadline = status.deadline(),
-                            current_time = current_time,
-                            "Range proof request timed out"
-                        );
-                    }
-                    RequestType::Aggregation => {
-                        warn!(
-                            proof_id = request.id,
-                            start_block = request.start_block,
-                            end_block = request.end_block,
-                            deadline = status.deadline(),
-                            current_time = current_time,
-                            "Aggregation proof request timed out"
-                        );
-                    }
-                }
+                warn!(
+                    proof_id = request.id,
+                    start_block = request.start_block,
+                    end_block = request.end_block,
+                    req_type = ?request.req_type,
+                    deadline = status.deadline(),
+                    current_time,
+                    "Proof request timed out"
+                );
 
                 return Ok(());
             }
@@ -481,7 +473,7 @@ where
 
                 if let Some(proof_request) = self
                     .network_call_with_timeout(
-                        self.driver_config.network_prover.get_proof_request(proof_request_id),
+                        network_prover.get_proof_request(proof_request_id),
                         "fetching execution statistics",
                         &request,
                     )
@@ -1570,13 +1562,7 @@ where
         Ok(Some(current_end))
     }
 
-    /// Helper method to wrap network prover calls with timeout and proper error handling.
-    ///
-    /// This method:
-    /// - Wraps the network call in a timeout to prevent indefinite hangs
-    /// - Preserves the original network error context when operations fail
-    /// - Logs timeout events with request context for debugging
-    /// - Increments timeout metrics for monitoring
+    /// Wrap a network prover call with timeout, logging, and metrics.
     async fn network_call_with_timeout<F, T>(
         &self,
         future: F,
