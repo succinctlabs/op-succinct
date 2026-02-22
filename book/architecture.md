@@ -36,3 +36,32 @@ The OP Succinct Proposer is a new service that orchestrates the proving pipeline
 5. The on-chain contract verifies the proof and updates the L2 state root for withdrawals.
 
 ![OP Succinct Architecture](./assets/op-succinct-proposer-architecture.jpg)
+
+### Proof Types
+
+OP Succinct uses a two-stage proving pipeline, with different proof types at each stage:
+
+#### Range Proofs (STARK — Compressed)
+
+The range program produces **compressed STARK proofs** via SP1. This is hardcoded and not configurable — range proofs always use `SP1ProofMode::Compressed`. Compressed proofs are smaller than core STARK proofs but are not yet suitable for on-chain verification because verifying STARKs on-chain is too expensive.
+
+#### Aggregation Proofs (SNARK — Plonk or Groth16)
+
+Multiple range proofs are combined into a single **aggregation proof**. The aggregation step converts the STARK proofs into a **SNARK proof** (either Plonk or Groth16), which is compact and cheap to verify on-chain.
+
+The aggregation proof mode is configurable via the `AGG_PROOF_MODE` environment variable:
+- `plonk` (default) — produces a PLONK SNARK proof.
+- `groth16` — produces a Groth16 SNARK proof.
+
+> **Note:** Changing the aggregation proof mode requires updating the SP1 verifier contract address in your deployment. The on-chain verifier contract must match the proof type. See [SP1 Contract Addresses](https://docs.succinct.xyz/docs/sp1/verification/contract-addresses) for verifier addresses.
+
+#### On-Chain Verification
+
+The on-chain contract (`OPSuccinctL2OutputOracle` or `OPSuccinctFaultDisputeGame`) verifies only **aggregation proofs**, not individual range proofs. It calls `ISP1Verifier.verifyProof(...)` with the aggregation verification key. The `ISP1Verifier` contract must correspond to the proof mode (Plonk or Groth16) being used.
+
+#### Summary
+
+| Stage | Proof Mode | Proof System | Configurable | On-Chain |
+|---|---|---|---|---|
+| Range | `Compressed` | STARK | No | No |
+| Aggregation | `Plonk` (default) or `Groth16` | SNARK | Yes (`AGG_PROOF_MODE`) | Yes |
