@@ -106,10 +106,13 @@ pub async fn cluster_range_proof(
     tracing::info!("Generating range proof via cluster");
     let timeout_hours = timeout_secs.div_ceil(3600).max(1);
     let cluster_elf = ClusterElf::NewElf(get_range_elf_embedded().to_vec());
-    let ProofRequestResults { proof, .. } =
-        request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin)
-            .await
-            .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
+    let ProofRequestResults { proof, .. } = tokio::time::timeout(
+        std::time::Duration::from_secs(timeout_secs),
+        request_proof_from_env(ProofMode::Compressed, timeout_hours, cluster_elf, stdin),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("cluster range proof timed out after {timeout_secs}s"))?
+    .map_err(|e| anyhow::anyhow!("cluster range proof failed: {e}"))?;
     Ok(SP1ProofWithPublicValues::from(proof))
 }
 
@@ -123,9 +126,12 @@ pub async fn cluster_agg_proof(
     let timeout_hours = timeout_secs.div_ceil(3600).max(1);
     let proto_mode = to_proto_proof_mode(agg_mode);
     let cluster_elf = ClusterElf::NewElf(AGGREGATION_ELF.to_vec());
-    let ProofRequestResults { proof, .. } =
-        request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin)
-            .await
-            .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
+    let ProofRequestResults { proof, .. } = tokio::time::timeout(
+        std::time::Duration::from_secs(timeout_secs),
+        request_proof_from_env(proto_mode, timeout_hours, cluster_elf, stdin),
+    )
+    .await
+    .map_err(|_| anyhow::anyhow!("cluster agg proof timed out after {timeout_secs}s"))?
+    .map_err(|e| anyhow::anyhow!("cluster agg proof failed: {e}"))?;
     Ok(SP1ProofWithPublicValues::from(proof))
 }
