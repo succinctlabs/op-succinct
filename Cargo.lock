@@ -110,8 +110,8 @@ dependencies = [
 
 [[package]]
 name = "alloy-celo-evm"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-evm 0.24.2",
@@ -2855,8 +2855,8 @@ dependencies = [
 
 [[package]]
 name = "celo-alloy-consensus"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2870,8 +2870,8 @@ dependencies = [
 
 [[package]]
 name = "celo-alloy-network"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-network",
@@ -2884,8 +2884,8 @@ dependencies = [
 
 [[package]]
 name = "celo-alloy-rpc-types"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2903,8 +2903,8 @@ dependencies = [
 
 [[package]]
 name = "celo-alloy-rpc-types-engine"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -2919,8 +2919,8 @@ dependencies = [
 
 [[package]]
 name = "celo-client"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-celo-evm",
  "alloy-consensus",
@@ -2944,8 +2944,8 @@ dependencies = [
 
 [[package]]
 name = "celo-driver"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -2974,8 +2974,8 @@ dependencies = [
 
 [[package]]
 name = "celo-executor"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-celo-evm",
  "alloy-consensus",
@@ -3002,8 +3002,8 @@ dependencies = [
 
 [[package]]
 name = "celo-genesis"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3022,8 +3022,8 @@ dependencies = [
 
 [[package]]
 name = "celo-host"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3060,8 +3060,8 @@ dependencies = [
 
 [[package]]
 name = "celo-proof"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3095,8 +3095,8 @@ dependencies = [
 
 [[package]]
 name = "celo-protocol"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -3124,8 +3124,8 @@ dependencies = [
 
 [[package]]
 name = "celo-registry"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-chains",
  "alloy-primitives",
@@ -3138,8 +3138,8 @@ dependencies = [
 
 [[package]]
 name = "celo-revm"
-version = "0.1.0"
-source = "git+https://github.com/celo-org/celo-kona?rev=444db61#444db6176a2c29886e68e678628032af0d8cb078"
+version = "1.0.0"
+source = "git+https://github.com/celo-org/celo-kona?rev=066f949#066f9498a6fe17fff0f13e333504cb52ec6dba64"
 dependencies = [
  "alloy-eips",
  "alloy-evm 0.24.2",
@@ -8005,6 +8005,7 @@ dependencies = [
  "celo-host",
  "celo-proof",
  "celo-protocol",
+ "celo-registry",
  "cfg-if",
  "futures",
  "hana-host",

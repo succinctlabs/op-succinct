@@ -19,11 +19,12 @@ use celo_alloy_consensus::CeloBlock;
 use celo_alloy_network::Celo;
 use celo_genesis::CeloRollupConfig;
 use celo_protocol::CeloL2BlockInfo;
+use celo_registry::ROLLUP_CONFIGS;
 use futures::{stream, StreamExt};
 use kona_host::single::SingleChainHost;
 use kona_registry::L1_CONFIGS;
 use op_alloy_network::{primitives::HeaderResponse, BlockResponse, Network};
-use op_succinct_client_utils::boot::BootInfoStruct;
+use op_succinct_client_utils::boot::{hash_rollup_config, BootInfoStruct};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -313,8 +314,55 @@ impl OPSuccinctDataFetcher {
     async fn fetch_and_save_rollup_config(
         rpc_config: &RPCConfig,
     ) -> Result<(CeloRollupConfig, PathBuf)> {
-        let rollup_config: CeloRollupConfig =
-            Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![]).await?;
+        // Fetch chain ID to look up registry config
+        let chain_id: String =
+            Self::fetch_rpc_data(&rpc_config.l2_rpc, "eth_chainId", vec![]).await?;
+        let chain_id: u64 = chain_id.parse::<U64>().unwrap().to();
+
+        // Fetch rollup config from node RPC (best-effort for hash comparison)
+        let node_rpc_config: Option<CeloRollupConfig> =
+            Self::fetch_rpc_data(&rpc_config.l2_node_rpc, "optimism_rollupConfig", vec![])
+                .await
+                .inspect(|_| {
+                    tracing::info!("Loaded L2 config for chain ID {} from node RPC", chain_id);
+                })
+                .map_err(|e| {
+                    tracing::warn!(
+                        "Failed to fetch rollup config from node RPC for chain ID {}: {:?}",
+                        chain_id,
+                        e
+                    );
+                })
+                .ok();
+
+        // Try to fetch rollup config from celo-registry; if found, compare hashes and use it
+        let rollup_config = if let Some(registry_config) = ROLLUP_CONFIGS.get(&chain_id) {
+            tracing::info!("Loaded L2 config for chain ID {} from registry", chain_id);
+            if let Some(ref node_config) = node_rpc_config {
+                let registry_hash = hash_rollup_config(registry_config);
+                let node_rpc_hash = hash_rollup_config(node_config);
+                if registry_hash != node_rpc_hash {
+                    tracing::warn!(
+                        "Rollup config hash mismatch for chain ID {}: registry hash = {:?}, node RPC hash = {:?}",
+                        chain_id,
+                        registry_hash,
+                        node_rpc_hash
+                    );
+                }
+            }
+            registry_config.clone()
+        } else {
+            tracing::warn!(
+                "No rollup config found in registry for chain ID {}. Falling back to node RPC config",
+                chain_id
+            );
+            node_rpc_config.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No rollup config available for chain ID {}: not in registry and node RPC fetch failed",
+                    chain_id
+                )
+            })?
+        };
 
         // Create configs directory if it doesn't exist
         let default_dir = PathBuf::from("configs/L2");
