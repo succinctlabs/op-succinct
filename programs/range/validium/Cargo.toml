@@ -1,0 +1,27 @@
+[package]
+name = "validium-program"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+# SP1 zkVM
+sp1-zkvm.workspace = true
+
+# kona
+kona-proof.workspace = true
+
+# Local
+op-succinct-validium-client-utils.workspace = true
+op-succinct-client-utils.workspace = true
+op-succinct-range-utils.workspace = true
+
+# Serialization
+rkyv.workspace = true
+
+[features]
+embedded = ["sp1-zkvm/embedded"]
+tracing-subscriber = ["op-succinct-range-utils/tracing-subscriber"]

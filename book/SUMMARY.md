@@ -22,6 +22,7 @@
   - [Experimental Features](./validity/experimental/experimental.md)
     - [Celestia DA](./validity/experimental/celestia.md)
     - [EigenDA DA](./validity/experimental/eigenda.md)
+    - [Validium DA](./validity/experimental/validium.md)
 
 - [OP Succinct Lite (Fault Proofs)](./fault_proofs/intro.md)
   - [Architecture](./fault_proofs/fault_proof_architecture.md)

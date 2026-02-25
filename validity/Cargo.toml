@@ -72,4 +72,5 @@ postgresql_embedded = { version = "0.20", features = ["bundled"] }
 default = ["ethereum"]
 celestia = ["op-succinct-proof-utils/celestia"]
 eigenda = ["op-succinct-proof-utils/eigenda"]
+validium = ["op-succinct-proof-utils/validium"]
 ethereum = ["op-succinct-proof-utils/ethereum"]
