@@ -226,7 +226,7 @@ pub async fn wait_for_challenges<P: Provider>(
 
             statuses[i] = claim_data_status == ProposalStatus::Challenged;
 
-            if claim_data.status != 0 {
+            if claim_data_status != ProposalStatus::Unchallenged {
                 info!("Game {} status: {:?}", game_address, claim_data_status);
             }
         }

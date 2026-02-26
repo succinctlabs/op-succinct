@@ -348,7 +348,7 @@ async fn main() -> Result<()> {
     let new_game_count = factory.gameCount().call().await?;
     let game_index = new_game_count - U256::from(1);
     let game_info = factory.gameAtIndex(game_index).call().await?;
-    let game_address = game_info.proxy;
+    let game_address = game_info.proxy_;
     info!("Game address: {}", game_address);
 
     let game = OPSuccinctFaultDisputeGame::new(game_address, provider_with_signer.clone());
@@ -377,7 +377,10 @@ async fn main() -> Result<()> {
     info!("Transaction receipt: {:?}", receipt);
 
     let claim_data = game.claimData().call().await?;
-    assert_eq!(claim_data.status, ProposalStatus::UnchallengedAndValidProofProvided);
+    assert_eq!(
+        ProposalStatus::try_from(claim_data.status)?,
+        ProposalStatus::UnchallengedAndValidProofProvided
+    );
 
     info!("Successfully completed preflight check");
 
