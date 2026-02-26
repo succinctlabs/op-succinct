@@ -7259,6 +7259,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-altda-host-utils"
+version = "4.0.2"
+dependencies = [
+ "alloy-eips",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "clap",
+ "kona-host",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-altda-client-utils",
+ "op-succinct-client-utils",
+ "op-succinct-host-utils",
+ "reqwest 0.12.28",
+ "rkyv",
+ "serde",
+ "sp1-sdk",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "op-succinct-bindings"
 version = "4.0.2"
 dependencies = [
@@ -7555,6 +7578,7 @@ name = "op-succinct-proof-utils"
 version = "4.0.2"
 dependencies = [
  "cfg-if",
+ "op-succinct-altda-host-utils",
  "op-succinct-celestia-host-utils",
  "op-succinct-eigenda-host-utils",
  "op-succinct-elfs",
