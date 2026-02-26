@@ -86,3 +86,29 @@ jobs:
         run: |
           echo "Running long-running tests with mock proving..."
           just test-e2e-sysgo "${{ matrix.target }}"
+
+  # AltDA e2e tests — builds validity with --features altda and runs AltDA-specific tests
+  e2e-sysgo-altda:
+    name: AltDA
+    runs-on:
+      - runs-on
+      - runner=64cpu-linux-x64
+      - run-id=${{ github.run_id }}
+      - spot=false
+      - disk=large
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+
+      - name: Setup E2E environment
+        uses: ./.github/actions/setup-e2e-sysgo
+
+      - name: Run AltDA E2E Tests
+        working-directory: tests
+        run: |
+          echo "Running AltDA e2e tests..."
+          just test-e2e-sysgo-altda
