@@ -32,6 +32,7 @@ import {AggregationOutputs, OP_SUCCINCT_FAULT_DISPUTE_GAME_TYPE} from "src/lib/T
 import {DisputeGameFactory} from "src/dispute/DisputeGameFactory.sol";
 import {OPSuccinctFaultDisputeGame} from "src/fp/OPSuccinctFaultDisputeGame.sol";
 import {SP1MockVerifier} from "@sp1-contracts/src/SP1MockVerifier.sol";
+import {SP1Verifier} from "@sp1-contracts/src/v3.0.0/SP1VerifierGroth16.sol";
 import {AnchorStateRegistry} from "src/dispute/AnchorStateRegistry.sol";
 import {AccessManager} from "src/fp/AccessManager.sol";
 
@@ -46,12 +47,10 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 import {MockOptimismPortal2} from "../../src/utils/MockOptimismPortal2.sol";
 import {MockSystemConfig} from "../../src/utils/MockSystemConfig.sol";
 
-contract OPSuccinctFaultDisputeGameTest is Test {
-    // Event definitions matching those in OPSuccinctFaultDisputeGame.
-    event Challenged(address indexed challenger);
-    event Proved(address indexed prover);
-    event Resolved(GameStatus indexed status);
-
+/// @title OPSuccinctFaultDisputeGameTestBase
+/// @notice Abstract base contract with shared test setup for OPSuccinctFaultDisputeGame tests
+/// @dev Subclasses implement _createVerifier() to specify mock or real verifier
+abstract contract OPSuccinctFaultDisputeGameTestBase is Test {
     DisputeGameFactory factory;
     Proxy factoryProxy;
     ProxyAdmin proxyAdmin;
@@ -81,10 +80,23 @@ contract OPSuccinctFaultDisputeGameTest is Test {
     uint256 l2BlockNumber = 2000;
     uint32 parentIndex = 0;
 
-    // For a new parent game that we manipulate separately in some tests.
-    OPSuccinctFaultDisputeGame separateParentGame;
+    /// @notice Creates the SP1 verifier instance (mock or real)
+    /// @return The SP1 verifier to use in tests
+    function _createVerifier() internal virtual returns (ISP1Verifier);
 
-    function setUp() public {
+    /// @notice Whether to resolve the parent game during setUp
+    /// @return true to resolve parent (default), false to skip
+    function _shouldResolveParent() internal pure virtual returns (bool) {
+        return true;
+    }
+
+    /// @notice Initial ether to deal to proposer for testing
+    /// @return Amount in wei (default: 2 ether for original tests)
+    function _proposerInitialBalance() internal pure virtual returns (uint256) {
+        return 2 ether;
+    }
+
+    function setUp() public virtual {
         // Deploy ProxyAdmin with this test contract as owner.
         proxyAdmin = new ProxyAdmin(address(this));
 
@@ -104,8 +116,8 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         // Cast the proxy to the factory contract.
         factory = DisputeGameFactory(address(factoryProxy));
 
-        // Create a mock verifier.
-        SP1MockVerifier sp1Verifier = new SP1MockVerifier();
+        // Create verifier (mock or real based on subclass).
+        ISP1Verifier sp1Verifier = _createVerifier();
 
         // Create an anchor state registry.
         // Pass address(this) as guardian so the test contract can call guardian-restricted functions.
@@ -146,7 +158,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             maxChallengeDuration,
             maxProveDuration,
             IDisputeGameFactory(address(factory)),
-            ISP1Verifier(address(sp1Verifier)),
+            sp1Verifier,
             rollupConfigHash,
             aggregationVkey,
             rangeVkeyCommitment,
@@ -163,7 +175,7 @@ contract OPSuccinctFaultDisputeGameTest is Test {
 
         // Create the first (parent) game – it uses uint32.max as parent index.
         vm.startPrank(proposer);
-        vm.deal(proposer, 2 ether); // extra funds for testing.
+        vm.deal(proposer, _proposerInitialBalance()); // funds for testing.
 
         // Warp time forward to ensure the parent game is created after the respectedGameTypeUpdatedAt timestamp.
         vm.warp(block.timestamp + 1000);
@@ -180,13 +192,15 @@ contract OPSuccinctFaultDisputeGameTest is Test {
             )
         );
 
-        // We want the parent game to finalize. We'll skip its challenge period.
-        (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
-        vm.warp(parentGameDeadline.raw() + 1 seconds);
-        parentGame.resolve();
+        if (_shouldResolveParent()) {
+            // We want the parent game to finalize. We'll skip its challenge period.
+            (,,,,, Timestamp parentGameDeadline) = parentGame.claimData();
+            vm.warp(parentGameDeadline.raw() + 1 seconds);
+            parentGame.resolve();
 
-        vm.warp(parentGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
-        parentGame.claimCredit(proposer);
+            vm.warp(parentGame.resolvedAt().raw() + portal.disputeGameFinalityDelaySeconds() + 1 seconds);
+            parentGame.claimCredit(proposer);
+        }
 
         // Create the child game referencing parent index = 0.
         // The child game is at index 1.
@@ -202,6 +216,20 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         );
 
         vm.stopPrank();
+    }
+}
+
+contract OPSuccinctFaultDisputeGameTest is OPSuccinctFaultDisputeGameTestBase {
+    // Event definitions matching those in OPSuccinctFaultDisputeGame.
+    event Challenged(address indexed challenger);
+    event Proved(address indexed prover);
+    event Resolved(GameStatus indexed status);
+
+    // For a new parent game that we manipulate separately in some tests.
+    OPSuccinctFaultDisputeGame separateParentGame;
+
+    function _createVerifier() internal override returns (ISP1Verifier) {
+        return ISP1Verifier(address(new SP1MockVerifier()));
     }
 
     // =========================================
@@ -813,5 +841,75 @@ contract OPSuccinctFaultDisputeGameTest is Test {
         factory.create{value: 1 ether}(
             gameType, Claim.wrap(keccak256("new-claim-4")), abi.encodePacked(uint256(5000), uint32(1))
         );
+    }
+}
+
+/// @title OPSuccinctFaultDisputeGameInvalidProofTest
+/// @notice Tests that invalid proofs are rejected by the real SP1 verifier
+/// @dev Uses real SP1Verifier (not mock) to verify cryptographic rejection
+contract OPSuccinctFaultDisputeGameInvalidProofTest is OPSuccinctFaultDisputeGameTestBase {
+    function _createVerifier() internal override returns (ISP1Verifier) {
+        return ISP1Verifier(address(new SP1Verifier()));
+    }
+
+    function _shouldResolveParent() internal pure override returns (bool) {
+        return false; // Parent doesn't need to be resolved for prove() testing
+    }
+
+    /// @notice Fuzz test: invalid proof bytes should cause prove() to revert
+    /// @dev Tests that the real SP1 verifier rejects garbage/random proof bytes.
+    ///      Assumes length >= 4 to test the WrongVerifierSelector path (empty proof tested separately).
+    /// @param invalidProof Random bytes that are not a valid SP1 proof
+    function testFuzz_invalidProofRejected(bytes calldata invalidProof) public {
+        vm.assume(invalidProof.length >= 4); // Avoid slice bounds error (tested in testEmptyProofRejected)
+        vm.assume(invalidProof.length < 10000); // Bound size to avoid OOG reverts
+        vm.prank(prover);
+        vm.expectRevert(); // Real verifier rejects invalid proofs
+        game.prove(invalidProof);
+    }
+
+    /// @notice Test: empty proof bytes should be rejected
+    /// @dev Empty bytes cause slice out of bounds error (not WrongVerifierSelector)
+    ///      when verifier tries to read first 4 bytes for selector check
+    function testEmptyProofRejected() public {
+        vm.prank(prover);
+        vm.expectRevert(); // Reverts with slice bounds error
+        game.prove(bytes(""));
+    }
+
+    /// @notice Test: garbage proof bytes should be rejected
+    /// @dev 4+ bytes that don't match VERIFIER_HASH triggers WrongVerifierSelector
+    ///      Using generic expectRevert since error has dynamic parameters
+    function testGarbageProofRejected() public {
+        bytes memory garbageProof = hex"deadbeefcafebabe0123456789abcdef";
+
+        vm.prank(prover);
+        vm.expectRevert(); // Reverts with WrongVerifierSelector(actualSelector, expectedSelector)
+        game.prove(garbageProof);
+    }
+
+    /// @notice Test: proof with valid selector but invalid Groth16 proof body is rejected
+    /// @dev This tests deeper verification logic by passing the selector check but failing
+    ///      at the actual cryptographic verification. The SP1Verifier expects:
+    ///      - First 4 bytes: selector matching VERIFIER_HASH (0x09069090)
+    ///      - Next 256 bytes: uint256[8] Groth16 proof points
+    function testValidSelectorInvalidProofBodyRejected() public {
+        // Build proof with correct selector (first 4 bytes of VERIFIER_HASH)
+        // but garbage Groth16 proof body (8 * 32 = 256 bytes)
+        bytes memory proofWithValidSelector = abi.encodePacked(
+            bytes4(0x09069090), // Valid selector from SP1Verifier.VERIFIER_HASH()
+            uint256(0x1111111111111111111111111111111111111111111111111111111111111111),
+            uint256(0x2222222222222222222222222222222222222222222222222222222222222222),
+            uint256(0x3333333333333333333333333333333333333333333333333333333333333333),
+            uint256(0x4444444444444444444444444444444444444444444444444444444444444444),
+            uint256(0x5555555555555555555555555555555555555555555555555555555555555555),
+            uint256(0x6666666666666666666666666666666666666666666666666666666666666666),
+            uint256(0x7777777777777777777777777777777777777777777777777777777777777777),
+            uint256(0x8888888888888888888888888888888888888888888888888888888888888888)
+        );
+
+        vm.prank(prover);
+        vm.expectRevert(); // Fails at Groth16 cryptographic verification
+        game.prove(proofWithValidSelector);
     }
 }
