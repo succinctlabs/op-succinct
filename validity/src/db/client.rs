@@ -424,7 +424,7 @@ impl DriverDBClient {
         l2_chain_id: i64,
     ) -> Result<Vec<(i64, i64)>, Error> {
         let blocks = sqlx::query!(
-            "SELECT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
+            "SELECT DISTINCT start_block, end_block FROM requests WHERE range_vkey_commitment = $1 AND rollup_config_hash = $2 AND status = $3 AND req_type = $4 AND start_block >= $5 AND l1_chain_id = $6 AND l2_chain_id = $7 ORDER BY start_block ASC",
             &commitment.range_vkey_commitment[..],
             &commitment.rollup_config_hash[..],
             RequestStatus::Complete as i16,
