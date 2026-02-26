@@ -6,7 +6,7 @@ By default, op-succinct uses the [Succinct Prover Network](https://docs.succinct
 
 - A deployed SP1 cluster passing the fibonacci smoke test. Follow the [SP1 Cluster Kubernetes Deployment Guide](https://docs.succinct.xyz/docs/provers/setup/deployment/kubernetes) to set one up.
 - RPC endpoints for your OP Stack chain (L1, L1 beacon, L2, L2 node).
-- `kubectl` access to the cluster (for port-forwarding).
+- A gRPC endpoint for the cluster API. Exposing `api-grpc` via a LoadBalancer or Ingress is recommended — `kubectl port-forward` works for quick tests but is unreliable for long-running proofs.
 
 ## Quick Test: Range Proof
 
@@ -23,16 +23,22 @@ L2_RPC=<YOUR_L2_RPC>
 L2_NODE_RPC=<YOUR_L2_NODE_RPC>
 ```
 
-### 2. Port-forward cluster services
+### 2. Connect to cluster services
 
-In two separate terminals:
+**Recommended:** Expose `api-grpc` via a LoadBalancer for stable, long-lived connections:
 
 ```bash
-# Terminal 1: Forward cluster API
-kubectl port-forward svc/api-grpc 50051:50051 -n sp1-cluster
+# Patch the service to use a LoadBalancer (e.g., AWS NLB)
+kubectl patch svc api-grpc -n sp1-cluster -p '{"spec":{"type":"LoadBalancer"}}'
 
-# Terminal 2: Forward Redis
-kubectl port-forward svc/redis-master 6379:6379 -n sp1-cluster
+# Get the external endpoint
+kubectl get svc api-grpc -n sp1-cluster -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+```
+
+**Alternative (quick local testing only):** Use port-forward. Note that `kubectl port-forward` can drop under sustained load — the client polls the cluster every 50ms for the entire proving duration.
+
+```bash
+kubectl port-forward svc/api-grpc 50051:50051 -n sp1-cluster
 ```
 
 ### 3. Validate witness generation
@@ -50,12 +56,29 @@ This executes locally and prints execution stats. If this fails, fix RPC issues 
 
 ### 4. Generate a range proof
 
+**With S3 artifacts (recommended):**
+
 ```bash
 SP1_PROVER=cluster \
-CLI_CLUSTER_RPC=http://localhost:50051 \
-CLI_REDIS_NODES="redis://:<YOUR_REDIS_PASSWORD>@localhost:6379/0" \
+CLI_CLUSTER_RPC=http://<CLUSTER_LB_ENDPOINT>:50051 \
+CLI_S3_BUCKET=<YOUR_S3_BUCKET> \
+CLI_S3_REGION=<YOUR_REGION> \
 RUST_LOG=info \
 cargo run --bin multi --release -- --prove --env-file .env
+```
+
+**With Redis artifacts:**
+
+```bash
+SP1_PROVER=cluster \
+CLI_CLUSTER_RPC=http://<CLUSTER_LB_ENDPOINT>:50051 \
+CLI_REDIS_NODES="redis://:<YOUR_REDIS_PASSWORD>@<REDIS_HOST>:6379/0" \
+RUST_LOG=info \
+cargo run --bin multi --release -- --prove --env-file .env
+```
+
+```admonish warning
+Redis artifacts have a hardcoded 4-hour TTL. For large proofs that take longer, use S3 instead to avoid artifacts expiring mid-prove.
 ```
 
 ```admonish info
@@ -65,9 +88,8 @@ Start with a small range (5 blocks). A 5-block range proof typically completes i
 A successful run produces output like:
 
 ```
-INFO using redis artifact store
-INFO initializing redis pool
-INFO connecting to http://localhost:50051
+INFO using s3 artifact store
+INFO connecting to http://<CLUSTER_LB_ENDPOINT>:50051
 INFO upload took 182ms, size: 2307656
 INFO Successfully created proof request cli_<timestamp>
 INFO Proof request for proof id cli_<timestamp> completed after ~475s
@@ -87,18 +109,29 @@ Then add the following cluster variables to your proposer environment file (`.en
 
 ```env
 SP1_PROVER=cluster
-CLI_CLUSTER_RPC=http://localhost:50051
-CLI_REDIS_NODES=redis://:<YOUR_REDIS_PASSWORD>@localhost:6379/0
+CLI_CLUSTER_RPC=http://<CLUSTER_LB_ENDPOINT>:50051
+CLI_S3_BUCKET=<YOUR_S3_BUCKET>
+CLI_S3_REGION=<YOUR_REGION>
 RUST_LOG=info
 ```
 
+If using Redis instead of S3, replace `CLI_S3_BUCKET` + `CLI_S3_REGION` with `CLI_REDIS_NODES`.
+You must set exactly one artifact store — setting both (or neither) will panic.
+
 ```admonish note
 Self-hosted cluster mode is an alternative to the Succinct Prover Network. You do **not** need a `NETWORK_PRIVATE_KEY`.
-Also there's no need to set any of OP_SUCCINCT_MOCK=true` or `MOCK_MODE=true` — cluster mode uses real proving.
+Also there's no need to set any of `OP_SUCCINCT_MOCK=true` or `MOCK_MODE=true` — cluster mode uses real proving.
 ```
 
-If your cluster uses **S3** instead of Redis for artifacts, replace `CLI_REDIS_NODES` with `CLI_S3_BUCKET` + `CLI_S3_REGION`.
-You must set exactly one — setting both (or neither) will panic.
+### Tuning for large proofs
+
+For proofs that may take longer than 4 hours, increase the proving timeout:
+
+```env
+PROVING_TIMEOUT=21600  # 6 hours (default: 14400 = 4 hours)
+```
+
+This controls both the client-side timeout and the deadline sent to the cluster coordinator.
 
 ## Troubleshooting
 
@@ -110,7 +143,7 @@ You must set exactly one — setting both (or neither) will panic.
    kubectl logs -l app=coordinator -n sp1-cluster
    kubectl logs -l app=gpu-node -n sp1-cluster
    ```
-3. Verify Redis is reachable from workers.
+3. Verify the artifact store (S3 or Redis) is reachable from workers.
 
 ### "cluster proof failed" error
 
@@ -121,6 +154,6 @@ kubectl get pods -n sp1-cluster
 kubectl logs -l app=api -n sp1-cluster
 ```
 
-### Port-forward disconnects
+### Proof times out
 
-`kubectl port-forward` can drop under load. For production use, expose the cluster API via a LoadBalancer or Ingress instead of port-forwarding.
+The default `PROVING_TIMEOUT` is 14400 seconds (4 hours). If your proof needs more time (large block ranges, few GPU workers), increase it. The cluster also has a per-task timeout of 6 hours (`TASK_TIMEOUT`) on the worker node — individual shard tasks that exceed this are retried on another worker.
