@@ -1,0 +1,114 @@
+name: Coverage
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/coverage.yaml
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - contracts/**
+      - elf/**
+      - fault-proof/**
+      - programs/**
+      - scripts/**
+      - utils/**
+      - validity/**
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BASH_ENV: ${{ github.workspace }}/.bashenv
+  RUST_BACKTRACE: short
+  CARGO_TERM_COLOR: always
+  L2_NODE_RPC: ${{ secrets.L2_NODE_RPC }}
+  L1_RPC: ${{ secrets.L1_RPC }}
+  L1_BEACON_RPC: ${{ secrets.L1_BEACON_RPC }}
+  L2_RPC: ${{ secrets.L2_RPC }}
+
+jobs:
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+          cache-shared-key: "stable"
+          cache-directories: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
+      - name: Define get_cov()
+        shell: bash
+        run: |
+          {
+            echo 'get_cov() {'
+            echo '  lcov --summary "$1" 2>/dev/null \'
+            echo '    | grep -Eo "lines\.*: [0-9]+\.[0-9]+%" \'
+            echo '    | grep -Eo "[0-9]+\.[0-9]+" \'
+            echo '    | head -1 || echo 0.0'
+            echo '}'
+            echo 'export -f get_cov'
+          } >> "$BASH_ENV"
+
+      - name: Solidity coverage
+        working-directory: contracts
+        run: |
+          forge coverage --report lcov
+          sol=$(get_cov lcov.info)
+          echo "pct=$sol" >> $GITHUB_OUTPUT
+          echo "Solidity coverage: $sol%"
+
+      - name: Rust coverage
+        run: |
+          cargo llvm-cov test --all-features \
+            --lcov --output-path lcov.info \
+            -- --skip test_cycle_count_diff \
+               --skip test_post_to_github \
+               --skip test_honest_proposer \
+               --skip test_honest_challenger
+          rust=$(get_cov lcov.info)
+          echo "pct=$rust" >> $GITHUB_OUTPUT
+          echo "Rust coverage: $rust%"
+
+      - name: Merge coverage
+        id: total
+        run: |
+          lcov --add-tracefile contracts/lcov.info --add-tracefile lcov.info --ignore-errors empty --output-file merged.info
+          total=$(get_cov merged.info)
+          echo "pct=$total" >> $GITHUB_OUTPUT
+          echo "Total coverage: $total%"
+
+      - if: ${{ github.event_name == 'pull_request' }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: "🧪 Code Coverage"
+          message: |
+            **Solidity:** `${{ steps.sol.outputs.pct }}%`
+            **Rust:** `${{ steps.rust.outputs.pct }}%`
+            **Total:** `${{ steps.total.outputs.pct }}%`
