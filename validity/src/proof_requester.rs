@@ -534,6 +534,8 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         if self.mock {
             self.db_client.update_request_status(request.id, RequestStatus::Execution).await?;
+        } else if self.cluster {
+            self.db_client.update_request_status(request.id, RequestStatus::Prove).await?;
         }
 
         match request.req_type {
