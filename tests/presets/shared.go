@@ -58,6 +58,14 @@ func (c L2ChainConfig) ApplyOverrides(builder intentbuilder.Builder) {
 
 type succinctConfigurator func(*stack.CombinedOption[*sysgo.Orchestrator], sysgo.DefaultSingleChainInteropSystemIDs, eth.ChainID)
 
+// WithAltDA returns a stack option that enables AltDA mode for the default L2 chain.
+// It starts an in-memory DA server, configures the batcher and op-node to use AltDA,
+// and exports ALTDA_SERVER_URL for the op-succinct proposer subprocess.
+func WithAltDA() stack.CommonOption {
+	l2ChainID := eth.ChainIDFromUInt64(DefaultL2ID)
+	return stack.MakeCommon(sysgo.WithAltDA(l2ChainID))
+}
+
 // WithSuccinctNodes creates a minimal setup with just L1/L2 nodes running
 func WithSuccinctNodes(dest *sysgo.DefaultSingleChainInteropSystemIDs, chain L2ChainConfig) stack.CommonOption {
 	return withSuccinctPresetCore(dest, chain, 10, nil, nil)

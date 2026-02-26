@@ -162,9 +162,15 @@ func (s *ValiditySystem) StartProposer() {
 }
 
 // NewValiditySystem creates a new validity test system with custom configuration.
-func NewValiditySystem(t devtest.T, cfg ValidityConfig, chain L2ChainConfig) *ValiditySystem {
+// Extra options (e.g., WithAltDA()) are composed with the base validity proposer option.
+func NewValiditySystem(t devtest.T, cfg ValidityConfig, chain L2ChainConfig, extraOpts ...stack.CommonOption) *ValiditySystem {
 	var ids sysgo.DefaultSingleChainInteropSystemIDs
-	sys, _, prop := newSystemWithProposer(t, WithSuccinctValidityProposer(&ids, cfg, chain), &ids)
+	opt := stack.CommonOption(WithSuccinctValidityProposer(&ids, cfg, chain))
+	if len(extraOpts) > 0 {
+		allOpts := append([]stack.CommonOption{opt}, extraOpts...)
+		opt = stack.Combine(allOpts...)
+	}
+	sys, _, prop := newSystemWithProposer(t, opt, &ids)
 
 	vp, ok := prop.(sysgo.ValidityProposer)
 	t.Require().True(ok, "proposer must implement ValidityProposer")

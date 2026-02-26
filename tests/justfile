@@ -46,6 +46,30 @@ test-e2e-sysgo PKG="" FILTER="" TIMEOUT="90m": build-contracts unzip-contract-ar
     echo "Running go test $TEST_PATH $FILTER"
     cd {{SOURCE}} && go test -p 1 -count=1 -timeout {{TIMEOUT}} -v "$TEST_PATH" $FILTER
 
+# AltDA e2e tests - builds validity binary with altda feature
+test-e2e-sysgo-altda FILTER="" TIMEOUT="90m": build-contracts unzip-contract-artifacts
+    #!/bin/bash
+
+    if ! [ -z "{{FILTER}}" ]; then
+        export FILTER="-run {{FILTER}}"
+    fi
+
+    export DEVSTACK_ORCHESTRATOR=sysgo
+    export OP_DEPLOYER_ARTIFACTS="{{SOURCE}}/artifacts/src/forge-artifacts"
+    export DISABLE_OP_E2E_LEGACY=true
+
+    export SYSGO_METRICS_ENABLED="${SYSGO_METRICS_ENABLED:-false}"
+    if [ "$SYSGO_METRICS_ENABLED" = "true" ]; then
+        export SYSGO_GRAFANA_PROVISIONING_DIR="{{SOURCE}}/monitoring/grafana"
+    fi
+
+    echo "Building validity binary with altda feature..."
+    cd .. && cargo build --release --bin validity --features altda --no-default-features
+    export VALIDITY_PROPOSER_EXEC_PATH="{{ROOT}}/target/release/validity"
+
+    echo "Running AltDA e2e tests $FILTER"
+    cd {{SOURCE}} && go test -p 1 -count=1 -timeout {{TIMEOUT}} -v "./e2e/validity/altda/..." $FILTER
+
 # Long-running tests - logs to tests/logs/<mode>-<timestamp>.log
 # Usage: just long-running <nodes|validity|faultproof|faultproof-ff>
 long-running MODE:
