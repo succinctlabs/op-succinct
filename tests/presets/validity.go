@@ -37,6 +37,9 @@ type ValidityConfig struct {
 	// Only applies for network proving (i.e. when utils.UseNetworkProver() is true).
 	// If nil/empty, defaults to "plonk".
 	AggProofMode *string
+	// Features sets Cargo feature flags for the deploy-oracle step (e.g., "altda").
+	// This ensures the deployed contract's vkey commitment matches the proposer binary.
+	Features string
 }
 
 // DefaultValidityConfig returns the default configuration for fast tests.
@@ -118,11 +121,16 @@ func WithSuccinctValidityProposer(dest *sysgo.DefaultSingleChainInteropSystemIDs
 		if !utils.UseNetworkProver() {
 			opt.Add(sysgo.WithSuperDeploySP1MockVerifier(ids.L1EL, l2ChainID))
 		}
-		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL,
+		l2ooOpts := []sysgo.L2OOOption{
 			sysgo.WithL2OOStartingBlockNumber(cfg.StartingBlock),
 			sysgo.WithL2OOSubmissionInterval(cfg.SubmissionInterval),
 			sysgo.WithL2OORangeProofInterval(cfg.RangeProofInterval),
-			sysgo.WithL2OOFinalizationPeriodSecs(cfg.FinalizationPeriodSecs)))
+			sysgo.WithL2OOFinalizationPeriodSecs(cfg.FinalizationPeriodSecs),
+		}
+		if cfg.Features != "" {
+			l2ooOpts = append(l2ooOpts, sysgo.WithL2OOFeatures(cfg.Features))
+		}
+		opt.Add(sysgo.WithSuperDeployOpSuccinctL2OutputOracle(ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, l2ooOpts...))
 		opt.Add(sysgo.WithSuperSuccinctValidityProposer(ids.L2AProposer, ids.L1CL, ids.L1EL, ids.L2ACL, ids.L2AEL, cfg.ProposerOptions()...))
 	})
 }

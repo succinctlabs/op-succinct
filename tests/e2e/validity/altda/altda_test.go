@@ -16,6 +16,7 @@ import (
 func TestValidityProposer_AltDA_SingleSubmission(gt *testing.T) {
 	t := devtest.ParallelT(gt)
 	cfg := opspresets.DefaultValidityConfig()
+	cfg.Features = "altda"
 	sys := opspresets.NewValiditySystem(t, cfg, opspresets.DefaultL2ChainConfig(), opspresets.WithAltDA())
 	require := t.Require()
 	logger := t.Logger()
