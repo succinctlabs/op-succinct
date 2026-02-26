@@ -13,8 +13,7 @@ use async_trait::async_trait;
 use op_succinct_altda_client_utils::executor::AltDAWitnessExecutor;
 use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, host::OPSuccinctHost};
 
-use crate::cfg::AltDAChainHost;
-use crate::witness_generator::AltDAWitnessGenerator;
+use crate::{cfg::AltDAChainHost, witness_generator::AltDAWitnessGenerator};
 
 #[derive(Clone)]
 pub struct AltDAOPSuccinctHost {
@@ -41,25 +40,19 @@ impl OPSuccinctHost for AltDAOPSuccinctHost {
         let l1_head_hash = match l1_head_hash {
             Some(hash) => hash,
             None => {
-                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback)
-                    .await?
+                self.calculate_safe_l1_head(&self.fetcher, l2_end_block, safe_db_fallback).await?
             }
         };
 
         // Get the standard kona SingleChainHost args.
-        let single_host = self
-            .fetcher
-            .get_host_args(l2_start_block, l2_end_block, l1_head_hash)
-            .await?;
+        let single_host =
+            self.fetcher.get_host_args(l2_start_block, l2_end_block, l1_head_hash).await?;
 
         // Read the DA server URL from the environment. This is set by the operator when
         // running the host binary with the `--altda-server-url` flag or `ALTDA_SERVER_URL` env.
         let altda_server_url = std::env::var("ALTDA_SERVER_URL").ok();
 
-        Ok(AltDAChainHost {
-            single_host,
-            altda_server_url,
-        })
+        Ok(AltDAChainHost { single_host, altda_server_url })
     }
 
     fn get_l1_head_hash(&self, args: &Self::Args) -> Option<B256> {
@@ -92,10 +85,7 @@ impl OPSuccinctHost for AltDAOPSuccinctHost {
         let finalized_l1_header = fetcher.get_l1_header(BlockId::finalized()).await?;
         let safe_l1_head_number = std::cmp::min(l1_head_number, finalized_l1_header.number);
 
-        Ok(fetcher
-            .get_l1_header(safe_l1_head_number.into())
-            .await?
-            .hash_slow())
+        Ok(fetcher.get_l1_header(safe_l1_head_number.into()).await?.hash_slow())
     }
 }
 

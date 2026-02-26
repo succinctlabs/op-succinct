@@ -14,8 +14,7 @@ use kona_host::{
     OfflineHostBackend, OnlineHostBackend, OnlineHostBackendCfg, PreimageServer,
 };
 use kona_preimage::{Channel, HintReader, OracleServer};
-use kona_proof::HintType;
-use kona_proof::errors::HintParsingError;
+use kona_proof::{errors::HintParsingError, HintType};
 use op_succinct_host_utils::host::PreimageServerStarter;
 use serde::Serialize;
 use tokio::task::{self, JoinHandle};
@@ -106,12 +105,8 @@ impl AltDAChainHost {
             })
         } else {
             let providers = self.create_providers().await?;
-            let backend = OnlineHostBackend::new(
-                self.clone(),
-                kv_store.clone(),
-                providers,
-                AltDAHintHandler,
-            );
+            let backend =
+                OnlineHostBackend::new(self.clone(), kv_store.clone(), providers, AltDAHintHandler);
 
             task::spawn(async {
                 PreimageServer::new(

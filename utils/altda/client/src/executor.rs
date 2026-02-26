@@ -47,9 +47,7 @@ where
     B: BlobProvider + Send + Sync + Debug + Clone,
 {
     pub fn new() -> Self {
-        Self {
-            _marker: std::marker::PhantomData,
-        }
+        Self { _marker: std::marker::PhantomData }
     }
 }
 

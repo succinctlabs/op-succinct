@@ -4,14 +4,16 @@
 //! hints by fetching batch data from the DA server and storing it in the preimage oracle.
 
 use alloy_primitives::hex;
-use anyhow::{Result, ensure};
+use anyhow::{ensure, Result};
 use async_trait::async_trait;
 use kona_host::{
     single::SingleChainHintHandler, HintHandler, OnlineHostBackendCfg, SharedKeyValueStore,
 };
 use kona_preimage::PreimageKey;
 use kona_proof::Hint;
-use op_succinct_altda_client_utils::data_source::{KECCAK256_COMMITMENT_TYPE, GENERIC_COMMITMENT_TYPE};
+use op_succinct_altda_client_utils::data_source::{
+    GENERIC_COMMITMENT_TYPE, KECCAK256_COMMITMENT_TYPE,
+};
 use tracing::{info, warn};
 
 use crate::cfg::{AltDAChainHost, AltDAChainProviders, AltDAExtendedHintType};
@@ -37,10 +39,7 @@ impl HintHandler for AltDAHintHandler {
     ) -> Result<()> {
         match hint.ty {
             AltDAExtendedHintType::Standard(ty) => {
-                let inner_hint = Hint {
-                    ty,
-                    data: hint.data,
-                };
+                let inner_hint = Hint { ty, data: hint.data };
                 SingleChainHintHandler::fetch_hint(
                     inner_hint,
                     &cfg.single_host,
@@ -75,10 +74,7 @@ async fn fetch_altda_commitment(
 ) -> Result<()> {
     let encoded_commitment = &hint.data;
 
-    ensure!(
-        !encoded_commitment.is_empty(),
-        "AltDA commitment hint data is empty"
-    );
+    ensure!(!encoded_commitment.is_empty(), "AltDA commitment hint data is empty");
 
     let commitment_type = encoded_commitment[0];
     let commitment_data = &encoded_commitment[1..];
@@ -91,9 +87,8 @@ async fn fetch_altda_commitment(
                 commitment_data.len()
             );
 
-            let commitment_hash: [u8; 32] = commitment_data
-                .try_into()
-                .expect("length already validated as 32");
+            let commitment_hash: [u8; 32] =
+                commitment_data.try_into().expect("length already validated as 32");
 
             info!(
                 target: "altda_host",
@@ -140,10 +135,7 @@ async fn fetch_altda_commitment(
             // Store the batch data in the KV store under the keccak256 preimage key.
             // The client reads this via: oracle.get(PreimageKey::new_keccak256(commitment_hash))
             let mut kv_lock = kv.write().await;
-            kv_lock.set(
-                PreimageKey::new_keccak256(commitment_hash).into(),
-                batch_data.to_vec(),
-            )?;
+            kv_lock.set(PreimageKey::new_keccak256(commitment_hash).into(), batch_data.to_vec())?;
         }
         GENERIC_COMMITMENT_TYPE => {
             warn!(

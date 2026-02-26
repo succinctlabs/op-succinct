@@ -8,7 +8,6 @@
 //!
 //! This mirrors the Go implementation at `op-node/rollup/derive/altda_data_source.go`.
 
-use std::{fmt::Debug, sync::Arc};
 use alloy_primitives::{Address, Bytes};
 use async_trait::async_trait;
 use kona_derive::{
@@ -18,6 +17,7 @@ use kona_derive::{
 use kona_preimage::{CommsClient, PreimageKey};
 use kona_proof::Hint;
 use kona_protocol::BlockInfo;
+use std::{fmt::Debug, sync::Arc};
 use tracing::{info, warn};
 
 use crate::hint::AltDAHintType;
@@ -93,11 +93,7 @@ where
 {
     /// Creates a new [`AltDADataSource`].
     pub fn new(ethereum_source: EthereumDataSource<C, B>, oracle: Arc<O>) -> Self {
-        Self {
-            ethereum_source,
-            oracle,
-            pending_commitment: None,
-        }
+        Self { ethereum_source, oracle, pending_commitment: None }
     }
 }
 
@@ -240,8 +236,8 @@ where
     /// Resolves a Keccak256 AltDA commitment by:
     ///
     /// 1. Sending an `altda-commitment` hint to the host with the encoded commitment bytes
-    /// 2. Reading the resolved batch data from the preimage oracle using the commitment hash
-    ///    as the keccak256 preimage key
+    /// 2. Reading the resolved batch data from the preimage oracle using the commitment hash as the
+    ///    keccak256 preimage key
     ///
     /// The commitment data is exactly 32 bytes: the keccak256 hash of the original batch data.
     /// The preimage oracle naturally stores data keyed by `keccak256(data)`, so the commitment
@@ -252,15 +248,9 @@ where
         &self,
         commitment: &PendingCommitment,
     ) -> PipelineResult<Bytes> {
-        let commitment_hash: [u8; 32] = commitment
-            .commitment_data
-            .as_slice()
-            .try_into()
-            .map_err(|_| {
-                PipelineError::Provider(
-                    "keccak256 commitment must be 32 bytes".to_string(),
-                )
-                .crit()
+        let commitment_hash: [u8; 32] =
+            commitment.commitment_data.as_slice().try_into().map_err(|_| {
+                PipelineError::Provider("keccak256 commitment must be 32 bytes".to_string()).crit()
             })?;
 
         info!(
