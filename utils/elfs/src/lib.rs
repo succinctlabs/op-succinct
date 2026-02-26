@@ -7,3 +7,7 @@ pub const CELESTIA_RANGE_ELF_EMBEDDED: &[u8] =
     include_bytes!("../../../elf/celestia-range-elf-embedded");
 pub const EIGENDA_RANGE_ELF_EMBEDDED: &[u8] =
     include_bytes!("../../../elf/eigenda-range-elf-embedded");
+
+#[cfg(feature = "altda")]
+pub const ALTDA_RANGE_ELF_EMBEDDED: &[u8] =
+    include_bytes!("../../../elf/altda-range-elf-embedded");
