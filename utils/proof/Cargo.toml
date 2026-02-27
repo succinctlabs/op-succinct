@@ -20,7 +20,7 @@ tracing.workspace = true
 
 [features]
 default = ["ethereum"]
-altda = ["op-succinct-altda-host-utils", "op-succinct-elfs/altda"]
+altda = ["op-succinct-altda-host-utils"]
 celestia = ["op-succinct-celestia-host-utils"]
 eigenda = ["op-succinct-eigenda-host-utils"]
 ethereum = ["op-succinct-ethereum-host-utils"]

@@ -3,6 +3,3 @@ name = "op-succinct-elfs"
 version.workspace = true
 license.workspace = true
 edition.workspace = true
-
-[features]
-altda = []
