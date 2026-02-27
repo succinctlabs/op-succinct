@@ -8,6 +8,37 @@ By default, op-succinct uses the [Succinct Prover Network](https://docs.succinct
 - RPC endpoints for your OP Stack chain (L1, L1 beacon, L2, L2 node).
 - A gRPC endpoint for the cluster API. Exposing `api-grpc` via a LoadBalancer or Ingress is recommended — `kubectl port-forward` works for quick tests but is unreliable for long-running proofs.
 
+## Cluster Resource Requirements
+
+The cpu-node must be sized to handle both range proofs (CONTROLLER task) and aggregation proofs (PlonkWrap task). The coordinator schedules tasks based on weight — a task is only assigned to a worker if `current_weight + task_weight ≤ max_weight`.
+
+| Task | Weight (GB) | Runs on |
+|------|------------|---------|
+| CONTROLLER | 4 | cpu-node |
+| PlonkWrap (Plonk mode) | 32 | cpu-node |
+| Groth16Wrap (Groth16 mode) | 14 | cpu-node |
+| ProveShard | 4 | gpu-node |
+| ShrinkWrap | 4 | gpu-node |
+
+During aggregation, the CONTROLLER and PlonkWrap tasks briefly co-exist on the cpu-node, requiring at least 40 GB of weight capacity for Plonk mode.
+
+**Recommended cpu-node configuration:**
+
+```yaml
+cpu-node:
+  resources:
+    requests:
+      memory: 64Gi
+    limits:
+      memory: 64Gi
+  extraEnv:
+    WORKER_MAX_WEIGHT_OVERRIDE: "64"
+```
+
+```admonish warning
+The default sp1-cluster Helm values set `WORKER_MAX_WEIGHT_OVERRIDE=32` and `memory: 32Gi` on the cpu-node. This is too small for Plonk aggregation proofs — the PlonkWrap task (weight=32) cannot be scheduled alongside the CONTROLLER task (weight=4). Increase to at least 40 (recommend 64 for headroom).
+```
+
 ## Quick Test: Range Proof
 
 Before integrating with the full proposer, verify that your cluster can generate op-succinct proofs using the `multi` script.
@@ -133,6 +164,33 @@ PROVING_TIMEOUT=21600  # 6 hours (default: 14400 = 4 hours)
 
 This controls both the client-side timeout and the deadline sent to the cluster coordinator.
 
+## Monitoring
+
+Monitor cluster proof progress with these commands:
+
+```bash
+# Overall stats (gpu_queue, cpu_queue, active proofs)
+kubectl logs deploy/coordinator -n sp1-cluster --tail=3 | grep GetStatsResponse
+
+# Which tasks are assigned to which workers
+kubectl logs deploy/coordinator -n sp1-cluster --tail=3 | grep "worker"
+
+# CPU worker activity (CONTROLLER, PlonkWrap)
+kubectl logs deploy/cpu-node -n sp1-cluster --tail=20
+
+# GPU worker activity (ProveShard, ShrinkWrap)
+kubectl logs deploy/gpu-node -n sp1-cluster --tail=20
+
+# Resource usage
+kubectl top pod -n sp1-cluster
+```
+
+Key fields in `GetStatsResponse`:
+- `gpu_queue`: GPU tasks waiting — drops to 0 when shard proving is done.
+- `cpu_queue`: CPU tasks waiting — should be 0 unless PlonkWrap is queued.
+- `active_proofs`: Number of proofs being processed.
+- `cpu_utilization_current/max`: Current vs maximum weight on cpu workers.
+
 ## Troubleshooting
 
 ### Proof request hangs
@@ -157,3 +215,36 @@ kubectl logs -l app=api -n sp1-cluster
 ### Proof times out
 
 The default `PROVING_TIMEOUT` is 14400 seconds (4 hours). If your proof needs more time (large block ranges, few GPU workers), increase it. The cluster also has a per-task timeout of 6 hours (`TASK_TIMEOUT`) on the worker node — individual shard tasks that exceed this are retried on another worker.
+
+### Aggregation proof stuck (`cpu_queue` not draining)
+
+If range proofs complete but the aggregation proof hangs with `cpu_queue: 1` in coordinator logs:
+
+1. Check coordinator stats:
+   ```bash
+   kubectl logs deploy/coordinator -n sp1-cluster --tail=3 | grep GetStatsResponse
+   ```
+2. If `cpu_queue: 1` persists with `gpu_queue: 0`, the PlonkWrap task likely can't be scheduled due to insufficient weight capacity.
+3. Verify `cpu_utilization_max` is at least 40 (for Plonk) or 18 (for Groth16). If it shows 32, increase `WORKER_MAX_WEIGHT_OVERRIDE`:
+   ```bash
+   kubectl set env deploy/cpu-node -n sp1-cluster WORKER_MAX_WEIGHT_OVERRIDE=64
+   ```
+   Also ensure the cpu-node has enough memory (at least 64Gi). See [Cluster Resource Requirements](#cluster-resource-requirements).
+
+### cpu-node OOMKilled (CrashLoopBackOff)
+
+If the cpu-node enters CrashLoopBackOff with exit code 137:
+
+```bash
+kubectl describe pod -l app=cpu-node -n sp1-cluster | grep -A3 "Last State"
+```
+
+This means the CONTROLLER task exceeded the memory limit during execution/splicing. Large block ranges require more memory. Increase the cpu-node memory limit:
+
+```bash
+kubectl patch deploy cpu-node -n sp1-cluster --type='json' \
+  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"64Gi"},
+       {"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"64Gi"}]'
+```
+
+Remember to also update `WORKER_MAX_WEIGHT_OVERRIDE` to match. Alternatively, reduce `RANGE_PROOF_INTERVAL` in the proposer to produce smaller proofs that fit within the existing memory limit.
