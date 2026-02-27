@@ -4,10 +4,23 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    paths:
+      - 'elf/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'programs/**'
+      - 'validity/src/**'
+      - 'fault-proof/src/**'
+      - 'utils/host/**'
+      - 'utils/eigenda/**'
+      - 'utils/celestia/**'
+      - 'tests/presets/**'
+      - 'tests/utils/**'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   detect-elf-changes:
@@ -27,6 +40,7 @@ jobs:
     name: (${{ matrix.target }})
     needs: detect-elf-changes
     if: |
+      github.event_name == 'pull_request' ||
       needs.detect-elf-changes.outputs.elf_changed == 'true' ||
       contains(github.event.head_commit.message, 'release/')
     runs-on:
