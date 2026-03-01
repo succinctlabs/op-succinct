@@ -37,7 +37,7 @@ sol! {
         function getGameUUID(GameType gameType, Claim rootClaim, bytes extraData) external pure returns (Hash uuid);
 
         /// @notice Creates a new DisputeGame proxy contract.
-        function create(GameType gameType, Claim rootClaim, bytes extraData) external;
+        function create(GameType gameType, Claim rootClaim, bytes calldata extraData) external;
     }
 
     #[allow(missing_docs)]
