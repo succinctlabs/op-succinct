@@ -68,7 +68,7 @@ func FastFinalityFPProposerConfig() FPProposerConfig {
 // If NETWORK_PRIVATE_KEY is set, uses larger intervals tuned for network proving.
 func LongRunningFPProposerConfig() FPProposerConfig {
 	cfg := DefaultFPProposerConfig()
-	cfg.MaxChallengeDuration = 2400 // =40m
+	cfg.MaxChallengeDuration = 1800 // =30m
 
 	timeout := uint64(900) // =15m
 	cfg.Timeout = &timeout

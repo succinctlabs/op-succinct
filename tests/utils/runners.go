@@ -14,7 +14,7 @@ func LongTimeout() time.Duration  { return 40 * time.Minute }
 // MaxProposerLag returns the maximum allowed lag between L2 finalized and proposer submissions.
 func MaxProposerLag() uint64 {
 	if UseNetworkProver() {
-		return 1200 // ~40m at 2s block time
+		return 900 // ~30m at 2s block time
 	}
 	return 300 // ~10m at 2s block time
 }
