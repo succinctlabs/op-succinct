@@ -1,7 +1,10 @@
 use std::env;
 
 use anyhow::{anyhow, Context, Result};
-use sp1_sdk::network::{signer::NetworkSigner, FulfillmentStrategy, NetworkMode};
+use sp1_sdk::{
+    network::{signer::NetworkSigner, FulfillmentStrategy, NetworkMode},
+    NetworkProver, ProverClient,
+};
 
 /// Parse a fulfillment strategy from a string.
 pub fn parse_fulfillment_strategy(value: String) -> FulfillmentStrategy {
@@ -65,4 +68,32 @@ pub async fn get_network_signer(use_kms_requester: bool) -> Result<NetworkSigner
     };
 
     Ok(network_signer)
+}
+
+/// Build a network prover from environment variables.
+///
+/// Reads `USE_KMS_REQUESTER`, `RANGE_PROOF_STRATEGY`, and `AGG_PROOF_STRATEGY` from
+/// the environment (all with safe defaults) and returns the configured prover along
+/// with the parsed fulfillment strategies.
+pub async fn build_network_prover_from_env(
+) -> Result<(NetworkProver, FulfillmentStrategy, FulfillmentStrategy)> {
+    let use_kms_requester = env::var("USE_KMS_REQUESTER")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .context("USE_KMS_REQUESTER must be true or false")?;
+    let network_signer = get_network_signer(use_kms_requester).await?;
+
+    let range_proof_strategy = parse_fulfillment_strategy(
+        env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+    );
+    let agg_proof_strategy = parse_fulfillment_strategy(
+        env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+    );
+    let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
+        .context("failed to determine network mode")?;
+
+    let prover =
+        ProverClient::builder().network_for(network_mode).signer(network_signer).build().await;
+
+    Ok((prover, range_proof_strategy, agg_proof_strategy))
 }

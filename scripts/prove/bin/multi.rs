@@ -4,7 +4,7 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
-    network::{determine_network_mode, get_network_signer, parse_fulfillment_strategy},
+    network::build_network_prover_from_env,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
@@ -12,9 +12,9 @@ use op_succinct_host_utils::{
 use op_succinct_proof_utils::{get_range_elf_embedded, initialize_host};
 use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
-use sp1_sdk::{utils, Elf, ProveRequest, Prover, ProverClient};
+use sp1_sdk::{utils, Elf, ProveRequest, Prover};
 use std::{
-    env, fs,
+    fs,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -88,23 +88,8 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof using the network prover.
-        let use_kms_requester = env::var("USE_KMS_REQUESTER")
-            .unwrap_or_else(|_| "false".to_string())
-            .parse::<bool>()
-            .context("USE_KMS_REQUESTER must be true or false")?;
-        let network_signer = get_network_signer(use_kms_requester).await?;
-
-        let range_proof_strategy = parse_fulfillment_strategy(
-            env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-        );
-        let agg_proof_strategy = parse_fulfillment_strategy(
-            env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-        );
-        let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
-            .context("failed to determine network mode")?;
-
-        let prover =
-            ProverClient::builder().network_for(network_mode).signer(network_signer).build().await;
+        let (prover, range_proof_strategy, _agg_proof_strategy) =
+            build_network_prover_from_env().await?;
         let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         // Generate proofs in compressed mode for aggregation verification.
         let proof =
