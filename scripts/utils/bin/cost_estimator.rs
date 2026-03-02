@@ -7,7 +7,7 @@ use op_succinct_host_utils::{
         get_rolling_block_range, get_validated_block_range, split_range_based_on_safe_heads,
         split_range_basic, SpanBatchRange,
     },
-    fetcher::OPSuccinctDataFetcher,
+    fetcher::{get_rpc_concurrency_from_env, OPSuccinctDataFetcher},
     host::OPSuccinctHost,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
@@ -53,7 +53,7 @@ where
                 .expect("Failed to fetch block data range.");
             (range, block_data)
         })
-        .buffered(15)
+        .buffered(get_rpc_concurrency_from_env())
         .collect::<Vec<_>>()
         .await;
 
@@ -268,7 +268,7 @@ async fn main() -> Result<()> {
                 .await
                 .expect("Failed to get host CLI args")
         })
-        .buffered(15)
+        .buffered(get_rpc_concurrency_from_env())
         .collect::<Vec<_>>()
         .await;
 
