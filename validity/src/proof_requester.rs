@@ -6,7 +6,7 @@ use op_succinct_host_utils::{
     fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, host::OPSuccinctHost,
     metrics::MetricsGauge, witness_generation::WitnessGenerator,
 };
-use op_succinct_proof_utils::get_range_elf_embedded;
+use op_succinct_proof_utils::{cluster_agg_proof, cluster_range_proof, get_range_elf_embedded};
 use sp1_sdk::{
     network::{proto::types::ExecutionStatus, FulfillmentStrategy},
     Elf, NetworkProver, ProveRequest, Prover, SP1ProofMode, SP1ProofWithPublicValues, SP1Stdin,
@@ -25,11 +25,12 @@ use crate::{
 
 pub struct OPSuccinctProofRequester<H: OPSuccinctHost> {
     pub host: Arc<H>,
-    pub network_prover: Arc<NetworkProver>,
+    pub network_prover: Option<Arc<NetworkProver>>,
     pub fetcher: Arc<OPSuccinctDataFetcher>,
     pub db_client: Arc<DriverDBClient>,
     pub program_config: ProgramConfig,
     pub mock: bool,
+    pub cluster: bool,
     pub range_strategy: FulfillmentStrategy,
     pub agg_strategy: FulfillmentStrategy,
     pub agg_mode: SP1ProofMode,
@@ -49,11 +50,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         host: Arc<H>,
-        network_prover: Arc<NetworkProver>,
+        network_prover: Option<Arc<NetworkProver>>,
         fetcher: Arc<OPSuccinctDataFetcher>,
         db_client: Arc<DriverDBClient>,
         program_config: ProgramConfig,
         mock: bool,
+        cluster: bool,
         range_strategy: FulfillmentStrategy,
         agg_strategy: FulfillmentStrategy,
         agg_mode: SP1ProofMode,
@@ -67,14 +69,19 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         whitelist: Option<Vec<Address>>,
         min_auction_period: u64,
         auction_timeout: u64,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        anyhow::ensure!(
+            !(mock && cluster),
+            "mock and cluster modes are mutually exclusive — set only one of SP1_PROVER=cluster or mock=true"
+        );
+        Ok(Self {
             host,
             network_prover,
             fetcher,
             db_client,
             program_config,
             mock,
+            cluster,
             range_strategy,
             agg_strategy,
             agg_mode,
@@ -88,7 +95,13 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             whitelist,
             min_auction_period,
             auction_timeout,
-        }
+        })
+    }
+
+    /// Returns true if proofs are generated synchronously (mock or cluster mode)
+    /// and never enter the Prove state for network polling.
+    pub fn is_synchronous_proving(&self) -> bool {
+        self.mock || self.cluster
     }
 
     /// Generates the witness for a range proof.
@@ -190,8 +203,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Requests a range proof via the network prover.
     pub async fn request_range_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        let proof_id = match self
+        let network_prover = self
             .network_prover
+            .as_ref()
+            .context("network_prover required for request_range_proof")?;
+
+        let proof_id = match network_prover
             .prove(&self.program_config.range_pk, stdin)
             .compressed()
             .strategy(self.range_strategy)
@@ -217,8 +234,12 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
     /// Requests an aggregation proof via the network prover.
     pub async fn request_agg_proof(&self, stdin: SP1Stdin) -> Result<B256> {
-        let proof_id = match self
+        let network_prover = self
             .network_prover
+            .as_ref()
+            .context("network_prover required for request_agg_proof")?;
+
+        let proof_id = match network_prover
             .prove(&self.program_config.agg_pk, stdin)
             .mode(self.agg_mode)
             .strategy(self.agg_strategy)
@@ -247,6 +268,11 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
+        let network_prover = self
+            .network_prover
+            .as_ref()
+            .context("network_prover required for generate_mock_range_proof")?;
+
         info!(
             request_id = request.id,
             request_type = ?request.req_type,
@@ -256,8 +282,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         );
 
         let start_time = Instant::now();
-        let (pv, report) = match self
-            .network_prover
+        let (pv, report) = match network_prover
             .execute(Elf::Static(get_range_elf_embedded()), stdin)
             .calculate_gas(true)
             .deferred_proof_verification(false)
@@ -283,7 +308,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         let execution_statistics = RequestExecutionStatistics::new(report);
 
-        // Write the execution data to the database.
         self.db_client
             .insert_execution_statistics(
                 request.id,
@@ -294,7 +318,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
             &self.program_config.range_vk,
-            pv.clone(),
+            pv,
             SP1ProofMode::Compressed,
             SP1_CIRCUIT_VERSION,
         ))
@@ -306,9 +330,13 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
         request: &OPSuccinctRequest,
         stdin: SP1Stdin,
     ) -> Result<SP1ProofWithPublicValues> {
-        let start_time = Instant::now();
-        let (pv, report) = match self
+        let network_prover = self
             .network_prover
+            .as_ref()
+            .context("network_prover required for generate_mock_agg_proof")?;
+
+        let start_time = Instant::now();
+        let (pv, report) = match network_prover
             .execute(Elf::Static(AGGREGATION_ELF), stdin)
             .calculate_gas(true)
             .deferred_proof_verification(false)
@@ -334,7 +362,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         let execution_statistics = RequestExecutionStatistics::new(report);
 
-        // Write the execution data to the database.
         self.db_client
             .insert_execution_statistics(
                 request.id,
@@ -345,7 +372,7 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
 
         Ok(SP1ProofWithPublicValues::create_mock_proof(
             &self.program_config.agg_vk,
-            pv.clone(),
+            pv,
             self.agg_mode,
             SP1_CIRCUIT_VERSION,
         ))
@@ -473,7 +500,6 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
     /// Note: Any error from this function will cause the proof to be retried.
     #[tracing::instrument(name = "proof_requester.make_proof_request", skip(self, request))]
     pub async fn make_proof_request(&self, request: OPSuccinctRequest) -> Result<()> {
-        // Update status to WitnessGeneration.
         self.db_client.update_request_status(request.id, RequestStatus::WitnessGeneration).await?;
 
         info!(
@@ -506,9 +532,10 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
             "Completed witness generation"
         );
 
-        // For mock mode, update status to Execution before proceeding.
         if self.mock {
             self.db_client.update_request_status(request.id, RequestStatus::Execution).await?;
+        } else if self.cluster {
+            self.db_client.update_request_status(request.id, RequestStatus::Prove).await?;
         }
 
         match request.req_type {
@@ -517,6 +544,23 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                     let proof = self.generate_mock_range_proof(&request, stdin).await?;
                     let proof_bytes = bincode::serialize(&proof)?;
                     self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
+                } else if self.cluster {
+                    let proof = match cluster_range_proof(self.proving_timeout, stdin).await {
+                        Ok(proof) => proof,
+                        Err(e) => {
+                            ValidityGauge::RangeProofRequestErrorCount.increment(1.0);
+                            return Err(e);
+                        }
+                    };
+                    let proof_bytes = bincode::serialize(&proof)?;
+                    self.db_client.update_proof_to_complete(request.id, &proof_bytes).await?;
+
+                    info!(
+                        request_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        "Range proof completed via cluster"
+                    );
                 } else {
                     let proof_id = self.request_range_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;
@@ -539,6 +583,23 @@ impl<H: OPSuccinctHost> OPSuccinctProofRequester<H> {
                 if self.mock {
                     let proof = self.generate_mock_agg_proof(&request, stdin).await?;
                     self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+                } else if self.cluster {
+                    let proof =
+                        match cluster_agg_proof(self.proving_timeout, self.agg_mode, stdin).await {
+                            Ok(proof) => proof,
+                            Err(e) => {
+                                ValidityGauge::AggProofRequestErrorCount.increment(1.0);
+                                return Err(e);
+                            }
+                        };
+                    self.db_client.update_proof_to_complete(request.id, &proof.bytes()).await?;
+
+                    info!(
+                        request_id = request.id,
+                        start_block = request.start_block,
+                        end_block = request.end_block,
+                        "Aggregation proof completed via cluster"
+                    );
                 } else {
                     let proof_id = self.request_agg_proof(stdin).await?;
                     self.db_client.update_request_to_prove(request.id, proof_id).await?;
