@@ -4,6 +4,7 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
+    network::parse_fulfillment_strategy,
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
@@ -13,7 +14,7 @@ use op_succinct_prove::execute_multi;
 use op_succinct_scripts::HostExecutorArgs;
 use sp1_sdk::{utils, Elf, ProveRequest, Prover, ProverClient};
 use std::{
-    fs,
+    env, fs,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -85,13 +86,15 @@ async fn main() -> Result<()> {
         generate_stdin().await?
     };
 
-    let prover = ProverClient::from_env().await;
-
     if args.prove {
-        // If the prove flag is set, generate a proof.
+        // If the prove flag is set, generate a proof using the network prover.
+        let prover = ProverClient::builder().network().build().await;
         let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
+        let strategy = parse_fulfillment_strategy(
+            env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+        );
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, sp1_stdin).compressed().await.unwrap();
+        let proof = prover.prove(&pk, sp1_stdin).compressed().strategy(strategy).await.unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", l2_chain_id);

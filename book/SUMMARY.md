@@ -44,6 +44,7 @@
 
 - [Advanced](./advanced/intro.md)
   - [Cost Estimation Tools](./advanced/cost-estimation-tools.md)
+  - [Prove Scripts](./advanced/prove-scripts.md)
   - [Reproduce Binaries](./advanced/verify-binaries.md)
   - [Node Setup](./advanced/node-setup.md)
   - [FAQ](./faq.md)

@@ -4,13 +4,15 @@ use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
-use op_succinct_host_utils::{fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin};
+use op_succinct_host_utils::{
+    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, network::parse_fulfillment_strategy,
+};
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
     utils, Elf, HashableKey, ProveRequest, Prover, ProverClient, ProvingKey, SP1Proof,
-    SP1ProofWithPublicValues, SP1VerifyingKey,
+    SP1ProofMode, SP1ProofWithPublicValues, SP1VerifyingKey,
 };
-use std::fs;
+use std::{env, fs};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -73,7 +75,7 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let prover = ProverClient::from_env().await;
+    let prover = ProverClient::builder().network().build().await;
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
@@ -95,7 +97,23 @@ async fn main() -> Result<()> {
     println!("Aggregate ELF Verification Key: {:?}", agg_vk.bytes32());
 
     if args.prove {
-        prover.prove(&agg_pk, stdin).groth16().await.expect("proving failed");
+        let agg_proof_mode = match env::var("AGG_PROOF_MODE")
+            .unwrap_or_else(|_| "plonk".to_string())
+            .to_lowercase()
+            .as_str()
+        {
+            "groth16" => SP1ProofMode::Groth16,
+            _ => SP1ProofMode::Plonk,
+        };
+        let agg_proof_strategy = parse_fulfillment_strategy(
+            env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+        );
+        prover
+            .prove(&agg_pk, stdin)
+            .mode(agg_proof_mode)
+            .strategy(agg_proof_strategy)
+            .await
+            .expect("proving failed");
     } else {
         let (_, report) = prover
             .execute(Elf::Static(AGGREGATION_ELF), stdin)
