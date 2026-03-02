@@ -118,6 +118,9 @@ pub fn test_config(
         challenger_addresses: vec![CHALLENGER_ADDRESS.to_string()],
         challenger_bond_wei: CHALLENGER_BOND.to::<u64>(),
         dispute_game_finality_delay_seconds: DISPUTE_GAME_FINALITY_DELAY_SECONDS,
+        // Integration tests deploy their own contracts, so these are not needed.
+        existing_anchor_state_registry: Address::ZERO.to_string(),
+        existing_dispute_game_factory_proxy: Address::ZERO.to_string(),
         fallback_timeout_fp_secs: FALLBACK_TIMEOUT.to::<u64>(),
         game_type: TEST_GAME_TYPE,
         initial_bond_wei: INIT_BOND.to::<u64>(),

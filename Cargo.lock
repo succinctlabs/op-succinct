@@ -7241,6 +7241,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "op-succinct-altda-client-utils"
+version = "4.0.2"
+dependencies = [
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "kona-derive",
+ "kona-driver",
+ "kona-genesis",
+ "kona-preimage",
+ "kona-proof",
+ "kona-protocol",
+ "op-succinct-client-utils",
+ "spin 0.10.0",
+ "tracing",
+]
+
+[[package]]
+name = "op-succinct-altda-host-utils"
+version = "4.0.2"
+dependencies = [
+ "alloy-eips",
+ "alloy-primitives",
+ "anyhow",
+ "async-trait",
+ "clap",
+ "kona-host",
+ "kona-preimage",
+ "kona-proof",
+ "op-succinct-altda-client-utils",
+ "op-succinct-client-utils",
+ "op-succinct-host-utils",
+ "reqwest 0.12.28",
+ "rkyv",
+ "serde",
+ "sp1-sdk",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "op-succinct-bindings"
 version = "4.0.2"
 dependencies = [
@@ -7537,6 +7578,7 @@ name = "op-succinct-proof-utils"
 version = "4.0.2"
 dependencies = [
  "cfg-if",
+ "op-succinct-altda-host-utils",
  "op-succinct-celestia-host-utils",
  "op-succinct-eigenda-host-utils",
  "op-succinct-elfs",
@@ -9105,6 +9147,19 @@ dependencies = [
  "kona-proof",
  "op-succinct-client-utils",
  "op-succinct-ethereum-client-utils",
+ "op-succinct-range-utils",
+ "rkyv",
+ "sp1-zkvm",
+ "tracing-subscriber 0.3.22",
+]
+
+[[package]]
+name = "range-altda"
+version = "4.0.2"
+dependencies = [
+ "kona-proof",
+ "op-succinct-altda-client-utils",
+ "op-succinct-client-utils",
  "op-succinct-range-utils",
  "rkyv",
  "sp1-zkvm",
