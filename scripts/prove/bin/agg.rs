@@ -1,11 +1,13 @@
 use alloy_primitives::{Address, B256};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use cargo_metadata::MetadataCommand;
 use clap::Parser;
 use op_succinct_client_utils::{boot::BootInfoStruct, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
 use op_succinct_host_utils::{
-    fetcher::OPSuccinctDataFetcher, get_agg_proof_stdin, network::parse_fulfillment_strategy,
+    fetcher::OPSuccinctDataFetcher,
+    get_agg_proof_stdin,
+    network::{determine_network_mode, get_network_signer, parse_fulfillment_strategy},
 };
 use op_succinct_proof_utils::get_range_elf_embedded;
 use sp1_sdk::{
@@ -75,7 +77,23 @@ async fn main() -> Result<()> {
 
     dotenv::from_filename(args.env_file).ok();
 
-    let prover = ProverClient::builder().network().build().await;
+    let use_kms_requester = env::var("USE_KMS_REQUESTER")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .context("USE_KMS_REQUESTER must be true or false")?;
+    let network_signer = get_network_signer(use_kms_requester).await?;
+
+    let range_proof_strategy = parse_fulfillment_strategy(
+        env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+    );
+    let agg_proof_strategy = parse_fulfillment_strategy(
+        env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+    );
+    let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
+        .context("failed to determine network mode")?;
+
+    let prover =
+        ProverClient::builder().network_for(network_mode).signer(network_signer).build().await;
     let fetcher = OPSuccinctDataFetcher::new_with_rollup_config().await?;
 
     let range_pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
@@ -105,9 +123,6 @@ async fn main() -> Result<()> {
             "groth16" => SP1ProofMode::Groth16,
             _ => SP1ProofMode::Plonk,
         };
-        let agg_proof_strategy = parse_fulfillment_strategy(
-            env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
-        );
         prover
             .prove(&agg_pk, stdin)
             .mode(agg_proof_mode)

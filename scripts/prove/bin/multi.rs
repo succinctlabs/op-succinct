@@ -4,7 +4,7 @@ use op_succinct_host_utils::{
     block_range::get_validated_block_range,
     fetcher::OPSuccinctDataFetcher,
     host::OPSuccinctHost,
-    network::parse_fulfillment_strategy,
+    network::{determine_network_mode, get_network_signer, parse_fulfillment_strategy},
     stats::ExecutionStats,
     witness_cache::{load_stdin_from_cache, save_stdin_to_cache},
     witness_generation::WitnessGenerator,
@@ -88,13 +88,27 @@ async fn main() -> Result<()> {
 
     if args.prove {
         // If the prove flag is set, generate a proof using the network prover.
-        let prover = ProverClient::builder().network().build().await;
-        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
-        let strategy = parse_fulfillment_strategy(
+        let use_kms_requester = env::var("USE_KMS_REQUESTER")
+            .unwrap_or_else(|_| "false".to_string())
+            .parse::<bool>()
+            .context("USE_KMS_REQUESTER must be true or false")?;
+        let network_signer = get_network_signer(use_kms_requester).await?;
+
+        let range_proof_strategy = parse_fulfillment_strategy(
             env::var("RANGE_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
         );
+        let agg_proof_strategy = parse_fulfillment_strategy(
+            env::var("AGG_PROOF_STRATEGY").unwrap_or_else(|_| "reserved".to_string()),
+        );
+        let network_mode = determine_network_mode(range_proof_strategy, agg_proof_strategy)
+            .context("failed to determine network mode")?;
+
+        let prover =
+            ProverClient::builder().network_for(network_mode).signer(network_signer).build().await;
+        let pk = prover.setup(Elf::Static(get_range_elf_embedded())).await?;
         // Generate proofs in compressed mode for aggregation verification.
-        let proof = prover.prove(&pk, sp1_stdin).compressed().strategy(strategy).await.unwrap();
+        let proof =
+            prover.prove(&pk, sp1_stdin).compressed().strategy(range_proof_strategy).await.unwrap();
 
         // Create a proof directory for the chain ID if it doesn't exist.
         let proof_dir = format!("data/{}/proofs", l2_chain_id);

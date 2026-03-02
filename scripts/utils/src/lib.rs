@@ -36,6 +36,17 @@ pub struct HostExecutorArgs {
     pub safe_db_fallback: bool,
 }
 
+impl HostExecutorArgs {
+    /// When both start and end are explicitly provided, default the batch size
+    /// to the full range so it is processed as a single batch.
+    pub fn effective_batch_size(&self) -> u64 {
+        match (self.start, self.end) {
+            (Some(start), Some(end)) if end > start => end - start,
+            _ => self.batch_size,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Parser)]
 pub struct ConfigArgs {
     /// The environment file to use.

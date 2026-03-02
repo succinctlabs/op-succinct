@@ -62,6 +62,7 @@ AGG_PROOF_MODE=plonk             # Options: plonk, groth16
 | `RANGE_PROOF_STRATEGY` | Proof fulfillment strategy for range proofs | `reserved` |
 | `AGG_PROOF_STRATEGY` | Proof fulfillment strategy for aggregation proofs | `reserved` |
 | `AGG_PROOF_MODE` | Proof mode for aggregation proofs (`plonk` or `groth16`) | `plonk` |
+| `USE_KMS_REQUESTER` | Use AWS KMS for network signing (`NETWORK_PRIVATE_KEY` becomes a KMS key ARN) | `false` |
 
 **Proof Strategies:**
 - `reserved`: Uses reserved SP1 network capacity
