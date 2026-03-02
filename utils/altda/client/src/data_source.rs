@@ -27,19 +27,24 @@ use crate::hint::AltDAHintType;
 /// When the first byte of batcher transaction data is `0x01`, it indicates the data contains
 /// an AltDA commitment rather than normal batch data (which uses `0x00` for calldata/blobs).
 ///
-/// Defined in the OP specs: `op-node/rollup/derive/params/versions.go:DerivationVersion1 = 1`
+/// Go: `op-node/rollup/derive/params/versions.go:DerivationVersion1 = 1`
+/// Spec: `specs/protocol/derivation.md` (batch submission wire format)
 pub const ALTDA_DERIVATION_VERSION: u8 = 0x01;
 
 /// Keccak256 commitment type byte (`0x00`).
 ///
-/// The commitment data is a 32-byte keccak256 hash of the batch data. Defined in
-/// `op-alt-da/commitment.go:Keccak256CommitmentType = 0`.
+/// The commitment data is a 32-byte keccak256 hash of the batch data.
+///
+/// Go: `op-alt-da/commitment.go:Keccak256CommitmentType = 0`
+/// Spec: `specs/experimental/alt-da.md` (commitment type definitions)
 pub const KECCAK256_COMMITMENT_TYPE: u8 = 0x00;
 
 /// Generic commitment type byte (`0x01`).
 ///
 /// The commitment data is an opaque bytestring. The DA server validates on store/retrieve.
-/// Defined in `op-alt-da/commitment.go:GenericCommitmentType = 1`.
+///
+/// Go: `op-alt-da/commitment.go:GenericCommitmentType = 1`
+/// Spec: `specs/experimental/alt-da.md` (commitment type definitions)
 pub const GENERIC_COMMITMENT_TYPE: u8 = 0x01;
 
 /// A data source that wraps [`EthereumDataSource`] and resolves AltDA commitments.

@@ -4,7 +4,7 @@
 //! wrapper, and [`AltDAChainProviders`] provider set. Follows the pattern established by
 //! `CelestiaChainHost` (hana-host) and `SingleChainHostWithEigenDA` (hokulea-host).
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -143,7 +143,10 @@ impl AltDAChainHost {
         Ok(AltDAChainProviders {
             inner_providers,
             da_server_url,
-            http_client: reqwest::Client::new(),
+            http_client: reqwest::Client::builder()
+                .timeout(Duration::from_secs(30))
+                .build()
+                .expect("failed to build HTTP client"),
         })
     }
 }

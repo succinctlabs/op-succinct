@@ -4,7 +4,7 @@
 //! hints by fetching batch data from the DA server and storing it in the preimage oracle.
 
 use alloy_primitives::hex;
-use anyhow::{ensure, Result};
+use anyhow::{bail, ensure, Result};
 use async_trait::async_trait;
 use kona_host::{
     single::SingleChainHintHandler, HintHandler, OnlineHostBackendCfg, SharedKeyValueStore,
@@ -14,7 +14,7 @@ use kona_proof::Hint;
 use op_succinct_altda_client_utils::data_source::{
     GENERIC_COMMITMENT_TYPE, KECCAK256_COMMITMENT_TYPE,
 };
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::cfg::{AltDAChainHost, AltDAChainProviders, AltDAExtendedHintType};
 
@@ -138,17 +138,10 @@ async fn fetch_altda_commitment(
             kv_lock.set(PreimageKey::new_keccak256(commitment_hash).into(), batch_data.to_vec())?;
         }
         GENERIC_COMMITMENT_TYPE => {
-            warn!(
-                target: "altda_host",
-                "Generic AltDA commitments are not supported, skipping"
-            );
+            bail!("Generic AltDA commitments are not supported (type 0x{:02x})", commitment_type);
         }
         _ => {
-            warn!(
-                target: "altda_host",
-                "Unknown AltDA commitment type: 0x{:02x}, skipping",
-                commitment_type
-            );
+            bail!("Unknown AltDA commitment type: 0x{:02x}", commitment_type);
         }
     }
 
