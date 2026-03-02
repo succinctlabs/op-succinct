@@ -746,8 +746,13 @@ mod tests {
     use postgresql_embedded::{PostgreSQL, Settings};
     use sqlx::types::BigDecimal;
     use std::str::FromStr;
+    use tokio::sync::Mutex;
 
     // ==================== Test Harness ====================
+
+    /// Serializes PostgreSQL setup calls to avoid a race condition in the
+    /// `postgresql_embedded` crate's binary extraction (shared installation dir).
+    static PG_SETUP_MUTEX: Mutex<()> = Mutex::const_new(());
 
     /// A test database instance that manages an embedded PostgreSQL server.
     /// Automatically cleans up when dropped.
@@ -762,7 +767,10 @@ mod tests {
         async fn new() -> Self {
             let settings = Settings::default();
             let mut postgresql = PostgreSQL::new(settings);
-            postgresql.setup().await.expect("Failed to setup PostgreSQL");
+            {
+                let _guard = PG_SETUP_MUTEX.lock().await;
+                postgresql.setup().await.expect("Failed to setup PostgreSQL");
+            }
             postgresql.start().await.expect("Failed to start PostgreSQL");
 
             let database_url = postgresql.settings().url("postgres");
