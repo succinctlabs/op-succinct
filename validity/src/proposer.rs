@@ -4,7 +4,7 @@ use alloy_eips::BlockId;
 use alloy_primitives::{Address, B256, U256};
 use alloy_provider::{network::ReceiptResponse, Provider};
 use anyhow::{anyhow, Context, Result};
-use chrono::Local;
+use chrono::Utc;
 use futures_util::{stream, StreamExt, TryStreamExt};
 use op_succinct_client_utils::{boot::hash_rollup_config, types::u32_to_u8};
 use op_succinct_elfs::AGGREGATION_ELF;
@@ -583,6 +583,33 @@ where
         Ok(())
     }
 
+    /// Fail a cluster proof request: increment the appropriate error gauge, mark
+    /// the request as failed (with potential split-retry), and remove the in-memory handle.
+    async fn fail_cluster_request(&self, request: &OPSuccinctRequest) -> Result<()> {
+        match request.req_type {
+            RequestType::Range => ValidityGauge::RangeProofRequestErrorCount.increment(1.0),
+            RequestType::Aggregation => ValidityGauge::AggProofRequestErrorCount.increment(1.0),
+        }
+
+        match self
+            .proof_requester
+            .handle_failed_request(
+                request.clone(),
+                ExecutionStatus::UnspecifiedExecutionStatus as i32,
+            )
+            .await
+        {
+            Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
+            Err(e) => {
+                ValidityGauge::RetryErrorCount.increment(1.0);
+                return Err(e);
+            }
+        }
+
+        self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+        Ok(())
+    }
+
     /// Process a single cluster proof request's status by polling the cluster.
     ///
     /// Handles:
@@ -621,7 +648,7 @@ where
                     )
                 })?;
 
-                let elapsed = Local::now().naive_local() - proof_request_time;
+                let elapsed = Utc::now().naive_utc() - proof_request_time;
                 let total_timeout = Duration::from_secs(self.proof_requester.proving_timeout);
                 let remaining = total_timeout
                     .checked_sub(Duration::from_secs(elapsed.num_seconds().max(0) as u64))
@@ -651,7 +678,7 @@ where
 
         // 2. Wall-clock timeout check using proof_request_time.
         if let Some(proof_request_time) = request.proof_request_time {
-            let elapsed = Local::now().naive_local() - proof_request_time;
+            let elapsed = Utc::now().naive_utc() - proof_request_time;
             if elapsed.num_seconds() > self.proof_requester.proving_timeout as i64 {
                 warn!(
                     request_id = request.id,
@@ -663,30 +690,8 @@ where
                     "Cluster proof exceeded wall-clock timeout"
                 );
 
-                match request.req_type {
-                    RequestType::Range => ValidityGauge::RangeProofRequestErrorCount.increment(1.0),
-                    RequestType::Aggregation => {
-                        ValidityGauge::AggProofRequestErrorCount.increment(1.0)
-                    }
-                }
-
-                match self
-                    .proof_requester
-                    .handle_failed_request(
-                        request.clone(),
-                        ExecutionStatus::UnspecifiedExecutionStatus as i32,
-                    )
-                    .await
-                {
-                    Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
-                    Err(e) => {
-                        ValidityGauge::RetryErrorCount.increment(1.0);
-                        return Err(e);
-                    }
-                }
-
+                self.fail_cluster_request(&request).await?;
                 ValidityGauge::ProofRequestTimeoutErrorCount.increment(1.0);
-                self.proof_requester.cluster_handles.lock().await.remove(&request.id);
 
                 return Ok(());
             }
@@ -710,13 +715,18 @@ where
                     .await?;
                 self.driver_config.driver_db_client.update_prove_duration(request.id).await?;
 
+                let prove_duration_s = request
+                    .proof_request_time
+                    .map(|t| (Utc::now().naive_utc() - t).num_seconds())
+                    .unwrap_or(0);
+
                 match request.req_type {
                     RequestType::Range => {
                         info!(
                             request_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            proof_request_time = ?request.proof_request_time,
+                            prove_duration_s,
                             total_tx_fees = %request.total_tx_fees,
                             total_transactions = request.total_nb_transactions,
                             witnessgen_duration_s = request.witnessgen_duration,
@@ -730,7 +740,7 @@ where
                             request_id = request.id,
                             start_block = request.start_block,
                             end_block = request.end_block,
-                            proof_request_time = ?request.proof_request_time,
+                            prove_duration_s,
                             witnessgen_duration_s = request.witnessgen_duration,
                             "Aggregation proof completed via cluster"
                         );
@@ -748,6 +758,7 @@ where
             }
             Err(e) => {
                 // Poll error — distinguish transient vs permanent.
+                // Acquire the lock once and both increment + optionally remove in the same scope.
                 let should_fail = {
                     let mut handles = self.proof_requester.cluster_handles.lock().await;
                     if let Some(handle) = handles.get_mut(&request.id) {
@@ -768,31 +779,7 @@ where
                         "Cluster proof poll failed permanently"
                     );
 
-                    match request.req_type {
-                        RequestType::Range => {
-                            ValidityGauge::RangeProofRequestErrorCount.increment(1.0)
-                        }
-                        RequestType::Aggregation => {
-                            ValidityGauge::AggProofRequestErrorCount.increment(1.0)
-                        }
-                    }
-
-                    match self
-                        .proof_requester
-                        .handle_failed_request(
-                            request.clone(),
-                            ExecutionStatus::UnspecifiedExecutionStatus as i32,
-                        )
-                        .await
-                    {
-                        Ok(_) => ValidityGauge::ProofRequestRetryCount.increment(1.0),
-                        Err(e) => {
-                            ValidityGauge::RetryErrorCount.increment(1.0);
-                            return Err(e);
-                        }
-                    }
-
-                    self.proof_requester.cluster_handles.lock().await.remove(&request.id);
+                    self.fail_cluster_request(&request).await?;
                 } else {
                     warn!(
                         request_id = request.id,
